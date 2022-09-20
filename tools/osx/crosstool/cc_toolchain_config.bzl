@@ -1161,6 +1161,28 @@ def _impl(ctx):
             ],
         )
 
+    no_deduplicate_feature = feature(
+        name = "no_deduplicate",
+        enabled = True,
+        flag_sets = [
+            flag_set(
+                actions = all_link_actions +
+                          ["objc-executable", "objc++-executable"],
+                flag_groups = [
+                    flag_group(
+                        flags = [
+                            "-Xlinker",
+                            "-no_deduplicate",
+                        ],
+                    ),
+                ],
+                with_features = [
+                    with_feature_set(not_features = ["opt"]),
+                ],
+            ),
+        ],
+    )
+
     output_execpath_flags_feature = feature(
         name = "output_execpath_flags",
         flag_sets = [
@@ -2748,6 +2770,7 @@ def _impl(ctx):
             relative_ast_path_feature,
             user_link_flags_feature,
             default_link_flags_feature,
+            no_deduplicate_feature,
             dead_strip_feature,
             cpp_linker_flags_feature,
             apply_implicit_frameworks_feature,
@@ -2829,6 +2852,7 @@ def _impl(ctx):
             relative_ast_path_feature,
             user_link_flags_feature,
             default_link_flags_feature,
+            no_deduplicate_feature,
             dead_strip_feature,
             cpp_linker_flags_feature,
             apply_implicit_frameworks_feature,
