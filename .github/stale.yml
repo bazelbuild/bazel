@@ -13,6 +13,9 @@ markComment: >
 unmarkComment: false
 closeComment: >
   Closing as stale. Please reopen if you'd like to work on this further.
+# Throttling how many GitHub API calls the bot makes.
+# In practice, this helps repo maintainers by limiting the flood
+# of notifications as the stale bot catches up with the repo.
 limitPerRun: 30
 # Limit to only `issues`
 only: issues
