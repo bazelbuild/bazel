@@ -152,7 +152,7 @@ upper_tabs:
         path: /configure/memory
       - title: Using Bazel on Windows
         path: /configure/windows
-    - name: Remote distrubution
+    - name: Remote execution
       contents:
       - heading: Remote build execution (RBE)
       - title: Overview
