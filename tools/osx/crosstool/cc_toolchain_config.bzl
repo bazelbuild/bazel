@@ -2922,7 +2922,7 @@ def _impl(ctx):
             target_system_name = target_system_name,
             target_cpu = ctx.attr.cpu,
             target_libc = target_libc,
-            compiler = "compiler",
+            compiler = ctx.attr.compiler,
             abi_version = abi_version,
             abi_libc_version = abi_libc_version,
             tool_paths = [tool_path(name = name, path = path) for (name, path) in tool_paths.items()],
