@@ -8965,7 +8965,19 @@ Important changes:
     is
     now a symlink to the latest log.
 
-This release contains contributions from many people at Google, as well as a7g4 <a7g4@a7g4.net>, Alan <alan.agius@betssongroup.com>, Asaf Flescher <asafflesch@gmail.com>, Benjamin Peterson <bp@benjamin.pe>, Ed Schouten <ed.schouten@prodrive-technologies.com>, George Gensure <ggensure@uber.com>, George Kalpakas <kalpakas.g@gmail.com>, Greg <gregestren@users.noreply.github.com>, Irina Iancu <iirina@users.noreply.github.com>, Keith Smiley <keithbsmiley@gmail.com>, Loo Rong Jie <loorongjie@gmail.com>, Mark Zeren <mzeren@vmware.com>, Petros Eskinder <petroseskinder@users.noreply.github.com>, rachcatch <rachelcatchpoole@hotmail.com>, Robert Brown <robert.brown@gmail.com>, Robert Gay <robert.gay@redfin.com>, Salty Egg <2281521+zhouhao@users.noreply.github.com>.
+This release contains contributions from many people at Google, as well as
+a7g4 <a7g4@a7g4.net>, Alan <alan.agius@betssongroup.com>,
+Asaf Flescher <asafflesch@gmail.com>, Benjamin Peterson <bp@benjamin.pe>,
+Ed Schouten <ed.schouten@prodrive-technologies.com>,
+George Gensure <ggensure@uber.com>, George Kalpakas <kalpakas.g@gmail.com>,
+Greg <gregestren@users.noreply.github.com>,
+Irina Iancu <iirina@users.noreply.github.com>,
+Keith Smiley <keithbsmiley@gmail.com>, Loo Rong Jie <loorongjie@gmail.com>,
+Mark Zeren <mzeren@vmware.com>,
+Petros Eskinder <petroseskinder@users.noreply.github.com>,
+rachcatch <rachelcatchpoole@hotmail.com>, Robert Brown <robert.brown@gmail.com>,
+Robert Gay <robert.gay@redfin.com>,
+Salty Egg <2281521+zhouhao@users.noreply.github.com>.
 
 ## Release 0.19.2 (2018-11-19)
 
