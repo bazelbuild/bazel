@@ -27,7 +27,7 @@ import java.util.List;
  * <ul>
  *   <li> For 1 - singleton immutable List.
  *   <li> For [2..6] - ArrayList.
- *   <li> For [7...) - CompactHasSet.
+ *   <li> For [7...) - CompactHashSet.
  * </ul>
  *
  * @param <T>
