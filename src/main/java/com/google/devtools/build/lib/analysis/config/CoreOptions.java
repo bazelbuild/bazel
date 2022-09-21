@@ -80,7 +80,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "incompatible_use_platforms_repo_for_constraints",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
