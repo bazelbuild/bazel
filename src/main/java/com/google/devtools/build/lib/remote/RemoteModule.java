@@ -918,8 +918,6 @@ public final class RemoteModule extends BlazeModule {
       throws AbruptExitException {
     Path tempDir = env.getActionTempsDirectory().getChild("remote");
     if (tempDir.exists()) {
-      env.getReporter()
-          .handle(Event.warn("Found stale downloads from previous build, deleting..."));
       try {
         tempDir.deleteTree();
       } catch (IOException e) {
