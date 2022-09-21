@@ -272,7 +272,9 @@ final class ExecutionServer extends ExecutionImplBase {
     Path workingDirectory = execRoot.getRelative(command.getWorkingDirectory());
     workingDirectory.createDirectoryAndParents();
 
-    List<Path> outputs = new ArrayList<>(command.getOutputFilesList().size());
+    List<Path> outputs =
+        new ArrayList<>(command.getOutputDirectoriesCount() + command.getOutputFilesCount());
+
     for (String output : command.getOutputFilesList()) {
       Path file = workingDirectory.getRelative(output);
       if (file.exists()) {
@@ -287,9 +289,6 @@ final class ExecutionServer extends ExecutionImplBase {
         if (!file.isDirectory()) {
           throw new FileAlreadyExistsException(
               "Non-directory exists at output directory path: " + file);
-        } else if (!file.getDirectoryEntries().isEmpty()) {
-          throw new FileAlreadyExistsException(
-              "Non-empty directory exists at output directory path: " + file);
         }
       }
       file.getParentDirectory().createDirectoryAndParents();
