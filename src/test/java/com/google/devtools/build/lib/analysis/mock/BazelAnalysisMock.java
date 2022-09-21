@@ -74,7 +74,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "register_toolchains('@rules_java//java/toolchains/runtime:all')",
         "register_toolchains('@rules_java//java/toolchains/javac:all')",
         "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
-        "register_toolchains('@bazel_tools//tools/cpp:all')",
+        "register_toolchains('@bazel_tools//tools/cpp:toolchain')",
         "register_toolchains('@bazel_tools//tools/jdk:all')",
         "register_toolchains('@bazel_tools//tools/android:all')",
         // Note this path is created inside the test infrastructure in
@@ -132,6 +132,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
       }
       config.create("embedded_tools/" + filename, MoreFiles.asCharSource(path, UTF_8).read());
     }
+    // Referenced by jdk.WORKSPACE.
+    config.create("embedded_tools/tools/jdk/toolchains/BUILD");
     config.create(
         "embedded_tools/tools/jdk/BUILD",
         "load(",

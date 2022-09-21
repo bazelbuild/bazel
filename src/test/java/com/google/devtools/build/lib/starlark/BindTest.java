@@ -73,7 +73,7 @@ public class BindTest extends BuildViewTestCase {
 
     scratch.appendFile(
         "WORKSPACE",
-        "register_toolchains('" + TestConstants.TOOLS_REPOSITORY + "//tools/jdk:all')",
+        "register_toolchains('" + TestConstants.TOOLS_REPOSITORY + "//tools/jdk/toolchains:all')",
         "bind(",
         "    name = 'long-horse',",
         "    actual = '//test:giraffe',",

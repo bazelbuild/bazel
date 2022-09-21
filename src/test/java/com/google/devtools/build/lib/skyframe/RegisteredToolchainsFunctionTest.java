@@ -420,4 +420,38 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             RegisteredToolchainsValue.create(ImmutableList.of(toolchain2, toolchain1)))
         .testEquals();
   }
+
+  @Test
+  public void testRegisteredToolchains_allRegistersAlias() throws Exception {
+
+    // Add a toolchain referenced by an alias using an ":all" pattern. Also include an unrelated
+    // alias in the set of targets matched by `:all` to verify that this doesn't produce an error.
+    scratch.file(
+      "alias/toolchains/BUILD",
+      "load('//toolchain:toolchain_def.bzl', 'test_toolchain')",
+      "toolchain(",
+      "    name = 'alias_toolchain',",
+      "    toolchain_type = '//toolchain:test_toolchain',",
+      "    exec_compatible_with = ['//constraints:linux'],",
+      "    target_compatible_with = ['//constraints:linux'],",
+      "    toolchain = ':alias_toolchain_impl')",
+      "test_toolchain(",
+      "  name='alias_toolchain_impl',",
+      "  data = 'alias')");
+    scratch.file(
+      "alias/BUILD",
+      "alias(name = 'alias', actual = '//alias/toolchains:alias_toolchain')",
+      "alias(name = 'alias_no_toolchain', actual = '//alias/toolchains:alias_toolchain_impl')"
+    );
+
+    rewriteWorkspace("register_toolchains('//alias:all')");
+
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey);
+    EvaluationResult<RegisteredToolchainsValue> result =
+      requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result).hasNoError();
+
+    assertToolchainLabels(result.get(toolchainsKey))
+      .contains(Label.parseAbsoluteUnchecked("//alias/toolchains:alias_toolchain_impl"));
+  }
 }

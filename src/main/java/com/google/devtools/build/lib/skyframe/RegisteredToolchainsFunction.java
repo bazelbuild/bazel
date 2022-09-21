@@ -34,8 +34,10 @@ import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
+import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil.InvalidTargetPatternException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -104,9 +106,14 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     // Expand target patterns.
     ImmutableList<Label> toolchainLabels;
     try {
-      toolchainLabels =
-          TargetPatternUtil.expandTargetPatterns(
-              env, targetPatternBuilder.build(), FilteringPolicies.ruleTypeExplicit("toolchain"));
+      toolchainLabels = TargetPatternUtil.expandTargetPatterns(
+        env, targetPatternBuilder.build(), (FilteringPolicy) (target, explicit) -> {
+          if (explicit) {
+            return true;
+          }
+          String ruleClass = target.getAssociatedRule().getRuleClass();
+          return "toolchain".equals(ruleClass) || "alias".equals(ruleClass);
+        });
       if (env.valuesMissing()) {
         return null;
       }
@@ -205,6 +212,11 @@ public class RegisteredToolchainsFunction implements SkyFunction {
         ConfiguredTarget target = ((ConfiguredTargetValue) value).getConfiguredTarget();
         DeclaredToolchainInfo toolchainInfo = PlatformProviderUtils.declaredToolchainInfo(target);
         if (toolchainInfo == null) {
+          // ":all" patterns can match alias targets that do not transitively point to toolchain
+          // target, which should be ignored without an error.
+          if (!target.equals(target.getActual())) {
+            continue;
+          }
           throw new RegisteredToolchainsFunctionException(
               new InvalidToolchainLabelException(toolchainLabel), Transience.PERSISTENT);
         }

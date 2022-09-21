@@ -324,58 +324,41 @@ alias(
 RELEASES = (8, 9, 10, 11)
 
 [
-    default_java_toolchain(
+    alias(
         name = "toolchain_java%d" % release,
-        configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
-        source_version = "%s" % release,
-        target_version = "%s" % release,
+        actual = "//tools/jdk/toolchains:toolchain_java%d" % release,
     )
     for release in RELEASES
 ]
 
 # A toolchain that targets java 14.
-default_java_toolchain(
+alias(
     name = "toolchain_jdk_14",
-    configuration = dict(),
-    java_runtime = "@bazel_tools//tools/jdk:remotejdk_14",
-    source_version = "14",
-    target_version = "14",
+    actual = "//tools/jdk/toolchains:toolchain_jdk_14",
 )
 
 # A toolchain that targets java 15.
-default_java_toolchain(
+alias(
     name = "toolchain_jdk_15",
-    configuration = dict(),
-    java_runtime = "@bazel_tools//tools/jdk:remotejdk_15",
-    source_version = "15",
-    target_version = "15",
+    actual = "//tools/jdk/toolchains:toolchain_jdk_15",
 )
 
 # A toolchain that targets java 16.
-default_java_toolchain(
+alias(
     name = "toolchain_jdk_16",
-    configuration = dict(),
-    java_runtime = "@bazel_tools//tools/jdk:remotejdk_16",
-    source_version = "16",
-    target_version = "16",
+    actual = "//tools/jdk/toolchains:toolchain_jdk_16",
 )
 
 # A toolchain that targets java 17.
-default_java_toolchain(
+alias(
     name = "toolchain_jdk_17",
-    configuration = dict(),
-    java_runtime = "@bazel_tools//tools/jdk:remotejdk_17",
-    source_version = "17",
-    target_version = "17",
+    actual = "//tools/jdk/toolchains:toolchain_jdk_17",
 )
 
 # A toolchain that targets java 18.
-default_java_toolchain(
+alias(
     name = "toolchain_jdk_18",
-    configuration = dict(),
-    java_runtime = "@bazel_tools//tools/jdk:remotejdk_18",
-    source_version = "18",
-    target_version = "18",
+    actual = "//tools/jdk/toolchains:toolchain_jdk_18",
 )
 
 default_java_toolchain(

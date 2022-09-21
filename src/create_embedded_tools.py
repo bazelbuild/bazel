@@ -30,6 +30,7 @@ from src.create_embedded_tools_lib import is_executable
 output_paths = [
     ('*MODULE.tools', lambda x: 'MODULE.bazel'),
     ('*tools/jdk/BUILD.tools', lambda x: 'tools/jdk/BUILD'),
+    ('*tools/jdk/toolchains/BUILD.tools', lambda x: 'tools/jdk/toolchains/BUILD'),
     ('*tools/build_defs/repo/BUILD.repo',
      lambda x: 'tools/build_defs/repo/BUILD'),
     ('*tools/j2objc/BUILD.tools', lambda x: 'tools/j2objc/BUILD'),

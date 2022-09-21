@@ -267,7 +267,7 @@ EOF
   # Set javabase to an absolute path.
   bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar \
       "$stamp_arg" \
-      --extra_toolchains="//$pkg/jvm:all,//tools/jdk:all" \
+      --extra_toolchains="//$pkg/jvm:all,//tools/jdk/toolchains:all" \
       --platforms="//$pkg/jvm:platform" \
       "$embed_label" >&"$TEST_log" \
       || fail "Build failed"

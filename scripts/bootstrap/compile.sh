@@ -285,6 +285,7 @@ EOF
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/jdk
   link_file "${PWD}/tools/jdk/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/jdk/BUILD"
   link_children "${PWD}" tools/jdk "${BAZEL_TOOLS_REPO}"
+  mv -f "${BAZEL_TOOLS_REPO}/tools/jdk/toolchains/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/jdk/toolchains/BUILD"
 
   # Create @bazel_tools//tools/java/runfiles
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/java/runfiles
