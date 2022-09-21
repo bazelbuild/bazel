@@ -27,6 +27,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -46,6 +48,7 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildResult.BuildToolLogCollection;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
@@ -141,7 +144,8 @@ public class ExecutionGraphDumpModuleTest extends FoundationTestCase {
     assertThat(nodes.get(0).getMetrics().getDurationMillis()).isEqualTo(1234L);
     assertThat(nodes.get(0).getMetrics().getFetchMillis()).isEqualTo(0);
     assertThat(nodes.get(0).getMetrics().getProcessOutputsMillis()).isEqualTo(3456);
-    assertThat(nodes.get(0).getMetrics().getStartTimestampMillis()).isEqualTo(startTimeInstant.toEpochMilli());
+    assertThat(nodes.get(0).getMetrics().getStartTimestampMillis())
+        .isEqualTo(startTimeInstant.toEpochMilli());
     assertThat(nodes.get(0).getIndex()).isEqualTo(0);
     assertThat(nodes.get(0).getDependentIndexList()).isEmpty();
   }
@@ -361,6 +365,81 @@ public class ExecutionGraphDumpModuleTest extends FoundationTestCase {
   }
 
   @Test
+  public void spawnAndAction_withSameOutputs() throws Exception {
+    // zstd is broken on Windows: https://github.com/bazelbuild/bazel/issues/16041
+    assumeTrue(OS.getCurrent() != OS.WINDOWS);
+
+    var buffer = new ByteArrayOutputStream();
+    startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
+    var options = new ExecutionGraphDumpModule.ExecutionGraphDumpOptions();
+    options.logMissedActions = true;
+    module.setOptions(options);
+
+    module.spawnExecuted(
+        new SpawnExecutedEvent(
+            new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build(),
+            createRemoteSpawnResult(Duration.ofMillis(200)),
+            Instant.ofEpochMilli(100)));
+    module.actionComplete(
+        new ActionCompletionEvent(
+            0, new ActionsTestUtil.NullAction(createOutputArtifact("foo/out")), null));
+    module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
+
+    assertThat(parse(buffer))
+        .containsExactly(
+            executionGraphNodeBuilderForSpawnBuilderSpawn()
+                .setIndex(0)
+                .setMetrics(
+                    ExecutionGraph.Metrics.newBuilder()
+                        .setStartTimestampMillis(100)
+                        .setDurationMillis(200)
+                        .setOtherMillis(200))
+                .setRunner("remote")
+                .build());
+  }
+
+  @Test
+  public void spawnAndAction_withDifferentOutputs() throws Exception {
+    // zstd is broken on Windows: https://github.com/bazelbuild/bazel/issues/16041
+    assumeTrue(OS.getCurrent() != OS.WINDOWS);
+
+    var buffer = new ByteArrayOutputStream();
+    startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
+    var options = new ExecutionGraphDumpModule.ExecutionGraphDumpOptions();
+    options.logMissedActions = true;
+    module.setOptions(options);
+    var nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
+    module.setNanosToMillis(nanosToMillis);
+
+    module.spawnExecuted(
+        new SpawnExecutedEvent(
+            new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build(),
+            createRemoteSpawnResult(Duration.ofMillis(200)),
+            Instant.ofEpochMilli(100)));
+    var action = new ActionsTestUtil.NullAction(createOutputArtifact("bar/out"));
+    module.actionComplete(new ActionCompletionEvent(0, action, null));
+    module.buildComplete(new BuildCompleteEvent(new BuildResult(1000)));
+
+    assertThat(parse(buffer))
+        .containsExactly(
+            executionGraphNodeBuilderForSpawnBuilderSpawn()
+                .setIndex(0)
+                .setMetrics(
+                    ExecutionGraph.Metrics.newBuilder()
+                        .setStartTimestampMillis(100)
+                        .setDurationMillis(200)
+                        .setOtherMillis(200))
+                .setRunner("remote")
+                .build(),
+            executionGraphNodeBuilderForAction(action)
+                .setIndex(1)
+                .setMetrics(
+                    ExecutionGraph.Metrics.newBuilder()
+                        .setStartTimestampMillis(nanosToMillis.toEpochMillis(0)))
+                .build());
+  }
+
+  @Test
   public void multipleSpawnsWithSameOutput_recordsBothSpawnsWithRetry() throws Exception {
     // zstd is broken on Windows: https://github.com/bazelbuild/bazel/issues/16041
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
@@ -381,7 +460,8 @@ public class ExecutionGraphDumpModuleTest extends FoundationTestCase {
         .containsExactly(
             executionGraphNodeBuilderForSpawnBuilderSpawn()
                 .setIndex(0)
-                .setMetrics(ExecutionGraph.Metrics.newBuilder()
+                .setMetrics(
+                    ExecutionGraph.Metrics.newBuilder()
                         .setStartTimestampMillis(0)
                         .setDurationMillis(100)
                         .setOtherMillis(100))
@@ -389,10 +469,11 @@ public class ExecutionGraphDumpModuleTest extends FoundationTestCase {
                 .build(),
             executionGraphNodeBuilderForSpawnBuilderSpawn()
                 .setIndex(1)
-                .setMetrics(ExecutionGraph.Metrics.newBuilder()
-                    .setStartTimestampMillis(100)
-                    .setDurationMillis(200)
-                    .setOtherMillis(200))
+                .setMetrics(
+                    ExecutionGraph.Metrics.newBuilder()
+                        .setStartTimestampMillis(100)
+                        .setDurationMillis(200)
+                        .setOtherMillis(200))
                 .setRunner("remote")
                 .setRetryOf(0)
                 .build())
@@ -455,18 +536,20 @@ public class ExecutionGraphDumpModuleTest extends FoundationTestCase {
         .containsExactly(
             executionGraphNodeBuilderForSpawnBuilderSpawn()
                 .setIndex(0)
-                .setMetrics(ExecutionGraph.Metrics.newBuilder()
-                    .setStartTimestampMillis(0)
-                    .setDurationMillis(100)
-                    .setOtherMillis(100))
+                .setMetrics(
+                    ExecutionGraph.Metrics.newBuilder()
+                        .setStartTimestampMillis(0)
+                        .setDurationMillis(100)
+                        .setOtherMillis(100))
                 .setRunner("local")
                 .build(),
             executionGraphNodeBuilderForSpawnBuilderSpawn()
                 .setIndex(1)
-                .setMetrics(ExecutionGraph.Metrics.newBuilder()
-                    .setStartTimestampMillis(10)
-                    .setDurationMillis(200)
-                    .setOtherMillis(200))
+                .setMetrics(
+                    ExecutionGraph.Metrics.newBuilder()
+                        .setStartTimestampMillis(10)
+                        .setDurationMillis(200)
+                        .setOtherMillis(200))
                 .setRunner("remote")
                 .build())
         .inOrder();
@@ -509,26 +592,29 @@ public class ExecutionGraphDumpModuleTest extends FoundationTestCase {
         .containsExactly(
             executionGraphNodeBuilderForSpawnBuilderSpawn()
                 .setIndex(0)
-                .setMetrics(ExecutionGraph.Metrics.newBuilder()
-                    .setStartTimestampMillis(0)
-                    .setDurationMillis(100)
-                    .setOtherMillis(100))
+                .setMetrics(
+                    ExecutionGraph.Metrics.newBuilder()
+                        .setStartTimestampMillis(0)
+                        .setDurationMillis(100)
+                        .setOtherMillis(100))
                 .setRunner("local")
                 .build(),
             executionGraphNodeBuilderForSpawnBuilderSpawn()
                 .setIndex(1)
-                .setMetrics(ExecutionGraph.Metrics.newBuilder()
-                    .setStartTimestampMillis(10)
-                    .setDurationMillis(200)
-                    .setOtherMillis(200))
+                .setMetrics(
+                    ExecutionGraph.Metrics.newBuilder()
+                        .setStartTimestampMillis(10)
+                        .setDurationMillis(200)
+                        .setOtherMillis(200))
                 .setRunner("remote")
                 .build(),
             executionGraphNodeBuilderForSpawnBuilderSpawn()
                 .setIndex(2)
-                .setMetrics(ExecutionGraph.Metrics.newBuilder()
-                    .setStartTimestampMillis(300)
-                    .setDurationMillis(300)
-                    .setOtherMillis(300))
+                .setMetrics(
+                    ExecutionGraph.Metrics.newBuilder()
+                        .setStartTimestampMillis(300)
+                        .setDurationMillis(300)
+                        .setOtherMillis(300))
                 .setRunner("remote")
                 .addDependentIndex(0)
                 .build())
@@ -586,5 +672,15 @@ public class ExecutionGraphDumpModuleTest extends FoundationTestCase {
         .setMnemonic("Mnemonic")
         // This comes from SpawnResult.Builder, which defaults to an empty string.
         .setRunnerSubtype("");
+  }
+
+  /**
+   * Creates a {@link ExecutionGraph.Node.Builder} with pre-populated defaults for action events.
+   */
+  private ExecutionGraph.Node.Builder executionGraphNodeBuilderForAction(Action action) {
+    return ExecutionGraph.Node.newBuilder()
+        .setDescription(action.prettyPrint())
+        .setTargetLabel(action.getOwner().getLabel().toString())
+        .setMnemonic(action.getMnemonic());
   }
 }
