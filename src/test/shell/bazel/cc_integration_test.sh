@@ -296,9 +296,9 @@ EOF
   echo 'void cc1() {}' > ea/cc1.cc
 
   bazel build --experimental_builtins_injection_override=+cc_library --experimental_save_feature_state //ea:cc || fail "expected success"
-  ls bazel-bin/ea/cc_feature_state.txt || "cc_feature_state.txt not created"
+  ls bazel-bin/ea/cc_feature_state.txt || fail "cc_feature_state.txt not created"
   # This assumes "grep" is supported in any environment bazel is used.
-  grep "test_feature" bazel-bin/ea/cc_feature_state.txt || "test_feature should have been found in feature_state."
+  grep "test_feature" bazel-bin/ea/cc_feature_state.txt || fail "test_feature should have been found in feature_state."
 }
 
 # TODO: test include dirs and defines

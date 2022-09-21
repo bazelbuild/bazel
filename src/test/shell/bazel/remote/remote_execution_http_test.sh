@@ -494,7 +494,7 @@ EOF
   bazel build \
     --spawn_strategy=local \
     --remote_cache=grpc://localhost:${worker_port} \
-    //a:foo >& $TEST_log || "Failed to build //a:foo"
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
 
   expect_log "1 local"
 
@@ -503,7 +503,7 @@ EOF
   bazel build \
     --spawn_strategy=local \
     --remote_cache=grpc://localhost:${worker_port} \
-    //a:foo || "Failed to build //a:foo"
+    //a:foo || fail "Failed to build //a:foo"
 
   expect_log "1 local"
   expect_not_log "remote cache hit"
