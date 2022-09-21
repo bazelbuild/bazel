@@ -977,7 +977,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
             "order '%s' is invalid for transitive_files",
             transitiveArtifacts.getOrder().getStarlarkName());
       }
-      checkForMiddlemanArtifacts(transitiveArtifacts.toList());
       builder.addTransitiveArtifacts(transitiveArtifacts);
     }
     if (isDepset(symlinks)) {

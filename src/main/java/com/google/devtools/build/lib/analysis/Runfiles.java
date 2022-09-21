@@ -641,6 +641,14 @@ public final class Runfiles implements RunfilesApi {
      * @param artifact Artifact to store in map. This may be null to indicate an empty file.
      */
     public void put(Map<PathFragment, Artifact> map, PathFragment path, Artifact artifact) {
+      if (artifact != null && artifact.isMiddlemanArtifact() && eventHandler != null) {
+        eventHandler.handle(
+            Event.of(
+                EventKind.ERROR,
+                location,
+                "Runfiles must not contain middleman artifacts: " + artifact));
+        return;
+      }
       Preconditions.checkArgument(
           artifact == null || !artifact.isMiddlemanArtifact(), "%s", artifact);
       if (policy != ConflictPolicy.IGNORE && map.containsKey(path)) {
