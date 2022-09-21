@@ -452,14 +452,6 @@ public class JavaOptions extends FragmentOptions {
   public boolean enforceOneVersionOnJavaTests;
 
   @Option(
-      name = "experimental_one_version_enforcement_validation_action",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op. Kept here for backwards compatibility.")
-  public boolean enforceOneVersionValidationAction;
-
-  @Option(
       name = "experimental_allow_runtime_deps_on_neverlink",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
