@@ -21,6 +21,10 @@ import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -276,15 +280,40 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     analysisHelper.useConfiguration(args);
   }
 
+  @Override
+  public void addModule(ModuleKey key, String... moduleFileLines) {
+    analysisHelper.addModule(key, moduleFileLines);
+  }
+
+  @Override
+  public Path getModuleRoot() {
+    return analysisHelper.getModuleRoot();
+  }
+
+  @Override
+  public void setMainRepoTargetParser(RepositoryMapping mapping) {
+    this.mainRepoTargetParser =
+        new TargetPattern.Parser(parserPrefix, RepositoryName.MAIN, mapping);
+  }
+
   /** Helper class that provides a framework for testing {@code PostAnalysisQueryHelper} */
   public static class AnalysisHelper extends AnalysisTestCase {
     Path getRootDirectory() {
       return rootDirectory;
     }
 
+    Path getModuleRoot() {
+      return moduleRoot;
+    }
+
     @Override
     protected AnalysisResult update(String... labels) throws Exception {
       return super.update(labels);
+    }
+
+    @Override
+    protected FlagBuilder defaultFlags() {
+      return super.defaultFlags().with(Flag.ENABLE_BZLMOD);
     }
 
     protected SkyframeExecutor getSkyframeExecutor() {
@@ -305,6 +334,10 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
 
     private void setSyscallCache(SyscallCache syscallCache) {
       this.delegatingSyscallCache.setDelegate(syscallCache);
+    }
+
+    private void addModule(ModuleKey key, String... moduleFileLines) {
+      registry.addModule(key, moduleFileLines);
     }
 
     @Override

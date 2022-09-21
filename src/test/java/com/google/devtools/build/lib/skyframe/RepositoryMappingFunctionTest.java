@@ -609,9 +609,14 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMapping(
                 ImmutableMap.of(
-                    "bazel_tools", RepositoryName.BAZEL_TOOLS, // bazel_tools is a well-known module
-                    "foo", RepositoryName.create("foo~1.0"),
-                    "_builtins", RepositoryName.create("_builtins")),
+                    "bazel_tools",
+                    RepositoryName.BAZEL_TOOLS, // bazel_tools is a well-known module
+                    "foo",
+                    RepositoryName.create("foo~1.0"),
+                    "_builtins",
+                    RepositoryName.create("_builtins"),
+                    "",
+                    RepositoryName.MAIN),
                 name));
   }
 

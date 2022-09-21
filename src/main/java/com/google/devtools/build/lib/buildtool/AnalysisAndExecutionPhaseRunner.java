@@ -29,8 +29,11 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
@@ -44,6 +47,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -75,7 +79,7 @@ public final class AnalysisAndExecutionPhaseRunner {
       ExecutionSetup executionSetupCallback)
       throws BuildFailedException, InterruptedException, ViewCreationFailedException,
           TargetParsingException, LoadingFailedException, AbruptExitException,
-          InvalidConfigurationException, TestExecException {
+          InvalidConfigurationException, TestExecException, RepositoryMappingResolutionException {
 
     // Compute the heuristic instrumentation filter if needed.
     if (request.needsInstrumentationFilter()) {
@@ -184,11 +188,16 @@ public final class AnalysisAndExecutionPhaseRunner {
       BuildOptions targetOptions,
       ExecutionSetup executionSetupCallback)
       throws InterruptedException, InvalidConfigurationException, ViewCreationFailedException,
-          BuildFailedException, TestExecException, AbruptExitException {
+          BuildFailedException, TestExecException, RepositoryMappingResolutionException,
+          AbruptExitException {
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
 
     ImmutableSet<Label> explicitTargetPatterns =
-        getExplicitTargetPatterns(env, request.getTargets());
+        getExplicitTargetPatterns(
+            env,
+            request.getTargets(),
+            request.getKeepGoing(),
+            request.getLoadingPhaseThreadCount());
 
     BuildView view =
         new BuildView(
@@ -227,15 +236,28 @@ public final class AnalysisAndExecutionPhaseRunner {
    *
    * @param env the action's environment.
    * @param requestedTargetPatterns the list of target patterns specified on the command line.
+   * @param keepGoing --keep_going command line option
+   * @param loadingPhaseThreads no of threads to be used in execution
    * @return the set of stringified labels of target patterns that represent single targets. The
    *     stringified labels are in the "unambiguous canonical form".
    * @throws ViewCreationFailedException if a pattern fails to parse for some reason.
    */
   private static ImmutableSet<Label> getExplicitTargetPatterns(
-      CommandEnvironment env, List<String> requestedTargetPatterns)
-      throws ViewCreationFailedException {
+      CommandEnvironment env,
+      List<String> requestedTargetPatterns,
+      boolean keepGoing,
+      int loadingPhaseThreads)
+      throws ViewCreationFailedException, RepositoryMappingResolutionException,
+          InterruptedException {
     ImmutableSet.Builder<Label> explicitTargetPatterns = ImmutableSet.builder();
-    TargetPattern.Parser parser = TargetPattern.mainRepoParser(env.getRelativeWorkingDirectory());
+
+    // TODO(andreisolo): Don't re-compute these here as they should be already computed inside the
+    //  TargetPatternPhaseValue
+    RepositoryMapping mainRepoMapping =
+        env.getSkyframeExecutor()
+            .getMainRepoMapping(keepGoing, loadingPhaseThreads, env.getReporter());
+    TargetPattern.Parser parser =
+        new Parser(env.getRelativeWorkingDirectory(), RepositoryName.MAIN, mainRepoMapping);
 
     for (String requestedTargetPattern : requestedTargetPatterns) {
       if (requestedTargetPattern.startsWith("-")) {

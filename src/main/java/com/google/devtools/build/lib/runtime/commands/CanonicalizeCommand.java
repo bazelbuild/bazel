@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.CanonicalizeFlags;
 import com.google.devtools.build.lib.server.FailureDetails.CanonicalizeFlags.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
@@ -65,43 +66,39 @@ public final class CanonicalizeCommand implements BlazeCommand {
 
   public static class Options extends OptionsBase {
     @Option(
-      name = "for_command",
-      defaultValue = "build",
-      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
-      help = "The command for which the options should be canonicalized."
-    )
+        name = "for_command",
+        defaultValue = "build",
+        documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
+        help = "The command for which the options should be canonicalized.")
     public String forCommand;
 
     @Option(
-      name = "invocation_policy",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Applies an invocation policy to the options to be canonicalized."
-    )
+        name = "invocation_policy",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
+        help = "Applies an invocation policy to the options to be canonicalized.")
     public String invocationPolicy;
 
     @Option(
-      name = "canonicalize_policy",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
-      help =
-          "Output the canonical policy, after expansion and filtering. To keep the output "
-              + "clean, the canonicalized command arguments will NOT be shown when this option is "
-              + "set to true. Note that the command specified by --for_command affects the "
-              + "filtered policy, and if none is specified, the default command is 'build'."
-    )
+        name = "canonicalize_policy",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
+        help =
+            "Output the canonical policy, after expansion and filtering. To keep the output clean,"
+                + " the canonicalized command arguments will NOT be shown when this option is set"
+                + " to true. Note that the command specified by --for_command affects the filtered"
+                + " policy, and if none is specified, the default command is 'build'.")
     public boolean canonicalizePolicy;
 
     @Option(
-      name = "show_warnings",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Output parser warnings to standard error (e.g. for conflicting flag options)."
-    )
+        name = "show_warnings",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
+        help = "Output parser warnings to standard error (e.g. for conflicting flag options).")
     public boolean showWarnings;
   }
 
@@ -112,29 +109,26 @@ public final class CanonicalizeCommand implements BlazeCommand {
    */
   public static class FlagClashCanaryOptions extends OptionsBase {
     @Option(
-      name = "flag_clash_canary",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP}
-    )
+        name = "flag_clash_canary",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP})
     public boolean flagClashCanary;
 
     @Option(
-      name = "flag_clash_canary_expander1",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      expansion = {"--flag_clash_canary=1"}
-    )
+        name = "flag_clash_canary_expander1",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        expansion = {"--flag_clash_canary=1"})
     public Void flagClashCanaryExpander1;
 
     @Option(
-      name = "flag_clash_canary_expander2",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      expansion = {"--flag_clash_canary=0"}
-    )
+        name = "flag_clash_canary_expander2",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        expansion = {"--flag_clash_canary=0"})
     public Void flagClashCanaryExpander2;
   }
 
@@ -176,6 +170,9 @@ public final class CanonicalizeCommand implements BlazeCommand {
       env.getReporter().handle(Event.error(message));
       return BlazeCommandResult.detailedExitCode(
           InterruptedFailureDetails.detailedExitCode(message));
+    } catch (RepositoryMappingResolutionException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
     } catch (AbruptExitException e) {
       env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
