@@ -225,13 +225,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     AndroidDataContext dataContext = androidSemantics.makeContextForNative(ruleContext);
     validateRuleContext(ruleContext, dataContext);
 
-    NativeLibs nativeLibs =
-        NativeLibs.fromLinkedNativeDeps(
-            ruleContext,
-            ImmutableList.of("deps"),
-            androidSemantics.getNativeDepsFileName(),
-            cppSemantics);
-
     // Retrieve and compile the resources defined on the android_binary rule.
     AndroidResources.validateRuleContext(ruleContext);
 
@@ -415,6 +408,19 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                           Integer.toString(getMinSdkVersion(ruleContext)))
                       .build())
               .build(ruleContext));
+    }
+
+    NativeLibs nativeLibs;
+    if (androidApplicationResourceInfo != null
+        && androidApplicationResourceInfo.getNativeLibs() != null) {
+      nativeLibs = androidApplicationResourceInfo.getNativeLibs();
+    } else {
+      nativeLibs =
+          NativeLibs.fromLinkedNativeDeps(
+              ruleContext,
+              ImmutableList.of("deps"),
+              androidSemantics.getNativeDepsFileName(),
+              cppSemantics);
     }
 
     return createAndroidBinary(

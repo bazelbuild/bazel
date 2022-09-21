@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -21,6 +22,8 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkErrorReporter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
@@ -28,6 +31,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
@@ -42,6 +46,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDataProcess
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -65,6 +70,26 @@ public abstract class AndroidStarlarkData
         AndroidLibraryAarInfo,
         AndroidBinaryDataInfo,
         ValidatedAndroidResources> {
+
+  @Nullable
+  public static NativeLibs getNativeLibs(Object struct) throws EvalException {
+    if (struct != Starlark.NONE) {
+      StructImpl s = (StructImpl) struct;
+      Dict<String, Depset> dict =
+          Dict.cast(s.getValue("libs", Dict.class), String.class, Depset.class, "libs");
+      ImmutableMap.Builder<String, NestedSet<Artifact>> nativeLibsMapBuilder =
+          ImmutableMap.builder();
+      for (Entry<String, Depset> entry : dict.entrySet()) {
+        nativeLibsMapBuilder.put(
+            entry.getKey(), Depset.cast(entry.getValue(), Artifact.class, "libs"));
+      }
+      return NativeLibs.of(
+          nativeLibsMapBuilder.buildOrThrow(),
+          fromNoneable(s.getValue("libs_name"), Artifact.class));
+    } else {
+      return null;
+    }
+  }
 
   public abstract AndroidSemantics getAndroidSemantics();
 
