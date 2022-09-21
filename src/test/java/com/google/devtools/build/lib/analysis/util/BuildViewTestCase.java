@@ -544,6 +544,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
+    parser.parse("--noincompatible_stop_exporting_language_modules");
     parser.parse(options);
     return parser.getOptions(BuildLanguageOptions.class);
   }
