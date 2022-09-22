@@ -371,10 +371,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "If set to true, Bazel will represent symlinks in action outputs "
-              + "in the remote caching/execution protocol as such. The "
-              + "current behavior is for remote caches/executors to follow "
-              + "symlinks and represent them as files. See #6631 for details.")
+          "If set to true, Bazel will represent symlinks in action outputs in the remote"
+              + " caching/execution protocol as such. Otherwise, symlinks will be followed and"
+              + " represented as files or directories. See #6631 for details.")
   public boolean incompatibleRemoteSymlinks;
 
   @Option(
@@ -392,19 +391,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The number of threads used to do build event uploads. Capped at 1000.")
   public int buildEventUploadMaxThreads;
-
-  @Deprecated
-  @Option(
-      name = "remote_allow_symlink_upload",
-      defaultValue = "true",
-      category = "remote",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "If true, upload action symlink outputs to the remote cache. "
-              + "If this option is not enabled, "
-              + "cachable actions that output symlinks will fail.")
-  public boolean allowSymlinkUpload;
 
   @Option(
       name = "remote_download_outputs",
