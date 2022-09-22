@@ -1,21 +1,35 @@
+genrule(
+    name = "copy_link_jni_md_header",
+    srcs = select({
+        "@bazel_tools//src/conditions:darwin": ["@bazel_tools//tools/jdk:jni_md_header-darwin"],
+        "@bazel_tools//src/conditions:freebsd": ["@bazel_tools//tools/jdk:jni_md_header-freebsd"],
+        "@bazel_tools//src/conditions:openbsd": ["@bazel_tools//tools/jdk:jni_md_header-openbsd"],
+        "@bazel_tools//src/conditions:windows": ["@bazel_tools//tools/jdk:jni_md_header-windows"],
+        "//conditions:default": ["@bazel_tools//tools/jdk:jni_md_header-linux"],
+    }),
+    outs = ["jni_md.h"],
+    cmd = "cp -f $< $@",
+)
+
+genrule(
+    name = "copy_link_jni_header",
+    srcs = ["@bazel_tools//tools/jdk:jni_header"],
+    outs = ["jni.h"],
+    cmd = "cp -f $< $@",
+)
+
 cc_binary(
     name = "libzstd-jni.so",
     srcs = glob([
         "src/main/native/**/*.c",
         "src/main/native/**/*.h",
-    ]) + select({
-        "@io_bazel//src/conditions:windows": [
-            "src/windows/include/jni_md.h",
-            "jni/jni.h",
+    ]) + [
+            ":jni_md.h",
+            ":jni.h",
         ],
-        "//conditions:default": [
-            "jni/jni_md.h",
-            "jni/jni.h",
-        ]
-    }),
     copts = select({
-        "@io_bazel//src/conditions:windows": [],
-        "@io_bazel//src/conditions:darwin": [
+        "@bazel_tools//src/conditions:windows": [],
+        "@bazel_tools//src/conditions:darwin": [
             "-std=c99",
             "-Wno-unused-variable",
             "-Wno-sometimes-uninitialized",
@@ -28,11 +42,8 @@ cc_binary(
         ]
     }),
     linkshared = 1,
-    includes = select({
-        "@io_bazel//src/conditions:windows": ["src/windows/include"],
-        "//conditions:default": [],
-    }) + [
-        "jni",
+    includes = [
+        ".",  # For jni headers.
         "src/main/native",
         "src/main/native/common",
     ],
@@ -40,7 +51,7 @@ cc_binary(
         "ZSTD_LEGACY_SUPPORT=4",
         "ZSTD_MULTITHREAD=1",
     ] + select({
-        "@io_bazel//src/conditions:windows": ["_JNI_IMPLEMENTATION_"],
+        "@bazel_tools//src/conditions:windows": ["_JNI_IMPLEMENTATION_"],
         "//conditions:default": [],
     }),
 )

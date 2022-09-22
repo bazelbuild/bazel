@@ -250,7 +250,7 @@ default_java_toolchain(
   name = "repository_default_toolchain",
   configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,        # One of predefined configurations
                                                           # Other parameters are from java_toolchain rule:
-  java_runtime = "@bazel_tools///tools/jdk:remote_jdk11", # JDK to use for compilation and toolchain's tools execution
+  java_runtime = "@bazel_tools//tools/jdk:remote_jdk11", # JDK to use for compilation and toolchain's tools execution
   jvm_opts = BASE_JDK9_JVM_OPTS + ["--enable_preview"],   # Additional JDK options
   javacopts = DEFAULT_JAVACOPTS + ["--enable_preview"],   # Additional javac options
   source_version = "9",

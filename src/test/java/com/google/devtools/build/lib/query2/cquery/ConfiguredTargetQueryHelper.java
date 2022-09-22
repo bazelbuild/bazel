@@ -46,7 +46,7 @@ public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<KeyedCo
         topLevelConfigurations,
         analysisHelper.getHostConfiguration(),
         transitiveConfigurationKeys,
-        parserPrefix,
+        mainRepoTargetParser,
         analysisHelper.getPackageManager().getPackagePath(),
         () -> walkableGraph,
         this.settings,

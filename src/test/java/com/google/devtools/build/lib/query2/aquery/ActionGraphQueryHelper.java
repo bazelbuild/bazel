@@ -39,7 +39,7 @@ public class ActionGraphQueryHelper extends PostAnalysisQueryHelper<KeyedConfigu
         extraFunctions,
         topLevelConfigurations,
         analysisHelper.getHostConfiguration(),
-        parserPrefix,
+        mainRepoTargetParser,
         analysisHelper.getPackageManager().getPackagePath(),
         () -> walkableGraph,
         settings);

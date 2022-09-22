@@ -371,6 +371,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:per_build_syscall_cache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_error_processor",
@@ -415,6 +416,7 @@ java_library(
         "//src/main/protobuf:any_java_proto",
         "//src/main/protobuf:command_line_java_proto",
         "//src/main/protobuf:command_server_java_proto",
+        "//src/main/protobuf:execution_graph_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:option_filters_java_proto",
@@ -427,6 +429,7 @@ java_library(
         "//third_party:jsr305",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//java/util",
+        "@zstd-jni//:zstd-jni",
     ],
 )
 

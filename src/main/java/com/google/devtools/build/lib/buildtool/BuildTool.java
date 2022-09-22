@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
@@ -148,7 +149,7 @@ public class BuildTool {
       throws BuildFailedException, InterruptedException, ViewCreationFailedException,
           TargetParsingException, LoadingFailedException, AbruptExitException,
           InvalidConfigurationException, TestExecException, ExitException,
-          PostExecutionActionGraphDumpException {
+          PostExecutionActionGraphDumpException, RepositoryMappingResolutionException {
     try (SilentCloseable c = Profiler.instance().profile("validateOptions")) {
       validateOptions(request);
     }
@@ -306,7 +307,7 @@ public class BuildTool {
       BuildOptions buildOptions)
       throws InterruptedException, TargetParsingException, LoadingFailedException,
           AbruptExitException, ViewCreationFailedException, BuildFailedException, TestExecException,
-          InvalidConfigurationException {
+          InvalidConfigurationException, RepositoryMappingResolutionException {
 
     // Target pattern evaluation.
     TargetPatternPhaseValue loadingResult;
@@ -340,6 +341,7 @@ public class BuildTool {
         executionTool.handleConvenienceSymlinks(analysisAndExecutionResult);
       } catch (InvalidConfigurationException
           | TargetParsingException
+          | RepositoryMappingResolutionException
           | LoadingFailedException
           | ViewCreationFailedException
           | BuildFailedException
@@ -534,6 +536,9 @@ public class BuildTool {
         result.setCatastrophe();
       }
     } catch (TargetParsingException | LoadingFailedException e) {
+      detailedExitCode = e.getDetailedExitCode();
+      reportExceptionError(e);
+    } catch (RepositoryMappingResolutionException e) {
       detailedExitCode = e.getDetailedExitCode();
       reportExceptionError(e);
     } catch (ViewCreationFailedException e) {

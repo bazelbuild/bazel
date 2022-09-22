@@ -83,7 +83,18 @@ def _impl(ctx):
     providers.extend(test_providers)
     return _handle_legacy_return(ctx, cc_info, providers)
 
-def _make_cc_test(with_linkstatic = False, with_aspects = False):
+def make_cc_test(with_linkstatic = False, with_aspects = False):
+    """Makes one of the cc_test rule variants.
+
+    This function shall only be used internally in CC ruleset.
+
+    Args:
+      with_linkstatic: sets value _linkstatic_explicitly_set attribute
+      with_aspects: Attaches graph_structure_aspect to `deps` attribute and
+        implicit deps.
+    Returns:
+      A cc_test rule class.
+    """
     _cc_test_attrs = None
     if with_aspects:
         _cc_test_attrs = dict(cc_binary_attrs_with_aspects)
@@ -119,7 +130,6 @@ def _make_cc_test(with_linkstatic = False, with_aspects = False):
         _linkstatic_explicitly_set = attr.bool(default = with_linkstatic),
     )
     return rule(
-        name = "cc_test",
         implementation = _impl,
         attrs = _cc_test_attrs,
         outputs = {
@@ -135,39 +145,3 @@ def _make_cc_test(with_linkstatic = False, with_aspects = False):
         incompatible_use_toolchain_transition = True,
         test = True,
     )
-
-_cc_test_variants = struct(
-    with_aspects = struct(
-        explicit_linkstatic = _make_cc_test(with_linkstatic = True, with_aspects = True),
-        default_linkstatic = _make_cc_test(with_aspects = True),
-    ),
-    without_aspects = struct(
-        explicit_linkstatic = _make_cc_test(with_linkstatic = True),
-        default_linkstatic = _make_cc_test(),
-    ),
-)
-
-def cc_test_wrapper(**kwargs):
-    """Entry point for cc_test rules.
-
-    This avoids propagating aspects on certain attributes if dynamic_deps attribute is unset.
-
-    It also serves to detect if the `linkstatic` attribute was explicitly set or not.
-    This is to workaround a deficiency in Starlark attributes.
-    (See: https://github.com/bazelbuild/bazel/issues/14434)
-
-    Args:
-        **kwargs: Arguments suitable for cc_test.
-    """
-    cc_test_aspects = None
-
-    # Propagate an aspect if dynamic_deps attribute is specified.
-    if "dynamic_deps" in kwargs and cc_helper.is_non_empty_list_or_select(kwargs["dynamic_deps"], "dynamic_deps"):
-        cc_test_aspects = _cc_test_variants.with_aspects
-    else:
-        cc_test_aspects = _cc_test_variants.without_aspects
-
-    if "linkstatic" in kwargs:
-        cc_test_aspects.explicit_linkstatic(**kwargs)
-    else:
-        cc_test_aspects.default_linkstatic(**kwargs)

@@ -185,3 +185,13 @@ java_binary(
         "//src/main/java/com/google/devtools/build/lib/util:single_line_formatter",  # See startup_options.cc
     ],
 )
+
+java_library(
+    name = "bazel_version",
+    srcs = ["BazelVersion.java"],
+    deps = [
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)

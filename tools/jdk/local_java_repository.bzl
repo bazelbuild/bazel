@@ -125,7 +125,7 @@ def _local_java_repository_impl(repository_ctx):
     )
 
     extension = ".exe" if repository_ctx.os.name.find("windows") != -1 else ""
-    java_bin = java_home_path.get_child("bin").get_child("java" + extension)
+    java_bin = java_home_path.get_child("bin", "java" + extension)
 
     if not java_bin.exists:
         # Java binary does not exist

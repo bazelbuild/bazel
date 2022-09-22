@@ -129,7 +129,10 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
   @Test
   public void testTargetSysrootWithoutPlatforms() throws Exception {
-    useConfiguration("--grte_top=//target_libc", "--host_grte_top=//host_libc");
+    useConfiguration(
+        "--grte_top=//target_libc",
+        "--host_grte_top=//host_libc",
+        "--noincompatible_enable_cc_toolchain_resolution");
 
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");

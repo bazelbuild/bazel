@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
@@ -85,6 +84,7 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisAndExecutionResult;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
@@ -281,7 +281,7 @@ public class BuildView {
     RepositoryMapping mainRepoMapping;
     try {
       mainRepoMapping = skyframeExecutor.getMainRepoMapping(eventHandler);
-    } catch (AbruptExitException e) {
+    } catch (RepositoryMappingResolutionException e) {
       String errorMessage =
           String.format(
               "Failed to get main repo mapping for aspect label canonicalization: %s",
@@ -627,7 +627,6 @@ public class BuildView {
           loadingResult.getWorkspaceName(),
           topLevelTargetsWithConfigs.getTargetsAndConfigs());
     }
-
 
     WalkableGraph graph = skyframeAnalysisResult.getWalkableGraph();
     ActionGraph actionGraph =

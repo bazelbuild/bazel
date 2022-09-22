@@ -166,6 +166,7 @@ import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
+import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
@@ -179,6 +180,7 @@ import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMe
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -2935,30 +2937,37 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   public RepositoryMapping getMainRepoMapping(ExtendedEventHandler eventHandler)
-      throws InterruptedException, AbruptExitException {
+      throws InterruptedException, RepositoryMappingResolutionException {
+    return getMainRepoMapping(false, DEFAULT_THREAD_COUNT, eventHandler);
+  }
+
+  public RepositoryMapping getMainRepoMapping(
+      boolean keepGoing, int loadingPhaseThreads, ExtendedEventHandler eventHandler)
+      throws InterruptedException, RepositoryMappingResolutionException {
     SkyKey mainRepoMappingKey = RepositoryMappingValue.key(RepositoryName.MAIN);
     EvaluationResult<RepositoryMappingValue> evalResult =
         evaluate(
-            ImmutableList.of(mainRepoMappingKey),
-            /*keepGoing=*/ false,
-            DEFAULT_THREAD_COUNT,
-            eventHandler);
+            ImmutableList.of(mainRepoMappingKey), keepGoing, loadingPhaseThreads, eventHandler);
     if (evalResult.hasError()) {
       ErrorInfo errorInfo = evalResult.getError(mainRepoMappingKey);
       Exception e = errorInfo.getException();
       if (e == null && !errorInfo.getCycleInfo().isEmpty()) {
         cyclesReporter.reportCycles(errorInfo.getCycleInfo(), mainRepoMappingKey, eventHandler);
-        throw new AbruptExitException(
+        throw new RepositoryMappingResolutionException(
             DetailedExitCode.of(
                 FailureDetail.newBuilder()
-                    .setExternalRepository(FailureDetails.ExternalRepository.getDefaultInstance())
+                    .setExternalRepository(
+                        FailureDetails.ExternalRepository.newBuilder()
+                            .setCode(ExternalRepository.Code.REPOSITORY_MAPPING_RESOLUTION_FAILED)
+                            .build())
                     .setMessage("cycles detected during computation of main repo mapping")
                     .build()));
       }
       if (e instanceof DetailedException) {
-        throw new AbruptExitException(((DetailedException) e).getDetailedExitCode(), e);
+        throw new RepositoryMappingResolutionException(
+            ((DetailedException) e).getDetailedExitCode(), e);
       }
-      throw new AbruptExitException(
+      throw new RepositoryMappingResolutionException(
           DetailedExitCode.of(
               FailureDetail.newBuilder()
                   .setExternalRepository(FailureDetails.ExternalRepository.getDefaultInstance())

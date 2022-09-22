@@ -76,7 +76,12 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
   }
 
   public void setConstructor(StarlarkConstructorMethodDoc method) {
-    Preconditions.checkState(javaConstructor == null);
+    Preconditions.checkState(
+        javaConstructor == null,
+        "Constructor method doc already set for %s:\n  existing: %s\n  attempted: %s",
+        getName(),
+        javaConstructor,
+        method);
     javaConstructor = method;
   }
 

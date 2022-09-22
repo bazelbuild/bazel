@@ -51,6 +51,8 @@ public class TargetPatternTest {
     parse("@repo//foo:bar");
     parse("@repo//foo:all");
     parse("@repo//:bar");
+    parse("@@repo//foo:all");
+    parse("@@repo//:bar");
   }
 
   @Test
@@ -184,6 +186,7 @@ public class TargetPatternTest {
 
     // No renaming should occur
     assertThat(parser.parse("@//package:target").getRepository().isMain()).isTrue();
+    assertThat(parser.parse("@@foo//package:target").getRepository().getName()).isEqualTo("foo");
     assertThat(parser.parse("@unrelated//package:target").getRepository().getName())
         .isEqualTo("unrelated");
     assertThat(parser.parse("foo/package:target").getRepository().getName()).isEqualTo("myrepo");

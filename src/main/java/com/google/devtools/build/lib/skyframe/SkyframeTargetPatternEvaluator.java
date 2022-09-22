@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -62,7 +61,7 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
   @Override
   public Map<String, Collection<Target>> preloadTargetPatterns(
       ExtendedEventHandler eventHandler,
-      PathFragment relativeWorkingDirectory,
+      TargetPattern.Parser mainRepoTargetParser,
       Collection<String> patterns,
       boolean keepGoing)
       throws TargetParsingException, InterruptedException {
@@ -72,7 +71,7 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
     for (String pattern : patterns) {
       Preconditions.checkArgument(!pattern.startsWith("-"));
       PatternLookup patternLookup =
-          createPatternLookup(relativeWorkingDirectory, eventHandler, pattern, keepGoing);
+          createPatternLookup(mainRepoTargetParser, eventHandler, pattern, keepGoing);
       if (patternLookup == null) {
         resultBuilder.put(pattern, ImmutableSet.of());
       } else {
@@ -179,7 +178,7 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
 
   @Nullable
   private PatternLookup createPatternLookup(
-      PathFragment offset,
+      TargetPattern.Parser mainRepoTargetParser,
       ExtendedEventHandler eventHandler,
       String targetPattern,
       boolean keepGoing)
@@ -187,7 +186,7 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
     try {
       TargetPatternKey key =
           TargetPatternValue.key(
-              SignedTargetPattern.parse(targetPattern, TargetPattern.mainRepoParser(offset)),
+              SignedTargetPattern.parse(targetPattern, mainRepoTargetParser),
               FilteringPolicies.NO_FILTER);
       return isSimple(key.getParsedPattern())
           ? new SimpleLookup(targetPattern, key)

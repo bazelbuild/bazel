@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -81,6 +82,8 @@ import com.google.devtools.build.lib.rules.genquery.GenQueryOutputStream.GenQuer
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -103,9 +106,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
-/**
- * An implementation of the 'genquery' rule.
- */
+/** An implementation of the 'genquery' rule. */
 public class GenQuery implements RuleConfiguredTargetFactory {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final QueryEnvironmentFactory QUERY_ENVIRONMENT_FACTORY =
@@ -292,6 +293,17 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         // Force results to be deterministic.
         queryOptions.orderOutput = OrderOutput.FULL;
       }
+
+      RepositoryMappingValue repositoryMappingValue =
+          (RepositoryMappingValue)
+              ruleContext
+                  .getAnalysisEnvironment()
+                  .getSkyframeEnv()
+                  .getValueOrThrow(
+                      RepositoryMappingValue.key(RepositoryName.MAIN),
+                      RepositoryMappingResolutionException.class);
+      Preconditions.checkNotNull(repositoryMappingValue);
+
       AbstractBlazeQueryEnvironment<Target> queryEnvironment =
           QUERY_ENVIRONMENT_FACTORY.create(
               /* queryTransitivePackagePreloader= */ null,
@@ -299,6 +311,10 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               packageProvider,
               packageProvider,
               preloader,
+              new TargetPattern.Parser(
+                  PathFragment.EMPTY_FRAGMENT,
+                  RepositoryName.MAIN,
+                  repositoryMappingValue.getRepositoryMapping()),
               PathFragment.EMPTY_FRAGMENT,
               /*keepGoing=*/ false,
               ruleContext.attributes().get("strict", Type.BOOLEAN),
@@ -329,7 +345,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     } catch (QuerySyntaxException e) {
       ruleContext.ruleError("query syntax error: " + e.getMessage());
       return null;
-    } catch (QueryException e) {
+    } catch (QueryException | RepositoryMappingResolutionException e) {
       ruleContext.ruleError("query failed: " + e.getMessage());
       return null;
     } catch (IOException e) {
@@ -398,8 +414,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       this.env = env;
     }
 
-    private static Target getExistingTarget(Label label,
-        Map<PackageIdentifier, Package> packages) {
+    private static Target getExistingTarget(Label label, Map<PackageIdentifier, Package> packages) {
       try {
         return packages.get(label.getPackageIdentifier()).getTarget(label.getName());
       } catch (NoSuchTargetException e) {
@@ -411,23 +426,27 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     @Override
     public Map<String, Collection<Target>> preloadTargetPatterns(
         ExtendedEventHandler eventHandler,
-        PathFragment relativeWorkingDirectory,
+        TargetPattern.Parser mainRepoTargetParser,
         Collection<String> patterns,
         boolean keepGoing)
         throws TargetParsingException, InterruptedException {
       Preconditions.checkArgument(!keepGoing);
-      Preconditions.checkArgument(relativeWorkingDirectory.isEmpty());
+      Preconditions.checkArgument(mainRepoTargetParser.getRelativeDirectory().isEmpty());
       boolean ok = true;
       Map<String, Collection<Target>> preloadedPatterns =
           Maps.newHashMapWithExpectedSize(patterns.size());
       ImmutableMap.Builder<TargetPatternKey, String> targetBuilder =
           ImmutableMap.builderWithExpectedSize(patterns.size());
+      TargetPattern.Parser parser =
+          new TargetPattern.Parser(
+              PathFragment.EMPTY_FRAGMENT,
+              RepositoryName.MAIN,
+              mainRepoTargetParser.getRepoMapping());
       for (String pattern : patterns) {
-        checkValidPatternType(pattern);
+        checkValidPatternType(pattern, parser);
         targetBuilder.put(
             TargetPatternValue.key(
-                SignedTargetPattern.parse(pattern, TargetPattern.defaultParser()),
-                FilteringPolicies.NO_FILTER),
+                SignedTargetPattern.parse(pattern, parser), FilteringPolicies.NO_FILTER),
             pattern);
       }
       ImmutableMap<TargetPatternKey, String> patternKeys = targetBuilder.buildOrThrow();
@@ -446,9 +465,9 @@ public class GenQuery implements RuleConfiguredTargetFactory {
           } else {
             ResolvedTargets<Label> resolvedLabels = patternValue.getTargets();
             resolvedLabelsMap.put(patternKeys.get(targetPatternKey), resolvedLabels);
-            for (Label label
-                : Iterables.concat(resolvedLabels.getTargets(),
-                    resolvedLabels.getFilteredTargets())) {
+            for (Label label :
+                Iterables.concat(
+                    resolvedLabels.getTargets(), resolvedLabels.getFilteredTargets())) {
               packageKeys.add(PackageValue.key(label.getPackageIdentifier()));
             }
           }
@@ -495,8 +514,9 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       return preloadedPatterns;
     }
 
-    private void checkValidPatternType(String pattern) throws TargetParsingException {
-      TargetPattern.Type type = TargetPattern.defaultParser().parse(pattern).getType();
+    private void checkValidPatternType(String pattern, TargetPattern.Parser parser)
+        throws TargetParsingException {
+      TargetPattern.Type type = parser.parse(pattern).getType();
       if (type == TargetPattern.Type.PATH_AS_TARGET) {
         throw new TargetParsingException(
             String.format("couldn't determine target from filename '%s'", pattern),

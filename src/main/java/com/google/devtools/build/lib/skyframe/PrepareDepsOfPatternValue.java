@@ -26,22 +26,21 @@ import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
 
 /**
- * The value returned by {@link PrepareDepsOfPatternFunction}. Because that function is
- * invoked only for its side effect (i.e. ensuring the graph contains targets matching the
- * pattern and its transitive dependencies), this value carries no information.
+ * The value returned by {@link PrepareDepsOfPatternFunction}. Because that function is invoked only
+ * for its side effect (i.e. ensuring the graph contains targets matching the pattern and its
+ * transitive dependencies), this value carries no information.
  *
  * <p>Because the returned value is always equal to objects that share its type, this value and the
  * {@link PrepareDepsOfPatternFunction} which computes it are incompatible with change pruning. It
- * should only be requested by consumers who do not require reevaluation when
- * {@link PrepareDepsOfPatternFunction} is reevaluated. Safe consumers include, e.g., top-level
- * consumers, and other functions which invoke {@link PrepareDepsOfPatternFunction} solely for its
+ * should only be requested by consumers who do not require reevaluation when {@link
+ * PrepareDepsOfPatternFunction} is reevaluated. Safe consumers include, e.g., top-level consumers,
+ * and other functions which invoke {@link PrepareDepsOfPatternFunction} solely for its
  * side-effects.
  */
 public class PrepareDepsOfPatternValue implements SkyValue {
@@ -50,8 +49,7 @@ public class PrepareDepsOfPatternValue implements SkyValue {
   @SerializationConstant
   public static final PrepareDepsOfPatternValue INSTANCE = new PrepareDepsOfPatternValue();
 
-  private PrepareDepsOfPatternValue() {
-  }
+  private PrepareDepsOfPatternValue() {}
 
   @Override
   public boolean equals(Object o) {
@@ -83,22 +81,23 @@ public class PrepareDepsOfPatternValue implements SkyValue {
    *
    * @param patterns The list of patterns, e.g. [//foo/..., -//foo/biz/...]. If a pattern's first
    *     character is "-", it is treated as a negative pattern.
-   * @param offset The offset to apply to relative target patterns.
+   * @param mainRepoTargetParser The target pattern parser configured with the specified offset and
+   *     the main repository mapping.
    */
   @ThreadSafe
   public static PrepareDepsOfPatternSkyKeysAndExceptions keys(
-      List<String> patterns, PathFragment offset) {
+      List<String> patterns, TargetPattern.Parser mainRepoTargetParser) {
     ImmutableList.Builder<PrepareDepsOfPatternSkyKeyValue> resultValuesBuilder =
         ImmutableList.builder();
     ImmutableList.Builder<PrepareDepsOfPatternSkyKeyException> resultExceptionsBuilder =
         ImmutableList.builder();
-    TargetPattern.Parser parser = TargetPattern.mainRepoParser(offset);
     ImmutableList.Builder<TargetPatternKey> targetPatternKeysBuilder = ImmutableList.builder();
     for (String pattern : patterns) {
       try {
         targetPatternKeysBuilder.add(
             TargetPatternValue.key(
-                SignedTargetPattern.parse(pattern, parser), FilteringPolicies.NO_FILTER));
+                SignedTargetPattern.parse(pattern, mainRepoTargetParser),
+                FilteringPolicies.NO_FILTER));
       } catch (TargetParsingException e) {
         resultExceptionsBuilder.add(new PrepareDepsOfPatternSkyKeyException(e, pattern));
       }
@@ -132,8 +131,8 @@ public class PrepareDepsOfPatternValue implements SkyValue {
   }
 
   /**
-   * A pair of {@link Iterable<PrepareDepsOfPatternSkyKeyValue>} and
-   * {@link Iterable<PrepareDepsOfPatternSkyKeyException>}.
+   * A pair of {@link Iterable<PrepareDepsOfPatternSkyKeyValue>} and {@link
+   * Iterable<PrepareDepsOfPatternSkyKeyException>}.
    */
   public static class PrepareDepsOfPatternSkyKeysAndExceptions {
     private final Iterable<PrepareDepsOfPatternSkyKeyValue> values;
@@ -161,8 +160,8 @@ public class PrepareDepsOfPatternValue implements SkyValue {
     private final TargetParsingException exception;
     private final String originalPattern;
 
-    public PrepareDepsOfPatternSkyKeyException(TargetParsingException exception,
-        String originalPattern) {
+    public PrepareDepsOfPatternSkyKeyException(
+        TargetParsingException exception, String originalPattern) {
       this.exception = exception;
       this.originalPattern = originalPattern;
     }

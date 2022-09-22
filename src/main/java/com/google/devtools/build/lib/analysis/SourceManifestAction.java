@@ -178,7 +178,8 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   }
 
   @VisibleForTesting
-  public void writeOutputFile(OutputStream out, EventHandler eventHandler) throws IOException {
+  public void writeOutputFile(OutputStream out, @Nullable EventHandler eventHandler)
+      throws IOException {
     writeFile(out, runfiles.getRunfilesInputs(eventHandler, getOwner().getLocation()));
   }
 
@@ -187,10 +188,15 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
    *
    * @return returns the file contents as a string.
    */
-  public String getFileContentsAsString(EventHandler eventHandler) throws IOException {
+  public String getFileContentsAsString(@Nullable EventHandler eventHandler) throws IOException {
     ByteArrayOutputStream stream = new ByteArrayOutputStream();
     writeOutputFile(stream, eventHandler);
     return stream.toString(UTF_8);
+  }
+
+  @Override
+  public String getStarlarkContent() throws IOException {
+    return getFileContentsAsString(null);
   }
 
   @Override

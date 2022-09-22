@@ -32,6 +32,8 @@ public class CcBootstrap implements Bootstrap {
   private static final ImmutableSet<PackageIdentifier> allowedRepositories =
       ImmutableSet.of(
           PackageIdentifier.createUnchecked("_builtins", ""),
+          PackageIdentifier.createUnchecked("bazel_tools", ""),
+          PackageIdentifier.createUnchecked("local_config_cc", ""),
           PackageIdentifier.createUnchecked("rules_cc", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/cc"));
 

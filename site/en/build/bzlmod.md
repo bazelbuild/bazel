@@ -152,10 +152,10 @@ mechanism in the new system. Here are two important concepts:
     <br>It's constructed as follows (**Warning**: the canonical name format is
     not an API you should depend on, it's subject to change at any time):
 
-    *   For Bazel module repos: `{{ "<var>" }}module_name{{ "</var>" }}.{{ "<var>" }}version{{ "</var>" }}`
-        <br> (<b>Example</b>. `@bazel_skylib.1.0.3`)
-    *   For module extension repos: `{{ "<var>" }}module_name{{ "</var>" }}.{{ "<var>" }}version{{ "</var>" }}.{{ "<var>" }}extension_name{{ "</var>" }}.{{ "<var>" }}repo_name{{ "</var>" }}`
-        <br>(<b>Example</b>. `@rules_cc.0.0.1.cc_configure.local_config_cc`)
+    *   For Bazel module repos: `{{ "<var>" }}module_name{{ "</var>" }}~{{ "<var>" }}version{{ "</var>" }}`
+        <br> (<b>Example</b>. `@bazel_skylib~1.0.3`)
+    *   For module extension repos: `{{ "<var>" }}module_name{{ "</var>" }}~{{ "<var>" }}version{{ "</var>" }}~{{ "<var>" }}extension_name{{ "</var>" }}~{{ "<var>" }}repo_name{{ "</var>" }}`
+        <br>(<b>Example</b>. `@rules_cc~0.0.1~cc_configure~local_config_cc`)
 
 *   **Local repository name**: The repository name to be used in the `BUILD` and
     `.bzl` files within a repo. The same dependency could have different local

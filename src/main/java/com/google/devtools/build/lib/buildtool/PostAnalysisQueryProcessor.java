@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.buildtool.BuildTool.ExitException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
@@ -50,9 +51,12 @@ import java.util.Set;
 public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.AnalysisPostProcessor {
 
   private final QueryExpression queryExpression;
+  protected final TargetPattern.Parser mainRepoTargetParser;
 
-  PostAnalysisQueryProcessor(QueryExpression queryExpression) {
+  PostAnalysisQueryProcessor(
+      QueryExpression queryExpression, TargetPattern.Parser mainRepoTargetParser) {
     this.queryExpression = queryExpression;
+    this.mainRepoTargetParser = mainRepoTargetParser;
   }
 
   @Override
@@ -78,6 +82,7 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
                     .setQuery(Query.newBuilder().setCode(Query.Code.ANALYSIS_QUERY_PREREQ_UNMET))
                     .build()));
       }
+
       try (QueryRuntimeHelper queryRuntimeHelper =
           env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
         doPostAnalysisQuery(

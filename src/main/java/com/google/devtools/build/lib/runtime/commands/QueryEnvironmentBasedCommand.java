@@ -19,6 +19,10 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
@@ -45,6 +49,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.skyframe.SkyframeTargetPatternEvaluator;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -68,12 +73,9 @@ import java.util.function.Function;
  */
 public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
   /**
-   * Exit codes:
-   *   0   on successful evaluation.
-   *   1   if query evaluation did not complete.
-   *   2   if query parsing failed.
-   *   3   if errors were reported but evaluation produced a partial result
-   *        (only when --keep_going is in effect.)
+   * Exit codes: 0 on successful evaluation. 1 if query evaluation did not complete. 2 if query
+   * parsing failed. 3 if errors were reported but evaluation produced a partial result (only when
+   * --keep_going is in effect.)
    */
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
@@ -102,8 +104,20 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
     BlazeRuntime runtime = env.getRuntime();
     QueryOptions queryOptions = options.getOptions(QueryOptions.class);
 
+    LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
+    boolean keepGoing = options.getOptions(KeepGoingOption.class).keepGoing;
+
+    TargetPattern.Parser mainRepoTargetParser;
     try {
       env.syncPackageLoading(options);
+      RepositoryMapping repoMapping =
+          env.getSkyframeExecutor()
+              .getMainRepoMapping(keepGoing, threadsOption.threads, env.getReporter());
+      mainRepoTargetParser =
+          new Parser(env.getRelativeWorkingDirectory(), RepositoryName.MAIN, repoMapping);
+    } catch (RepositoryMappingResolutionException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
     } catch (InterruptedException e) {
       return reportAndCreateInterruptResult(env, "query interrupted");
     } catch (AbruptExitException e) {
@@ -173,14 +187,15 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       try (AbstractBlazeQueryEnvironment<Target> queryEnv =
           newQueryEnvironment(
               env,
-              options.getOptions(KeepGoingOption.class).keepGoing,
+              keepGoing,
               !streamResults,
               env.getSkyframeExecutor()
                   .maybeGetHardcodedUniverseScope()
                   .orElse(getUniverseScope(queryOptions)),
-              options.getOptions(LoadingPhaseThreadsOption.class).threads,
+              threadsOption.threads,
               settings,
-              useGraphlessQuery)) {
+              useGraphlessQuery,
+              mainRepoTargetParser)) {
         result =
             doQuery(
                 query, env, queryOptions, streamResults, formatter, queryEnv, queryRuntimeHelper);
@@ -242,7 +257,8 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       UniverseScope universeScope,
       int loadingPhaseThreads,
       Set<Setting> settings,
-      boolean useGraphlessQuery) {
+      boolean useGraphlessQuery,
+      TargetPattern.Parser mainRepoTargetParser) {
 
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
@@ -265,6 +281,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             targetProviderForQueryEnvironment,
             env.getPackageManager(),
             new SkyframeTargetPatternEvaluator(env.getSkyframeExecutor()),
+            mainRepoTargetParser,
             env.getRelativeWorkingDirectory(),
             keepGoing,
             /*strictScope=*/ true,

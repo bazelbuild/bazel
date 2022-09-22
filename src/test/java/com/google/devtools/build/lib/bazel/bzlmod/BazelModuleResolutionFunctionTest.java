@@ -20,19 +20,114 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createRepositoryMapping;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
+import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
+import com.google.devtools.build.lib.skyframe.FileFunction;
+import com.google.devtools.build.lib.skyframe.FileStateFunction;
+import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileStateKey;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.skyframe.EvaluationContext;
+import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.devtools.build.skyframe.RecordingDifferencer;
+import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Location;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link BazelModuleResolutionFunction}. */
 @RunWith(JUnit4.class)
-public class BazelModuleResolutionFunctionTest {
+public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
+
+  private MemoizingEvaluator evaluator;
+  private RecordingDifferencer differencer;
+  private EvaluationContext evaluationContext;
+  private FakeRegistry.Factory registryFactory;
+
+  @Before
+  public void setup() throws Exception {
+    differencer = new SequencedRecordingDifferencer();
+    registryFactory = new FakeRegistry.Factory();
+    evaluationContext =
+        EvaluationContext.newBuilder().setNumThreads(8).setEventHandler(reporter).build();
+
+    AtomicReference<PathPackageLocator> packageLocator =
+        new AtomicReference<>(
+            new PathPackageLocator(
+                outputBase,
+                ImmutableList.of(Root.fromPath(rootDirectory)),
+                BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
+    BlazeDirectories directories =
+        new BlazeDirectories(
+            new ServerDirectories(rootDirectory, outputBase, rootDirectory),
+            rootDirectory,
+            /* defaultSystemJavabase= */ null,
+            AnalysisMock.get().getProductName());
+    ExternalFilesHelper externalFilesHelper =
+        ExternalFilesHelper.createForTesting(
+            packageLocator,
+            ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
+            directories);
+
+    evaluator =
+        new InMemoryMemoizingEvaluator(
+            ImmutableMap.<SkyFunctionName, SkyFunction>builder()
+                .put(FileValue.FILE, new FileFunction(packageLocator, directories))
+                .put(
+                    FileStateKey.FILE_STATE,
+                    new FileStateFunction(
+                        Suppliers.ofInstance(
+                            new TimestampGranularityMonitor(BlazeClock.instance())),
+                        SyscallCache.NO_CACHE,
+                        externalFilesHelper))
+                .put(
+                    SkyFunctions.MODULE_FILE,
+                    new ModuleFileFunction(registryFactory, rootDirectory, ImmutableMap.of()))
+                .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
+                .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
+                .buildOrThrow(),
+            differencer);
+
+    PrecomputedValue.STARLARK_SEMANTICS.set(
+        differencer,
+        StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build());
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
+    ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
+    BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
+        differencer, CheckDirectDepsMode.OFF);
+  }
+
   @Test
   public void createValue_basic() throws Exception {
     // Root depends on dep@1.0 and dep@2.0 at the same time with a multiple-version override.
@@ -216,5 +311,105 @@ public class BazelModuleResolutionFunctionTest {
                 "dep~2.0~myext~myext",
                 "twoext",
                 "dep~2.0~myext2~myext"));
+  }
+
+  @Test
+  public void testSimpleBazelInvalidCompatability() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='mod', version='1.0', bazel_compatibility=['>5.1.0dd'])");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<BazelModuleResolutionValue> result =
+        evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("invalid version argument '>5.1.0dd'");
+  }
+
+  @Test
+  public void testSimpleBazelCompatabilityFailure() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='mod', version='1.0', bazel_compatibility=['>5.1.0', '<5.1.4'])");
+
+    // Embed bazel version
+    Map<String, String> blazeInfo = getInstanceOfBlazeVersionInfo().getBuildData();
+    blazeInfo.remove(BlazeVersionInfo.BUILD_LABEL);
+    blazeInfo.put(BlazeVersionInfo.BUILD_LABEL, "5.1.4");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<BazelModuleResolutionValue> result =
+        evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().toString()).contains("Bazel version 5.1.4 is not compatible");
+  }
+
+  @Test
+  public void testBazelCompatabilitySuccess() throws Exception {
+    setupModulesForCompatability();
+
+    // Embed bazel version
+    Map<String, String> blazeInfo = getInstanceOfBlazeVersionInfo().getBuildData();
+    blazeInfo.remove(BlazeVersionInfo.BUILD_LABEL);
+    blazeInfo.put(BlazeVersionInfo.BUILD_LABEL, "5.1.4-pre.20220421.3");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<BazelModuleResolutionValue> result =
+        evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
+  public void testBazelCompatabilityFailure() throws Exception {
+    setupModulesForCompatability();
+
+    // Embed bazel version
+    Map<String, String> blazeInfo = getInstanceOfBlazeVersionInfo().getBuildData();
+    blazeInfo.remove(BlazeVersionInfo.BUILD_LABEL);
+    blazeInfo.put(BlazeVersionInfo.BUILD_LABEL, "5.1.5rc444");
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<BazelModuleResolutionValue> result =
+        evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().toString()).contains("Bazel version 5.1.5rc444 is not compatible");
+  }
+
+  private void setupModulesForCompatability() throws IOException {
+    /* Root depends on "a" which depends on "b"
+       The only versions that would work with root, a and b compatability constrains are between
+       -not including- 5.1.2 and 5.1.4.
+       Ex: 5.1.3rc44, 5.1.3, 5.1.4-pre22.44
+    */
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='mod', version='1.0', bazel_compatibility=['>5.1.0', '<5.1.6'])",
+        "bazel_dep(name = 'a', version = '1.0')");
+
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(
+                createModuleKey("a", "1.0"),
+                "module(name='a', version='1.0', bazel_compatibility=['>=5.1.2', '-5.1.4']);",
+                "bazel_dep(name='b', version='1.0')")
+            .addModule(
+                createModuleKey("b", "1.0"),
+                "module(name='b', version='1.0', bazel_compatibility=['<=5.1.4', '-5.1.2']);");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+  }
+
+  private static BlazeVersionInfo getInstanceOfBlazeVersionInfo() {
+    // Double-get version-info to determine if it's the cached instance or not, and if not cache it.
+    BlazeVersionInfo blazeInfo1 = BlazeVersionInfo.instance();
+    BlazeVersionInfo blazeInfo2 = BlazeVersionInfo.instance();
+    if (blazeInfo1 != blazeInfo2) {
+      BlazeVersionInfo.setBuildInfo(ImmutableMap.of());
+      blazeInfo1 = BlazeVersionInfo.instance();
+    }
+    return blazeInfo1;
   }
 }
