@@ -52,6 +52,7 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * This class represents the C/C++ parts of the {@link BuildConfigurationValue}, including the host
@@ -131,7 +132,7 @@ public final class CppConfiguration extends Fragment
    * --dynamic_mode parses to DynamicModeFlag, but AUTO will be translated based on platform,
    * resulting in a DynamicMode value.
    */
-  public enum DynamicMode {
+  public enum DynamicMode implements StarlarkValue {
     OFF,
     DEFAULT,
     FULLY
