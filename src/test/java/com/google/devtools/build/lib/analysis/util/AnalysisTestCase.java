@@ -294,6 +294,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     }
     optionsParser.parse(args);
+    optionsParser.parse("--noincompatible_stop_exporting_language_modules");
 
     buildOptions =
         BuildOptions.of(ruleClassProvider.getFragmentRegistry().getOptionsClasses(), optionsParser);
