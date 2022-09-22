@@ -964,8 +964,11 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     }
     if (!files.isEmpty()) {
       Sequence<Artifact> artifacts = Sequence.cast(files, Artifact.class, "files");
-      checkForMiddlemanArtifacts(artifacts);
-      builder.addArtifacts(artifacts);
+      try {
+        builder.addArtifacts(artifacts);
+      } catch (IllegalArgumentException e) {
+        throw Starlark.errorf("could not add all 'files': %s", e.getMessage());
+      }
     }
     if (transitiveFiles != Starlark.NONE) {
       NestedSet<Artifact> transitiveArtifacts =
@@ -1003,16 +1006,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       runfiles.setConflictPolicy(Runfiles.ConflictPolicy.ERROR);
     }
     return runfiles;
-  }
-
-  private void checkForMiddlemanArtifacts(Iterable<Artifact> artifacts) throws EvalException {
-    for (Artifact artifact : artifacts) {
-      if (artifact.isMiddlemanArtifact()) {
-        throw Starlark.errorf(
-            "Middleman artifacts are forbidden here. Artifact: %s, owner: %s",
-            artifact, artifact.getOwner());
-      }
-    }
   }
 
   private static boolean isNonEmptyDict(Object o) {

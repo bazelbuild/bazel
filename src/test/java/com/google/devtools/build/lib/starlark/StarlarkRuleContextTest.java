@@ -2205,7 +2205,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler); // Error expected.
     assertThat(getConfiguredTarget("//test:test")).isNull();
-    assertContainsEvent("Error in runfiles: Middleman artifacts are forbidden here");
+    assertContainsEvent(
+        "Error in runfiles: could not add all 'files': unexpected middleman artifact");
   }
 
   @Test
