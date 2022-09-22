@@ -666,7 +666,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
     scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");
     scratch.file("libc1/header1.h", "#define FOO 1");
-    useConfiguration();
+    useConfiguration("--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target = getConfiguredTarget("//a:b");
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
 

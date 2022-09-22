@@ -1,6 +1,6 @@
 module(name = "bazel_tools")
 
-bazel_dep(name = "rules_cc", version = "0.0.1")
+bazel_dep(name = "rules_cc", version = "0.0.2")
 bazel_dep(name = "rules_java", version = "5.1.0")
 bazel_dep(name = "rules_license", version = "0.0.3")
 bazel_dep(name = "rules_proto", version = "4.0.0")
