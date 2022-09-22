@@ -53,8 +53,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
-import com.google.devtools.build.lib.runtime.ExecutionGraphDumpModule.ActionDumpWriter;
-import com.google.devtools.build.lib.runtime.ExecutionGraphDumpModule.DependencyInfo;
+import com.google.devtools.build.lib.runtime.ExecutionGraphModule.ActionDumpWriter;
+import com.google.devtools.build.lib.runtime.ExecutionGraphModule.DependencyInfo;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -73,15 +73,15 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 
-/** Unit tests for {@link ExecutionGraphDumpModule}. */
+/** Unit tests for {@link ExecutionGraphModule}. */
 @RunWith(TestParameterInjector.class)
-public class ExecutionGraphDumpModuleTest extends FoundationTestCase {
-  private ExecutionGraphDumpModule module;
+public class ExecutionGraphModuleTest extends FoundationTestCase {
+  private ExecutionGraphModule module;
   private ArtifactRoot artifactRoot;
 
   @Before
   public void createModule() {
-    module = new ExecutionGraphDumpModule();
+    module = new ExecutionGraphModule();
   }
 
   @Before
@@ -371,7 +371,7 @@ public class ExecutionGraphDumpModuleTest extends FoundationTestCase {
 
     var buffer = new ByteArrayOutputStream();
     startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
-    var options = new ExecutionGraphDumpModule.ExecutionGraphDumpOptions();
+    var options = new ExecutionGraphModule.ExecutionGraphOptions();
     options.logMissedActions = true;
     module.setOptions(options);
 
@@ -405,7 +405,7 @@ public class ExecutionGraphDumpModuleTest extends FoundationTestCase {
 
     var buffer = new ByteArrayOutputStream();
     startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
-    var options = new ExecutionGraphDumpModule.ExecutionGraphDumpOptions();
+    var options = new ExecutionGraphModule.ExecutionGraphOptions();
     options.logMissedActions = true;
     module.setOptions(options);
     var nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
