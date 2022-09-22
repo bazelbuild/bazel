@@ -50,13 +50,6 @@ def _pkg_tar_impl(ctx):
         "--file=%s=%s" % (_quote(f.path), dest_path(f, data_path))
         for f in file_inputs
     ]
-    if ctx.attr.extension:
-        dotPos = ctx.attr.extension.find(".")
-        if dotPos > 0:
-            dotPos += 1
-            args += ["--compression=%s" % ctx.attr.extension[dotPos:]]
-        elif ctx.attr.extension == "tgz":
-            args += ["--compression=gz"]
     arg_file = ctx.actions.declare_file(ctx.label.name + ".args")
     ctx.actions.write(arg_file, "\n".join(args))
 
@@ -78,7 +71,6 @@ _real_pkg_tar = rule(
         "srcs": attr.label_list(allow_files = True),
         "mode": attr.string(default = "0555"),
         "out": attr.output(),
-        "extension": attr.string(default = "tar"),
         "include_runfiles": attr.bool(),
         # Implicit dependencies.
         "build_tar": attr.label(
@@ -91,9 +83,8 @@ _real_pkg_tar = rule(
 )
 
 def pkg_tar(name, **kwargs):
-    extension = kwargs.get("extension") or "tar"
     _real_pkg_tar(
         name = name,
-        out = name + "." + extension,
+        out = name + ".tar",
         **kwargs
     )

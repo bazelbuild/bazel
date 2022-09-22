@@ -32,8 +32,6 @@ flags.DEFINE_string('mode', None,
 flags.DEFINE_string('directory', None,
                     'Directory in which to store the file inside the layer')
 
-flags.DEFINE_string('compression', None, 'Compression (`gz`), default is none.')
-
 flags.DEFINE_string('root_directory', './',
                     'Default root directory is named "."')
 
@@ -46,17 +44,13 @@ class TarFile(object):
   class DebError(Exception):
     pass
 
-  def __init__(self, output, directory, compression, root_directory):
+  def __init__(self, output, directory, root_directory):
     self.directory = directory
     self.output = output
-    self.compression = compression
     self.root_directory = root_directory
 
   def __enter__(self):
-    self.tarfile = archive.TarFileWriter(
-        self.output,
-        self.compression,
-        self.root_directory)
+    self.tarfile = archive.TarFileWriter(self.output, self.root_directory)
     return self
 
   def __exit__(self, t, v, traceback):
@@ -123,8 +117,7 @@ def main(unused_argv):
     default_mode = int(FLAGS.mode, 8)
 
   # Add objects to the tar file
-  with TarFile(FLAGS.output, FLAGS.directory, FLAGS.compression,
-               FLAGS.root_directory) as output:
+  with TarFile(FLAGS.output, FLAGS.directory, FLAGS.root_directory) as output:
     for f in FLAGS.file:
       (inf, tof) = unquote_and_split(f, '=')
       output.add_file(inf, tof, mode=default_mode)

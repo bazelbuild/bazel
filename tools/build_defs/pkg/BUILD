@@ -2,7 +2,7 @@
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 load("//tools/python:private/defs.bzl", "py_binary", "py_library", "py_test")
 
-licenses(["notice"])  # Apache 2.0
+licenses(["notice"])
 
 filegroup(
     name = "srcs",
@@ -26,7 +26,6 @@ py_library(
     name = "archive",
     srcs = ["archive.py"],
     srcs_version = "PY2AND3",
-    visibility = ["//visibility:public"],
 )
 
 filegroup(
@@ -81,21 +80,17 @@ genrule(
     cmd = "for i in $(OUTS); do echo 1 >$$i; done",
 )
 
-[pkg_tar(
-    name = "test-tar-%s" % ext[1:],
+pkg_tar(
+    name = "test-tar",
     srcs = [
         ":etc/nsswitch.conf",
         ":usr/titi",
     ],
     build_tar = ":build_tar",
-    extension = "tar%s" % ext,
     mode = "0644",
     package_dir = "/",
     strip_prefix = ".",
-) for ext in [
-    "",
-    ".gz",
-]]
+)
 
 pkg_tar(
     name = "test-tar-strip_prefix-empty",
@@ -140,8 +135,7 @@ sh_test(
     ],
     data = [
         "testenv.sh",
-        ":test-tar-.tar",
-        ":test-tar-gz.tar.gz",
+        ":test-tar.tar",
         ":test-tar-strip_prefix-dot.tar",
         ":test-tar-strip_prefix-empty.tar",
         ":test-tar-strip_prefix-etc.tar",
