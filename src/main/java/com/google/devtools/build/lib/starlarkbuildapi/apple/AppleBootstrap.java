@@ -27,6 +27,7 @@ public class AppleBootstrap implements Bootstrap {
   private static final ImmutableSet<PackageIdentifier> allowedRepositories =
       ImmutableSet.of(
           PackageIdentifier.createUnchecked("_builtins", ""),
+          PackageIdentifier.createUnchecked("bazel_tools", ""),
           PackageIdentifier.createUnchecked("rules_apple", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/apple"));
 

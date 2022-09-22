@@ -33,6 +33,7 @@ public class JavaBootstrap implements Bootstrap {
   private static final ImmutableSet<PackageIdentifier> allowedRepositories =
       ImmutableSet.of(
           PackageIdentifier.createUnchecked("_builtins", ""),
+          PackageIdentifier.createUnchecked("bazel_tools", ""),
           PackageIdentifier.createUnchecked("rules_java", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/java"));
 
