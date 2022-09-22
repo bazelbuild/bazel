@@ -96,7 +96,7 @@ Eclipse projects.
 
 ### C Language Family (C++, C, Objective-C, and Objective-C++)
 
-[`hedronvision/bazel-compile-commands-extractor`](https://github.com/hedronvision/bazel-compile-commands-extractor) enables autocomplete in a wide variety of extensible editors, including VSCode, Vim, Emacs, Sublime, etc.. It lets language servers, like clangd, ccls, and other tooling, draw upon Bazel's understanding of how `cc` and `objc` code will be compiled, including how it configures cross-compilation for other platforms.
+[`hedronvision/bazel-compile-commands-extractor`](https://github.com/hedronvision/bazel-compile-commands-extractor) enables autocomplete in a wide variety of extensible editors, including VSCode, Vim, Emacs, Sublime, etc. It lets language servers, like clangd, ccls, and other tooling, draw upon Bazel's understanding of how `cc` and `objc` code will be compiled, including how it configures cross-compilation for other platforms.
 
 ### Java
 
