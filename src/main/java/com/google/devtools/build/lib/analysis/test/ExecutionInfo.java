@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.test.ExecutionInfoApi;
 import java.util.Map;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 
 /**
  * This provider can be implemented by rules which need special environments to run in (especially
@@ -32,8 +34,7 @@ public final class ExecutionInfo extends NativeInfo implements ExecutionInfoApi 
   public static final String DEFAULT_TEST_RUNNER_EXEC_GROUP = "test";
 
   /** Starlark constructor and identifier for ExecutionInfo. */
-  public static final BuiltinProvider<ExecutionInfo> PROVIDER =
-      new BuiltinProvider<ExecutionInfo>("ExecutionInfo", ExecutionInfo.class) {};
+  public static final ExecutionInfoProvider PROVIDER = new ExecutionInfoProvider();
 
   private final ImmutableMap<String, String> executionInfo;
   private final String execGroup;
@@ -66,5 +67,20 @@ public final class ExecutionInfo extends NativeInfo implements ExecutionInfoApi 
   @Override
   public String getExecGroup() {
     return execGroup;
+  }
+
+  public static class ExecutionInfoProvider extends BuiltinProvider<ExecutionInfo>
+      implements ExecutionInfoApi.ExecutionInfoApiProvider {
+
+    private ExecutionInfoProvider() {
+      super("ExecutionInfo", ExecutionInfo.class);
+    }
+
+    @Override
+    public ExecutionInfoApi constructor(
+        Dict<?, ?> requirements /* <String, String> */, String execGroup) throws EvalException {
+      return new ExecutionInfo(
+          Dict.cast(requirements, String.class, String.class, "requirements"), execGroup);
+    }
   }
 }

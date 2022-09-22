@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
@@ -118,7 +117,7 @@ public class ConfiguredTargetQueryEnvironment
       TopLevelConfigurations topLevelConfigurations,
       BuildConfigurationValue hostConfiguration,
       Collection<SkyKey> transitiveConfigurationKeys,
-      PathFragment parserPrefix,
+      TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       Set<Setting> settings,
@@ -130,7 +129,7 @@ public class ConfiguredTargetQueryEnvironment
         extraFunctions,
         topLevelConfigurations,
         hostConfiguration,
-        parserPrefix,
+        mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
         settings);
@@ -148,7 +147,7 @@ public class ConfiguredTargetQueryEnvironment
       TopLevelConfigurations topLevelConfigurations,
       BuildConfigurationValue hostConfiguration,
       Collection<SkyKey> transitiveConfigurationKeys,
-      PathFragment parserPrefix,
+      TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       CqueryOptions cqueryOptions,
@@ -161,7 +160,7 @@ public class ConfiguredTargetQueryEnvironment
         topLevelConfigurations,
         hostConfiguration,
         transitiveConfigurationKeys,
-        parserPrefix,
+        mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
         cqueryOptions.toSettings(),

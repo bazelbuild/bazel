@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -143,6 +145,125 @@ public final class BzlmodTestUtil {
       ImmutableMap<String, ModuleKey> builtOriginalDeps = this.originalDeps.buildOrThrow();
 
       return this.builder.setDeps(builtDeps).setOriginalDeps(builtOriginalDeps).build();
+    }
+  }
+
+  /**
+   * Builder helper for {@link
+   * com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule}
+   */
+  public static final class AugmentedModuleBuilder {
+
+    public static AugmentedModuleBuilder buildAugmentedModule(
+        ModuleKey key, String name, Version version, boolean loaded) {
+      AugmentedModuleBuilder myBuilder = new AugmentedModuleBuilder();
+      myBuilder.key = key;
+      myBuilder.builder =
+          AugmentedModule.builder(key).setName(name).setVersion(version).setLoaded(loaded);
+      return myBuilder;
+    }
+
+    public static AugmentedModuleBuilder buildAugmentedModule(
+        String name, String version, boolean loaded) throws ParseException {
+      ModuleKey key = createModuleKey(name, version);
+      return buildAugmentedModule(key, name, Version.parse(version), loaded);
+    }
+
+    public static AugmentedModuleBuilder buildAugmentedModule(String name, String version)
+        throws ParseException {
+      ModuleKey key = createModuleKey(name, version);
+      return buildAugmentedModule(key, name, Version.parse(version), true);
+    }
+
+    public static AugmentedModuleBuilder buildAugmentedModule(ModuleKey key, String name) {
+      return buildAugmentedModule(key, name, key.getVersion(), true);
+    }
+
+    private AugmentedModule.Builder builder;
+    private ModuleKey key;
+
+    private AugmentedModuleBuilder() {}
+
+    @CanIgnoreReturnValue
+    public AugmentedModuleBuilder addChangedDep(
+        String name, String version, String oldVersion, ResolutionReason reason) {
+      this.builder
+          .addDep(name, createModuleKey(name, version))
+          .addUnusedDep(name, createModuleKey(name, oldVersion))
+          .addDepReason(name, reason);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public AugmentedModuleBuilder addChangedDep(
+        String repoName,
+        String moduleName,
+        String version,
+        String oldVersion,
+        ResolutionReason reason) {
+      this.builder
+          .addDep(repoName, createModuleKey(moduleName, version))
+          .addUnusedDep(repoName, createModuleKey(moduleName, oldVersion))
+          .addDepReason(repoName, reason);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public AugmentedModuleBuilder addDep(String name, String version) {
+      this.builder
+          .addDep(name, createModuleKey(name, version))
+          .addDepReason(name, ResolutionReason.ORIGINAL);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public AugmentedModuleBuilder addDep(String repoName, String moduleName, String version) {
+      this.builder
+          .addDep(repoName, createModuleKey(moduleName, version))
+          .addDepReason(repoName, ResolutionReason.ORIGINAL);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public AugmentedModuleBuilder addDependant(String name, String version) {
+      this.builder.addDependant(createModuleKey(name, version));
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public AugmentedModuleBuilder addDependant(ModuleKey key) {
+      this.builder.addDependant(key);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public AugmentedModuleBuilder addOriginalDependant(String name, String version) {
+      this.builder.addOriginalDependant(createModuleKey(name, version));
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public AugmentedModuleBuilder addOriginalDependant(ModuleKey key) {
+      this.builder.addOriginalDependant(key);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public AugmentedModuleBuilder addStillDependant(String name, String version) {
+      this.builder.addOriginalDependant(createModuleKey(name, version));
+      this.builder.addDependant(createModuleKey(name, version));
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public AugmentedModuleBuilder addStillDependant(ModuleKey key) {
+      this.builder.addOriginalDependant(key);
+      this.builder.addDependant(key);
+      return this;
+    }
+
+    public Entry<ModuleKey, AugmentedModule> buildEntry() {
+      return new SimpleEntry<>(this.key, this.builder.build());
     }
   }
 

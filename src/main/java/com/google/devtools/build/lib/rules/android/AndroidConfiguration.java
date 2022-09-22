@@ -40,6 +40,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Configuration fragment for Android rules. */
 @Immutable
@@ -91,7 +92,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
    * --android_crosstool_top} point to different labels, they may end up being redirected to the
    * same thing, and this is exactly what happens on OSX X.
    */
-  public enum ConfigurationDistinguisher {
+  public enum ConfigurationDistinguisher implements StarlarkValue {
     MAIN(null),
     ANDROID("android");
 

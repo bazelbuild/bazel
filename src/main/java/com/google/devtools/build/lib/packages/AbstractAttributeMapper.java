@@ -30,9 +30,9 @@ import javax.annotation.Nullable;
  * data before exposing it to consumers.
  */
 public abstract class AbstractAttributeMapper implements AttributeMap {
-  private final RuleClass ruleClass;
-  private final Label ruleLabel;
+  final RuleClass ruleClass;
   final Rule rule;
+  private final Label ruleLabel;
 
   protected AbstractAttributeMapper(Rule rule) {
     this.ruleClass = rule.getRuleClassObject();
@@ -75,7 +75,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     }
 
     // Hot code path - avoid the overhead of calling type.cast(value). The rule would have already
-    // failed on construction if one of its attributes was of the wrong type (inluding computed
+    // failed on construction if one of its attributes was of the wrong type (including computed
     // defaults).
     return (T) value;
   }
@@ -173,15 +173,15 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public final void visitLabels(Attribute attribute, Consumer<Label> consumer) {
+  public final void visitLabels(String attributeName, Consumer<Label> consumer) {
     visitLabels(
-        ImmutableList.of(attribute),
+        ImmutableList.of(ruleClass.getAttributeByName(attributeName)),
         DependencyFilter.ALL_DEPS,
         (attr, label) -> consumer.accept(label));
   }
 
   @Override
-  public final void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {
+  public void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {
     visitLabels(ruleClass.getAttributes(), filter, consumer);
   }
 

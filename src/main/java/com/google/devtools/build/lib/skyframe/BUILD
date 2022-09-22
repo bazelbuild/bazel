@@ -142,6 +142,7 @@ java_library(
         ":ignored_package_prefixes_function",
         ":ignored_package_prefixes_value",
         ":incremental_artifact_conflict_finder",
+        ":incremental_package_roots",
         ":loading_phase_started_event",
         ":local_repository_lookup_value",
         ":map_as_package_roots",
@@ -185,6 +186,7 @@ java_library(
         ":state_informing_sky_function_environment",
         ":target_completion_value",
         ":target_cycle_reporter",
+        ":target_loading_util",
         ":target_pattern_error_function",
         ":target_pattern_phase_value",
         ":target_pattern_util",
@@ -322,6 +324,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/resolved_file_value",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_file_helper",
+        "//src/main/java/com/google/devtools/build/lib/rules/genquery:genquery_package_providers",
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:actiongraph_v2",
         "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding",
         "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:action_rewound_event",
@@ -1506,6 +1509,23 @@ java_library(
 )
 
 java_library(
+    name = "incremental_package_roots",
+    srcs = ["IncrementalPackageRoots.java"],
+    deps = [
+        ":top_level_status_events",
+        "//src/main/java/com/google/devtools/build/lib:buildtool/symlink_forest",
+        "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "interner_with_presence_check",
     srcs = ["InternerWithPresenceCheck.java"],
     deps = [
@@ -1811,7 +1831,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
@@ -1824,6 +1843,7 @@ java_library(
     deps = [
         ":prepare_deps_of_pattern_value",
         ":prepare_deps_of_patterns_value",
+        ":repository_mapping_value",
         ":target_pattern_value",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -2177,6 +2197,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -2623,10 +2645,24 @@ java_library(
     name = "transitive_base_traversal_function",
     srcs = ["TransitiveBaseTraversalFunction.java"],
     deps = [
+        ":target_loading_util",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "target_loading_util",
+    srcs = ["TargetLoadingUtil.java"],
+    deps = [
         ":containing_package_lookup_value",
         ":package_value",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -2683,7 +2719,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
     ],
@@ -2718,6 +2756,7 @@ java_library(
     srcs = ["TransitiveTraversalFunction.java"],
     deps = [
         ":sky_functions",
+        ":target_loading_util",
         ":transitive_base_traversal_function",
         ":transitive_traversal_value",
         "//src/main/java/com/google/devtools/build/lib/bugreport",

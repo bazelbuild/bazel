@@ -152,7 +152,7 @@ final class TestExpansionFunction implements SkyFunction {
     List<Label> labels = new ArrayList<>();
     Set<PackageIdentifier> pkgIdentifiers = new HashSet<>();
     mapper.visitLabels(
-        mapper.getAttributeDefinition(attrName),
+        attrName,
         label -> {
           labels.add(label);
           pkgIdentifiers.add(label.getPackageIdentifier());

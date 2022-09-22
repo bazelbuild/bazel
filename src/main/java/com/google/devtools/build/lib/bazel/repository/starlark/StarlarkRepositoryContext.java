@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
@@ -125,7 +126,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
 
   @Override
   protected String getIdentifyingStringForLogging() {
-    return "repository " + repoName.getNameWithAt();
+    return RepositoryFetchProgress.repositoryFetchContextString(repoName);
   }
 
   @StarlarkMethod(
@@ -181,46 +182,51 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       useStarlarkThread = true,
       parameters = {
         @Param(
-            name = "from",
+            name = "target",
             allowedTypes = {
               @ParamType(type = String.class),
               @ParamType(type = Label.class),
               @ParamType(type = StarlarkPath.class)
             },
-            doc = "path to which the created symlink should point to."),
+            doc = "The path that the symlink should point to."),
         @Param(
-            name = "to",
+            name = "link_name",
             allowedTypes = {
               @ParamType(type = String.class),
               @ParamType(type = Label.class),
               @ParamType(type = StarlarkPath.class)
             },
-            doc = "path of the symlink to create, relative to the repository directory."),
+            doc = "The path of the symlink to create, relative to the repository directory."),
       })
-  public void symlink(Object from, Object to, StarlarkThread thread)
+  public void symlink(Object target, Object linkName, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath fromPath = getPath("symlink()", from);
-    StarlarkPath toPath = getPath("symlink()", to);
+    StarlarkPath targetPath = getPath("symlink()", target);
+    StarlarkPath linkPath = getPath("symlink()", linkName);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newSymlinkEvent(
-            fromPath.toString(),
-            toPath.toString(),
+            targetPath.toString(),
+            linkPath.toString(),
             getIdentifyingStringForLogging(),
             thread.getCallerLocation());
     env.getListener().post(w);
     try {
-      checkInOutputDirectory("write", toPath);
-      makeDirectories(toPath.getPath());
-      toPath.getPath().createSymbolicLink(fromPath.getPath());
+      checkInOutputDirectory("write", linkPath);
+      makeDirectories(linkPath.getPath());
+      linkPath.getPath().createSymbolicLink(targetPath.getPath());
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
-              "Could not create symlink from " + fromPath + " to " + toPath + ": " + e.getMessage(),
+              "Could not create symlink from "
+                  + targetPath
+                  + " to "
+                  + linkPath
+                  + ": "
+                  + e.getMessage(),
               e),
           Transience.TRANSIENT);
     } catch (InvalidPathException e) {
       throw new RepositoryFunctionException(
-          Starlark.errorf("Could not create %s: %s", toPath, e.getMessage()),
+          Starlark.errorf("Could not create %s: %s", linkPath, e.getMessage()),
           Transience.PERSISTENT);
     }
   }

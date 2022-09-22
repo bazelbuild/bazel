@@ -19,6 +19,10 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFr
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.CqueryProcessor;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
@@ -31,10 +35,14 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -105,6 +113,26 @@ public final class CqueryCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+    TargetPattern.Parser mainRepoTargetParser;
+    try {
+      RepositoryMapping repoMapping =
+          env.getSkyframeExecutor()
+              .getMainRepoMapping(
+                  env.getOptions().getOptions(KeepGoingOption.class).keepGoing,
+                  env.getOptions().getOptions(LoadingPhaseThreadsOption.class).threads,
+                  env.getReporter());
+      mainRepoTargetParser =
+          new Parser(env.getRelativeWorkingDirectory(), RepositoryName.MAIN, repoMapping);
+    } catch (RepositoryMappingResolutionException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+    } catch (InterruptedException e) {
+      String errorMessage = "Fetch interrupted: " + e.getMessage();
+      env.getReporter().handle(Event.error(errorMessage));
+      return BlazeCommandResult.detailedExitCode(
+          InterruptedFailureDetails.detailedExitCode(errorMessage));
+    }
+
     if (options.getResidue().isEmpty()) {
       String message =
           "Missing query expression. Use the 'help cquery' command for syntax and help.";
@@ -151,7 +179,7 @@ public final class CqueryCommand implements BlazeCommand {
             .setReportIncompatibleTargets(false)
             .build();
     DetailedExitCode detailedExitCode =
-        new BuildTool(env, new CqueryProcessor(expr))
+        new BuildTool(env, new CqueryProcessor(expr, mainRepoTargetParser))
             .processRequest(request, null)
             .getDetailedExitCode();
     return BlazeCommandResult.detailedExitCode(detailedExitCode);

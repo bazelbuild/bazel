@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.LocalPathOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
@@ -222,11 +223,23 @@ public class BazelRepositoryModule extends BlazeModule {
             //   - The canonical name "local_config_platform" is hardcoded in Bazel code.
             //     See {@link PlatformOptions}
             "local_config_platform",
-            (RepositoryName repoName) ->
-                RepoSpec.builder()
+            new NonRegistryOverride() {
+              @Override
+              public RepoSpec getRepoSpec(RepositoryName repoName) {
+                return RepoSpec.builder()
                     .setRuleClassName("local_config_platform")
                     .setAttributes(ImmutableMap.of("name", repoName.getName()))
-                    .build());
+                    .build();
+              }
+
+              @Override
+              public ResolutionReason getResolutionReason() {
+                // NOTE: It is not exactly a LOCAL_PATH_OVERRIDE, but there is no inspection
+                // ResolutionReason for builtin modules
+                return ResolutionReason.LOCAL_PATH_OVERRIDE;
+              }
+            });
+
     builder
         .addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, repositoryDelegatorFunction)
         .addSkyFunction(

@@ -271,14 +271,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       resetEvaluator();
       evaluatorNeedsReset = false;
     }
-    super.sync(
-        eventHandler,
-        packageLocator,
-        commandId,
-        clientEnv,
-        repoEnvOption,
-        tsgm,
-        options);
+    super.sync(eventHandler, packageLocator, commandId, clientEnv, repoEnvOption, tsgm, options);
     long startTime = System.nanoTime();
     WorkspaceInfoFromDiff workspaceInfo = handleDiffs(eventHandler, options);
     long stopTime = System.nanoTime();
@@ -372,8 +365,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Nullable
   private WorkspaceInfoFromDiff handleDiffs(
-      ExtendedEventHandler eventHandler,
-      OptionsProvider options)
+      ExtendedEventHandler eventHandler, OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     TimestampGranularityMonitor tsgm = this.tsgm.get();
     modifiedFiles.set(0);
@@ -738,10 +730,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     Differencer.Diff diff;
     if (modifiedFileSet.treatEverythingAsModified()) {
       diff =
-          new FilesystemValueChecker(
-                  tsgm,
-                  perCommandSyscallCache,
-                  /*numThreads=*/ 200)
+          new FilesystemValueChecker(tsgm, perCommandSyscallCache, /*numThreads=*/ 200)
               .getDirtyKeys(memoizingEvaluator.getValues(), new BasicFilesystemDirtinessChecker());
     } else {
       diff = getDiff(tsgm, modifiedFileSet, pathEntry, /* fsvcThreads= */ 200);
@@ -768,9 +757,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     long startTime = System.nanoTime();
     FilesystemValueChecker fsvc =
         new FilesystemValueChecker(
-            Preconditions.checkNotNull(tsgm.get()),
-            perCommandSyscallCache,
-            fsvcThreads);
+            Preconditions.checkNotNull(tsgm.get()), perCommandSyscallCache, fsvcThreads);
     BatchStat batchStatter = outputService == null ? null : outputService.getBatchStatter();
     recordingDiffer.invalidate(
         fsvc.getDirtyActionValues(

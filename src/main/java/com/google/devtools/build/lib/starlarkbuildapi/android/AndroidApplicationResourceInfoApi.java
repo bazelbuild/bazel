@@ -236,6 +236,15 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
               doc = "",
               defaultValue = "None"),
           @Param(name = "should_compile_java_srcs", named = true, doc = "", defaultValue = "True"),
+          @Param(
+              name = "native_libs",
+              allowedTypes = {
+                @ParamType(type = StructApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              doc = "",
+              defaultValue = "None"),
         },
         selfCall = true)
     @StarlarkConstructor
@@ -250,7 +259,8 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
         Object resourcesZip,
         Object databindingLayoutInfoZip,
         Object buildStampJar,
-        boolean shouldCompileJava)
+        boolean shouldCompileJava,
+        Object nativeLibs)
         throws EvalException;
   }
 }

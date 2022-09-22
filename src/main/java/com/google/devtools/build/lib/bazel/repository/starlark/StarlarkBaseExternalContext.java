@@ -154,9 +154,9 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
    * authentication, adding those headers is enough; for other forms of authentication other
    * measures might be necessary.
    */
-  private static ImmutableMap<URI, Map<String, String>> getAuthHeaders(Map<String, Dict<?, ?>> auth)
-      throws RepositoryFunctionException, EvalException {
-    ImmutableMap.Builder<URI, Map<String, String>> headers = new ImmutableMap.Builder<>();
+  private static ImmutableMap<URI, Map<String, List<String>>> getAuthHeaders(
+      Map<String, Dict<?, ?>> auth) throws RepositoryFunctionException, EvalException {
+    ImmutableMap.Builder<URI, Map<String, List<String>>> headers = new ImmutableMap.Builder<>();
     for (Map.Entry<String, Dict<?, ?>> entry : auth.entrySet()) {
       try {
         URL url = new URL(entry.getKey());
@@ -174,7 +174,9 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
                 url.toURI(),
                 ImmutableMap.of(
                     "Authorization",
-                    "Basic " + Base64.getEncoder().encodeToString(credentials.getBytes(UTF_8))));
+                    ImmutableList.of(
+                        "Basic "
+                            + Base64.getEncoder().encodeToString(credentials.getBytes(UTF_8)))));
           } else if ("pattern".equals(authMap.get("type"))) {
             if (!authMap.containsKey("pattern")) {
               throw Starlark.errorf(
@@ -201,7 +203,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               result = result.replaceAll(demarcatedComponent, (String) authMap.get(component));
             }
 
-            headers.put(url.toURI(), ImmutableMap.of("Authorization", result));
+            headers.put(url.toURI(), ImmutableMap.of("Authorization", ImmutableList.of(result)));
           }
         }
       } catch (MalformedURLException e) {
@@ -445,7 +447,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       String integrity,
       StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    ImmutableMap<URI, Map<String, String>> authHeaders =
+    ImmutableMap<URI, Map<String, List<String>>> authHeaders =
         getAuthHeaders(getAuthContents(authUnchecked, "auth"));
 
     ImmutableList<URL> urls =
@@ -634,7 +636,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       Dict<?, ?> renameFiles, // <String, String> expected
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
-    ImmutableMap<URI, Map<String, String>> authHeaders =
+    ImmutableMap<URI, Map<String, List<String>>> authHeaders =
         getAuthHeaders(getAuthContents(auth, "auth"));
 
     ImmutableList<URL> urls =

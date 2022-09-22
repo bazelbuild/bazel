@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.FlagGuardedValue;
+import net.starlark.java.eval.GuardedValue;
 import net.starlark.java.eval.Starlark;
 
 // TODO(adonovan): move skyframe.PackageFunction into lib.packages so we needn't expose this and
@@ -226,8 +226,8 @@ public final class BazelStarlarkEnvironment {
     Map<String, Object> unwrappedBuildBzlSymbols = new HashMap<>();
     for (Map.Entry<String, Object> entry : uninjectedBuildBzlEnv.entrySet()) {
       Object symbol = entry.getValue();
-      if (symbol instanceof FlagGuardedValue) {
-        symbol = ((FlagGuardedValue) symbol).getObject();
+      if (symbol instanceof GuardedValue) {
+        symbol = ((GuardedValue) symbol).getObject();
       }
       unwrappedBuildBzlSymbols.put(entry.getKey(), symbol);
     }

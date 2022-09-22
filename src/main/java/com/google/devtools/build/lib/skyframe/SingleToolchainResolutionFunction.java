@@ -181,6 +181,14 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       for (ConfiguredTargetKey executionPlatformKey : availableExecutionPlatformKeys) {
         // Only check the toolchains if this is a new platform.
         if (platformKeysSeen.contains(executionPlatformKey)) {
+          debugMessage(
+              eventHandler,
+              "    Type %s: target platform %s: execution platform %s: Skipping toolchain %s;"
+                  + " execution platform already has selected toolchain",
+              toolchainType.toolchainType(),
+              targetPlatform.label(),
+              executionPlatformKey.getLabel(),
+              toolchain.toolchainLabel());
           continue;
         }
 

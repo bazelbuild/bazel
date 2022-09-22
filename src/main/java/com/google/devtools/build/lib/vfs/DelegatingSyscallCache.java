@@ -53,6 +53,11 @@ public class DelegatingSyscallCache implements SyscallCache {
   }
 
   @Override
+  public byte[] getxattr(Path path, String xattrName, Symlinks followSymlinks) throws IOException {
+    return delegate.getxattr(path, xattrName, followSymlinks);
+  }
+
+  @Override
   public void noteAnalysisPhaseEnded() {
     delegate.noteAnalysisPhaseEnded();
   }
@@ -60,5 +65,10 @@ public class DelegatingSyscallCache implements SyscallCache {
   @Override
   public void clear() {
     delegate.clear();
+  }
+
+  /** Returns the delegate {@link SyscallCache}. */
+  public SyscallCache getDelegate() {
+    return delegate;
   }
 }

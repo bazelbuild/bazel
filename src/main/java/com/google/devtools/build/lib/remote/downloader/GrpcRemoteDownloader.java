@@ -23,6 +23,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
@@ -106,7 +107,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   @Override
   public void download(
       List<URL> urls,
-      Map<URI, Map<String, String>> authHeaders,
+      Map<URI, Map<String, List<String>>> authHeaders,
       com.google.common.base.Optional<Checksum> checksum,
       String canonicalId,
       Path destination,
@@ -148,7 +149,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   static FetchBlobRequest newFetchBlobRequest(
       String instanceName,
       List<URL> urls,
-      Map<URI, Map<String, String>> authHeaders,
+      Map<URI, Map<String, List<String>>> authHeaders,
       com.google.common.base.Optional<Checksum> checksum,
       String canonicalId) {
     FetchBlobRequest.Builder requestBuilder =
@@ -197,13 +198,17 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     return out;
   }
 
-  private static String authHeadersJson(Map<URI, Map<String, String>> authHeaders) {
+  private static String authHeadersJson(Map<URI, Map<String, List<String>>> authHeaders) {
     Map<String, JsonObject> subObjects = new TreeMap<>();
-    for (Map.Entry<URI, Map<String, String>> entry : authHeaders.entrySet()) {
+    for (Map.Entry<URI, Map<String, List<String>>> entry : authHeaders.entrySet()) {
       JsonObject subObject = new JsonObject();
-      Map<String, String> orderedHeaders = new TreeMap<>(entry.getValue());
-      for (Map.Entry<String, String> subEntry : orderedHeaders.entrySet()) {
-        subObject.addProperty(subEntry.getKey(), subEntry.getValue());
+      Map<String, List<String>> orderedHeaders = new TreeMap<>(entry.getValue());
+      for (Map.Entry<String, List<String>> subEntry : orderedHeaders.entrySet()) {
+        // TODO(yannic): Introduce incompatible flag for including all headers, not just the first.
+        String value = Iterables.getFirst(subEntry.getValue(), null);
+        if (value != null) {
+          subObject.addProperty(subEntry.getKey(), value);
+        }
       }
       subObjects.put(entry.getKey().toString(), subObject);
     }

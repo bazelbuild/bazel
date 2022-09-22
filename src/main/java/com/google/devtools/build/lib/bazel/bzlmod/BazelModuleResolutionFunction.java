@@ -19,10 +19,14 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableTable;
+import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.bazel.BazelVersion;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.Selection.SelectionResult;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
@@ -75,9 +79,38 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     }
     ImmutableMap<ModuleKey, Module> resolvedDepGraph = selectionResult.getResolvedDepGraph();
 
+    // TODO(salmasamy) add flag to ignore version compatability check
+    try {
+      checkCompatibility(resolvedDepGraph.values());
+    } catch (ExternalDepsException e) {
+      throw new BazelModuleResolutionFunctionException(e, Transience.PERSISTENT);
+    }
+
     verifyRootModuleDirectDepsAreAccurate(
         env, initialDepGraph.get(ModuleKey.ROOT), resolvedDepGraph.get(ModuleKey.ROOT));
     return createValue(resolvedDepGraph, selectionResult.getUnprunedDepGraph(), overrides);
+  }
+
+  public static void checkCompatibility(ImmutableCollection<Module> modules)
+      throws ExternalDepsException {
+    String currentBazelVersion = BlazeVersionInfo.instance().getVersion();
+    if (Strings.isNullOrEmpty(currentBazelVersion)) {
+      return;
+    }
+
+    BazelVersion curVersion = BazelVersion.parse(currentBazelVersion);
+    for (Module module : modules) {
+      for (String compatVersion : module.getBazelCompatibility()) {
+        if (!curVersion.satisfiesCompatibility(compatVersion)) {
+          throw ExternalDepsException.withMessage(
+              Code.VERSION_RESOLUTION_ERROR,
+              "Bazel version %s is not compatible with module {%s -> bazel_compatability: %s}",
+              curVersion.getOriginal(),
+              module.getName(),
+              compatVersion);
+        }
+      }
+    }
   }
 
   private static void verifyRootModuleDirectDepsAreAccurate(

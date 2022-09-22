@@ -184,7 +184,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file("foo/BUILD", "load(':rule.bzl', 'gen')", "gen(name = 'a')");
 
     update("//foo:a");
-    assertContainsEvent("DEBUG /workspace/foo/rule.bzl:3:8: f owner is //foo:a");
+    assertContainsEvent("DEBUG /workspace/foo/rule.bzl:3:8: f owner is @//foo:a");
   }
 
   @Test

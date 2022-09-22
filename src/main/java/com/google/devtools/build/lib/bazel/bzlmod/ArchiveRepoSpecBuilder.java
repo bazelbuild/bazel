@@ -62,6 +62,12 @@ public class ArchiveRepoSpecBuilder {
   }
 
   @CanIgnoreReturnValue
+  public ArchiveRepoSpecBuilder setPatchCmds(ImmutableList<String> patchCmds) {
+    attrBuilder.put("patch_cmds", patchCmds);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setPatchStrip(int patchStrip) {
     attrBuilder.put("patch_args", ImmutableList.of("-p" + patchStrip));
     return this;

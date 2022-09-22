@@ -19,11 +19,14 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -53,6 +56,8 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   private Artifact pythonSourceFile;
   private Path buildFilePath;
   private Artifact buildFile;
+  private Artifact relativeSymlink;
+  private Artifact absoluteSymlink;
 
   private Path manifestOutputPath;
   private Artifact manifestOutputFile;
@@ -75,8 +80,26 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     fakeManifest.put(pythonSourcePath.relativeTo(rootDirectory), pythonSourceFile);
     ArtifactRoot outputDir =
         ArtifactRoot.asDerivedRoot(rootDirectory, RootType.Output, "blaze-output");
+    outputDir.getRoot().asPath().createDirectoryAndParents();
     manifestOutputPath = rootDirectory.getRelative("blaze-output/trivial.runfiles_manifest");
     manifestOutputFile = ActionsTestUtil.createArtifact(outputDir, manifestOutputPath);
+
+    Path relativeSymlinkPath = outputDir.getRoot().asPath().getChild("relative_symlink");
+    relativeSymlinkPath.createSymbolicLink(PathFragment.create("../some/relative/path"));
+    relativeSymlink =
+        SpecialArtifact.create(
+            outputDir,
+            outputDir.getExecPath().getChild("relative_symlink"),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER,
+            SpecialArtifactType.UNRESOLVED_SYMLINK);
+    Path absoluteSymlinkPath = outputDir.getRoot().asPath().getChild("absolute_symlink");
+    absoluteSymlinkPath.createSymbolicLink(PathFragment.create("/absolute/path"));
+    absoluteSymlink =
+        SpecialArtifact.create(
+            outputDir,
+            outputDir.getExecPath().getChild("absolute_symlink"),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER,
+            SpecialArtifactType.UNRESOLVED_SYMLINK);
   }
 
   private SourceManifestAction createSymlinkAction() {
@@ -297,6 +320,35 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
                 .build());
 
     assertThat(computeKey(action2)).isNotEqualTo(computeKey(action1));
+  }
+
+  @Test
+  public void testUnresolvedSymlink() throws Exception {
+    Artifact manifest = getBinArtifactWithNoOwner("manifest1");
+
+    SourceManifestAction action =
+        new SourceManifestAction(
+            ManifestType.SOURCE_SYMLINKS,
+            NULL_ACTION_OWNER,
+            manifest,
+            new Runfiles.Builder("TESTING", false)
+                .addArtifact(absoluteSymlink)
+                .addArtifact(buildFile)
+                .addArtifact(relativeSymlink)
+                .build());
+
+    NestedSet<Artifact> inputs = action.getInputs();
+    assertThat(inputs.toList()).containsExactly(absoluteSymlink, relativeSymlink);
+
+    // Verify that the return value of getInputs is cached.
+    assertThat(inputs).isEqualTo(action.getInputs());
+    assertThat(inputs.toList()).isEqualTo(action.getInputs().toList());
+
+    assertThat(action.getFileContentsAsString(reporter))
+        .isEqualTo(
+            "TESTING/BUILD /workspace/trivial/BUILD\n"
+                + "TESTING/absolute_symlink /absolute/path\n"
+                + "TESTING/relative_symlink ../some/relative/path\n");
   }
 
   private String computeKey(SourceManifestAction action) {

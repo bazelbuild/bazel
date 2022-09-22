@@ -43,6 +43,11 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
     return INTERNER.intern(new PackageIdentifier(repository, pkgName));
   }
 
+  /** Creates {@code PackageIdentifier} from a known-valid string. */
+  public static PackageIdentifier createUnchecked(String repository, String pkgName) {
+    return create(RepositoryName.createUnvalidated(repository), PathFragment.create(pkgName));
+  }
+
   public static final PackageIdentifier EMPTY_PACKAGE_ID =
       createInMainRepo(PathFragment.EMPTY_FRAGMENT);
 

@@ -54,7 +54,7 @@ def _perform_error_checks(
         fail("'shared_library' should be specified when 'system_provided' is false")
 
     if (shared_library_artifact != None and
-        not cc_helper.is_shared_library_extension_valid(shared_library_artifact.basename)):
+        not cc_helper.is_valid_shared_library_artifact(shared_library_artifact)):
         fail("'shared_library' does not produce any cc_import shared_library files (expected .so, .dylib or .dll)")
 
 def _create_archive_action(

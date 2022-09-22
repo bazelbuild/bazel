@@ -175,16 +175,16 @@ EOF
 
   # Only aspect_a is applied on target_with_a because its "provided" providers
   # do not macth aspect_b required providers.
-  expect_log "aspect_a runs on target //${package}:target_with_a"
-  expect_not_log "aspect_b runs on target //${package}:target_with_a"
+  expect_log "aspect_a runs on target @//${package}:target_with_a"
+  expect_not_log "aspect_b runs on target @//${package}:target_with_a"
 
   # Only aspect_a can run on target_with_a_indeps
-  expect_log "aspect_a runs on target //${package}:target_with_a_indeps"
-  expect_not_log "aspect_b runs on target //${package}:target_with_a_indeps"
+  expect_log "aspect_a runs on target @//${package}:target_with_a_indeps"
+  expect_not_log "aspect_b runs on target @//${package}:target_with_a_indeps"
 
   # Only aspect_b can run on target_with_bc
-  expect_not_log "aspect_a runs on target //${package}:target_with_bc"
-  expect_log "aspect_b runs on target //${package}:target_with_bc"
+  expect_not_log "aspect_a runs on target @//${package}:target_with_bc"
+  expect_log "aspect_b runs on target @//${package}:target_with_bc"
 
   # using --incompatible_top_level_aspects_require_providers, the top level
   # target rule's advertised providers will be checked and only aspect_a will be
@@ -196,17 +196,17 @@ EOF
       || fail "Build failed but should have succeeded"
 
   # Only aspect_a is applied on target_with_a
-  expect_log "aspect_a runs on target //${package}:target_with_a"
-  expect_not_log "aspect_b runs on target //${package}:target_with_a"
+  expect_log "aspect_a runs on target @//${package}:target_with_a"
+  expect_not_log "aspect_b runs on target @//${package}:target_with_a"
 
   # Only aspect_a can run on target_with_a_indeps
-  expect_log "aspect_a runs on target //${package}:target_with_a_indeps"
-  expect_not_log "aspect_b runs on target //${package}:target_with_a_indeps"
+  expect_log "aspect_a runs on target @//${package}:target_with_a_indeps"
+  expect_not_log "aspect_b runs on target @//${package}:target_with_a_indeps"
 
   # rule_with_bc advertised provides only match the required providers for
   # aspect_b, but aspect_b is not propagated from target_with_a
-  expect_not_log "aspect_a runs on target //${package}:target_with_bc"
-  expect_not_log "aspect_b runs on target //${package}:target_with_bc"
+  expect_not_log "aspect_a runs on target @//${package}:target_with_bc"
+  expect_not_log "aspect_b runs on target @//${package}:target_with_bc"
 }
 
 function test_aspect_required_providers_default_no_required_providers() {
@@ -268,10 +268,10 @@ EOF
 
   # my_aspect does not require any providers so it will be applied to all the
   # dependencies of main target
-  expect_log "my_aspect runs on target //${package}:target_without_providers"
-  expect_log "my_aspect runs on target //${package}:target_with_providers"
-  expect_log "my_aspect runs on target //${package}:target_with_providers_not_advertised"
-  expect_log "my_aspect runs on target //${package}:target_with_providers_indeps"
+  expect_log "my_aspect runs on target @//${package}:target_without_providers"
+  expect_log "my_aspect runs on target @//${package}:target_with_providers"
+  expect_log "my_aspect runs on target @//${package}:target_with_providers_not_advertised"
+  expect_log "my_aspect runs on target @//${package}:target_with_providers_indeps"
 }
 
 function test_aspect_required_providers_flat_set_of_required_providers() {
@@ -352,15 +352,15 @@ EOF
   # my_aspect will only be applied on target_with_ab and
   # target_with_ab_indeps_reached since their rule (rule_with_ab) is the only
   # rule that advertises the aspect required providers.
-  expect_log "my_aspect runs on target //${package}:target_with_ab"
-  expect_log "my_aspect runs on target //${package}:target_with_ab_indeps_reached"
-  expect_not_log "/^my_aspect runs on target //${package}:target_with_a$/"
-  expect_not_log "my_aspect runs on target //${package}:target_without_providers"
-  expect_not_log "my_aspect runs on target //${package}:target_with_ab_not_advertised"
+  expect_log "my_aspect runs on target @//${package}:target_with_ab"
+  expect_log "my_aspect runs on target @//${package}:target_with_ab_indeps_reached"
+  expect_not_log "/^my_aspect runs on target @//${package}:target_with_a$/"
+  expect_not_log "my_aspect runs on target @//${package}:target_without_providers"
+  expect_not_log "my_aspect runs on target @//${package}:target_with_ab_not_advertised"
 
   # my_aspect cannot be propagated to target_with_ab_indeps_not_reached
   # because it was not applied to its parent (target_with_a)
-  expect_not_log "my_aspect runs on target //${package}:target_with_ab_indeps_not_reached"
+  expect_not_log "my_aspect runs on target @//${package}:target_with_ab_indeps_not_reached"
 }
 
 function test_aspect_required_providers_with_list_of_required_providers_lists() {
@@ -453,16 +453,16 @@ EOF
   # my_aspect will only be applied on target_with_ab, target_wtih_c and
   # target_with_c_indeps_reached because their rules (rule_with_ab and
   # rule_with_c) are the only rules advertising the aspect required providers
-  expect_log "my_aspect runs on target //${package}:target_with_ab"
-  expect_log "my_aspect runs on target //${package}:target_with_c"
-  expect_log "my_aspect runs on target //${package}:target_with_c_indeps_reached"
-  expect_not_log "my_aspect runs on target //${package}:target_without_providers"
-  expect_not_log "/^my_aspect runs on target //${package}:target_with_a$/"
-  expect_not_log "my_aspect runs on target //${package}:target_with_ab_not_advertised"
+  expect_log "my_aspect runs on target @//${package}:target_with_ab"
+  expect_log "my_aspect runs on target @//${package}:target_with_c"
+  expect_log "my_aspect runs on target @//${package}:target_with_c_indeps_reached"
+  expect_not_log "my_aspect runs on target @//${package}:target_without_providers"
+  expect_not_log "/^my_aspect runs on target @//${package}:target_with_a$/"
+  expect_not_log "my_aspect runs on target @//${package}:target_with_ab_not_advertised"
 
   # my_aspect cannot be propagated to target_with_c_indeps_not_reached because it was
   # not applied to its parent (target_with_a)
-  expect_not_log "my_aspect runs on target //${package}:target_with_c_indeps_not_reached"
+  expect_not_log "my_aspect runs on target @//${package}:target_with_c_indeps_not_reached"
 }
 
 function test_aspects_propagating_other_aspects() {
@@ -536,12 +536,12 @@ EOF
   # dep_target_without_providers_1 and dep_target_with_prov_a but
   # required_aspect will only run on dep_target_with_prov_a because
   # it satisfies its required providers
-  expect_log "base_aspect runs on target //${package}:dep_target_with_prov_a"
-  expect_log "base_aspect runs on target //${package}:dep_target_without_providers_1"
-  expect_log "base_aspect runs on target //${package}:dep_target_without_providers"
-  expect_log "required_aspect runs on target //${package}:dep_target_with_prov_a"
-  expect_not_log "required_aspect runs on target //${package}:dep_target_without_providers_1"
-  expect_not_log "required_aspect runs on target //${package}:dep_target_without_providers/"
+  expect_log "base_aspect runs on target @//${package}:dep_target_with_prov_a"
+  expect_log "base_aspect runs on target @//${package}:dep_target_without_providers_1"
+  expect_log "base_aspect runs on target @//${package}:dep_target_without_providers"
+  expect_log "required_aspect runs on target @//${package}:dep_target_with_prov_a"
+  expect_not_log "required_aspect runs on target @//${package}:dep_target_without_providers_1"
+  expect_not_log "required_aspect runs on target @//${package}:dep_target_without_providers/"
 }
 
 function test_aspects_propagating_other_aspects_stack_of_required_aspects() {
@@ -615,12 +615,12 @@ EOF
   # Check that aspects: aspect_a, aspect_b, aspect_c were propagated to the
   # dependencies of target test: t and x when only aspect_a is specified
   # in the rule definition
-  expect_log_once "Aspect 'c' applied on target: //${package}:x"
-  expect_log_once "Aspect 'c' applied on target: //${package}:t"
-  expect_log_once "Aspect 'b' applied on target: //${package}:x"
-  expect_log_once "Aspect 'b' applied on target: //${package}:t"
-  expect_log_once "Aspect 'a' applied on target: //${package}:x"
-  expect_log_once "Aspect 'a' applied on target: //${package}:t"
+  expect_log_once "Aspect 'c' applied on target: @//${package}:x"
+  expect_log_once "Aspect 'c' applied on target: @//${package}:t"
+  expect_log_once "Aspect 'b' applied on target: @//${package}:x"
+  expect_log_once "Aspect 'b' applied on target: @//${package}:t"
+  expect_log_once "Aspect 'a' applied on target: @//${package}:x"
+  expect_log_once "Aspect 'a' applied on target: @//${package}:t"
 }
 
 function test_aspect_has_access_to_aspect_hints_attribute_in_native_rules() {
@@ -1034,12 +1034,12 @@ EOF
       --aspects_parameters="p3=p3_v3" \
       &> $TEST_log || fail "Build failed"
 
-  expect_log "aspect_a on target //test:main_target, p1 = p1_v1 and p3 = p3_v3"
-  expect_log "aspect_a on target //test:dep_target_1, p1 = p1_v1 and p3 = p3_v3"
-  expect_log "aspect_a on target //test:dep_target_2, p1 = p1_v1 and p3 = p3_v3"
-  expect_log "aspect_b on target //test:main_target, p1 = p1_v1 and p2 = p2_v2"
-  expect_log "aspect_b on target //test:dep_target_1, p1 = p1_v1 and p2 = p2_v2"
-  expect_log "aspect_b on target //test:dep_target_2, p1 = p1_v1 and p2 = p2_v2"
+  expect_log "aspect_a on target @//test:main_target, p1 = p1_v1 and p3 = p3_v3"
+  expect_log "aspect_a on target @//test:dep_target_1, p1 = p1_v1 and p3 = p3_v3"
+  expect_log "aspect_a on target @//test:dep_target_2, p1 = p1_v1 and p3 = p3_v3"
+  expect_log "aspect_b on target @//test:main_target, p1 = p1_v1 and p2 = p2_v2"
+  expect_log "aspect_b on target @//test:dep_target_1, p1 = p1_v1 and p2 = p2_v2"
+  expect_log "aspect_b on target @//test:dep_target_2, p1 = p1_v1 and p2 = p2_v2"
 }
 
 # aspect_a is propagated from command line on top level target main_target with
@@ -1087,9 +1087,9 @@ EOF
       --aspects_parameters="p=p_v1" \
       &> $TEST_log || fail "Build failed"
 
-  expect_log "aspect_a on target //test:main_target, p = p_v1"
-  expect_log "aspect_a on target //test:dep_target, p = p_v1"
-  expect_log "aspect_a on target //test:dep_target, p = p_v2"
+  expect_log "aspect_a on target @//test:main_target, p = p_v1"
+  expect_log "aspect_a on target @//test:dep_target, p = p_v1"
+  expect_log "aspect_a on target @//test:dep_target, p = p_v2"
 }
 
 function test_top_level_aspects_parameters_invalid_multiple_param_values() {

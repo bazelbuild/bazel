@@ -66,7 +66,14 @@ public class RepositoryMappingFunction implements SkyFunction {
         return RepositoryMappingValue.withMapping(
             RepositoryMapping.create(
                     ImmutableMap.of(
-                        StarlarkBuiltinsValue.BUILTINS_NAME, StarlarkBuiltinsValue.BUILTINS_REPO),
+                        StarlarkBuiltinsValue.BUILTINS_NAME,
+                        StarlarkBuiltinsValue.BUILTINS_REPO,
+                        // TODO(wyv): Google internal tests that have blzmod enabled fail because
+                        //  they try to access cpp tools targets in the main repo from inside the
+                        //  @_builtin repo. This is just a workaround and needs a proper way to
+                        //  inject this mapping for google internal tests only.
+                        "",
+                        RepositoryName.MAIN),
                     StarlarkBuiltinsValue.BUILTINS_REPO)
                 .withAdditionalMappings(bazelToolsMapping.getRepositoryMapping()));
       }

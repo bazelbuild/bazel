@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidApplicationResourceInfoApi;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /** A provider for Android resource APKs (".ap_") and related info. */
@@ -42,6 +43,7 @@ public class AndroidApplicationResourceInfo extends NativeInfo
   private final Artifact databindingLayoutInfoZip;
   private final Artifact buildStampJar;
   private final boolean shouldCompileJavaSrcs;
+  private final NativeLibs nativeLibs;
 
   AndroidApplicationResourceInfo(
       Artifact resourceApk,
@@ -54,7 +56,8 @@ public class AndroidApplicationResourceInfo extends NativeInfo
       Artifact resourcesZip,
       Artifact databindingLayoutInfoZip,
       Artifact buildStampJar,
-      boolean shouldCompileJavaSrcs) {
+      boolean shouldCompileJavaSrcs,
+      NativeLibs nativeLibs) {
     this.resourceApk = resourceApk;
     this.resourceJavaSrcJar = resourceJavaSrcJar;
     this.resourceJavaClassJar = resourceJavaClassJar;
@@ -66,6 +69,7 @@ public class AndroidApplicationResourceInfo extends NativeInfo
     this.databindingLayoutInfoZip = databindingLayoutInfoZip;
     this.buildStampJar = buildStampJar;
     this.shouldCompileJavaSrcs = shouldCompileJavaSrcs;
+    this.nativeLibs = nativeLibs;
   }
 
   @Override
@@ -134,6 +138,11 @@ public class AndroidApplicationResourceInfo extends NativeInfo
     return shouldCompileJavaSrcs;
   }
 
+  @Nullable
+  public NativeLibs getNativeLibs() {
+    return nativeLibs;
+  }
+
   /** Provider for {@link AndroidApplicationResourceInfo}. */
   public static class AndroidApplicationResourceInfoProvider
       extends BuiltinProvider<AndroidApplicationResourceInfo>
@@ -155,7 +164,8 @@ public class AndroidApplicationResourceInfo extends NativeInfo
         Object resourcesZip,
         Object databindingLayoutInfoZip,
         Object buildStampJar,
-        boolean shouldCompileJavaSrcs)
+        boolean shouldCompileJavaSrcs,
+        Object nativeLibs)
         throws EvalException {
 
       return new AndroidApplicationResourceInfo(
@@ -169,7 +179,8 @@ public class AndroidApplicationResourceInfo extends NativeInfo
           fromNoneable(resourcesZip, Artifact.class),
           fromNoneable(databindingLayoutInfoZip, Artifact.class),
           fromNoneable(buildStampJar, Artifact.class),
-          shouldCompileJavaSrcs);
+          shouldCompileJavaSrcs,
+          AndroidStarlarkData.getNativeLibs(nativeLibs));
     }
   }
 }

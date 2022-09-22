@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
@@ -83,8 +84,8 @@ public class PackageGroup implements Target {
     return packageSpecifications;
   }
 
-  public boolean contains(Package pkg) {
-    return packageSpecifications.containsPackage(pkg.getPackageIdentifier());
+  public boolean contains(PackageIdentifier pkgId) {
+    return packageSpecifications.containsPackage(pkgId);
   }
 
   public List<Label> getIncludes() {
@@ -110,7 +111,8 @@ public class PackageGroup implements Target {
     return label;
   }
 
-  @Override public String getName() {
+  @Override
+  public String getName() {
     return label.getName();
   }
 
@@ -136,7 +138,7 @@ public class PackageGroup implements Target {
 
   @Override
   public String toString() {
-   return targetKind() + " " + getLabel();
+    return targetKind() + " " + getLabel();
   }
 
   @Override

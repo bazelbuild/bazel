@@ -254,6 +254,11 @@ int ReadFromHandle(file_handle_type handle, void* data, size_t size,
 }
 
 bool ReadFile(const string& filename, string* content, int max_size) {
+  return ReadFile(filename, content, nullptr, max_size);
+}
+
+bool ReadFile(const string& filename, string* content, string* error_message,
+              int max_size) {
   if (IsDevNull(filename.c_str())) {
     // mimic read(2) behavior: we can always read 0 bytes from /dev/null
     content->clear();
@@ -265,8 +270,11 @@ bool ReadFile(const string& filename, string* content, int max_size) {
   std::string errorText;
   Path path = Path(filename, &errorText);
   if (!errorText.empty()) {
-    BAZEL_LOG(WARNING) << "Path is not valid: " << filename << " :"
-        << errorText;
+    std::string message = "Path is not valid: " + filename + " :" + errorText;
+    BAZEL_LOG(WARNING) << message;
+    if (error_message != nullptr) {
+      *error_message = std::move(message);
+    }
     return false;
   }
   return ReadFile(path, content, max_size);

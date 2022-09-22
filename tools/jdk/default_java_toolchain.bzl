@@ -82,7 +82,7 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
     ] + JDK9_JVM_OPTS,
     turbine_jvm_opts = [
         # Turbine is not a worker and parallel GC is faster for short-lived programs.
-        "-XX:+UseParallelOldGC",
+        "-XX:+UseParallelGC",
     ],
     java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
 )
@@ -117,7 +117,7 @@ PREBUILT_TOOLCHAIN_CONFIGURATION = dict(
     ] + JDK9_JVM_OPTS,
     turbine_jvm_opts = [
         # Turbine is not a worker and parallel GC is faster for short-lived programs.
-        "-XX:+UseParallelOldGC",
+        "-XX:+UseParallelGC",
     ],
     ijar = ["@bazel_tools//tools/jdk:ijar_prebuilt_binary"],
     singlejar = ["@bazel_tools//tools/jdk:prebuilt_singlejar"],
@@ -132,7 +132,7 @@ NONPREBUILT_TOOLCHAIN_CONFIGURATION = dict(
     ] + JDK9_JVM_OPTS,
     turbine_jvm_opts = [
         # Turbine is not a worker and parallel GC is faster for short-lived programs.
-        "-XX:+UseParallelOldGC",
+        "-XX:+UseParallelGC",
     ],
     ijar = ["@remote_java_tools//:ijar_cc_binary"],
     singlejar = ["@remote_java_tools//:singlejar_cc_bin"],

@@ -1221,7 +1221,7 @@ EOF
     2>"$TEST_log" || fail "Expected success"
   assert_contains "//$pkg:pylib.py:providers=.*FileProvider.*FilesToRunProvider.*LicensesProvider.*VisibilityProvider" \
     output
-  assert_contains "VisbilityProvider.label://$pkg:pylib.py" output
+  assert_contains "VisbilityProvider.label:@//$pkg:pylib.py" output
 }
 
 function test_starlark_output_providers_starlark_provider() {

@@ -64,13 +64,6 @@ function assert_content() {
   check_eq "$listing" "$(get_tar_listing $1)"
   check_eq "-rw-r--r--" "$(get_tar_permission $1 ./usr/titi)"
   check_eq "-rw-r--r--" "$(get_tar_permission $1 ./etc/nsswitch.conf)"
-  check_eq "42/24" "$(get_numeric_tar_owner $1 ./usr/)"
-  check_eq "42/24" "$(get_numeric_tar_owner $1 ./usr/titi)"
-  if [ -z "${2-}" ]; then
-    check_eq "titi/tata" "$(get_tar_owner $1 ./etc/)"
-    check_eq "titi/tata" "$(get_tar_owner $1 ./usr/)"
-    check_eq "titi/tata" "$(get_tar_owner $1 ./usr/titi)"
-  fi
 }
 
 function test_tar() {

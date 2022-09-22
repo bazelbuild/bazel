@@ -329,6 +329,10 @@ public interface SkyFunction {
      * <p>Such a SkyFunction cannot unconditionally return a value, since in --nokeep_going mode it
      * may be called upon to transform a lower-level exception. This method can tell it whether to
      * transform a dependency's exception or ignore it and return a value as usual.
+     *
+     * <p>An exception is with {@link
+     * com.google.devtools.build.lib.skyframe.BuildDriverFunction#checkActionConflicts}. See the
+     * documentation at the method for more details.
      */
     boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
 

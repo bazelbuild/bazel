@@ -185,7 +185,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
     // Find the matching condition and record its value (checking for duplicates).
     for (Map.Entry<Label, T> entry : selector.getEntries().entrySet()) {
       Label selectorKey = entry.getKey();
-      if (BuildType.Selector.isReservedLabel(selectorKey)) {
+      if (BuildType.Selector.isDefaultConditionLabel(selectorKey)) {
         continue;
       }
 

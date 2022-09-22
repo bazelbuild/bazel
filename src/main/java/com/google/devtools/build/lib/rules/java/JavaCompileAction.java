@@ -842,6 +842,18 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
               JavaCompileAction.this);
         }
         actionExecutionContext.getMetadataHandler().resetOutputs(getOutputs());
+
+        try {
+          actionExecutionContext.getFileOutErr().clearOut();
+          actionExecutionContext.getFileOutErr().clearErr();
+        } catch (IOException e) {
+          throw new EnvironmentalExecException(
+              e,
+              createFailureDetail(
+                  "Failed to clean reduced action stdout/stderr",
+                  Code.REDUCED_CLASSPATH_FALLBACK_CLEANUP_FAILURE));
+        }
+
         Spawn spawn;
         try {
           spawn = getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback=*/ true);

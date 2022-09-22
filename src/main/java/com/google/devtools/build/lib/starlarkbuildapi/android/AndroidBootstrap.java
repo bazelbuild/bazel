@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidApplicationResourceInfoApi.AndroidApplicationResourceInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDeviceBrokerInfoApi.AndroidDeviceBrokerInfoApiProvider;
@@ -23,11 +25,17 @@ import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidNativeLibsI
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidResourcesInfoApi.AndroidResourcesInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.ApkInfoApi.ApkInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 import java.util.Map;
 import net.starlark.java.eval.FlagGuardedValue;
 
 /** {@link Bootstrap} for Starlark objects related to Android rules. */
 public class AndroidBootstrap implements Bootstrap {
+  private static final ImmutableSet<PackageIdentifier> allowedRepositories =
+      ImmutableSet.of(
+          PackageIdentifier.createUnchecked("_builtins", ""),
+          PackageIdentifier.createUnchecked("rules_android", ""),
+          PackageIdentifier.createUnchecked("", "tools/build_defs/android"));
 
   private final AndroidStarlarkCommonApi<?, ?> androidCommon;
   private final ImmutableMap<String, Object> providers;
@@ -92,7 +100,12 @@ public class AndroidBootstrap implements Bootstrap {
     // Rationale: android_common module contains commonly used functions used outside of
     // the Android Starlark migration. Let's not break them without an incompatible
     // change process.
-    builder.put("android_common", androidCommon);
+    builder.put(
+        "android_common",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            androidCommon,
+            allowedRepositories));
 
     for (Map.Entry<String, Object> provider : providers.entrySet()) {
       builder.put(

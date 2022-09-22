@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import java.util.Comparator;
 
 /** A module name, version pair that identifies a module in the external dependency graph. */
 @AutoValue
@@ -41,6 +42,9 @@ public abstract class ModuleKey {
           RepositoryName.createUnvalidated("local_config_platform"));
 
   public static final ModuleKey ROOT = create("", Version.EMPTY);
+
+  public static final Comparator<ModuleKey> LEXICOGRAPHIC_COMPARATOR =
+      Comparator.comparing(ModuleKey::getName).thenComparing(ModuleKey::getVersion);
 
   public static ModuleKey create(String name, Version version) {
     return new AutoValue_ModuleKey(name, version);

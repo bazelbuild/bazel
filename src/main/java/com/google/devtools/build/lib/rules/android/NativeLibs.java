@@ -151,6 +151,14 @@ public final class NativeLibs {
     this.nativeLibsName = nativeLibsName;
   }
 
+  public static NativeLibs of(
+      ImmutableMap<String, NestedSet<Artifact>> nativeLibs, @Nullable Artifact nativeLibsName) {
+    if (nativeLibs.isEmpty()) {
+      return EMPTY;
+    }
+    return new NativeLibs(nativeLibs, nativeLibsName);
+  }
+
   /**
    * Returns a map from the name of the architecture (CPU folder to place the library in) to the
    * nested set of libraries for that architecture.

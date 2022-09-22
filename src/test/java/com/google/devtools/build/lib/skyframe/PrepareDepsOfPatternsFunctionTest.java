@@ -21,10 +21,18 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.bazel.bzlmod.Version;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -32,6 +40,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,6 +48,15 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction}. */
 @RunWith(JUnit4.class)
 public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
+
+  private Path moduleRoot;
+  private FakeRegistry registry;
+
+  @Before
+  public void setUpForBzlmod() throws Exception {
+    scratch.file("MODULE.bazel");
+    setBuildLanguageOptions("--enable_bzlmod");
+  }
 
   private static SkyKey getKeyForLabel(Label label) {
     // Note that these tests used to look for TargetMarker SkyKeys before TargetMarker was
@@ -192,6 +210,38 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     assertThat(exists(getKeyForLabel(Label.create("@//foo", "foo")), walkableGraph)).isTrue();
   }
 
+  @Test
+  public void testFunctionLoadsTargetFromExternalRepo() throws Exception {
+    writeBzlmodFiles();
+
+    // Given a target pattern sequence consisting of a single-target pattern for "//rinne",
+    ImmutableList<String> patternSequence = ImmutableList.of("//rinne");
+
+    // When PrepareDepsOfPatternsFunction successfully completes evaluation,
+    WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
+
+    // Then the graph contains a value for the target "@//rinne:rinne" and the dep
+    // "@@repo~1.0//a:x",
+    assertValidValue(walkableGraph, getKeyForLabel(Label.create("//rinne", "rinne")));
+    assertValidValue(walkableGraph, getKeyForLabel(Label.create("@repo~1.0//a", "x")));
+  }
+
+  @Override
+  protected ImmutableList<Injected> extraPrecomputedValues() {
+    try {
+      moduleRoot = scratch.dir("modules");
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+    registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
+    return ImmutableList.of(
+        PrecomputedValue.injected(
+            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
+  }
+
   // Helpers:
 
   private WalkableGraph getGraphFromPatternsEvaluation(ImmutableList<String> patternSequence)
@@ -252,6 +302,23 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
         "    outs = ['out.txt'],",
         "    cmd = 'touch $@')");
     scratch.file("bar/BUILD");
+  }
+
+  private void writeBzlmodFiles() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel", "bazel_dep(name= \"repo\", version=\"1.0\", repo_name=\"my_repo\")");
+    scratch.overwriteFile(
+        "rinne/BUILD",
+        "genrule(name = 'rinne',",
+        "    srcs = ['@my_repo//a:x'],",
+        "    outs = ['out.txt'],",
+        "    cmd = 'touch $@')");
+    registry.addModule(
+        ModuleKey.create("repo", Version.parse("1.0")),
+        "module(name = \"repo\", version = \"1.0\")");
+    scratch.file(moduleRoot.getRelative("repo~1.0/WORKSPACE").getPathString(), "");
+    scratch.file(
+        moduleRoot.getRelative("repo~1.0/a/BUILD").getPathString(), "exports_files(['x'])");
   }
 
   private static void assertValidValue(WalkableGraph graph, SkyKey key)

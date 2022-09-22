@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -51,6 +53,9 @@ import java.util.Objects;
 public class RepositoryMappingValue implements SkyValue {
   public static final Key KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS =
       Key.create(RepositoryName.MAIN, /*rootModuleShouldSeeWorkspaceRepos=*/ false);
+
+  public static final RepositoryMappingValue VALUE_FOR_ROOT_MODULE_WITHOUT_REPOS =
+      new RepositoryMappingValue(RepositoryMapping.ALWAYS_FALLBACK);
 
   private final RepositoryMapping repositoryMapping;
 
@@ -96,12 +101,12 @@ public class RepositoryMappingValue implements SkyValue {
 
   /** {@link SkyKey} for {@link RepositoryMappingValue}. */
   @AutoValue
-  abstract static class Key implements SkyKey {
+  public abstract static class Key implements SkyKey {
 
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
     /** The name of the repo to grab mappings for. */
-    abstract RepositoryName repoName();
+    public abstract RepositoryName repoName();
 
     /**
      * Whether the root module should see repos defined in WORKSPACE. This only takes effect when
@@ -118,6 +123,41 @@ public class RepositoryMappingValue implements SkyValue {
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.REPOSITORY_MAPPING;
+    }
+  }
+
+  /**
+   * Exception thrown where the RepositoryMappingValue is requested and its computation fails for
+   * any reason.
+   */
+  public static class RepositoryMappingResolutionException extends Exception {
+
+    private final DetailedExitCode detailedExitCode;
+
+    public RepositoryMappingResolutionException(DetailedExitCode detailedExitCode) {
+      super(
+          String.format(
+              "Error computing the main repository mapping: %s",
+              detailedExitCode.getFailureDetail().getMessage()));
+      this.detailedExitCode = detailedExitCode;
+    }
+
+    public RepositoryMappingResolutionException(
+        DetailedExitCode detailedExitCode, Throwable cause) {
+      super(
+          String.format(
+              "Error computing the main repository mapping: %s",
+              detailedExitCode.getFailureDetail().getMessage()),
+          cause);
+      this.detailedExitCode = detailedExitCode;
+    }
+
+    public ExitCode getExitCode() {
+      return detailedExitCode.getExitCode();
+    }
+
+    public DetailedExitCode getDetailedExitCode() {
+      return detailedExitCode;
     }
   }
 }

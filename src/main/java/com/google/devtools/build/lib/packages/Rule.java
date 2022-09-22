@@ -611,7 +611,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   public ImmutableSortedSet<Label> getSortedLabels(DependencyFilter filter) {
     ImmutableSortedSet.Builder<Label> labels = ImmutableSortedSet.naturalOrder();
     AggregatingAttributeMapper.of(this)
-        .visitLabels(filter, (attribute, label) -> labels.add(label));
+        .visitLabels(filter, (Attribute attribute, Label label) -> labels.add(label));
     return labels.build();
   }
 

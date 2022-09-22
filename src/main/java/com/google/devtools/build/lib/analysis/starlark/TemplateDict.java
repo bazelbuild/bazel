@@ -101,32 +101,34 @@ public class TemplateDict implements TemplateDictApi {
 
     @Override
     public String getValue() throws EvalException {
-      StarlarkThread execThread =
-          new StarlarkThread(Mutability.create("expand_template"), semantics);
-      ImmutableList<?> values = valuesSet.toList();
-      List<String> parts = new ArrayList<>(values.size());
-      for (Object val : values) {
-        try {
-          Object ret =
-              Starlark.call(
-                  execThread,
-                  mapEach,
-                  /*args=*/ ImmutableList.of(val),
-                  /*kwargs=*/ ImmutableMap.of());
-          if (ret instanceof String) {
-            parts.add((String) ret);
-            continue;
+      try (Mutability mutability = Mutability.create("expand_template")) {
+        StarlarkThread execThread = new StarlarkThread(mutability, semantics);
+        ImmutableList<?> values = valuesSet.toList();
+        List<String> parts = new ArrayList<>(values.size());
+        for (Object val : values) {
+          try {
+            Object ret =
+                Starlark.call(
+                    execThread,
+                    mapEach,
+                    /*args=*/ ImmutableList.of(val),
+                    /*kwargs=*/ ImmutableMap.of());
+            if (ret instanceof String) {
+              parts.add((String) ret);
+              continue;
+            }
+            throw Starlark.errorf(
+                "Function provided to map_each must return a String, but returned type %s for key:"
+                    + " %s",
+                Starlark.type(ret), getKey());
+          } catch (InterruptedException e) {
+            // Report the error to the user, but the stack trace is not of use to them
+            throw Starlark.errorf(
+                "Could not evaluate substitution for %s: %s", val, e.getMessage());
           }
-          throw Starlark.errorf(
-              "Function provided to map_each must return a String, but returned type %s for key:"
-                  + " %s",
-              Starlark.type(ret), getKey());
-        } catch (InterruptedException e) {
-          // Report the error to the user, but the stack trace is not of use to them
-          throw Starlark.errorf("Could not evaluate substitution for %s: %s", val, e.getMessage());
         }
+        return Joiner.on(joinWith).join(parts);
       }
-      return Joiner.on(joinWith).join(parts);
     }
   }
 }

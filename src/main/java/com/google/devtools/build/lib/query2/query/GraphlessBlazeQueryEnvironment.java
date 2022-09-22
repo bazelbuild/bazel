@@ -18,6 +18,8 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -50,7 +52,6 @@ import com.google.devtools.build.lib.query2.engine.SamePkgDirectRdepsFunction;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -83,7 +84,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
   private static final int MAX_DEPTH_FULL_SCAN_LIMIT = 20;
   private final Map<String, Collection<Target>> resolvedTargetPatterns = new HashMap<>();
   private final TargetPatternPreloader targetPatternPreloader;
-  private final PathFragment relativeWorkingDirectory;
+  private final TargetPattern.Parser mainRepoTargetParser;
   @Nullable private final QueryTransitivePackagePreloader queryTransitivePackagePreloader;
   private final TargetProvider targetProvider;
   private final CachingPackageLocator cachingPackageLocator;
@@ -112,7 +113,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       TargetProvider targetProvider,
       CachingPackageLocator cachingPackageLocator,
       TargetPatternPreloader targetPatternPreloader,
-      PathFragment relativeWorkingDirectory,
+      Parser mainRepoTargetParser,
       boolean keepGoing,
       boolean strictScope,
       int loadingPhaseThreads,
@@ -122,7 +123,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       Iterable<QueryFunction> extraFunctions) {
     super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
     this.targetPatternPreloader = targetPatternPreloader;
-    this.relativeWorkingDirectory = relativeWorkingDirectory;
+    this.mainRepoTargetParser = mainRepoTargetParser;
     this.queryTransitivePackagePreloader = queryTransitivePackagePreloader;
     this.targetProvider = targetProvider;
     this.cachingPackageLocator = cachingPackageLocator;
@@ -499,7 +500,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     // being called from within a SkyFunction.
     resolvedTargetPatterns.putAll(
         targetPatternPreloader.preloadTargetPatterns(
-            eventHandler, relativeWorkingDirectory, patterns, keepGoing));
+            eventHandler, mainRepoTargetParser, patterns, keepGoing));
   }
 
   @Override

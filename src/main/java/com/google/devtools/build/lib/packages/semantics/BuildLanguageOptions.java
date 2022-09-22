@@ -54,14 +54,28 @@ import net.starlark.java.eval.StarlarkSemantics;
  *       entry to {@link BuildLanguageOptions}, then specify the identifier in {@link
  *       StarlarkMethod#enableOnlyWithFlag} or {@link StarlarkMethod#disableWithFlag}.
  * </ul>
- *
- * For both readability and correctness, the relative order of the options in all of these locations
- * must be kept consistent; to make it easy we use alphabetic order. The parts that need updating
- * are marked with the comment "<== Add new options here in alphabetic order ==>".
  */
 public final class BuildLanguageOptions extends OptionsBase {
 
-  // <== Add new options here in alphabetic order ==>
+  @Option(
+      name = "incompatible_stop_exporting_language_modules",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, certain language-specific modules (such as `cc_common`) are unavailable in"
+              + " user .bzl files and may only be called from their respective rules repositories.")
+  public boolean incompatibleStopExportingLanguageModules;
+
+  @Option(
+      name = "incompatible_remove_rule_name_parameter",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If set to true, `rule` can't be called with the `name` parameter.")
+  public boolean incompatibleRemoveRuleNameParameter;
 
   @Option(
       name = "incompatible_disallow_symlink_file_to_dir",
@@ -523,7 +537,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_unambiguous_label_stringification",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -623,7 +637,10 @@ public final class BuildLanguageOptions extends OptionsBase {
     // This function connects command-line flags to their corresponding StarlarkSemantics keys.
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
-            // <== Add new options here in alphabetic order ==>
+            .setBool(
+                INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+                incompatibleStopExportingLanguageModules)
+            .setBool(INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER, incompatibleRemoveRuleNameParameter)
             .setBool(
                 INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR, incompatibleDisallowSymlinkFileToDir)
             .setBool(EXPERIMENTAL_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
@@ -704,6 +721,10 @@ public final class BuildLanguageOptions extends OptionsBase {
   // (In principle, a key not associated with a command-line flag may be declared anywhere.)
 
   // booleans: the +/- prefix indicates the default value (true/false).
+  public static final String INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES =
+      "-incompatible_stop_exporting_language_modules";
+  public static final String INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER =
+      "-incompatible_remove_rule_name_parameter";
   public static final String INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR =
       "+incompatible_disallow_symlink_file_to_dir";
   public static final String EXPERIMENTAL_ALLOW_TAGS_PROPAGATION =
@@ -759,7 +780,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC =
       "-incompatible_use_cc_configure_from_rules";
   public static final String INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION =
-      "-incompatible_unambiguous_label_stringification";
+      "+incompatible_unambiguous_label_stringification";
   public static final String INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION =
       "-incompatible_visibility_private_attributes_at_definition";
   public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =

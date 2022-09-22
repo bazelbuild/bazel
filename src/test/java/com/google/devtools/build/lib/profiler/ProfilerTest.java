@@ -111,6 +111,7 @@ public final class ProfilerTest {
         /*collectTaskHistograms=*/ true,
         /*collectWorkerDataInProfiler=*/ false,
         /*collectLoadAverage=*/ false,
+        /*collectSystemNetworkUsage=*/ false,
         WorkerMetricsCollector.instance(),
         BugReporter.defaultInstance());
     return buffer;
@@ -132,6 +133,7 @@ public final class ProfilerTest {
         /*collectTaskHistograms=*/ true,
         /*collectWorkerDataInProfiler=*/ false,
         /*collectLoadAverage=*/ false,
+        /*collectSystemNetworkUsage=*/ false,
         WorkerMetricsCollector.instance(),
         BugReporter.defaultInstance());
   }
@@ -238,6 +240,7 @@ public final class ProfilerTest {
         /*collectTaskHistograms=*/ true,
         /*collectWorkerDataInProfiler=*/ false,
         /*collectLoadAverage=*/ false,
+        /*collectSystemNetworkUsage=*/ false,
         WorkerMetricsCollector.instance(),
         BugReporter.defaultInstance());
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "action task")) {
@@ -320,6 +323,7 @@ public final class ProfilerTest {
         /*collectTaskHistograms=*/ true,
         /*collectWorkerDataInProfiler=*/ true,
         /*collectLoadAverage=*/ false,
+        /*collectSystemNetworkUsage=*/ false,
         workerMetricsCollector,
         BugReporter.defaultInstance());
     Thread.sleep(400);
@@ -352,6 +356,7 @@ public final class ProfilerTest {
         /*collectTaskHistograms=*/ true,
         /*collectWorkerDataInProfiler=*/ false,
         /*collectLoadAverage=*/ false,
+        /*collectSystemNetworkUsage=*/ false,
         WorkerMetricsCollector.instance(),
         BugReporter.defaultInstance());
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
@@ -478,6 +483,7 @@ public final class ProfilerTest {
         /*collectTaskHistograms=*/ true,
         /*collectWorkerDataInProfiler=*/ false,
         /*collectLoadAverage=*/ false,
+        /*collectSystemNetworkUsage=*/ false,
         WorkerMetricsCollector.instance(),
         BugReporter.defaultInstance());
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
@@ -682,6 +688,7 @@ public final class ProfilerTest {
         /*collectTaskHistograms=*/ true,
         /*collectWorkerDataInProfiler=*/ false,
         /*collectLoadAverage=*/ false,
+        /*collectSystemNetworkUsage=*/ false,
         WorkerMetricsCollector.instance(),
         BugReporter.defaultInstance());
     profiler.logSimpleTask(badClock.nanoTime(), ProfilerTask.INFO, "some task");
@@ -744,6 +751,7 @@ public final class ProfilerTest {
         /*collectTaskHistograms=*/ true,
         /*collectWorkerDataInProfiler=*/ false,
         /*collectLoadAverage=*/ false,
+        /*collectSystemNetworkUsage=*/ false,
         WorkerMetricsCollector.instance(),
         BugReporter.defaultInstance());
     profiler.logSimpleTaskDuration(
@@ -776,6 +784,7 @@ public final class ProfilerTest {
         /*collectTaskHistograms=*/ true,
         /*collectWorkerDataInProfiler=*/ false,
         /*collectLoadAverage=*/ false,
+        /*collectSystemNetworkUsage=*/ false,
         WorkerMetricsCollector.instance(),
         BugReporter.defaultInstance());
     profiler.logSimpleTaskDuration(
@@ -803,6 +812,7 @@ public final class ProfilerTest {
         /*collectTaskHistograms=*/ true,
         /*collectWorkerDataInProfiler=*/ false,
         /*collectLoadAverage=*/ false,
+        /*collectSystemNetworkUsage=*/ false,
         WorkerMetricsCollector.instance(),
         BugReporter.defaultInstance());
     try (SilentCloseable c = profiler.profileAction(ProfilerTask.ACTION, "test", "foo.out", "")) {
@@ -838,6 +848,7 @@ public final class ProfilerTest {
         /*collectTaskHistograms=*/ true,
         /*collectWorkerDataInProfiler=*/ false,
         /*collectLoadAverage=*/ false,
+        /*collectSystemNetworkUsage=*/ false,
         WorkerMetricsCollector.instance(),
         BugReporter.defaultInstance());
     try (SilentCloseable c =
@@ -872,6 +883,7 @@ public final class ProfilerTest {
         /*collectTaskHistograms=*/ true,
         /*collectWorkerDataInProfiler=*/ false,
         /*collectLoadAverage=*/ false,
+        /*collectSystemNetworkUsage=*/ false,
         WorkerMetricsCollector.instance(),
         BugReporter.defaultInstance());
     long curTime = Profiler.nanoTimeMaybe();

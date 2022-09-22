@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
@@ -555,7 +556,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           String message = "command interrupted while computing main repo mapping";
           reporter.handle(Event.error(message));
           earlyExitCode = InterruptedFailureDetails.detailedExitCode(message);
-        } catch (AbruptExitException e) {
+        } catch (RepositoryMappingResolutionException e) {
           logger.atInfo().withCause(e).log("Error computing main repo mapping");
           reporter.handle(Event.error(e.getMessage()));
           earlyExitCode = e.getDetailedExitCode();

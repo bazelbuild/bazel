@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -165,6 +166,7 @@ public final class RuleContext extends TargetContext
   @Nullable private final ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
   private final ExecGroupCollection execGroupCollection;
   @Nullable private final RequiredConfigFragmentsProvider requiredConfigFragments;
+  @Nullable private final NestedSet<Package> transitivePackagesForRunfileRepoMappingManifest;
   private final List<Expander> makeVariableExpanders = new ArrayList<>();
 
   /** Map of exec group names to ActionOwners. */
@@ -222,6 +224,8 @@ public final class RuleContext extends TargetContext
     this.toolchainContexts = builder.toolchainContexts;
     this.execGroupCollection = execGroupCollection;
     this.requiredConfigFragments = builder.requiredConfigFragments;
+    this.transitivePackagesForRunfileRepoMappingManifest =
+        builder.transitivePackagesForRunfileRepoMappingManifest;
     this.starlarkThread = createStarlarkThread(builder.mutability); // uses above state
   }
 
@@ -1285,6 +1289,17 @@ public final class RuleContext extends TargetContext
     return merged == null ? requiredConfigFragments : merged.build();
   }
 
+  /**
+   * Returns the set of transitive packages. This is only intended to be used to create the repo
+   * mapping manifest for the runfiles tree. Can be null if transitive packages are not tracked (see
+   * {@link
+   * com.google.devtools.build.lib.skyframe.SkyframeExecutor#shouldStoreTransitivePackagesInLoadingAndAnalysis}).
+   */
+  @Nullable
+  public NestedSet<Package> getTransitivePackagesForRunfileRepoMappingManifest() {
+    return transitivePackagesForRunfileRepoMappingManifest;
+  }
+
   private boolean isUserDefinedMakeVariable(String makeVariable) {
     // User-defined make values may be set either in "--define foo=bar" or in a vardef in the rule's
     // package. Both are equivalent for these purposes, since in both cases setting
@@ -1651,6 +1666,7 @@ public final class RuleContext extends TargetContext
     private ExecGroupCollection.Builder execGroupCollectionBuilder;
     private ImmutableMap<String, String> rawExecProperties;
     @Nullable private RequiredConfigFragmentsProvider requiredConfigFragments;
+    @Nullable private NestedSet<Package> transitivePackagesForRunfileRepoMappingManifest;
 
     @VisibleForTesting
     public Builder(
@@ -1877,6 +1893,12 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setTransitivePackagesForRunfileRepoMappingManifest(
+        @Nullable NestedSet<Package> packages) {
+      this.transitivePackagesForRunfileRepoMappingManifest = packages;
+      return this;
+    }
 
     /** Determines and returns a map from attribute name to list of configured targets. */
     private ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> createTargetMap() {

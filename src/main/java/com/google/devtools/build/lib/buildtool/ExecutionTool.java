@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -85,6 +84,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -92,7 +92,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
+import com.google.devtools.build.lib.skyframe.IncrementalPackageRoots;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -244,49 +244,47 @@ public class ExecutionTool {
   /**
    * Sets up for execution.
    *
-   * <p>b/199053098: This method concentrates the setup steps for execution, which were previously
-   * scattered over several classes. We need this in order to merge analysis & execution phases.
-   * TODO(b/199053098): Minimize code duplication with the main code path. TODO(b/213040766): Write
-   * tests for these setup steps.
+   * <p>This method concentrates the setup steps for execution, which were previously scattered over
+   * several classes. We need this in order to merge analysis & execution phases.
+   *
+   * <p>TODO(b/213040766): Write tests for these setup steps.
    */
   public void prepareForExecution(UUID buildId)
-      throws AbruptExitException, BuildFailedException, InterruptedException {
+      throws AbruptExitException, BuildFailedException, InterruptedException,
+          InvalidConfigurationException {
     init();
-    BuildRequestOptions options = request.getBuildOptions();
+    BuildRequestOptions buildRequestOptions = request.getBuildOptions();
 
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
-    // TODO(b/199053098): Support symlink forest.
     List<Root> pkgPathEntries = env.getPackageLocator().getPathEntries();
-    Preconditions.checkState(
-        pkgPathEntries.size() == 1,
-        "--experimental_merged_skyframe_analysis_execution requires a single package path entry."
-            + " Found a list of size: %s",
-        pkgPathEntries.size());
+
+    // TODO(b/246324830): Support this.
+    if (pkgPathEntries.size() != 1) {
+      throw new InvalidConfigurationException(
+          "--experimental_merged_skyframe_analysis_execution requires a single package path"
+              + " entry. Found instead: "
+              + pkgPathEntries,
+          BuildConfiguration.Code.INVALID_BUILD_OPTIONS);
+    }
 
     try (SilentCloseable c = Profiler.instance().profile("preparingExecroot")) {
       Root singleSourceRoot = Iterables.getOnlyElement(pkgPathEntries);
-      PackageRoots noSymlinkPackageRoots = new PackageRootsNoSymlinkCreation(singleSourceRoot);
-      try {
-        SymlinkForest.eagerlyPlantSymlinkForestSinglePackagePath(
-            getExecRoot(),
-            singleSourceRoot.asPath(),
-            /*prefix=*/ env.getDirectories().getProductName() + "-",
-            request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
-      } catch (IOException e) {
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setMessage("Failed to prepare the symlink forest")
-                    .setSymlinkForest(
-                        FailureDetails.SymlinkForest.newBuilder()
-                            .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
-                    .build()),
-            e);
-      }
-      env.getEventBus().post(new ExecRootPreparedEvent(noSymlinkPackageRoots.getPackageRootsMap()));
+      IncrementalPackageRoots incrementalPackageRoots =
+          IncrementalPackageRoots.createAndRegisterToEventBus(
+              getExecRoot(),
+              singleSourceRoot,
+              env.getEventBus(),
+              env.getDirectories().getProductName() + "-",
+              request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
+      incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
+      skyframeExecutor.setIncrementalPackageRoots(incrementalPackageRoots);
+
+      // We don't plant the symlinks via the subscribers of this ExecRootPreparedEvent, but rather
+      // via IncrementalPackageRoots.
+      env.getEventBus().post(ExecRootPreparedEvent.NO_PACKAGE_ROOTS_MAP);
       env.getSkyframeBuildView()
           .getArtifactFactory()
-          .setPackageRoots(noSymlinkPackageRoots.getPackageRootLookup());
+          .setPackageRoots(incrementalPackageRoots.getPackageRootLookup());
     }
 
     OutputService outputService = env.getOutputService();
@@ -309,7 +307,7 @@ public class ExecutionTool {
     }
 
     ActionCache actionCache = null;
-    if (options.useActionCache) {
+    if (buildRequestOptions.useActionCache) {
       actionCache = getActionCache();
       actionCache.resetStatistics();
     }
@@ -319,11 +317,19 @@ public class ExecutionTool {
           (SkyframeBuilder)
               createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
     }
+
+    skyframeExecutor.drainChangedFiles();
+    boolean shouldTrustRemoteArtifacts =
+        env.getOutputService() != null && env.getOutputService().shouldTrustRemoteArtifacts();
+    skyframeExecutor.detectModifiedOutputFiles(
+        modifiedOutputFiles,
+        env.getBlazeWorkspace().getLastExecutionTimeRange(),
+        shouldTrustRemoteArtifacts,
+        buildRequestOptions.fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(
           skyframeBuilder.getFileCache(), skyframeBuilder.getActionInputPrefetcher());
     }
-    // TODO(b/199053098): Setup progress reporting objects in SkyframeActionExecutor.
     try (SilentCloseable c =
         Profiler.instance().profile("prepareSkyframeActionExecutorForExecution")) {
       skyframeExecutor.prepareSkyframeActionExecutorForExecution(
@@ -338,7 +344,6 @@ public class ExecutionTool {
         executorLifecycleListener.executionPhaseStarting(null, () -> null);
       }
     }
-
     try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
       configureResourceManager(env.getLocalResourceManager(), request);
     }

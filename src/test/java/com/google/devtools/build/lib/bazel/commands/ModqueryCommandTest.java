@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.commands;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -37,14 +38,23 @@ public class ModqueryCommandTest {
 
   public final ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex =
       ImmutableMap.of(
-          "A",
+          "aaa",
           ImmutableSet.of(ModuleKey.ROOT),
-          "B",
+          "bbb",
           ImmutableSet.of(
-              ModuleKey.create("B", Version.parse("1.0")),
-              ModuleKey.create("B", Version.parse("2.0"))),
-          "C",
-          ImmutableSet.of(ModuleKey.create("C", Version.EMPTY)));
+              ModuleKey.create("bbb", Version.parse("1.0")),
+              ModuleKey.create("bbb", Version.parse("1.5")),
+              ModuleKey.create("bbb", Version.parse("2.0"))),
+          "ccc",
+          ImmutableSet.of(ModuleKey.create("ccc", Version.EMPTY)));
+  public final ImmutableBiMap<String, ModuleKey> rootDeps =
+      ImmutableBiMap.of(
+          "bbb1",
+          ModuleKey.create("bbb", Version.parse("1.5")),
+          "bbb2",
+          ModuleKey.create("bbb", Version.parse("2.0")));
+  public final ImmutableBiMap<String, ModuleKey> rootUnusedDeps =
+      ImmutableBiMap.of("bbb1", ModuleKey.create("bbb", Version.parse("1.0")));
 
   public ModqueryCommandTest() throws ParseException {}
 
@@ -55,68 +65,133 @@ public class ModqueryCommandTest {
             InvalidArgumentException.class,
             () ->
                 ModqueryCommand.parseTargetArgs(
-                    ImmutableList.of(), QueryType.ALL_PATHS.getArgNumber(), modulesIndex));
+                    QueryType.ALL_PATHS.getArgNumber(),
+                    modulesIndex,
+                    ImmutableList.of(),
+                    rootDeps,
+                    rootUnusedDeps,
+                    false));
     assertThat(e.getCode()).isEqualTo(Code.MISSING_ARGUMENTS);
   }
 
   @Test
   public void testTreeNoArgs() throws InvalidArgumentException, OptionsParsingException {
-    ModqueryCommand.parseTargetArgs(
-        ImmutableList.of(), QueryType.TREE.getArgNumber(), modulesIndex);
+    var unused =
+        ModqueryCommand.parseTargetArgs(
+            QueryType.TREE.getArgNumber(),
+            modulesIndex,
+            ImmutableList.of(),
+            rootDeps,
+            rootUnusedDeps,
+            false);
   }
 
   @Test
   public void testTreeWithArgsThrowsTooManyArguments() {
-    ImmutableList<String> args = ImmutableList.of("A");
+    ImmutableList<String> args = ImmutableList.of("aaa");
     InvalidArgumentException e =
         assertThrows(
             InvalidArgumentException.class,
             () ->
-                ModqueryCommand.parseTargetArgs(args, QueryType.TREE.getArgNumber(), modulesIndex));
+                ModqueryCommand.parseTargetArgs(
+                    QueryType.TREE.getArgNumber(),
+                    modulesIndex,
+                    args,
+                    rootDeps,
+                    rootUnusedDeps,
+                    false));
     assertThat(e.getCode()).isEqualTo(Code.TOO_MANY_ARGUMENTS);
   }
 
   @Test
   public void testDepsArgWrongFormat_noVersion() {
-    ImmutableList<String> args = ImmutableList.of("A@");
+    ImmutableList<String> args = ImmutableList.of("aaa@");
     assertThrows(
         OptionsParsingException.class,
-        () -> ModqueryCommand.parseTargetArgs(args, QueryType.DEPS.getArgNumber(), modulesIndex));
+        () ->
+            ModqueryCommand.parseTargetArgs(
+                QueryType.DEPS.getArgNumber(),
+                modulesIndex,
+                args,
+                rootDeps,
+                rootUnusedDeps,
+                false));
   }
 
   @Test
   public void testDepsArgInvalid_missingModule() {
-    ImmutableList<String> args = ImmutableList.of("D");
+    ImmutableList<String> args = ImmutableList.of("ddd");
     InvalidArgumentException e =
         assertThrows(
             InvalidArgumentException.class,
             () ->
-                ModqueryCommand.parseTargetArgs(args, QueryType.DEPS.getArgNumber(), modulesIndex));
+                ModqueryCommand.parseTargetArgs(
+                    QueryType.DEPS.getArgNumber(),
+                    modulesIndex,
+                    args,
+                    rootDeps,
+                    rootUnusedDeps,
+                    false));
     assertThat(e.getCode()).isEqualTo(Code.INVALID_ARGUMENTS);
   }
 
   @Test
   public void testDepsArgInvalid_missingModuleVersion() {
-    ImmutableList<String> args = ImmutableList.of("B@3.0");
+    ImmutableList<String> args = ImmutableList.of("bbb@3.0");
     InvalidArgumentException e =
         assertThrows(
             InvalidArgumentException.class,
             () ->
-                ModqueryCommand.parseTargetArgs(args, QueryType.DEPS.getArgNumber(), modulesIndex));
+                ModqueryCommand.parseTargetArgs(
+                    QueryType.DEPS.getArgNumber(),
+                    modulesIndex,
+                    args,
+                    rootDeps,
+                    rootUnusedDeps,
+                    false));
     assertThat(e.getCode()).isEqualTo(Code.INVALID_ARGUMENTS);
   }
 
   @Test
   public void testDepsArgInvalid_invalidListFormat() {
-    ImmutableList<String> args = ImmutableList.of("B@1.0;B@2.0");
+    ImmutableList<String> args = ImmutableList.of("bbb@1.0;bbb@2.0");
     assertThrows(
         OptionsParsingException.class,
-        () -> ModqueryCommand.parseTargetArgs(args, QueryType.DEPS.getArgNumber(), modulesIndex));
+        () ->
+            ModqueryCommand.parseTargetArgs(
+                QueryType.DEPS.getArgNumber(),
+                modulesIndex,
+                args,
+                rootDeps,
+                rootUnusedDeps,
+                false));
   }
 
   @Test
   public void testDepsListArg_ok() throws InvalidArgumentException, OptionsParsingException {
-    ImmutableList<String> args = ImmutableList.of("A,B@1.0,B@2.0,C@_");
-    ModqueryCommand.parseTargetArgs(args, QueryType.DEPS.getArgNumber(), modulesIndex);
+    ImmutableList<String> args = ImmutableList.of("aaa,bbb@1.0,bbb@2.0,ccc@_");
+    var unused =
+        ModqueryCommand.parseTargetArgs(
+            QueryType.DEPS.getArgNumber(), modulesIndex, args, rootDeps, rootUnusedDeps, false);
+  }
+
+  @Test
+  public void testRepoNameArg_ok()
+      throws InvalidArgumentException, OptionsParsingException, ParseException {
+    ImmutableList<String> args = ImmutableList.of("bbb1");
+    ImmutableSet<ModuleKey> result =
+        ModqueryCommand.parseTargetArgs(
+                QueryType.DEPS.getArgNumber(), modulesIndex, args, rootDeps, rootUnusedDeps, false)
+            .get(0);
+    assertThat(result).containsExactly(ModuleKey.create("bbb", Version.parse("1.5")));
+
+    ImmutableSet<ModuleKey> resultUnused =
+        ModqueryCommand.parseTargetArgs(
+                QueryType.DEPS.getArgNumber(), modulesIndex, args, rootDeps, rootUnusedDeps, true)
+            .get(0);
+    assertThat(resultUnused)
+        .containsExactly(
+            ModuleKey.create("bbb", Version.parse("1.0")),
+            ModuleKey.create("bbb", Version.parse("1.5")));
   }
 }

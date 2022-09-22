@@ -47,7 +47,7 @@ public class DelegatingDownloader implements Downloader {
   @Override
   public void download(
       List<URL> urls,
-      Map<URI, Map<String, String>> authHeaders,
+      Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
       String canonicalId,
       Path destination,

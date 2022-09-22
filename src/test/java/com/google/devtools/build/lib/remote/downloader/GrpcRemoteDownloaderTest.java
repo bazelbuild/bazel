@@ -160,7 +160,7 @@ public class GrpcRemoteDownloaderTest {
       guavaChecksum = com.google.common.base.Optional.<Checksum>of(checksum.get());
     }
 
-    final Map<URI, Map<String, String>> authHeaders = ImmutableMap.of();
+    final ImmutableMap<URI, Map<String, List<String>>> authHeaders = ImmutableMap.of();
     final String canonicalId = "";
     final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
     final Map<String, String> clientEnv = ImmutableMap.of();
@@ -308,10 +308,10 @@ public class GrpcRemoteDownloaderTest {
             ImmutableMap.of(
                 new URI("http://example.com"),
                 ImmutableMap.of(
-                    "Some-Header", "some header content",
-                    "Another-Header", "another header content"),
+                    "Some-Header", ImmutableList.of("some header content"),
+                    "Another-Header", ImmutableList.of("another header content")),
                 new URI("http://example.org"),
-                ImmutableMap.of("Org-Header", "org header content")),
+                ImmutableMap.of("Org-Header", ImmutableList.of("org header content"))),
             com.google.common.base.Optional.<Checksum>of(
                 Checksum.fromSubresourceIntegrity(
                     "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")),
