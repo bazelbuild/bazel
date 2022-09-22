@@ -29,7 +29,7 @@ landing_page:
       buttons:
       - label: Learn more
         path: https://www.aspect.dev/
-        classname: button
+        classname: fully-clickable
     # Item 2
     - image_path: /community/images/buildbuddy-logo.svg
       heading: BuildBuddy
@@ -43,7 +43,7 @@ landing_page:
       buttons:
       - label: Learn more
         path: https://www.buildbuddy.io/
-        classname: button
+        classname: fully-clickable
     # Item 3
     - image_path: /community/images/codethink-logo.svg
       heading: Codethink
@@ -56,7 +56,7 @@ landing_page:
       buttons:
       - label: Learn more
         path: https://www.codethink.co.uk/
-        classname: button
+        classname: fully-clickable
     # Item 4
     - image_path: /community/images/engflow-logo.svg
       heading: EngFlow
@@ -69,7 +69,7 @@ landing_page:
       buttons:
       - label: Learn more
         path: https://www.engflow.com/
-        classname: button
+        classname: fully-clickable
     # Item 5
     - image_path: /community/images/epam-logo.png
       heading: EPAM
@@ -83,7 +83,7 @@ landing_page:
       buttons:
       - label: Learn more
         path: https://www.epam.com/
-        classname: button
+        classname: fully-clickable
     # Item 6
     - image_path: /community/images/flare-logo.png
       heading: Flare
@@ -96,7 +96,7 @@ landing_page:
       buttons:
       - label: Learn more
         path: https://flare.build/
-        classname: button
+        classname: fully-clickable
     # Item 7
     - image_path: /community/images/oasis-logo.png
       heading: Oasis Digital
@@ -109,7 +109,7 @@ landing_page:
       buttons:
       - label: Learn more
         path: https://oasisdigital.com/
-        classname: button
+        classname: fully-clickable
     # Item 8
     - image_path: /community/images/sumglobal-logo.png
       heading: SUM Global
@@ -122,7 +122,7 @@ landing_page:
       buttons:
       - label: Learn more
         path: http://sumglobal.com/bazel-build
-        classname: button
+        classname: fully-clickable
     # Item 9
     - image_path: /community/images/tweag-logo.png
       heading: Tweag
@@ -137,4 +137,4 @@ landing_page:
       buttons:
       - label: Learn more
         path: https://www.tweag.io/
-        classname: button
+        classname: fully-clickable
