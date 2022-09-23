@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -639,6 +640,10 @@ public final class RemoteModule extends BlazeModule {
             invocationId));
 
     if (enableRemoteDownloader) {
+      Downloader fallbackDownloader = null;
+      if (remoteOptions.remoteDownloaderLocalFallback) {
+        fallbackDownloader = new HttpDownloader();
+      }
       remoteDownloaderSupplier.set(
           new GrpcRemoteDownloader(
               buildRequestId,
@@ -647,7 +652,9 @@ public final class RemoteModule extends BlazeModule {
               Optional.ofNullable(credentials),
               retrier,
               cacheClient,
-              remoteOptions));
+              remoteOptions,
+              verboseFailures,
+              fallbackDownloader));
       downloaderChannel.release();
     }
   }
