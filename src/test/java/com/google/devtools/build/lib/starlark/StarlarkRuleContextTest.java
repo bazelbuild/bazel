@@ -149,6 +149,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         ")");
   }
 
+  @Before
+  public void setupStarlarkJavaBinary() throws Exception {
+    setBuildLanguageOptions("--experimental_google_legacy_api");
+  }
+
   private void setRuleContext(StarlarkRuleContext ctx) throws Exception {
     ev.update("ruleContext", ctx);
   }
