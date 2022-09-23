@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRep
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
-import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.concurrent.Executor;
@@ -223,11 +222,8 @@ final class RemoteActionContextProvider {
   }
 
   public void afterCommand() {
-    BlockWaitingModule blockWaitingModule =
-        checkNotNull(env.getRuntime().getBlazeModule(BlockWaitingModule.class));
-
     if (remoteExecutionService != null) {
-      blockWaitingModule.submit(() -> remoteExecutionService.shutdown());
+      remoteExecutionService.shutdown();
     } else {
       if (remoteCache != null) {
         remoteCache.release();
@@ -238,7 +234,7 @@ final class RemoteActionContextProvider {
     }
 
     if (actionInputFetcher != null) {
-      blockWaitingModule.submit(() -> actionInputFetcher.shutdown());
+      actionInputFetcher.shutdown();
     }
   }
 }

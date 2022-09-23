@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
@@ -74,6 +75,8 @@ import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -81,6 +84,7 @@ import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
@@ -120,17 +124,17 @@ public final class RemoteModule extends BlazeModule {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private AsynchronousFileOutputStream rpcLogFile;
-
   private final ListeningScheduledExecutorService retryScheduler =
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
-  private ExecutorService executorService;
-
-  private RemoteActionContextProvider actionContextProvider;
-  private RemoteActionInputFetcher actionInputFetcher;
-  private RemoteOptions remoteOptions;
-  private RemoteOutputService remoteOutputService;
+  @Nullable private AsynchronousFileOutputStream rpcLogFile;
+  @Nullable private ExecutorService executorService;
+  @Nullable private RemoteActionContextProvider actionContextProvider;
+  @Nullable private RemoteActionInputFetcher actionInputFetcher;
+  @Nullable private RemoteOptions remoteOptions;
+  @Nullable private RemoteOutputService remoteOutputService;
+  @Nullable private TempPathGenerator tempPathGenerator;
+  @Nullable private BlockWaitingModule blockWaitingModule;
 
   private ChannelFactory channelFactory =
       new ChannelFactory() {
@@ -250,10 +254,19 @@ public final class RemoteModule extends BlazeModule {
   }
 
   @Override
+  public void workspaceInit(
+      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+    Preconditions.checkState(blockWaitingModule == null, "blockWaitingModule must be null");
+    blockWaitingModule =
+        Preconditions.checkNotNull(runtime.getBlazeModule(BlockWaitingModule.class));
+  }
+
+  @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     Preconditions.checkState(actionContextProvider == null, "actionContextProvider must be null");
     Preconditions.checkState(actionInputFetcher == null, "actionInputFetcher must be null");
     Preconditions.checkState(remoteOptions == null, "remoteOptions must be null");
+    Preconditions.checkState(tempPathGenerator == null, "tempPathGenerator must be null");
 
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     if (remoteOptions == null) {
@@ -857,24 +870,16 @@ public final class RemoteModule extends BlazeModule {
 
   @Override
   public void afterCommand() throws AbruptExitException {
-    IOException failure = null;
-    Code failureCode = null;
-    String failureMessage = null;
+    Preconditions.checkNotNull(blockWaitingModule, "blockWaitingModule must not be null");
 
-    if (actionContextProvider != null) {
-      actionContextProvider.afterCommand();
-    }
+    // Some cleanup tasks must wait until every other BlazeModule's afterCommand() has run, as
+    // otherwise we might interfere with asynchronous remote downloads that are in progress.
+    RemoteActionContextProvider actionContextProviderRef = actionContextProvider;
+    TempPathGenerator tempPathGeneratorRef = tempPathGenerator;
+    AsynchronousFileOutputStream rpcLogFileRef = rpcLogFile;
+    blockWaitingModule.submit(
+        () -> afterCommandTask(actionContextProviderRef, tempPathGeneratorRef, rpcLogFileRef));
 
-    try {
-      closeRpcLogFile();
-    } catch (IOException e) {
-      failure = e;
-      failureCode = Code.RPC_LOG_FAILURE;
-      failureMessage = "Partially wrote rpc log file";
-      logger.atWarning().withCause(e).log("%s", failureMessage);
-    }
-
-    executorService = null;
     buildEventArtifactUploaderFactoryDelegate.reset();
     repositoryRemoteExecutorFactoryDelegate.reset();
     remoteDownloaderSupplier.set(null);
@@ -882,17 +887,37 @@ public final class RemoteModule extends BlazeModule {
     actionInputFetcher = null;
     remoteOptions = null;
     remoteOutputService = null;
-
-    if (failure != null) {
-      throw createExitException(failureMessage, ExitCode.LOCAL_ENVIRONMENTAL_ERROR, failureCode);
-    }
+    tempPathGenerator = null;
+    rpcLogFile = null;
   }
 
-  private void closeRpcLogFile() throws IOException {
+  private static void afterCommandTask(
+      RemoteActionContextProvider actionContextProvider,
+      TempPathGenerator tempPathGenerator,
+      AsynchronousFileOutputStream rpcLogFile)
+      throws AbruptExitException {
+    if (actionContextProvider != null) {
+      actionContextProvider.afterCommand();
+    }
+
+    if (tempPathGenerator != null) {
+      Path tempDir = tempPathGenerator.getTempDir();
+      try {
+        tempDir.deleteTree();
+      } catch (IOException ignored) {
+        // Intentionally ignored.
+      }
+    }
+
     if (rpcLogFile != null) {
-      AsynchronousFileOutputStream oldLogFile = rpcLogFile;
-      rpcLogFile = null;
-      oldLogFile.close();
+      try {
+        rpcLogFile.close();
+      } catch (IOException e) {
+        throw createExitException(
+            "Partially wrote RPC log file",
+            ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
+            Code.RPC_LOG_FAILURE);
+      }
     }
   }
 
@@ -950,13 +975,14 @@ public final class RemoteModule extends BlazeModule {
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder)
       throws AbruptExitException {
     Preconditions.checkState(actionInputFetcher == null, "actionInputFetcher must be null");
+    Preconditions.checkState(tempPathGenerator == null, "tempPathGenerator must be null");
     Preconditions.checkNotNull(remoteOptions, "remoteOptions must not be null");
 
     if (actionContextProvider == null) {
       return;
     }
 
-    TempPathGenerator tempPathGenerator = getTempPathGenerator(env);
+    tempPathGenerator = getTempPathGenerator(env);
 
     actionContextProvider.setTempPathGenerator(tempPathGenerator);
 

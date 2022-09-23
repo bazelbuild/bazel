@@ -350,12 +350,5 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         downloadCache.shutdownNow();
       }
     }
-
-    Path tempDir = tempPathGenerator.getTempDir();
-    try {
-      tempDir.deleteTree();
-    } catch (IOException ignored) {
-      // Intentionally ignored.
-    }
   }
 }
