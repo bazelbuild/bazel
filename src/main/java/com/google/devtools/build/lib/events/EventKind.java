@@ -84,7 +84,11 @@ public enum EventKind {
   CANCELLED,
 
   /** For the reasoning of the dependency checker (like GNU Make "-d"). */
-  DEPCHECKER;
+  DEPCHECKER,
+
+  /** Build completed */
+  SUCCESS,
+  FAILURE;
 
   public static final ImmutableSet<EventKind> ALL_EVENTS =
       Sets.immutableEnumSet(EnumSet.allOf(EventKind.class));
@@ -134,4 +138,7 @@ public enum EventKind {
           EventKind.TIMEOUT,
           EventKind.STDOUT,
           EventKind.STDERR);
+
+  public static final ImmutableSet<EventKind> BUILD_COMPLETED =
+          Sets.immutableEnumSet(EventKind.SUCCESS, EventKind.FAILURE);
 }

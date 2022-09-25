@@ -454,10 +454,15 @@ class UiStateTracker {
     executionProgressReceiver = event.getExecutionProgressReceiver();
   }
 
-  void buildComplete(BuildCompleteEvent event) {
+  void buildComplete(BuildCompleteEvent event, boolean emitBuildSummary) {
     buildComplete = true;
     buildCompleteAt = Instant.ofEpochMilli(clock.currentTimeMillis());
 
+    if (!emitBuildSummary) {
+      status = null;
+      packageProgressReceiver = null;
+      return;
+    }
     if (event.getResult().getSuccess()) {
       status = "INFO";
       int actionsCompleted = this.actionsCompleted.get();
@@ -1324,7 +1329,9 @@ class UiStateTracker {
       return;
     }
 
-    writeExecutionProgress(terminalWriter, shortVersion);
+    if (!buildCompleted()) {
+      writeExecutionProgress(terminalWriter, shortVersion);
+    }
 
     if (!shortVersion) {
       reportOnDownloads(terminalWriter);

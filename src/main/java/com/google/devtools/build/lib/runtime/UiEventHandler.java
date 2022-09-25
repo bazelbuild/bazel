@@ -111,6 +111,7 @@ public final class UiEventHandler implements EventHandler {
   private final boolean showTimestamp;
   private final OutErr outErr;
   private final ImmutableSet<EventKind> filteredEvents;
+  private final boolean overrideEmitBuildSummary;
   private long minimalDelayMillis;
   private long minimalUpdateInterval;
   private long lastRefreshMillis;
@@ -214,6 +215,7 @@ public final class UiEventHandler implements EventHandler {
     this.updateThread = new AtomicReference<>();
     this.updateLock = new ReentrantLock();
     this.filteredEvents = ImmutableSet.copyOf(options.eventFilters);
+    this.overrideEmitBuildSummary = !options.filterBuildSummaryEvent;
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
   }
@@ -582,7 +584,8 @@ public final class UiEventHandler implements EventHandler {
     // it as an event and add a timestamp, if events are supposed to have a timestamp.
     boolean done = false;
     synchronized (this) {
-      stateTracker.buildComplete(event);
+      EventKind eventKind = event.getResult().getSuccess() ? EventKind.SUCCESS : EventKind.FAILURE;
+      stateTracker.buildComplete(event, overrideEmitBuildSummary || !filteredEvents.contains(eventKind));
       ignoreRefreshLimitOnce();
       refresh();
 

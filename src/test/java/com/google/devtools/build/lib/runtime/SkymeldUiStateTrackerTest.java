@@ -148,7 +148,7 @@ public class SkymeldUiStateTrackerTest extends FoundationTestCase {
     buildResult.setDetailedExitCode(DetailedExitCode.success());
     clock.advanceMillis(SECONDS.toMillis(1));
     buildResult.setStopTime(clock.currentTimeMillis());
-    uiStateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    uiStateTracker.buildComplete(new BuildCompleteEvent(buildResult), true);
 
     assertThat(uiStateTracker.buildStatus).isEqualTo(BuildStatus.BUILD_COMPLETED);
   }

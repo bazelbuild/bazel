@@ -1360,7 +1360,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
         new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport1, transport2)));
     stateTracker.buildEventTransportsAnnounced(
         new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport3)));
-    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    stateTracker.buildComplete(new BuildCompleteEvent(buildResult), true);
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(true);
 
@@ -1426,7 +1426,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.buildStarted();
     stateTracker.buildEventTransportsAnnounced(
         new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport1, transport2)));
-    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    stateTracker.buildComplete(new BuildCompleteEvent(buildResult), true);
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
@@ -1526,7 +1526,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
     buildResult.setStopTime(clock.currentTimeMillis());
-    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    stateTracker.buildComplete(new BuildCompleteEvent(buildResult), true);
     clock.advanceMillis(Duration.ofSeconds(2).toMillis());
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
 
@@ -1545,7 +1545,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
     buildResult.setStopTime(clock.currentTimeMillis());
-    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    stateTracker.buildComplete(new BuildCompleteEvent(buildResult), true);
     stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "b"));
     stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "c"));
     stateTracker.actionUploadFinished(ActionUploadFinishedEvent.create(action, "a"));

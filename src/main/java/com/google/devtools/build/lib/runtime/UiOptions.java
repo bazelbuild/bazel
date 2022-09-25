@@ -237,6 +237,14 @@ public class UiOptions extends OptionsBase {
   public List<EventKind> eventFilters;
 
   @Option(
+      name = "incompatible_filter_build_summary_event",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "If true, allows filtering build summary message with --ui_event_filters")
+  public boolean filterBuildSummaryEvent;
+
+  @Option(
       name = "ui_actions_shown",
       oldName = "experimental_ui_actions_shown",
       defaultValue = "8",

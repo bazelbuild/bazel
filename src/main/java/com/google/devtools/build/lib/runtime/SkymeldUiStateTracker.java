@@ -97,7 +97,9 @@ final class SkymeldUiStateTracker extends UiStateTracker {
         writeExecutionProgress(terminalWriter, shortVersion);
         break;
       case BUILD_COMPLETED:
-        writeBaseProgress(ok ? "INFO" : "FAILED", additionalMessage, terminalWriter);
+        if (!additionalMessage.isEmpty()) {
+          writeBaseProgress(ok ? "INFO" : "FAILED", additionalMessage, terminalWriter);
+        }
         break;
     }
 
@@ -214,10 +216,14 @@ final class SkymeldUiStateTracker extends UiStateTracker {
   }
 
   @Override
-  void buildComplete(BuildCompleteEvent event) {
+  void buildComplete(BuildCompleteEvent event, boolean emitBuildSummary) {
     buildStatus = BuildStatus.BUILD_COMPLETED;
     buildCompleteAt = Instant.ofEpochMilli(clock.currentTimeMillis());
 
+    if (!emitBuildSummary) {
+      additionalMessage = "";
+      return;
+    }
     if (event.getResult().getSuccess()) {
       int actionsCompleted = this.actionsCompleted.get();
       if (failedTests == 0) {

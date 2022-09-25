@@ -512,6 +512,118 @@ function test_ui_events_filters() {
   expect_not_log "^INFO: Elapsed time"
 }
 
+function test_ui_event_filter_failure_build_summary() {
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
+
+  bazel build --noincompatible_filter_build_summary_event \
+      error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: .* //error:failwitherror failed:"
+  expect_log "^INFO: Elapsed time"
+  expect_log "^FAILED: Build did NOT complete successfully"
+
+  bazel build --ui_event_filters=-failure,-success --noincompatible_filter_build_summary_event \
+      error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: .* //error:failwitherror failed:"
+  expect_log "^INFO: Elapsed time"
+  expect_log "^FAILED: Build did NOT complete successfully"
+
+  bazel build --ui_event_filters=-success --incompatible_filter_build_summary_event \
+      error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: .* //error:failwitherror failed:"
+  expect_log "^INFO: Elapsed time"
+  expect_log "^FAILED: Build did NOT complete successfully"
+
+  bazel build --ui_event_filters=-failure --incompatible_filter_build_summary_event \
+      error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: .* //error:failwitherror failed:"
+  expect_log "^INFO: Elapsed time"
+  expect_not_log "^FAILED: Build did NOT complete successfully"
+}
+
+function test_ui_event_filter_success_build_summary() {
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
+
+  bazel build --noincompatible_filter_build_summary_event \
+      pkg/debugMessages:target1 > "${TEST_log}" 2>&1 || fail "expected success"
+  expect_log "^DEBUG: .* static debug message"
+  expect_log "^INFO: Elapsed time"
+  expect_log "^INFO: Build completed successfully"
+
+  bazel build --ui_event_filters=-failure,-success --noincompatible_filter_build_summary_event \
+      pkg/debugMessages:target1 > "${TEST_log}" 2>&1 || fail "expected success"
+  expect_log "^DEBUG: .* static debug message"
+  expect_log "^INFO: Elapsed time"
+  expect_log "^INFO: Build completed successfully"
+
+  bazel build --ui_event_filters=-failure --incompatible_filter_build_summary_event \
+      pkg/debugMessages:target1 > "${TEST_log}" 2>&1 || fail "expected success"
+  expect_log "^DEBUG: .* static debug message"
+  expect_log "^INFO: Elapsed time"
+  expect_log "^INFO: Build completed successfully"
+
+  bazel build --ui_event_filters=-success --incompatible_filter_build_summary_event \
+      pkg/debugMessages:target1 > "${TEST_log}" 2>&1 || fail "expected success"
+  expect_log "^DEBUG: .* static debug message"
+  expect_log "^INFO: Elapsed time"
+  expect_not_log "^INFO: Build completed successfully"
+}
+
+function test_ui_event_filter_failure_build_summary_skymeld() {
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
+
+  bazel build --noincompatible_filter_build_summary_event --experimental_skymeld_ui \
+      error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: .* //error:failwitherror failed:"
+  expect_log "^INFO: Elapsed time"
+  expect_log "^FAILED: Build did NOT complete successfully"
+
+  bazel build --ui_event_filters=-failure,-success --noincompatible_filter_build_summary_event \
+      --experimental_skymeld_ui error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: .* //error:failwitherror failed:"
+  expect_log "^INFO: Elapsed time"
+  expect_log "^FAILED: Build did NOT complete successfully"
+
+  bazel build --ui_event_filters=-success --incompatible_filter_build_summary_event \
+      --experimental_skymeld_ui error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: .* //error:failwitherror failed:"
+  expect_log "^INFO: Elapsed time"
+  expect_log "^FAILED: Build did NOT complete successfully"
+
+  bazel build --ui_event_filters=-failure --incompatible_filter_build_summary_event \
+      --experimental_skymeld_ui error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: .* //error:failwitherror failed:"
+  expect_log "^INFO: Elapsed time"
+  expect_not_log "^FAILED: Build did NOT complete successfully"
+}
+
+function test_ui_event_filter_success_build_summary_skymeld() {
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
+
+  bazel build --noincompatible_filter_build_summary_event --experimental_skymeld_ui \
+      pkg/debugMessages:target1 > "${TEST_log}" 2>&1 || fail "expected success"
+  expect_log "^DEBUG: .* static debug message"
+  expect_log "^INFO: Elapsed time"
+  expect_log "^INFO: Build completed successfully"
+
+  bazel build --ui_event_filters=-failure,-success --noincompatible_filter_build_summary_event \
+      --experimental_skymeld_ui pkg/debugMessages:target1 > "${TEST_log}" 2>&1 || fail "expected success"
+  expect_log "^DEBUG: .* static debug message"
+  expect_log "^INFO: Elapsed time"
+  expect_log "^INFO: Build completed successfully"
+
+  bazel build --ui_event_filters=-failure --incompatible_filter_build_summary_event \
+      --experimental_skymeld_ui pkg/debugMessages:target1 > "${TEST_log}" 2>&1 || fail "expected success"
+  expect_log "^DEBUG: .* static debug message"
+  expect_log "^INFO: Elapsed time"
+  expect_log "^INFO: Build completed successfully"
+
+  bazel build --ui_event_filters=-success --incompatible_filter_build_summary_event \
+      --experimental_skymeld_ui pkg/debugMessages:target1 > "${TEST_log}" 2>&1 || fail "expected success"
+  expect_log "^DEBUG: .* static debug message"
+  expect_log "^INFO: Elapsed time"
+  expect_not_log "^INFO: Build completed successfully"
+}
+
 function test_max_stdouterr_bytes_capping_behavior() {
   mkdir -p outs
   cat >outs/BUILD <<'EOF'
