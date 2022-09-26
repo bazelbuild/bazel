@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
@@ -245,6 +246,15 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
               named = true,
               doc = "",
               defaultValue = "None"),
+          @Param(
+              name = "transitive_native_libs",
+              allowedTypes = {
+                @ParamType(type = Depset.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              doc = "",
+              defaultValue = "None"),
         },
         selfCall = true)
     @StarlarkConstructor
@@ -260,7 +270,8 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
         Object databindingLayoutInfoZip,
         Object buildStampJar,
         boolean shouldCompileJava,
-        Object nativeLibs)
+        Object nativeLibs,
+        Object transitiveNativeLibs)
         throws EvalException;
   }
 }

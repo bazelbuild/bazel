@@ -654,6 +654,15 @@ public abstract class AndroidStarlarkData
     return value;
   }
 
+  @Nullable
+  public static NestedSet<Artifact> fromNoneableDepset(Object depset, String what)
+      throws EvalException {
+    if (isNone(depset)) {
+      return null;
+    }
+    return Depset.cast(depset, Artifact.class, what);
+  }
+
   private static ImmutableList<Artifact> filesFromConfiguredTargets(
       List<ConfiguredTarget> targets) {
     ImmutableList.Builder<Artifact> builder = ImmutableList.builder();

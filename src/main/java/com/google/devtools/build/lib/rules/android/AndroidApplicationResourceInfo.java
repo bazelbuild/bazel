@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fromNoneable;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -44,6 +45,7 @@ public class AndroidApplicationResourceInfo extends NativeInfo
   private final Artifact buildStampJar;
   private final boolean shouldCompileJavaSrcs;
   private final NativeLibs nativeLibs;
+  private final NestedSet<Artifact> transitiveNativeLibs;
 
   AndroidApplicationResourceInfo(
       Artifact resourceApk,
@@ -57,7 +59,8 @@ public class AndroidApplicationResourceInfo extends NativeInfo
       Artifact databindingLayoutInfoZip,
       Artifact buildStampJar,
       boolean shouldCompileJavaSrcs,
-      NativeLibs nativeLibs) {
+      NativeLibs nativeLibs,
+      NestedSet<Artifact> transitiveNativeLibs) {
     this.resourceApk = resourceApk;
     this.resourceJavaSrcJar = resourceJavaSrcJar;
     this.resourceJavaClassJar = resourceJavaClassJar;
@@ -70,6 +73,7 @@ public class AndroidApplicationResourceInfo extends NativeInfo
     this.buildStampJar = buildStampJar;
     this.shouldCompileJavaSrcs = shouldCompileJavaSrcs;
     this.nativeLibs = nativeLibs;
+    this.transitiveNativeLibs = transitiveNativeLibs;
   }
 
   @Override
@@ -143,6 +147,11 @@ public class AndroidApplicationResourceInfo extends NativeInfo
     return nativeLibs;
   }
 
+  @Nullable
+  public NestedSet<Artifact> getTransitiveNativeLibs() {
+    return transitiveNativeLibs;
+  }
+
   /** Provider for {@link AndroidApplicationResourceInfo}. */
   public static class AndroidApplicationResourceInfoProvider
       extends BuiltinProvider<AndroidApplicationResourceInfo>
@@ -165,7 +174,8 @@ public class AndroidApplicationResourceInfo extends NativeInfo
         Object databindingLayoutInfoZip,
         Object buildStampJar,
         boolean shouldCompileJavaSrcs,
-        Object nativeLibs)
+        Object nativeLibs,
+        Object transitiveNativeLibs)
         throws EvalException {
 
       return new AndroidApplicationResourceInfo(
@@ -180,7 +190,8 @@ public class AndroidApplicationResourceInfo extends NativeInfo
           fromNoneable(databindingLayoutInfoZip, Artifact.class),
           fromNoneable(buildStampJar, Artifact.class),
           shouldCompileJavaSrcs,
-          AndroidStarlarkData.getNativeLibs(nativeLibs));
+          AndroidStarlarkData.getNativeLibs(nativeLibs),
+          AndroidStarlarkData.fromNoneableDepset(transitiveNativeLibs, "transitive_native_libs"));
     }
   }
 }
