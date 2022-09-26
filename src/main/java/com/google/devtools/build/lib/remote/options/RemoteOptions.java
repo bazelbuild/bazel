@@ -276,15 +276,43 @@ public final class RemoteOptions extends CommonRemoteOptions {
       help = "Whether to upload locally executed action results to the remote cache.")
   public boolean remoteUploadLocalResults;
 
+  @Deprecated
   @Option(
       name = "incompatible_remote_build_event_upload_respect_no_cache",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
+      deprecationWarning =
+          "--incompatible_remote_build_event_upload_respect_no_cache has been deprecated in favor"
+              + " of --experimental_remote_build_event_upload=minimal.",
       help =
           "If set to true, outputs referenced by BEP are not uploaded to remote cache if the"
               + " generating action cannot be cached remotely.")
   public boolean incompatibleRemoteBuildEventUploadRespectNoCache;
+
+  @Option(
+      name = "experimental_remote_build_event_upload",
+      defaultValue = "all",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = RemoteBuildEventUploadModeConverter.class,
+      help =
+          "If set to 'all', all local outputs referenced by BEP are uploaded to remote cache.\n"
+              + "If set to 'minimal', local outputs referenced by BEP are not uploaded to the"
+              + " remote cache, except for files that are important to the consumers of BEP (e.g."
+              + " test logs and timing profile).\n"
+              + "file:// scheme is used for the paths of local files and bytestream:// scheme is"
+              + " used for the paths of (already) uploaded files.\n"
+              + "Default to 'all'.")
+  public RemoteBuildEventUploadMode remoteBuildEventUploadMode;
+
+  /** Build event upload mode flag parser */
+  public static class RemoteBuildEventUploadModeConverter
+      extends EnumConverter<RemoteBuildEventUploadMode> {
+    public RemoteBuildEventUploadModeConverter() {
+      super(RemoteBuildEventUploadMode.class, "remote build event upload");
+    }
+  }
 
   @Option(
       name = "incompatible_remote_results_ignore_disk",
