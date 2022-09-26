@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
-import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -56,7 +55,6 @@ import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.runtime.ExecutionGraphModule.ActionDumpWriter;
 import com.google.devtools.build.lib.runtime.ExecutionGraphModule.DependencyInfo;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -104,9 +102,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
 
   @Test
   public void testOneSpawn() throws IOException {
-    // zstd is broken on Windows: https://github.com/bazelbuild/bazel/issues/16041
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     UUID uuid = UUID.randomUUID();
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     Spawn spawn =
@@ -152,9 +147,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
 
   @Test
   public void actionDepsWithThreeSpawns() throws IOException {
-    // zstd is broken on Windows: https://github.com/bazelbuild/bazel/issues/16041
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     UUID uuid = UUID.randomUUID();
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 
@@ -257,9 +249,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
   @Test(timeout = 30_000)
   public void failureInOutputDoesNotHang(
       @TestParameter FailingOutputStreamFactory failingOutputStream) {
-    // zstd is broken on Windows: https://github.com/bazelbuild/bazel/issues/16041
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     UUID uuid = UUID.randomUUID();
     ActionDumpWriter writer =
         new ActionDumpWriter(
@@ -321,9 +310,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
 
   @Test
   public void testSpawnWithNullOwnerLabel() throws IOException {
-    // zstd is broken on Windows: https://github.com/bazelbuild/bazel/issues/16041
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     UUID uuid = UUID.randomUUID();
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     Spawn spawn =
@@ -366,9 +352,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
 
   @Test
   public void spawnAndAction_withSameOutputs() throws Exception {
-    // zstd is broken on Windows: https://github.com/bazelbuild/bazel/issues/16041
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     var buffer = new ByteArrayOutputStream();
     startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
     var options = new ExecutionGraphModule.ExecutionGraphOptions();
@@ -400,9 +383,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
 
   @Test
   public void spawnAndAction_withDifferentOutputs() throws Exception {
-    // zstd is broken on Windows: https://github.com/bazelbuild/bazel/issues/16041
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     var buffer = new ByteArrayOutputStream();
     startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
     var options = new ExecutionGraphModule.ExecutionGraphOptions();
@@ -441,9 +421,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
 
   @Test
   public void multipleSpawnsWithSameOutput_recordsBothSpawnsWithRetry() throws Exception {
-    // zstd is broken on Windows: https://github.com/bazelbuild/bazel/issues/16041
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     var buffer = new ByteArrayOutputStream();
     startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
     SpawnResult localResult = createLocalSpawnResult(Duration.ofMillis(100));
@@ -510,9 +487,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
   @Test
   public void multipleSpawnsWithSameOutput_overlapping_recordsBothSpawnsWithoutRetry(
       @TestParameter LocalLockFreeOutput localLockFreeOutput) throws Exception {
-    // zstd is broken on Windows: https://github.com/bazelbuild/bazel/issues/16041
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     var buffer = new ByteArrayOutputStream();
     BugReporter bugReporter = mock(BugReporter.class);
     startLogging(
@@ -559,9 +533,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
   @Test
   public void multipleSpawnsWithSameOutput_overlapping_ignoresSecondSpawnForDependencies()
       throws Exception {
-    // zstd is broken on Windows: https://github.com/bazelbuild/bazel/issues/16041
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
     var buffer = new ByteArrayOutputStream();
     startLogging(
         eventBus,
