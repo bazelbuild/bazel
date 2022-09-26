@@ -408,7 +408,7 @@ public class BuildRequest implements OptionsProvider {
     // interleave analysis and execution in that case.
     // Aquery and Cquery implicitly set --nobuild, so there's no need to have a warning here: it
     // makes no different from the users' perspective.
-    if (getBuildOptions().mergedSkyframeAnalysisExecution
+    if (getBuildOptions().mergedSkyframeAnalysisExecutionDoNotUseDirectly
         && !getBuildOptions().performExecutionPhase
         && !("aquery".equals(commandName) || "cquery".equals(commandName))) {
       warnings.add(

@@ -69,9 +69,10 @@ In the commit description, add a brief summary of the flag.
 Also add [`RELNOTES:`](release-notes.md) in the following form:
 `RELNOTES: --incompatible_name_of_flag has been added. See #xyz for details`
 
-The commit should also update the relevant documentation. As the documentation
-is versioned, we recommend updating the documentation in the same commit
-as the code change.
+The commit should also update the relevant documentation, so that there is no
+window of commits in which the code is inconsistent with the docs. Since our
+documentation is versioned, changes to the docs will not be inadvertently
+released prematurely.
 
 ## Labels {:#labels}
 

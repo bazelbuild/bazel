@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -49,7 +50,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -64,26 +64,26 @@ import net.starlark.java.eval.Starlark;
  *
  * <p>External repositories come in two flavors: local and non-local.
  *
- * <p>Local ones are those whose fetching does not require access to any external resources
- * (e.g. network). These are always re-fetched on Bazel server restarts. This operation is fast
- * (usually just a few symlinks and maybe writing a BUILD file). {@code --nofetch} does not apply
- * to local repositories.
+ * <p>Local ones are those whose fetching does not require access to any external resources (e.g.
+ * network). These are always re-fetched on Bazel server restarts. This operation is fast (usually
+ * just a few symlinks and maybe writing a BUILD file). {@code --nofetch} does not apply to local
+ * repositories.
  *
- * <p>The up-to-dateness of non-local repositories is checked using a marker file under the
- * output base. When such a repository is fetched, data from the rule in the WORKSPACE file is
- * written to the marker file which is consulted on next server startup. If the rule hasn't changed,
- * the repository is not re-fetched.
+ * <p>The up-to-dateness of non-local repositories is checked using a marker file under the output
+ * base. When such a repository is fetched, data from the rule in the WORKSPACE file is written to
+ * the marker file which is consulted on next server startup. If the rule hasn't changed, the
+ * repository is not re-fetched.
  *
  * <p>Fetching repositories can be disabled using the {@code --nofetch} command line option. If a
  * repository is on the file system, Bazel just tries to use it and hopes for the best. If the
  * repository has never been fetched, Bazel errors out for lack of a better option. This is
- * implemented using
- * {@link com.google.devtools.build.lib.bazel.BazelRepositoryModule#REPOSITORY_VALUE_CHECKER} and
- * a flag in {@link RepositoryDirectoryValue} that tells Bazel whether the value in Skyframe is
- * stale according to the value of {@code --nofetch} or not.
+ * implemented using {@link
+ * com.google.devtools.build.lib.bazel.BazelRepositoryModule#REPOSITORY_VALUE_CHECKER} and a flag in
+ * {@link RepositoryDirectoryValue} that tells Bazel whether the value in Skyframe is stale
+ * according to the value of {@code --nofetch} or not.
  *
- * <p>When a rule in the WORKSPACE file is changed, the corresponding
- * {@link RepositoryDirectoryValue} is invalidated using the usual Skyframe route.
+ * <p>When a rule in the WORKSPACE file is changed, the corresponding {@link
+ * RepositoryDirectoryValue} is invalidated using the usual Skyframe route.
  */
 public abstract class RepositoryFunction {
 
@@ -92,21 +92,17 @@ public abstract class RepositoryFunction {
   /**
    * Exception thrown when something goes wrong accessing a remote repository.
    *
-   * <p>This exception should be used by child classes to limit the types of exceptions
-   * {@link RepositoryDelegatorFunction} has to know how to catch.</p>
+   * <p>This exception should be used by child classes to limit the types of exceptions {@link
+   * RepositoryDelegatorFunction} has to know how to catch.
    */
   public static class RepositoryFunctionException extends SkyFunctionException {
 
-    /**
-     * Error reading or writing to the filesystem.
-     */
+    /** Error reading or writing to the filesystem. */
     public RepositoryFunctionException(IOException cause, Transience transience) {
       super(cause, transience);
     }
 
-    /**
-     * For errors in WORKSPACE file rules (e.g., malformed paths or URLs).
-     */
+    /** For errors in WORKSPACE file rules (e.g., malformed paths or URLs). */
     public RepositoryFunctionException(EvalException cause, Transience transience) {
       super(cause, transience);
     }
@@ -322,13 +318,13 @@ public abstract class RepositoryFunction {
   }
 
   /**
-   * Verify marker data previously saved by
-   * {@link #declareEnvironmentDependencies(Map, Environment, Iterable)}. This function is to be
-   * called from a {@link #verifyMarkerData(Rule, Map, Environment)} function to verify the values
-   * for environment variables.
+   * Verify marker data previously saved by {@link #declareEnvironmentDependencies(Map, Environment,
+   * Iterable)}. This function is to be called from a {@link #verifyMarkerData(Rule, Map,
+   * Environment)} function to verify the values for environment variables.
    */
-  protected boolean verifyEnvironMarkerData(Map<String, String> markerData, Environment env,
-      Iterable<String> keys) throws InterruptedException {
+  protected boolean verifyEnvironMarkerData(
+      Map<String, String> markerData, Environment env, Iterable<String> keys)
+      throws InterruptedException {
     Map<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
     if (env.valuesMissing()) {
       return false; // Returns false so caller knows to return immediately
@@ -393,14 +389,17 @@ public abstract class RepositoryFunction {
     return repositoryDirectory;
   }
 
-  public static void createWorkspaceFile(
-      Path repositoryDirectory, String ruleKind, String ruleName)
+  public static void createWorkspaceFile(Path repositoryDirectory, String ruleKind, String ruleName)
       throws RepositoryFunctionException {
     try {
       Path workspaceFile = repositoryDirectory.getRelative(LabelConstants.WORKSPACE_FILE_NAME);
-      FileSystemUtils.writeContent(workspaceFile, Charset.forName("UTF-8"),
-          String.format("# DO NOT EDIT: automatically generated WORKSPACE file for %s\n"
-              + "workspace(name = \"%s\")\n", ruleKind, ruleName));
+      FileSystemUtils.writeContent(
+          workspaceFile,
+          UTF_8,
+          String.format(
+              "# DO NOT EDIT: automatically generated WORKSPACE file for %s\n"
+                  + "workspace(name = \"%s\")\n",
+              ruleKind, ruleName));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -482,8 +481,7 @@ public abstract class RepositoryFunction {
     return true;
   }
 
-  static void createSymbolicLink(Path from, Path to)
-      throws RepositoryFunctionException {
+  static void createSymbolicLink(Path from, Path to) throws RepositoryFunctionException {
     try {
       // Remove not-symlinks that are already there.
       if (from.exists()) {
@@ -492,8 +490,10 @@ public abstract class RepositoryFunction {
       FileSystemUtils.ensureSymbolicLink(from, to);
     } catch (IOException e) {
       throw new RepositoryFunctionException(
-          new IOException(String.format("Error creating symbolic link from %s to %s: %s",
-              from, to, e.getMessage())), Transience.TRANSIENT);
+          new IOException(
+              String.format(
+                  "Error creating symbolic link from %s to %s: %s", from, to, e.getMessage())),
+          Transience.TRANSIENT);
     }
   }
 
@@ -526,15 +526,11 @@ public abstract class RepositoryFunction {
     env.getValue(RepositoryDirectoryValue.key(RepositoryName.createUnvalidated(repositoryName)));
   }
 
-  /**
-   * Sets up a mapping of environment variables to use.
-   */
+  /** Sets up a mapping of environment variables to use. */
   public void setClientEnvironment(Map<String, String> clientEnvironment) {
     this.clientEnvironment = clientEnvironment;
   }
 
-  /**
-   * Returns the RuleDefinition class for this type of repository.
-   */
+  /** Returns the RuleDefinition class for this type of repository. */
   public abstract Class<? extends RuleDefinition> getRuleDefinition();
 }

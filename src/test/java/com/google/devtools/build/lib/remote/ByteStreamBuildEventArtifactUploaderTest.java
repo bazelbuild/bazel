@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.MaybeFailOnce
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
+import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
@@ -481,7 +482,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         /*remoteServerInstanceName=*/ "localhost/instance",
         /*buildRequestId=*/ "none",
         /*commandId=*/ "none",
-        SyscallCache.NO_CACHE);
+        SyscallCache.NO_CACHE,
+        RemoteBuildEventUploadMode.ALL);
   }
 
   private static class StaticMissingDigestsFinder implements MissingDigestsFinder {

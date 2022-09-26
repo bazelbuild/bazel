@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
@@ -116,6 +117,7 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
               TargetProvider targetProvider,
               CachingPackageLocator cachingPackageLocator,
               TargetPatternPreloader targetPatternPreloader,
+              TargetPattern.Parser mainRepoTargetParser,
               PathFragment relativeWorkingDirectory,
               boolean keepGoing,
               boolean strictScope,
@@ -134,7 +136,7 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
                 targetProvider,
                 cachingPackageLocator,
                 targetPatternPreloader,
-                relativeWorkingDirectory,
+                mainRepoTargetParser,
                 keepGoing,
                 strictScope,
                 loadingPhaseThreads,

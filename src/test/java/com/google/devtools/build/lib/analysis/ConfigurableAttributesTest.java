@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Set;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -177,6 +178,11 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     // Allow use of --foo as a dummy flag
     builder.addConfigurationFragment(DummyTestFragment.class);
     return builder.build();
+  }
+
+  @Before
+  public void setupStarlarkJavaBinary() throws Exception {
+    setBuildLanguageOptions("--experimental_google_legacy_api");
   }
 
   @Test

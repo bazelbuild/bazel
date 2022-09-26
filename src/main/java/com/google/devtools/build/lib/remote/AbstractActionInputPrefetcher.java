@@ -295,7 +295,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * <p>The file will be written into a temporary file and moved to the final destination after the
    * download finished.
    */
-  public ListenableFuture<Void> downloadFileAsync(Path path, FileArtifactValue metadata) {
+  private ListenableFuture<Void> downloadFileAsync(Path path, FileArtifactValue metadata) {
     return toListenableFuture(downloadFileRx(path, metadata, Priority.LOW));
   }
 
@@ -349,13 +349,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       } catch (InterruptedException ignored) {
         downloadCache.shutdownNow();
       }
-    }
-
-    Path tempDir = tempPathGenerator.getTempDir();
-    try {
-      tempDir.deleteTree();
-    } catch (IOException ignored) {
-      // Intentionally ignored.
     }
   }
 }

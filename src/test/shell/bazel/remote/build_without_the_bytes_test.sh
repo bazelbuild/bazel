@@ -712,7 +712,7 @@ chmod +x status.sh
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_minimal \
     --workspace_status_command=status.sh \
-    //a:foo || "Failed to build //a:foo"
+    //a:foo || fail "Failed to build //a:foo"
 
 cat > status.sh << 'EOF'
 #!/bin/sh
@@ -723,7 +723,7 @@ EOF
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_minimal \
     --workspace_status_command=status.sh \
-    //a:foo || "Failed to build //a:foo"
+    //a:foo || fail "Failed to build //a:foo"
 }
 
 function test_testxml_download_toplevel() {

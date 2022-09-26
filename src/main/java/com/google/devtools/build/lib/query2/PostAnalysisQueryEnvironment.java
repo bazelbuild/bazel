@@ -105,7 +105,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   protected final TopLevelConfigurations topLevelConfigurations;
   protected final BuildConfigurationValue hostConfiguration;
-  private final PathFragment parserPrefix;
+  private final TargetPattern.Parser mainRepoTargetParser;
   private final PathPackageLocator pkgPath;
   private final Supplier<WalkableGraph> walkableGraphSupplier;
   protected WalkableGraph graph;
@@ -118,14 +118,14 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
       BuildConfigurationValue hostConfiguration,
-      PathFragment parserPrefix,
+      TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       Set<Setting> settings) {
     super(keepGoing, true, Rule.ALL_LABELS, eventHandler, settings, extraFunctions);
     this.topLevelConfigurations = topLevelConfigurations;
     this.hostConfiguration = hostConfiguration;
-    this.parserPrefix = parserPrefix;
+    this.mainRepoTargetParser = mainRepoTargetParser;
     this.pkgPath = pkgPath;
     this.walkableGraphSupplier = walkableGraphSupplier;
   }
@@ -248,7 +248,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   protected abstract T getValueFromKey(SkyKey key) throws InterruptedException;
 
   protected TargetPattern getPattern(String pattern) throws TargetParsingException {
-    return TargetPattern.mainRepoParser(parserPrefix).parse(pattern);
+    return mainRepoTargetParser.parse(pattern);
   }
 
   public ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets) throws InterruptedException {

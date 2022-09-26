@@ -515,6 +515,25 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     assertSingleOutputBuilt("//foo:foo");
   }
 
+  // Regression test for b/245922900.
+  @Test
+  public void executionFailure_discardAnalysisCache_doesNotCrash() throws Exception {
+    addOptions("--experimental_merged_skyframe_analysis_execution", "--discard_analysis_cache");
+    writeExecutionFailureAspectBzl();
+    write(
+        "foo/BUILD",
+        "cc_library(name = 'foo', srcs = ['foo.cc'], deps = [':bar'])",
+        "cc_library(name = 'bar', srcs = ['bar.cc'])");
+    write("foo/foo.cc");
+    write("foo/bar.cc");
+    addOptions("--aspects=//foo:aspect.bzl%execution_err_aspect", "--output_groups=files");
+
+    // Verify that the build did not crash.
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
+    events.assertContainsError(
+        "Action foo/aspect_output failed: (Exit 1): bash failed: error executing command");
+  }
+
   private void assertSingleAnalysisPhaseCompleteEventWithLabels(String... labels) {
     assertThat(analysisEventsSubscriber.getAnalysisPhaseCompleteEvents()).hasSize(1);
     AnalysisPhaseCompleteEvent analysisPhaseCompleteEvent =

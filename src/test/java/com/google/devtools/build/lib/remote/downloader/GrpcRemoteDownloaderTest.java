@@ -18,6 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
 import build.bazel.remote.asset.v1.FetchBlobRequest;
@@ -33,6 +35,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
+import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.UnrecoverableHttpException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
@@ -48,6 +51,7 @@ import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
@@ -69,6 +73,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -119,6 +124,11 @@ public class GrpcRemoteDownloaderTest {
   }
 
   private GrpcRemoteDownloader newDownloader(RemoteCacheClient cacheClient) throws IOException {
+    return newDownloader(cacheClient, /* fallbackDownloader= */ null);
+  }
+
+  private GrpcRemoteDownloader newDownloader(
+      RemoteCacheClient cacheClient, @Nullable Downloader fallbackDownloader) throws IOException {
     final RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     final RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
@@ -147,7 +157,9 @@ public class GrpcRemoteDownloaderTest {
         Optional.<CallCredentials>empty(),
         retrier,
         cacheClient,
-        remoteOptions);
+        remoteOptions,
+        /* verboseFailures= */ false,
+        fallbackDownloader);
   }
 
   private static byte[] downloadBlob(
@@ -207,6 +219,39 @@ public class GrpcRemoteDownloaderTest {
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient);
 
     getFromFuture(cacheClient.uploadBlob(context, contentDigest, ByteString.copyFrom(content)));
+    final byte[] downloaded =
+        downloadBlob(
+            downloader, new URL("http://example.com/content.txt"), Optional.<Checksum>empty());
+
+    assertThat(downloaded).isEqualTo(content);
+  }
+
+  @Test
+  public void testDownloadFallback() throws Exception {
+    final byte[] content = "example content".getBytes(UTF_8);
+    serviceRegistry.addService(
+        new FetchImplBase() {
+          @Override
+          public void fetchBlob(
+              FetchBlobRequest request, StreamObserver<FetchBlobResponse> responseObserver) {
+            responseObserver.onError(new IOException("io error"));
+          }
+        });
+    final RemoteCacheClient cacheClient = new InMemoryCacheClient();
+    Downloader fallbackDownloader = mock(Downloader.class);
+    doAnswer(
+            invocation -> {
+              List<URL> urls = invocation.getArgument(0);
+              if (urls.equals(ImmutableList.of(new URL("http://example.com/content.txt")))) {
+                Path output = invocation.getArgument(4);
+                FileSystemUtils.writeContent(output, content);
+              }
+              return null;
+            })
+        .when(fallbackDownloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any());
+    final GrpcRemoteDownloader downloader = newDownloader(cacheClient, fallbackDownloader);
+
     final byte[] downloaded =
         downloadBlob(
             downloader, new URL("http://example.com/content.txt"), Optional.<Checksum>empty());

@@ -80,6 +80,7 @@ EOF
 
   bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
       //package:lipo_out --ios_multi_cpus=i386,x86_64 \
+      --noincompatible_enable_cc_toolchain_resolution \
       || fail "should build starlark_apple_binary and obtain info via lipo"
 
   cat bazel-genfiles/package/lipo_out | grep "i386 x86_64" \
@@ -126,6 +127,7 @@ EOF
 
   bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
       //package:lipo_out \
+      --noincompatible_enable_cc_toolchain_resolution \
       --ios_multi_cpus=i386 --ios_multi_cpus=x86_64 \
       || fail "should build starlark_apple_binary and obtain info via lipo"
 
@@ -257,6 +259,7 @@ std::string GetString() { return "h3ll0"; }
 EOF
 
   bazel build --verbose_failures //package:lipo_out \
+    --noincompatible_enable_cc_toolchain_resolution \
     --ios_multi_cpus=i386,x86_64 \
     --xcode_version=$XCODE_VERSION \
     || fail "should build starlark_apple_binary and obtain info via lipo"
@@ -334,6 +337,7 @@ std::string GetString() { return "h3ll0"; }
 EOF
 
   bazel build --verbose_failures //package:lipo_out \
+      --noincompatible_enable_cc_toolchain_resolution \
       --watchos_cpus=armv7k \
       --xcode_version=$XCODE_VERSION \
       || fail "should build watch binary"
@@ -342,6 +346,7 @@ EOF
       || fail "expected output binary to be for armv7k architecture"
 
   bazel build --verbose_failures //package:lipo_out \
+      --noincompatible_enable_cc_toolchain_resolution \
       --watchos_cpus=i386 \
       --xcode_version=$XCODE_VERSION \
       || fail "should build watch binary"
@@ -469,6 +474,7 @@ int main() {
 EOF
 
   bazel build --verbose_failures //package:main_binary \
+      --noincompatible_enable_cc_toolchain_resolution \
       --ios_multi_cpus=i386,x86_64 \
       --xcode_version=$XCODE_VERSION \
       --apple_generate_dsym=true \
@@ -500,6 +506,7 @@ int main() {
 EOF
 
   bazel build --verbose_failures //package:main_binary \
+      --noincompatible_enable_cc_toolchain_resolution \
       --ios_multi_cpus=i386,x86_64 \
       --xcode_version=$XCODE_VERSION \
       --apple_generate_dsym=true \
@@ -533,6 +540,7 @@ static int dummy __attribute__((unused,used)) = 0;
 EOF
 
   bazel build --verbose_failures //package:static_lib \
+      --noincompatible_enable_cc_toolchain_resolution \
       --ios_multi_cpus=i386,x86_64 \
       --ios_minimum_os=8.0 \
       --xcode_version=$XCODE_VERSION \

@@ -15,11 +15,11 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
-import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -259,7 +259,7 @@ public abstract class DirtyBuildingState {
    *
    * <p>See {@link NodeEntry#getNextDirtyDirectDeps}.
    */
-  final List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
+  final ImmutableList<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     Preconditions.checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
     Preconditions.checkState(dirtyDirectDepIndex < getNumOfGroupsInLastBuildDirectDeps(), this);
     return getLastBuildDirectDeps().get(dirtyDirectDepIndex++);

@@ -195,7 +195,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_inmemory_jdeps_files",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
@@ -450,14 +450,6 @@ public class JavaOptions extends FragmentOptions {
               + " incremental test performance at the expense of missing potential one version"
               + " violations.")
   public boolean enforceOneVersionOnJavaTests;
-
-  @Option(
-      name = "experimental_one_version_enforcement_validation_action",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op. Kept here for backwards compatibility.")
-  public boolean enforceOneVersionValidationAction;
 
   @Option(
       name = "experimental_allow_runtime_deps_on_neverlink",

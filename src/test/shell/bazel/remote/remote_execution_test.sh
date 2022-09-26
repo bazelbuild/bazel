@@ -1048,7 +1048,7 @@ EOF
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
-    //a:foo >& $TEST_log || "Failed to build //a:foo"
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
 
   expect_log "1 remote"
 
@@ -1056,7 +1056,7 @@ EOF
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
-    //a:foo >& $TEST_log || "Failed to build //a:foo"
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
 
   expect_log "1 remote"
   expect_not_log "remote cache hit"
@@ -1078,7 +1078,7 @@ EOF
 
   bazel build \
     --disk_cache=$CACHEDIR \
-    //a:foo >& $TEST_log || "Failed to build //a:foo"
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
 
   expect_log "1 .*-sandbox"
 
@@ -1086,7 +1086,7 @@ EOF
 
   bazel build \
     --disk_cache=$CACHEDIR \
-    //a:foo >& $TEST_log || "Failed to build //a:foo"
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
 
   expect_log "1 .*-sandbox"
   expect_not_log "remote cache hit"
@@ -1106,7 +1106,7 @@ EOF
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
-    //a:foo >& $TEST_log || "Failed to build //a:foo"
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
 
   expect_log "1 remote"
 
@@ -1114,7 +1114,7 @@ EOF
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
-    //a:foo >& $TEST_log || "Failed to build //a:foo"
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
 
   expect_log "1 remote"
   expect_not_log "remote cache hit"
@@ -1134,7 +1134,7 @@ EOF
   bazel build \
     --remote_cache=grpc://localhost:${worker_port} \
     --modify_execution_info=.*=+no-remote-cache-upload \
-    //a:foo >& $TEST_log || "Failed to build //a:foo"
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
 
   remote_ac_files="$(count_remote_ac_files)"
   [[ "$remote_ac_files" == 0 ]] || fail "Expected 0 remote action cache entries, not $remote_ac_files"
@@ -1144,14 +1144,14 @@ EOF
 
   bazel build \
     --remote_cache=grpc://localhost:${worker_port} \
-    //a:foo >& $TEST_log || "Failed to build //a:foo"
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
 
   bazel clean
 
   bazel build \
     --remote_cache=grpc://localhost:${worker_port} \
     --modify_execution_info=.*=+no-remote-cache-upload \
-    //a:foo >& $TEST_log || "Failed to build //a:foo"
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
 
   expect_log "remote cache hit"
 }
@@ -1172,7 +1172,7 @@ EOF
 
   bazel build \
     --disk_cache=$CACHEDIR \
-    //a:foo >& $TEST_log || "Failed to build //a:foo"
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
 
   expect_log "1 .*-sandbox"
 
@@ -1180,7 +1180,7 @@ EOF
 
   bazel build \
     --disk_cache=$CACHEDIR \
-    //a:foo >& $TEST_log || "Failed to build //a:foo"
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
 
   expect_log "1 disk cache hit"
 }
@@ -1200,7 +1200,7 @@ EOF
   bazel build \
     --spawn_strategy=remote,local \
     --remote_executor=grpc://localhost:${worker_port} \
-    //a:foo >& $TEST_log || "Failed to build //a:foo"
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
 
   expect_log "1 local"
   expect_not_log "1 remote"
@@ -1210,7 +1210,7 @@ EOF
   bazel build \
     --spawn_strategy=remote,local \
     --remote_executor=grpc://localhost:${worker_port} \
-    //a:foo >& $TEST_log || "Failed to build //a:foo"
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
 
   expect_log "1 remote cache hit"
   expect_not_log "1 local"
@@ -1441,11 +1441,7 @@ EOF
   bazel clean
   bazel build $spawn_flags $testcase_flags $remote_exec_flags $grpc_flags $disk_flags //a:test &> $TEST_log \
       || fail "CASE 3 failed to build"
-  if [[ "$testcase_flags" == --noremote_accept_cached ]]; then
-    expect_log "2 processes: 1 internal, 1 remote." "CASE 3: unexpected action line [[$(grep processes $TEST_log)]]"
-  else
-    expect_log "2 processes: 1 disk cache hit, 1 internal." "CASE 3: unexpected action line [[$(grep processes $TEST_log)]]"
-  fi
+  expect_log "2 processes: 1 disk cache hit, 1 internal." "CASE 3: unexpected action line [[$(grep processes $TEST_log)]]"
 
   # Case 4)
   #     disk_cache, remote_cache: remote_exec, disk_cache, remote_cache
@@ -1455,11 +1451,7 @@ EOF
   bazel clean
   bazel build $spawn_flags $testcase_flags $remote_exec_flags $grpc_flags $disk_flags //a:test &> $TEST_log \
       || fail "CASE 4 failed to build"
-  if [[ "$testcase_flags" == --noremote_accept_cached ]]; then
-    expect_log "2 processes: 1 internal, 1 remote." "CASE 4: unexpected action line [[$(grep processes $TEST_log)]]"
-  else
-    expect_log "2 processes: 1 disk cache hit, 1 internal." "CASE 4: unexpected action line [[$(grep processes $TEST_log)]]"
-  fi
+  expect_log "2 processes: 1 disk cache hit, 1 internal." "CASE 4: unexpected action line [[$(grep processes $TEST_log)]]"
 
   # One last slightly more complicated case.
   # Build a target that depended on the last target but we clean and clear the remote cache.
@@ -1474,11 +1466,7 @@ EOF
   bazel clean
   bazel build $spawn_flags $testcase_flags --genrule_strategy=remote $remote_exec_flags $grpc_flags $disk_flags //a:test2 &> $TEST_log \
         || fail "CASE 5 failed to build //a:test2"
-  if [[ "$testcase_flags" == --noremote_accept_cached ]]; then
-    expect_log "3 processes: 1 internal, 2 remote." "CASE 5: unexpected action line [[$(grep processes $TEST_log)]]"
-  else
-    expect_log "3 processes: 1 disk cache hit, 1 internal, 1 remote." "CASE 5: unexpected action line [[$(grep processes $TEST_log)]]"
-  fi
+  expect_log "3 processes: 1 disk cache hit, 1 internal, 1 remote." "CASE 5: unexpected action line [[$(grep processes $TEST_log)]]"
 }
 
 function test_combined_disk_remote_exec_nocache_tag() {
@@ -1666,7 +1654,7 @@ EOF
   bazel build \
     --disk_cache=$CACHEDIR \
     --remote_cache=grpc://localhost:${worker_port} \
-    //a:foo >& $TEST_log || "Failed to build //a:foo"
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
 
   remote_ac_files="$(count_remote_ac_files)"
   [[ "$remote_ac_files" == 1 ]] || fail "Expected 1 remote action cache entries, not $remote_ac_files"
@@ -2624,7 +2612,7 @@ EOF
     --build_event_json_file=bep.json \
     --noremote_upload_local_results \
     --incompatible_remote_build_event_upload_respect_no_cache \
-    //a:test >& $TEST_log || "Failed to test //a:test"
+    //a:test >& $TEST_log || fail "Failed to test //a:test"
 
   cat bep.json > $TEST_log
   expect_not_log "test\.log.*file://" || fail "remote files generated in remote execution are not converted"
@@ -2756,7 +2744,7 @@ EOF
 
   bazel test \
     --disk_cache=$CACHEDIR \
-    //a:test >& $TEST_log || "Failed to build //a:test"
+    //a:test >& $TEST_log || fail "Failed to build //a:test"
 
   expect_log "5 processes: 3 internal, 2 .*-sandbox"
 
@@ -2764,7 +2752,7 @@ EOF
 
   bazel test \
     --disk_cache=$CACHEDIR \
-    //a:test >& $TEST_log || "Failed to build //a:test"
+    //a:test >& $TEST_log || fail "Failed to build //a:test"
 
   expect_log "5 processes: 2 disk cache hit, 3 internal"
 }

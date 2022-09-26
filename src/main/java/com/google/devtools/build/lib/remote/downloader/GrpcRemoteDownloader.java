@@ -27,6 +27,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
@@ -53,6 +54,7 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 
 /**
  * A Downloader implementation that uses Bazel's Remote Execution APIs to delegate downloads of
@@ -69,7 +71,9 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   private final Optional<CallCredentials> credentials;
   private final RemoteRetrier retrier;
   private final RemoteCacheClient cacheClient;
-  private final RemoteOptions remoteOptions;
+  private final RemoteOptions options;
+  private final boolean verboseFailures;
+  @Nullable private final Downloader fallbackDownloader;
 
   private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -81,20 +85,24 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   private static final String QUALIFIER_AUTH_HEADERS = "bazel.auth_headers";
 
   public GrpcRemoteDownloader(
-          String buildRequestId,
-          String commandId,
-          ReferenceCountedChannel channel,
-          Optional<CallCredentials> credentials,
-          RemoteRetrier retrier,
-          RemoteCacheClient cacheClient,
-          RemoteOptions remoteOptions) {
+      String buildRequestId,
+      String commandId,
+      ReferenceCountedChannel channel,
+      Optional<CallCredentials> credentials,
+      RemoteRetrier retrier,
+      RemoteCacheClient cacheClient,
+      RemoteOptions options,
+      boolean verboseFailures,
+      @Nullable Downloader fallbackDownloader) {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.channel = channel;
     this.credentials = credentials;
     this.retrier = retrier;
     this.cacheClient = cacheClient;
-    this.remoteOptions = remoteOptions;
+    this.options = options;
+    this.verboseFailures = verboseFailures;
+    this.fallbackDownloader = fallbackDownloader;
   }
 
   @Override
@@ -124,12 +132,12 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
 
     final FetchBlobRequest request =
         newFetchBlobRequest(
-                remoteOptions.remoteInstanceName,
+                options.remoteInstanceName,
                 urls,
                 authHeaders,
                 checksum,
                 canonicalId,
-                remoteOptions.remoteDownloaderSendAllHeaders);
+                options.remoteDownloaderSendAllHeaders);
     try {
       FetchBlobResponse response =
           retrier.execute(
@@ -148,8 +156,18 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             }
             return null;
           });
-    } catch (StatusRuntimeException e) {
-      throw new IOException(e);
+
+    } catch (StatusRuntimeException | IOException e) {
+      if (fallbackDownloader == null) {
+        if (e instanceof StatusRuntimeException) {
+          throw new IOException(e);
+        }
+        throw e;
+      }
+      eventHandler.handle(
+          Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
+      fallbackDownloader.download(
+          urls, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv, type);
     }
   }
 
@@ -193,9 +211,9 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     return FetchGrpc.newBlockingStub(channel)
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
-        .withInterceptors(TracingMetadataUtils.newDownloaderHeadersInterceptor(remoteOptions))
+        .withInterceptors(TracingMetadataUtils.newDownloaderHeadersInterceptor(options))
         .withCallCredentials(credentials.orElse(null))
-        .withDeadlineAfter(remoteOptions.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
+        .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
   }
 
   private OutputStream newOutputStream(

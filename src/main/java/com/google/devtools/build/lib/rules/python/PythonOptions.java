@@ -227,9 +227,11 @@ public class PythonOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "Build the runfiles trees of py_binary targets that appear in the transitive "
-              + "data runfiles of another binary.")
+              + "data runfiles of another binary.",
+      oldName = "incompatible_build_transitive_python_runfiles")
   public boolean buildTransitiveRunfilesTrees;
 
   @Option(

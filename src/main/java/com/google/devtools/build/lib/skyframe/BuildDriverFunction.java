@@ -128,20 +128,28 @@ public class BuildDriverFunction implements SkyFunction {
       return null;
     }
 
-    // Unconditionally check for action conflicts.
-    // TODO(b/214371092): Only check when necessary.
-    try (SilentCloseable c =
-        Profiler.instance().profile("BuildDriverFunction.checkActionConflicts")) {
-      if (state.actionConflicts == null) {
-        state.actionConflicts =
-            checkActionConflicts(actionLookupKey, buildDriverKey.strictActionConflictCheck());
-      }
-      if (!state.actionConflicts.isEmpty()) {
-        throw new BuildDriverFunctionException(
-            new TopLevelConflictException(
-                "Action conflict(s) detected while analyzing top-level target "
-                    + actionLookupKey.getLabel(),
-                state.actionConflicts));
+    // This code path should not be run during error bubbling for several reasons:
+    // 1. Correctness: to check for action conflicts, we need access to the transitive
+    //    ConfiguredTargets, which will be null after AnalysisPhaseCompleteEvent in
+    //    --discard_analysis_cache mode.
+    // 2. Performance: this method is CPU intensive, and it does not offer anything while error
+    //    bubbling.
+    if (!env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+      // Unconditionally check for action conflicts.
+      // TODO(b/214371092): Only check when necessary.
+      try (SilentCloseable c =
+          Profiler.instance().profile("BuildDriverFunction.checkActionConflicts")) {
+        if (state.actionConflicts == null) {
+          state.actionConflicts =
+              checkActionConflicts(actionLookupKey, buildDriverKey.strictActionConflictCheck());
+        }
+        if (!state.actionConflicts.isEmpty()) {
+          throw new BuildDriverFunctionException(
+              new TopLevelConflictException(
+                  "Action conflict(s) detected while analyzing top-level target "
+                      + actionLookupKey.getLabel(),
+                  state.actionConflicts));
+        }
       }
     }
 

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.TargetLoadingUtil.TargetAndErrorIfAny;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.GroupedList;
-import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -62,19 +62,15 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
         };
     // Create the GroupedList saying we had already requested two targets the last time we called
     // #compute.
-    GroupedListHelper<SkyKey> helper = new GroupedListHelper<>();
-    SkyKey fakeDep1 = function.getKey(Label.parseCanonical("//foo:bar"));
-    SkyKey fakeDep2 = function.getKey(Label.parseCanonical("//foo:baz"));
-    helper.add(PackageValue.key(label.getPackageIdentifier()));
-    helper.startGroup();
+    GroupedList<SkyKey> groupedList = new GroupedList<>();
+    groupedList.appendSingleton(PackageValue.key(label.getPackageIdentifier()));
     // Note that these targets don't actually exist in the package we created initially. It doesn't
     // matter for the purpose of this test, the original package was just to create some objects
     // that we needed.
-    helper.add(fakeDep1);
-    helper.add(fakeDep2);
-    helper.endGroup();
-    GroupedList<SkyKey> groupedList = new GroupedList<>();
-    groupedList.append(helper);
+    SkyKey fakeDep1 = function.getKey(Label.parseCanonical("//foo:bar"));
+    SkyKey fakeDep2 = function.getKey(Label.parseCanonical("//foo:baz"));
+    groupedList.appendGroup(ImmutableList.of(fakeDep1, fakeDep2));
+
     AtomicBoolean wasOptimizationUsed = new AtomicBoolean(false);
     SkyFunction.Environment mockEnv = Mockito.mock(SkyFunction.Environment.class);
     when(mockEnv.getTemporaryDirectDeps()).thenReturn(groupedList);

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.cmdline.BazelCompileContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
@@ -156,6 +157,7 @@ public class BzlCompileFunction implements SkyFunction {
       // because the "native" object is different. But A) that will be fixed with #11954, and B) we
       // don't care for the same reason as above.
       predeclared = starlarkEnv.getUninjectedBuildBzlEnv();
+
     }
 
     // We have all deps. Parse, resolve, and return.
@@ -171,7 +173,20 @@ public class BzlCompileFunction implements SkyFunction {
     StarlarkFile file = StarlarkFile.parse(input, options);
 
     // compile
-    Module module = Module.withPredeclared(semantics, predeclared);
+    final Module module;
+
+    if (key.kind == BzlCompileValue.Kind.EMPTY_PRELUDE) {
+      // The empty prelude has no label, so we can't use it to filter the predeclareds.
+      // This doesn't matter since the empty prelude doesn't attempt to access any predeclareds
+      // anyway.
+      module = Module.withPredeclared(semantics, predeclared);
+    } else {
+      // The BazelCompileContext holds additional contextual info to be associated with the Module
+      // The information is used to filter predeclareds
+      BazelCompileContext bazelCompileContext =
+          BazelCompileContext.create(key.label, file.getName());
+      module = Module.withPredeclaredAndData(semantics, predeclared, bazelCompileContext);
+    }
     try {
       Program prog = Program.compileFile(file, module);
       return BzlCompileValue.withProgram(prog, digest);

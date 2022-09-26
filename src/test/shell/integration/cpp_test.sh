@@ -362,6 +362,7 @@ EOF
 
 
   bazel build \
+    --noincompatible_enable_cc_toolchain_resolution \
     --cpu=fake --host_cpu=fake \
     --crosstool_top=//$pkg/toolchain:alpha \
     //$pkg:outer >& $TEST_log || fail "build failed"

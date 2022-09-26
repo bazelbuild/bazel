@@ -1028,6 +1028,14 @@ public abstract class TargetPattern {
       return new InterpretPathAsTarget(pattern, originalPattern);
     }
 
+    public RepositoryMapping getRepoMapping() {
+      return repoMapping;
+    }
+
+    public PathFragment getRelativeDirectory() {
+      return relativeDirectory;
+    }
+
     private PackageIdentifier createPackageIdentifier(RepositoryName repoName, String pkg)
         throws TargetParsingException {
       String pkgError = LabelValidator.validatePackageName(pkg);

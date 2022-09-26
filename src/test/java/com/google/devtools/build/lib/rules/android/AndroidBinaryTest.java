@@ -959,7 +959,9 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testNativeLibrary_copiesLibrariesDespiteExtraLayersOfIndirection() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=+cc_library",
+        "--experimental_google_legacy_api");
     scratch.file(
         "java/android/app/BUILD",
         "cc_library(name = 'native_dep',",

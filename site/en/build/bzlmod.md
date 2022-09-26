@@ -84,15 +84,22 @@ also prominent projects using different schemes such as
 [Abseil](https://github.com/abseil/abseil-cpp/releases){: .external}, whose
 versions are date-based, for example `20210324.2`).
 
-For this reason, Bzlmod adopts a more relaxed version of the SemVer spec, in
-particular allowing any number of sequences of digits in the "release" part of
-the version (instead of exactly 3 as SemVer prescribes: `MAJOR.MINOR.PATCH`).
-Additionally, the semantics of major, minor, and patch version increases are not
-enforced. (However, see [compatibility level](#compatibility-level) for details
-on how we denote backwards compatibility.) Other parts of the SemVer spec, such
-as a hyphen denoting a prerelease version, are not modified.
+For this reason, Bzlmod adopts a more relaxed version of the SemVer spec. The
+differences include:
 
-Note: This version format may change before the official launch of Bzlmod.
+*   SemVer prescribes that the "release" part of the version must consist of 3
+    segments: `MAJOR.MINOR.PATCH`. In Bazel, this requirement is loosened so
+    that any number of segments is allowed.
+*   In SemVer, each of the segments in the "release" part must be digits only.
+    In Bazel, this is loosened to allow letters too, and the comparison
+    semantics match the "identifiers" in the "prerelease" part.
+*   Additionally, the semantics of major, minor, and patch version increases are
+    not enforced. (However, see [compatibility level](#compatibility-level) for
+    details on how we denote backwards compatibility.)
+
+Any valid SemVer version is a valid Bazel module version. Additionally, two
+SemVer versions `a` and `b` compare `a < b` iff the same holds when they're
+compared as Bazel module versions.
 
 ### Version resolution {:#version-resolution}
 
@@ -152,10 +159,10 @@ mechanism in the new system. Here are two important concepts:
     <br>It's constructed as follows (**Warning**: the canonical name format is
     not an API you should depend on, it's subject to change at any time):
 
-    *   For Bazel module repos: `{{ "<var>" }}module_name{{ "</var>" }}.{{ "<var>" }}version{{ "</var>" }}`
-        <br> (<b>Example</b>. `@bazel_skylib.1.0.3`)
-    *   For module extension repos: `{{ "<var>" }}module_name{{ "</var>" }}.{{ "<var>" }}version{{ "</var>" }}.{{ "<var>" }}extension_name{{ "</var>" }}.{{ "<var>" }}repo_name{{ "</var>" }}`
-        <br>(<b>Example</b>. `@rules_cc.0.0.1.cc_configure.local_config_cc`)
+    *   For Bazel module repos: `{{ "<var>" }}module_name{{ "</var>" }}~{{ "<var>" }}version{{ "</var>" }}`
+        <br> (<b>Example</b>. `@bazel_skylib~1.0.3`)
+    *   For module extension repos: `{{ "<var>" }}module_name{{ "</var>" }}~{{ "<var>" }}version{{ "</var>" }}~{{ "<var>" }}extension_name{{ "</var>" }}~{{ "<var>" }}repo_name{{ "</var>" }}`
+        <br>(<b>Example</b>. `@rules_cc~0.0.1~cc_configure~local_config_cc`)
 
 *   **Local repository name**: The repository name to be used in the `BUILD` and
     `.bzl` files within a repo. The same dependency could have different local

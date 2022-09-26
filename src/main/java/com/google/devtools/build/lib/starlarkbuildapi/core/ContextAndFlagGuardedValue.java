@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi.core;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.BazelCompileContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import java.util.stream.Collectors;
@@ -46,8 +46,10 @@ public final class ContextAndFlagGuardedValue {
       public boolean isObjectAccessibleUsingSemantics(
           StarlarkSemantics semantics, @Nullable Object clientData) {
         boolean accessible = flagGuard.isObjectAccessibleUsingSemantics(semantics, clientData);
-        if (!accessible && clientData != null) {
-          BazelModuleContext context = (BazelModuleContext) clientData;
+        // Filtering of predeclareds is only done at compile time, when the client data is
+        // BazelCompileContext and not BazelModuleContext.
+        if (!accessible && clientData != null && clientData instanceof BazelCompileContext) {
+          BazelCompileContext context = (BazelCompileContext) clientData;
           Label label = context.label();
 
           for (PackageIdentifier prefix : allowedPrefixes) {

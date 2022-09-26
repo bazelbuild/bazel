@@ -110,7 +110,7 @@ std::vector<const char *> ConvertToCArgs(const std::vector<std::string> &args) {
 
 // Spawns a subprocess for given arguments args. The first argument is used
 // for the executable path.
-void RunSubProcess(const std::vector<std::string> &args) {
+bool RunSubProcess(const std::vector<std::string> &args) {
   std::vector<const char *> exec_argv = ConvertToCArgs(args);
   pid_t pid;
   int status = posix_spawn(&pid, args[0].c_str(), nullptr, nullptr,
@@ -123,18 +123,24 @@ void RunSubProcess(const std::vector<std::string> &args) {
     if (wait_status < 0) {
       std::cerr << "Error waiting on child process '" << args[0] << "'. "
                 << strerror(errno) << "\n";
-      abort();
+      return false;
     }
-    if (WEXITSTATUS(status) != 0) {
+    if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
       std::cerr << "Error in child process '" << args[0] << "'. "
                 << WEXITSTATUS(status) << "\n";
-      abort();
+      return false;
+    } else if (WIFSIGNALED(status)) {
+      std::cerr << "Error in child process '" << args[0] << "'. "
+                << WTERMSIG(status) << "\n";
+      return false;
     }
   } else {
     std::cerr << "Error forking process '" << args[0] << "'. "
               << strerror(status) << "\n";
-    abort();
+    return false;
   }
+
+  return true;
 }
 
 // Finds and replaces all instances of oldsub with newsub, in-place on str.
@@ -166,7 +172,7 @@ std::string GetMandatoryEnvVar(const std::string &var_name) {
   char *env_value = getenv(var_name.c_str());
   if (env_value == nullptr) {
     std::cerr << "Error: " << var_name << " not set.\n";
-    abort();
+    exit(EXIT_FAILURE);
   }
   return env_value;
 }
@@ -348,7 +354,7 @@ int main(int argc, char *argv[]) {
     std::cerr << "Binary must either be named 'wrapped_clang' or "
                  "'wrapped_clang_pp', not "
               << binary_name << "\n";
-    abort();
+    return 1;
   }
 
   std::string developer_dir = GetMandatoryEnvVar("DEVELOPER_DIR");
@@ -394,13 +400,16 @@ int main(int argc, char *argv[]) {
       std::cerr << "Error in clang wrapper: If any dsym "
                    "hint is defined, then "
                 << missing_dsym_flag << " must be defined\n";
-      abort();
+      return 1;
     } else {
       postprocess = true;
     }
   }
 
-  RunSubProcess(invocation_args);
+  if (!RunSubProcess(invocation_args)) {
+    return 1;
+  }
+
   if (!postprocess) {
     return 0;
   }
@@ -412,6 +421,9 @@ int main(int argc, char *argv[]) {
                                             dsym_path,
                                             "--flat",
                                             "--no-swiftmodule-timestamp"};
-  RunSubProcess(dsymutil_args);
+  if (!RunSubProcess(dsymutil_args)) {
+    return 1;
+  }
+
   return 0;
 }

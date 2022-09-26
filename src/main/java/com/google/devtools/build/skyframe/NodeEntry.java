@@ -14,11 +14,10 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList;
-import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -444,21 +443,18 @@ public interface NodeEntry {
    * in this group in parallel, since the deps in all previous groups are verified unchanged. See
    * {@link SkyFunction.Environment#getOrderedValuesAndExceptions} for more on dependency groups.
    *
-   * <p>The caller should register these as deps of this entry using {@link #addTemporaryDirectDeps}
-   * before checking them.
-   *
    * @see DirtyBuildingState#getNextDirtyDirectDeps()
    */
   @ThreadSafe
-  List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException;
+  ImmutableList<SkyKey> getNextDirtyDirectDeps() throws InterruptedException;
 
   /**
    * Returns all deps of a node that has not yet finished evaluating. In other words, if a node has
    * a reverse dep on this node, its key will be in the returned set here. If this node was freshly
-   * created, this is just any elements that were added using {@link #addTemporaryDirectDeps} (so it
-   * is the same as {@link #getTemporaryDirectDeps}). If this node is marked dirty, this includes
-   * all the elements that would have been returned by successive calls to {@link
-   * #getNextDirtyDirectDeps} (or, equivalently, one call to {@link
+   * created, this is just any elements that were added using one of the methods to add temporary
+   * direct deps (so it is the same as {@link #getTemporaryDirectDeps}). If this node is marked
+   * dirty, this includes all the elements that would have been returned by successive calls to
+   * {@link #getNextDirtyDirectDeps} (or, equivalently, one call to {@link
    * #getAllRemainingDirtyDirectDeps}).
    *
    * <p>This method should only be called when this node is about to be deleted after an aborted
@@ -527,20 +523,36 @@ public interface NodeEntry {
   void resetForRestartFromScratch();
 
   /**
-   * Adds the temporary direct deps given in {@code helper} and returns the set of unique deps
-   * added. It is the users responsibility to ensure that there are no elements in common between
-   * helper and the already existing temporary direct deps.
+   * Adds a temporary direct dep in its own group.
+   *
+   * <p>The given dep must not be present in this node's existing temporary direct deps.
    */
   @ThreadSafe
-  Set<SkyKey> addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper);
+  void addSingletonTemporaryDirectDep(SkyKey dep);
 
   /**
-   * Add a group of direct deps to the node. May only be called with a {@link Collection} returned
-   * by {@link #getNextDirtyDirectDeps()} just before enqueuing those direct deps during dependency
-   * checking.
+   * Adds a temporary direct group.
+   *
+   * <p>The group must be duplicate-free and not contain any deps in common with this node's
+   * existing temporary direct deps.
    */
   @ThreadSafe
-  void addTemporaryDirectDepsGroupToDirtyEntry(List<SkyKey> group);
+  void addTemporaryDirectDepGroup(ImmutableList<SkyKey> group);
+
+  /**
+   * Adds temporary direct deps in groups.
+   *
+   * <p>The iteration order of the given deps along with the {@code groupSizes} parameter dictate
+   * how deps are grouped. For example, if {@code deps = {a,b,c}} and {@code groupSizes = [2, 1]},
+   * then there will be two groups: {@code [a,b]} and {@code [c]}. The sum of {@code groupSizes}
+   * must equal the size of {@code deps}. Note that it only makes sense to call this method with a
+   * set implementation that has a stable iteration order.
+   *
+   * <p>The given set of deps must not contain any deps in common with this node's existing
+   * temporary direct deps.
+   */
+  @ThreadSafe
+  void addTemporaryDirectDepsInGroups(Set<SkyKey> deps, List<Integer> groupSizes);
 
   void addExternalDep();
 
