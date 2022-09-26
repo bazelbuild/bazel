@@ -24,7 +24,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -338,7 +337,7 @@ public abstract class BuildIntegrationTestCase {
 
     // Make sure that a test which crashes with on a bug report does not taint following ones with
     // an unprocessed exception stored statically in BugReport.
-    BugReport.maybePropagateUnprocessedThrowableIfInTest();
+    BugReport.maybePropagateLastCrashIfInTest();
     Thread.interrupted(); // If there was a crash in test case, main thread was interrupted.
   }
 
@@ -370,7 +369,7 @@ public abstract class BuildIntegrationTestCase {
    * Tests which deliberately cause crashes, need to clear that flag not to taint the environment.
    */
   public static void assertAndClearBugReporterStoredCrash(Class<? extends Throwable> expected) {
-    assertThrows(expected, BugReport::maybePropagateUnprocessedThrowableIfInTest);
+    assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest()).isInstanceOf(expected);
   }
 
   /**

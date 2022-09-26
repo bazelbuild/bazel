@@ -37,7 +37,7 @@ import org.mockito.ArgumentMatchers;
 public final class RetainedHeapLimiterTest {
   @After
   public void cleanUp() {
-    BugReport.maybePropagateUnprocessedThrowableIfInTest();
+    BugReport.maybePropagateLastCrashIfInTest();
   }
 
   @Test

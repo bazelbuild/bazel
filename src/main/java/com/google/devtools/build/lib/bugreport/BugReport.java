@@ -39,6 +39,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * Utility methods for handling crashes: we log the crash, optionally send a bug report, and then
@@ -60,8 +61,9 @@ public final class BugReport {
   private static BlazeRuntimeInterface runtime = null;
 
   @SuppressWarnings("StaticAssignmentOfThrowable")
+  @GuardedBy("LOCK")
   @Nullable
-  private static volatile Throwable unprocessedThrowableInTest = null;
+  private static Throwable lastCrashingThrowable = null;
 
   private static final Object LOCK = new Object();
 
@@ -98,19 +100,38 @@ public final class BugReport {
   }
 
   /**
-   * In tests, Runtime#halt is disabled. Thus, the main thread should call this method whenever it
-   * is about to block on thread completion that might hang because of a failed halt below.
+   * Returns the last crashing throwable passed to {@link #handleCrash} and clears the stored value.
    */
   @SuppressWarnings("StaticAssignmentOfThrowable")
-  public static void maybePropagateUnprocessedThrowableIfInTest() {
+  @Nullable
+  public static Throwable getAndResetLastCrashingThrowableIfInTest() {
     if (TestType.isInTest()) {
       // Instead of the jvm having been halted, we might have a saved Throwable.
       synchronized (LOCK) {
-        Throwable lastUnprocessedThrowableInTest = unprocessedThrowableInTest;
-        unprocessedThrowableInTest = null;
+        Throwable result = lastCrashingThrowable;
+        lastCrashingThrowable = null;
+        return result;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * In tests, throws if a there was a {@link #handleCrash} call since the last time this method or
+   * {@link #getAndResetLastCrashingThrowableIfInTest()} was called.
+   *
+   * <p>This method exists because Runtime#halt is disabled. Thus, the main thread should call this
+   * method whenever it is about to block on thread completion that might hang because of a failed
+   * or ignored crash.
+   */
+  public static void maybePropagateLastCrashIfInTest() {
+    if (TestType.isInTest()) {
+      // Instead of the jvm having been halted, we might have a saved Throwable.
+      synchronized (LOCK) {
+        Throwable lastUnprocessedThrowableInTest = getAndResetLastCrashingThrowableIfInTest();
         if (lastUnprocessedThrowableInTest != null) {
-          Throwables.throwIfUnchecked(lastUnprocessedThrowableInTest);
-          throw new RuntimeException(lastUnprocessedThrowableInTest);
+          throw new IllegalStateException(
+              "Unprocessed throwable detected in test", lastUnprocessedThrowableInTest);
         }
       }
     }
@@ -231,7 +252,7 @@ public final class BugReport {
 
         // Don't try to send a bug report during a crash in a test, it will throw itself.
         if (TestType.isInTest()) {
-          unprocessedThrowableInTest = throwable;
+          lastCrashingThrowable = throwable;
         } else if (ctx.shouldSendBugReport()) {
           sendBugReport(throwable, ctx.getArgs());
         }
