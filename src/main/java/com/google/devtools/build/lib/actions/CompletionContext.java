@@ -105,6 +105,10 @@ public class CompletionContext {
     return pathResolver;
   }
 
+  public ActionInputMap getImportantInputMap() {
+    return importantInputMap;
+  }
+
   @Nullable
   public FileArtifactValue getFileArtifactValue(Artifact artifact) {
     return importantInputMap.getMetadata(artifact);
