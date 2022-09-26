@@ -13,18 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.util.GroupedList;
-import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
 import com.google.errorprone.annotations.ForOverride;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -521,9 +523,11 @@ public class InMemoryNodeEntry implements NodeEntry {
     return dirtyBuildingState.getDirtyState();
   }
 
-  /** @see DirtyBuildingState#getNextDirtyDirectDeps() */
+  /**
+   * @see DirtyBuildingState#getNextDirtyDirectDeps()
+   */
   @Override
-  public synchronized List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
+  public synchronized ImmutableList<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     checkState(isReady(), this);
     checkNotNull(dirtyBuildingState, this);
     checkState(dirtyBuildingState.isEvaluating(), "Not evaluating during getNextDirty? %s", this);
@@ -608,15 +612,57 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized Set<SkyKey> addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper) {
-    checkState(!isDone(), "add temp shouldn't be done: %s %s", helper, this);
-    return getTemporaryDirectDeps().append(helper);
+  public synchronized void addSingletonTemporaryDirectDep(SkyKey dep) {
+    getTemporaryDirectDeps().appendSingleton(dep);
   }
 
   @Override
-  public synchronized void addTemporaryDirectDepsGroupToDirtyEntry(List<SkyKey> group) {
-    checkState(!isDone(), "add group temp shouldn't be done: %s %s", group, this);
+  public synchronized void addTemporaryDirectDepGroup(ImmutableList<SkyKey> group) {
     getTemporaryDirectDeps().appendGroup(group);
+  }
+
+  @Override
+  public void addTemporaryDirectDepsInGroups(Set<SkyKey> deps, List<Integer> groupSizes) {
+    if (groupSizes.isEmpty()) {
+      checkGroupSizes(deps.isEmpty(), deps, groupSizes);
+      return;
+    }
+    if (groupSizes.size() == 1) {
+      int onlyGroupSize = groupSizes.get(0);
+      checkGroupSizes(deps.size() == onlyGroupSize, deps, groupSizes);
+      if (onlyGroupSize == 1) {
+        addSingletonTemporaryDirectDep(Iterables.getOnlyElement(deps));
+      } else {
+        addTemporaryDirectDepGroup(ImmutableList.copyOf(deps));
+      }
+      return;
+    }
+    GroupedList<SkyKey> temporaryDirectDeps = getTemporaryDirectDeps();
+    Iterator<SkyKey> it = deps.iterator();
+    synchronized (this) {
+      temporaryDirectDeps.ensureCapacityForAdditionalGroups(groupSizes.size());
+      for (int groupSize : groupSizes) {
+        if (groupSize == 0) {
+          continue;
+        }
+        if (groupSize == 1) {
+          temporaryDirectDeps.appendSingleton(it.next());
+        } else {
+          ImmutableList.Builder<SkyKey> group = ImmutableList.builderWithExpectedSize(groupSize);
+          for (int i = 0; i < groupSize; i++) {
+            group.add(it.next());
+          }
+          temporaryDirectDeps.appendGroup(group.build());
+        }
+      }
+    }
+    checkGroupSizes(!it.hasNext(), deps, groupSizes);
+  }
+
+  private static void checkGroupSizes(
+      boolean condition, Set<SkyKey> deps, List<Integer> groupSizes) {
+    checkArgument(
+        condition, "size(deps) != sum(groupSizes) (deps=%s, groupSizes=%s)", deps, groupSizes);
   }
 
   protected synchronized MoreObjects.ToStringHelper toStringHelper() {

@@ -24,7 +24,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.testutil.TestRunnableWrapper;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
@@ -432,7 +431,7 @@ public abstract class GraphTest {
               // Make some changes, like adding a dep and rdep.
               entry.addReverseDepAndCheckIfDone(key("rdep"));
               entry.markRebuilding();
-              addTemporaryDirectDep(entry, dep);
+              entry.addSingletonTemporaryDirectDep(dep);
               Version nextVersion = getNextVersion(startingVersion);
               entry.signalDep(nextVersion, dep);
 
@@ -519,11 +518,5 @@ public abstract class GraphTest {
 
   private static DependencyState startEvaluation(NodeEntry entry) throws InterruptedException {
     return entry.addReverseDepAndCheckIfDone(null);
-  }
-
-  private static void addTemporaryDirectDep(NodeEntry entry, SkyKey key) {
-    GroupedListHelper<SkyKey> helper = new GroupedListHelper<>();
-    helper.add(key);
-    entry.addTemporaryDirectDeps(helper);
   }
 }

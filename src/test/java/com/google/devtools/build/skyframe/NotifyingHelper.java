@@ -16,13 +16,14 @@ package com.google.devtools.build.skyframe;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList;
-import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.errorprone.annotations.ForOverride;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -305,11 +306,24 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Set<SkyKey> addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper) {
-      graphListener.accept(myKey, EventType.ADD_TEMPORARY_DIRECT_DEPS, Order.BEFORE, helper);
-      Set<SkyKey> skyKeys = super.addTemporaryDirectDeps(helper);
-      graphListener.accept(myKey, EventType.ADD_TEMPORARY_DIRECT_DEPS, Order.AFTER, helper);
-      return skyKeys;
+    public void addSingletonTemporaryDirectDep(SkyKey dep) {
+      graphListener.accept(myKey, EventType.ADD_TEMPORARY_DIRECT_DEPS, Order.BEFORE, dep);
+      super.addSingletonTemporaryDirectDep(dep);
+      graphListener.accept(myKey, EventType.ADD_TEMPORARY_DIRECT_DEPS, Order.AFTER, dep);
+    }
+
+    @Override
+    public void addTemporaryDirectDepGroup(ImmutableList<SkyKey> group) {
+      graphListener.accept(myKey, EventType.ADD_TEMPORARY_DIRECT_DEPS, Order.BEFORE, group);
+      super.addTemporaryDirectDepGroup(group);
+      graphListener.accept(myKey, EventType.ADD_TEMPORARY_DIRECT_DEPS, Order.AFTER, group);
+    }
+
+    @Override
+    public void addTemporaryDirectDepsInGroups(Set<SkyKey> deps, List<Integer> groupSizes) {
+      graphListener.accept(myKey, EventType.ADD_TEMPORARY_DIRECT_DEPS, Order.BEFORE, deps);
+      super.addTemporaryDirectDepsInGroups(deps, groupSizes);
+      graphListener.accept(myKey, EventType.ADD_TEMPORARY_DIRECT_DEPS, Order.AFTER, deps);
     }
 
     @Override

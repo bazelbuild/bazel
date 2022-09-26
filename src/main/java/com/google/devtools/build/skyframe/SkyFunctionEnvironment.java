@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -32,7 +33,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.lib.util.GroupedList;
-import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -42,7 +42,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -54,8 +55,12 @@ import javax.annotation.Nullable;
 /** A {@link SkyFunction.Environment} implementation for {@link ParallelEvaluator}. */
 final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     implements ExtendedEventHandler {
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private static final SkyValue NULL_MARKER = new SkyValue() {};
+  private static final SkyValue PENDING_MARKER = new SkyValue() {};
+  private static final SkyValue MANUALLY_REGISTERED_MARKER = new SkyValue() {};
 
   private boolean building = true;
   private SkyKey depErrorKey = null;
@@ -92,39 +97,46 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   private boolean encounteredErrorDuringBubbling = false;
 
   /**
-   * The values previously declared as dependencies.
+   * The values previously declared as dependencies during an earlier {@link SkyFunction#compute}
+   * call for {@link #skyKey}.
    *
-   * <p>Values in this map are either {@link #NULL_MARKER} or were retrieved via {@link
-   * NodeEntry#getValueMaybeWithMetadata}. In the latter case, they should be processed using the
-   * static methods of {@link ValueWithMetadata}.
+   * <p>Values in this map were generally retrieved via {@link NodeEntry#getValueMaybeWithMetadata}
+   * from done nodes. In some cases, values may be {@link #NULL_MARKER} (see {@link #batchPrefetch}
+   * for more details).
    */
   private final ImmutableMap<SkyKey, SkyValue> previouslyRequestedDepsValues;
 
   /**
-   * The values newly requested from the graph.
+   * The values newly requested from the graph during the {@link SkyFunction#compute} call for this
+   * environment.
    *
-   * <p>Values in this map are either {@link #NULL_MARKER} or were retrieved via {@link
-   * NodeEntry#getValueMaybeWithMetadata}. In the latter case, they should be processed using the
-   * static methods of {@link ValueWithMetadata}.
-   */
-  private final Map<SkyKey, SkyValue> newlyRequestedDepsValues = new HashMap<>();
-
-  /**
-   * Keys of dependencies registered via {@link #registerDependencies}.
+   * <p>Values in this map were either retrieved via {@link NodeEntry#getValueMaybeWithMetadata} or
+   * are one of the following special marker values:
    *
-   * <p>The {@link #registerDependencies} method is hacky. Deps registered through it may not have
-   * entries in {@link #newlyRequestedDepsValues}, but they are expected to be done. This set tracks
-   * those keys so that they aren't removed when {@link #removeUndoneNewlyRequestedDeps} is called.
+   * <ol>
+   *   <li>{@link #NULL_MARKER}: The key was already requested from the graph but was either not
+   *       present or not done.
+   *   <li>{@link #PENDING_MARKER}: The key is about to be requested from the graph. This is a
+   *       placeholder to detect duplicate keys in the same batch. It will be overwritten with
+   *       either {@link #NULL_MARKER} or a value once it is requested.
+   *   <li>{@link #MANUALLY_REGISTERED_MARKER}: The key was manually registered via {@link
+   *       #registerDependencies} and has not been otherwise requested. Such keys are assumed to be
+   *       done.
+   * </ol>
+   *
+   * <p>This map is ordered to preserve dep groups. The sizes of each group are stored in {@link
+   * #newlyRequestedDepGroupSizes}. On a subsequent build, if the value is dirty, all deps in the
+   * same group can be checked in parallel for changes. In other words, if dep1 and dep2 are in the
+   * same group, then dep1 will be checked in parallel with dep2. See {@link
+   * SkyFunction.Environment#getValuesAndExceptions} for more.
+   *
+   * <p>Keys in this map are disjoint with {@link #previouslyRequestedDepsValues}. This map may
+   * contain entries from {@link #bubbleErrorInfo} if they were requested.
    */
-  private final Set<SkyKey> newlyRegisteredDeps = new HashSet<>();
+  private final Map<SkyKey, SkyValue> newlyRequestedDepsValues = new LinkedHashMap<>();
 
-  /**
-   * The grouped list of values requested during this build as dependencies. On a subsequent build,
-   * if this value is dirty, all deps in the same dependency group can be checked in parallel for
-   * changes. In other words, if dep1 and dep2 are in the same group, then dep1 will be checked in
-   * parallel with dep2. See {@link SkyFunction.Environment#getValuesAndExceptions} for more.
-   */
-  private final GroupedListHelper<SkyKey> newlyRequestedDeps = new GroupedListHelper<>();
+  /** Size delimiters for dep groups in {@link #newlyRequestedDepsValues}. */
+  private final List<Integer> newlyRequestedDepGroupSizes = new ArrayList<>();
 
   /** The set of errors encountered while fetching children. */
   private final Set<ErrorInfo> childErrorInfos = new LinkedHashSet<>();
@@ -289,8 +301,9 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
    * <p>Any key whose {@link NodeEntry}--or absence thereof--had to be read from the graph will also
    * be entered into {@link #newlyRequestedDepsValues} with its value or a {@link #NULL_MARKER}.
    *
-   * <p>This asserts that only keys in {@link #newlyRegisteredDeps} require reading from the graph,
-   * because this node is done, and so all other deps must have been previously or newly requested.
+   * <p>This asserts that only keys manually registered via {@link #registerDependencies} require
+   * reading from the graph, because this node is done, and so all other deps must have been
+   * previously or newly requested.
    *
    * <p>If {@code assertDone}, this asserts that all deps in {@code depKeys} are done.
    */
@@ -299,8 +312,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       throws InterruptedException {
     // depKeys may contain keys in newlyRegisteredDeps whose values have not yet been retrieved from
     // the graph during this environment's lifetime.
-    List<SkyKey> missingKeys =
-        newlyRegisteredDeps.isEmpty() ? null : new ArrayList<>(newlyRegisteredDeps.size());
+    List<SkyKey> missingKeys = null;
 
     for (SkyKey key : depKeys) {
       SkyValue value = maybeGetValueFromErrorOrDeps(key);
@@ -309,10 +321,13 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
           continue;
         }
         checkState(
-            newlyRegisteredDeps.contains(key),
+            newlyRequestedDepsValues.get(key) == MANUALLY_REGISTERED_MARKER,
             "Missing already declared dep %s (parent=%s)",
             key,
             skyKey);
+        if (missingKeys == null) {
+          missingKeys = new ArrayList<>();
+        }
         missingKeys.add(key);
       } else if (value == NULL_MARKER) {
         checkState(!assertDone, "%s had not done %s", skyKey, key);
@@ -320,7 +335,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
         eventBuilder.addTransitive(ValueWithMetadata.getEvents(value));
       }
     }
-    if (missingKeys == null || missingKeys.isEmpty()) {
+    if (missingKeys == null) {
       return;
     }
     NodeBatch missingEntries =
@@ -378,7 +393,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
         triState = errorTransienceNode.addReverseDepAndCheckIfDone(skyKey);
       }
       checkState(triState == DependencyState.DONE, "%s %s %s", skyKey, triState, errorInfo);
-      state.addTemporaryDirectDeps(GroupedListHelper.create(ErrorTransienceValue.KEY));
+      state.addSingletonTemporaryDirectDep(ErrorTransienceValue.KEY);
       state.signalDep(evaluatorContext.getGraphVersion(), ErrorTransienceValue.KEY);
       maxTransitiveSourceVersion = null;
     }
@@ -387,7 +402,8 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   }
 
   /**
-   * Returns a value or a {@link #NULL_MARKER} associated with {@code key} by looking in order at:
+   * Returns a value, {@code null}, or {@link #NULL_MARKER} for the given key by looking in order
+   * at:
    *
    * <ol>
    *   <li>{@link #bubbleErrorInfo}
@@ -395,8 +411,8 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
    *   <li>{@link #newlyRequestedDepsValues}
    * </ol>
    *
-   * <p>Returns {@code null} if no entries for {@code key} were found in any of those three maps.
-   * (Note that none of the maps can have {@code null} as a value.)
+   * <p>Returns {@code null} if no entries for {@code key} were found in any of those three maps, or
+   * if the key was manually registered via {@link #registerDependencies} but never requested.
    */
   @Nullable
   SkyValue maybeGetValueFromErrorOrDeps(SkyKey key) {
@@ -410,7 +426,44 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     if (directDepsValue != null) {
       return directDepsValue;
     }
-    return newlyRequestedDepsValues.get(key);
+    directDepsValue = newlyRequestedDepsValues.get(key);
+    return directDepsValue == MANUALLY_REGISTERED_MARKER ? null : directDepsValue;
+  }
+
+  /**
+   * Similar to {@link #maybeGetValueFromErrorOrDeps} but tracks new dependencies by mutating {@link
+   * #newlyRequestedDepsValues}.
+   *
+   * <p>A return of {@code null} indicates that the key should be requested from the graph. May also
+   * return {@link #NULL_MARKER} or {@link #PENDING_MARKER}, but translates {@link
+   * #MANUALLY_REGISTERED_MARKER} to {@code null}.
+   */
+  @Nullable
+  private SkyValue lookupRequestedDep(SkyKey key) {
+    checkArgument(
+        !key.equals(ErrorTransienceValue.KEY),
+        "Error transience key cannot be in requested deps of %s",
+        skyKey);
+    if (bubbleErrorInfo != null) {
+      ValueWithMetadata bubbleErrorInfoValue = bubbleErrorInfo.get(key);
+      if (bubbleErrorInfoValue != null) {
+        newlyRequestedDepsValues.put(key, bubbleErrorInfoValue);
+        return bubbleErrorInfoValue;
+      }
+    }
+    SkyValue directDepsValue = previouslyRequestedDepsValues.get(key);
+    if (directDepsValue != null) {
+      return directDepsValue;
+    }
+    directDepsValue = newlyRequestedDepsValues.putIfAbsent(key, PENDING_MARKER);
+    return directDepsValue == MANUALLY_REGISTERED_MARKER ? null : directDepsValue;
+  }
+
+  private void endDepGroup(int sizeBeforeRequest) {
+    int newDeps = newlyRequestedDepsValues.size() - sizeBeforeRequest;
+    if (newDeps > 0) {
+      newlyRequestedDepGroupSizes.add(newDeps);
+    }
   }
 
   private static SkyValue getValueOrNullMarker(@Nullable NodeEntry nodeEntry)
@@ -436,11 +489,8 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
           @Nullable Class<E4> exceptionClass4)
           throws E1, E2, E3, E4, InterruptedException {
     checkActive();
-    checkState(
-        !depKey.equals(ErrorTransienceValue.KEY),
-        "Error transience key cannot be in requested deps of %s",
-        skyKey);
-    SkyValue depValue = maybeGetValueFromErrorOrDeps(depKey);
+    int sizeBeforeRequest = newlyRequestedDepsValues.size();
+    SkyValue depValue = lookupRequestedDep(depKey);
     if (depValue == null) {
       NodeEntry depEntry = evaluatorContext.getGraph().get(skyKey, Reason.DEP_REQUESTED, depKey);
       depValue = getValueOrNullMarker(depEntry);
@@ -449,9 +499,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
         maybeUpdateMaxTransitiveSourceVersion(depEntry);
       }
     }
-    if (!previouslyRequestedDepsValues.containsKey(depKey)) {
-      newlyRequestedDeps.add(depKey);
-    }
+    endDepGroup(sizeBeforeRequest);
     processDepValue(depKey, depValue);
 
     ValueOrUntypedException voe = transformToValueOrUntypedException(depValue);
@@ -475,28 +523,21 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
         depKeys instanceof Collection
             ? CompactHashMap.createWithExpectedSize(((Collection<?>) depKeys).size())
             : new HashMap<>();
-    Set<SkyKey> missingKeys = new HashSet<>();
-    newlyRequestedDeps.startGroup();
+    List<SkyKey> missingKeys = new ArrayList<>();
+
+    int sizeBeforeRequest = newlyRequestedDepsValues.size();
     for (SkyKey key : depKeys) {
-      checkState(
-          !key.equals(ErrorTransienceValue.KEY),
-          "Error transience key cannot be in requested deps of %s",
-          skyKey);
-      SkyValue value = maybeGetValueFromErrorOrDeps(key);
-      boolean duplicate;
+      SkyValue value = lookupRequestedDep(key);
       if (value == null) {
-        duplicate = !missingKeys.add(key);
-      } else {
-        duplicate = result.put(key, transformToValueOrUntypedException(value)) != null;
+        missingKeys.add(key);
+      } else if (value != PENDING_MARKER) {
+        boolean duplicate = result.put(key, transformToValueOrUntypedException(value)) != null;
         if (!duplicate) {
           processDepValue(key, value);
         }
       }
-      if (!duplicate && !previouslyRequestedDepsValues.containsKey(key)) {
-        newlyRequestedDeps.add(key);
-      }
     }
-    newlyRequestedDeps.endGroup();
+    endDepGroup(sizeBeforeRequest);
 
     if (!missingKeys.isEmpty()) {
       NodeBatch missingEntries =
@@ -522,28 +563,20 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     checkActive();
     int capacity = depKeys instanceof Collection ? ((Collection<?>) depKeys).size() : 16;
     List<ValueOrUntypedException> result = new ArrayList<>(capacity);
-
-    // Ignoring duplication check here since it's done in GroupedList.
     List<SkyKey> missingKeys = new ArrayList<>();
-    newlyRequestedDeps.startGroup();
+
+    int sizeBeforeRequest = newlyRequestedDepsValues.size();
     for (SkyKey key : depKeys) {
-      checkState(
-          !key.equals(ErrorTransienceValue.KEY),
-          "Error transience key cannot be in requested deps of %s",
-          skyKey);
-      SkyValue value = maybeGetValueFromErrorOrDeps(key);
-      if (value == null) {
+      SkyValue value = lookupRequestedDep(key);
+      if (value == null || value == PENDING_MARKER) {
         missingKeys.add(key);
         result.add(null); // Add null as a placeholder to maintain the ordering.
       } else {
         result.add(transformToValueOrUntypedException(value));
         processDepValue(key, value);
       }
-      if (!previouslyRequestedDepsValues.containsKey(key)) {
-        newlyRequestedDeps.add(key);
-      }
     }
-    newlyRequestedDeps.endGroup();
+    endDepGroup(sizeBeforeRequest);
 
     if (!missingKeys.isEmpty()) {
       NodeBatch missingEntries =
@@ -683,24 +716,32 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     building = false;
   }
 
-  GroupedListHelper<SkyKey> getNewlyRequestedDeps() {
-    return newlyRequestedDeps;
+  Set<SkyKey> getNewlyRequestedDeps() {
+    return newlyRequestedDepsValues.keySet();
+  }
+
+  /** Adds newly requested dep keys to the node's temporary direct deps. */
+  void addTemporaryDirectDepsTo(NodeEntry entry) {
+    entry.addTemporaryDirectDepsInGroups(
+        newlyRequestedDepsValues.keySet(), newlyRequestedDepGroupSizes);
   }
 
   void removeUndoneNewlyRequestedDeps() {
-    HashSet<SkyKey> undoneDeps = new HashSet<>();
-    for (SkyKey newlyRequestedDep : newlyRequestedDeps) {
-      if (newlyRegisteredDeps.contains(newlyRequestedDep)) {
-        continue;
-      }
-      SkyValue newlyRequestedDepValue =
-          checkNotNull(newlyRequestedDepsValues.get(newlyRequestedDep), newlyRequestedDep);
-      if (newlyRequestedDepValue == NULL_MARKER) {
-        // The dep was normally requested, and was not done.
-        undoneDeps.add(newlyRequestedDep);
-      }
+    if (!valuesMissing) {
+      return;
     }
-    newlyRequestedDeps.remove(undoneDeps);
+    Iterator<SkyValue> it = newlyRequestedDepsValues.values().iterator();
+    for (int i = 0; i < newlyRequestedDepGroupSizes.size(); i++) {
+      int groupSize = newlyRequestedDepGroupSizes.get(i);
+      int newGroupSize = groupSize;
+      for (int j = 0; j < groupSize; j++) {
+        if (it.next() == NULL_MARKER) {
+          it.remove();
+          newGroupSize--;
+        }
+      }
+      newlyRequestedDepGroupSizes.set(i, newGroupSize);
+    }
   }
 
   boolean isAnyDirectDepErrorTransitivelyTransient() {
@@ -731,7 +772,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     return false;
   }
 
-  Collection<ErrorInfo> getChildErrorInfos() {
+  Set<ErrorInfo> getChildErrorInfos() {
     return childErrorInfos;
   }
 
@@ -789,10 +830,6 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       }
     }
 
-    checkState(
-        maxTransitiveSourceVersion == null || newlyRegisteredDeps.isEmpty(),
-        "Dependency registration not supported when tracking max transitive source versions");
-
     // If this entry is dirty, setValue may not actually change it, if it determines that the data
     // being written now is the same as the data already present in the entry. We detect this case
     // by comparing versions before and after setting the value.
@@ -845,14 +882,16 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
   @Override
   public void registerDependencies(Iterable<SkyKey> keys) {
-    newlyRequestedDeps.startGroup();
+    checkState(
+        maxTransitiveSourceVersion == null,
+        "Dependency registration not supported when tracking max transitive source versions");
+    int sizeBeforeRequest = newlyRequestedDepsValues.size();
     for (SkyKey key : keys) {
       if (!previouslyRequestedDepsValues.containsKey(key)) {
-        newlyRequestedDeps.add(key);
-        newlyRegisteredDeps.add(key);
+        newlyRequestedDepsValues.putIfAbsent(key, MANUALLY_REGISTERED_MARKER);
       }
     }
-    newlyRequestedDeps.endGroup();
+    endDepGroup(sizeBeforeRequest);
   }
 
   @Override
@@ -894,8 +933,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
         .add("errorInfo", errorInfo)
         .add("previouslyRequestedDepsValues", previouslyRequestedDepsValues)
         .add("newlyRequestedDepsValues", newlyRequestedDepsValues)
-        .add("newlyRegisteredDeps", newlyRegisteredDeps)
-        .add("newlyRequestedDeps", newlyRequestedDeps)
+        .add("newlyRequestedDepGroupSizes", newlyRequestedDepGroupSizes)
         .add("childErrorInfos", childErrorInfos)
         .add("depErrorKey", depErrorKey)
         .add("maxTransitiveSourceVersion", maxTransitiveSourceVersion)
