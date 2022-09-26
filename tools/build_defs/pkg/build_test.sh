@@ -62,8 +62,8 @@ function assert_content() {
 ./usr/
 ./usr/titi"
   check_eq "$listing" "$(get_tar_listing $1)"
-  check_eq "-rw-r--r--" "$(get_tar_permission $1 ./usr/titi)"
-  check_eq "-rw-r--r--" "$(get_tar_permission $1 ./etc/nsswitch.conf)"
+  check_eq "-rwxr-xr-x" "$(get_tar_permission $1 ./usr/titi)"
+  check_eq "-rwxr-xr-x" "$(get_tar_permission $1 ./etc/nsswitch.conf)"
 }
 
 function test_tar() {

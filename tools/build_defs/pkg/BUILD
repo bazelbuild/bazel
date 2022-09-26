@@ -87,7 +87,6 @@ pkg_tar(
         ":usr/titi",
     ],
     build_tar = ":build_tar",
-    mode = "0644",
     package_dir = "/",
     strip_prefix = ".",
 )

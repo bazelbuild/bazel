@@ -26,9 +26,6 @@ flags.mark_flag_as_required('output')
 
 flags.DEFINE_multi_string('file', [], 'A file to add to the layer')
 
-flags.DEFINE_string('mode', None,
-                    'Force the mode on the added files (in octal).')
-
 flags.DEFINE_string('directory', None,
                     'Directory in which to store the file inside the layer')
 
@@ -56,20 +53,17 @@ class TarFile(object):
   def __exit__(self, t, v, traceback):
     self.tarfile.close()
 
-  def add_file(self, f, destfile, mode=None):
+  def add_file(self, f, destfile):
     """Add a file to the tar file.
 
     Args:
        f: the file to add to the layer
        destfile: the name of the file in the layer
-       mode: default file mode. Overridden to 755 if file is a directory
     """
     dest = destfile.lstrip('/')  # Remove leading slashes
     if self.directory and self.directory != '/':
       dest = self.directory.lstrip('/') + '/' + dest
-    # If mode is unspecified, derive the mode from the file's mode.
-    if mode is None:
-      mode = 0o755 if os.access(f, os.X_OK) else 0o644
+    mode = 0o755 if os.access(f, os.X_OK) else 0o644
     dest = os.path.normpath(dest)
     self.tarfile.add_file(dest, file_content=f, mode=mode)
 
@@ -110,17 +104,11 @@ def unquote_and_split(arg, c):
 
 
 def main(unused_argv):
-  # Parse modes arguments
-  default_mode = None
-  if FLAGS.mode:
-    # Convert from octal
-    default_mode = int(FLAGS.mode, 8)
-
   # Add objects to the tar file
   with TarFile(FLAGS.output, FLAGS.directory, FLAGS.root_directory) as output:
     for f in FLAGS.file:
       (inf, tof) = unquote_and_split(f, '=')
-      output.add_file(inf, tof, mode=default_mode)
+      output.add_file(inf, tof)
 
 
 if __name__ == '__main__':

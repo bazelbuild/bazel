@@ -29,23 +29,9 @@ def _pkg_tar_impl(ctx):
     args = [
         "--output=" + ctx.outputs.out.path,
         "--directory=" + ctx.attr.package_dir,
-        "--mode=" + ctx.attr.mode,
     ]
 
-    # Add runfiles if requested
-    file_inputs = []
-    if ctx.attr.include_runfiles:
-        runfiles_depsets = []
-        for f in ctx.attr.srcs:
-            default_runfiles = f[DefaultInfo].default_runfiles
-            if default_runfiles != None:
-                runfiles_depsets.append(default_runfiles.files)
-
-        # deduplicates files in srcs attribute and their runfiles
-        file_inputs = depset(ctx.files.srcs, transitive = runfiles_depsets).to_list()
-    else:
-        file_inputs = ctx.files.srcs[:]
-
+    file_inputs = ctx.files.srcs[:]
     args += [
         "--file=%s=%s" % (_quote(f.path), dest_path(f, data_path))
         for f in file_inputs
@@ -69,9 +55,7 @@ _real_pkg_tar = rule(
         "strip_prefix": attr.string(),
         "package_dir": attr.string(default = "/"),
         "srcs": attr.label_list(allow_files = True),
-        "mode": attr.string(default = "0555"),
         "out": attr.output(),
-        "include_runfiles": attr.bool(),
         # Implicit dependencies.
         "build_tar": attr.label(
             default = Label("//tools/build_defs/pkg:build_tar"),
