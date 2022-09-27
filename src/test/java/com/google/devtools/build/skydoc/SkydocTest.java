@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase; // a bad dependency!
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -267,9 +267,7 @@ public final class SkydocTest extends BuildViewTestCase {
 
     Module unused =
         skydocMain.eval(
-            StarlarkSemantics.builder()
-                .setBool(BuildLanguageOptions.INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER, false)
-                .build(),
+            StarlarkSemantics.DEFAULT,
             Label.parseAbsoluteUnchecked("//test:test.bzl"),
             ruleInfoMap,
             ImmutableMap.builder(),
@@ -296,9 +294,7 @@ public final class SkydocTest extends BuildViewTestCase {
 
     Module unused =
         skydocMain.eval(
-            StarlarkSemantics.builder()
-                .setBool(BuildLanguageOptions.INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER, false)
-                .build(),
+            StarlarkSemantics.DEFAULT,
             Label.parseAbsoluteUnchecked("//test:test.bzl"),
             ruleInfoMap,
             ImmutableMap.builder(),
