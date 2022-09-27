@@ -554,7 +554,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       }
     }
 
-    return new SkyframeLookupResult(() -> valuesMissing = true, result::get);
+    return new SimpleSkyframeLookupResult(() -> valuesMissing = true, result::get);
   }
 
   @Override
@@ -597,7 +597,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       }
     }
 
-    return new SkyframeIterableResult(() -> valuesMissing = true, result.iterator());
+    return new SimpleSkyframeIterableResult(() -> valuesMissing = true, result.iterator());
   }
 
   private void processDepValue(SkyKey depKey, SkyValue depValue) throws InterruptedException {

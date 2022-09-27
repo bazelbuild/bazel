@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.skyframe.TargetLoadingUtil.TargetAndErrorIf
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.SimpleSkyframeLookupResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
@@ -80,7 +81,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
               wasOptimizationUsed.set(true);
               // It doesn't matter what this SkyframeLookupResult is, we'll return true in the
               // valuesMissing() call.
-              return new SkyframeLookupResult(
+              return new SimpleSkyframeLookupResult(
                   /* valuesMissingCallback= */ () -> {},
                   k -> {
                     throw new IllegalStateException("Shouldn't have been called: " + k);
@@ -119,7 +120,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     NoSuchTargetException exp1 = new NoSuchTargetException("bad bar");
     NoSuchTargetException exp2 = new NoSuchTargetException("bad baz");
     SkyframeLookupResult returnedDeps =
-        new SkyframeLookupResult(
+        new SimpleSkyframeLookupResult(
             () -> {},
             key ->
                 key.equals(dep1)
@@ -155,7 +156,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     SkyKey dep = function.getKey(Label.parseCanonical("//foo:bar"));
     NoSuchTargetException exp = new NoSuchTargetException("bad bar");
     SkyframeLookupResult returnedDep =
-        new SkyframeLookupResult(
+        new SimpleSkyframeLookupResult(
             () -> {}, key -> key.equals(dep) ? ValueOrUntypedException.ofExn(exp) : null);
     SkyFunction.Environment mockEnv = Mockito.mock(SkyFunction.Environment.class);
     when(mockEnv.getValuesAndExceptions(ImmutableSet.of(dep))).thenReturn(returnedDep);
@@ -208,7 +209,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     NoSuchTargetException exp = new NoSuchTargetException("bad test");
     AtomicBoolean valuesMissing = new AtomicBoolean(false);
     SkyframeLookupResult returnedDep =
-        new SkyframeLookupResult(
+        new SimpleSkyframeLookupResult(
             () -> valuesMissing.set(true),
             key -> key.equals(badDep) ? ValueOrUntypedException.ofExn(exp) : null);
     SkyFunction.Environment mockEnv = Mockito.mock(SkyFunction.Environment.class);

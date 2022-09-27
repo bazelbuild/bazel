@@ -13,9 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import java.util.Iterator;
 import java.util.NoSuchElementException;
 import javax.annotation.Nullable;
 
@@ -35,24 +32,14 @@ import javax.annotation.Nullable;
  * #nextOrThrow} returns {@code null}, only then will {@link SkyFunction.Environment#valuesMissing}
  * be guaranteed to return true.
  */
-public final class SkyframeIterableResult {
-  private final Iterator<ValueOrUntypedException> valuesOrExceptions;
-  private final Runnable valuesMissingCallback;
-
-  SkyframeIterableResult(
-      Runnable valuesMissingCallback, Iterator<ValueOrUntypedException> valuesOrExceptions) {
-    this.valuesMissingCallback = checkNotNull(valuesMissingCallback);
-    this.valuesOrExceptions = checkNotNull(valuesOrExceptions);
-  }
+public interface SkyframeIterableResult {
 
   /**
    * Returns true if {@link SkyframeIterableResult} has more elements. In other words, returns true
    * if {@link #next} or {@link #nextOrThrow} would return an element rather than throwing a {@link
    * NoSuchElementException}.
    */
-  public boolean hasNext() {
-    return valuesOrExceptions.hasNext();
-  }
+  boolean hasNext();
 
   /**
    * Returns the next direct dependency in {@link SkyframeIterableResult}. If the dependency is not
@@ -60,7 +47,8 @@ public final class SkyframeIterableResult {
    * null} if the dependency has already been evaluated and found to be in error. In either of these
    * cases, {@link SkyFunction.Environment#valuesMissing} will subsequently return true.
    */
-  public SkyValue next() {
+  @Nullable
+  default SkyValue next() {
     return nextOrThrow(null, null, null);
   }
 
@@ -79,37 +67,30 @@ public final class SkyframeIterableResult {
    * a subtype of {@link InterruptedException}. See {@link
    * SkyFunctionException#validateExceptionType} for details.
    */
-  public <E1 extends Exception> SkyValue nextOrThrow(Class<E1> exceptionClass) throws E1 {
+  @Nullable
+  default <E extends Exception> SkyValue nextOrThrow(Class<E> exceptionClass) throws E {
     return nextOrThrow(exceptionClass, null, null, null);
   }
 
-  public <E1 extends Exception, E2 extends Exception> SkyValue nextOrThrow(
+  @Nullable
+  default <E1 extends Exception, E2 extends Exception> SkyValue nextOrThrow(
       Class<E1> exceptionClass1, Class<E2> exceptionClass2) throws E1, E2 {
     return nextOrThrow(exceptionClass1, exceptionClass2, null, null);
   }
 
-  public <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue nextOrThrow(
+  @Nullable
+  default <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue nextOrThrow(
       Class<E1> exceptionClass1, Class<E2> exceptionClass2, Class<E3> exceptionClass3)
       throws E1, E2, E3 {
     return nextOrThrow(exceptionClass1, exceptionClass2, exceptionClass3, null);
   }
 
   @Nullable
-  public <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
+  <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
       SkyValue nextOrThrow(
           @Nullable Class<E1> exceptionClass1,
           @Nullable Class<E2> exceptionClass2,
           @Nullable Class<E3> exceptionClass3,
           @Nullable Class<E4> exceptionClass4)
-          throws E1, E2, E3, E4 {
-    ValueOrUntypedException voe = valuesOrExceptions.next();
-    SkyValue value = voe.getValue();
-    if (value != null) {
-      return value;
-    }
-    SkyFunctionException.throwIfInstanceOf(
-        voe.getException(), exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
-    valuesMissingCallback.run();
-    return null;
-  }
+          throws E1, E2, E3, E4;
 }
