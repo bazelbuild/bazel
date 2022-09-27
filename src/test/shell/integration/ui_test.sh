@@ -308,6 +308,51 @@ function test_timestamp() {
   expect_log '[0-2][0-9]:[0-5][0-9]:[0-6][0-9]'
 }
 
+function test_skymeld_ui() {
+  bazel build --experimental_skymeld_ui pkg:true &> "$TEST_log" \
+    || fail "${PRODUCT_NAME} test failed."
+  expect_log 'Build completed successfully'
+}
+
+# Regression test for b/244163231.
+function test_skymeld_ui_with_starlark_flags() {
+  local -r pkg=$FUNCNAME
+  create_pkg $pkg
+  mkdir -p "${pkg}/flags"
+
+  cat > "${pkg}/flags/flags.bzl" <<EOF
+def _impl(ctx):
+  pass
+
+string_flag = rule(
+    implementation = _impl,
+    build_setting = config.string(flag = True),
+)
+EOF
+
+  cat > "${pkg}/flags/BUILD" <<EOF
+load('//${pkg}/flags:flags.bzl', 'string_flag')
+
+string_flag(
+    name = "flag",
+    build_setting_default = "a",
+)
+EOF
+
+  bazel build --experimental_skymeld_ui \
+      --//$pkg/flags:flag=a \
+      $pkg:true &> "$TEST_log" || fail "${PRODUCT_NAME} test failed."
+  expect_log 'Build completed successfully'
+}
+
+# Regression test for b/244163231.
+function test_skymeld_ui_works_with_timestamps() {
+  bazel build --experimental_skymeld_ui --show_timestamps \
+    pkg:true &> "$TEST_log" \
+    || fail "${PRODUCT_NAME} test failed."
+  expect_log 'Build completed successfully'
+}
+
 function test_info_spacing() {
   # Verify that the output of "bazel info" is suitable for backtick escapes,
   # in particular free carriage-return characters.
