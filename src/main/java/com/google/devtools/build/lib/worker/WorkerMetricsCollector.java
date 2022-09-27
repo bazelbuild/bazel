@@ -56,7 +56,7 @@ public class WorkerMetricsCollector {
 
   private final Map<Integer, Instant> workerLastCallTime = new ConcurrentHashMap<>();
 
-  private MetricsWithTime lastMetrics = new MetricsWithTime(ImmutableList.of(), Instant.EPOCH);
+  private MetricsWithTime lastMetrics;
 
   private WorkerMetricsCollector() {}
 
@@ -188,7 +188,7 @@ public class WorkerMetricsCollector {
    */
   public ImmutableList<WorkerMetric> collectMetrics(Duration interval) {
     Instant now = Instant.ofEpochMilli(clock.currentTimeMillis());
-    if (Duration.between(lastMetrics.time, now).compareTo(interval) < 0) {
+    if (lastMetrics != null && Duration.between(lastMetrics.time, now).compareTo(interval) < 0) {
       return lastMetrics.metrics;
     }
 
@@ -235,6 +235,8 @@ public class WorkerMetricsCollector {
 
   public void clear() {
     workerIdToWorkerProperties.clear();
+    workerLastCallTime.clear();
+    lastMetrics = null;
   }
 
   @VisibleForTesting
