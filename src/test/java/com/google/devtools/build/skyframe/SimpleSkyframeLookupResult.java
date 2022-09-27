@@ -15,12 +15,11 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.devtools.build.lib.bugreport.BugReport;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** Simple implementation of {@link SkyframeLookupResult}. */
-public class SimpleSkyframeLookupResult implements SkyframeLookupResult {
+public final class SimpleSkyframeLookupResult implements SkyframeLookupResult {
   private final Runnable valuesMissingCallback;
   private final Function<SkyKey, ValueOrUntypedException> valuesOrExceptions;
 
@@ -40,13 +39,8 @@ public class SimpleSkyframeLookupResult implements SkyframeLookupResult {
       @Nullable Class<E2> exceptionClass2,
       @Nullable Class<E3> exceptionClass3)
       throws E1, E2, E3 {
-    ValueOrUntypedException voe = valuesOrExceptions.apply(skyKey);
-    if (voe == null) {
-      BugReport.sendBugReport(
-          new IllegalStateException(
-              "ValueOrUntypedException " + skyKey + " was missing, this should never happen"));
-      return null;
-    }
+    ValueOrUntypedException voe =
+        checkNotNull(valuesOrExceptions.apply(skyKey), "Missing value for %s", skyKey);
     SkyValue value = voe.getValue();
     if (value != null) {
       return value;

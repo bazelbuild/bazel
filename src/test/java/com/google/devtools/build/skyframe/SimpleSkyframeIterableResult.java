@@ -19,7 +19,7 @@ import java.util.Iterator;
 import javax.annotation.Nullable;
 
 /** Simple implementation of {@link SkyframeIterableResult}. */
-public final class SimpleSkyframeIterableResult implements SkyframeIterableResult {
+final class SimpleSkyframeIterableResult implements SkyframeIterableResult {
   private final Iterator<ValueOrUntypedException> valuesOrExceptions;
   private final Runnable valuesMissingCallback;
 

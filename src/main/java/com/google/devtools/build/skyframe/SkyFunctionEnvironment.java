@@ -25,7 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -41,7 +41,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -54,7 +53,7 @@ import javax.annotation.Nullable;
 
 /** A {@link SkyFunction.Environment} implementation for {@link ParallelEvaluator}. */
 final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
-    implements ExtendedEventHandler {
+    implements SkyframeLookupResult, ExtendedEventHandler {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -502,27 +501,15 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     endDepGroup(sizeBeforeRequest);
     processDepValue(depKey, depValue);
 
-    ValueOrUntypedException voe = transformToValueOrUntypedException(depValue);
-    SkyValue value = voe.getValue();
-    if (value != null) {
-      return value;
-    }
-    SkyFunctionException.throwIfInstanceOf(
-        voe.getException(), exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
-    valuesMissing = true;
-    return null;
+    return unwrapOrThrow(
+        skyKey, depValue, exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
   }
 
+  @CanIgnoreReturnValue
   @Override
   public SkyframeLookupResult getValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
       throws InterruptedException {
     checkActive();
-    // Do not use an ImmutableMap.Builder, because we have not yet deduplicated these keys
-    // and ImmutableMap.Builder does not tolerate duplicates.
-    Map<SkyKey, ValueOrUntypedException> result =
-        depKeys instanceof Collection
-            ? CompactHashMap.createWithExpectedSize(((Collection<?>) depKeys).size())
-            : new HashMap<>();
     List<SkyKey> missingKeys = new ArrayList<>();
 
     int sizeBeforeRequest = newlyRequestedDepsValues.size();
@@ -531,48 +518,6 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       if (value == null) {
         missingKeys.add(key);
       } else if (value != PENDING_MARKER) {
-        boolean duplicate = result.put(key, transformToValueOrUntypedException(value)) != null;
-        if (!duplicate) {
-          processDepValue(key, value);
-        }
-      }
-    }
-    endDepGroup(sizeBeforeRequest);
-
-    if (!missingKeys.isEmpty()) {
-      NodeBatch missingEntries =
-          evaluatorContext.getGraph().getBatch(skyKey, Reason.DEP_REQUESTED, missingKeys);
-      for (SkyKey key : missingKeys) {
-        NodeEntry depEntry = missingEntries.get(key);
-        SkyValue valueOrNullMarker = getValueOrNullMarker(depEntry);
-        result.put(key, transformToValueOrUntypedException(valueOrNullMarker));
-        processDepValue(key, valueOrNullMarker);
-        newlyRequestedDepsValues.put(key, valueOrNullMarker);
-        if (valueOrNullMarker != NULL_MARKER) {
-          maybeUpdateMaxTransitiveSourceVersion(depEntry);
-        }
-      }
-    }
-
-    return new SimpleSkyframeLookupResult(() -> valuesMissing = true, result::get);
-  }
-
-  @Override
-  public SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
-      throws InterruptedException {
-    checkActive();
-    int capacity = depKeys instanceof Collection ? ((Collection<?>) depKeys).size() : 16;
-    List<ValueOrUntypedException> result = new ArrayList<>(capacity);
-    List<SkyKey> missingKeys = new ArrayList<>();
-
-    int sizeBeforeRequest = newlyRequestedDepsValues.size();
-    for (SkyKey key : depKeys) {
-      SkyValue value = lookupRequestedDep(key);
-      if (value == null || value == PENDING_MARKER) {
-        missingKeys.add(key);
-        result.add(null); // Add null as a placeholder to maintain the ordering.
-      } else {
-        result.add(transformToValueOrUntypedException(value));
         processDepValue(key, value);
       }
     }
@@ -581,14 +526,9 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     if (!missingKeys.isEmpty()) {
       NodeBatch missingEntries =
           evaluatorContext.getGraph().getBatch(skyKey, Reason.DEP_REQUESTED, missingKeys);
-      int i = 0;
       for (SkyKey key : missingKeys) {
-        while (result.get(i) != null) {
-          i++; // Fast-forward to the next null placeholder.
-        }
         NodeEntry depEntry = missingEntries.get(key);
         SkyValue valueOrNullMarker = getValueOrNullMarker(depEntry);
-        result.set(i, transformToValueOrUntypedException(valueOrNullMarker));
         processDepValue(key, valueOrNullMarker);
         newlyRequestedDepsValues.put(key, valueOrNullMarker);
         if (valueOrNullMarker != NULL_MARKER) {
@@ -597,7 +537,44 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       }
     }
 
-    return new SimpleSkyframeIterableResult(() -> valuesMissing = true, result.iterator());
+    return this;
+  }
+
+  @Override
+  public SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
+      throws InterruptedException {
+    getValuesAndExceptions(depKeys);
+
+    Iterator<? extends SkyKey> it = depKeys.iterator();
+    return new SkyframeIterableResult() {
+      @Override
+      public boolean hasNext() {
+        return it.hasNext();
+      }
+
+      @Nullable
+      @Override
+      public <
+              E1 extends Exception,
+              E2 extends Exception,
+              E3 extends Exception,
+              E4 extends Exception>
+          SkyValue nextOrThrow(
+              @Nullable Class<E1> exceptionClass1,
+              @Nullable Class<E2> exceptionClass2,
+              @Nullable Class<E3> exceptionClass3,
+              @Nullable Class<E4> exceptionClass4)
+              throws E1, E2, E3, E4 {
+        SkyKey key = it.next();
+        return unwrapOrThrow(
+            key,
+            maybeGetValueFromErrorOrDeps(key),
+            exceptionClass1,
+            exceptionClass2,
+            exceptionClass3,
+            exceptionClass4);
+      }
+    };
   }
 
   private void processDepValue(SkyKey depKey, SkyValue depValue) throws InterruptedException {
@@ -637,39 +614,74 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     }
   }
 
-  private ValueOrUntypedException transformToValueOrUntypedException(SkyValue maybeWrappedValue) {
+  @Nullable
+  @Override // SkyframeLookupResult implementation.
+  public <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue getOrThrow(
+      SkyKey skyKey,
+      @Nullable Class<E1> exceptionClass1,
+      @Nullable Class<E2> exceptionClass2,
+      @Nullable Class<E3> exceptionClass3)
+      throws E1, E2, E3 {
+    return unwrapOrThrow(
+        skyKey,
+        maybeGetValueFromErrorOrDeps(skyKey),
+        exceptionClass1,
+        exceptionClass2,
+        exceptionClass3,
+        null);
+  }
+
+  @Nullable
+  private <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
+      SkyValue unwrapOrThrow(
+          SkyKey skyKey,
+          SkyValue maybeWrappedValue,
+          @Nullable Class<E1> exceptionClass1,
+          @Nullable Class<E2> exceptionClass2,
+          @Nullable Class<E3> exceptionClass3,
+          @Nullable Class<E4> exceptionClass4)
+          throws E1, E2, E3, E4 {
+    if (maybeWrappedValue == null) {
+      BugReport.sendBugReport("Value for %s was missing, this should never happen", skyKey);
+      return null;
+    }
     if (maybeWrappedValue == NULL_MARKER) {
-      return ValueOrUntypedException.ofNull();
+      valuesMissing = true;
+      return null;
     }
     SkyValue justValue = ValueWithMetadata.justValue(maybeWrappedValue);
     ErrorInfo errorInfo = ValueWithMetadata.getMaybeErrorInfo(maybeWrappedValue);
 
     if (justValue != null && (evaluatorContext.keepGoing() || errorInfo == null)) {
-      // If the dep did compute a value, it is given to the caller if we are in
-      // keepGoing mode or if we are in noKeepGoingMode and there were no errors computing
-      // it.
-      return ValueOrUntypedException.ofValueUntyped(justValue);
+      // If the dep did compute a value, it is given to the caller if we are in keepGoing mode or if
+      // we are in noKeepGoingMode and there were no errors computing it.
+      return justValue;
     }
 
-    // There was an error building the value, which we will either report by throwing an
-    // exception or insulate the caller from by returning null.
+    // There was an error building the value, which we will either report by throwing an exception
+    // or insulate the caller from by returning null.
     checkNotNull(errorInfo, "%s %s", skyKey, maybeWrappedValue);
     Exception exception = errorInfo.getException();
 
     if (!evaluatorContext.keepGoing() && exception != null && bubbleErrorInfo == null) {
-      // Child errors should not be propagated in noKeepGoing mode (except during error
-      // bubbling). Instead we should fail fast.
-      return ValueOrUntypedException.ofNull();
+      // Child errors should not be propagated in noKeepGoing mode (except during error bubbling).
+      // Instead we should fail fast.
+      valuesMissing = true;
+      return null;
     }
 
-    if (exception != null) {
-      // Give builder a chance to handle this exception.
-      return ValueOrUntypedException.ofExn(exception);
-    }
-    // In a cycle.
+    SkyFunctionException.throwIfInstanceOf(
+        exception, exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
+
+    // Either an undeclared exception type or in a cycle.
     checkState(
-        !errorInfo.getCycleInfo().isEmpty(), "%s %s %s", skyKey, errorInfo, maybeWrappedValue);
-    return ValueOrUntypedException.ofNull();
+        exception != null || !errorInfo.getCycleInfo().isEmpty(),
+        "%s %s %s",
+        skyKey,
+        errorInfo,
+        maybeWrappedValue);
+    valuesMissing = true;
+    return null;
   }
 
   /**
@@ -681,7 +693,6 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     return depErrorKey;
   }
 
-  @CanIgnoreReturnValue
   @Override
   public ExtendedEventHandler getListener() {
     checkActive();
