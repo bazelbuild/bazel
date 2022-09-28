@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.authandtls.BasicHttpAuthenticationEncoder;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.io.StringReader;
@@ -351,9 +352,9 @@ public class UrlRewriterTest {
   @Test
   public void testNetrc_emptyEnv_shouldIgnore() throws Exception {
     ImmutableMap<String, String> clientEnv = ImmutableMap.of();
-    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path workingDir = new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/workdir");
 
-    Credentials credentials = UrlRewriter.newCredentialsFromNetrc(clientEnv, fileSystem);
+    Credentials credentials = UrlRewriter.newCredentialsFromNetrc(clientEnv, workingDir);
 
     assertThat(credentials).isNull();
   }
@@ -362,9 +363,36 @@ public class UrlRewriterTest {
   public void testNetrc_netrcNotExist_shouldIgnore() throws Exception {
     String home = "/home/foo";
     ImmutableMap<String, String> clientEnv = ImmutableMap.of("HOME", home, "USERPROFILE", home);
-    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path workingDir = new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/workdir");
 
-    Credentials credentials = UrlRewriter.newCredentialsFromNetrc(clientEnv, fileSystem);
+    Credentials credentials = UrlRewriter.newCredentialsFromNetrc(clientEnv, workingDir);
+
+    assertThat(credentials).isNull();
+  }
+
+  @Test
+  public void testNetrc_relativeNetrc_shouldUse() throws Exception {
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path workingDir = fileSystem.getPath("/workdir");
+    Scratch scratch = new Scratch(fileSystem);
+    scratch.file("/workdir/foo/.netrc", "machine foo.example.org login foouser password foopass");
+    ImmutableMap<String, String> clientEnv = ImmutableMap.of("NETRC", "./foo/.netrc");
+
+    Credentials credentials = UrlRewriter.newCredentialsFromNetrc(clientEnv, workingDir);
+
+    assertRequestMetadata(
+        credentials.getRequestMetadata(URI.create("https://foo.example.org")),
+        "foouser",
+        "foopass");
+  }
+
+  @Test
+  public void testNetrc_relativeNetrc_shouldIgnoreWhenNotExist() throws Exception {
+    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path workingDir = fileSystem.getPath("/workdir");
+    ImmutableMap<String, String> clientEnv = ImmutableMap.of("NETRC", "./foo/.netrc");
+
+    Credentials credentials = UrlRewriter.newCredentialsFromNetrc(clientEnv, workingDir);
 
     assertThat(credentials).isNull();
   }
@@ -389,7 +417,7 @@ public class UrlRewriterTest {
     scratch.file(home + "/.netrc", "mach foo.example.org log foouser password foopass");
 
     try {
-      UrlRewriter.newCredentialsFromNetrc(clientEnv, fileSystem);
+      UrlRewriter.newCredentialsFromNetrc(clientEnv, fileSystem.getPath("/workdir"));
       fail();
     } catch (UrlRewriterParseException e) {
       assertThat(e.getLocation()).isEqualTo(Location.fromFileLineColumn("/home/foo/.netrc", 0, 0));
@@ -401,10 +429,11 @@ public class UrlRewriterTest {
     String home = "/home/foo";
     ImmutableMap<String, String> clientEnv = ImmutableMap.of("HOME", home, "USERPROFILE", home);
     FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path workingDir = fileSystem.getPath("/workdir");
     Scratch scratch = new Scratch(fileSystem);
     scratch.file(home + "/.netrc", content);
 
-    return UrlRewriter.newCredentialsFromNetrc(clientEnv, fileSystem);
+    return UrlRewriter.newCredentialsFromNetrc(clientEnv, workingDir);
   }
 
   private static void assertRequestMetadata(

@@ -339,7 +339,7 @@ public class BazelRepositoryModule extends BlazeModule {
       try {
         downloadManager.setNetrcCreds(
             UrlRewriter.newCredentialsFromNetrc(
-                env.getClientEnv(), env.getRuntime().getFileSystem()));
+                env.getClientEnv(), env.getDirectories().getWorkingDirectory()));
       } catch (UrlRewriterParseException e) {
         // If the credentials extraction failed, we're letting bazel try without credentials.
         env.getReporter()

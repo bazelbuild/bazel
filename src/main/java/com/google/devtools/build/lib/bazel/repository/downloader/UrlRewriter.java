@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.authandtls.NetrcParser;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -286,7 +285,7 @@ public class UrlRewriter {
   // TODO : consider re-using RemoteModule.newCredentialsFromNetrc
   @Nullable
   public static Credentials newCredentialsFromNetrc(
-      Map<String, String> clientEnv, FileSystem fileSystem) throws UrlRewriterParseException {
+      Map<String, String> clientEnv, Path workingDirectory) throws UrlRewriterParseException {
     final Optional<String> homeDir;
     if (OS.getCurrent() == OS.WINDOWS) {
       homeDir = Optional.ofNullable(clientEnv.get("USERPROFILE"));
@@ -300,8 +299,15 @@ public class UrlRewriter {
       return null;
     }
     Location location = Location.fromFileLineColumn(netrcFileString, 0, 0);
-
-    Path netrcFile = fileSystem.getPath(netrcFileString);
+    // In case Bazel is not started from a valid workspace.
+    if (workingDirectory == null) {
+      return null;
+    }
+    // Using the getRelative() method ensures:
+    //  - If netrcFileString is an absolute path, use as it is.
+    //  - If netrcFileString is a relative path, it's resolved to an absolute path with the current
+    //    working directory.
+    Path netrcFile = workingDirectory.getRelative(netrcFileString);
     if (netrcFile.exists()) {
       try {
         Netrc netrc = NetrcParser.parseAndClose(netrcFile.getInputStream());
