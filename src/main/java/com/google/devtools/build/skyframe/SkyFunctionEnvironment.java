@@ -580,15 +580,6 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   private void processDepValue(SkyKey depKey, SkyValue depValue) throws InterruptedException {
     if (depValue == NULL_MARKER) {
       valuesMissing = true;
-      if (bubbleErrorInfo == null && previouslyRequestedDepsValues.containsKey(depKey)) {
-        throw new IllegalStateException(
-            String.format(
-                "Undone key %s was already in deps of %s (dep=%s, parent=%s)",
-                depKey,
-                skyKey,
-                evaluatorContext.getGraph().get(skyKey, Reason.OTHER, depKey),
-                evaluatorContext.getGraph().get(null, Reason.OTHER, skyKey)));
-      }
       return;
     }
 
