@@ -204,10 +204,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     return Objects.hashCode(workerBaseDir);
   }
 
-  /**
-   * This class helps to log messages simulteneously on logger and send message to event reporter to
-   * show message in cmd.
-   */
+  /** This class simultaneously sends messages to a logger and an event reporter. */
   private static final class WorkerLoggingHelper {
     private WorkerLoggingHelper() {}
 
@@ -226,7 +223,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
           }
           return;
       }
-      throw new IllegalStateException(String.format("illegel logging level %s", level));
+      throw new IllegalStateException(String.format("illegal logging level %s", level));
     }
 
     public static enum LogLevel {
