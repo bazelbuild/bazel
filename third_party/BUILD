@@ -665,8 +665,13 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = [
         "netty_tcnative/netty-tcnative-classes-2.0.51.Final.jar",
-        ":netty_tcnative/netty-tcnative-filtered.jar",
-    ],
+    ] + select({
+        # No tcnative dynamic library is available for these platforms.
+        "//src/conditions:freebsd": [],
+        "//src/conditions:openbsd": [],
+        # For other platforms, a tcnative dynamic library is available.
+        "//conditions:default": [":netty_tcnative/netty-tcnative-filtered.jar"],
+    }),
 )
 
 distrib_java_import(
