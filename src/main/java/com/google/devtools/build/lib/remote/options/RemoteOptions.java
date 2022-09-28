@@ -614,7 +614,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
           documentationCategory = OptionDocumentationCategory.REMOTE,
           effectTags = {OptionEffectTag.UNKNOWN},
           metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-          help = "Whether to sens all headers to the remote downloader instead of just the first.")
+          help = "Whether to send all values of a multi-valued header to the remote downloader instead of just the first.")
   public boolean remoteDownloaderSendAllHeaders;
 
   // The below options are not configurable by users, only tests.
