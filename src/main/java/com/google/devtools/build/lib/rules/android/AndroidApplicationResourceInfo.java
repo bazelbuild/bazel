@@ -15,13 +15,16 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fromNoneable;
 
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidApplicationResourceInfoApi;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 
 /** A provider for Android resource APKs (".ap_") and related info. */
@@ -140,6 +143,34 @@ public class AndroidApplicationResourceInfo extends NativeInfo
   @Override
   public boolean shouldCompileJavaSrcs() {
     return shouldCompileJavaSrcs;
+  }
+
+  @Nullable
+  @Override
+  public Dict<String, Depset> getNativeLibsStarlark() {
+    if (nativeLibs == null) {
+      return null;
+    }
+    return Dict.immutableCopyOf(
+        Maps.transformValues(nativeLibs.getMap(), set -> Depset.of(Artifact.TYPE, set)));
+  }
+
+  @Nullable
+  @Override
+  public Artifact getNativeLibsNameStarlark() {
+    if (nativeLibs == null) {
+      return null;
+    }
+    return nativeLibs.getName();
+  }
+
+  @Nullable
+  @Override
+  public Depset getTransitiveNativeLibsStarlark() {
+    if (transitiveNativeLibs == null) {
+      return null;
+    }
+    return Depset.of(Artifact.TYPE, transitiveNativeLibs);
   }
 
   @Nullable

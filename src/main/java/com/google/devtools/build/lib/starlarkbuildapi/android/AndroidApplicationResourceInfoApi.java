@@ -23,6 +23,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 
@@ -144,6 +145,30 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       allowReturnNones = false,
       structField = true)
   boolean shouldCompileJavaSrcs();
+
+  @Nullable
+  @StarlarkMethod(
+      name = "native_libs",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  Dict<String, Depset> getNativeLibsStarlark();
+
+  @Nullable
+  @StarlarkMethod(
+      name = "native_libs_name",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  FileApi getNativeLibsNameStarlark();
+
+  @Nullable
+  @StarlarkMethod(
+      name = "transitive_native_libs",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  Depset getTransitiveNativeLibsStarlark();
 
   /** Provider for {@link AndroidApplicationResourceInfoApi}. */
   @StarlarkBuiltin(
