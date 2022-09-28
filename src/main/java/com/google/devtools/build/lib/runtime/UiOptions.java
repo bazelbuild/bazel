@@ -13,8 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -24,7 +25,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.ArrayList;
+
 import java.util.HashSet;
 import java.util.List;
 
@@ -46,57 +47,19 @@ public class UiOptions extends OptionsBase {
   }
 
   /** Converter for {@link EventKind} filters * */
-  public static class EventFiltersConverter extends Converter.Contextless<List<EventKind>> {
-
-    /** A converter for event kinds. */
-    public static class EventKindConverter extends EnumConverter<EventKind> {
-
-      public EventKindConverter(String typeName) {
-        super(EventKind.class, typeName);
-      }
-    }
-
-    private final CommaSeparatedOptionListConverter delegate;
-
-    public EventFiltersConverter() {
-      this.delegate = new CommaSeparatedOptionListConverter();
-    }
+  public static class EventFiltersConverter extends CommaSeparatedOptionListConverter {
+    EnumConverter<EventKind> validator = new EnumConverter<>(EventKind.class, "ui event") {};
 
     @Override
-    public List<EventKind> convert(String input) throws OptionsParsingException {
+    public ImmutableList<String> convert(String input) throws OptionsParsingException {
       if (input.isEmpty()) {
-        // This method is not called to convert the default value
-        // Empty list means that the user wants to filter all events
-        return new ArrayList<>(EventKind.ALL_EVENTS);
+        return ImmutableList.of(input);
       }
-      List<String> filters = this.delegate.convert(input, /*conversionContext=*/ null);
-      EnumConverter<EventKind> eventKindConverter = new EventKindConverter(input);
-
-      HashSet<EventKind> filteredEvents = new HashSet<>();
-      for (String filter : filters) {
-        if (!filter.startsWith("+") && !filter.startsWith("-")) {
-          filteredEvents.addAll(EventKind.ALL_EVENTS);
-          break;
-        }
+      ImmutableList<String> filters = super.convert(input);
+      for (String f : filters) {
+        validator.convert(f.replaceFirst("^[+-]", ""));
       }
-
-      for (String filter : filters) {
-        if (filter.startsWith("+")) {
-          filteredEvents.remove(
-              eventKindConverter.convert(filter.substring(1), /*conversionContext=*/ null));
-        } else if (filter.startsWith("-")) {
-          filteredEvents.add(
-              eventKindConverter.convert(filter.substring(1), /*conversionContext=*/ null));
-        } else {
-          filteredEvents.remove(eventKindConverter.convert(filter, /*conversionContext=*/ null));
-        }
-      }
-      return new ArrayList<>(filteredEvents);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "Convert list of comma separated event kind to list of filters";
+      return filters;
     }
   }
 
@@ -234,7 +197,7 @@ public class UiOptions extends OptionsBase {
               + "set completely with direct assignment. The set of supported event kinds "
               + "include INFO, DEBUG, ERROR and more.",
       allowMultiple = true)
-  public List<EventKind> eventFilters;
+  public List<String> eventFilters;
 
   @Option(
       name = "ui_actions_shown",
@@ -274,6 +237,23 @@ public class UiOptions extends OptionsBase {
 
   public boolean useCursorControl() {
     return useCursesEnum == UseCurses.YES || (useCursesEnum == UseCurses.AUTO && isATty);
+  }
+
+  public ImmutableSet<EventKind> getEventFilters() {
+    HashSet<EventKind> filters = new HashSet<>();
+    for (String filter: eventFilters) {
+      if (filter.startsWith("+")) {
+        filters.remove(EventKind.valueOf(filter.substring(1).toUpperCase()));
+      } else if (filter.startsWith("-")) {
+        filters.add(EventKind.valueOf(filter.substring(1).toUpperCase()));
+      } else {
+        filters.addAll(EventKind.ALL_EVENTS);
+        if (!filter.isEmpty()) {
+          filters.remove(EventKind.valueOf(filter.toUpperCase()));
+        }
+      }
+    }
+    return ImmutableSet.copyOf(filters);
   }
 
   /** A converter for --experimental_ui_max_stdouterr_bytes. */
