@@ -18,7 +18,6 @@ filegroup(
 java_library(
     name = "skyframe_cluster",
     srcs = [
-        "ActionArtifactCycleReporter.java",
         "ActionExecutionFunction.java",
         "ActionLookupConflictFindingFunction.java",
         "ActionOutputDirectoryHelper.java",
@@ -81,6 +80,7 @@ java_library(
     ],
     deps = [
         ":abstract_label_cycle_reporter",
+        ":action_artifact_cycle_reporter",
         ":action_environment_function",
         ":action_execution_state",
         ":action_execution_value",
@@ -374,6 +374,26 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "action_artifact_cycle_reporter",
+    srcs = ["ActionArtifactCycleReporter.java"],
+    deps = [
+        ":abstract_label_cycle_reporter",
+        ":artifact_nested_set_key",
+        ":aspect_completion_value",
+        ":sky_functions",
+        ":test_completion_value",
+        ":top_level_action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -2264,6 +2284,7 @@ java_library(
     name = "skyframe_error_processor",
     srcs = ["SkyframeErrorProcessor.java"],
     deps = [
+        ":action_artifact_cycle_reporter",
         ":artifact_conflict_finder",
         ":aspect_key_creator",
         ":build_configuration",

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.skyframe.ActionArtifactCycleReporter.IS_ARTIFACT_OR_ACTION_SKY_KEY;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -246,14 +248,25 @@ public final class SkyframeErrorProcessor {
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
       maybePostTopLevelEntryAnalysisConcludedEvent(
           errorEntry.getKey(), errorEntry.getValue(), eventBus, keepGoing);
-      SkyKey errorKey = getErrorKey(errorEntry);
       ErrorInfo errorInfo = errorEntry.getValue();
+
+      // The cycle reporter requires that the path to the cycle starts at the top level key
+      // (requested via SkyframeExecutor), hence we need to provide the original top level key here.
+      //
+      // Why is there a need for "original" vs "effective" error key?
+      // 1) The non-skymeld code path deals with ActionLookupKeys as the top level key,
+      // 2) We wanted to share the error handling code between skymeld and non skymeld.
+      // To do so, we need to "normalize" the top level key in Skymeld mode by getting the effective
+      // ActionLookupKey from a BuildDriverKey. The rest of the method can then be easily shared.
+      cyclesReporter.reportCycles(
+          errorInfo.getCycleInfo(), /*topLevelKey=*/ errorEntry.getKey(), eventHandler);
+
+      SkyKey errorKey = getEffectiveErrorKey(errorEntry);
       if (includeExecutionPhase) {
         assertValidAnalysisOrExecutionException(errorInfo, errorKey, result.getWalkableGraph());
       } else {
         assertValidAnalysisException(errorInfo, errorKey, result.getWalkableGraph());
       }
-      cyclesReporter.reportCycles(errorInfo.getCycleInfo(), errorKey, eventHandler);
       Exception cause = errorInfo.getException();
       Preconditions.checkState(cause != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
 
@@ -300,7 +313,13 @@ public final class SkyframeErrorProcessor {
       } else {
         noKeepGoingAnalysisExceptionAspect =
             throwOrReturnAspectAnalysisException(
-                result, cause, bugReporter, errorKey, includeExecutionPhase);
+                result,
+                cause,
+                bugReporter,
+                errorKey,
+                includeExecutionPhase,
+                /*hasExecutionCycle=*/ CYCLE_CODE.equals(
+                    individualErrorProcessingResult.executionDetailedExitCode()));
       }
     }
 
@@ -378,11 +397,19 @@ public final class SkyframeErrorProcessor {
       Exception cause,
       BugReporter bugReporter,
       SkyKey errorKey,
-      boolean includeExecutionPhase)
+      boolean includeExecutionPhase,
+      boolean hasExecutionCycle)
       throws BuildFailedException, TestExecException, ViewCreationFailedException {
     // If the error is execution-related: straightaway rethrow. No further steps required.
     if (isExecutionException(cause)) {
       rethrow(cause, bugReporter, result);
+    }
+    // If a --nokeep_going build found a cycle, that means there were no other errors thrown
+    // during evaluation (otherwise, it wouldn't have bothered to find a cycle). So the best
+    // we can do is throw a generic build failure exception, since we've already reported the
+    // cycles above. Analysis cycles are handled below.
+    if (hasExecutionCycle) {
+      throw new BuildFailedException(null, CYCLE_CODE);
     }
 
     if (errorKey instanceof TopLevelAspectsKey) {
@@ -468,17 +495,24 @@ public final class SkyframeErrorProcessor {
       }
       rootCauses = ctCause.getRootCauses();
     } else if (!errorInfo.getCycleInfo().isEmpty()) {
-      Label analysisRootCause =
-          maybeGetConfiguredTargetCycleCulprit(topLevelLabel, errorInfo.getCycleInfo());
-      rootCauses =
-          analysisRootCause != null
-              ? NestedSetBuilder.create(
-                  Order.STABLE_ORDER,
-                  new LabelCause(
-                      analysisRootCause,
-                      DetailedExitCode.of(createFailureDetail("Dependency cycle", Code.CYCLE))))
-              // TODO(ulfjack): We need to report the dependency cycle here. How?
-              : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      if (isExecutionCycle(errorInfo.getCycleInfo())) {
+        // If we have a cycle, cause would be null, so it's guaranteed that this
+        // executionDetailedExitCode is final.
+        executionDetailedExitCode = CYCLE_CODE;
+        rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      } else {
+        Label analysisRootCause =
+            maybeGetConfiguredTargetCycleCulprit(topLevelLabel, errorInfo.getCycleInfo());
+        rootCauses =
+            analysisRootCause != null
+                ? NestedSetBuilder.create(
+                    Order.STABLE_ORDER,
+                    new LabelCause(
+                        analysisRootCause,
+                        DetailedExitCode.of(createFailureDetail("Dependency cycle", Code.CYCLE))))
+                // TODO(ulfjack): We need to report the dependency cycle here. How?
+                : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      }
     } else if (cause instanceof ActionConflictException) {
       ((ActionConflictException) cause).reportTo(eventHandler);
       rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -550,7 +584,8 @@ public final class SkyframeErrorProcessor {
     }
   }
 
-  private static SkyKey getErrorKey(Entry<SkyKey, ErrorInfo> errorEntry) {
+  /** Peel away the wrapper layers to get to the ActionLookupKey of the top level target. */
+  private static SkyKey getEffectiveErrorKey(Entry<SkyKey, ErrorInfo> errorEntry) {
     if (errorEntry.getKey().argument() instanceof BuildDriverKey) {
       return ((BuildDriverKey) errorEntry.getKey().argument()).getActionLookupKey();
     }
@@ -888,5 +923,16 @@ public final class SkyframeErrorProcessor {
       String message, Execution execution) {
     return DetailedExitCode.of(
         FailureDetail.newBuilder().setMessage(message).setExecution(execution).build());
+  }
+
+  private static boolean isExecutionCycle(Iterable<CycleInfo> cycleInfoCollection) {
+    for (CycleInfo cycleInfo : cycleInfoCollection) {
+      if (cycleInfo.getCycle().stream().allMatch(IS_ARTIFACT_OR_ACTION_SKY_KEY)) {
+        // All these cycle info belong to the same top level key. If one of them is
+        // execution-related, we consider the error to be execution-related.
+        return true;
+      }
+    }
+    return false;
   }
 }
