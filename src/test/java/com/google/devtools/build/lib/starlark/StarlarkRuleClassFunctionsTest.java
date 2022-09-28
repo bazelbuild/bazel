@@ -947,6 +947,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testExportWithSpecifiedName() throws Exception {
+    setBuildLanguageOptions("--noincompatible_remove_rule_name_parameter");
     evalAndExport(
         ev, //
         "def _impl(ctx): pass",
@@ -961,6 +962,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testExportWithSpecifiedNameFailure() throws Exception {
+    setBuildLanguageOptions("--noincompatible_remove_rule_name_parameter");
     ev.setFailFast(false);
 
     evalAndExport(
@@ -973,6 +975,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testExportWithNonStringNameFailsCleanly() throws Exception {
+    setBuildLanguageOptions("--noincompatible_remove_rule_name_parameter");
     ev.setFailFast(false);
 
     evalAndExport(
@@ -985,6 +988,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testExportWithMultipleErrors() throws Exception {
+    setBuildLanguageOptions("--noincompatible_remove_rule_name_parameter");
     ev.setFailFast(false);
 
     evalAndExport(
