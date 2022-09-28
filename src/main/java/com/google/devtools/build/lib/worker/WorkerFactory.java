@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -39,6 +40,8 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
   // This starts at 1 to avoid hiding latent problems of multiplex workers not returning a
   // request_id (which is indistinguishable from 0 in proto3).
   private static final AtomicInteger pidCounter = new AtomicInteger(1);
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final Path workerBaseDir;
   private Reporter reporter;
@@ -79,17 +82,16 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     } else {
       worker = new SingleplexWorker(key, workerId, key.getExecRoot(), logFile);
     }
-    if (reporter != null) {
-      reporter.handle(
-          Event.info(
-              String.format(
-                  "Created new %s %s %s (id %d), logging to %s",
-                  key.isSandboxed() ? "sandboxed" : "non-sandboxed",
-                  key.getMnemonic(),
-                  workTypeName,
-                  workerId,
-                  worker.getLogFile())));
-    }
+
+    String msg =
+        String.format(
+            "Created new %s %s %s (id %d), logging to %s",
+            key.isSandboxed() ? "sandboxed" : "non-sandboxed",
+            key.getMnemonic(),
+            workTypeName,
+            workerId,
+            worker.getLogFile());
+    WorkerLoggingHelper.logMessage(reporter, WorkerLoggingHelper.LogLevel.INFO, msg);
     return worker;
   }
 
@@ -116,14 +118,11 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
   /** When a worker process is discarded, destroy its process, too. */
   @Override
   public void destroyObject(WorkerKey key, PooledObject<Worker> p) {
-    if (reporter != null) {
-      int workerId = p.getObject().getWorkerId();
-      reporter.handle(
-          Event.info(
-              String.format(
-                  "Destroying %s %s (id %d)",
-                  key.getMnemonic(), key.getWorkerTypeName(), workerId)));
-    }
+    int workerId = p.getObject().getWorkerId();
+    String msg =
+        String.format(
+            "Destroying %s %s (id %d)", key.getMnemonic(), key.getWorkerTypeName(), workerId);
+    WorkerLoggingHelper.logMessage(reporter, WorkerLoggingHelper.LogLevel.INFO, msg);
     p.getObject().destroy();
   }
 
@@ -136,7 +135,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     Worker worker = p.getObject();
     Optional<Integer> exitValue = worker.getExitValue();
     if (exitValue.isPresent()) {
-      if (reporter != null && worker.diedUnexpectedly()) {
+      if (worker.diedUnexpectedly()) {
         String msg =
             String.format(
                 "%s %s (id %d) has unexpectedly died with exit code %d.",
@@ -147,14 +146,15 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
                 .logFile(worker.getLogFile())
                 .logSizeLimit(4096)
                 .build();
-        reporter.handle(Event.warn(errorMessage.toString()));
+        WorkerLoggingHelper.logMessage(
+            reporter, WorkerLoggingHelper.LogLevel.WARNING, errorMessage.toString());
       }
       return false;
     }
     boolean filesChanged =
         !key.getWorkerFilesCombinedHash().equals(worker.getWorkerFilesCombinedHash());
 
-    if (reporter != null && filesChanged) {
+    if (filesChanged) {
       StringBuilder msg = new StringBuilder();
       msg.append(
           String.format(
@@ -176,7 +176,8 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
         }
       }
 
-      reporter.handle(Event.warn(msg.toString()));
+      WorkerLoggingHelper.logMessage(
+          reporter, WorkerLoggingHelper.LogLevel.WARNING, msg.toString());
     }
 
     return !filesChanged;
@@ -201,5 +202,47 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
   @Override
   public int hashCode() {
     return Objects.hashCode(workerBaseDir);
+  }
+
+  /**
+   * This class helps to log messages simulteneously on logger and send message to event reporter to
+   * show message in cmd.
+   */
+  private static final class WorkerLoggingHelper {
+    private WorkerLoggingHelper() {}
+
+    public static void logMessage(@Nullable Reporter reporter, LogLevel level, String message) {
+      switch (level) {
+        case INFO:
+          logger.atInfo().log("%s", message);
+          if (reporter != null) {
+            reporter.handle(Event.info(message));
+          }
+          return;
+        case WARNING:
+          logger.atWarning().log("%s", message);
+          if (reporter != null) {
+            reporter.handle(Event.warn(message));
+          }
+          return;
+      }
+      throw new IllegalStateException(String.format("illegel logging level %s", level));
+    }
+
+    public static enum LogLevel {
+      INFO("INFO"),
+      WARNING("WARNING");
+
+      private final String level;
+
+      LogLevel(final String level) {
+        this.level = level;
+      }
+
+      @Override
+      public String toString() {
+        return level;
+      }
+    }
   }
 }

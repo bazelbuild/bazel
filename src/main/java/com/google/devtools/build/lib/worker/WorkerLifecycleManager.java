@@ -40,16 +40,16 @@ final class WorkerLifecycleManager extends Thread {
 
   private boolean isWorking = false;
   private final WorkerPool workerPool;
-  private final WorkerOptions workerOptions;
+  private final WorkerOptions options;
 
-  public WorkerLifecycleManager(WorkerPool workerPool, WorkerOptions workerOptions) {
+  public WorkerLifecycleManager(WorkerPool workerPool, WorkerOptions options) {
     this.workerPool = workerPool;
-    this.workerOptions = workerOptions;
+    this.options = options;
   }
 
   @Override
   public void run() {
-    if (workerOptions.totalWorkerMemoryLimitMb == 0) {
+    if (options.totalWorkerMemoryLimitMb == 0) {
       return;
     }
 
@@ -67,7 +67,7 @@ final class WorkerLifecycleManager extends Thread {
           WorkerMetricsCollector.instance().collectMetrics(METRICS_MINIMAL_INTERVAL);
 
       try {
-        evictWorkers(workerMetrics, workerPool, workerOptions);
+        evictWorkers(workerMetrics);
       } catch (InterruptedException e) {
         break;
       }
@@ -81,9 +81,7 @@ final class WorkerLifecycleManager extends Thread {
   }
 
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
-  static void evictWorkers(
-      ImmutableList<WorkerMetric> workerMetrics, WorkerPool workerPool, WorkerOptions options)
-      throws InterruptedException {
+  void evictWorkers(ImmutableList<WorkerMetric> workerMetrics) throws InterruptedException {
 
     if (options.totalWorkerMemoryLimitMb == 0) {
       return;
@@ -101,27 +99,28 @@ final class WorkerLifecycleManager extends Thread {
 
     ImmutableSet<Integer> candidates =
         collectEvictionCandidates(
-            workerPool, workerMetrics, options.totalWorkerMemoryLimitMb, workerMemeoryUsage);
+            workerMetrics, options.totalWorkerMemoryLimitMb, workerMemeoryUsage);
+
+    if (candidates.isEmpty()) {
+      return;
+    }
 
     logger.atInfo().log("Going to evict %d workers with ids: %s", candidates.size(), candidates);
 
     evictCandidates(workerPool, candidates);
   }
 
-  private static void evictCandidates(WorkerPool pool, ImmutableSet<Integer> candidates)
+  private void evictCandidates(WorkerPool pool, ImmutableSet<Integer> candidates)
       throws InterruptedException {
     pool.evictWithPolicy(new CandidateEvictionPolicy(candidates));
   }
 
   /** Collects worker candidates to evict. Choses workers with the largest memory consumption. */
   @SuppressWarnings("JdkCollectors")
-  static ImmutableSet<Integer> collectEvictionCandidates(
-      WorkerPool workerPool,
-      ImmutableList<WorkerMetric> workerMetrics,
-      int memoryLimitMb,
-      int workerMemeoryUsageMb)
+  ImmutableSet<Integer> collectEvictionCandidates(
+      ImmutableList<WorkerMetric> workerMetrics, int memoryLimitMb, int workerMemeoryUsageMb)
       throws InterruptedException {
-    Set<Integer> idleWorkers = getIdleWorkers(workerPool);
+    Set<Integer> idleWorkers = getIdleWorkers();
 
     List<WorkerMetric> idleWorkerMetrics =
         workerMetrics.stream()
@@ -130,9 +129,13 @@ final class WorkerLifecycleManager extends Thread {
                     metric.getWorkerStat() != null
                         && idleWorkers.contains(metric.getWorkerProperties().getWorkerId()))
             .collect(Collectors.toList());
-    logger.atInfo().log(
-        "Difference between idle workers and idle worker metrics is %d",
-        idleWorkers.size() - idleWorkerMetrics.size());
+
+    if (idleWorkerMetrics.size() != idleWorkers.size()) {
+      logger.atInfo().log(
+          "Difference between idle workers and idle worker metrics is %d",
+          idleWorkers.size() - idleWorkerMetrics.size());
+    }
+
     idleWorkerMetrics.sort(new MemoryComparator());
 
     ImmutableSet.Builder<Integer> candidates = ImmutableSet.builder();
@@ -153,7 +156,7 @@ final class WorkerLifecycleManager extends Thread {
    * Calls workerPool.evict() to collect information, but doesn't kill any workers during this
    * process.
    */
-  private static Set<Integer> getIdleWorkers(WorkerPool workerPool) throws InterruptedException {
+  private Set<Integer> getIdleWorkers() throws InterruptedException {
     InfoEvictionPolicy infoEvictionPolicy = new InfoEvictionPolicy();
     workerPool.evictWithPolicy(infoEvictionPolicy);
     return infoEvictionPolicy.getWorkerIds();
@@ -188,7 +191,15 @@ final class WorkerLifecycleManager extends Thread {
 
     @Override
     public boolean evict(EvictionConfig config, PooledObject<Worker> underTest, int idleCount) {
-      return workerIds.contains(underTest.getObject().getWorkerId());
+      int workerId = underTest.getObject().getWorkerId();
+      if (workerIds.contains(workerId)) {
+        logger.atInfo().log(
+            "Evicting worker %d with mnemonic %s",
+            workerId, underTest.getObject().getWorkerKey().getMnemonic());
+        return true;
+      }
+
+      return false;
     }
   }
 

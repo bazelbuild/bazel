@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -79,7 +80,13 @@ public class WorkerMetricsCollector {
           ImmutableMap.of(), Instant.ofEpochMilli(clock.currentTimeMillis()));
     }
 
-    ImmutableMap<Long, PsInfo> psInfos = collectDataFromPs();
+    ImmutableMap<Long, PsInfo> psInfos;
+    try {
+      psInfos = collectDataFromPs();
+    } catch (RuntimeException e) {
+      throw new VerifyException(
+          String.format("Could not collect data for pids: %s", processIds), e);
+    }
 
     ImmutableMap<Long, Integer> pidToMemoryInKb = summarizeDescendantsMemory(psInfos, processIds);
     return new MemoryCollectionResult(
