@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -126,6 +127,8 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.OFF);
+    BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
+        differencer, BazelCompatibilityMode.ERROR);
   }
 
   @Test
@@ -314,7 +317,7 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testSimpleBazelInvalidCompatability() throws Exception {
+  public void testBazelInvalidCompatibility() throws Exception {
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='mod', version='1.0', bazel_compatibility=['>5.1.0dd'])");
@@ -328,59 +331,101 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testSimpleBazelCompatabilityFailure() throws Exception {
+  public void testSimpleBazelCompatibilityFailure() throws Exception {
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='mod', version='1.0', bazel_compatibility=['>5.1.0', '<5.1.4'])");
 
-    // Embed bazel version
-    Map<String, String> blazeInfo = getInstanceOfBlazeVersionInfo().getBuildData();
-    blazeInfo.remove(BlazeVersionInfo.BUILD_LABEL);
-    blazeInfo.put(BlazeVersionInfo.BUILD_LABEL, "5.1.4");
-
+    embedBazelVersion("5.1.4");
     reporter.removeHandler(failFastHandler);
     EvaluationResult<BazelModuleResolutionValue> result =
         evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
 
     assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().toString()).contains("Bazel version 5.1.4 is not compatible");
+    assertContainsEvent(
+        "Bazel version 5.1.4 is not compatible with module \"mod@1.0\" (bazel_compatibility:"
+            + " [>5.1.0, <5.1.4])");
   }
 
   @Test
-  public void testBazelCompatabilitySuccess() throws Exception {
-    setupModulesForCompatability();
+  public void testBazelCompatibilityWarning() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='mod', version='1.0', bazel_compatibility=['>5.1.0', '<5.1.4'])");
 
-    // Embed bazel version
-    Map<String, String> blazeInfo = getInstanceOfBlazeVersionInfo().getBuildData();
-    blazeInfo.remove(BlazeVersionInfo.BUILD_LABEL);
-    blazeInfo.put(BlazeVersionInfo.BUILD_LABEL, "5.1.4-pre.20220421.3");
+    embedBazelVersion("5.1.4");
+    BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
+        differencer, BazelCompatibilityMode.WARNING);
+    EvaluationResult<BazelModuleResolutionValue> result =
+        evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
 
-    reporter.removeHandler(failFastHandler);
+    assertThat(result.hasError()).isFalse();
+    assertContainsEvent(
+        "Bazel version 5.1.4 is not compatible with module \"mod@1.0\" (bazel_compatibility:"
+            + " [>5.1.0, <5.1.4])");
+  }
+
+  @Test
+  public void testDisablingBazelCompatibility() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='mod', version='1.0', bazel_compatibility=['>5.1.0', '<5.1.4'])");
+
+    embedBazelVersion("5.1.4");
+    BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
+        differencer, BazelCompatibilityMode.OFF);
+    EvaluationResult<BazelModuleResolutionValue> result =
+        evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
+
+    assertThat(result.hasError()).isFalse();
+    assertDoesNotContainEvent(
+        "Bazel version 5.1.4 is not compatible with module \"mod@1.0\" (bazel_compatibility:"
+            + " [>5.1.0, <5.1.4])");
+  }
+
+  @Test
+  public void testBazelCompatibilitySuccess() throws Exception {
+    setupModulesForCompatibility();
+
+    embedBazelVersion("5.1.4-pre.20220421.3");
     EvaluationResult<BazelModuleResolutionValue> result =
         evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
     assertThat(result.hasError()).isFalse();
   }
 
   @Test
-  public void testBazelCompatabilityFailure() throws Exception {
-    setupModulesForCompatability();
+  public void testBazelCompatibilityFailure() throws Exception {
+    setupModulesForCompatibility();
 
-    // Embed bazel version
-    Map<String, String> blazeInfo = getInstanceOfBlazeVersionInfo().getBuildData();
-    blazeInfo.remove(BlazeVersionInfo.BUILD_LABEL);
-    blazeInfo.put(BlazeVersionInfo.BUILD_LABEL, "5.1.5rc444");
-
+    embedBazelVersion("5.1.5rc444");
     reporter.removeHandler(failFastHandler);
     EvaluationResult<BazelModuleResolutionValue> result =
         evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
 
     assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().toString()).contains("Bazel version 5.1.5rc444 is not compatible");
+    assertContainsEvent(
+        "Bazel version 5.1.5rc444 is not compatible with module \"b@1.0\" (bazel_compatibility:"
+            + " [<=5.1.4, -5.1.2])");
   }
 
-  private void setupModulesForCompatability() throws IOException {
+  private void embedBazelVersion(String version) {
+    // Double-get version-info to determine if it's the cached instance or not, and if not cache it.
+    BlazeVersionInfo blazeInfo1 = BlazeVersionInfo.instance();
+    BlazeVersionInfo blazeInfo2 = BlazeVersionInfo.instance();
+    if (blazeInfo1 != blazeInfo2) {
+      BlazeVersionInfo.setBuildInfo(ImmutableMap.of());
+      blazeInfo1 = BlazeVersionInfo.instance();
+    }
+
+    // embed new version
+    Map<String, String> blazeInfo = blazeInfo1.getBuildData();
+    blazeInfo.remove(BlazeVersionInfo.BUILD_LABEL);
+    blazeInfo.put(BlazeVersionInfo.BUILD_LABEL, version);
+  }
+
+  private void setupModulesForCompatibility() throws IOException {
     /* Root depends on "a" which depends on "b"
-       The only versions that would work with root, a and b compatability constrains are between
+       The only versions that would work with root, a and b compatibility constrains are between
        -not including- 5.1.2 and 5.1.4.
        Ex: 5.1.3rc44, 5.1.3, 5.1.4-pre22.44
     */
@@ -402,14 +447,4 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
   }
 
-  private static BlazeVersionInfo getInstanceOfBlazeVersionInfo() {
-    // Double-get version-info to determine if it's the cached instance or not, and if not cache it.
-    BlazeVersionInfo blazeInfo1 = BlazeVersionInfo.instance();
-    BlazeVersionInfo blazeInfo2 = BlazeVersionInfo.instance();
-    if (blazeInfo1 != blazeInfo2) {
-      BlazeVersionInfo.setBuildInfo(ImmutableMap.of());
-      blazeInfo1 = BlazeVersionInfo.instance();
-    }
-    return blazeInfo1;
-  }
 }

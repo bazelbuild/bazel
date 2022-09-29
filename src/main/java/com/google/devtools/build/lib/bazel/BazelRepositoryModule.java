@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.bazel.commands.SyncCommand;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
@@ -136,6 +137,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private List<String> registries;
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
+  private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
 
   public BazelRepositoryModule() {
@@ -414,6 +416,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
       ignoreDevDeps.set(repoOptions.ignoreDevDependency);
       checkDirectDepsMode = repoOptions.checkDirectDependencies;
+      bazelCompatibilityMode = repoOptions.bazelCompatibilityMode;
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
         registries = repoOptions.registries;
@@ -486,7 +489,9 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, ignoreDevDeps.get()),
         PrecomputedValue.injected(
-            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, checkDirectDepsMode));
+            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, checkDirectDepsMode),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, bazelCompatibilityMode));
   }
 
   @Override

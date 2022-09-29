@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -130,6 +131,8 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.WARNING);
+    BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
+        differencer, BazelCompatibilityMode.ERROR);
   }
 
   @Test

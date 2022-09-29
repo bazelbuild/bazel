@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -235,7 +236,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                         ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
                     PrecomputedValue.injected(
                         BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
-                        CheckDirectDepsMode.WARNING)))
+                        CheckDirectDepsMode.WARNING),
+                    PrecomputedValue.injected(
+                        BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
+                        BazelCompatibilityMode.ERROR)))
             .build(ruleClassProvider, fileSystem);
     useConfiguration();
     skyframeExecutor = createSkyframeExecutor(pkgFactory);
@@ -278,7 +282,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
             PrecomputedValue.injected(
                 BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
-                CheckDirectDepsMode.WARNING)));
+                CheckDirectDepsMode.WARNING),
+            PrecomputedValue.injected(
+                BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
+                BazelCompatibilityMode.WARNING)));
   }
 
   /** Resets the SkyframeExecutor, as if a clean had been executed. */

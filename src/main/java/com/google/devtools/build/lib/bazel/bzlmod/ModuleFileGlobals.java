@@ -53,10 +53,10 @@ import net.starlark.java.syntax.Location;
 @DocumentMethods
 public class ModuleFileGlobals {
 
-  /* Valid bazel compatability argument must 1) start with (<,<=,>,>=,-);
+  /* Valid bazel compatibility argument must 1) start with (<,<=,>,>=,-);
      2) then contain a version number in form of X.X.X where X has one or two digits
   */
-  private static final Pattern VALID_BAZEL_COMPATABILITY_VERSION =
+  private static final Pattern VALID_BAZEL_COMPATIBILITY_VERSION =
       Pattern.compile("(>|<|-|<=|>=)(\\d+\\.){2}\\d+");
 
   private boolean moduleCalled = false;
@@ -227,7 +227,7 @@ public class ModuleFileGlobals {
         .setVersion(parsedVersion)
         .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"))
         .addBazelCompatibilityValues(
-            checkAllCompatabilityVersions(bazelCompatibility, "bazel_compatibility"))
+            checkAllCompatibilityVersions(bazelCompatibility, "bazel_compatibility"))
         .setRepoName(repoName);
   }
 
@@ -245,11 +245,11 @@ public class ModuleFileGlobals {
     return list.getImmutableList();
   }
 
-  private static ImmutableList<String> checkAllCompatabilityVersions(
+  private static ImmutableList<String> checkAllCompatibilityVersions(
       Iterable<?> iterable, String where) throws EvalException {
     Sequence<String> list = Sequence.cast(iterable, String.class, where);
     for (String version : list) {
-      if (!VALID_BAZEL_COMPATABILITY_VERSION.matcher(version).matches()) {
+      if (!VALID_BAZEL_COMPATIBILITY_VERSION.matcher(version).matches()) {
         throw Starlark.errorf(
             "invalid version argument '%s': valid argument must 1) start with (<,<=,>,>=,-); "
                 + "2) contain a version number in form of X.X.X where X is a number",
