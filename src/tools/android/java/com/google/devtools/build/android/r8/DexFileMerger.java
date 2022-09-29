@@ -152,49 +152,12 @@ public class DexFileMerger {
     public Path mainDexListFile;
 
     @Option(
-        name = "minimal-main-dex",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
-            "If true, *only* classes listed in --main_dex_list file are placed into \"main\" "
-                + "classes.dex file.")
-    public boolean minimalMainDex;
-
-    @Option(
         name = "verbose",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "If true, print information about the merged files and resulting files to stdout.")
     public boolean verbose;
-
-    @Option(
-        name = "max-bytes-wasted-per-file",
-        defaultValue = "0",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
-            "Limit on conservatively allocated but unused bytes per dex file, which can enable "
-                + "faster merging.")
-    public int wasteThresholdPerDex;
-
-    // Undocumented dx option for testing multidex logic
-    @Option(
-        name = "set-max-idx-number",
-        defaultValue = "0",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Limit on fields and methods in a single dex file.")
-    public int maxNumberOfIdxPerDex;
-
-    @Option(
-        name = "forceJumbo",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Typically not needed flag intended to imitate dx's --forceJumbo.")
-    public boolean forceJumbo;
 
     @Option(
         name = "dex_prefix",
@@ -351,11 +314,6 @@ public class DexFileMerger {
             "--main-dex-list is only supported with multidex enabled, but mode is: "
                 + options.multidexMode);
       }
-      if (options.minimalMainDex) {
-        throw new IllegalStateException(
-            "--minimal-main-dex is only supported with multidex enabled, but mode is: "
-                + options.multidexMode);
-      }
     }
 
     D8Command.Builder builder = D8Command.builder();
@@ -402,8 +360,8 @@ public class DexFileMerger {
       try {
         Method run =
             dexFileMergerHelper.getDeclaredMethod("run", D8Command.class, Boolean.class, Map.class);
-        // DexFileMergerHelper.run(builder.build(), options.minimalMainDex, inputOrdering);
-        run.invoke(null, builder.build(), options.minimalMainDex, inputOrdering);
+        // DexFileMergerHelper.run(builder.build(), false, inputOrdering);
+        run.invoke(null, builder.build(), false, inputOrdering);
       } catch (NoSuchMethodException e) {
         D8.run(builder.build());
       } catch (ReflectiveOperationException e) {

@@ -384,6 +384,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                       + " will be omitted in merged actions."));
         }
         Profiler profiler = Profiler.instance();
+        WorkerMetricsCollector workerMetricsCollector = WorkerMetricsCollector.instance();
+        workerMetricsCollector.setClock(clock);
         profiler.start(
             profiledTasks,
             out,
@@ -399,6 +401,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             options.alwaysProfileSlowOperations,
             options.collectWorkerDataInProfiler,
             options.collectLoadAverageInProfiler,
+            options.collectSystemNetworkUsage,
             WorkerMetricsCollector.instance(),
             bugReporter);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in

@@ -43,10 +43,12 @@ public abstract class WorkerMetric {
   public abstract static class WorkerStat {
     public abstract int getUsedMemoryInKB();
 
-    public abstract Instant getTimestamp();
+    public abstract Instant getLastCallTime();
 
-    public static WorkerStat create(int usedMemoryInKB, Instant timestamp) {
-      return new AutoValue_WorkerMetric_WorkerStat(usedMemoryInKB, timestamp);
+    public abstract Instant getCollectTime();
+
+    public static WorkerStat create(int usedMemoryInKB, Instant lastCallTime, Instant collectTime) {
+      return new AutoValue_WorkerMetric_WorkerStat(usedMemoryInKB, lastCallTime, collectTime);
     }
   }
 
@@ -86,8 +88,9 @@ public abstract class WorkerMetric {
     if (workerStat != null) {
       WorkerStats stats =
           WorkerMetrics.WorkerStats.newBuilder()
-              .setCollectTimeInMs(workerStat.getTimestamp().toEpochMilli())
+              .setCollectTimeInMs(workerStat.getCollectTime().toEpochMilli())
               .setWorkerMemoryInKb(workerStat.getUsedMemoryInKB())
+              .setLastActionStartTimeInMs(workerStat.getLastCallTime().toEpochMilli())
               .build();
       builder.addWorkerStats(stats);
     }

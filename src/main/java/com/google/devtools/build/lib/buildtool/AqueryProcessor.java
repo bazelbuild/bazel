@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
@@ -57,9 +58,10 @@ import javax.annotation.Nullable;
 public final class AqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfiguredTargetValue> {
   private final AqueryActionFilter actionFilters;
 
-  public AqueryProcessor(@Nullable QueryExpression queryExpression)
+  public AqueryProcessor(
+      @Nullable QueryExpression queryExpression, TargetPattern.Parser mainRepoTargetParser)
       throws AqueryActionFilterException {
-    super(queryExpression);
+    super(queryExpression, mainRepoTargetParser);
     actionFilters = buildActionFilters(queryExpression);
   }
 
@@ -138,7 +140,7 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfi
             extraFunctions,
             topLevelConfigurations,
             hostConfiguration,
-            env.getRelativeWorkingDirectory(),
+            mainRepoTargetParser,
             env.getPackageManager().getPackagePath(),
             () -> walkableGraph,
             aqueryOptions);

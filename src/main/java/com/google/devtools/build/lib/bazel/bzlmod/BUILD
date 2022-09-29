@@ -100,6 +100,7 @@ java_library(
     ],
     deps = [
         ":common",
+        ":inspection",
         ":module_extension",
         ":registry",
         ":repo_rule_creator",
@@ -144,6 +145,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
+        "//src/main/java/com/google/devtools/build/lib/bazel:bazel_version",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
@@ -220,19 +223,29 @@ java_library(
 java_library(
     name = "inspection",
     srcs = [
-        "BazelModuleInspectorFunction.java",
         "BazelModuleInspectorValue.java",
-        "ModqueryExecutor.java",
     ],
     deps = [
         ":common",
-        ":resolution",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
-        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "inspection_impl",
+    srcs = [
+        "BazelModuleInspectorFunction.java",
+    ],
+    deps = [
+        ":common",
+        ":inspection",
+        ":resolution",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

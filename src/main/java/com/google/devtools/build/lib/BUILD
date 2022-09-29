@@ -130,6 +130,21 @@ java_library(
 )
 
 java_library(
+    name = "buildtool/symlink_forest",
+    srcs = ["buildtool/SymlinkForest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "runtime/blaze_server_startup_options",
     srcs = ["runtime/BlazeServerStartupOptions.java"],
     deps = [
@@ -240,6 +255,7 @@ java_library(
         ],
         exclude = [
             "buildtool/BuildRequestOptions.java",
+            "buildtool/SymlinkForest.java",
             "runtime/BlazeCommandResult.java",
             "runtime/CommandDispatcher.java",
             "runtime/CommandLinePathFactory.java",
@@ -249,6 +265,7 @@ java_library(
     ),
     deps = [
         ":build-request-options",
+        ":buildtool/symlink_forest",
         ":keep-going-option",
         ":loading-phase-threads-option",
         ":runtime/blaze_command_result",
@@ -347,12 +364,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_progress_receiver",
         "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
         "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:incremental_package_roots",
         "//src/main/java/com/google/devtools/build/lib/skyframe:loading_phase_started_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_progress_receiver",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_roots_no_symlink_creation",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:per_build_syscall_cache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_error_processor",
@@ -397,6 +416,7 @@ java_library(
         "//src/main/protobuf:any_java_proto",
         "//src/main/protobuf:command_line_java_proto",
         "//src/main/protobuf:command_server_java_proto",
+        "//src/main/protobuf:execution_graph_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:option_filters_java_proto",
@@ -409,6 +429,7 @@ java_library(
         "//third_party:jsr305",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//java/util",
+        "@zstd-jni//:zstd-jni",
     ],
 )
 

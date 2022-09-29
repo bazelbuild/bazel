@@ -58,7 +58,8 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
   public void factoryMethod_InBuildRuntime() throws Exception {
     NestedSet<Artifact> files = NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile);
     PyRuntimeInfo inBuildRuntime =
-        PyRuntimeInfo.createForInBuildRuntime(dummyInterpreter, files, PythonVersion.PY2, null);
+        PyRuntimeInfo.createForInBuildRuntime(
+            dummyInterpreter, files, null, null, PythonVersion.PY2, null);
 
     assertThat(inBuildRuntime.getCreationLocation()).isEqualTo(Location.BUILTIN);
     assertThat(inBuildRuntime.getInterpreterPath()).isNull();
@@ -75,7 +76,7 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
   public void factoryMethod_PlatformRuntime() {
     PathFragment path = PathFragment.create("/system/interpreter");
     PyRuntimeInfo platformRuntime =
-        PyRuntimeInfo.createForPlatformRuntime(path, PythonVersion.PY2, null);
+        PyRuntimeInfo.createForPlatformRuntime(path, null, null, PythonVersion.PY2, null);
 
     assertThat(platformRuntime.getCreationLocation()).isEqualTo(Location.BUILTIN);
     assertThat(platformRuntime.getInterpreterPath()).isEqualTo(path);

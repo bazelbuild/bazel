@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
+import com.google.devtools.build.lib.packages.Type.LabelVisitor;
 import com.google.devtools.build.lib.packages.Type.ListType;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -37,6 +38,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /**
@@ -69,55 +71,100 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * {@link #visitAttribute}'s documentation. So we want to avoid that code path when possible.
    */
   @Override
+  public void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {
+    Type.LabelVisitor visitor =
+        (label, attribute) -> {
+          if (label != null) {
+            consumer.accept(attribute, label);
+          }
+        };
+    visitLabels(filter, visitor);
+  }
+
+  @Override
   <T> void visitLabels(Attribute attribute, Type<T> type, Type.LabelVisitor visitor) {
-    visitLabels(attribute, type, /*includeSelectKeys=*/ true, visitor);
+    visitLabels(
+        visitor,
+        attribute,
+        type,
+        /*includeSelectKeys=*/ true,
+        rule.getAttributeContainer(),
+        ruleClass.getAttributeIndex(attribute.getName()));
+  }
+
+  /** See {@link #visitLabels(DependencyFilter, BiConsumer)}. */
+  void visitLabels(DependencyFilter filter, Type.LabelVisitor visitor) {
+    List<Attribute> attributes = ruleClass.getAttributes();
+    AttributeContainer attributeContainer = rule.getAttributeContainer();
+    for (int i = 0; i < attributes.size(); i++) {
+      Attribute attr = attributes.get(i);
+      Type<?> type = attr.getType();
+      if (type != BuildType.OUTPUT
+          && type != BuildType.OUTPUT_LIST
+          && type != BuildType.NODEP_LABEL
+          && type != BuildType.NODEP_LABEL_LIST
+          && filter.test(rule, attr)) {
+        visitLabels(visitor, attr, type, /* includeSelectKeys= */ true, attributeContainer, i);
+      }
+    }
   }
 
   @SuppressWarnings("unchecked")
   private <T> void visitLabels(
-      Attribute attribute, Type<T> type, boolean includeSelectKeys, Type.LabelVisitor visitor) {
-    String name = attribute.getName();
-
-    // The only way for LabelClass.NONE to contain labels is in select keys.
+      LabelVisitor visitor,
+      Attribute attr,
+      Type<T> type,
+      boolean includeSelectKeys,
+      AttributeContainer attributeContainer,
+      int i) {
+    Object rawVal;
     if (type.getLabelClass() == LabelClass.NONE) {
-      if (includeSelectKeys && attribute.isConfigurable()) {
-        SelectorList<T> selectorList = getSelectorList(name, type);
-        if (selectorList != null) {
+      // The only way for LabelClass.NONE to contain labels is in select keys.
+      if (includeSelectKeys && attr.isConfigurable()) {
+        rawVal = attributeContainer.getAttributeValue(i);
+        if (rawVal instanceof SelectorList) {
           visitLabelsInSelect(
-              selectorList,
-              attribute,
+              (SelectorList<T>) rawVal,
+              attr,
               type,
               visitor,
-              /*includeKeys=*/ true,
-              /*includeValues=*/ false);
+              /* includeKeys= */ true,
+              /* includeValues= */ false);
         }
       }
       return;
     }
-
-    Object rawVal = rule.getAttr(name, type);
+    rawVal = attributeContainer.getAttributeValue(i);
+    if (rawVal == null && !attr.hasComputedDefault()) {
+      rawVal = attr.getDefaultValue(null);
+    }
     if (rawVal instanceof SelectorList) {
       visitLabelsInSelect(
           (SelectorList<T>) rawVal,
-          attribute,
+          attr,
           type,
           visitor,
-          includeSelectKeys,
-          /*includeValues=*/ true);
-    } else if (rawVal instanceof ComputedDefault) {
+          /* includeKeys= */ includeSelectKeys,
+          /* includeValues= */ true);
+      return;
+    }
+    if (rawVal instanceof ComputedDefault) {
       // Computed defaults are a special pain: we have no choice but to iterate through their
       // (computed) values and look for labels.
       for (T value : ((ComputedDefault) rawVal).getPossibleValues(type, rule)) {
         if (value != null) {
-          type.visitLabels(visitor, value, attribute);
+          type.visitLabels(visitor, value, attr);
         }
       }
-    } else {
-      T value = getFromRawAttributeValue(rawVal, name, type);
-      if (value != null) {
-        type.visitLabels(visitor, value, attribute);
-      }
+      return;
     }
+    if (rawVal instanceof Attribute.LateBoundDefault) {
+      rawVal = ((Attribute.LateBoundDefault<?, ?>) rawVal).getDefault();
+    }
+    if (rawVal == null || ((rawVal instanceof Collection) && ((Collection<?>) rawVal).isEmpty())) {
+      return;
+    }
+    type.visitLabels(visitor, (T) rawVal, attr);
   }
 
   private static <T> void visitLabelsInSelect(
@@ -127,19 +174,39 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       Type.LabelVisitor visitor,
       boolean includeKeys,
       boolean includeValues) {
-    for (Selector<T> selector : selectorList.getSelectors()) {
-      for (Map.Entry<Label, T> selectorEntry : selector.getEntries().entrySet()) {
-        if (includeKeys && !Selector.isReservedLabel(selectorEntry.getKey())) {
-          visitor.visit(selectorEntry.getKey(), attribute);
-        }
-        if (includeValues) {
-          T value =
-              selector.isValueSet(selectorEntry.getKey())
-                  ? selectorEntry.getValue()
-                  : type.cast(attribute.getDefaultValue(null));
-          type.visitLabels(visitor, value, attribute);
-        }
-      }
+    var entryProcessor =
+        new BiConsumer<Label, T>() {
+          Selector<T> selector;
+          boolean hasDefault;
+          boolean unconditional;
+
+          @Override
+          public void accept(Label key, T val) {
+            if (includeKeys
+                && !unconditional
+                && (!hasDefault || !Selector.isDefaultConditionLabel(key))) {
+              visitor.visit(key, attribute);
+            }
+            if (includeValues) {
+              T value = selector.isValueSet(key) ? val : type.cast(attribute.getDefaultValue(null));
+              type.visitLabels(visitor, value, attribute);
+            }
+          }
+        };
+
+    List<Selector<T>> selectors = selectorList.getSelectors();
+    // Avoid iterator construction because of code hotness:
+    for (int i = 0; i < selectors.size(); i++) {
+      Selector<T> selector = selectors.get(i);
+      entryProcessor.selector = selector;
+      entryProcessor.hasDefault = selector.hasDefault();
+      entryProcessor.unconditional = selector.isUnconditional();
+      // The use of .forEach() here is a performance optimization, compared with e.g.
+      // iterating over selector.getEntries().entrySet(). The .getEntries() call returns an
+      // UnmodifiableMap; .entrySet() could require an UnmodifiableEntrySet allocation; iterating
+      // over an UnmodifiableEntrySet requires an UnmodifiableEntry allocation for each call to
+      // .next().
+      selector.getEntries().forEach(entryProcessor);
     }
   }
 
@@ -152,10 +219,16 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * @param includeSelectKeys whether to include config_setting keys for configurable attributes
    */
   public ImmutableSet<Label> getReachableLabels(String attributeName, boolean includeSelectKeys) {
-    Attribute attribute = getAttributeDefinition(attributeName);
+    Integer attributeIndex = ruleClass.getAttributeIndex(attributeName);
+    Attribute attribute = ruleClass.getAttribute(attributeIndex);
     ImmutableSet.Builder<Label> builder = ImmutableSet.builder();
     visitLabels(
-        attribute, attribute.getType(), includeSelectKeys, (label, attr) -> builder.add(label));
+        (label, attr) -> builder.add(label),
+        attribute,
+        attribute.getType(),
+        includeSelectKeys,
+        rule.getAttributeContainer(),
+        attributeIndex);
     return builder.build();
   }
 

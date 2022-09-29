@@ -516,7 +516,7 @@ load("//:rule.bzl", "broken_rule")
 broken_rule(name = "broken")
 EOF
   bazel sync --curses=yes --experimental_ui_actions_shown=100 --distdir=${EXTREPODIR}/test_WORKSPACE/distdir > "${TEST_log}" 2>&1 && fail "expected failure" || :
-  expect_log 'Fetching @broken'
+  expect_log 'Fetching repository @broken'
   expect_log "DEBUG-message"
   expect_log "Failure-message"
 }

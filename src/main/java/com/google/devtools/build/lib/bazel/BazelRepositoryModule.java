@@ -26,9 +26,11 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.LocalPathOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactory;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactoryImpl;
@@ -126,6 +128,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
+  private ImmutableMap<String, ModuleOverride> moduleOverrides = ImmutableMap.of();
   private Optional<RootedPath> resolvedFile = Optional.empty();
   private Optional<RootedPath> resolvedFileReplacingWorkspace = Optional.empty();
   private Set<String> outputVerificationRules = ImmutableSet.of();
@@ -202,7 +205,7 @@ public class BazelRepositoryModule extends BlazeModule {
             directories,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
     RegistryFactory registryFactory =
-        new RegistryFactoryImpl(new HttpDownloader(), clientEnvironmentSupplier);
+        new RegistryFactoryImpl(downloadManager, clientEnvironmentSupplier);
     singleExtensionEvalFunction =
         new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier, downloadManager);
 
@@ -220,11 +223,23 @@ public class BazelRepositoryModule extends BlazeModule {
             //   - The canonical name "local_config_platform" is hardcoded in Bazel code.
             //     See {@link PlatformOptions}
             "local_config_platform",
-            (RepositoryName repoName) ->
-                RepoSpec.builder()
+            new NonRegistryOverride() {
+              @Override
+              public RepoSpec getRepoSpec(RepositoryName repoName) {
+                return RepoSpec.builder()
                     .setRuleClassName("local_config_platform")
                     .setAttributes(ImmutableMap.of("name", repoName.getName()))
-                    .build());
+                    .build();
+              }
+
+              @Override
+              public ResolutionReason getResolutionReason() {
+                // NOTE: It is not exactly a LOCAL_PATH_OVERRIDE, but there is no inspection
+                // ResolutionReason for builtin modules
+                return ResolutionReason.LOCAL_PATH_OVERRIDE;
+              }
+            });
+
     builder
         .addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, repositoryDelegatorFunction)
         .addSkyFunction(
@@ -317,20 +332,23 @@ public class BazelRepositoryModule extends BlazeModule {
           env.getReporter()
               .handle(
                   Event.warn(
-                      "Failed to set up cache at "
-                          + repositoryCachePath.toString()
-                          + ": "
-                          + e.getMessage()));
+                      "Failed to set up cache at " + repositoryCachePath + ": " + e.getMessage()));
         }
       }
 
       try {
+        downloadManager.setNetrcCreds(
+            UrlRewriter.newCredentialsFromNetrc(
+                env.getClientEnv(), env.getDirectories().getWorkingDirectory()));
+      } catch (UrlRewriterParseException e) {
+        // If the credentials extraction failed, we're letting bazel try without credentials.
+        env.getReporter()
+            .handle(
+                Event.warn(String.format("Error parsing the .netrc file: %s.", e.getMessage())));
+      }
+      try {
         UrlRewriter rewriter =
-            UrlRewriter.getDownloaderUrlRewriter(
-                repoOptions == null ? null : repoOptions.downloaderConfig,
-                env.getReporter(),
-                env.getClientEnv(),
-                env.getRuntime().getFileSystem());
+            UrlRewriter.getDownloaderUrlRewriter(repoOptions.downloaderConfig, env.getReporter());
         downloadManager.setUrlRewriter(rewriter);
       } catch (UrlRewriterParseException e) {
         // It's important that the build stops ASAP, because this config file may be required for
@@ -352,7 +370,7 @@ public class BazelRepositoryModule extends BlazeModule {
                             : env.getBlazeWorkspace().getWorkspace().getRelative(path))
                 .collect(Collectors.toList()));
       } else {
-        downloadManager.setDistdir(ImmutableList.<Path>of());
+        downloadManager.setDistdir(ImmutableList.of());
       }
 
       if (repoOptions.httpTimeoutScaling > 0) {
@@ -377,6 +395,21 @@ public class BazelRepositoryModule extends BlazeModule {
         }
       } else {
         overrides = ImmutableMap.of();
+      }
+
+      if (repoOptions.moduleOverrides != null) {
+        Map<String, ModuleOverride> moduleOverrideMap = new LinkedHashMap<>();
+        for (RepositoryOptions.ModuleOverride modOverride : repoOptions.moduleOverrides) {
+          moduleOverrideMap.put(
+              modOverride.moduleName(), LocalPathOverride.create(modOverride.path()));
+        }
+        ImmutableMap<String, ModuleOverride> newModOverrides =
+            ImmutableMap.copyOf(moduleOverrideMap);
+        if (!Maps.difference(moduleOverrides, newModOverrides).areEqual()) {
+          moduleOverrides = newModOverrides;
+        }
+      } else {
+        moduleOverrides = ImmutableMap.of();
       }
 
       ignoreDevDeps.set(repoOptions.ignoreDevDependency);
@@ -433,6 +466,7 @@ public class BazelRepositoryModule extends BlazeModule {
   public ImmutableList<Injected> getPrecomputedValues() {
     return ImmutableList.of(
         PrecomputedValue.injected(RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides),
+        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),
         PrecomputedValue.injected(
             RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION, resolvedFile),
         PrecomputedValue.injected(
@@ -457,6 +491,6 @@ public class BazelRepositoryModule extends BlazeModule {
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return ImmutableList.<Class<? extends OptionsBase>>of(RepositoryOptions.class);
+    return ImmutableList.of(RepositoryOptions.class);
   }
 }

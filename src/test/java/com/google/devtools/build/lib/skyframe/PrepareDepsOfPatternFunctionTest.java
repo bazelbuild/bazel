@@ -22,8 +22,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternValue.PrepareDepsOfPatternSkyKeysAndExceptions;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -39,12 +39,12 @@ public final class PrepareDepsOfPatternFunctionTest extends BuildViewTestCase {
 
   private static PrepareDepsOfPatternSkyKeysAndExceptions createPrepDepsKeysMaybe(
       ImmutableList<String> patterns) {
-    return PrepareDepsOfPatternValue.keys(patterns, PathFragment.EMPTY_FRAGMENT);
+    return PrepareDepsOfPatternValue.keys(patterns, TargetPattern.defaultParser());
   }
 
   private static SkyKey createPrepDepsKey(String pattern) {
     PrepareDepsOfPatternSkyKeysAndExceptions keysAndExceptions =
-        PrepareDepsOfPatternValue.keys(ImmutableList.of(pattern), PathFragment.EMPTY_FRAGMENT);
+        PrepareDepsOfPatternValue.keys(ImmutableList.of(pattern), TargetPattern.defaultParser());
     assertThat(keysAndExceptions.getExceptions()).isEmpty();
     return Iterables.getOnlyElement(keysAndExceptions.getValues()).getSkyKey();
   }
@@ -76,7 +76,7 @@ public final class PrepareDepsOfPatternFunctionTest extends BuildViewTestCase {
     // Then it returns a wrapped TargetParsingException.
     assertThat(keysAndExceptionsResult.getValues()).isEmpty();
     assertThat(
-        Iterables.getOnlyElement(keysAndExceptionsResult.getExceptions()).getOriginalPattern())
+            Iterables.getOnlyElement(keysAndExceptionsResult.getExceptions()).getOriginalPattern())
         .isEqualTo(unparsablePattern);
   }
 
@@ -98,8 +98,7 @@ public final class PrepareDepsOfPatternFunctionTest extends BuildViewTestCase {
 
     // When PrepareDepsOfPatternFunction is evaluated for the provided pattern,
     SkyKey key = createPrepDepsKey(pattern);
-    EvaluationResult<PrepareDepsOfPatternValue> evaluationResult =
-        getEvaluationResult(key);
+    EvaluationResult<PrepareDepsOfPatternValue> evaluationResult = getEvaluationResult(key);
     WalkableGraph graph = Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
 
     // Then the result is not null,
@@ -129,8 +128,8 @@ public final class PrepareDepsOfPatternFunctionTest extends BuildViewTestCase {
   }
 
   /**
-   * Creates a package "a" with a genrule "a" that depends on a target "b.txt" in a created
-   * package "b", and a package "c" with a genrule "c", and a package "a/d" with a genrule "d".
+   * Creates a package "a" with a genrule "a" that depends on a target "b.txt" in a created package
+   * "b", and a package "c" with a genrule "c", and a package "a/d" with a genrule "d".
    */
   private void createPackages() throws IOException {
     scratch.file("a/BUILD", "genrule(name='a', cmd='', srcs=['//b:b.txt'], outs=['a.out'])");

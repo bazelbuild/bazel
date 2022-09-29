@@ -34,8 +34,12 @@ class BazelWindowsTest(test_base.TestBase):
     self.createProjectFiles()
 
     exit_code, _, stderr = self.RunBazel([
-        '--batch', '--host_jvm_args=-Dbazel.windows_unix_root=', 'build',
-        '//foo:x', '--cpu=x64_windows_msys'
+        '--batch',
+        '--host_jvm_args=-Dbazel.windows_unix_root=',
+        'build',
+        '//foo:x',
+        '--cpu=x64_windows_msys',
+        '--noincompatible_enable_cc_toolchain_resolution',
     ])
     self.AssertExitCode(exit_code, 37, stderr)
     self.assertIn('"bazel.windows_unix_root" JVM flag is not set',

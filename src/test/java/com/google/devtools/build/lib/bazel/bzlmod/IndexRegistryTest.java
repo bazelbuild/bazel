@@ -24,9 +24,17 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.authandtls.BasicHttpAuthenticationEncoder;
+import com.google.devtools.build.lib.authandtls.Netrc;
+import com.google.devtools.build.lib.authandtls.NetrcCredentials;
+import com.google.devtools.build.lib.authandtls.NetrcParser;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.UnrecoverableHttpException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
@@ -41,15 +49,19 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link IndexRegistry}. */
 @RunWith(JUnit4.class)
 public class IndexRegistryTest extends FoundationTestCase {
-  @Rule public final TestHttpServer server = new TestHttpServer();
+  private final String authToken =
+      BasicHttpAuthenticationEncoder.encode("rinne", "rinnepass", UTF_8);
+  private DownloadManager downloadManager;
+  @Rule public final TestHttpServer server = new TestHttpServer(authToken);
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   private RegistryFactory registryFactory;
 
   @Before
   public void setUp() throws Exception {
+    downloadManager = new DownloadManager(new RepositoryCache(), new HttpDownloader());
     registryFactory =
-        new RegistryFactoryImpl(new HttpDownloader(), Suppliers.ofInstance(ImmutableMap.of()));
+        new RegistryFactoryImpl(downloadManager, Suppliers.ofInstance(ImmutableMap.of()));
   }
 
   @Test
@@ -58,6 +70,28 @@ public class IndexRegistryTest extends FoundationTestCase {
     server.start();
 
     Registry registry = registryFactory.getRegistryWithUrl(server.getUrl() + "/myreg");
+    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
+        .hasValue("lol".getBytes(UTF_8));
+    assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
+  }
+
+  @Test
+  public void testHttpUrlWithNetrcCreds() throws Exception {
+    server.serve("/myreg/modules/foo/1.0/MODULE.bazel", "lol".getBytes(UTF_8), true);
+    server.start();
+    Netrc netrc =
+        NetrcParser.parseAndClose(
+            new ByteArrayInputStream(
+                "machine [::1] login rinne password rinnepass\n".getBytes(UTF_8)));
+    Registry registry = registryFactory.getRegistryWithUrl(server.getUrl() + "/myreg");
+
+    UnrecoverableHttpException e =
+        assertThrows(
+            UnrecoverableHttpException.class,
+            () -> registry.getModuleFile(createModuleKey("foo", "1.0"), reporter));
+    assertThat(e).hasMessageThat().contains("GET returned 401 Unauthorized");
+
+    downloadManager.setNetrcCreds(new NetrcCredentials(netrc));
     assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
         .hasValue("lol".getBytes(UTF_8));
     assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
@@ -140,7 +174,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setIntegrity("sha256-bleh")
                 .setStripPrefix("")
                 .setRemotePatches(
-                    ImmutableMap.<String, String>of(
+                    ImmutableMap.of(
                         server.getUrl() + "/modules/bar/2.0/patches/1.fix-this.patch", "sha256-lol",
                         server.getUrl() + "/modules/bar/2.0/patches/2.fix-that.patch",
                             "sha256-kek"))

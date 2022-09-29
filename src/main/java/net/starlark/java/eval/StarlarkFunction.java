@@ -21,12 +21,8 @@ import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.spelling.SpellChecker;
-import net.starlark.java.syntax.Expression;
-import net.starlark.java.syntax.ExpressionStatement;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Resolver;
-import net.starlark.java.syntax.Statement;
-import net.starlark.java.syntax.StringLiteral;
 
 /** A StarlarkFunction is a function value created by a Starlark {@code def} statement. */
 @StarlarkBuiltin(
@@ -150,18 +146,7 @@ public final class StarlarkFunction implements StarlarkCallable {
   /** Returns the value denoted by the function's doc string literal, or null if absent. */
   @Nullable
   public String getDocumentation() {
-    if (rfn.getBody().isEmpty()) {
-      return null;
-    }
-    Statement first = rfn.getBody().get(0);
-    if (!(first instanceof ExpressionStatement)) {
-      return null;
-    }
-    Expression expr = ((ExpressionStatement) first).getExpression();
-    if (!(expr instanceof StringLiteral)) {
-      return null;
-    }
-    return ((StringLiteral) expr).getValue();
+    return rfn.getDocumentation();
   }
 
   public Module getModule() {

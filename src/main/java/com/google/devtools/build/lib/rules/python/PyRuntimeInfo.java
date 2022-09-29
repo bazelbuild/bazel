@@ -56,6 +56,8 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
   @Nullable private final Artifact interpreter;
   // Validated on initialization to contain Artifact
   @Nullable private final Depset files;
+  @Nullable private final Artifact coverageTool;
+  @Nullable private final Depset coverageFiles;
   /** Invariant: either PY2 or PY3. */
   private final PythonVersion pythonVersion;
 
@@ -66,15 +68,20 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
       @Nullable PathFragment interpreterPath,
       @Nullable Artifact interpreter,
       @Nullable Depset files,
+      @Nullable Artifact coverageTool,
+      @Nullable Depset coverageFiles,
       PythonVersion pythonVersion,
       @Nullable String stubShebang) {
     Preconditions.checkArgument((interpreterPath == null) != (interpreter == null));
     Preconditions.checkArgument((interpreter == null) == (files == null));
+    Preconditions.checkArgument((coverageTool == null) == (coverageFiles == null));
     Preconditions.checkArgument(pythonVersion.isTargetValue());
     this.location = location != null ? location : Location.BUILTIN;
     this.files = files;
     this.interpreterPath = interpreterPath;
     this.interpreter = interpreter;
+    this.coverageTool = coverageTool;
+    this.coverageFiles = coverageFiles;
     this.pythonVersion = pythonVersion;
     if (stubShebang != null && !stubShebang.isEmpty()) {
       this.stubShebang = stubShebang;
@@ -97,6 +104,8 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
   public static PyRuntimeInfo createForInBuildRuntime(
       Artifact interpreter,
       NestedSet<Artifact> files,
+      @Nullable Artifact coverageTool,
+      @Nullable NestedSet<Artifact> coverageFiles,
       PythonVersion pythonVersion,
       @Nullable String stubShebang) {
     return new PyRuntimeInfo(
@@ -104,18 +113,26 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
         /*interpreterPath=*/ null,
         interpreter,
         Depset.of(Artifact.TYPE, files),
+        coverageTool,
+        coverageFiles == null ? null : Depset.of(Artifact.TYPE, coverageFiles),
         pythonVersion,
         stubShebang);
   }
 
   /** Constructs an instance from native rule logic (built-in location) for a platform runtime. */
   public static PyRuntimeInfo createForPlatformRuntime(
-      PathFragment interpreterPath, PythonVersion pythonVersion, @Nullable String stubShebang) {
+      PathFragment interpreterPath,
+      @Nullable Artifact coverageTool,
+      @Nullable NestedSet<Artifact> coverageFiles,
+      PythonVersion pythonVersion,
+      @Nullable String stubShebang) {
     return new PyRuntimeInfo(
         /*location=*/ null,
         interpreterPath,
         /*interpreter=*/ null,
         /*files=*/ null,
+        coverageTool,
+        coverageFiles == null ? null : Depset.of(Artifact.TYPE, coverageFiles),
         pythonVersion,
         stubShebang);
   }
@@ -131,12 +148,21 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
     return (this.interpreterPath.equals(otherInfo.interpreterPath)
         && this.interpreter.equals(otherInfo.interpreter)
         && this.files.equals(otherInfo.files)
+        && this.coverageTool.equals(otherInfo.coverageTool)
+        && this.coverageFiles.equals(otherInfo.coverageFiles)
         && this.stubShebang.equals(otherInfo.stubShebang));
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(PyRuntimeInfo.class, interpreterPath, interpreter, files, stubShebang);
+    return Objects.hash(
+        PyRuntimeInfo.class,
+        interpreterPath,
+        interpreter,
+        coverageTool,
+        coverageFiles,
+        files,
+        stubShebang);
   }
 
   /**
@@ -191,6 +217,27 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
     return files;
   }
 
+  @Override
+  @Nullable
+  public Artifact getCoverageTool() {
+    return coverageTool;
+  }
+
+  @Nullable
+  public NestedSet<Artifact> getCoverageToolFiles() {
+    try {
+      return coverageFiles == null ? null : coverageFiles.getSet(Artifact.class);
+    } catch (Depset.TypeException ex) {
+      throw new IllegalStateException("for coverage_runfiles, " + ex.getMessage());
+    }
+  }
+
+  @Override
+  @Nullable
+  public Depset getCoverageToolFilesForStarlark() {
+    return coverageFiles;
+  }
+
   public PythonVersion getPythonVersion() {
     return pythonVersion;
   }
@@ -213,6 +260,8 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
         Object interpreterPathUncast,
         Object interpreterUncast,
         Object filesUncast,
+        Object coverageToolUncast,
+        Object coverageFilesUncast,
         String pythonVersion,
         String stubShebang,
         StarlarkThread thread)
@@ -225,6 +274,13 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
         // Validate type of filesDepset.
         Depset.cast(filesUncast, Artifact.class, "files");
         filesDepset = (Depset) filesUncast;
+      }
+      Artifact coverageTool = coverageToolUncast == NONE ? null : (Artifact) coverageToolUncast;
+      Depset coverageDepset = null;
+      if (coverageFilesUncast != NONE) {
+        // Validate type of filesDepset.
+        Depset.cast(coverageFilesUncast, Artifact.class, "coverage_files");
+        coverageDepset = (Depset) coverageFilesUncast;
       }
 
       if ((interpreter == null) == (interpreterPath == null)) {
@@ -253,6 +309,8 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
             /*interpreterPath=*/ null,
             interpreter,
             filesDepset,
+            coverageTool,
+            coverageDepset,
             parsedPythonVersion,
             stubShebang);
       } else {
@@ -261,6 +319,8 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
             PathFragment.create(interpreterPath),
             /*interpreter=*/ null,
             /*files=*/ null,
+            coverageTool,
+            coverageDepset,
             parsedPythonVersion,
             stubShebang);
       }

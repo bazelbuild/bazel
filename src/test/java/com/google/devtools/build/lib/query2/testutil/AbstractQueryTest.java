@@ -23,6 +23,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
@@ -32,6 +33,9 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.bazel.bzlmod.Version;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.graph.Digraph;
@@ -1242,7 +1246,7 @@ public abstract class AbstractQueryTest<T> {
     // result = { genrule(//x) }
     assertThat(result).hasSize(1);
     T r = result.iterator().next();
-    assertThat(helper.getLabel(r).toString()).isEqualTo("//x:x");
+    assertThat(helper.getLabel(r)).isEqualTo("//x:x");
   }
 
   // Regression test for bug #2340261:
@@ -1368,12 +1372,12 @@ public abstract class AbstractQueryTest<T> {
       // TODO(blaze-team): (2009) make this a utility method of Digraph.
       System.err.println("Expected:");
       expected.visitNodesBeforeEdges(
-          AbstractQueryTest.<T>createVisitor(
+          AbstractQueryTest.createVisitor(
               new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8)))),
           null);
       System.err.println("Was:");
       subgraph.visitNodesBeforeEdges(
-          AbstractQueryTest.<T>createVisitor(
+          AbstractQueryTest.createVisitor(
               new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8)))),
           null);
       fail();
@@ -1508,6 +1512,7 @@ public abstract class AbstractQueryTest<T> {
   public void testSlashSlashDotDotDot() throws Exception {
     useReducedSetOfRules();
     writeFile("WORKSPACE");
+    writeFile("MODULE.bazel");
     writeFile("a/BUILD", "sh_library(name = 'a', srcs = ['a.sh'])");
     assertThat(eval("//...")).isEqualTo(eval("//a"));
   }
@@ -1583,6 +1588,15 @@ public abstract class AbstractQueryTest<T> {
   private void useReducedSetOfRules() throws Exception {
     helper.clearAllFiles();
     helper.useRuleClassProvider(analysisMock.createRuleClassProvider());
+    helper.writeFile("/workspace/embedded_tools/BUILD");
+    helper.writeFile("/workspace/embedded_tools/WORKSPACE");
+    helper.writeFile(
+        "/workspace/embedded_tools/MODULE.bazel", "module(name = \"bazel_tools\", version = \"\")");
+    helper.writeFile("/workspace/platforms_workspace/BUILD");
+    helper.writeFile("/workspace/platforms_workspace/WORKSPACE");
+    helper.writeFile(
+        "/workspace/platforms_workspace/MODULE.bazel",
+        "module(name = \"platforms\", version = \"\")");
   }
 
   @Test
@@ -1628,6 +1642,7 @@ public abstract class AbstractQueryTest<T> {
   public void simpleVisibilityTest(String visibility, boolean expectVisible) throws Exception {
     useReducedSetOfRules();
     writeFile("WORKSPACE");
+    writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
         "b/BUILD", "filegroup(name = 'b', srcs = ['b.txt'], visibility = ['" + visibility + "'])");
@@ -1668,6 +1683,7 @@ public abstract class AbstractQueryTest<T> {
   public void testVisible_private_same_package() throws Exception {
     useReducedSetOfRules();
     writeFile("WORKSPACE");
+    writeFile("MODULE.bazel");
     writeFile(
         "a/BUILD",
         "filegroup(name = 'a', srcs = [':b'], visibility = ['//visibility:private'])",
@@ -1679,6 +1695,7 @@ public abstract class AbstractQueryTest<T> {
   public void testVisible_package_group() throws Exception {
     useReducedSetOfRules();
     writeFile("WORKSPACE");
+    writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
         "b/BUILD",
@@ -1691,6 +1708,7 @@ public abstract class AbstractQueryTest<T> {
   public void testVisible_package_group_invisible() throws Exception {
     useReducedSetOfRules();
     writeFile("WORKSPACE");
+    writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
         "b/BUILD",
@@ -1704,6 +1722,7 @@ public abstract class AbstractQueryTest<T> {
   public void testVisible_package_group_include() throws Exception {
     useReducedSetOfRules();
     writeFile("WORKSPACE");
+    writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
         "b/BUILD",
@@ -1718,6 +1737,7 @@ public abstract class AbstractQueryTest<T> {
   public void testVisible_java_javatests() throws Exception {
     useReducedSetOfRules();
     writeFile("WORKSPACE");
+    writeFile("MODULE.bazel");
     writeFile(
         "java/com/google/a/BUILD",
         "filegroup(name = 'a', srcs = ['a.txt'], visibility = ['//visibility:private'])");
@@ -1736,6 +1756,7 @@ public abstract class AbstractQueryTest<T> {
   public void testVisible_java_javatests_different_package() throws Exception {
     useReducedSetOfRules();
     writeFile("WORKSPACE");
+    writeFile("MODULE.bazel");
     writeFile(
         "java/com/google/a/BUILD",
         "filegroup(name = 'a', srcs = ['a.txt'], visibility = ['//visibility:private'])");
@@ -1755,6 +1776,7 @@ public abstract class AbstractQueryTest<T> {
   public void testVisible_javatests_java() throws Exception {
     useReducedSetOfRules();
     writeFile("WORKSPACE");
+    writeFile("MODULE.bazel");
     writeFile(
         "javatests/com/google/a/BUILD",
         "filegroup(name = 'a', srcs = ['a.txt'], visibility = ['//visibility:private'])");
@@ -1773,6 +1795,7 @@ public abstract class AbstractQueryTest<T> {
   public void testVisible_default_private() throws Exception {
     useReducedSetOfRules();
     writeFile("WORKSPACE");
+    writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b'])");
     writeFile(
         "b/BUILD",
@@ -1785,6 +1808,7 @@ public abstract class AbstractQueryTest<T> {
   public void testVisible_default_public() throws Exception {
     useReducedSetOfRules();
     writeFile("WORKSPACE");
+    writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b'])");
     writeFile(
         "b/BUILD",
@@ -1797,6 +1821,7 @@ public abstract class AbstractQueryTest<T> {
   public void testPackageGroupAllBeneath() throws Exception {
     useReducedSetOfRules();
     writeFile("WORKSPACE");
+    writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
         "b/BUILD",
@@ -2120,6 +2145,57 @@ public abstract class AbstractQueryTest<T> {
         Setting.NO_IMPLICIT_DEPS);
   }
 
+  protected void writeBzlmodBuildFiles() throws Exception {
+    helper.overwriteFile(
+        "MODULE.bazel", "bazel_dep(name= 'repo', version='1.0', repo_name='my_repo')");
+    helper.overwriteFile(
+        "BUILD",
+        "sh_binary(",
+        "name='rinne',",
+        "srcs=['rinne.sh'],",
+        "deps=['@my_repo//a:x','@my_repo//a/b:p']",
+        ")");
+    helper.addModule(
+        ModuleKey.create("repo", Version.parse("1.0")), "module(name = 'repo', version = '1.0')");
+    writeFile(helper.getModuleRoot().getRelative("repo~1.0/WORKSPACE").getPathString(), "");
+    writeFile(
+        helper.getModuleRoot().getRelative("repo~1.0/a/BUILD").getPathString(),
+        "exports_files(['x', 'y', 'z'])",
+        "sh_library(name = 'a_shar')");
+    writeFile(
+        helper.getModuleRoot().getRelative("repo~1.0/a/b/BUILD").getPathString(),
+        "exports_files(['p', 'q'])",
+        "sh_library(name = 'a_b_shar')");
+    RepositoryMapping mapping =
+        RepositoryMapping.create(
+            ImmutableMap.of("my_repo", RepositoryName.create("repo~1.0")), RepositoryName.MAIN);
+    helper.setMainRepoTargetParser(mapping);
+  }
+
+  protected static final String REPO_A_RULES = "@repo~1.0//a:a_shar";
+  protected static final String REPO_AB_RULES = "@repo~1.0//a/b:a_b_shar";
+  protected static final String REPO_AB_ALL =
+      "@repo~1.0//a/b:BUILD @repo~1.0//a/b:a_b_shar @repo~1.0//a/b:p @repo~1.0//a/b:q";
+  protected static final String REPO_A_ALL =
+      "@repo~1.0//a:BUILD @repo~1.0//a:a_shar @repo~1.0//a:x @repo~1.0//a:y @repo~1.0//a:z";
+  protected static final String REPO_A_AB_RULES = REPO_AB_RULES + " " + REPO_A_RULES;
+  protected static final String REPO_A_AB_ALL = REPO_AB_ALL + " " + REPO_A_ALL;
+
+  @Test
+  public void testExternalRepo_allTargetsInPackage() throws Exception {
+    writeBzlmodBuildFiles();
+    assertThat(evalToString("@my_repo//a/b:*")).isEqualTo(REPO_AB_ALL);
+    assertThat(evalToString("@my_repo//a:*")).isEqualTo(REPO_A_ALL);
+  }
+
+  @Test
+  public void testExternalRepo_allTargetsBelow() throws Exception {
+    writeBzlmodBuildFiles();
+    assertThat(evalToString("@my_repo//...:*")).isEqualTo(REPO_A_AB_ALL);
+    assertThat(evalToString("@my_repo//a/...")).isEqualTo(REPO_A_AB_RULES);
+    assertThat(evalToString("@my_repo//a/b/...")).isEqualTo(REPO_AB_RULES);
+  }
+
   /**
    * A helper interface that allows creating a bunch of BUILD files and running queries against
    * them. We use this rather than the existing FoundationTestCase / BuildTestCase infrastructure to
@@ -2187,7 +2263,7 @@ public abstract class AbstractQueryTest<T> {
      * Contains both the results of the query (Like if there were errors, empty result, etc.) and
      * the actual targets returned by the query.
      */
-    static class ResultAndTargets<T> {
+    class ResultAndTargets<T> {
 
       private final QueryEvalResult queryEvalResult;
       private final Set<T> results;
@@ -2230,5 +2306,11 @@ public abstract class AbstractQueryTest<T> {
     void assertPackageNotLoaded(String packageName) throws Exception;
 
     String getLabel(T target);
+
+    void addModule(ModuleKey key, String... moduleFileLines);
+
+    Path getModuleRoot();
+
+    void setMainRepoTargetParser(RepositoryMapping mapping);
   }
 }

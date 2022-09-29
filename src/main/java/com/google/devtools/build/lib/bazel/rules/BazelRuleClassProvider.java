@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.rules.android.AarImportBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidApplicationResourceInfo;
 import com.google.devtools.build.lib.rules.android.AndroidAssetsInfo;
@@ -277,7 +276,6 @@ public class BazelRuleClassProvider {
     builder.setBuiltinsBzlZipResource(
         ResourceFileLoader.resolveResource(BazelRuleClassProvider.class, "builtins_bzl.zip"));
     builder.setBuiltinsBzlPackagePathInSource("src/main/starlark/builtins_bzl");
-    builder.setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy.NEVER_CHECK);
 
     for (RuleSet ruleSet : RULE_SETS) {
       ruleSet.init(builder);

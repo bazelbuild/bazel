@@ -18,15 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
-import com.google.devtools.build.lib.buildtool.BuildResult;
-import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
@@ -51,13 +48,6 @@ import java.util.concurrent.Executors;
 public class DynamicExecutionModule extends BlazeModule {
 
   private ExecutorService executorService;
-
-  /**
-   * If true, this is the first build since this server started (excluding failed builds). This
-   * allows turning off dynamic execution for an initial build, avoiding dynamic execution on most
-   * clean builds.
-   */
-  private static boolean firstBuild = true;
 
   public DynamicExecutionModule() {}
 
@@ -143,7 +133,6 @@ public class DynamicExecutionModule extends BlazeModule {
             options,
             this::getExecutionPolicy,
             this::getPostProcessingSpawnForLocalExecution,
-            firstBuild,
             numCpus,
             jobs,
             this::canIgnoreFailure);
@@ -231,14 +220,6 @@ public class DynamicExecutionModule extends BlazeModule {
         String errorMessage,
         FileOutErr outErr,
         boolean isLocal);
-  }
-
-  @Subscribe
-  public void buildCompleteEvent(BuildCompleteEvent event) {
-    BuildResult result = event.getResult();
-    if (result.getSuccess()) {
-      firstBuild = false;
-    }
   }
 
   @Override

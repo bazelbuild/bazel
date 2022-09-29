@@ -106,7 +106,7 @@ def java_compile_for_protos(ctx, output_jar_suffix, source_jar = None, deps = []
     if source_jar != None:
         path, sep, filename = ctx.label.name.rpartition("/")
         output_jar = ctx.actions.declare_file(path + sep + "lib" + filename + output_jar_suffix)
-        java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]
+        java_toolchain = semantics.find_java_toolchain(ctx)
         java_info = java_common.compile(
             ctx,
             source_jars = [source_jar],
@@ -133,10 +133,8 @@ bazel_java_proto_aspect = aspect(
         "_aspect_java_proto_toolchain": attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java"),
         ),
-        "_java_toolchain": attr.label(
-            default = Label(semantics.JAVA_TOOLCHAIN_LABEL),
-        ),
     },
+    toolchains = [semantics.JAVA_TOOLCHAIN],
     attr_aspects = ["deps", "exports"],
     required_providers = [ProtoInfo],
     provides = [JavaInfo, JavaProtoAspectInfo],

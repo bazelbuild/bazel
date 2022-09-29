@@ -195,7 +195,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_inmemory_jdeps_files",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
@@ -452,16 +452,6 @@ public class JavaOptions extends FragmentOptions {
   public boolean enforceOneVersionOnJavaTests;
 
   @Option(
-      name = "experimental_one_version_enforcement_validation_action",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "When enabled, and with experimental_one_version_enforcement set to a non-NONE value,"
-              + " enforce one version using validation actions.")
-  public boolean enforceOneVersionValidationAction;
-
-  @Option(
       name = "experimental_allow_runtime_deps_on_neverlink",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -655,7 +645,6 @@ public class JavaOptions extends FragmentOptions {
     host.importDepsCheckingLevel = importDepsCheckingLevel;
     // java_test targets can be used as a host tool, Ex: as a validating tool on a genrule.
     host.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
-    host.enforceOneVersionValidationAction = enforceOneVersionValidationAction;
     host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
     host.addTestSupportToCompileTimeDeps = addTestSupportToCompileTimeDeps;
 

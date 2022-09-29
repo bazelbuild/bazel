@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKe
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.StreamedOutputHandler;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
@@ -79,7 +78,7 @@ public class ActionGraphQueryEnvironment
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
       BuildConfigurationValue hostConfiguration,
-      PathFragment parserPrefix,
+      TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       Set<Setting> settings) {
@@ -89,7 +88,7 @@ public class ActionGraphQueryEnvironment
         extraFunctions,
         topLevelConfigurations,
         hostConfiguration,
-        parserPrefix,
+        mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
         settings);
@@ -105,7 +104,7 @@ public class ActionGraphQueryEnvironment
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
       BuildConfigurationValue hostConfiguration,
-      PathFragment parserPrefix,
+      TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       AqueryOptions aqueryOptions) {
@@ -115,7 +114,7 @@ public class ActionGraphQueryEnvironment
         extraFunctions,
         topLevelConfigurations,
         hostConfiguration,
-        parserPrefix,
+        mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
         aqueryOptions.toSettings());

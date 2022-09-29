@@ -94,6 +94,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
+import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -136,6 +137,7 @@ public class RemoteExecutionServiceTest {
   RemoteOptions remoteOptions;
   private Path execRoot;
   private ArtifactRoot artifactRoot;
+  private TempPathGenerator tempPathGenerator;
   private FakeActionInputFileCache fakeFileCache;
   private RemotePathResolver remotePathResolver;
   private FileOutErr outErr;
@@ -150,10 +152,15 @@ public class RemoteExecutionServiceTest {
     remoteOptions = Options.getDefaults(RemoteOptions.class);
 
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
+
     execRoot = fs.getPath("/execroot");
     execRoot.createDirectoryAndParents();
+
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outputs");
     checkNotNull(artifactRoot.getRoot().asPath()).createDirectoryAndParents();
+
+    tempPathGenerator = new TempPathGenerator(fs.getPath("/execroot/_tmp/actions/remote"));
+
     fakeFileCache = new FakeActionInputFileCache(execRoot);
 
     remotePathResolver = new DefaultRemotePathResolver(execRoot);
@@ -986,11 +993,11 @@ public class RemoteExecutionServiceTest {
         TreeArtifactValue.newBuilder(dir)
             .putChild(
                 TreeFileArtifact.createTreeOutput(dir, "file1"),
-                new RemoteFileArtifactValue(
+                RemoteFileArtifactValue.create(
                     toBinaryDigest(d1), d1.getSizeBytes(), 1, action.getActionId()))
             .putChild(
                 TreeFileArtifact.createTreeOutput(dir, "a/file2"),
-                new RemoteFileArtifactValue(
+                RemoteFileArtifactValue.create(
                     toBinaryDigest(d2), d2.getSizeBytes(), 1, action.getActionId()))
             .build();
     verify(actionFileSystem).injectTree(dir, tree);
@@ -1550,7 +1557,9 @@ public class RemoteExecutionServiceTest {
   public void uploadInputsIfNotPresent_interrupted_requestCancelled() throws Exception {
     CountDownLatch uploadBlobCalled = new CountDownLatch(1);
     CountDownLatch interrupted = new CountDownLatch(1);
+    CountDownLatch futureDone = new CountDownLatch(1);
     SettableFuture<ImmutableSet<Digest>> future = SettableFuture.create();
+    future.addListener(futureDone::countDown, directExecutor());
     doAnswer(
             invocationOnMock -> {
               uploadBlobCalled.countDown();
@@ -1584,6 +1593,7 @@ public class RemoteExecutionServiceTest {
     uploadBlobCalled.await();
     thread.interrupt();
     interrupted.await();
+    futureDone.await();
 
     assertThat(future.isCancelled()).isTrue();
   }
@@ -1779,6 +1789,7 @@ public class RemoteExecutionServiceTest {
         cache,
         executor,
         ImmutableSet.copyOf(topLevelOutputs),
+        tempPathGenerator,
         null);
   }
 

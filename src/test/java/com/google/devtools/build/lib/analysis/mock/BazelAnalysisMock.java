@@ -193,7 +193,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "java_runtime_alias(name = 'current_java_runtime')",
         "java_host_runtime_alias(name = 'current_host_java_runtime')",
         "filegroup(name='bootclasspath', srcs=['jdk/jre/lib/rt.jar'])",
-        "filegroup(name='extdir', srcs=glob(['jdk/jre/lib/ext/*']))",
+        "filegroup(name='extdir', srcs=glob(['jdk/jre/lib/ext/*'], allow_empty = True))",
         "filegroup(name='java', srcs = ['jdk/jre/bin/java'])",
         "filegroup(name='JacocoCoverage', srcs = ['JacocoCoverage_deploy.jar'])",
         "exports_files([",

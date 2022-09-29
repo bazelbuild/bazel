@@ -26,6 +26,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
@@ -46,6 +47,7 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -108,9 +110,7 @@ public class HttpConnectorTest {
     assertThat(
             ByteStreams.toByteArray(
                 connector
-                    .connect(
-                        createTempFile(fileContents).toURI().toURL(),
-                        url -> ImmutableMap.<String, String>of())
+                    .connect(createTempFile(fileContents).toURI().toURL(), url -> ImmutableMap.of())
                     .getInputStream()))
         .isEqualTo(fileContents);
   }
@@ -119,12 +119,12 @@ public class HttpConnectorTest {
   public void badHost_throwsIOException() throws Exception {
     thrown.expect(IOException.class);
     thrown.expectMessage("Unknown host: bad.example");
-    connector.connect(new URL("http://bad.example"), url -> ImmutableMap.<String, String>of());
+    connector.connect(new URL("http://bad.example"), url -> ImmutableMap.of());
   }
 
   @Test
   public void normalRequest() throws Exception {
-    final Map<String, String> headers = new ConcurrentHashMap<>();
+    final Map<String, List<String>> headers = new ConcurrentHashMap<>();
     try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused") 
       Future<?> possiblyIgnoredError =
@@ -152,15 +152,15 @@ public class HttpConnectorTest {
               connector
                   .connect(
                       new URL(String.format("http://localhost:%d/boo", server.getLocalPort())),
-                      url -> ImmutableMap.of("Content-Encoding", "gzip"))
+                      url -> ImmutableMap.of("Content-Encoding", ImmutableList.of("gzip")))
                   .getInputStream(),
               ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
       }
     }
-    assertThat(headers).containsEntry("x-method", "GET");
-    assertThat(headers).containsEntry("x-request-uri", "/boo");
-    assertThat(headers).containsEntry("content-encoding", "gzip");
+    assertThat(headers).containsEntry("x-method", ImmutableList.of("GET"));
+    assertThat(headers).containsEntry("x-request-uri", ImmutableList.of("/boo"));
+    assertThat(headers).containsEntry("content-encoding", ImmutableList.of("gzip"));
   }
 
   @Test
@@ -204,7 +204,7 @@ public class HttpConnectorTest {
               connector
                   .connect(
                       new URL(String.format("http://localhost:%d", server.getLocalPort())),
-                      url -> ImmutableMap.<String, String>of())
+                      url -> ImmutableMap.of())
                   .getInputStream(),
               ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
@@ -262,8 +262,7 @@ public class HttpConnectorTest {
           new InputStreamReader(
               connector
                   .connect(
-                      new URL(String.format("http://localhost:%d", port)),
-                      url -> ImmutableMap.<String, String>of())
+                      new URL(String.format("http://localhost:%d", port)), url -> ImmutableMap.of())
                   .getInputStream(),
               ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
@@ -323,7 +322,7 @@ public class HttpConnectorTest {
               connector
                   .connect(
                       new URL(String.format("http://localhost:%d", server.getLocalPort())),
-                      url -> ImmutableMap.<String, String>of())
+                      url -> ImmutableMap.of())
                   .getInputStream(),
               ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
@@ -356,7 +355,7 @@ public class HttpConnectorTest {
               connector
                   .connect(
                       new URL(String.format("http://localhost:%d", server.getLocalPort())),
-                      url -> ImmutableMap.<String, String>of())
+                      url -> ImmutableMap.of())
                   .getInputStream(),
               ISO_8859_1)) {
         fail("Should have thrown");
@@ -395,7 +394,7 @@ public class HttpConnectorTest {
       thrown.expectMessage("401 Unauthorized");
       connector.connect(
           new URL(String.format("http://localhost:%d", server.getLocalPort())),
-          url -> ImmutableMap.<String, String>of());
+          url -> ImmutableMap.of());
     }
   }
 
@@ -427,7 +426,7 @@ public class HttpConnectorTest {
       thrown.expectMessage("404 Not Found");
       connector.connect(
           new URL(String.format("http://localhost:%d", server.getLocalPort())),
-          url -> ImmutableMap.<String, String>of());
+          url -> ImmutableMap.of());
     }
   }
 
@@ -462,7 +461,7 @@ public class HttpConnectorTest {
               });
       connector.connect(
           new URL(String.format("http://localhost:%d", server.getLocalPort())),
-          url -> ImmutableMap.<String, String>of());
+          url -> ImmutableMap.of());
       fail();
     } catch (IOException ignored) {
       // ignored
@@ -505,7 +504,7 @@ public class HttpConnectorTest {
       try {
         connector.connect(
             new URL(String.format("http://localhost:%d", server.getLocalPort())),
-            url -> ImmutableMap.<String, String>of());
+            url -> ImmutableMap.of());
       } finally {
         assertThat(tries.get()).isGreaterThan(2);
       }
@@ -544,7 +543,7 @@ public class HttpConnectorTest {
       try {
         connector.connect(
             new URL(String.format("http://localhost:%d", server.getLocalPort())),
-            url -> ImmutableMap.<String, String>of());
+            url -> ImmutableMap.of());
       } finally {
         assertThat(tries.get()).isGreaterThan(2);
       }
@@ -576,8 +575,8 @@ public class HttpConnectorTest {
 
   public void redirectToDifferentPath_works(String code) throws Exception {
     String redirectCode = "HTTP/1.1 " + code + " Redirect";
-    final Map<String, String> headers1 = new ConcurrentHashMap<>();
-    final Map<String, String> headers2 = new ConcurrentHashMap<>();
+    final Map<String, List<String>> headers1 = new ConcurrentHashMap<>();
+    final Map<String, List<String>> headers2 = new ConcurrentHashMap<>();
     try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError =
@@ -615,23 +614,23 @@ public class HttpConnectorTest {
       URLConnection connection =
           connector.connect(
               new URL(String.format("http://localhost:%d", server.getLocalPort())),
-              url -> ImmutableMap.<String, String>of());
+              url -> ImmutableMap.of());
       assertThat(connection.getURL()).isEqualTo(
           new URL(String.format("http://localhost:%d/doodle.tar.gz", server.getLocalPort())));
       try (InputStream input = connection.getInputStream()) {
         assertThat(ByteStreams.toByteArray(input)).isEmpty();
       }
     }
-    assertThat(headers1).containsEntry("x-request-uri", "/");
-    assertThat(headers2).containsEntry("x-request-uri", "/doodle.tar.gz");
+    assertThat(headers1).containsEntry("x-request-uri", ImmutableList.of("/"));
+    assertThat(headers2).containsEntry("x-request-uri", ImmutableList.of("/doodle.tar.gz"));
   }
 
   public void redirectToDifferentServer_works(String code) throws Exception {
     String redirectCode = "HTTP/1.1 " + code + " Redirect";
     final String basic1 = "Basic b25lOmZpcnN0c2VjcmV0";
     final String basic2 = "Basic dHdvOnNlY29uZHNlY3JldA==";
-    final Map<String, String> headers1 = new ConcurrentHashMap<>();
-    final Map<String, String> headers2 = new ConcurrentHashMap<>();
+    final Map<String, List<String>> headers1 = new ConcurrentHashMap<>();
+    final Map<String, List<String>> headers2 = new ConcurrentHashMap<>();
     try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
         ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused")
@@ -679,16 +678,16 @@ public class HttpConnectorTest {
               });
       // Header function that provides different auth headers for
       // the two servers.
-      Function<URL, ImmutableMap<String, String>> authHeaders =
-          new Function<URL, ImmutableMap<String, String>>() {
+      Function<URL, ImmutableMap<String, List<String>>> authHeaders =
+          new Function<>() {
             @Override
-            public ImmutableMap<String, String> apply(URL url) {
+            public ImmutableMap<String, List<String>> apply(URL url) {
               if (url.getPort() == server1.getLocalPort()) {
-                return ImmutableMap.of("Authentication", basic1);
+                return ImmutableMap.of("Authentication", ImmutableList.of(basic1));
               } else if (url.getPort() == server2.getLocalPort()) {
-                return ImmutableMap.of("Authentication", basic2);
+                return ImmutableMap.of("Authentication", ImmutableList.of(basic2));
               } else {
-                return ImmutableMap.<String, String>of();
+                return ImmutableMap.of();
               }
             }
           };
@@ -701,8 +700,8 @@ public class HttpConnectorTest {
         assertThat(ByteStreams.toByteArray(input)).isEqualTo("hello".getBytes(US_ASCII));
       }
       // Verify that the correct form of authentication is used for each server.
-      assertThat(headers1).containsEntry("authentication", basic1);
-      assertThat(headers2).containsEntry("authentication", basic2);
+      assertThat(headers1).containsEntry("authentication", ImmutableList.of(basic1));
+      assertThat(headers2).containsEntry("authentication", ImmutableList.of(basic2));
     }
   }
 

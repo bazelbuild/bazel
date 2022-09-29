@@ -92,6 +92,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
+import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -138,6 +139,7 @@ public class RemoteSpawnRunnerTest {
   private ListeningScheduledExecutorService retryService;
 
   private Path execRoot;
+  private TempPathGenerator tempPathGenerator;
   private Path logDir;
   private DigestUtil digestUtil;
   private FakeActionInputFileCache fakeFileCache;
@@ -161,8 +163,9 @@ public class RemoteSpawnRunnerTest {
     digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
-    logDir = fs.getPath("/server-logs");
     execRoot.createDirectoryAndParents();
+    tempPathGenerator = new TempPathGenerator(fs.getPath("/execroot/_tmp/actions/remote"));
+    logDir = fs.getPath("/server-logs");
     fakeFileCache = new FakeActionInputFileCache(execRoot);
 
     Path stdout = fs.getPath("/tmp/stdout");
@@ -1048,6 +1051,7 @@ public class RemoteSpawnRunnerTest {
             cache,
             executor,
             ImmutableSet.of(),
+            tempPathGenerator,
             /* captureCorruptedOutputsDir= */ null);
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(
@@ -1620,6 +1624,7 @@ public class RemoteSpawnRunnerTest {
                 cache,
                 executor,
                 topLevelOutputs,
+                tempPathGenerator,
                 /*captureCorruptedOutputsDir=*/ null));
 
     return new RemoteSpawnRunner(

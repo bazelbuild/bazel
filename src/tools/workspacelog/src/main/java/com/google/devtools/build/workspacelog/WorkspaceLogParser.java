@@ -59,7 +59,7 @@ final class WorkspaceLogParser {
           return null;
         }
         w = WorkspaceEvent.parseDelimitedFrom(in);
-      } while (excludedRules.contains(w.getRule()));
+      } while (excludedRules.contains(w.getContext()));
       return w;
     }
   }

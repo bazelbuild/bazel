@@ -13,11 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.bugreport.BugReport;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -31,17 +26,7 @@ import javax.annotation.Nullable;
  * returns {@code null}, only then will {@link SkyFunction.Environment#valuesMissing} be guaranteed
  * to return true.
  */
-public class SkyframeLookupResult {
-  private final Runnable valuesMissingCallback;
-  private final Function<SkyKey, ValueOrUntypedException> valuesOrExceptions;
-
-  @VisibleForTesting
-  public SkyframeLookupResult(
-      Runnable valuesMissingCallback,
-      Function<SkyKey, ValueOrUntypedException> valuesOrExceptions) {
-    this.valuesMissingCallback = checkNotNull(valuesMissingCallback);
-    this.valuesOrExceptions = checkNotNull(valuesOrExceptions);
-  }
+public interface SkyframeLookupResult {
 
   /**
    * Returns a direct dependency. If the dependency is not in the set of already evaluated direct
@@ -50,7 +35,7 @@ public class SkyframeLookupResult {
    * SkyFunction.Environment#valuesMissing} will subsequently return true.
    */
   @Nullable
-  public SkyValue get(SkyKey skyKey) {
+  default SkyValue get(SkyKey skyKey) {
     return getOrThrow(skyKey, null, null, null);
   }
 
@@ -69,40 +54,24 @@ public class SkyframeLookupResult {
    * SkyFunctionException#validateExceptionType} for details.
    */
   @Nullable
-  public <E1 extends Exception> SkyValue getOrThrow(SkyKey skyKey, Class<E1> exceptionClass)
-      throws E1 {
+  default <E extends Exception> SkyValue getOrThrow(SkyKey skyKey, Class<E> exceptionClass)
+      throws E {
     return getOrThrow(skyKey, exceptionClass, null, null);
   }
 
   /** Similar to {@link #getOrThrow(SkyKey, Class)}, but takes two exception class parameters. */
   @Nullable
-  public <E1 extends Exception, E2 extends Exception> SkyValue getOrThrow(
+  default <E1 extends Exception, E2 extends Exception> SkyValue getOrThrow(
       SkyKey skyKey, Class<E1> exceptionClass1, Class<E2> exceptionClass2) throws E1, E2 {
     return getOrThrow(skyKey, exceptionClass1, exceptionClass2, null);
   }
 
   /** Similar to {@link #getOrThrow(SkyKey, Class)}, but takes three exception class parameters. */
   @Nullable
-  public <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue getOrThrow(
+  <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue getOrThrow(
       SkyKey skyKey,
       @Nullable Class<E1> exceptionClass1,
       @Nullable Class<E2> exceptionClass2,
       @Nullable Class<E3> exceptionClass3)
-      throws E1, E2, E3 {
-    ValueOrUntypedException voe = valuesOrExceptions.apply(skyKey);
-    if (voe == null) {
-      BugReport.sendBugReport(
-          new IllegalStateException(
-              "ValueOrUntypedException " + skyKey + " was missing, this should never happen"));
-      return null;
-    }
-    SkyValue value = voe.getValue();
-    if (value != null) {
-      return value;
-    }
-    SkyFunctionException.throwIfInstanceOf(
-        voe.getException(), exceptionClass1, exceptionClass2, exceptionClass3, null);
-    valuesMissingCallback.run();
-    return null;
-  }
+      throws E1, E2, E3;
 }

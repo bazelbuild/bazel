@@ -296,7 +296,7 @@ public final class ActionMetadataHandlerTest {
 
     // Inject a remote file of size 42.
     handler.injectFile(
-        artifact, new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 42, 0, "ultimate-answer"));
+        artifact, RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 42, 0, "ultimate-answer"));
     assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(42);
 
     // Reset this output, which will make the handler stat the file again.
@@ -320,7 +320,7 @@ public final class ActionMetadataHandlerTest {
     byte[] digest = new byte[] {1, 2, 3};
     int size = 10;
     handler.injectFile(
-        artifact, new RemoteFileArtifactValue(digest, size, /*locationIndex=*/ 1, "action-id"));
+        artifact, RemoteFileArtifactValue.create(digest, size, /*locationIndex=*/ 1, "action-id"));
 
     FileArtifactValue v = handler.getMetadata(artifact);
     assertThat(v).isNotNull();
@@ -343,7 +343,7 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(treeArtifact));
     handler.prepareForActionExecution();
 
-    RemoteFileArtifactValue childValue = new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1);
+    RemoteFileArtifactValue childValue = RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1);
 
     assertThrows(IllegalArgumentException.class, () -> handler.injectFile(child, childValue));
     assertThat(handler.getOutputStore().getAllArtifactData()).isEmpty();
@@ -367,7 +367,7 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(treeArtifact));
     handler.prepareForActionExecution();
 
-    RemoteFileArtifactValue value = new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1);
+    RemoteFileArtifactValue value = RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1);
     handler.injectFile(output, value);
 
     assertThat(handler.getOutputStore().getAllArtifactData()).containsExactly(output, value);
@@ -391,10 +391,10 @@ public final class ActionMetadataHandlerTest {
         TreeArtifactValue.newBuilder(treeArtifact)
             .putChild(
                 TreeFileArtifact.createTreeOutput(treeArtifact, "foo"),
-                new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1, "foo"))
+                RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1, "foo"))
             .putChild(
                 TreeFileArtifact.createTreeOutput(treeArtifact, "bar"),
-                new RemoteFileArtifactValue(new byte[] {4, 5, 6}, 10, 1, "bar"))
+                RemoteFileArtifactValue.create(new byte[] {4, 5, 6}, 10, 1, "bar"))
             .build();
 
     handler.injectTree(treeArtifact, tree);
@@ -589,7 +589,7 @@ public final class ActionMetadataHandlerTest {
     assertThat(handler.getMetadata(unknown)).isNull();
 
     OutputStore newStore = new OutputStore();
-    FileArtifactValue knownMetadata = new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1);
+    FileArtifactValue knownMetadata = RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1);
     newStore.putArtifactData(known, knownMetadata);
     ActionMetadataHandler newHandler = handler.transformAfterInputDiscovery(newStore);
     assertThat(newHandler.getOutputStore()).isNotEqualTo(handler.getOutputStore());

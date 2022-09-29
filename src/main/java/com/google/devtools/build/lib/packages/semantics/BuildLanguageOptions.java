@@ -54,18 +54,32 @@ import net.starlark.java.eval.StarlarkSemantics;
  *       entry to {@link BuildLanguageOptions}, then specify the identifier in {@link
  *       StarlarkMethod#enableOnlyWithFlag} or {@link StarlarkMethod#disableWithFlag}.
  * </ul>
- *
- * For both readability and correctness, the relative order of the options in all of these locations
- * must be kept consistent; to make it easy we use alphabetic order. The parts that need updating
- * are marked with the comment "<== Add new options here in alphabetic order ==>".
  */
 public final class BuildLanguageOptions extends OptionsBase {
 
-  // <== Add new options here in alphabetic order ==>
+  @Option(
+      name = "incompatible_stop_exporting_language_modules",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, certain language-specific modules (such as `cc_common`) are unavailable in"
+              + " user .bzl files and may only be called from their respective rules repositories.")
+  public boolean incompatibleStopExportingLanguageModules;
+
+  @Option(
+      name = "incompatible_remove_rule_name_parameter",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If set to true, `rule` can't be called with the `name` parameter.")
+  public boolean incompatibleRemoveRuleNameParameter;
 
   @Option(
       name = "incompatible_disallow_symlink_file_to_dir",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -397,23 +411,6 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "https://github.com/bazelbuild/bazel/issues/9014 for details.")
   public boolean incompatibleDisableTargetProviderFields;
 
-  // For Bazel, this flag is a no-op. Bazel doesn't support built-in third party license checking
-  // (see https://github.com/bazelbuild/bazel/issues/7444).
-  //
-  // For Blaze in Google, this flag is still needed to deprecate the logic that's already been
-  // removed from Bazel. That logic was introduced before Bazel existed, so Google's dependency on
-  // it is deeper. But we don't want that to add unnecessary baggage to Bazel or slow down Bazel's
-  // development. So this flag lets Blaze migrate on a slower timeline without blocking Bazel. This
-  // means you as a Bazel user are getting better code than Google has! (for a while, at least)
-  @Option(
-      name = "incompatible_disable_third_party_license_checking",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If true, disables all license checking logic")
-  public boolean incompatibleDisableThirdPartyLicenseChecking;
-
   @Option(
       name = "incompatible_disallow_empty_glob",
       defaultValue = "false",
@@ -540,7 +537,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_unambiguous_label_stringification",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -640,7 +637,10 @@ public final class BuildLanguageOptions extends OptionsBase {
     // This function connects command-line flags to their corresponding StarlarkSemantics keys.
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
-            // <== Add new options here in alphabetic order ==>
+            .setBool(
+                INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+                incompatibleStopExportingLanguageModules)
+            .setBool(INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER, incompatibleRemoveRuleNameParameter)
             .setBool(
                 INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR, incompatibleDisallowSymlinkFileToDir)
             .setBool(EXPERIMENTAL_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
@@ -669,9 +669,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS,
                 incompatibleDisableTargetProviderFields)
-            .setBool(
-                INCOMPATIBLE_DISABLE_THIRD_PARTY_LICENSE_CHECKING,
-                incompatibleDisableThirdPartyLicenseChecking)
             .setBool(
                 INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS, incompatibleAlwaysCheckDepsetElements)
             .setBool(INCOMPATIBLE_DISALLOW_EMPTY_GLOB, incompatibleDisallowEmptyGlob)
@@ -724,8 +721,12 @@ public final class BuildLanguageOptions extends OptionsBase {
   // (In principle, a key not associated with a command-line flag may be declared anywhere.)
 
   // booleans: the +/- prefix indicates the default value (true/false).
+  public static final String INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES =
+      "-incompatible_stop_exporting_language_modules";
+  public static final String INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER =
+      "+incompatible_remove_rule_name_parameter";
   public static final String INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR =
-      "-incompatible_disallow_symlink_file_to_dir";
+      "+incompatible_disallow_symlink_file_to_dir";
   public static final String EXPERIMENTAL_ALLOW_TAGS_PROPAGATION =
       "-experimental_allow_tags_propagation";
   public static final String EXPERIMENTAL_BUILTINS_DUMMY = "-experimental_builtins_dummy";
@@ -757,8 +758,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_depset_for_libraries_to_link_getter";
   public static final String INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS =
       "-incompatible_disable_target_provider_fields";
-  public static final String INCOMPATIBLE_DISABLE_THIRD_PARTY_LICENSE_CHECKING =
-      "+incompatible_disable_third_party_license_checking";
   public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "-incompatible_disallow_empty_glob";
   public static final String INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX =
       "-incompatible_disallow_struct_provider_syntax";
@@ -781,7 +780,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC =
       "-incompatible_use_cc_configure_from_rules";
   public static final String INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION =
-      "-incompatible_unambiguous_label_stringification";
+      "+incompatible_unambiguous_label_stringification";
   public static final String INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION =
       "-incompatible_visibility_private_attributes_at_definition";
   public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =

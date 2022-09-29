@@ -55,7 +55,7 @@ public final class GraphTraversingHelperTest {
       throws Exception {
     BugReporter mockReporter = mock(BugReporter.class);
     SkyframeIterableResult result =
-        new SkyframeIterableResult(
+        new SimpleSkyframeIterableResult(
             () -> {}, ImmutableSet.of(ValueOrUntypedException.ofExn(exn)).iterator());
     when(mockEnv.getOrderedValuesAndExceptions(ImmutableSet.of(keyA))).thenReturn(result);
     boolean valuesMissing =
@@ -75,7 +75,7 @@ public final class GraphTraversingHelperTest {
   public void declareDependenciesAndCheckIfValuesMissing_notValuesMissingAfterCompute()
       throws Exception {
     SkyframeIterableResult result =
-        new SkyframeIterableResult(
+        new SimpleSkyframeIterableResult(
             () -> {},
             ImmutableList.of(
                     ValueOrUntypedException.ofExn(exn),
@@ -92,7 +92,7 @@ public final class GraphTraversingHelperTest {
   public void declareDependenciesAndCheckIfValuesMissing_nullAfterError_hasCorrectKeyInBugReport()
       throws Exception {
     SkyframeIterableResult result =
-        new SkyframeIterableResult(
+        new SimpleSkyframeIterableResult(
             () -> {},
             ImmutableList.of(ValueOrUntypedException.ofExn(exn), ValueOrUntypedException.ofNull())
                 .iterator());
@@ -126,7 +126,7 @@ public final class GraphTraversingHelperTest {
       throws Exception {
     when(mockEnv.getOrderedValuesAndExceptions(ImmutableSet.of(keyA)))
         .thenReturn(
-            new SkyframeIterableResult(
+            new SimpleSkyframeIterableResult(
                 () -> {}, ImmutableSet.of(ValueOrUntypedException.ofExn(exn)).iterator()));
 
     assertThat(
@@ -140,7 +140,7 @@ public final class GraphTraversingHelperTest {
       throws Exception {
     when(mockEnv.getOrderedValuesAndExceptions(ImmutableSet.of(keyB)))
         .thenReturn(
-            new SkyframeIterableResult(
+            new SimpleSkyframeIterableResult(
                 () -> {},
                 ImmutableSet.of(ValueOrUntypedException.ofValueUntyped(value)).iterator()));
 

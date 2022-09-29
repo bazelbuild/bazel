@@ -203,4 +203,26 @@ public class MockPlatformSupport {
         "   target_compatible_with = [':mock_value'],",
         ")");
   }
+
+  /** Adds a mock PPC platform. */
+  public static void addMockPPCPlatform(MockToolsConfig mockToolsConfig, Label crosstoolLabel)
+      throws Exception {
+    mockToolsConfig.create(
+        "mock_platform/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "constraint_setting(name = 'mock_setting')",
+        "constraint_value(name = 'mock_value', constraint_setting = ':mock_setting')",
+        "platform(",
+        "   name = 'mock-ppc-platform',",
+        "   constraint_values = [':mock_value'],",
+        ")",
+        "toolchain(",
+        "   name = 'toolchain_cc-compiler-ppc',",
+        "   toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
+        "   toolchain = '"
+            + crosstoolLabel.getRelativeWithRemapping("cc-compiler-ppc-compiler", ImmutableMap.of())
+            + "',",
+        "   target_compatible_with = [':mock_value'],",
+        ")");
+  }
 }

@@ -1,16 +1,16 @@
-//Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
-//Licensed under the Apache License, Version 2.0 (the "License");
-//you may not use this file except in compliance with the License.
-//You may obtain a copy of the License at
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
-//Unless required by applicable law or agreed to in writing, software
-//distributed under the License is distributed on an "AS IS" BASIS,
-//WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//See the License for the specific language governing permissions and
-//limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package com.google.devtools.build.lib.bazel.repository;
 
@@ -29,9 +29,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 
-/**
- * Command-line options for repositories.
- */
+/** Command-line options for repositories. */
 public class RepositoryOptions extends OptionsBase {
 
   @Option(
@@ -111,15 +109,24 @@ public class RepositoryOptions extends OptionsBase {
   public double httpTimeoutScaling;
 
   @Option(
-    name = "override_repository",
-    defaultValue = "null",
-    allowMultiple = true,
-    converter = RepositoryOverrideConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Overrides a repository with a local directory."
-  )
+      name = "override_repository",
+      defaultValue = "null",
+      allowMultiple = true,
+      converter = RepositoryOverrideConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Overrides a repository with a local directory.")
   public List<RepositoryOverride> repositoryOverrides;
+
+  @Option(
+      name = "override_module",
+      defaultValue = "null",
+      allowMultiple = true,
+      converter = ModuleOverrideConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Overrides a module with a local directory.")
+  public List<ModuleOverride> moduleOverrides;
 
   @Option(
       name = "experimental_scale_timeouts",
@@ -279,9 +286,44 @@ public class RepositoryOptions extends OptionsBase {
     }
   }
 
-  /**
-   * A repository override, represented by a name and an absolute path to a repository.
-   */
+  /** Converts from an equals-separated pair of strings into ModuleName->PathFragment mapping. */
+  public static class ModuleOverrideConverter extends Converter.Contextless<ModuleOverride> {
+
+    @Override
+    public ModuleOverride convert(String input) throws OptionsParsingException {
+      String[] pieces = input.split("=", 2);
+      if (pieces.length != 2) {
+        throw new OptionsParsingException(
+            "Module overrides must be of the form 'module-name=path'", input);
+      }
+
+      if (!RepositoryName.VALID_MODULE_NAME.matcher(pieces[0]).matches()) {
+        throw new OptionsParsingException(
+            String.format(
+                "invalid module name '%s': valid names must 1) only contain lowercase letters"
+                    + " (a-z), digits (0-9), dots (.), hyphens (-), and underscores (_); 2) begin"
+                    + " with a lowercase letter; 3) end with a lowercase letter or digit.",
+                pieces[0]));
+      }
+
+      OptionsUtils.AbsolutePathFragmentConverter absolutePathFragmentConverter =
+          new OptionsUtils.AbsolutePathFragmentConverter();
+      try {
+        var unused = absolutePathFragmentConverter.convert(pieces[1]);
+      } catch (OptionsParsingException e) {
+        throw new OptionsParsingException(
+            "Module override directory must be an absolute path", input, e);
+      }
+      return ModuleOverride.create(pieces[0], pieces[1]);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an equals-separated mapping of module name to path";
+    }
+  }
+
+  /** A repository override, represented by a name and an absolute path to a repository. */
   @AutoValue
   public abstract static class RepositoryOverride {
 
@@ -290,6 +332,20 @@ public class RepositoryOptions extends OptionsBase {
     }
 
     public abstract RepositoryName repositoryName();
+
     public abstract PathFragment path();
+  }
+
+  /** A module override, represented by a name and an absolute path to a module. */
+  @AutoValue
+  public abstract static class ModuleOverride {
+
+    private static ModuleOverride create(String moduleName, String path) {
+      return new AutoValue_RepositoryOptions_ModuleOverride(moduleName, path);
+    }
+
+    public abstract String moduleName();
+
+    public abstract String path();
   }
 }

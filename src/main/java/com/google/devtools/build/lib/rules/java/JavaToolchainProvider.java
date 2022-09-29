@@ -17,6 +17,7 @@ import static com.google.common.base.StandardSystemProperty.JAVA_SPECIFICATION_V
 import static com.google.devtools.build.lib.rules.java.JavaStarlarkCommon.checkPrivateAccess;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -55,19 +55,25 @@ public final class JavaToolchainProvider extends NativeInfo
 
   /** Returns the Java Toolchain associated with the rule being analyzed or {@code null}. */
   public static JavaToolchainProvider from(RuleContext ruleContext) {
-    TransitiveInfoCollection prerequisite =
-        ruleContext.getPrerequisite(JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME);
-    return from(prerequisite, ruleContext);
+    ToolchainInfo toolchainInfo =
+        ruleContext
+            .getToolchainContext()
+            .forToolchainType(
+                ruleContext
+                    .getPrerequisite(JavaRuleClasses.JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)
+                    .getLabel());
+    return from(toolchainInfo, ruleContext);
   }
 
+  @VisibleForTesting
   public static JavaToolchainProvider from(ProviderCollection collection) {
-    return from(collection, null);
+    ToolchainInfo toolchainInfo = collection.get(ToolchainInfo.PROVIDER);
+    return from(toolchainInfo, null);
   }
 
   @Nullable
   private static JavaToolchainProvider from(
-      ProviderCollection collection, @Nullable RuleErrorConsumer errorConsumer) {
-    ToolchainInfo toolchainInfo = collection.get(ToolchainInfo.PROVIDER);
+      ToolchainInfo toolchainInfo, @Nullable RuleErrorConsumer errorConsumer) {
     if (toolchainInfo != null) {
       try {
         JavaToolchainProvider provider = (JavaToolchainProvider) toolchainInfo.getValue("java");

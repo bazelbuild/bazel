@@ -44,6 +44,12 @@ public final class RepositoryName {
   // Must start with a letter. Can contain ASCII letters and digits, underscore, dash, and dot.
   private static final Pattern VALID_USER_PROVIDED_NAME = Pattern.compile("[a-zA-Z][-.\\w]*$");
 
+  /**
+   * A valid module name must: 1) begin with a lowercase letter; 2) end with a lowercase letter or a
+   * digit; 3) contain only lowercase letters, digits, or one of * '._-'.
+   */
+  public static final Pattern VALID_MODULE_NAME = Pattern.compile("[a-z]([a-z0-9._-]*[a-z0-9])?");
+
   private static final LoadingCache<String, RepositoryName> repositoryNameCache =
       Caffeine.newBuilder()
           .weakValues()
@@ -193,13 +199,17 @@ public final class RepositoryName {
     return ownerRepoIfNotVisible;
   }
 
-  /** Returns if this is the main repository, that is, {@link #getName} is empty. */
+  /** Returns if this is the main repository. */
   public boolean isMain() {
-    return name.isEmpty();
+    return equals(MAIN);
   }
 
   /** Returns the repository name, with leading "{@literal @}". */
   public String getNameWithAt() {
+    if (!isVisible()) {
+      return String.format(
+          "@[unknown repo '%s' requested from %s]", name, ownerRepoIfNotVisible.getNameWithAt());
+    }
     return '@' + name;
   }
 

@@ -29,14 +29,15 @@ import java.util.function.Predicate;
  * Reports cycles between Actions and Artifacts. These indicates cycles within a rule.
  */
 public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
-  private static final Predicate<SkyKey> IS_ARTIFACT_OR_ACTION_SKY_KEY =
+  public static final Predicate<SkyKey> IS_ARTIFACT_OR_ACTION_SKY_KEY =
       Predicates.or(
           SkyFunctions.isSkyFunction(Artifact.ARTIFACT),
           SkyFunctions.isSkyFunction(SkyFunctions.ARTIFACT_NESTED_SET),
           SkyFunctions.isSkyFunction(SkyFunctions.ACTION_EXECUTION),
           SkyFunctions.isSkyFunction(SkyFunctions.TARGET_COMPLETION),
           SkyFunctions.isSkyFunction(SkyFunctions.ASPECT_COMPLETION),
-          SkyFunctions.isSkyFunction(SkyFunctions.TEST_COMPLETION));
+          SkyFunctions.isSkyFunction(SkyFunctions.TEST_COMPLETION),
+          SkyFunctions.isSkyFunction(SkyFunctions.BUILD_DRIVER));
 
   ActionArtifactCycleReporter(PackageProvider packageProvider) {
     super(packageProvider);
@@ -69,6 +70,12 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
 
   private static String prettyPrintArtifact(Artifact artifact) {
     return "file: " + artifact.getRootRelativePathString();
+  }
+
+  @Override
+  protected boolean shouldSkipOnPathToCycle(SkyKey key) {
+    // BuildDriverKeys don't provide any relevant info for the end user.
+    return SkyFunctions.BUILD_DRIVER.equals(key.functionName());
   }
 
   @Override

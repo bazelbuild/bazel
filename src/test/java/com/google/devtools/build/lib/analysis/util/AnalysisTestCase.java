@@ -49,6 +49,10 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -84,6 +88,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DelegatingSyscallCache;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -123,7 +128,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     // Flags for CPU to work (be set to k8) in test mode.
     CPU_K8,
     // Flags from TestConstants.PRODUCT_SPECIFIC_FLAGS.
-    PRODUCT_SPECIFIC_FLAGS
+    PRODUCT_SPECIFIC_FLAGS,
+    // The --enable_bzlmod flags.
+    ENABLE_BZLMOD
   }
 
   /** Helper class to make it easy to enable and disable flags. */
@@ -168,6 +175,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   private PathPackageLocator pkgLocator;
   protected final DelegatingSyscallCache delegatingSyscallCache = new DelegatingSyscallCache();
 
+  protected Path moduleRoot;
+  protected FakeRegistry registry;
+
   @Before
   public final void createMocks() throws Exception {
     delegatingSyscallCache.setDelegate(SyscallCache.NO_CACHE);
@@ -179,11 +189,15 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     directories =
         new BlazeDirectories(
-            new ServerDirectories(outputBase, outputBase, outputBase),
+            new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
     workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
+
+    scratch.file(rootDirectory.getRelative("MODULE.bazel").getPathString(), "");
+    moduleRoot = scratch.dir("modules");
+    registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockToolsRepository(mockToolsConfig);
@@ -205,15 +219,23 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .build();
   }
 
-  /**
-   * Changes the rule class provider to be used for the loading and the analysis phase.
-   */
+  /** Changes the rule class provider to be used for the loading and the analysis phase. */
   protected void useRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider)
       throws Exception {
     this.ruleClassProvider = ruleClassProvider;
     PackageFactory pkgFactory =
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
+            .setExtraPrecomputeValues(
+                ImmutableList.of(
+                    PrecomputedValue.injected(
+                        ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+                    PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+                    PrecomputedValue.injected(
+                        ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
+                    PrecomputedValue.injected(
+                        BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
+                        CheckDirectDepsMode.WARNING)))
             .build(ruleClassProvider, fileSystem);
     useConfiguration();
     skyframeExecutor = createSkyframeExecutor(pkgFactory);
@@ -228,10 +250,12 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 3;
+    BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
+    buildLanguageOptions.enableBzlmod = true;
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
-        Options.getDefaults(BuildLanguageOptions.class),
+        buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
@@ -242,12 +266,19 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                 RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
+            PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
                 RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
             PrecomputedValue.injected(
                 BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
-                ruleClassProvider.getBuildInfoFactoriesAsMap())));
+                ruleClassProvider.getBuildInfoFactoriesAsMap()),
+            PrecomputedValue.injected(
+                ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+            PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+            PrecomputedValue.injected(
+                BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
+                CheckDirectDepsMode.WARNING)));
   }
 
   /** Resets the SkyframeExecutor, as if a clean had been executed. */
@@ -293,6 +324,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     if (defaultFlags().contains(Flag.PRODUCT_SPECIFIC_FLAGS)) {
       optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     }
+    if (defaultFlags().contains(Flag.ENABLE_BZLMOD)) {
+      optionsParser.parse("--enable_bzlmod");
+    }
     optionsParser.parse(args);
 
     buildOptions =
@@ -312,9 +346,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
     if (action != null) {
       Preconditions.checkState(
-          action instanceof Action,
-          "%s is not a proper Action object",
-          action.prettyPrint());
+          action instanceof Action, "%s is not a proper Action object", action.prettyPrint());
       return (Action) action;
     } else {
       return null;
@@ -438,9 +470,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return update(new EventBus(), config, /*aspects=*/ ImmutableList.of(), labels);
   }
 
-  /**
-   * Update the BuildView: syncs the package cache; loads and analyzes the given labels.
-   */
+  /** Update the BuildView: syncs the package cache; loads and analyzes the given labels. */
   protected AnalysisResult update(String... labels) throws Exception {
     return update(new EventBus(), defaultFlags(), /*aspects=*/ ImmutableList.of(), labels);
   }
@@ -640,7 +670,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    * Makes {@code rules} available in tests, in addition to all the rules available to Blaze at
    * running time (e.g., java_library).
    *
-   * Also see {@link AnalysisTestCase#setRulesAndAspectsAvailableInTests(Iterable, Iterable)}.
+   * <p>Also see {@link AnalysisTestCase#setRulesAndAspectsAvailableInTests(Iterable, Iterable)}.
    */
   protected void setRulesAvailableInTests(RuleDefinition... rules) throws Exception {
     // Not all of these aspects are needed for all tests, but it makes it simple to offer them all.
@@ -664,14 +694,12 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   /**
-   * Makes {@code aspects} and {@code rules} available in tests, in addition to
-   * all the rules available to Blaze at running time (e.g., java_library).
+   * Makes {@code aspects} and {@code rules} available in tests, in addition to all the rules
+   * available to Blaze at running time (e.g., java_library).
    */
   protected final void setRulesAndAspectsAvailableInTests(
-      Iterable<NativeAspectClass> aspects,
-      Iterable<RuleDefinition> rules) throws Exception {
-    ConfiguredRuleClassProvider.Builder builder =
-        new ConfiguredRuleClassProvider.Builder();
+      Iterable<NativeAspectClass> aspects, Iterable<RuleDefinition> rules) throws Exception {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     for (NativeAspectClass aspect : aspects) {
       builder.addNativeAspectClass(aspect);

@@ -31,6 +31,12 @@ using std::unordered_map;
 using std::vector;
 using ::testing::MatchesRegex;
 
+#if _WIN32
+constexpr bool kIsWindows = true;
+#else
+constexpr bool kIsWindows = false;
+#endif
+
 class RcOptionsTest : public ::testing::Test {
  protected:
   RcOptionsTest()
@@ -400,8 +406,10 @@ TEST_F(RcOptionsTest, FileDoesNotExist) {
   EXPECT_EQ(error, RcFile::ParseError::UNREADABLE_FILE);
   ASSERT_THAT(
       error_text,
-      MatchesRegex(
-          "Unexpected error reading .blazerc file '.*not_a_file.bazelrc'"));
+      MatchesRegex(kIsWindows
+        ? "Unexpected error reading \\.blazerc file '.*not_a_file\\.bazelrc':.*"
+        : "Unexpected error reading \\.blazerc file '.*not_a_file\\.bazelrc': "
+          "\\(error: 2\\): No such file or directory"));
 }
 
 TEST_F(RcOptionsTest, ImportedFileDoesNotExist) {
@@ -413,7 +421,14 @@ TEST_F(RcOptionsTest, ImportedFileDoesNotExist) {
   std::unique_ptr<RcFile> rc =
       Parse("import_fake_file.bazelrc", &error, &error_text);
   EXPECT_EQ(error, RcFile::ParseError::UNREADABLE_FILE);
-  ASSERT_EQ(error_text, "Unexpected error reading .blazerc file 'somefile'");
+  if (kIsWindows) {
+    ASSERT_THAT(error_text, MatchesRegex(
+      "Unexpected error reading \\.blazerc file 'somefile':.*"));
+  } else {
+    ASSERT_EQ(error_text,
+      "Unexpected error reading .blazerc file 'somefile': (error: 2): No such "
+      "file or directory");
+  }
 }
 
 TEST_F(RcOptionsTest, TryImportedFileDoesNotExist) {

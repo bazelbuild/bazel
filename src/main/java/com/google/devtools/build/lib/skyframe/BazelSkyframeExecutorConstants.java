@@ -24,8 +24,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 
 /** Hardcoded constants describing bazel-on-skyframe behavior. */
 public class BazelSkyframeExecutorConstants {
-  private BazelSkyframeExecutorConstants() {
-  }
+  private BazelSkyframeExecutorConstants() {}
 
   public static final ImmutableSet<PathFragment> HARDCODED_IGNORED_PACKAGE_PREFIXES =
       ImmutableSet.of();

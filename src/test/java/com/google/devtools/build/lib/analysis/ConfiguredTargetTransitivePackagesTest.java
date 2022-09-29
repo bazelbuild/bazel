@@ -13,20 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Function;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,17 +44,11 @@ public final class ConfiguredTargetTransitivePackagesTest extends AnalysisTestCa
     ConfiguredTargetValue ctValue =
         SkyframeExecutorTestUtils.getExistingConfiguredTargetValue(
             skyframeExecutor, Label.parseCanonical(target), config);
-    List<Package> transitivePackages =
-        ctValue.getTransitivePackagesForPackageRootResolution().toList();
-    List<String> packageNames = Lists.transform(transitivePackages,
-        new Function<Package, String>() {
-          @Override
-          public String apply(Package input) {
-            return input.getPackageIdentifier().toString();
-          }
-        }
-    );
-    assertThat(Sets.newHashSet(packageNames)).containsAtLeastElementsIn(Sets.newHashSet(packages));
+    ImmutableSet<String> packageNames =
+        ctValue.getTransitivePackages().toList().stream()
+            .map(pkg -> pkg.getPackageIdentifier().toString())
+            .collect(toImmutableSet());
+    assertThat(packageNames).containsAtLeastElementsIn(Sets.newHashSet(packages));
   }
 
   @Test

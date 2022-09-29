@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.worker.WorkerFactory;
 import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.build.lib.worker.WorkerPool;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
@@ -680,6 +681,94 @@ public final class ResourceManagerTest {
     // When that RAM is released,
     // Then Resource Manager will not be "in use":
     assertThat(rm.inUse()).isFalse();
+  }
+
+  @Test
+  public void testReleaseWorker_highPriorityWorker() throws Exception {
+
+    String slowMenmonic = "SLOW";
+    String fastMenmonic = "FAST";
+
+    Worker slowWorker1 = mock(Worker.class);
+    Worker slowWorker2 = mock(Worker.class);
+    Worker fastWorker = mock(Worker.class);
+
+    WorkerKey slowWorkerKey = createWorkerKey(slowMenmonic);
+    WorkerKey fastWorkerKey = createWorkerKey(fastMenmonic);
+
+    when(slowWorker1.getWorkerKey()).thenReturn(slowWorkerKey);
+    when(slowWorker2.getWorkerKey()).thenReturn(slowWorkerKey);
+    when(fastWorker.getWorkerKey()).thenReturn(fastWorkerKey);
+
+    WorkerPool workerPool =
+        new WorkerPool(
+            new WorkerPool.WorkerPoolConfig(
+                new WorkerFactory(fs.getPath("/workerBase")) {
+                  int numOfSlowWorkers = 0;
+
+                  @Override
+                  public Worker create(WorkerKey key) {
+                    assertThat(key.getMnemonic()).isAnyOf(slowMenmonic, fastMenmonic);
+
+                    if (key.getMnemonic().equals(fastMenmonic)) {
+                      return fastWorker;
+                    }
+
+                    assertThat(numOfSlowWorkers).isLessThan(2);
+
+                    if (numOfSlowWorkers == 0) {
+                      numOfSlowWorkers++;
+                      return slowWorker1;
+                    }
+
+                    numOfSlowWorkers++;
+                    return slowWorker2;
+                  }
+
+                  @Override
+                  public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
+                    return true;
+                  }
+                },
+                ImmutableList.of(),
+                ImmutableList.of(),
+                /* highPriorityWorkers= */ ImmutableList.of(slowMenmonic)));
+    rm.setWorkerPool(workerPool);
+
+    TestThread slowThread1 =
+        new TestThread(
+            () -> {
+              ResourceHandle handle = acquire(100, 0.1, 0, slowMenmonic);
+              Thread.sleep(Duration.ofSeconds(3).toMillis());
+              // release resources
+              handle.close();
+            });
+
+    TestThread slowThread2 =
+        new TestThread(
+            () -> {
+              ResourceHandle handle = acquire(100, 0.1, 0, slowMenmonic);
+              Thread.sleep(Duration.ofSeconds(3).toMillis());
+              // release resources
+              handle.close();
+            });
+
+    TestThread fastThread =
+        new TestThread(
+            () -> {
+              Thread.sleep(Duration.ofSeconds(1).toMillis());
+              ResourceHandle handle = acquire(100, 0.1, 0, fastMenmonic);
+              // release resources
+              handle.close();
+            });
+
+    slowThread1.start();
+    slowThread2.start();
+    fastThread.start();
+
+    slowThread1.joinAndAssertState(Duration.ofSeconds(10).toMillis());
+    slowThread2.joinAndAssertState(Duration.ofSeconds(10).toMillis());
+    fastThread.joinAndAssertState(Duration.ofSeconds(10).toMillis());
   }
 
   private static class ResourceOwnerStub implements ActionExecutionMetadata {

@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -56,7 +58,6 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -79,7 +80,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private static final int MAX_DEPTH_FULL_SCAN_LIMIT = 20;
   private final Map<String, Collection<Target>> resolvedTargetPatterns = new HashMap<>();
   private final TargetPatternPreloader targetPatternPreloader;
-  private final PathFragment relativeWorkingDirectory;
+  private final TargetPattern.Parser mainRepoTargetParser;
   @Nullable private final QueryTransitivePackagePreloader queryTransitivePackagePreloader;
   private final TargetProvider targetProvider;
   private final CachingPackageLocator cachingPackageLocator;
@@ -109,7 +110,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       TargetProvider targetProvider,
       CachingPackageLocator cachingPackageLocator,
       TargetPatternPreloader targetPatternPreloader,
-      PathFragment relativeWorkingDirectory,
+      Parser mainRepoTargetParser,
       boolean keepGoing,
       boolean strictScope,
       int loadingPhaseThreads,
@@ -119,7 +120,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       Iterable<QueryFunction> extraFunctions) {
     super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
     this.targetPatternPreloader = targetPatternPreloader;
-    this.relativeWorkingDirectory = relativeWorkingDirectory;
+    this.mainRepoTargetParser = mainRepoTargetParser;
     this.queryTransitivePackagePreloader = queryTransitivePackagePreloader;
     this.targetProvider = targetProvider;
     this.cachingPackageLocator = cachingPackageLocator;
@@ -135,9 +136,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @Override
   public DigraphQueryEvalResult<Target> evaluateQuery(
-      QueryExpression expr,
-      ThreadSafeOutputFormatterCallback<Target> callback)
-          throws QueryException, InterruptedException, IOException {
+      QueryExpression expr, ThreadSafeOutputFormatterCallback<Target> callback)
+      throws QueryException, InterruptedException, IOException {
     Preconditions.checkState(!doneQuery, "Can only use environment for one query: %s", expr);
     doneQuery = true;
     QueryEvalResult queryEvalResult = evaluateQueryInternal(expr, callback);
@@ -202,11 +202,11 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         Rule rule = (Rule) target;
         for (Label label : rule.getSortedLabels(dependencyFilter)) {
           if (!packages.contains(label.getPackageIdentifier())) {
-            continue;  // don't cause additional package loading
+            continue; // don't cause additional package loading
           }
           try {
             if (!validateScope(label, strictScope)) {
-              continue;  // Don't create edges to targets which are out of scope.
+              continue; // Don't create edges to targets which are out of scope.
             }
             Target to = getTargetOrThrow(label);
             if (targets.contains(to)) {
@@ -374,9 +374,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   /**
    * It suffices to synchronize the modifications of this.graph from within the
-   * GraphBuildingObserver, because that's the only concurrent part.
-   * Concurrency is always encapsulated within the evaluation of a single query
-   * operator (e.g. deps(), somepath(), etc).
+   * GraphBuildingObserver, because that's the only concurrent part. Concurrency is always
+   * encapsulated within the evaluation of a single query operator (e.g. deps(), somepath(), etc).
    */
   private class GraphBuildingObserver implements TargetEdgeObserver {
 
@@ -483,7 +482,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // being called from within a SkyFunction.
     resolvedTargetPatterns.putAll(
         targetPatternPreloader.preloadTargetPatterns(
-            eventHandler, relativeWorkingDirectory, patterns, keepGoing));
+            eventHandler, mainRepoTargetParser, patterns, keepGoing));
   }
 
   private static void addIfUniqueLabel(Node<Target> node, Set<Label> labels, Set<Target> nodes) {

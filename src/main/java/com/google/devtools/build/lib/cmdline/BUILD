@@ -12,6 +12,7 @@ filegroup(
 java_library(
     name = "cmdline",
     srcs = [
+        "BazelCompileContext.java",
         "BazelModuleContext.java",
         "Label.java",
         "LabelConstants.java",

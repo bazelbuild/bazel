@@ -1183,6 +1183,20 @@ EOF
   assert_contains "^path=$pkg/foo$" output
 }
 
+function test_starlark_common_libs() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+exports_files(srcs = ["foo"])
+EOF
+
+  bazel cquery "//$pkg:foo" --output=starlark \
+    --starlark:expr="str(type(depset())) + ' ' + str(json.encode(struct(foo = 'bar')))" \
+    > output 2>"$TEST_log" || fail "Unexpected failure"
+
+  assert_contains "^depset {\"foo\":\"bar\"}$" output
+}
+
 function test_starlark_output_providers_function() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
@@ -1221,7 +1235,7 @@ EOF
     2>"$TEST_log" || fail "Expected success"
   assert_contains "//$pkg:pylib.py:providers=.*FileProvider.*FilesToRunProvider.*LicensesProvider.*VisibilityProvider" \
     output
-  assert_contains "VisbilityProvider.label://$pkg:pylib.py" output
+  assert_contains "VisbilityProvider.label:@//$pkg:pylib.py" output
 }
 
 function test_starlark_output_providers_starlark_provider() {

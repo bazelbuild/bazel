@@ -362,12 +362,13 @@ EOF
 
 
   bazel build \
+    --noincompatible_enable_cc_toolchain_resolution \
     --cpu=fake --host_cpu=fake \
     --crosstool_top=//$pkg/toolchain:alpha \
     //$pkg:outer >& $TEST_log || fail "build failed"
-  expect_log "Outer //$pkg:outer found cc toolchain toolchain-alpha"
-  expect_log "Inner //$pkg:inner found cc toolchain toolchain-beta"
-  expect_log "Tool //$pkg:tool found cc toolchain toolchain-alpha"
+  expect_log "Outer @//$pkg:outer found cc toolchain toolchain-alpha"
+  expect_log "Inner @//$pkg:inner found cc toolchain toolchain-beta"
+  expect_log "Tool @//$pkg:tool found cc toolchain toolchain-alpha"
 }
 
 run_suite "Tests for Bazel's C++ rules"

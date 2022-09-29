@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -23,6 +24,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * The result of running Bazel module inspection pre-processing, containing the un-pruned and
@@ -60,44 +63,70 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
    * not used in the final dep graph).
    */
   @AutoValue
-  abstract static class AugmentedModule {
+  public abstract static class AugmentedModule {
     /** Name of the module. Same as in {@link Module}. */
-    abstract String getName();
+    public abstract String getName();
 
     /** Version of the module. Same as in {@link Module}. */
-    abstract Version getVersion();
+    public abstract Version getVersion();
 
     /** {@link ModuleKey} of this module. Same as in {@link Module} */
-    abstract ModuleKey getKey();
+    public abstract ModuleKey getKey();
 
     /**
      * The set of modules in the resolved dep graph that depend on this module
      * <strong>after</strong> the module resolution.
      */
-    abstract ImmutableSet<ModuleKey> getDependants();
+    public abstract ImmutableSet<ModuleKey> getDependants();
 
     /**
      * The set of modules in the complete dep graph that originally depended on this module *before*
      * the module resolution (can contain unused nodes).
      */
-    abstract ImmutableSet<ModuleKey> getOriginalDependants();
+    public abstract ImmutableSet<ModuleKey> getOriginalDependants();
 
     /**
-     * A map from the resolved dependencies of this module to the rules that were used for their
-     * resolution (can be either the original dependency, changed by the Minimal-Version Selection
-     * algorithm or by an override rule
+     * A bi-map from the repo names of the resolved dependencies of this module to their actual
+     * module keys. The inverse lookup is used to check how and why the dependency changed using the
+     * other maps.
      */
-    abstract ImmutableMap<ModuleKey, ResolutionReason> getDeps();
+    public abstract ImmutableBiMap<String, ModuleKey> getDeps();
+
+    /**
+     * A bi-map from the repo names of the unused dependencies of this module to their actual module
+     * keys. The inverse lookup is used to check how and why the dependency changed using the other
+     * maps.
+     */
+    public abstract ImmutableBiMap<String, ModuleKey> getUnusedDeps();
+
+    /**
+     * A map from the repo name of the dependencies of this module to the rules that were used for
+     * their resolution (can be either the original dependency, changed by the Minimal-Version
+     * Selection algorithm or by an override rule.
+     */
+    public abstract ImmutableMap<String, ResolutionReason> getDepReasons();
+
+    /** Shortcut for retrieving the union of both used and unused deps based on the unused flag. */
+    public ImmutableMap<ModuleKey, String> getAllDeps(boolean unused) {
+      if (!unused) {
+        return getDeps().inverse();
+      } else {
+        Map<ModuleKey, String> map = new HashMap<>();
+        map.putAll(getDeps().inverse());
+        map.putAll(getUnusedDeps().inverse());
+        return ImmutableMap.copyOf(map);
+      }
+    }
 
     /**
      * Flag that tell whether the module was loaded and added to the dependency graph. Modules
      * overridden by {@code single_version_override} and {@link NonRegistryOverride} are not loaded
      * so their {@code originalDeps} are (yet) unknown.
      */
-    abstract boolean isLoaded();
+    public abstract boolean isLoaded();
 
     /** Flag for checking whether the module is present in the resolved dep graph. */
-    boolean isUsed() {
+    public boolean isUsed() {
       return !getDependants().isEmpty();
     }
 
@@ -121,13 +150,6 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
 
       public abstract AugmentedModule.Builder setLoaded(boolean value);
 
-      public abstract AugmentedModule.Builder setOriginalDependants(ImmutableSet<ModuleKey> value);
-
-      public abstract AugmentedModule.Builder setDependants(ImmutableSet<ModuleKey> value);
-
-      public abstract AugmentedModule.Builder setDeps(
-          ImmutableMap<ModuleKey, ResolutionReason> value);
-
       abstract ImmutableSet.Builder<ModuleKey> originalDependantsBuilder();
 
       @CanIgnoreReturnValue
@@ -144,19 +166,35 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
         return this;
       }
 
-      abstract ImmutableMap.Builder<ModuleKey, ResolutionReason> depsBuilder();
+      abstract ImmutableBiMap.Builder<String, ModuleKey> depsBuilder();
 
       @CanIgnoreReturnValue
-      public AugmentedModule.Builder addDep(ModuleKey depKey, ResolutionReason reason) {
-        depsBuilder().put(depKey, reason);
+      public AugmentedModule.Builder addDep(String repoName, ModuleKey key) {
+        depsBuilder().put(repoName, key);
         return this;
       }
 
-      abstract AugmentedModule build();
+      abstract ImmutableBiMap.Builder<String, ModuleKey> unusedDepsBuilder();
+
+      @CanIgnoreReturnValue
+      public AugmentedModule.Builder addUnusedDep(String repoName, ModuleKey key) {
+        unusedDepsBuilder().put(repoName, key);
+        return this;
+      }
+
+      abstract ImmutableMap.Builder<String, ResolutionReason> depReasonsBuilder();
+
+      @CanIgnoreReturnValue
+      public AugmentedModule.Builder addDepReason(String repoName, ResolutionReason reason) {
+        depReasonsBuilder().put(repoName, reason);
+        return this;
+      }
+
+      public abstract AugmentedModule build();
     }
 
     /** The reason why a final dependency of a module was resolved the way it was. */
-    enum ResolutionReason {
+    public enum ResolutionReason {
       /** The dependency is the original dependency defined in the MODULE.bazel file. */
       ORIGINAL,
       /** The dependency was replaced by the Minimal-Version Selection algorithm. */
@@ -165,8 +203,10 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
       SINGLE_VERSION_OVERRIDE,
       /** The dependency was replaced by a {@code multiple_version_override} rule. */
       MULTIPLE_VERSION_OVERRIDE,
-      /** The dependency was replaced by a {@link NonRegistryOverride} rule. */
-      NON_REGISTRY_OVERRIDE
+      /** The dependency was replaced by one of the {@link NonRegistryOverride} rules. */
+      ARCHIVE_OVERRIDE,
+      GIT_OVERRIDE,
+      LOCAL_PATH_OVERRIDE,
     }
   }
 }

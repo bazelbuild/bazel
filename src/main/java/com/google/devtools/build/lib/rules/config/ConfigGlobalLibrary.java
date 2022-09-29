@@ -68,6 +68,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         moduleContext.repoMapping());
   }
 
+  // TODO(b/237422931): move into testing module
   @Override
   public ConfigurationTransitionApi analysisTestTransition(
       Dict<?, ?> changedSettings, // <String, String> expected
@@ -122,7 +123,8 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
 
     if (optionName.equals("incompatible_enable_cc_toolchain_resolution")
         || optionName.equals("incompatible_enable_cgo_toolchain_resolution")
-        || optionName.equals("incompatible_enable_apple_toolchain_resolution")) {
+        || optionName.equals("incompatible_enable_apple_toolchain_resolution")
+        || optionName.equals("incompatible_enable_android_toolchain_resolution")) {
       // This is specifically allowed.
       return true;
     } else if (optionName.startsWith("incompatible_")) {

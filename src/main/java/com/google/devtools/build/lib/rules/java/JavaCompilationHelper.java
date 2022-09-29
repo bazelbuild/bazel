@@ -764,9 +764,7 @@ public final class JavaCompilationHelper {
                 .setExecutable(optimizer)
                 .addCommandLine(
                     command.build(),
-                    ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED)
-                        .setFlagsOnly(true)
-                        .build())
+                    ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED).build())
                 .setProgressMessage("Optimizing jar %{label}")
                 .setMnemonic(mnemonic)
                 .build(getRuleContext()));

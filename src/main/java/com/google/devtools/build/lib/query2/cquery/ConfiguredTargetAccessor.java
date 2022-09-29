@@ -136,9 +136,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
           ConfigurableQuery.Code.ATTRIBUTE_MISSING);
     }
     ImmutableList.Builder<KeyedConfiguredTarget> toReturn = ImmutableList.builder();
-    attributeMapper.visitLabels(
-        attributeMapper.getAttributeDefinition(attrName),
-        label -> toReturn.addAll(depsByLabel.get(label)));
+    attributeMapper.visitLabels(attrName, label -> toReturn.addAll(depsByLabel.get(label)));
     return toReturn.build();
   }
 

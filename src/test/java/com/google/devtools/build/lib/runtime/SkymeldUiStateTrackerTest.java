@@ -50,6 +50,7 @@ public class SkymeldUiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     SkymeldUiStateTracker uiStateTracker = new SkymeldUiStateTracker(clock);
 
+    assertThat(uiStateTracker.buildStatus).isEqualTo(BuildStatus.BUILD_NOT_STARTED);
     uiStateTracker.buildStarted();
     assertThat(uiStateTracker.buildStatus).isEqualTo(BuildStatus.BUILD_STARTED);
   }

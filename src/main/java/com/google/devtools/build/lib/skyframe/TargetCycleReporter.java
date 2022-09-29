@@ -41,7 +41,8 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
           SkyFunctions.isSkyFunction(SkyFunctions.ASPECT),
           SkyFunctions.isSkyFunction(SkyFunctions.TOP_LEVEL_ASPECTS),
           SkyFunctions.isSkyFunction(TransitiveTargetKey.NAME),
-          SkyFunctions.isSkyFunction(SkyFunctions.PREPARE_ANALYSIS_PHASE));
+          SkyFunctions.isSkyFunction(SkyFunctions.PREPARE_ANALYSIS_PHASE),
+          SkyFunctions.isSkyFunction(SkyFunctions.BUILD_DRIVER));
 
   TargetCycleReporter(PackageProvider packageProvider) {
     super(packageProvider);
@@ -49,7 +50,9 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
 
   @Override
   protected boolean shouldSkipOnPathToCycle(SkyKey key) {
-    return SkyFunctions.PREPARE_ANALYSIS_PHASE.equals(key.functionName());
+    return SkyFunctions.PREPARE_ANALYSIS_PHASE.equals(key.functionName())
+        // BuildDriverKeys don't provide any relevant info for the end user.
+        || SkyFunctions.BUILD_DRIVER.equals(key.functionName());
   }
 
   @Override

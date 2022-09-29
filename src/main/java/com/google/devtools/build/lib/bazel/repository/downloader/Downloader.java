@@ -42,7 +42,7 @@ public interface Downloader {
    */
   void download(
       List<URL> urls,
-      Map<URI, Map<String, String>> authHeaders,
+      Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
       String canonicalId,
       Path output,

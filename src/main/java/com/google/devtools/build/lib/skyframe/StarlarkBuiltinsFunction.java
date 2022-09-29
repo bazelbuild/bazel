@@ -36,7 +36,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 
 // TODO(#11437): Update the design doc to change `@builtins` -> `@_builtins`.
 
-// TODO(#11437): Add support to StarlarkModuleCycleReporter to pretty-print cycles involving
+// TODO(#11437): Add support to BzlLoadCycleReporter to pretty-print cycles involving
 // @_builtins.
 
 // TODO(#11437): Add tombstone feature: If a native symbol is a tombstone object, this signals to

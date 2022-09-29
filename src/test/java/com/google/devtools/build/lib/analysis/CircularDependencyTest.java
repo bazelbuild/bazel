@@ -365,7 +365,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
         "           hdrs = select({",
         "              ':fastbuild': glob([",
         "                   '*.h',",
-        "               ]),",
+        "               ], allow_empty = True),",
         "           }),",
         ")");
 

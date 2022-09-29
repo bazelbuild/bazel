@@ -145,7 +145,8 @@ public interface CcModuleApi<
             named = true,
             positional = false),
       })
-  String getToolForAction(FeatureConfigurationT featureConfiguration, String actionName);
+  String getToolForAction(FeatureConfigurationT featureConfiguration, String actionName)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "get_execution_requirements",

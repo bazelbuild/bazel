@@ -274,7 +274,7 @@ public class TopLevelConstraintSemantics {
         }
       }
     } catch (TargetCompatibilityCheckException e) {
-      throw new ViewCreationFailedException(e.getMessage(), e.failureDetail, e);
+      throw new ViewCreationFailedException(e.getFailureDetail(), /*cause=*/ e);
     }
 
     return PlatformRestrictionsResult.builder()
@@ -325,12 +325,9 @@ public class TopLevelConstraintSemantics {
 
     message += "s [";
 
-    // Print out a sorted list to make the output reproducible.
     boolean first = true;
     for (ConstraintValueInfo constraintValueInfo :
-        ImmutableList.sortedCopyOf(
-            (ConstraintValueInfo a, ConstraintValueInfo b) -> b.label().compareTo(a.label()),
-            provider.constraintsResponsibleForIncompatibility())) {
+        provider.constraintsResponsibleForIncompatibility()) {
       if (first) {
         first = false;
       } else {

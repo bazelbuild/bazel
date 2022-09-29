@@ -649,9 +649,6 @@ public final class PackageFactory {
       StarlarkSemantics semantics,
       Globber globber)
       throws InterruptedException {
-    pkgBuilder.setThirdPartyLicenceExistencePolicy(
-        ruleClassProvider.getThirdPartyLicenseExistencePolicy());
-
     // TODO(adonovan): opt: don't precompute this value, which is rarely needed
     // and can be derived from Package.loads (if available) on demand.
     pkgBuilder.setStarlarkFileDependencies(transitiveClosureOfLabels(loadedModules));

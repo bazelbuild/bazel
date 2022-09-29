@@ -1056,6 +1056,8 @@ message BuildMetrics {
       int64 collect_time_in_ms = 1;
       // RSS size of worker process.
       int32 worker_memory_in_kb = 2;
+      // Epoch unix time of last action started on specific worker.
+      int64 last_action_start_time_in_ms = 3;
     }
 
     // Combined workers statistics.

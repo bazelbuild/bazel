@@ -180,8 +180,8 @@ public final class SymlinkTreeHelper {
     Preconditions.checkNotNull(shellEnvironment);
     List<String> args = Lists.newArrayList();
     args.add(binTools.getEmbeddedPath(BUILD_RUNFILES).asFragment().getPathString());
+    args.add("--allow_relative");
     if (filesetTree) {
-      args.add("--allow_relative");
       args.add("--use_metadata");
     }
     args.add(inputManifest.relativeTo(execRoot).getPathString());

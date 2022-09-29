@@ -288,7 +288,7 @@ public class GenRuleBaseRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(executable) -->
         Declare output to be executable.
         <p>
-          Setting this flag to 1 means the output is an executable file and can be run using the
+          Setting this flag to True means the output is an executable file and can be run using the
           <code>run</code> command. The genrule must produce exactly one output in this case.
           If this attribute is set, <code>run</code> will try executing the file regardless of
           its content.

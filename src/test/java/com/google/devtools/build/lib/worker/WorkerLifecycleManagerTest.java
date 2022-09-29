@@ -84,15 +84,17 @@ public final class WorkerLifecycleManagerTest {
         ImmutableList.of(
             WorkerMetric.create(
                 createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                WorkerMetric.WorkerStat.create(1024, Instant.now()),
+                createWorkerStat(1024),
                 true));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1024 * 100;
 
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
 
-    WorkerLifecycleManager.evictWorkers(workerMetrics, workerPool, options);
+    manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -112,15 +114,17 @@ public final class WorkerLifecycleManagerTest {
         ImmutableList.of(
             WorkerMetric.create(
                 createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                WorkerMetric.WorkerStat.create(1024, Instant.now()),
+                createWorkerStat(1024),
                 true));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 0;
 
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
 
-    WorkerLifecycleManager.evictWorkers(workerMetrics, workerPool, options);
+    manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -140,10 +144,12 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
 
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
 
-    WorkerLifecycleManager.evictWorkers(workerMetrics, workerPool, options);
+    manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -163,15 +169,17 @@ public final class WorkerLifecycleManagerTest {
         ImmutableList.of(
             WorkerMetric.create(
                 createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                WorkerMetric.WorkerStat.create(2 * 1000, Instant.now()),
+                createWorkerStat(2000),
                 true));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
 
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
 
-    WorkerLifecycleManager.evictWorkers(workerMetrics, workerPool, options);
+    manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(0);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -195,24 +203,25 @@ public final class WorkerLifecycleManagerTest {
         ImmutableList.of(
             WorkerMetric.create(
                 createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                WorkerMetric.WorkerStat.create(2 * 1000, Instant.now()),
+                createWorkerStat(2000),
                 true),
             WorkerMetric.create(
                 createWorkerProperties(w2.getWorkerId(), 2L, "dummy"),
-                WorkerMetric.WorkerStat.create(1 * 1000, Instant.now()),
+                createWorkerStat(1000),
                 true),
             WorkerMetric.create(
                 createWorkerProperties(w3.getWorkerId(), 3L, "dummy"),
-                WorkerMetric.WorkerStat.create(4 * 1000, Instant.now()),
+                createWorkerStat(4000),
                 true));
 
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 2;
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(3);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
 
-    WorkerLifecycleManager.evictWorkers(workerMetrics, workerPool, options);
+    manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -236,24 +245,26 @@ public final class WorkerLifecycleManagerTest {
         ImmutableList.of(
             WorkerMetric.create(
                 createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                WorkerMetric.WorkerStat.create(2 * 1000, Instant.now()),
+                createWorkerStat(2000),
                 true),
             WorkerMetric.create(
                 createWorkerProperties(w2.getWorkerId(), 2L, "dummy"),
-                WorkerMetric.WorkerStat.create(1 * 1000, Instant.now()),
+                createWorkerStat(1000),
                 true),
             WorkerMetric.create(
                 createWorkerProperties(w3.getWorkerId(), 3L, "dummy"),
-                WorkerMetric.WorkerStat.create(4 * 1000, Instant.now()),
+                createWorkerStat(4000),
                 true));
 
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 2;
 
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(2);
     assertThat(workerPool.getNumActive(key)).isEqualTo(1);
 
-    WorkerLifecycleManager.evictWorkers(workerMetrics, workerPool, options);
+    manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(0);
     assertThat(workerPool.getNumActive(key)).isEqualTo(1);
@@ -283,30 +294,32 @@ public final class WorkerLifecycleManagerTest {
         ImmutableList.of(
             WorkerMetric.create(
                 createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                WorkerMetric.WorkerStat.create(1 * 1000, Instant.now()),
+                createWorkerStat(1000),
                 true),
             WorkerMetric.create(
                 createWorkerProperties(w2.getWorkerId(), 2L, "dummy"),
-                WorkerMetric.WorkerStat.create(4 * 1000, Instant.now()),
+                createWorkerStat(4000),
                 true),
             WorkerMetric.create(
                 createWorkerProperties(w3.getWorkerId(), 3L, "smart"),
-                WorkerMetric.WorkerStat.create(3 * 1000, Instant.now()),
+                createWorkerStat(3000),
                 true),
             WorkerMetric.create(
                 createWorkerProperties(w4.getWorkerId(), 4L, "smart"),
-                WorkerMetric.WorkerStat.create(1 * 1000, Instant.now()),
+                createWorkerStat(1000),
                 true));
 
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 2;
+
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
 
     assertThat(workerPool.getNumIdlePerKey(key1)).isEqualTo(2);
     assertThat(workerPool.getNumActive(key1)).isEqualTo(0);
     assertThat(workerPool.getNumIdlePerKey(key2)).isEqualTo(2);
     assertThat(workerPool.getNumActive(key2)).isEqualTo(0);
 
-    WorkerLifecycleManager.evictWorkers(workerMetrics, workerPool, options);
+    manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key1)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key1)).isEqualTo(0);
@@ -321,6 +334,11 @@ public final class WorkerLifecycleManagerTest {
       int workerId, long processId, String mnemonic) {
     return WorkerMetric.WorkerProperties.create(
         workerId, processId, mnemonic, /* isMultiplex= */ false, /* isSandboxed= */ false);
+  }
+
+  private static WorkerMetric.WorkerStat createWorkerStat(int memoryUsage) {
+    return WorkerMetric.WorkerStat.create(
+        memoryUsage, /*lastCallTimestamp */ Instant.now(), /* timestamp*/ Instant.now());
   }
 
   private static ImmutableList<Entry<String, Integer>> emptyEntryList() {

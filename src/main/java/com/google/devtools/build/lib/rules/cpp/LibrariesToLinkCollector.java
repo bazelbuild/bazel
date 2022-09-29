@@ -13,11 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -109,35 +110,79 @@ public class LibrariesToLinkCollector {
       potentialExecRoots = ImmutableList.of();
       rpathRoots = ImmutableList.of(ccToolchainProvider.getSolibDirectory() + "/");
     } else {
-      // When executed from within a runfiles directory, the binary lies under a path such as
-      // target.runfiles/some_repo/pkg/file, whereas the solib directory is located under
-      // target.runfiles/main_repo.
-      PathFragment runfilesPath = output.getRunfilesPath();
-      String runfilesExecRoot;
-      if (runfilesPath.startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)) {
-        // runfilesPath is of the form ../some_repo/pkg/file, walk back some_repo/pkg and then
-        // descend into the main workspace.
-        runfilesExecRoot = "../".repeat(runfilesPath.segmentCount() - 2) + workspaceName + "/";
-      } else {
-        // runfilesPath is of the form pkg/file, walk back pkg to reach the main workspace.
-        runfilesExecRoot = "../".repeat(runfilesPath.segmentCount() - 1);
+      // The runtime location of the solib directory relative to the binary depends on four factors:
+      //
+      // * whether the binary is contained in the main repository or an external repository;
+      // * whether the binary is executed directly or from a runfiles tree;
+      // * whether the binary is staged as a symlink (sandboxed execution; local execution if the
+      //   binary is in the runfiles of another target) or a regular file (remote execution) - the
+      //   dynamic linker follows sandbox and runfiles symlinks into its location under the
+      //   unsandboxed execroot, which thus becomes the effective $ORIGIN;
+      // * whether --experimental_sibling_repository_layout is enabled or not.
+      //
+      // The rpaths emitted into the binary thus have to cover the following cases (assuming that
+      // the binary target is located in the pkg `pkg` and has name `file`) for the directory used
+      // as $ORIGIN by the dynamic linker and the directory containing the solib directories:
+      //
+      // 1. main, direct, symlink:
+      //    $ORIGIN:    $EXECROOT/pkg
+      //    solib root: $EXECROOT
+      // 2. main, direct, regular file:
+      //    $ORIGIN:    $EXECROOT/pkg
+      //    solib root: $EXECROOT/pkg/file.runfiles/main_repo
+      // 3. main, runfiles, symlink:
+      //    $ORIGIN:    $EXECROOT/pkg
+      //    solib root: $EXECROOT
+      // 4. main, runfiles, regular file:
+      //    $ORIGIN:    other_target.runfiles/main_repo/pkg
+      //    solib root: other_target.runfiles/main_repo
+      // 5a. external, direct, symlink:
+      //    $ORIGIN:    $EXECROOT/external/other_repo/pkg
+      //    solib root: $EXECROOT
+      // 5b. external, direct, symlink, with --experimental_sibling_repository_layout:
+      //    $ORIGIN:    $EXECROOT/../other_repo/pkg
+      //    solib root: $EXECROOT/../other_repo
+      // 6a. external, direct, regular file:
+      //    $ORIGIN:    $EXECROOT/external/other_repo/pkg
+      //    solib root: $EXECROOT/external/other_repo/pkg/file.runfiles/main_repo
+      // 6b. external, direct, regular file, with --experimental_sibling_repository_layout:
+      //    $ORIGIN:    $EXECROOT/../other_repo/pkg
+      //    solib root: $EXECROOT/../other_repo/pkg/file.runfiles/other_repo
+      // 7a. external, runfiles, symlink:
+      //    $ORIGIN:    $EXECROOT/external/other_repo/pkg
+      //    solib root: $EXECROOT
+      // 7b. external, runfiles, symlink, with --experimental_sibling_repository_layout:
+      //    $ORIGIN:    $EXECROOT/../other_repo/pkg
+      //    solib root: $EXECROOT/../other_repo
+      // 8a. external, runfiles, regular file:
+      //    $ORIGIN:    other_target.runfiles/some_repo/pkg
+      //    solib root: other_target.runfiles/main_repo
+      // 8b. external, runfiles, regular file, with --experimental_sibling_repository_layout:
+      //    $ORIGIN:    other_target.runfiles/some_repo/pkg
+      //    solib root: other_target.runfiles/some_repo
+      //
+      // Cases 1, 3, 4, 5, 7, and 8b are covered by an rpath that walks up the root relative path.
+      // Case 8a is covered by walking up some_repo/pkg and then into main_repo.
+      // Cases 2 and 6 are currently not covered as they would require an rpath containing the
+      // binary filename, which may contain commas that would clash with the `-Wl` argument used to
+      // pass the rpath to the linker.
+      // TODO(#14600): Fix this by using `-Xlinker` instead of `-Wl`.
+      ImmutableList.Builder<String> execRoots = ImmutableList.builder();
+      // Handles cases 1, 3, 4, 5, and 7.
+      execRoots.add("../".repeat(output.getRootRelativePath().segmentCount() - 1));
+      if (output.getRunfilesPath().startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)
+          && output.getRoot().isLegacy()) {
+        // Handles case 8a. The runfiles path is of the form ../some_repo/pkg/file and we need to
+        // walk up some_repo/pkg and then down into main_repo.
+        execRoots.add(
+            "../".repeat(output.getRunfilesPath().segmentCount() - 2) + workspaceName + "/");
       }
 
-      // When the binary gets run through remote execution as the main executable (i.e., not as a
-      // dependency of another target), it will not be able to find its libraries at
-      // $ORIGIN/../../../_solib_[arch], as execution is not taking place inside the runfiles
-      // directory. Solve this by adding ${executable}.runfiles/${workspace}/_solib_[arch] as an
-      // alternative rpath root.
-      PathFragment rootRelativePath = output.getRootRelativePath();
-      potentialExecRoots =
-          ImmutableList.of(
-              rootRelativePath.getBaseName() + ".runfiles/" + workspaceName + "/",
-              runfilesExecRoot);
+      potentialExecRoots = execRoots.build();
       rpathRoots =
-          ImmutableList.copyOf(
-              Lists.transform(
-                  potentialExecRoots,
-                  (execRoot) -> execRoot + ccToolchainProvider.getSolibDirectory() + "/"));
+          potentialExecRoots.stream()
+              .map((execRoot) -> execRoot + ccToolchainProvider.getSolibDirectory() + "/")
+              .collect(toImmutableList());
     }
 
     ltoMap = generateLtoMap();

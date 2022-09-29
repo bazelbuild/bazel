@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
+import static com.google.devtools.build.lib.profiler.ProfilerTask.CREDENTIAL_HELPER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.vfs.Path;
@@ -68,57 +71,62 @@ public final class CredentialHelper {
     Preconditions.checkNotNull(environment);
     Preconditions.checkNotNull(uri);
 
-    Subprocess process = spawnSubprocess(environment, "get");
-    try (Reader stdout = new InputStreamReader(process.getInputStream(), UTF_8);
-        Reader stderr = new InputStreamReader(process.getErrorStream(), UTF_8)) {
-      try (Writer stdin = new OutputStreamWriter(process.getOutputStream(), UTF_8)) {
-        GSON.toJson(GetCredentialsRequest.newBuilder().setUri(uri).build(), stdin);
-      }
+    Profiler prof = Profiler.instance();
 
-      process.waitFor();
-      if (process.timedout()) {
-        throw new CredentialHelperException(
-            String.format(
-                Locale.US,
-                "Failed to get credentials for '%s' from helper '%s': process timed out",
-                uri,
-                path));
-      }
-      if (process.exitValue() != 0) {
-        throw new CredentialHelperException(
-            String.format(
-                Locale.US,
-                "Failed to get credentials for '%s' from helper '%s': process exited with code %d."
-                    + " stderr: %s",
-                uri,
-                path,
-                process.exitValue(),
-                CharStreams.toString(stderr)));
-      }
+    try (SilentCloseable c = prof.profile(CREDENTIAL_HELPER, "calling credential helper")) {
+      Subprocess process = spawnSubprocess(environment, "get");
+      try (Reader stdout = new InputStreamReader(process.getInputStream(), UTF_8);
+          Reader stderr = new InputStreamReader(process.getErrorStream(), UTF_8)) {
+        try (Writer stdin = new OutputStreamWriter(process.getOutputStream(), UTF_8)) {
+          GSON.toJson(GetCredentialsRequest.newBuilder().setUri(uri).build(), stdin);
+        }
 
-      try {
-        GetCredentialsResponse response = GSON.fromJson(stdout, GetCredentialsResponse.class);
-        if (response == null) {
+        process.waitFor();
+
+        if (process.timedout()) {
           throw new CredentialHelperException(
               String.format(
                   Locale.US,
-                  "Failed to get credentials for '%s' from helper '%s': process exited without"
-                      + " output. stderr: %s",
+                  "Failed to get credentials for '%s' from helper '%s': process timed out",
+                  uri,
+                  path));
+        }
+        if (process.exitValue() != 0) {
+          throw new CredentialHelperException(
+              String.format(
+                  Locale.US,
+                  "Failed to get credentials for '%s' from helper '%s': process exited with code"
+                      + " %d. stderr: %s",
                   uri,
                   path,
+                  process.exitValue(),
                   CharStreams.toString(stderr)));
         }
-        return response;
-      } catch (JsonSyntaxException e) {
-        throw new CredentialHelperException(
-            String.format(
-                Locale.US,
-                "Failed to get credentials for '%s' from helper '%s': error parsing output. stderr:"
-                    + " %s",
-                uri,
-                path,
-                CharStreams.toString(stderr)),
-            e);
+
+        try {
+          GetCredentialsResponse response = GSON.fromJson(stdout, GetCredentialsResponse.class);
+          if (response == null) {
+            throw new CredentialHelperException(
+                String.format(
+                    Locale.US,
+                    "Failed to get credentials for '%s' from helper '%s': process exited without"
+                        + " output. stderr: %s",
+                    uri,
+                    path,
+                    CharStreams.toString(stderr)));
+          }
+          return response;
+        } catch (JsonSyntaxException e) {
+          throw new CredentialHelperException(
+              String.format(
+                  Locale.US,
+                  "Failed to get credentials for '%s' from helper '%s': error parsing output."
+                      + " stderr: %s",
+                  uri,
+                  path,
+                  CharStreams.toString(stderr)),
+              e);
+        }
       }
     }
   }

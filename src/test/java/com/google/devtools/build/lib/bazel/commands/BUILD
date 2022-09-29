@@ -19,9 +19,11 @@ java_library(
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:inspection",
         "//src/main/java/com/google/devtools/build/lib/bazel/commands",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/bazel/bzlmod:util",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

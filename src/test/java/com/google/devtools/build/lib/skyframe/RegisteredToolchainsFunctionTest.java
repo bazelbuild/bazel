@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createMo
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
@@ -58,6 +59,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         PrecomputedValue.injected(
             ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
   }
@@ -296,45 +298,33 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     setBuildLanguageOptions("--enable_bzlmod");
     scratch.overwriteFile(
         "MODULE.bazel",
-        "module(toolchains_to_register=['//:tool'])",
+        "register_toolchains('//:tool')",
         "bazel_dep(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='1.1')",
         "bazel_dep(name='toolchain_def',version='1.0')");
     registry
         .addModule(
             createModuleKey("bbb", "1.0"),
-            "module(",
-            "    name='bbb',",
-            "    version='1.0',",
-            "    toolchains_to_register=['//:tool'],",
-            ")",
+            "module(name='bbb',version='1.0')",
+            "register_toolchains('//:tool')",
             "bazel_dep(name='ddd',version='1.0')",
             "bazel_dep(name='toolchain_def',version='1.0')")
         .addModule(
             createModuleKey("ccc", "1.1"),
-            "module(",
-            "    name='ccc',",
-            "    version='1.1',",
-            "    toolchains_to_register=['//:tool'],",
-            ")",
+            "module(name='ccc',version='1.1')",
+            "register_toolchains('//:tool')",
             "bazel_dep(name='ddd',version='1.1')",
             "bazel_dep(name='toolchain_def',version='1.0')")
         // ddd@1.0 is not selected
         .addModule(
             createModuleKey("ddd", "1.0"),
-            "module(",
-            "    name='ddd',",
-            "    version='1.0',",
-            "    toolchains_to_register=['//:tool'],",
-            ")",
+            "module(name='ddd',version='1.0')",
+            "register_toolchains('//:tool')",
             "bazel_dep(name='toolchain_def',version='1.0')")
         .addModule(
             createModuleKey("ddd", "1.1"),
-            "module(",
-            "    name='ddd',",
-            "    version='1.1',",
-            "    toolchains_to_register=['@eee//:tool', '//:tool'],",
-            ")",
+            "module(name='ddd',version='1.1')",
+            "register_toolchains('@eee//:tool', '//:tool')",
             "bazel_dep(name='eee',version='1.0')",
             "bazel_dep(name='toolchain_def',version='1.0')")
         .addModule(

@@ -104,6 +104,7 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
@@ -128,7 +129,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -144,7 +144,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
@@ -164,6 +163,7 @@ public class RemoteExecutionService {
   @Nullable private final RemoteCache remoteCache;
   @Nullable private final RemoteExecutionClient remoteExecutor;
   private final ImmutableSet<PathFragment> filesToDownload;
+  private final TempPathGenerator tempPathGenerator;
   @Nullable private final Path captureCorruptedOutputsDir;
   private final Cache<Object, MerkleTree> merkleTreeCache;
   private final Set<String> reportedErrors = new HashSet<>();
@@ -189,6 +189,7 @@ public class RemoteExecutionService {
       @Nullable RemoteCache remoteCache,
       @Nullable RemoteExecutionClient remoteExecutor,
       ImmutableSet<ActionInput> filesToDownload,
+      TempPathGenerator tempPathGenerator,
       @Nullable Path captureCorruptedOutputsDir) {
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
@@ -213,22 +214,30 @@ public class RemoteExecutionService {
       filesToDownloadBuilder.add(actionInput.getExecPath());
     }
     this.filesToDownload = filesToDownloadBuilder.build();
+    this.tempPathGenerator = tempPathGenerator;
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
 
     this.scheduler = Schedulers.from(executor, /*interruptibleWorker=*/ true);
 
-    String regex = remoteOptions.remoteDownloadRegex;
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
-    // used without RemoteOutputsMode.MINIMAL.
-    this.shouldForceDownloads =
-        !regex.isEmpty()
-            && (remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL
-                || remoteOptions.remoteOutputsMode == RemoteOutputsMode.TOPLEVEL);
-    Pattern pattern = Pattern.compile(regex);
+    // used without Build without the Bytes.
+    ImmutableList.Builder<Pattern> builder = ImmutableList.builder();
+    if (remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL
+        || remoteOptions.remoteOutputsMode == RemoteOutputsMode.TOPLEVEL) {
+      for (String regex : remoteOptions.remoteDownloadRegex) {
+        builder.add(Pattern.compile(regex));
+      }
+    }
+    ImmutableList<Pattern> patterns = builder.build();
+    this.shouldForceDownloads = !patterns.isEmpty();
     this.shouldForceDownloadPredicate =
         path -> {
-          Matcher m = pattern.matcher(path);
-          return m.matches();
+          for (Pattern pattern : patterns) {
+            if (pattern.matcher(path).find()) {
+              return true;
+            }
+          }
+          return false;
         };
   }
 
@@ -631,15 +640,11 @@ public class RemoteExecutionService {
     return RemoteActionResult.createFromCache(cachedActionResult);
   }
 
-  private static Path toTmpDownloadPath(Path actualPath) {
-    return checkNotNull(actualPath.getParentDirectory())
-        .getRelative(actualPath.getBaseName() + ".tmp");
-  }
-
   private ListenableFuture<FileMetadata> downloadFile(
       RemoteActionExecutionContext context,
       ProgressStatusListener progressStatusListener,
-      FileMetadata file) {
+      FileMetadata file,
+      Path tmpPath) {
     checkNotNull(remoteCache, "remoteCache can't be null");
 
     try {
@@ -647,7 +652,7 @@ public class RemoteExecutionService {
           remoteCache.downloadFile(
               context,
               remotePathResolver.localPathToOutputPath(file.path()),
-              toTmpDownloadPath(file.path()),
+              tmpPath,
               file.digest(),
               new RemoteCache.DownloadProgressReporter(
                   progressStatusListener,
@@ -686,17 +691,11 @@ public class RemoteExecutionService {
   }
 
   private void deletePartialDownloadedOutputs(
-      RemoteActionResult result, FileOutErr tmpOutErr, Exception e) throws ExecException {
+      Map<Path, Path> realToTmpPath, FileOutErr tmpOutErr, Exception e) throws ExecException {
     try {
       // Delete any (partially) downloaded output files.
-      for (OutputFile file : result.actionResult.getOutputFilesList()) {
-        toTmpDownloadPath(remotePathResolver.outputPathToLocalPath(file.getPath())).delete();
-      }
-
-      for (OutputDirectory directory : result.actionResult.getOutputDirectoriesList()) {
-        // Only delete the directories below the output directories because the output
-        // directories will not be re-created
-        remotePathResolver.outputPathToLocalPath(directory.getPath()).deleteTreesBelow();
+      for (Path tmpPath : realToTmpPath.values()) {
+        tmpPath.delete();
       }
 
       tmpOutErr.clearOut();
@@ -720,7 +719,8 @@ public class RemoteExecutionService {
   /**
    * Copies moves the downloaded outputs from their download location to their declared location.
    */
-  private void moveOutputsToFinalLocation(List<ListenableFuture<FileMetadata>> downloads)
+  private void moveOutputsToFinalLocation(
+      List<ListenableFuture<FileMetadata>> downloads, Map<Path, Path> realToTmpPath)
       throws IOException, InterruptedException {
     List<FileMetadata> finishedDownloads = new ArrayList<>(downloads.size());
     for (ListenableFuture<FileMetadata> finishedDownload : downloads) {
@@ -729,22 +729,13 @@ public class RemoteExecutionService {
         finishedDownloads.add(outputFile);
       }
     }
-    /*
-     * Sort the list lexicographically based on its temporary download path in order to avoid
-     * filename clashes when moving the files:
-     *
-     * Consider an action that produces two outputs foo and foo.tmp. These outputs would initially
-     * be downloaded to foo.tmp and foo.tmp.tmp. When renaming them to foo and foo.tmp we need to
-     * ensure that rename(foo.tmp, foo) happens before rename(foo.tmp.tmp, foo.tmp). We ensure this
-     * by doing the renames in lexicographical order of the download names.
-     */
-    Collections.sort(finishedDownloads, Comparator.comparing(f -> toTmpDownloadPath(f.path())));
-
     // Move the output files from their temporary name to the actual output file name. Executable
-    // bit
-    // is ignored since the file permission will be changed to 0555 after execution.
+    // bit is ignored since the file permission will be changed to 0555 after execution.
     for (FileMetadata outputFile : finishedDownloads) {
-      FileSystemUtils.moveFile(toTmpDownloadPath(outputFile.path()), outputFile.path());
+      Path realPath = outputFile.path();
+      Path tmpPath = Preconditions.checkNotNull(realToTmpPath.get(realPath));
+      realPath.getParentDirectory().createDirectoryAndParents();
+      FileSystemUtils.moveFile(tmpPath, realPath);
     }
   }
 
@@ -794,7 +785,7 @@ public class RemoteExecutionService {
         TreeFileArtifact child =
             TreeFileArtifact.createTreeOutput(parent, file.path().relativeTo(parent.getPath()));
         RemoteFileArtifactValue value =
-            new RemoteFileArtifactValue(
+            RemoteFileArtifactValue.create(
                 DigestUtil.toBinaryDigest(file.digest()),
                 file.digest().getSizeBytes(),
                 /*locationIndex=*/ 1,
@@ -811,7 +802,7 @@ public class RemoteExecutionService {
       }
       remoteActionFileSystem.injectFile(
           output,
-          new RemoteFileArtifactValue(
+          RemoteFileArtifactValue.create(
               DigestUtil.toBinaryDigest(outputMetadata.digest()),
               outputMetadata.digest().getSizeBytes(),
               /*locationIndex=*/ 1,
@@ -1031,6 +1022,147 @@ public class RemoteExecutionService {
       metadata = parseActionResultMetadata(context, result);
     }
 
+    FileOutErr outErr = action.getSpawnExecutionContext().getFileOutErr();
+
+    ImmutableList.Builder<ListenableFuture<FileMetadata>> downloadsBuilder =
+        ImmutableList.builder();
+    RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
+    boolean downloadOutputs =
+        shouldDownloadAllSpawnOutputs(
+            remoteOutputsMode,
+            /* exitCode = */ result.getExitCode(),
+            hasFilesToDownload(action.getSpawn().getOutputFiles(), filesToDownload));
+
+    ImmutableList<ListenableFuture<FileMetadata>> forcedDownloads = ImmutableList.of();
+
+    // Download into temporary paths, then move everything at the end.
+    // This avoids holding the output lock while downloading, which would prevent the local branch
+    // from completing sooner under the dynamic execution strategy.
+    Map<Path, Path> realToTmpPath = new HashMap<>();
+
+    if (downloadOutputs) {
+      // Create output directories first.
+      // This ensures that the directories are present even if downloading fails.
+      // See https://github.com/bazelbuild/bazel/issues/6260.
+      for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+        entry.getKey().createDirectoryAndParents();
+      }
+      downloadsBuilder.addAll(
+          buildFilesToDownload(context, progressStatusListener, metadata, realToTmpPath));
+    } else {
+      checkState(
+          result.getExitCode() == 0,
+          "injecting remote metadata is only supported for successful actions (exit code 0).");
+
+      if (!metadata.symlinks().isEmpty()) {
+        throw new IOException(
+            "Symlinks in action outputs are not yet supported by "
+                + "--experimental_remote_download_outputs=minimal");
+      }
+      if (shouldForceDownloads) {
+        forcedDownloads =
+            buildFilesToDownloadWithPredicate(
+                context,
+                progressStatusListener,
+                metadata,
+                shouldForceDownloadPredicate,
+                realToTmpPath);
+      }
+    }
+
+    FileOutErr tmpOutErr = outErr.childOutErr();
+    List<ListenableFuture<Void>> outErrDownloads =
+        remoteCache.downloadOutErr(context, result.actionResult, tmpOutErr);
+    for (ListenableFuture<Void> future : outErrDownloads) {
+      downloadsBuilder.add(transform(future, (v) -> null, directExecutor()));
+    }
+
+    ImmutableList<ListenableFuture<FileMetadata>> downloads = downloadsBuilder.build();
+    try (SilentCloseable c = Profiler.instance().profile("Remote.download")) {
+      waitForBulkTransfer(downloads, /* cancelRemainingOnInterrupt= */ true);
+    } catch (Exception e) {
+      // TODO(bazel-team): Consider adding better case-by-case exception handling instead of just
+      // rethrowing
+      captureCorruptedOutputs(e);
+      deletePartialDownloadedOutputs(realToTmpPath, tmpOutErr, e);
+      throw e;
+    }
+
+    // TODO(bazel-team): Unify this block with the equivalent block above.
+    try (SilentCloseable c = Profiler.instance().profile("Remote.forcedDownload")) {
+      waitForBulkTransfer(forcedDownloads, /* cancelRemainingOnInterrupt= */ true);
+    } catch (Exception e) {
+      // TODO(bazel-team): Consider adding better case-by-case exception handling instead of just
+      // rethrowing
+      captureCorruptedOutputs(e);
+      deletePartialDownloadedOutputs(realToTmpPath, tmpOutErr, e);
+      throw e;
+    }
+
+    FileOutErr.dump(tmpOutErr, outErr);
+
+    // Ensure that we are the only ones writing to the output files when using the dynamic spawn
+    // strategy.
+    action
+        .getSpawnExecutionContext()
+        .lockOutputFiles(result.getExitCode(), result.getMessage(), tmpOutErr);
+    // Will these be properly garbage-collected if the above throws an exception?
+    tmpOutErr.clearOut();
+    tmpOutErr.clearErr();
+
+    if (downloadOutputs) {
+      moveOutputsToFinalLocation(downloads, realToTmpPath);
+
+      List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
+      for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+        symlinksInDirectories.addAll(entry.getValue().symlinks());
+      }
+
+      Iterable<SymlinkMetadata> symlinks =
+          Iterables.concat(metadata.symlinks(), symlinksInDirectories);
+
+      // Create the symbolic links after all downloads are finished, because dangling symlinks
+      // might not be supported on all platforms
+      createSymlinks(symlinks);
+    } else {
+      // TODO(bazel-team): We should unify this if-block to rely on downloadOutputs above but, as of
+      // 2022-07-05,  downloadOuputs' semantics isn't exactly the same as build-without-the-bytes
+      // which is necessary for using remoteDownloadRegex.
+      if (!forcedDownloads.isEmpty()) {
+        moveOutputsToFinalLocation(forcedDownloads, realToTmpPath);
+      }
+
+      ActionInput inMemoryOutput = null;
+      Digest inMemoryOutputDigest = null;
+      PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
+
+      for (ActionInput output : action.getSpawn().getOutputFiles()) {
+        if (inMemoryOutputPath != null && output.getExecPath().equals(inMemoryOutputPath)) {
+          Path localPath = remotePathResolver.outputPathToLocalPath(output);
+          FileMetadata m = metadata.file(localPath);
+          if (m == null) {
+            // A declared output wasn't created. Ignore it here. SkyFrame will fail if not all
+            // outputs were created.
+            continue;
+          }
+          inMemoryOutputDigest = m.digest();
+          inMemoryOutput = output;
+        }
+        injectRemoteArtifact(action, output, metadata);
+      }
+
+      try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {
+        if (inMemoryOutput != null) {
+          ListenableFuture<byte[]> inMemoryOutputDownload =
+              remoteCache.downloadBlob(context, inMemoryOutputDigest);
+          waitForBulkTransfer(
+              ImmutableList.of(inMemoryOutputDownload), /* cancelRemainingOnInterrupt=*/ true);
+          byte[] data = getFromFuture(inMemoryOutputDownload);
+          return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(data));
+        }
+      }
+    }
+
     if (result.success()) {
       // Check that all mandatory outputs are created.
       for (ActionInput output : action.getSpawn().getOutputFiles()) {
@@ -1068,164 +1200,41 @@ public class RemoteExecutionService {
       }
     }
 
-    FileOutErr outErr = action.getSpawnExecutionContext().getFileOutErr();
-
-    ImmutableList.Builder<ListenableFuture<FileMetadata>> downloadsBuilder =
-        ImmutableList.builder();
-    RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
-    boolean downloadOutputs =
-        shouldDownloadAllSpawnOutputs(
-            remoteOutputsMode,
-            /* exitCode = */ result.getExitCode(),
-            hasFilesToDownload(action.getSpawn().getOutputFiles(), filesToDownload));
-
-    ImmutableList<ListenableFuture<FileMetadata>> forcedDownloads = ImmutableList.of();
-
-    if (downloadOutputs) {
-      downloadsBuilder.addAll(buildFilesToDownload(context, progressStatusListener, metadata));
-    } else {
-      checkState(
-          result.getExitCode() == 0,
-          "injecting remote metadata is only supported for successful actions (exit code 0).");
-
-      if (!metadata.symlinks().isEmpty()) {
-        throw new IOException(
-            "Symlinks in action outputs are not yet supported by "
-                + "--experimental_remote_download_outputs=minimal");
-      }
-      if (shouldForceDownloads) {
-        forcedDownloads =
-            buildFilesToDownloadWithPredicate(
-                context, progressStatusListener, metadata, shouldForceDownloadPredicate);
-      }
-    }
-
-    FileOutErr tmpOutErr = outErr.childOutErr();
-    List<ListenableFuture<Void>> outErrDownloads =
-        remoteCache.downloadOutErr(context, result.actionResult, tmpOutErr);
-    for (ListenableFuture<Void> future : outErrDownloads) {
-      downloadsBuilder.add(transform(future, (v) -> null, directExecutor()));
-    }
-
-    ImmutableList<ListenableFuture<FileMetadata>> downloads = downloadsBuilder.build();
-    try (SilentCloseable c = Profiler.instance().profile("Remote.download")) {
-      waitForBulkTransfer(downloads, /* cancelRemainingOnInterrupt= */ true);
-    } catch (Exception e) {
-      // TODO(bazel-team): Consider adding better case-by-case exception handling instead of just
-      // rethrowing
-      captureCorruptedOutputs(e);
-      deletePartialDownloadedOutputs(result, tmpOutErr, e);
-      throw e;
-    }
-
-    // TODO(bazel-team): Unify this block with the equivalent block above.
-    try (SilentCloseable c = Profiler.instance().profile("Remote.forcedDownload")) {
-      waitForBulkTransfer(forcedDownloads, /* cancelRemainingOnInterrupt= */ true);
-    } catch (Exception e) {
-      // TODO(bazel-team): Consider adding better case-by-case exception handling instead of just
-      // rethrowing
-      captureCorruptedOutputs(e);
-      deletePartialDownloadedOutputs(result, tmpOutErr, e);
-      throw e;
-    }
-
-    FileOutErr.dump(tmpOutErr, outErr);
-
-    // Ensure that we are the only ones writing to the output files when using the dynamic spawn
-    // strategy.
-    action
-        .getSpawnExecutionContext()
-        .lockOutputFiles(result.getExitCode(), result.getMessage(), tmpOutErr);
-    // Will these be properly garbage-collected if the above throws an exception?
-    tmpOutErr.clearOut();
-    tmpOutErr.clearErr();
-
-    if (downloadOutputs) {
-      moveOutputsToFinalLocation(downloads);
-
-      List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
-      for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-        // For empty output directories, create the empty directory itself
-        entry.getKey().createDirectoryAndParents();
-        symlinksInDirectories.addAll(entry.getValue().symlinks());
-      }
-
-      Iterable<SymlinkMetadata> symlinks =
-          Iterables.concat(metadata.symlinks(), symlinksInDirectories);
-
-      // Create the symbolic links after all downloads are finished, because dangling symlinks
-      // might not be supported on all platforms
-      createSymlinks(symlinks);
-    } else {
-      // TODO(bazel-team): We should unify this if-block to rely on downloadOutputs above but, as of
-      // 2022-07-05,  downloadOuputs' semantics isn't exactly the same as build-without-the-bytes
-      // which is necessary for using remoteDownloadRegex.
-      if (!forcedDownloads.isEmpty()) {
-        moveOutputsToFinalLocation(forcedDownloads);
-      }
-
-      ActionInput inMemoryOutput = null;
-      Digest inMemoryOutputDigest = null;
-      PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
-
-      for (ActionInput output : action.getSpawn().getOutputFiles()) {
-        if (inMemoryOutputPath != null && output.getExecPath().equals(inMemoryOutputPath)) {
-          Path localPath = remotePathResolver.outputPathToLocalPath(output);
-          FileMetadata m = metadata.file(localPath);
-          if (m == null) {
-            // A declared output wasn't created. Ignore it here. SkyFrame will fail if not all
-            // outputs were created.
-            continue;
-          }
-          inMemoryOutputDigest = m.digest();
-          inMemoryOutput = output;
-        }
-        injectRemoteArtifact(action, output, metadata);
-      }
-
-      try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {
-        if (inMemoryOutput != null) {
-          ListenableFuture<byte[]> inMemoryOutputDownload =
-              remoteCache.downloadBlob(context, inMemoryOutputDigest);
-          waitForBulkTransfer(
-              ImmutableList.of(inMemoryOutputDownload), /* cancelRemainingOnInterrupt=*/ true);
-          byte[] data = getFromFuture(inMemoryOutputDownload);
-          return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(data));
-        }
-      }
-    }
-
     return null;
   }
 
   private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownload(
       RemoteActionExecutionContext context,
       ProgressStatusListener progressStatusListener,
-      ActionResultMetadata metadata) {
+      ActionResultMetadata metadata,
+      Map<Path, Path> realToTmpPath) {
     Predicate<String> alwaysTrue = unused -> true;
-    return buildFilesToDownloadWithPredicate(context, progressStatusListener, metadata, alwaysTrue);
+    return buildFilesToDownloadWithPredicate(
+        context, progressStatusListener, metadata, alwaysTrue, realToTmpPath);
   }
 
   private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownloadWithPredicate(
       RemoteActionExecutionContext context,
       ProgressStatusListener progressStatusListener,
       ActionResultMetadata metadata,
-      Predicate<String> predicate) {
-    HashSet<PathFragment> queuedFilePaths = new HashSet<>();
+      Predicate<String> predicate,
+      Map<Path, Path> realToTmpPath) {
     ImmutableList.Builder<ListenableFuture<FileMetadata>> builder = new ImmutableList.Builder<>();
 
     for (FileMetadata file : metadata.files()) {
-      PathFragment filePath = file.path().asFragment();
-      if (queuedFilePaths.add(filePath) && predicate.test(file.path.toString())) {
-        builder.add(downloadFile(context, progressStatusListener, file));
+      if (!realToTmpPath.containsKey(file.path) && predicate.test(file.path.toString())) {
+        Path tmpPath = tempPathGenerator.generateTempPath();
+        realToTmpPath.put(file.path, tmpPath);
+        builder.add(downloadFile(context, progressStatusListener, file, tmpPath));
       }
     }
 
     for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
       for (FileMetadata file : entry.getValue().files()) {
-        PathFragment filePath = file.path().asFragment();
-        if (queuedFilePaths.add(filePath) && predicate.test(file.path.toString())) {
-          builder.add(downloadFile(context, progressStatusListener, file));
+        if (!realToTmpPath.containsKey(file.path) && predicate.test(file.path.toString())) {
+          Path tmpPath = tempPathGenerator.generateTempPath();
+          realToTmpPath.put(file.path, tmpPath);
+          builder.add(downloadFile(context, progressStatusListener, file, tmpPath));
         }
       }
     }

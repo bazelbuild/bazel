@@ -187,7 +187,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   @StarlarkMethod(
       name = "workspace_name",
       structField = true,
-      doc = "Returns the workspace name as defined in the WORKSPACE file.")
+      doc = "The workspace name as defined in the WORKSPACE file.")
   String getWorkspaceName() throws EvalException;
 
   @StarlarkMethod(
@@ -212,7 +212,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "configuration",
       structField = true,
       doc =
-          "Returns the default configuration. See the <a href=\"configuration.html\">"
+          "The default configuration. See the <a href=\"configuration.html\">"
               + "configuration</a> type for more details.")
   BuildConfigurationApi getConfiguration() throws EvalException;
 
@@ -220,7 +220,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "host_configuration",
       structField = true,
       doc =
-          "Returns the host configuration. See the <a href=\"configuration.html\">"
+          "The host configuration. See the <a href=\"configuration.html\">"
               + "configuration</a> type for more details.")
   BuildConfigurationApi getHostConfiguration() throws EvalException;
 
@@ -229,7 +229,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       structField = true,
       doc =
           "<b>Experimental. This field is experimental and subject to change at any time. Do not "
-              + "depend on it.</b> <p>Returns the value of the build setting that is represented "
+              + "depend on it.</b> <p>The value of the build setting that is represented "
               + "by the current target. It is an error to access this field for rules that do not "
               + "set the <code>build_setting</code> attribute in their rule definition.")
   Object getBuildSettingValue() throws EvalException;
@@ -265,7 +265,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "features",
       structField = true,
       doc =
-          "Returns the set of features that are explicitly enabled by the user for this rule. "
+          "The set of features that are explicitly enabled by the user for this rule. "
               + "<a href=\"https://github.com/bazelbuild/examples/blob/main/rules/"
               + "features/rule.bzl\">See example of use</a>.")
   ImmutableList<String> getFeatures() throws EvalException;
@@ -273,7 +273,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   @StarlarkMethod(
       name = "disabled_features",
       structField = true,
-      doc = "Returns the set of features that are explicitly disabled by the user for this rule.")
+      doc = "The set of features that are explicitly disabled by the user for this rule.")
   ImmutableList<String> getDisabledFeatures() throws EvalException;
 
   @StarlarkMethod(
@@ -295,7 +295,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "rule",
       structField = true,
       doc =
-          "Returns rule attributes descriptor for the rule that aspect is applied to."
+          "Rule attributes descriptor for the rule that the aspect is applied to."
               + " Only available in aspect implementation functions.")
   StarlarkAttributesCollectionApi rule() throws EvalException;
 
@@ -303,7 +303,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "aspect_ids",
       structField = true,
       doc =
-          "Returns a list ids for all aspects applied to the target."
+          "A list of ids for all aspects applied to the target."
               + " Only available in aspect implementation functions.")
   ImmutableList<String> aspectIds() throws EvalException;
 
@@ -461,7 +461,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       structField = true,
       documented = true,
       doc =
-          "Returns the file that is used to hold the non-volatile workspace status for the "
+          "The file that is used to hold the non-volatile workspace status for the "
               + "current build request. See documentation for --workspace_status_command "
               + "for more information.")
   FileApi getStableWorkspaceStatus() throws InterruptedException, EvalException;
@@ -471,7 +471,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       structField = true,
       documented = true,
       doc =
-          "Returns the file that is used to hold the volatile workspace status for the "
+          "The file that is used to hold the volatile workspace status for the "
               + "current build request. See documentation for --workspace_status_command "
               + "for more information.")
   FileApi getVolatileWorkspaceStatus() throws InterruptedException, EvalException;
@@ -480,7 +480,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "build_file_path",
       structField = true,
       documented = true,
-      doc = "Returns path to the BUILD file for this rule, relative to the source root.")
+      doc = "The path to the BUILD file for this rule, relative to the source root.")
   String getBuildFileRelativePath() throws EvalException;
 
   @StarlarkMethod(

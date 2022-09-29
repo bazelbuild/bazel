@@ -46,6 +46,10 @@ _OBJC_LINK_ACTIONS = [
 
 _ALL_LINK_ACTIONS = _NON_OBJC_LINK_ACTIONS + _OBJC_LINK_ACTIONS
 
+_archive_param_file_feature = feature(
+    name = "archive_param_file",
+)
+
 _default_feature = feature(
     name = "default",
     enabled = True,
@@ -55,6 +59,11 @@ _default_feature = feature(
             flag_groups = [flag_group(flags = ["-dummy"])],
         ),
     ],
+)
+
+_gcc_quoting_for_param_files_feature = feature(
+    name = "gcc_quoting_for_param_files",
+    enabled = True,
 )
 
 _static_link_cpp_runtimes_feature = feature(
@@ -77,7 +86,9 @@ _parse_headers_feature = feature(
 )
 
 _feature_name_to_feature = {
+    "archive_param_file": _archive_param_file_feature,
     "default_feature": _default_feature,
+    "gcc_quoting_for_param_files": _gcc_quoting_for_param_files_feature,
     "static_link_cpp_runtimes": _static_link_cpp_runtimes_feature,
     "supports_interface_shared_libraries": _supports_interface_shared_libraries_feature,
     "supports_dynamic_linker": _supports_dynamic_linker_feature,

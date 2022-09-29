@@ -23,9 +23,11 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
@@ -50,6 +52,7 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 
 /**
  * A Downloader implementation that uses Bazel's Remote Execution APIs to delegate downloads of
@@ -67,6 +70,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   private final RemoteRetrier retrier;
   private final RemoteCacheClient cacheClient;
   private final RemoteOptions options;
+  private final boolean verboseFailures;
+  @Nullable private final Downloader fallbackDownloader;
 
   private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -84,7 +89,9 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       Optional<CallCredentials> credentials,
       RemoteRetrier retrier,
       RemoteCacheClient cacheClient,
-      RemoteOptions options) {
+      RemoteOptions options,
+      boolean verboseFailures,
+      @Nullable Downloader fallbackDownloader) {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.channel = channel;
@@ -92,6 +99,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     this.retrier = retrier;
     this.cacheClient = cacheClient;
     this.options = options;
+    this.verboseFailures = verboseFailures;
+    this.fallbackDownloader = fallbackDownloader;
   }
 
   @Override
@@ -106,7 +115,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   @Override
   public void download(
       List<URL> urls,
-      Map<URI, Map<String, String>> authHeaders,
+      Map<URI, Map<String, List<String>>> authHeaders,
       com.google.common.base.Optional<Checksum> checksum,
       String canonicalId,
       Path destination,
@@ -139,8 +148,18 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             }
             return null;
           });
-    } catch (StatusRuntimeException e) {
-      throw new IOException(e);
+
+    } catch (StatusRuntimeException | IOException e) {
+      if (fallbackDownloader == null) {
+        if (e instanceof StatusRuntimeException) {
+          throw new IOException(e);
+        }
+        throw e;
+      }
+      eventHandler.handle(
+          Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
+      fallbackDownloader.download(
+          urls, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv, type);
     }
   }
 
@@ -148,7 +167,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   static FetchBlobRequest newFetchBlobRequest(
       String instanceName,
       List<URL> urls,
-      Map<URI, Map<String, String>> authHeaders,
+      Map<URI, Map<String, List<String>>> authHeaders,
       com.google.common.base.Optional<Checksum> checksum,
       String canonicalId) {
     FetchBlobRequest.Builder requestBuilder =
@@ -197,13 +216,17 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     return out;
   }
 
-  private static String authHeadersJson(Map<URI, Map<String, String>> authHeaders) {
+  private static String authHeadersJson(Map<URI, Map<String, List<String>>> authHeaders) {
     Map<String, JsonObject> subObjects = new TreeMap<>();
-    for (Map.Entry<URI, Map<String, String>> entry : authHeaders.entrySet()) {
+    for (Map.Entry<URI, Map<String, List<String>>> entry : authHeaders.entrySet()) {
       JsonObject subObject = new JsonObject();
-      Map<String, String> orderedHeaders = new TreeMap<>(entry.getValue());
-      for (Map.Entry<String, String> subEntry : orderedHeaders.entrySet()) {
-        subObject.addProperty(subEntry.getKey(), subEntry.getValue());
+      Map<String, List<String>> orderedHeaders = new TreeMap<>(entry.getValue());
+      for (Map.Entry<String, List<String>> subEntry : orderedHeaders.entrySet()) {
+        // TODO(yannic): Introduce incompatible flag for including all headers, not just the first.
+        String value = Iterables.getFirst(subEntry.getValue(), null);
+        if (value != null) {
+          subObject.addProperty(subEntry.getKey(), value);
+        }
       }
       subObjects.put(entry.getKey().toString(), subObject);
     }

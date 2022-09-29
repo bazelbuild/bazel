@@ -893,8 +893,10 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  return 0;',
         '}',
     ])
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--cpu=x64_x86_windows', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--cpu=x64_x86_windows',
+        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('x86\\cl.exe', '\n'.join(stderr))
 
@@ -911,8 +913,10 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  return 0;',
         '}',
     ])
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--cpu=x64_arm_windows', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--cpu=x64_arm_windows',
+        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('arm\\cl.exe', '\n'.join(stderr))
 
@@ -929,8 +933,10 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  return 0;',
         '}',
     ])
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--cpu=x64_arm64_windows', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--cpu=x64_arm64_windows',
+        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('arm64\\cl.exe', '\n'.join(stderr))
 
@@ -949,8 +955,10 @@ class BazelWindowsCppTest(test_base.TestBase):
     ])
 
     # Test build without debug and optimize modes.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--compiler=mingw-gcc', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--compiler=mingw-gcc',
+        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('mingw64\\bin\\gcc', '\n'.join(stderr))
     self.assertNotIn('-g -Og', ''.join(stderr))
@@ -959,8 +967,11 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertNotIn('-Wl,--gc-sections', ''.join(stderr))
 
     # Test build in debug mode.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--compiler=mingw-gcc', '-c', 'dbg', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--compiler=mingw-gcc',
+        '--noincompatible_enable_cc_toolchain_resolution', '-c', 'dbg',
+        '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('mingw64\\bin\\gcc', '\n'.join(stderr))
     self.assertIn('-g -Og', ''.join(stderr))
@@ -969,8 +980,11 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertNotIn('-Wl,--gc-sections', ''.join(stderr))
 
     # Test build in optimize mode.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--compiler=mingw-gcc', '-c', 'opt', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--compiler=mingw-gcc',
+        '--noincompatible_enable_cc_toolchain_resolution', '-c', 'opt',
+        '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('mingw64\\bin\\gcc', '\n'.join(stderr))
     self.assertNotIn('-g -Og', ''.join(stderr))
@@ -996,8 +1010,10 @@ class BazelWindowsCppTest(test_base.TestBase):
     paramfile = 'x64_windows-%s/bin/main.exe-2.params'
 
     # Test build without debug and optimize modes.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--compiler=msys-gcc', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--compiler=msys-gcc',
+        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('usr\\bin\\gcc', '\n'.join(stderr))
     self.assertNotIn('-g -Og', ''.join(stderr))
@@ -1008,8 +1024,11 @@ class BazelWindowsCppTest(test_base.TestBase):
         '-Wl,--gc-sections')
 
     # Test build in debug mode.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--compiler=msys-gcc', '-c', 'dbg', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--compiler=msys-gcc',
+        '--noincompatible_enable_cc_toolchain_resolution', '-c', 'dbg',
+        '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('usr\\bin\\gcc', '\n'.join(stderr))
     self.assertIn('-g -Og', ''.join(stderr))
@@ -1019,8 +1038,11 @@ class BazelWindowsCppTest(test_base.TestBase):
         os.path.join(bazel_output, paramfile % 'dbg'), '-Wl,--gc-sections')
 
     # Test build in optimize mode.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--compiler=msys-gcc', '-c', 'opt', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--compiler=msys-gcc',
+        '--noincompatible_enable_cc_toolchain_resolution', '-c', 'opt',
+        '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('usr\\bin\\gcc', '\n'.join(stderr))
     self.assertNotIn('-g -Og', ''.join(stderr))
@@ -1042,8 +1064,10 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  return 0;',
         '}',
     ])
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--cpu=arm64_windows', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--cpu=arm64_windows',
+        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('arm64\\cl.exe', ''.join(stderr))
 

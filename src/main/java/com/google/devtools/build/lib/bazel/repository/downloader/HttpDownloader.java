@@ -63,7 +63,7 @@ public class HttpDownloader implements Downloader {
   @Override
   public void download(
       List<URL> urls,
-      Map<URI, Map<String, String>> authHeaders,
+      Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
       String canonicalId,
       Path destination,
@@ -131,13 +131,17 @@ public class HttpDownloader implements Downloader {
 
   /** Downloads the contents of one URL and reads it into a byte array. */
   public byte[] downloadAndReadOneUrl(
-      URL url, ExtendedEventHandler eventHandler, Map<String, String> clientEnv)
+      URL url,
+      Map<URI, Map<String, List<String>>> authHeaders,
+      ExtendedEventHandler eventHandler,
+      Map<String, String> clientEnv)
       throws IOException, InterruptedException {
     HttpConnectorMultiplexer multiplexer = setUpConnectorMultiplexer(eventHandler, clientEnv);
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     SEMAPHORE.acquire();
-    try (HttpStream payload = multiplexer.connect(url, Optional.absent())) {
+    try (HttpStream payload =
+        multiplexer.connect(url, Optional.absent(), authHeaders, Optional.absent())) {
       ByteStreams.copy(payload, out);
     } catch (SocketTimeoutException e) {
       // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify

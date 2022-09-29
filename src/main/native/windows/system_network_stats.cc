@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2022 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,15 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules.cpp;
+#include "src/main/native/jni.h"
 
-import com.google.devtools.build.lib.rules.cpp.CcBinary;
+namespace blaze_jni {
 
-/**
- * Factory class for the {@code cc_binary} rule.
- */
-public class BazelCcBinary extends CcBinary {
-  public BazelCcBinary() {
-    super(BazelCppSemantics.CPP);
-  }
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_profiler_SystemNetworkStats_getNetIoCountersNative(
+    JNIEnv *env, jclass clazz, jobject counters_list) {
+  // Currently not implemented.
 }
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_profiler_SystemNetworkStats_getNetIfAddrsNative(
+    JNIEnv *env, jclass clazz, jobject addrs_list) {
+  // Currently not implemented.
+}
+
+}  // namespace blaze_jni

@@ -24,6 +24,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -225,13 +226,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     AndroidDataContext dataContext = androidSemantics.makeContextForNative(ruleContext);
     validateRuleContext(ruleContext, dataContext);
 
-    NativeLibs nativeLibs =
-        NativeLibs.fromLinkedNativeDeps(
-            ruleContext,
-            ImmutableList.of("deps"),
-            androidSemantics.getNativeDepsFileName(),
-            cppSemantics);
-
     // Retrieve and compile the resources defined on the android_binary rule.
     AndroidResources.validateRuleContext(ruleContext);
 
@@ -417,6 +411,27 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               .build(ruleContext));
     }
 
+    NativeLibs nativeLibs;
+    if (androidApplicationResourceInfo != null
+        && androidApplicationResourceInfo.getNativeLibs() != null) {
+      nativeLibs = androidApplicationResourceInfo.getNativeLibs();
+    } else {
+      nativeLibs =
+          NativeLibs.fromLinkedNativeDeps(
+              ruleContext,
+              ImmutableList.of("deps"),
+              androidSemantics.getNativeDepsFileName(),
+              cppSemantics);
+    }
+
+    final NestedSet<Artifact> nativeLibsAar;
+    if (androidApplicationResourceInfo != null
+        && androidApplicationResourceInfo.getTransitiveNativeLibs() != null) {
+      nativeLibsAar = androidApplicationResourceInfo.getTransitiveNativeLibs();
+    } else {
+      nativeLibsAar = getTransitiveNativeLibs(ruleContext);
+    }
+
     return createAndroidBinary(
         ruleContext,
         dataContext,
@@ -435,7 +450,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ImmutableList.of(),
         proguardMapping,
         oneVersionOutputArtifact,
-        manifestValidation);
+        manifestValidation,
+        nativeLibsAar);
   }
 
   public static RuleConfiguredTargetBuilder createAndroidBinary(
@@ -456,7 +472,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ImmutableList<Artifact> additionalMergedManifests,
       Artifact proguardMapping,
       @Nullable Artifact oneVersionEnforcementArtifact,
-      @Nullable Artifact manifestValidation)
+      @Nullable Artifact manifestValidation,
+      NestedSet<Artifact> nativeLibsAar)
       throws InterruptedException, RuleErrorException {
 
     List<ProguardSpecProvider> proguardDeps = new ArrayList<>();
@@ -578,21 +595,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             resourceClasses,
             derivedJarFunction,
             proguardOutputMap);
-
-    // Collect all native shared libraries across split transitions. Some AARs contain shared
-    // libraries across multiple architectures, e.g. x86 and armeabi-v7a, and need to be packed
-    // into the APK.
-    NestedSetBuilder<Artifact> transitiveNativeLibs = NestedSetBuilder.naiveLinkOrder();
-    for (Map.Entry<
-            com.google.common.base.Optional<String>,
-            ? extends List<? extends TransitiveInfoCollection>>
-        entry : ruleContext.getSplitPrerequisites("deps").entrySet()) {
-      for (AndroidNativeLibsInfo provider :
-          AnalysisUtils.getProviders(entry.getValue(), AndroidNativeLibsInfo.PROVIDER)) {
-        transitiveNativeLibs.addTransitive(provider.getNativeLibs());
-      }
-    }
-    NestedSet<Artifact> nativeLibsAar = transitiveNativeLibs.build();
 
     DexPostprocessingOutput dexPostprocessingOutput =
         androidSemantics.postprocessClassesDexZip(
@@ -772,6 +774,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ruleContext.registerAction(checkAction.build(ruleContext));
     }
 
+    OutputGroupInfo androidApplicationOutputGroupInfo =
+        ruleContext.getPrerequisite("application_resources", OutputGroupInfo.STARLARK_CONSTRUCTOR);
+    if (androidApplicationOutputGroupInfo != null) {
+      for (String key : androidApplicationOutputGroupInfo.getFieldNames()) {
+        builder.addOutputGroup(key, androidApplicationOutputGroupInfo.getOutputGroup(key));
+      }
+    }
+
     androidCommon.addTransitiveInfoProviders(
         builder,
         /* aar= */ null,
@@ -876,6 +886,21 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext)))
         .addOutputGroup("android_deploy_info", deployInfo)
         .addOutputGroup("android_deploy_info", resourceApk.getManifest());
+  }
+
+  public static NestedSet<Artifact> getTransitiveNativeLibs(RuleContext ruleContext) {
+    // Collect all native shared libraries across split transitions. Some AARs contain shared
+    // libraries across multiple architectures, e.g. x86 and armeabi-v7a, and need to be packed
+    // into the APK.
+    NestedSetBuilder<Artifact> transitiveNativeLibs = NestedSetBuilder.naiveLinkOrder();
+    for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> entry :
+        ruleContext.getSplitPrerequisites("deps").entrySet()) {
+      for (AndroidNativeLibsInfo provider :
+          AnalysisUtils.getProviders(entry.getValue(), AndroidNativeLibsInfo.PROVIDER)) {
+        transitiveNativeLibs.addTransitive(provider.getNativeLibs());
+      }
+    }
+    return transitiveNativeLibs.build();
   }
 
   static class Java8LegacyDexOutput {
@@ -1110,14 +1135,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   /** Returns {@code true} if resource shrinking should be performed. */
   static boolean shouldShrinkResourceCycles(
-      AndroidConfiguration androidConfig, RuleErrorConsumer errorConsumer, boolean shrinkResources)
-      throws RuleErrorException {
+      AndroidConfiguration androidConfig,
+      RuleErrorConsumer errorConsumer,
+      boolean shrinkResources) {
     boolean global = androidConfig.useAndroidResourceCycleShrinking();
-    if (global && !shrinkResources) {
-      throw errorConsumer.throwWithRuleError(
-          "resource cycle shrinking can only be enabled when resource shrinking is enabled");
-    }
-    return global;
+    return global && shrinkResources;
   }
 
   private static ResourceApk shrinkResources(

@@ -2745,4 +2745,41 @@ EOF
   expect_log "//external/nested:A"
 }
 
+function test_external_deps_skymeld() {
+  # A minimal build to make sure bazel in Skymeld mode can build with external
+  # dependencies.
+  mkdir ext
+  echo content > ext/ext
+  EXTREPODIR=`pwd`
+  zip ext.zip ext/*
+  rm -rf ext
+
+  rm -rf main
+  mkdir main
+  cd main
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  url="file://${EXTREPODIR}/ext.zip",
+  build_file_content="exports_files([\"ext\"])",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = ["@ext//:ext"],
+  outs = ["foo"],
+  cmd = "cp $< $@",
+)
+EOF
+  execroot="$(bazel info execution_root)"
+
+  bazel build --experimental_merged_skyframe_analysis_execution --experimental_skymeld_ui //:foo \
+    || fail 'Expected build to succeed with Skymeld'
+
+  test -h "$execroot/external/ext" || fail "Expected symlink to external repo."
+}
+
 run_suite "external tests"

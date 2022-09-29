@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
@@ -113,6 +114,7 @@ public class RemoteSpawnCacheTest {
   private FileSystem fs;
   private DigestUtil digestUtil;
   private Path execRoot;
+  private TempPathGenerator tempPathGenerator;
   private SimpleSpawn simpleSpawn;
   private FakeActionInputFileCache fakeFileCache;
   @Mock private RemoteCache remoteCache;
@@ -239,6 +241,7 @@ public class RemoteSpawnCacheTest {
                 remoteCache,
                 null,
                 ImmutableSet.of(),
+                tempPathGenerator,
                 /* captureCorruptedOutputsDir= */ null));
     return new RemoteSpawnCache(execRoot, options, /* verboseFailures=*/ true, service);
   }
@@ -250,6 +253,7 @@ public class RemoteSpawnCacheTest {
     digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
     execRoot.createDirectoryAndParents();
+    tempPathGenerator = new TempPathGenerator(fs.getPath("/execroot/_tmp/actions/remote"));
     fakeFileCache = new FakeActionInputFileCache(execRoot);
     simpleSpawn = simpleSpawnWithExecutionInfo(ImmutableMap.of());
 
@@ -418,19 +422,15 @@ public class RemoteSpawnCacheTest {
   public void noRemoteCacheSpawns_combinedCache() throws Exception {
     // Checks that spawns satisfying Spawns.mayBeCachedRemotely=false are not looked up in the
     // remote cache, and that the results/artifacts are not uploaded to the remote cache.
-    // For the purposes of execution requirements, a combined cache with a remote component
-    // is considered a remote cache
+    // The disk cache part of a combined cache is considered as a local cache hence spawns tagged
+    // with NO_REMOTE can sill hit it.
     RemoteOptions combinedCacheOptions = Options.getDefaults(RemoteOptions.class);
     combinedCacheOptions.remoteCache = "https://somecache.com";
     combinedCacheOptions.diskCache = PathFragment.create("/etc/something/cache/here");
     RemoteSpawnCache remoteSpawnCache = remoteSpawnCacheWithOptions(combinedCacheOptions);
 
     for (String requirement :
-        ImmutableList.of(
-            ExecutionRequirements.NO_CACHE,
-            ExecutionRequirements.LOCAL,
-            ExecutionRequirements.NO_REMOTE_CACHE,
-            ExecutionRequirements.NO_REMOTE)) {
+        ImmutableList.of(ExecutionRequirements.NO_CACHE, ExecutionRequirements.LOCAL)) {
       SimpleSpawn uncacheableSpawn = simpleSpawnWithExecutionInfo(ImmutableMap.of(requirement, ""));
       CacheHandle entry = remoteSpawnCache.lookup(uncacheableSpawn, simplePolicy);
       verify(remoteCache, never())

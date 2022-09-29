@@ -571,8 +571,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testOneNewElementInMultipleGlob() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "sh_library(name = 'foo', srcs = glob(['*.sh']))",
-        "sh_library(name = 'bar', srcs = glob(['*.sh', '*.txt']))");
+        "sh_library(name = 'foo', srcs = glob(['*.sh'], allow_empty = True))",
+        "sh_library(name = 'bar', srcs = glob(['*.sh', '*.txt'], allow_empty = True))");
     preparePackageLoading(rootDirectory);
     SkyKey skyKey = PackageValue.key(PackageIdentifier.createInMainRepo("foo"));
     Package pkg = validPackageWithoutErrors(skyKey);
@@ -589,8 +589,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testNoNewElementInMultipleGlob() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "sh_library(name = 'foo', srcs = glob(['*.sh', '*.txt']))",
-        "sh_library(name = 'bar', srcs = glob(['*.sh', '*.txt']))");
+        "sh_library(name = 'foo', srcs = glob(['*.sh', '*.txt'], allow_empty = True))",
+        "sh_library(name = 'bar', srcs = glob(['*.sh', '*.txt'], allow_empty = True))");
     preparePackageLoading(rootDirectory);
     SkyKey skyKey = PackageValue.key(PackageIdentifier.createInMainRepo("foo"));
     Package pkg = validPackageWithoutErrors(skyKey);

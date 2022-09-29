@@ -67,6 +67,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         PrecomputedValue.injected(
             ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
   }
@@ -1680,6 +1681,61 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     assertThat(
             (List<?>) starlarkOptions.get(Label.parseAbsoluteUnchecked("//test:cute-animal-fact")))
         .containsExactly("puffins mate for life");
+  }
+
+  @Test
+  public void testTransitionOnAllowMultiplesBuildSettingAlwaysSeesListValue() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  setting_type = type(settings['//test:multiple_flag'])",
+        "  if setting_type != type([]):",
+        "    fail('Expected setting to be a list, got %s' % setting_type)",
+        "  return {}",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = ['//test:multiple_flag'],",
+        "  outputs = ['//test:multiple_flag']",
+        ")");
+    writeAllowlistFile();
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _rule_impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag=True,"
+            + " allow_multiple=True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "my_rule(name = 'test')",
+        "string_flag(",
+        "  name = 'multiple_flag',",
+        "  build_setting_default = '',",
+        ")");
+
+    // Starlark option at is default value.
+    getConfiguredTarget("//test");
+
+    useConfiguration(ImmutableMap.of("//test:multiple_flag", ImmutableList.of("foo")));
+    getConfiguredTarget("//test");
+
+    useConfiguration(ImmutableMap.of("//test:multiple_flag", ImmutableList.of("foo", "bar")));
+    getConfiguredTarget("//test");
   }
 
   /**

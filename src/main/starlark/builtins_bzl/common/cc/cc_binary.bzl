@@ -471,7 +471,7 @@ def _create_transitive_linking_actions(
     # entries during linking process.
     for libs in precompiled_files[:]:
         for artifact in libs:
-            if _matches([".so", ".dylib", ".dll", ".ifso", ".tbd", ".lib", ".dll.a"], artifact.basename) or cc_helper.is_shared_library_extension_valid(artifact.basename):
+            if _matches([".so", ".dylib", ".dll", ".ifso", ".tbd", ".lib", ".dll.a"], artifact.basename) or cc_helper.is_valid_shared_library_artifact(artifact):
                 library_to_link = cc_common.create_library_to_link(
                     actions = ctx.actions,
                     feature_configuration = feature_configuration,
@@ -647,7 +647,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     # the target name.
     # This is no longer necessary, the toolchain can figure out the correct file extensions.
     target_name = ctx.label.name
-    has_legacy_link_shared_name = _is_link_shared(ctx) and (_matches([".so", ".dylib", ".dll"], target_name) or cc_helper.is_shared_library_extension_valid(target_name))
+    has_legacy_link_shared_name = _is_link_shared(ctx) and (_matches([".so", ".dylib", ".dll"], target_name) or cc_helper.is_valid_shared_library_name(target_name))
     binary = None
     if has_legacy_link_shared_name:
         binary = ctx.actions.declare_file(target_name)
@@ -690,7 +690,7 @@ def cc_binary_impl(ctx, additional_linkopts):
         cc_toolchain = cc_toolchain,
         user_compile_flags = cc_helper.get_copts(ctx, common, feature_configuration, additional_make_variable_substitutions),
         defines = common.defines,
-        local_defines = common.local_defines,
+        local_defines = common.local_defines + cc_helper.get_local_defines_for_runfiles_lookup(ctx),
         loose_includes = common.loose_include_dirs,
         system_includes = common.system_include_dirs,
         private_hdrs = common.private_hdrs,
@@ -957,12 +957,19 @@ def _impl(ctx):
 
     # We construct DefaultInfo here, as other cc_binary-like rules (cc_test) need
     # a different DefaultInfo.
-    default_info = DefaultInfo(
+    other_providers.append(DefaultInfo(
         files = binary_info.files,
         runfiles = binary_info.runfiles,
         executable = binary_info.executable,
-    )
-    other_providers.append(default_info)
+    ))
+
+    # We construct RunEnvironmentInfo here as well.
+    other_providers.append(RunEnvironmentInfo(
+        environment = cc_helper.get_expanded_env(ctx, {}),
+        # cc_binary does not have env_inherit attr.
+        inherited_environment = [],
+    ))
+
     if ctx.fragments.cpp.enable_legacy_cc_provider():
         # buildifier: disable=rule-impl-return
         return struct(

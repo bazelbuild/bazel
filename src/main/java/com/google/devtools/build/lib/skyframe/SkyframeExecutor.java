@@ -160,11 +160,13 @@ import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
+import com.google.devtools.build.lib.rules.genquery.GenQueryDirectPackageProviderFactory;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
+import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
@@ -178,10 +180,12 @@ import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMe
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -388,6 +392,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // Reset after each build.
   private Set<SkyKey> conflictFreeActionLookupKeysGlobalSet;
   private RuleContextConstraintSemantics ruleContextConstraintSemantics;
+  private RegexFilter extraActionFilter;
+
+  // Reset while preparing for execution in each build.
+  private Optional<IncrementalPackageRoots> incrementalPackageRoots = Optional.empty();
 
   class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
@@ -575,6 +583,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.TOP_LEVEL_ASPECTS, new ToplevelStarlarkAspectFunction());
     map.put(
         SkyFunctions.BUILD_TOP_LEVEL_ASPECTS_DETAILS, new BuildTopLevelAspectsDetailsFunction());
+    map.put(
+        GenQueryDirectPackageProviderFactory.GENQUERY_SCOPE,
+        GenQueryDirectPackageProviderFactory.FUNCTION);
     map.put(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING, new ActionLookupConflictFindingFunction());
     map.put(
         SkyFunctions.TOP_LEVEL_ACTION_LOOKUP_CONFLICT_FINDING,
@@ -659,7 +670,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               }
             },
             this::getIncrementalArtifactConflictFinder,
-            this::getRuleContextConstraintSemantics));
+            this::getRuleContextConstraintSemantics,
+            this::getExtraActionFilter));
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }
@@ -963,9 +975,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * If not null, this is the only source root in the build, corresponding to the single element in
    * a single-element package path. Such a single-source-root build need not plant the execroot
    * symlink forest, and can trivially resolve source artifacts from exec paths. As a consequence,
-   * builds where this is not null do not need to track a package -> source root map, and so do not
-   * need to track all loaded packages.
+   * builds where this is not null do not need to track a package -> source root map. In addition,
+   * such builds can only occur in a monorepo, and thus do not need to produce repo mapping
+   * manifests for runfiles. These two conditions together mean that such builds do not need to
+   * track all loaded packages.
+   *
+   * <p>See also {@link
+   * com.google.devtools.build.lib.analysis.ConfiguredObjectValue#getTransitivePackages}.
    */
+  // TODO(wyv): To be safe, fail early if we're in a multi-repo setup but this is not being tracked.
   @Nullable
   protected Root getForcedSingleSourceRootIfNoExecrootSymlinkCreation() {
     return null;
@@ -2246,9 +2264,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
   }
 
+  public void setIncrementalPackageRoots(IncrementalPackageRoots incrementalPackageRoots) {
+    this.incrementalPackageRoots = Optional.of(incrementalPackageRoots);
+  }
+
   /** Called after a single Skyframe evaluation that involves action execution. */
   private void cleanUpAfterSingleEvaluationWithActionExecution(ExtendedEventHandler eventHandler) {
     setExecutionProgressReceiver(null);
+
+    if (incrementalPackageRoots.isPresent()) {
+      incrementalPackageRoots.get().shutdown();
+      incrementalPackageRoots = Optional.empty();
+    }
     skyframeActionExecutor.executionOver();
     actionExecutionFunction.complete(eventHandler);
   }
@@ -2740,9 +2767,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         new ActionArtifactCycleReporter(packageManager),
         new TestExpansionCycleReporter(packageManager),
         new RegisteredToolchainsCycleReporter(),
-        // TODO(ulfjack): The StarlarkModuleCycleReporter swallows previously reported cycles
-        // unconditionally! Is that intentional?
-        new StarlarkModuleCycleReporter());
+        // TODO(ulfjack): The BzlLoadCycleReporter swallows previously reported cycles
+        //  unconditionally! Is that intentional?
+        new BzlLoadCycleReporter(),
+        new BzlmodRepoCycleReporter());
   }
 
   public CyclesReporter getCyclesReporter() {
@@ -2909,30 +2937,37 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   public RepositoryMapping getMainRepoMapping(ExtendedEventHandler eventHandler)
-      throws InterruptedException, AbruptExitException {
+      throws InterruptedException, RepositoryMappingResolutionException {
+    return getMainRepoMapping(false, DEFAULT_THREAD_COUNT, eventHandler);
+  }
+
+  public RepositoryMapping getMainRepoMapping(
+      boolean keepGoing, int loadingPhaseThreads, ExtendedEventHandler eventHandler)
+      throws InterruptedException, RepositoryMappingResolutionException {
     SkyKey mainRepoMappingKey = RepositoryMappingValue.key(RepositoryName.MAIN);
     EvaluationResult<RepositoryMappingValue> evalResult =
         evaluate(
-            ImmutableList.of(mainRepoMappingKey),
-            /*keepGoing=*/ false,
-            DEFAULT_THREAD_COUNT,
-            eventHandler);
+            ImmutableList.of(mainRepoMappingKey), keepGoing, loadingPhaseThreads, eventHandler);
     if (evalResult.hasError()) {
       ErrorInfo errorInfo = evalResult.getError(mainRepoMappingKey);
       Exception e = errorInfo.getException();
       if (e == null && !errorInfo.getCycleInfo().isEmpty()) {
         cyclesReporter.reportCycles(errorInfo.getCycleInfo(), mainRepoMappingKey, eventHandler);
-        throw new AbruptExitException(
+        throw new RepositoryMappingResolutionException(
             DetailedExitCode.of(
                 FailureDetail.newBuilder()
-                    .setExternalRepository(FailureDetails.ExternalRepository.getDefaultInstance())
+                    .setExternalRepository(
+                        FailureDetails.ExternalRepository.newBuilder()
+                            .setCode(ExternalRepository.Code.REPOSITORY_MAPPING_RESOLUTION_FAILED)
+                            .build())
                     .setMessage("cycles detected during computation of main repo mapping")
                     .build()));
       }
       if (e instanceof DetailedException) {
-        throw new AbruptExitException(((DetailedException) e).getDetailedExitCode(), e);
+        throw new RepositoryMappingResolutionException(
+            ((DetailedException) e).getDetailedExitCode(), e);
       }
-      throw new AbruptExitException(
+      throw new RepositoryMappingResolutionException(
           DetailedExitCode.of(
               FailureDetail.newBuilder()
                   .setExternalRepository(FailureDetails.ExternalRepository.getDefaultInstance())
@@ -2951,6 +2986,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public void setRuleContextConstraintSemantics(
       RuleContextConstraintSemantics ruleContextConstraintSemantics) {
     this.ruleContextConstraintSemantics = ruleContextConstraintSemantics;
+  }
+
+  private RegexFilter getExtraActionFilter() {
+    return Preconditions.checkNotNull(extraActionFilter);
+  }
+
+  public void setExtraActionFilter(RegexFilter extraActionFilter) {
+    this.extraActionFilter = extraActionFilter;
   }
 
   /** A progress receiver to track analysis invalidation and update progress messages. */

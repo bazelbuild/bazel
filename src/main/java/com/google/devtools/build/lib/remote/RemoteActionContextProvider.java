@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRem
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.runtime.BlockWaitingModule;
+import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.concurrent.Executor;
@@ -48,6 +48,7 @@ final class RemoteActionContextProvider {
   private final DigestUtil digestUtil;
   @Nullable private final Path logDir;
   private ImmutableSet<ActionInput> filesToDownload = ImmutableSet.of();
+  private TempPathGenerator tempPathGenerator;
   private RemoteExecutionService remoteExecutionService;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
 
@@ -157,6 +158,7 @@ final class RemoteActionContextProvider {
               remoteCache,
               remoteExecutor,
               filesToDownload,
+              tempPathGenerator,
               captureCorruptedOutputsDir);
       env.getEventBus().register(remoteExecutionService);
     }
@@ -215,12 +217,13 @@ final class RemoteActionContextProvider {
     this.filesToDownload = Preconditions.checkNotNull(topLevelOutputs, "filesToDownload");
   }
 
-  public void afterCommand() {
-    BlockWaitingModule blockWaitingModule =
-        checkNotNull(env.getRuntime().getBlazeModule(BlockWaitingModule.class));
+  void setTempPathGenerator(TempPathGenerator tempPathGenerator) {
+    this.tempPathGenerator = tempPathGenerator;
+  }
 
+  public void afterCommand() {
     if (remoteExecutionService != null) {
-      blockWaitingModule.submit(() -> remoteExecutionService.shutdown());
+      remoteExecutionService.shutdown();
     } else {
       if (remoteCache != null) {
         remoteCache.release();
@@ -231,7 +234,7 @@ final class RemoteActionContextProvider {
     }
 
     if (actionInputFetcher != null) {
-      blockWaitingModule.submit(() -> actionInputFetcher.shutdown());
+      actionInputFetcher.shutdown();
     }
   }
 }

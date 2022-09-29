@@ -35,8 +35,11 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Abo
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
@@ -51,6 +54,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
@@ -82,7 +86,7 @@ public final class AnalysisPhaseRunner {
       TargetValidator validator)
       throws BuildFailedException, InterruptedException, ViewCreationFailedException,
           TargetParsingException, LoadingFailedException, AbruptExitException,
-          InvalidConfigurationException {
+          InvalidConfigurationException, RepositoryMappingResolutionException {
 
     // Target pattern evaluation.
     TargetPatternPhaseValue loadingResult;
@@ -205,12 +209,17 @@ public final class AnalysisPhaseRunner {
       BuildRequest request,
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions)
-      throws InterruptedException, InvalidConfigurationException, ViewCreationFailedException {
+      throws InterruptedException, InvalidConfigurationException,
+          RepositoryMappingResolutionException, ViewCreationFailedException {
     Stopwatch timer = Stopwatch.createStarted();
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
 
     ImmutableSet<Label> explicitTargetPatterns =
-        getExplicitTargetPatterns(env, request.getTargets());
+        getExplicitTargetPatterns(
+            env,
+            request.getTargets(),
+            request.getKeepGoing(),
+            request.getLoadingPhaseThreadCount());
 
     BuildView view =
         new BuildView(
@@ -239,8 +248,9 @@ public final class AnalysisPhaseRunner {
               /*includeExecutionPhase=*/ false,
               /*mergedPhasesExecutionJobsCount=*/ 0,
               /*resourceManager=*/ null,
-              /*buildResultListener=*/ null);
-    } catch (BuildFailedException | TestExecException unexpected) {
+              /*buildResultListener=*/ null,
+              /*executionSetupCallback*/ null);
+    } catch (BuildFailedException | TestExecException | AbruptExitException unexpected) {
       throw new IllegalStateException("Unexpected execution exception type: ", unexpected);
     }
 
@@ -287,7 +297,8 @@ public final class AnalysisPhaseRunner {
       AnalysisResult analysisResult,
       Map<BuildConfigurationKey, BuildConfigurationValue> configurationMap) {
     for (ConfiguredTarget configuredTarget : analysisResult.getTargetsToBuild()) {
-      env.getEventBus().post(TopLevelTargetAnalyzedEvent.create(configuredTarget));
+      env.getEventBus()
+          .post(TopLevelTargetAnalyzedEvent.createWithoutFurtherSymlinkPlanting(configuredTarget));
       if (analysisResult.getTargetsToSkip().contains(configuredTarget)) {
         env.getEventBus().post(TopLevelTargetSkippedEvent.create(configuredTarget));
       }
@@ -304,7 +315,10 @@ public final class AnalysisPhaseRunner {
     }
 
     for (Entry<AspectKey, ConfiguredAspect> entry : analysisResult.getAspectsMap().entrySet()) {
-      env.getEventBus().post(AspectAnalyzedEvent.create(entry.getKey(), entry.getValue()));
+      env.getEventBus()
+          .post(
+              AspectAnalyzedEvent.createWithoutFurtherSymlinkPlanting(
+                  entry.getKey(), entry.getValue()));
     }
   }
 
@@ -348,15 +362,28 @@ public final class AnalysisPhaseRunner {
    *
    * @param env the action's environment.
    * @param requestedTargetPatterns the list of target patterns specified on the command line.
+   * @param keepGoing --keep_going command line option.
+   * @param loadingPhaseThreads no of threads to be used in execution.
    * @return the set of stringified labels of target patterns that represent single targets. The
    *     stringified labels are in the "unambiguous canonical form".
    * @throws ViewCreationFailedException if a pattern fails to parse for some reason.
    */
   private static ImmutableSet<Label> getExplicitTargetPatterns(
-      CommandEnvironment env, List<String> requestedTargetPatterns)
-      throws ViewCreationFailedException {
+      CommandEnvironment env,
+      List<String> requestedTargetPatterns,
+      boolean keepGoing,
+      int loadingPhaseThreads)
+      throws ViewCreationFailedException, RepositoryMappingResolutionException,
+          InterruptedException {
     ImmutableSet.Builder<Label> explicitTargetPatterns = ImmutableSet.builder();
-    TargetPattern.Parser parser = TargetPattern.mainRepoParser(env.getRelativeWorkingDirectory());
+
+    // TODO(andreisolo): Don't re-compute these here as they should be already computed inside the
+    //  TargetPatternPhaseValue
+    RepositoryMapping mainRepoMapping =
+        env.getSkyframeExecutor()
+            .getMainRepoMapping(keepGoing, loadingPhaseThreads, env.getReporter());
+    TargetPattern.Parser parser =
+        new Parser(env.getRelativeWorkingDirectory(), RepositoryName.MAIN, mainRepoMapping);
 
     for (String requestedTargetPattern : requestedTargetPatterns) {
       if (requestedTargetPattern.startsWith("-")) {

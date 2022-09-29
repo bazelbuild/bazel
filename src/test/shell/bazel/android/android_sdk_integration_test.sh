@@ -99,7 +99,7 @@ function test_android_sdk_repository_returns_null_if_env_vars_missing() {
   sed -i -e 's/path =/#path =/g' WORKSPACE
   ANDROID_HOME=/does_not_exist_2 bazel build @androidsdk//:files && \
     fail "Build should have failed"
-  ANDROID_HOME=$ANDROID_SDK bazel build @androidsdk//:files || "Build failed"
+  ANDROID_HOME=$ANDROID_SDK bazel build @androidsdk//:files || fail "Build failed"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/12069

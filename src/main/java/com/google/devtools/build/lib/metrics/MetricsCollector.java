@@ -91,6 +91,7 @@ class MetricsCollector {
     this.numAnalyses = numAnalyses;
     this.numBuilds = numBuilds;
     env.getEventBus().register(this);
+    WorkerMetricsCollector.instance().setClock(env.getClock());
   }
 
   static void installInEnv(

@@ -19,7 +19,9 @@ import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
+import com.google.devtools.build.lib.analysis.RunfilesLibraryInfo;
 import com.google.devtools.build.lib.packages.StarlarkLibrary;
+import com.google.devtools.build.lib.packages.StarlarkLibrary.SelectLibrary;
 import com.google.devtools.build.lib.packages.StructProvider;
 import net.starlark.java.eval.Starlark;
 
@@ -39,6 +41,7 @@ public final class StarlarkModules {
     predeclared.putAll(StarlarkLibrary.COMMON); // e.g. select, depset
     Starlark.addMethods(predeclared, new BazelBuildApiGlobals()); // e.g. configuration_field
     Starlark.addMethods(predeclared, new StarlarkRuleClassFunctions()); // e.g. rule
+    Starlark.addMethods(predeclared, new SelectLibrary());
     predeclared.put("cmd_helper", new StarlarkCommandLine());
     predeclared.put("attr", new StarlarkAttrModule());
     predeclared.put("struct", StructProvider.STRUCT);
@@ -46,5 +49,6 @@ public final class StarlarkModules {
     predeclared.put("Actions", ActionsProvider.INSTANCE);
     predeclared.put("DefaultInfo", DefaultInfo.PROVIDER);
     predeclared.put("RunEnvironmentInfo", RunEnvironmentInfo.PROVIDER);
+    predeclared.put("RunfilesLibraryInfo", RunfilesLibraryInfo.PROVIDER);
   }
 }

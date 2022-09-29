@@ -784,4 +784,82 @@ public final class EvaluationTest {
     }
     assertThat(m2.getGlobal("x")).isEqualTo("two");
   }
+
+  @Test
+  public void moduleWithDocString() throws Exception {
+    Module module = Module.create();
+    assertThat(module.getDocumentation()).isNull();
+    ParserInput input =
+        ParserInput.fromLines(
+            "\"\"\"Module doc header", //
+            "",
+            "Module doc details",
+            "\"\"\"",
+            "",
+            "\"\"\"Not module doc\"\"\"",
+            "x = \"Not module doc\"",
+            "def foo():",
+            "  \"\"\"Not module doc\"\"\"",
+            "  pass");
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
+    }
+    assertThat(module.getDocumentation()).isEqualTo("Module doc header\n\nModule doc details\n");
+  }
+
+  @Test
+  public void moduleWithoutDocString() throws Exception {
+    Module module = Module.create();
+    ParserInput input =
+        ParserInput.fromLines(
+            "x = \"Not module doc\"", //
+            "\"\"\"Not module doc\"\"\"",
+            "def foo():",
+            "  \"\"\"Not module doc\"\"\"",
+            "  pass");
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
+    }
+    assertThat(module.getDocumentation()).isNull();
+  }
+
+  @Test
+  public void moduleWithMultiplePrograms_usesFirstNonNullDocString() throws Exception {
+    Module module = Module.create();
+    assertThat(module.getDocumentation()).isNull();
+    ParserInput inputWithoutModuleDocstring = ParserInput.fromLines("x = \"Not a module doc\"");
+    ParserInput inputWithModuleDocstring1 =
+        ParserInput.fromLines(
+            "\"\"\"First non-null module doc\"\"\"", //
+            "y = \"foo\"");
+    ParserInput inputWithModuleDocstring2 =
+        ParserInput.fromLines(
+            "\"\"\"Second non-null module doc\"\"\"", //
+            "z = \"bar\"");
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      Starlark.execFile(inputWithoutModuleDocstring, FileOptions.DEFAULT, module, thread);
+      Starlark.execFile(inputWithModuleDocstring1, FileOptions.DEFAULT, module, thread);
+      Starlark.execFile(inputWithModuleDocstring2, FileOptions.DEFAULT, module, thread);
+    }
+    assertThat(module.getDocumentation()).isEqualTo("First non-null module doc");
+  }
+
+  @Test
+  public void moduleWithPresetDocstring() throws Exception {
+    Module module = Module.create();
+    module.setDocumentation("preset docstring");
+    assertThat(module.getDocumentation()).isEqualTo("preset docstring");
+    ParserInput input =
+        ParserInput.fromLines(
+            "\"\"\"Module doc from file\"\"\"", //
+            "x = \"foo\"");
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
+    }
+    assertThat(module.getDocumentation()).isEqualTo("preset docstring");
+  }
 }

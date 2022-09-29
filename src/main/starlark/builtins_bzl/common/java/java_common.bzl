@@ -18,7 +18,7 @@ Common code for reuse across java_* rules
 
 load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/android_lint.bzl", "android_lint_action")
-load(":common/java/compile_action.bzl", "COMPILE_ACTION_IMPLICIT_ATTRS", "compile_action")
+load(":common/java/compile_action.bzl", "compile_action")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS", "validate_proguard_specs")
 
@@ -133,7 +133,7 @@ def basic_java_library(
         ctx.outputs.sourcejar,
         source_files,
         source_jars,
-        _collect_deps(deps + [coverage_config.runner]) if coverage_config else _collect_deps(deps),
+        _collect_deps(deps + [coverage_config.runner]) if coverage_config and coverage_config.runner else _collect_deps(deps),
         _collect_deps(runtime_deps),
         plugins_javaplugininfo,
         _collect_deps(exports),
@@ -261,11 +261,15 @@ def construct_defaultinfo(ctx, files_to_build, files, neverlink, *extra_attrs):
     return default_info
 
 BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS = merge_attrs(
-    COMPILE_ACTION_IMPLICIT_ATTRS,
     {
         "_java_plugins": attr.label(
             default = semantics.JAVA_PLUGINS_FLAG_ALIAS_LABEL,
             providers = [JavaPluginInfo],
+        ),
+        # TODO(b/245144242): Used by IDE integration, remove when toolchains are used
+        "_java_toolchain": attr.label(
+            default = semantics.JAVA_TOOLCHAIN_LABEL,
+            providers = [java_common.JavaToolchainInfo],
         ),
     },
 )

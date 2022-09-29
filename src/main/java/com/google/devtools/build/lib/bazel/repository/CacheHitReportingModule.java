@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCacheHitEv
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
+import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.Pair;
@@ -30,39 +31,37 @@ import java.util.Set;
 /** Module reporting about cache hits in external repositories in case of failures */
 public final class CacheHitReportingModule extends BlazeModule {
   private Reporter reporter;
-  private Map<String, Set<Pair<String, URL>>> cacheHitsByRepo;
+  private Map<String, Set<Pair<String, URL>>> cacheHitsByContext;
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
     env.getEventBus().register(this);
     this.reporter = env.getReporter();
-    this.cacheHitsByRepo = new HashMap<String, Set<Pair<String, URL>>>();
+    this.cacheHitsByContext = new HashMap<>();
   }
 
   @Override
   public void afterCommand() {
     this.reporter = null;
-    this.cacheHitsByRepo = null;
+    this.cacheHitsByContext = null;
   }
 
   @Subscribe
   public synchronized void cacheHit(RepositoryCacheHitEvent event) {
-    String repo = event.getRepo().getName();
-    if (cacheHitsByRepo.get(repo) == null) {
-      cacheHitsByRepo.put(repo, new HashSet<Pair<String, URL>>());
-    }
-    cacheHitsByRepo.get(repo).add(Pair.of(event.getFileHash(), event.getUrl()));
+    cacheHitsByContext
+        .computeIfAbsent(event.getContext(), k -> new HashSet<>())
+        .add(Pair.of(event.getFileHash(), event.getUrl()));
   }
 
   @Subscribe
   public void failed(RepositoryFailedEvent event) {
-    String repo = event.getRepo().getName();
-    Set<Pair<String, URL>> cacheHits = cacheHitsByRepo.get(repo);
+    // TODO(wyv): add an event for the failure of a module extension too
+    String context = RepositoryFetchProgress.repositoryFetchContextString(event.getRepo());
+    Set<Pair<String, URL>> cacheHits = cacheHitsByContext.get(context);
     if (cacheHits != null && !cacheHits.isEmpty()) {
       StringBuilder info = new StringBuilder();
 
-      info.append("Repository '")
-          .append(repo)
+      info.append(context)
           .append(
               "' used the following cache hits instead of downloading the corresponding file.\n");
       for (Pair<String, URL> hit : cacheHits) {
@@ -73,7 +72,7 @@ public final class CacheHitReportingModule extends BlazeModule {
             .append("\n");
       }
       info.append("If the definition of '")
-          .append(repo)
+          .append(context)
           .append("' was updated, verify that the hashes were also updated.");
       reporter.handle(Event.info(info.toString()));
     }

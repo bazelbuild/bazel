@@ -180,6 +180,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         ImmutableList.<Artifact>builder()
             .addAll(getDirectPublicHdrs())
             .addAll(getDirectPrivateHdrs())
+            .addAll(headerInfo.separateModuleHeaders)
             .build());
   }
 

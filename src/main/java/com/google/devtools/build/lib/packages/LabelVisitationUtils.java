@@ -77,10 +77,14 @@ public final class LabelVisitationUtils {
   private static void visitRuleVisibility(
       Rule rule, DependencyFilter edgeFilter, LabelProcessor labelProcessor) {
     RuleClass ruleClass = rule.getRuleClassObject();
-    if (!ruleClass.hasAttr("visibility", BuildType.NODEP_LABEL_LIST)) {
+    Integer index = ruleClass.getAttributeIndex("visibility");
+    if (index == null) {
       return;
     }
-    Attribute visibilityAttribute = ruleClass.getAttributeByName("visibility");
+    Attribute visibilityAttribute = ruleClass.getAttribute(index);
+    if (visibilityAttribute.getType() != BuildType.NODEP_LABEL_LIST) {
+      return;
+    }
     if (edgeFilter.test(rule, visibilityAttribute)) {
       visitTargetVisibility(rule, visibilityAttribute, labelProcessor);
     }
@@ -90,7 +94,13 @@ public final class LabelVisitationUtils {
       Rule rule, DependencyFilter edgeFilter, LabelProcessor labelProcessor) {
     AggregatingAttributeMapper.of(rule)
         .visitLabels(
-            edgeFilter, (attribute, label) -> labelProcessor.process(rule, attribute, label));
+            edgeFilter,
+            (Label label, Attribute attribute) -> {
+              if (label == null) {
+                return;
+              }
+              labelProcessor.process(rule, attribute, label);
+            });
   }
 
   private static void visitPackageGroup(PackageGroup packageGroup, LabelProcessor labelProcessor) {

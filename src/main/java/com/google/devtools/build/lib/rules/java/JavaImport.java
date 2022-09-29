@@ -109,11 +109,17 @@ public class JavaImport implements RuleConfiguredTargetFactory {
       jdepsArtifact =
           ruleContext.getUniqueDirectoryArtifact(
               "_java_import", "jdeps.proto", ruleContext.getBinOrGenfilesDirectory());
+      JavaCompilationArgsProvider provider = JavaCompilationArgsProvider.legacyFromTargets(targets);
+      JavaTargetAttributes attributes =
+          new JavaTargetAttributes.Builder(semantics)
+              .merge(provider)
+              .addDirectJars(provider.getDirectCompileTimeJars())
+              .build();
       ImportDepsCheckActionBuilder.newBuilder()
           .importDepsChecker(depsChecker)
           .bootclasspath(toolchain.getBootclasspath().bootclasspath())
-          .declareDeps(getCompileTimeJarsFromCollection(targets, /*isDirect=*/ true))
-          .transitiveDeps(getCompileTimeJarsFromCollection(targets, /*isDirect=*/ false))
+          .declareDeps(attributes.getDirectJars())
+          .transitiveDeps(attributes.getCompileTimeClassPath())
           .checkJars(NestedSetBuilder.wrap(Order.STABLE_ORDER, jars))
           .importDepsCheckingLevel(ImportDepsCheckingLevel.ERROR)
           .jdepsOutputArtifact(jdepsArtifact)
@@ -190,12 +196,6 @@ public class JavaImport implements RuleConfiguredTargetFactory {
             NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJarsProvider.getSourceJars()))
         .addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, proguardSpecs)
         .build();
-  }
-
-  private static NestedSet<Artifact> getCompileTimeJarsFromCollection(
-      ImmutableList<TransitiveInfoCollection> deps, boolean isDirect) {
-    JavaCompilationArgsProvider provider = JavaCompilationArgsProvider.legacyFromTargets(deps);
-    return isDirect ? provider.getDirectCompileTimeJars() : provider.getTransitiveCompileTimeJars();
   }
 
   private static boolean exportError(RuleContext ruleContext) {
