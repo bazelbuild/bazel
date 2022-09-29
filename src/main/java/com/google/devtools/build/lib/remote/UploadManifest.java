@@ -22,9 +22,11 @@ import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -77,6 +79,7 @@ public class UploadManifest {
   private final ActionResult.Builder result;
   private final boolean followSymlinks;
   private final boolean allowDanglingSymlinks;
+  private final boolean allowAbsoluteSymlinks;
   private final Map<Digest, Path> digestToFile = new HashMap<>();
   private final Map<Digest, ByteString> digestToBlobs = new HashMap<>();
   @Nullable private ActionKey actionKey;
@@ -85,6 +88,7 @@ public class UploadManifest {
 
   public static UploadManifest create(
       RemoteOptions remoteOptions,
+      CacheCapabilities cacheCapabilities,
       DigestUtil digestUtil,
       RemotePathResolver remotePathResolver,
       ActionKey actionKey,
@@ -105,7 +109,10 @@ public class UploadManifest {
             remotePathResolver,
             result,
             /* followSymlinks= */ !remoteOptions.incompatibleRemoteSymlinks,
-            /* allowDanglingSymlinks= */ remoteOptions.incompatibleRemoteDanglingSymlinks);
+            /* allowDanglingSymlinks= */ remoteOptions.incompatibleRemoteDanglingSymlinks,
+            /* allowAbsoluteSymlinks= */ cacheCapabilities
+                .getSymlinkAbsolutePathStrategy()
+                .equals(SymlinkAbsolutePathStrategy.Value.ALLOWED));
     manifest.addFiles(outputFiles);
     manifest.setStdoutStderr(outErr);
     manifest.addAction(actionKey, action, command);
@@ -143,12 +150,14 @@ public class UploadManifest {
       RemotePathResolver remotePathResolver,
       ActionResult.Builder result,
       boolean followSymlinks,
-      boolean allowDanglingSymlinks) {
+      boolean allowDanglingSymlinks,
+      boolean allowAbsoluteSymlinks) {
     this.digestUtil = digestUtil;
     this.remotePathResolver = remotePathResolver;
     this.result = result;
     this.followSymlinks = followSymlinks;
     this.allowDanglingSymlinks = allowDanglingSymlinks;
+    this.allowAbsoluteSymlinks = allowAbsoluteSymlinks;
   }
 
   private void setStdoutStderr(FileOutErr outErr) throws IOException {
@@ -191,13 +200,19 @@ public class UploadManifest {
         FileStatus statFollow = file.statIfFound(Symlinks.FOLLOW);
         if (statFollow == null) {
           if (allowDanglingSymlinks) {
+            if (target.isAbsolute() && !allowAbsoluteSymlinks) {
+              throw new IOException(
+                  String.format(
+                      "Action output %s is an absolute symbolic link to %s, which is not allowed by"
+                          + " the remote cache",
+                      file, target));
+            }
             // Report symlink to a file since we don't know any better.
-            // TODO(tjgq): Check for the SymlinkAbsolutePathStrategy.ALLOW server capability before
-            // uploading an absolute symlink.
             addFileSymbolicLink(file, target);
           } else {
             throw new IOException(
-                String.format("Action output %s is a dangling symbolic link to %s ", file, target));
+                String.format(
+                    "Action output %s is a dangling symbolic link to %s. ", file, target));
           }
         } else if (statFollow.isSpecialFile()) {
           illegalOutput(file);

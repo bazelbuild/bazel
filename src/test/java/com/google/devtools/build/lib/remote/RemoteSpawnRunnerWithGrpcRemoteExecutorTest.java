@@ -27,6 +27,7 @@ import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import build.bazel.remote.execution.v2.Digest;
@@ -292,7 +293,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         new GrpcCacheClient(
             channel.retain(), callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL);
     RemoteExecutionCache remoteCache =
-        new RemoteExecutionCache(cacheProtocol, remoteOptions, DIGEST_UTIL);
+        new RemoteExecutionCache(
+            CacheCapabilities.getDefaultInstance(), cacheProtocol, remoteOptions, DIGEST_UTIL);
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
             directExecutor(),

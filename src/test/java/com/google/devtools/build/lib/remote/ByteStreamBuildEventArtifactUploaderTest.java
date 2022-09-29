@@ -22,6 +22,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
@@ -469,7 +470,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         .when(cacheClient)
         .findMissingDigests(any(), any());
 
-    return new RemoteCache(cacheClient, remoteOptions, DIGEST_UTIL);
+    return new RemoteCache(
+        CacheCapabilities.getDefaultInstance(), cacheClient, remoteOptions, DIGEST_UTIL);
   }
 
   private ByteStreamBuildEventArtifactUploader newArtifactUploader(RemoteCache remoteCache) {

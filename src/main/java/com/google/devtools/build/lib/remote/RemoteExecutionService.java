@@ -1270,6 +1270,7 @@ public class RemoteExecutionService {
 
           return UploadManifest.create(
               remoteOptions,
+              remoteCache.getCacheCapabilities(),
               digestUtil,
               remotePathResolver,
               action.getActionKey(),
