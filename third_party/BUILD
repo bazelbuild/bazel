@@ -163,8 +163,8 @@ distrib_java_import(
     name = "api_client",
     enable_distributions = ["debian"],
     jars = [
-        "api_client/google-api-client-1.22.0.jar",
-        "api_client/google-api-client-gson-1.22.0.jar",
+        "api_client/google-api-client-1.35.0.jar",
+        "api_client/google-api-client-gson-1.35.0.jar",
         "api_client/google-http-client-1.41.4.jar",
         "api_client/google-http-client-gson-1.41.4.jar",
     ],
