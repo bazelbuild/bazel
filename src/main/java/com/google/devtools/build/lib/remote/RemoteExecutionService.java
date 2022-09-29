@@ -785,7 +785,7 @@ public class RemoteExecutionService {
         TreeFileArtifact child =
             TreeFileArtifact.createTreeOutput(parent, file.path().relativeTo(parent.getPath()));
         RemoteFileArtifactValue value =
-            new RemoteFileArtifactValue(
+            RemoteFileArtifactValue.create(
                 DigestUtil.toBinaryDigest(file.digest()),
                 file.digest().getSizeBytes(),
                 /*locationIndex=*/ 1,
@@ -802,7 +802,7 @@ public class RemoteExecutionService {
       }
       remoteActionFileSystem.injectFile(
           output,
-          new RemoteFileArtifactValue(
+          RemoteFileArtifactValue.create(
               DigestUtil.toBinaryDigest(outputMetadata.digest()),
               outputMetadata.digest().getSizeBytes(),
               /*locationIndex=*/ 1,

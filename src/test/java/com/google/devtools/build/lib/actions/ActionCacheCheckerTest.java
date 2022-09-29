@@ -448,7 +448,7 @@ public class ActionCacheCheckerTest {
 
   private RemoteFileArtifactValue createRemoteFileMetadata(String content) {
     byte[] bytes = content.getBytes(UTF_8);
-    return new RemoteFileArtifactValue(digest(bytes), bytes.length, 1, "action-id");
+    return RemoteFileArtifactValue.create(digest(bytes), bytes.length, 1, "action-id");
   }
 
   private static TreeArtifactValue createTreeMetadata(

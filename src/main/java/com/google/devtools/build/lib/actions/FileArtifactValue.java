@@ -540,15 +540,20 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     private final int locationIndex;
     private final String actionId;
 
-    public RemoteFileArtifactValue(byte[] digest, long size, int locationIndex, String actionId) {
+    private RemoteFileArtifactValue(byte[] digest, long size, int locationIndex, String actionId) {
       this.digest = Preconditions.checkNotNull(digest, actionId);
       this.size = size;
       this.locationIndex = locationIndex;
       this.actionId = actionId;
     }
 
-    public RemoteFileArtifactValue(byte[] digest, long size, int locationIndex) {
-      this(digest, size, locationIndex, /* actionId= */ "");
+    public static RemoteFileArtifactValue create(
+        byte[] digest, long size, int locationIndex, String actionId) {
+      return new RemoteFileArtifactValue(digest, size, locationIndex, actionId);
+    }
+
+    public static RemoteFileArtifactValue create(byte[] digest, long size, int locationIndex) {
+      return new RemoteFileArtifactValue(digest, size, locationIndex, /* actionId= */ "");
     }
 
     @Override

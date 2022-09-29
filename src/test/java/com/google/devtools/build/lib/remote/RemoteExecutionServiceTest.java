@@ -993,11 +993,11 @@ public class RemoteExecutionServiceTest {
         TreeArtifactValue.newBuilder(dir)
             .putChild(
                 TreeFileArtifact.createTreeOutput(dir, "file1"),
-                new RemoteFileArtifactValue(
+                RemoteFileArtifactValue.create(
                     toBinaryDigest(d1), d1.getSizeBytes(), 1, action.getActionId()))
             .putChild(
                 TreeFileArtifact.createTreeOutput(dir, "a/file2"),
-                new RemoteFileArtifactValue(
+                RemoteFileArtifactValue.create(
                     toBinaryDigest(d2), d2.getSizeBytes(), 1, action.getActionId()))
             .build();
     verify(actionFileSystem).injectTree(dir, tree);
