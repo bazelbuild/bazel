@@ -1368,6 +1368,35 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void uploadOutputs_uploadRelativeDanglingSymlink_works() throws Exception {
+    // arrange
+    Path linkPath = execRoot.getRelative("outputs/link");
+    linkPath.createSymbolicLink(PathFragment.create("some/path"));
+    Artifact outputSymlink =
+        ActionsTestUtil.createUnresolvedSymlinkArtifactWithExecPath(
+            artifactRoot, linkPath.relativeTo(execRoot));
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of(outputSymlink));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(SpawnResult.Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+
+    // act
+    UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
+    service.uploadOutputs(action, spawnResult);
+
+    // assert
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputFileSymlinksBuilder().setPath("outputs/link").setTarget("some/path");
+    assertThat(manifest.getActionResult()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
   public void uploadOutputs_emptyOutputs_doNotPerformUpload() throws Exception {
     // Test that uploading an empty output does not try to perform an upload.
 

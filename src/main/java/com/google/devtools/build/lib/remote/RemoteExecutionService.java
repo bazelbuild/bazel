@@ -115,6 +115,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
@@ -1257,8 +1258,10 @@ public class RemoteExecutionService {
           ImmutableList.Builder<Path> outputFiles = ImmutableList.builder();
           // Check that all mandatory outputs are created.
           for (ActionInput outputFile : action.getSpawn().getOutputFiles()) {
+            Symlinks followSymlinks = outputFile.isSymlink() ? Symlinks.NOFOLLOW : Symlinks.FOLLOW;
             Path localPath = execRoot.getRelative(outputFile.getExecPath());
-            if (action.getSpawn().isMandatoryOutput(outputFile) && !localPath.exists()) {
+            if (action.getSpawn().isMandatoryOutput(outputFile)
+                && !localPath.exists(followSymlinks)) {
               throw new IOException(
                   "Expected output " + prettyPrint(outputFile) + " was not created locally.");
             }
