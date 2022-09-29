@@ -413,6 +413,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean incompatibleRemoteSymlinks;
 
   @Option(
+      name = "incompatible_remote_dangling_symlinks",
+      defaultValue = "true",
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true and --incompatible_remote_symlinks is also true, symlinks in action"
+              + " outputs are allowed to dangle.")
+  public boolean incompatibleRemoteDanglingSymlinks;
+
+  @Option(
       name = "experimental_remote_cache_compression",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,

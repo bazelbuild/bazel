@@ -76,6 +76,7 @@ public class UploadManifest {
   private final RemotePathResolver remotePathResolver;
   private final ActionResult.Builder result;
   private final boolean followSymlinks;
+  private final boolean allowDanglingSymlinks;
   private final Map<Digest, Path> digestToFile = new HashMap<>();
   private final Map<Digest, ByteString> digestToBlobs = new HashMap<>();
   @Nullable private ActionKey actionKey;
@@ -103,7 +104,8 @@ public class UploadManifest {
             digestUtil,
             remotePathResolver,
             result,
-            /* followSymlinks= */ !remoteOptions.incompatibleRemoteSymlinks);
+            /* followSymlinks= */ !remoteOptions.incompatibleRemoteSymlinks,
+            /* allowDanglingSymlinks= */ remoteOptions.incompatibleRemoteDanglingSymlinks);
     manifest.addFiles(outputFiles);
     manifest.setStdoutStderr(outErr);
     manifest.addAction(actionKey, action, command);
@@ -140,11 +142,13 @@ public class UploadManifest {
       DigestUtil digestUtil,
       RemotePathResolver remotePathResolver,
       ActionResult.Builder result,
-      boolean followSymlinks) {
+      boolean followSymlinks,
+      boolean allowDanglingSymlinks) {
     this.digestUtil = digestUtil;
     this.remotePathResolver = remotePathResolver;
     this.result = result;
     this.followSymlinks = followSymlinks;
+    this.allowDanglingSymlinks = allowDanglingSymlinks;
   }
 
   private void setStdoutStderr(FileOutErr outErr) throws IOException {
@@ -186,25 +190,32 @@ public class UploadManifest {
         // Need to resolve the symbolic link to know what to add, file or directory.
         FileStatus statFollow = file.statIfFound(Symlinks.FOLLOW);
         if (statFollow == null) {
-          throw new IOException(
-              String.format("Action output %s is a dangling symbolic link to %s ", file, target));
-        }
-        if (statFollow.isSpecialFile()) {
-          illegalOutput(file);
-        }
-        Preconditions.checkState(
-            statFollow.isFile() || statFollow.isDirectory(), "Unknown stat type for %s", file);
-        if (!followSymlinks && !target.isAbsolute()) {
-          if (statFollow.isFile()) {
+          if (allowDanglingSymlinks) {
+            // Report symlink to a file since we don't know any better.
+            // TODO(tjgq): Check for the SymlinkAbsolutePathStrategy.ALLOW server capability before
+            // uploading an absolute symlink.
             addFileSymbolicLink(file, target);
           } else {
-            addDirectorySymbolicLink(file, target);
+            throw new IOException(
+                String.format("Action output %s is a dangling symbolic link to %s ", file, target));
           }
+        } else if (statFollow.isSpecialFile()) {
+          illegalOutput(file);
         } else {
-          if (statFollow.isFile()) {
-            addFile(digestUtil.compute(file), file);
+          Preconditions.checkState(
+              statFollow.isFile() || statFollow.isDirectory(), "Unknown stat type for %s", file);
+          if (!followSymlinks && !target.isAbsolute()) {
+            if (statFollow.isFile()) {
+              addFileSymbolicLink(file, target);
+            } else {
+              addDirectorySymbolicLink(file, target);
+            }
           } else {
-            addDirectory(file);
+            if (statFollow.isFile()) {
+              addFile(digestUtil.compute(file), file);
+            } else {
+              addDirectory(file);
+            }
           }
         }
       } else {
