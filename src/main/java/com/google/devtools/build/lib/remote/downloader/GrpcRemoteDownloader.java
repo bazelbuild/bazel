@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
@@ -129,7 +130,13 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         RemoteActionExecutionContext.create(metadata);
 
     final FetchBlobRequest request =
-        newFetchBlobRequest(options.remoteInstanceName, urls, authHeaders, checksum, canonicalId);
+        newFetchBlobRequest(
+            options.remoteInstanceName,
+            urls,
+            authHeaders,
+            checksum,
+            canonicalId,
+            options.remoteDownloaderSendAllHeaders);
     try {
       FetchBlobResponse response =
           retrier.execute(
@@ -169,7 +176,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       List<URL> urls,
       Map<URI, Map<String, List<String>>> authHeaders,
       com.google.common.base.Optional<Checksum> checksum,
-      String canonicalId) {
+      String canonicalId,
+      boolean includeAllHeaders) {
     FetchBlobRequest.Builder requestBuilder =
         FetchBlobRequest.newBuilder().setInstanceName(instanceName);
     for (URL url : urls) {
@@ -190,7 +198,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       requestBuilder.addQualifiers(
           Qualifier.newBuilder()
               .setName(QUALIFIER_AUTH_HEADERS)
-              .setValue(authHeadersJson(authHeaders))
+              .setValue(authHeadersJson(authHeaders, includeAllHeaders))
               .build());
     }
 
@@ -216,16 +224,24 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     return out;
   }
 
-  private static String authHeadersJson(Map<URI, Map<String, List<String>>> authHeaders) {
+  private static String authHeadersJson(
+      Map<URI, Map<String, List<String>>> authHeaders, boolean includeAllHeaders) {
     Map<String, JsonObject> subObjects = new TreeMap<>();
     for (Map.Entry<URI, Map<String, List<String>>> entry : authHeaders.entrySet()) {
       JsonObject subObject = new JsonObject();
       Map<String, List<String>> orderedHeaders = new TreeMap<>(entry.getValue());
       for (Map.Entry<String, List<String>> subEntry : orderedHeaders.entrySet()) {
-        // TODO(yannic): Introduce incompatible flag for including all headers, not just the first.
-        String value = Iterables.getFirst(subEntry.getValue(), null);
-        if (value != null) {
-          subObject.addProperty(subEntry.getKey(), value);
+        if (includeAllHeaders) {
+          JsonArray values = new JsonArray(subEntry.getValue().size());
+          for (String value : subEntry.getValue()) {
+            values.add(value);
+          }
+          subObject.add(subEntry.getKey(), values);
+        } else {
+          String value = Iterables.getFirst(subEntry.getValue(), null);
+          if (value != null) {
+            subObject.addProperty(subEntry.getKey(), value);
+          }
         }
       }
       subObjects.put(entry.getKey().toString(), subObject);

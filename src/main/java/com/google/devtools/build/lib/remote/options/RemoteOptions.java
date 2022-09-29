@@ -620,6 +620,17 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "`all` to print always.")
   public ExecutionMessagePrintMode remotePrintExecutionMessages;
 
+  @Option(
+      name = "incompatible_remote_downloader_send_all_headers",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Whether to send all values of a multi-valued header to the remote downloader instead of"
+              + " just the first.")
+  public boolean remoteDownloaderSendAllHeaders;
+
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
 
