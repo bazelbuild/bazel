@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.bytesCountToDispla
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -83,15 +84,24 @@ public class RemoteCache extends AbstractReferenceCounted {
   private final CountDownLatch closeCountDownLatch = new CountDownLatch(1);
   protected final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
 
+  protected final CacheCapabilities cacheCapabilities;
   protected final RemoteCacheClient cacheProtocol;
   protected final RemoteOptions options;
   protected final DigestUtil digestUtil;
 
   public RemoteCache(
-      RemoteCacheClient cacheProtocol, RemoteOptions options, DigestUtil digestUtil) {
+      CacheCapabilities cacheCapabilities,
+      RemoteCacheClient cacheProtocol,
+      RemoteOptions options,
+      DigestUtil digestUtil) {
+    this.cacheCapabilities = cacheCapabilities;
     this.cacheProtocol = cacheProtocol;
     this.options = options;
     this.digestUtil = digestUtil;
+  }
+
+  public CacheCapabilities getCacheCapabilities() {
+    return cacheCapabilities;
   }
 
   public CachedActionResult downloadActionResult(

@@ -34,6 +34,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
@@ -43,6 +44,7 @@ import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.OutputSymlink;
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Throwables;
@@ -1367,11 +1369,10 @@ public class RemoteExecutionServiceTest {
         .isEmpty();
   }
 
-  @Test
-  public void uploadOutputs_uploadRelativeDanglingSymlink_works() throws Exception {
+  private void doUploadDanglingSymlink(PathFragment targetPath) throws Exception {
     // arrange
     Path linkPath = execRoot.getRelative("outputs/link");
-    linkPath.createSymbolicLink(PathFragment.create("some/path"));
+    linkPath.createSymbolicLink(targetPath);
     Artifact outputSymlink =
         ActionsTestUtil.createUnresolvedSymlinkArtifactWithExecPath(
             artifactRoot, linkPath.relativeTo(execRoot));
@@ -1392,8 +1393,27 @@ public class RemoteExecutionServiceTest {
 
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputFileSymlinksBuilder().setPath("outputs/link").setTarget("some/path");
+    expectedResult
+        .addOutputFileSymlinksBuilder()
+        .setPath("outputs/link")
+        .setTarget(targetPath.toString());
     assertThat(manifest.getActionResult()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void uploadOutputs_uploadRelativeDanglingSymlink() throws Exception {
+    doUploadDanglingSymlink(PathFragment.create("some/path"));
+  }
+
+  @Test
+  public void uploadOutputs_uploadAbsoluteDanglingSymlink() throws Exception {
+    when(cache.getCacheCapabilities())
+        .thenReturn(
+            CacheCapabilities.newBuilder()
+                .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
+                .build());
+
+    doUploadDanglingSymlink(PathFragment.create("/some/path"));
   }
 
   @Test

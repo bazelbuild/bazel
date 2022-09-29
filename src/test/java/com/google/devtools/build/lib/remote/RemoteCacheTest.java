@@ -22,6 +22,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableList;
@@ -588,11 +589,18 @@ public class RemoteCacheTest {
   }
 
   private RemoteCache newRemoteCache(RemoteCacheClient remoteCacheClient) {
-    return new RemoteCache(remoteCacheClient, Options.getDefaults(RemoteOptions.class), digestUtil);
+    return new RemoteCache(
+        CacheCapabilities.getDefaultInstance(),
+        remoteCacheClient,
+        Options.getDefaults(RemoteOptions.class),
+        digestUtil);
   }
 
   private RemoteExecutionCache newRemoteExecutionCache(RemoteCacheClient remoteCacheClient) {
     return new RemoteExecutionCache(
-        remoteCacheClient, Options.getDefaults(RemoteOptions.class), digestUtil);
+        CacheCapabilities.getDefaultInstance(),
+        remoteCacheClient,
+        Options.getDefaults(RemoteOptions.class),
+        digestUtil);
   }
 }
