@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import javax.annotation.Nullable;
 
 /** Bazel's BES module. */
@@ -55,13 +56,22 @@ public class BazelBuildEventServiceModule
 
     abstract AuthAndTLSOptions authAndTLSOptions();
 
+    abstract String buildRequestId();
+
+    abstract UUID commandId();
+
     static BackendConfig create(
-        BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) {
+        BuildEventServiceOptions besOptions,
+        AuthAndTLSOptions authAndTLSOptions,
+        String buildRequestId,
+        UUID commandId) {
       return new AutoValue_BazelBuildEventServiceModule_BackendConfig(
           besOptions.besBackend,
           besOptions.besProxy,
           ImmutableMap.copyOf(besOptions.besHeaders).entrySet().asList(),
-          authAndTLSOptions);
+          authAndTLSOptions,
+          buildRequestId,
+          commandId);
     }
   }
 
@@ -79,7 +89,9 @@ public class BazelBuildEventServiceModule
       BuildEventServiceOptions besOptions,
       AuthAndTLSOptions authAndTLSOptions)
       throws IOException {
-    BackendConfig newConfig = BackendConfig.create(besOptions, authAndTLSOptions);
+    BackendConfig newConfig =
+        BackendConfig.create(
+            besOptions, authAndTLSOptions, env.getBuildRequestId(), env.getCommandId());
     if (client == null || !Objects.equals(config, newConfig)) {
       clearBesClient();
       Preconditions.checkState(config == null);
@@ -102,7 +114,9 @@ public class BazelBuildEventServiceModule
           new BuildEventServiceGrpcClient(
               newGrpcChannel(config),
               credentials != null ? MoreCallCredentials.from(credentials) : null,
-              makeGrpcInterceptor(config));
+              makeGrpcInterceptor(config),
+              config.buildRequestId(),
+              config.commandId());
     }
     return client;
   }
