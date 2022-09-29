@@ -148,7 +148,7 @@ public final class SkyframeErrorProcessor {
     @Nullable
     abstract DetailedExitCode executionDetailedExitCode();
 
-    abstract NestedSet<Cause> rootCauses();
+    abstract NestedSet<Cause> analysisRootCauses();
 
     abstract ImmutableSet<Label> loadingRootCauses();
 
@@ -168,10 +168,10 @@ public final class SkyframeErrorProcessor {
     static IndividualErrorProcessingResult create(
         ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts,
         @Nullable DetailedExitCode executionDetailedExitCode,
-        NestedSet<Cause> rootCauses,
+        NestedSet<Cause> analysisRootCauses,
         ImmutableSet<Label> loadingRootCauses) {
       return new AutoValue_SkyframeErrorProcessor_IndividualErrorProcessingResult(
-          actionConflicts, executionDetailedExitCode, rootCauses, loadingRootCauses);
+          actionConflicts, executionDetailedExitCode, analysisRootCauses, loadingRootCauses);
     }
   }
 
@@ -348,7 +348,7 @@ public final class SkyframeErrorProcessor {
     if (inBuildViewTest) {
       // eventBus is null, but tests can still assert on the expected root causes being found.
       eventHandler.handle(
-          Event.error(individualErrorProcessingResult.rootCauses().toList().toString()));
+          Event.error(individualErrorProcessingResult.analysisRootCauses().toList().toString()));
       return;
     }
 
@@ -374,7 +374,7 @@ public final class SkyframeErrorProcessor {
           new AnalysisFailureEvent(
               ctKey,
               configuration == null ? null : configuration.getEventId(),
-              individualErrorProcessingResult.rootCauses()));
+              individualErrorProcessingResult.analysisRootCauses()));
     }
   }
 
@@ -440,22 +440,26 @@ public final class SkyframeErrorProcessor {
       Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       SkyKey errorKey,
       ErrorInfo errorInfo) {
-    Exception cause = errorInfo.getException();
+    Exception exception = errorInfo.getException();
     Set<Label> loadingRootCauses = Sets.newHashSet();
     ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts = ImmutableMap.of();
     DetailedExitCode executionDetailedExitCode = null;
 
+    // Legacy: analysis-related failure events for Aspects are sent somewhere else, so we don't have
+    // to do any work related to constructing the analysis failure events here, only for the other
+    // cases like action conflict or execution-related errors.
+    // TODO(b/249690006): Can we simplify things by moving aspects events here?
     if (errorKey.argument() instanceof TopLevelAspectsKey) {
-      if (cause instanceof TopLevelConflictException) {
-        TopLevelConflictException tlce = (TopLevelConflictException) cause;
+      if (exception instanceof TopLevelConflictException) {
+        TopLevelConflictException tlce = (TopLevelConflictException) exception;
         actionConflicts = tlce.getTransitiveActionConflicts();
-      } else if (isExecutionException(cause)) {
-        executionDetailedExitCode = getExecutionDetailedExitCodeFromCause(result, cause);
+      } else if (isExecutionException(exception)) {
+        executionDetailedExitCode = getExecutionDetailedExitCodeFromCause(result, exception);
       }
       return IndividualErrorProcessingResult.create(
           actionConflicts,
           executionDetailedExitCode,
-          /*rootCauses=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /*analysisRootCauses=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /*loadingRootCauses=*/ ImmutableSet.of());
     }
 
@@ -463,9 +467,9 @@ public final class SkyframeErrorProcessor {
     if (errorKey.argument() instanceof ActionLookupData) {
       return IndividualErrorProcessingResult.create(
           /*actionConflicts=*/ ImmutableMap.of(),
-          getExecutionDetailedExitCodeFromCause(result, cause),
-          /*rootCauses=*/ cause instanceof ActionExecutionException
-              ? ((ActionExecutionException) cause).getRootCauses()
+          getExecutionDetailedExitCodeFromCause(result, exception),
+          /*analysisRootCauses=*/ exception instanceof ActionExecutionException
+              ? ((ActionExecutionException) exception).getRootCauses()
               : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /*loadingRootCauses=*/ ImmutableSet.of());
     }
@@ -476,14 +480,14 @@ public final class SkyframeErrorProcessor {
         errorKey.argument());
     ConfiguredTargetKey ctKey = (ConfiguredTargetKey) errorKey.argument();
     Label topLevelLabel = ctKey.getLabel();
-    NestedSet<Cause> rootCauses;
+    NestedSet<Cause> analysisRootCauses;
 
-    if (cause instanceof TopLevelConflictException) {
-      TopLevelConflictException tlce = (TopLevelConflictException) cause;
+    if (exception instanceof TopLevelConflictException) {
+      TopLevelConflictException tlce = (TopLevelConflictException) exception;
       actionConflicts = tlce.getTransitiveActionConflicts();
-      rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else if (cause instanceof ConfiguredValueCreationException) {
-      ConfiguredValueCreationException ctCause = (ConfiguredValueCreationException) cause;
+      analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    } else if (exception instanceof ConfiguredValueCreationException) {
+      ConfiguredValueCreationException ctCause = (ConfiguredValueCreationException) exception;
       // Previously, the nested set was de-duplicating loading root cause labels. Now that we
       // track Cause instances including a message, we get one event per label and message. In
       // order to keep backwards compatibility, we de-duplicate root cause labels here.
@@ -493,17 +497,17 @@ public final class SkyframeErrorProcessor {
           loadingRootCauses.add(rootCause.getLabel());
         }
       }
-      rootCauses = ctCause.getRootCauses();
+      analysisRootCauses = ctCause.getRootCauses();
     } else if (!errorInfo.getCycleInfo().isEmpty()) {
       if (isExecutionCycle(errorInfo.getCycleInfo())) {
         // If we have a cycle, cause would be null, so it's guaranteed that this
         // executionDetailedExitCode is final.
         executionDetailedExitCode = CYCLE_CODE;
-        rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+        analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       } else {
         Label analysisRootCause =
             maybeGetConfiguredTargetCycleCulprit(topLevelLabel, errorInfo.getCycleInfo());
-        rootCauses =
+        analysisRootCauses =
             analysisRootCause != null
                 ? NestedSetBuilder.create(
                     Order.STABLE_ORDER,
@@ -513,10 +517,10 @@ public final class SkyframeErrorProcessor {
                 // TODO(ulfjack): We need to report the dependency cycle here. How?
                 : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       }
-    } else if (cause instanceof ActionConflictException) {
-      ((ActionConflictException) cause).reportTo(eventHandler);
-      rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else if (cause instanceof NoSuchPackageException) {
+    } else if (exception instanceof ActionConflictException) {
+      ((ActionConflictException) exception).reportTo(eventHandler);
+      analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    } else if (exception instanceof NoSuchPackageException) {
       // This branch is only taken in --nokeep_going builds. In a --keep_going build, the
       // AnalysisFailedCause is properly reported through the ConfiguredValueCreationException.
       BuildConfigurationValue configuration =
@@ -524,25 +528,26 @@ public final class SkyframeErrorProcessor {
       ConfigurationId configId = configuration.getEventId().getConfiguration();
       AnalysisFailedCause analysisFailedCause =
           new AnalysisFailedCause(
-              topLevelLabel, configId, ((NoSuchPackageException) cause).getDetailedExitCode());
-      rootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
-    } else if (cause instanceof TargetCompatibilityCheckException) {
-      rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else if (isExecutionException(cause)) {
-      executionDetailedExitCode = getExecutionDetailedExitCodeFromCause(result, cause);
-      rootCauses =
-          cause instanceof ActionExecutionException
-              ? ((ActionExecutionException) cause).getRootCauses()
+              topLevelLabel, configId, ((NoSuchPackageException) exception).getDetailedExitCode());
+      analysisRootCauses = NestedSetBuilder.create(Order.STABLE_ORDER, analysisFailedCause);
+    } else if (exception instanceof TargetCompatibilityCheckException) {
+      analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    } else if (isExecutionException(exception)) {
+      executionDetailedExitCode = getExecutionDetailedExitCodeFromCause(result, exception);
+      analysisRootCauses =
+          exception instanceof ActionExecutionException
+              ? ((ActionExecutionException) exception).getRootCauses()
               : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     } else {
-      BugReport.logUnexpected(cause, "Unexpected cause encountered while evaluating: %s", errorKey);
-      rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      BugReport.logUnexpected(
+          exception, "Unexpected cause encountered while evaluating: %s", errorKey);
+      analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
 
     return IndividualErrorProcessingResult.create(
         actionConflicts,
         executionDetailedExitCode,
-        rootCauses,
+        analysisRootCauses,
         ImmutableSet.copyOf(loadingRootCauses));
   }
 
