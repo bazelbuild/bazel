@@ -526,7 +526,7 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void downloadOutputs_absoluteFileSymlink_error() throws Exception {
+  public void downloadOutputs_absoluteFileSymlink_success() throws Exception {
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputFileSymlinksBuilder().setPath("outputs/foo").setTarget("/abs/link");
     RemoteActionResult result =
@@ -536,16 +536,16 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
 
-    IOException expected =
-        assertThrows(IOException.class, () -> service.downloadOutputs(action, result));
+    service.downloadOutputs(action, result);
 
-    assertThat(expected).hasMessageThat().contains("/abs/link");
-    assertThat(expected).hasMessageThat().contains("absolute path");
+    Path path = execRoot.getRelative("outputs/foo");
+    assertThat(path.isSymbolicLink()).isTrue();
+    assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("/abs/link"));
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
 
   @Test
-  public void downloadOutputs_absoluteDirectorySymlink_error() throws Exception {
+  public void downloadOutputs_absoluteDirectorySymlink_success() throws Exception {
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputDirectorySymlinksBuilder().setPath("outputs/foo").setTarget("/abs/link");
     RemoteActionResult result =
@@ -555,11 +555,10 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
 
-    IOException expected =
-        assertThrows(IOException.class, () -> service.downloadOutputs(action, result));
+    service.downloadOutputs(action, result);
 
-    assertThat(expected).hasMessageThat().contains("/abs/link");
-    assertThat(expected).hasMessageThat().contains("absolute path");
+    Path path = execRoot.getRelative("outputs/foo");
+    assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("/abs/link"));
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
 
@@ -586,8 +585,7 @@ public class RemoteExecutionServiceTest {
 
     assertThat(expected.getSuppressed()).isEmpty();
     assertThat(expected).hasMessageThat().contains("outputs/dir/link");
-    assertThat(expected).hasMessageThat().contains("/foo");
-    assertThat(expected).hasMessageThat().contains("absolute path");
+    assertThat(expected).hasMessageThat().contains("absolute symlink");
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
 
