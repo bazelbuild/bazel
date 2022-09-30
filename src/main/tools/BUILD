@@ -39,8 +39,9 @@ cc_binary(
         ],
     }),
     linkopts = select({
-        "//src/conditions:windows": [],
         "//src/conditions:darwin": ["-lm"],
+        "//src/conditions:openbsd": [],
+        "//src/conditions:windows": [],
         "//conditions:default": [
             "-lm",
             "-lrt",
