@@ -84,6 +84,11 @@ public class NotifyingHelper {
     }
 
     @Override
+    public LookupHint getLookupHint(SkyKey key) {
+      return delegate.getLookupHint(key);
+    }
+
+    @Override
     public void remove(SkyKey key) {
       delegate.remove(key);
     }

@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
+import com.google.devtools.build.skyframe.QueryableGraph.LookupHint;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -490,16 +491,13 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     checkActive();
     int sizeBeforeRequest = newlyRequestedDepsValues.size();
     SkyValue depValue = lookupRequestedDep(depKey);
-    if (depValue == null) {
+    if (depValue != null) {
+      processDepValue(depKey, depValue);
+    } else {
       NodeEntry depEntry = evaluatorContext.getGraph().get(skyKey, Reason.DEP_REQUESTED, depKey);
-      depValue = getValueOrNullMarker(depEntry);
-      newlyRequestedDepsValues.put(depKey, depValue);
-      if (depValue != NULL_MARKER) {
-        maybeUpdateMaxTransitiveSourceVersion(depEntry);
-      }
+      depValue = processDepEntry(depKey, depEntry);
     }
     endDepGroup(sizeBeforeRequest);
-    processDepValue(depKey, depValue);
 
     return unwrapOrThrow(
         skyKey, depValue, exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
@@ -510,30 +508,37 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   public SkyframeLookupResult getValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
       throws InterruptedException {
     checkActive();
-    List<SkyKey> missingKeys = new ArrayList<>();
+
+    // Lazily initialized when we encounter a missing key and the graph's lookup hint indicates that
+    // the key should be requested in a batch. If the graph supports efficient lookups of individual
+    // keys, we avoid constructing a list.
+    List<SkyKey> missingKeys = null;
 
     int sizeBeforeRequest = newlyRequestedDepsValues.size();
     for (SkyKey key : depKeys) {
       SkyValue value = lookupRequestedDep(key);
-      if (value == null) {
-        missingKeys.add(key);
-      } else if (value != PENDING_MARKER) {
+      if (value == PENDING_MARKER) {
+        continue; // Duplicate key in this request.
+      }
+      if (value != null) {
         processDepValue(key, value);
+      } else if (evaluatorContext.getGraph().getLookupHint(key) == LookupHint.BATCH) {
+        if (missingKeys == null) {
+          missingKeys = new ArrayList<>();
+        }
+        missingKeys.add(key);
+      } else {
+        NodeEntry depEntry = evaluatorContext.getGraph().get(skyKey, Reason.DEP_REQUESTED, key);
+        processDepEntry(key, depEntry);
       }
     }
     endDepGroup(sizeBeforeRequest);
 
-    if (!missingKeys.isEmpty()) {
+    if (missingKeys != null) {
       NodeBatch missingEntries =
           evaluatorContext.getGraph().getBatch(skyKey, Reason.DEP_REQUESTED, missingKeys);
       for (SkyKey key : missingKeys) {
-        NodeEntry depEntry = missingEntries.get(key);
-        SkyValue valueOrNullMarker = getValueOrNullMarker(depEntry);
-        processDepValue(key, valueOrNullMarker);
-        newlyRequestedDepsValues.put(key, valueOrNullMarker);
-        if (valueOrNullMarker != NULL_MARKER) {
-          maybeUpdateMaxTransitiveSourceVersion(depEntry);
-        }
+        processDepEntry(key, missingEntries.get(key));
       }
     }
 
@@ -577,7 +582,19 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     };
   }
 
-  private void processDepValue(SkyKey depKey, SkyValue depValue) throws InterruptedException {
+  @CanIgnoreReturnValue
+  private SkyValue processDepEntry(SkyKey depKey, @Nullable NodeEntry depEntry)
+      throws InterruptedException {
+    SkyValue valueOrNullMarker = getValueOrNullMarker(depEntry);
+    processDepValue(depKey, valueOrNullMarker);
+    newlyRequestedDepsValues.put(depKey, valueOrNullMarker);
+    if (valueOrNullMarker != NULL_MARKER) {
+      maybeUpdateMaxTransitiveSourceVersion(depEntry);
+    }
+    return valueOrNullMarker;
+  }
+
+  private void processDepValue(SkyKey depKey, SkyValue depValue) {
     if (depValue == NULL_MARKER) {
       valuesMissing = true;
       return;
