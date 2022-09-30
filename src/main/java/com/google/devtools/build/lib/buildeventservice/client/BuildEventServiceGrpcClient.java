@@ -102,7 +102,10 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
           .withInterceptors(
               TracingMetadataUtils.attachMetadataInterceptor(
                   TracingMetadataUtils.buildMetadata(
-                      buildRequestId, commandId.toString(), "publish_lifecycle_event", null)))
+                      buildRequestId,
+                      commandId.toString(),
+                      "publish_lifecycle_event",
+                      /* actionMetadata= */ null)))
           .publishLifecycleEvent(lifecycleEvent);
     } catch (StatusRuntimeException e) {
       Throwables.throwIfInstanceOf(Throwables.getRootCause(e), InterruptedException.class);
@@ -128,7 +131,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
                           buildRequestId,
                           commandId.toString(),
                           "publish_build_tool_event_stream",
-                          null)))
+                          /* actionMetadata= */ null)))
               .publishBuildToolEventStream(
               new StreamObserver<PublishBuildToolEventStreamResponse>() {
                 @Override
