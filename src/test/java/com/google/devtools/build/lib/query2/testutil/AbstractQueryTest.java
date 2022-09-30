@@ -498,7 +498,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  public void testSomeOperator() throws Exception {
+  public void testSomeOperator_noCountParameter() throws Exception {
     writeBuildFiles2();
     assertThat(eval("some(c:*)")).hasSize(1);
     assertContains(eval("c:*"), eval("some(c:*)"));
@@ -507,6 +507,24 @@ public abstract class AbstractQueryTest<T> {
     EvalThrowsResult result = evalThrows("some(//c:q intersect //c:p)", true);
     assertThat(result.getMessage()).isEqualTo("argument set is empty");
     assertQueryCode(result.getFailureDetail(), Query.Code.ARGUMENTS_MISSING);
+  }
+
+  @Test
+  public void testSomeOperator_countParameterNotEqualActualCount() throws Exception {
+    writeBuildFiles2();
+    assertThat(eval("some(//c:p + //c:q, 5)")).hasSize(2);
+    assertThat(evalToString("some(//c:p + //c:q, 5)")).isEqualTo("//c:p //c:q");
+
+    assertThat(eval("some(//c:c + //c:d + //c:p + //c:q + //c:r + //c:s, 3)")).hasSize(3);
+    // No need to check `evalToString`, the output strings may differ based test suite setup.
+  }
+
+  @Test
+  public void testSomeOperator_nestedSomeTest() throws Exception {
+    writeBuildFiles2();
+    assertThat(eval("some(some(//c:p + //c:q, 2) + some(//c:p + //c:s + //c:q, 3), 5)")).hasSize(3);
+    assertThat(evalToString("some(some(//c:p + //c:q, 2) + some(//c:p + //c:s + //c:q, 3), 5)"))
+        .isEqualTo("//c:p //c:q //c:s");
   }
 
   protected void writeBuildFiles3() throws Exception {
