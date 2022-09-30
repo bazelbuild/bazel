@@ -26,7 +26,7 @@ using std::vector;
 
 const regex libRegex = regex(".*\\.a$");
 const regex noArgFlags =
-    regex("-static|-s|-a|-c|-L|-T|-D|-no_warning_for_no_symbols");
+    regex("-static|-s|-a|-c|-L|-T|-D|-v|-no_warning_for_no_symbols");
 const regex singleArgFlags = regex("-arch_only|-syslibroot|-o");
 
 string getBasename(const string &path) {
