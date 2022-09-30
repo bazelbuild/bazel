@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.merkletree;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
@@ -34,6 +35,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -61,8 +63,19 @@ class DirectoryTreeBuilder {
       Path execRoot,
       DigestUtil digestUtil)
       throws IOException {
+    return fromActionInputs(inputs, ImmutableSet.of(), metadataProvider, execRoot, digestUtil);
+  }
+
+  static DirectoryTree fromActionInputs(
+      SortedMap<PathFragment, ActionInput> inputs,
+      Set<PathFragment> toolInputs,
+      MetadataProvider metadataProvider,
+      Path execRoot,
+      DigestUtil digestUtil)
+      throws IOException {
     Map<PathFragment, DirectoryNode> tree = new HashMap<>();
-    int numFiles = buildFromActionInputs(inputs, metadataProvider, execRoot, digestUtil, tree);
+    int numFiles =
+        buildFromActionInputs(inputs, toolInputs, metadataProvider, execRoot, digestUtil, tree);
     return new DirectoryTree(tree, numFiles);
   }
 
@@ -119,6 +132,7 @@ class DirectoryTreeBuilder {
    */
   private static int buildFromActionInputs(
       SortedMap<PathFragment, ActionInput> inputs,
+      Set<PathFragment> toolInputs,
       MetadataProvider metadataProvider,
       Path execRoot,
       DigestUtil digestUtil,
@@ -134,7 +148,10 @@ class DirectoryTreeBuilder {
             boolean childAdded =
                 currDir.addChild(
                     FileNode.createExecutable(
-                        path.getBaseName(), virtualActionInput.getBytes(), d));
+                        path.getBaseName(),
+                        virtualActionInput.getBytes(),
+                        d,
+                        toolInputs.contains(path)));
             return childAdded ? 1 : 0;
           }
 
@@ -149,7 +166,9 @@ class DirectoryTreeBuilder {
                 Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
                 Path inputPath = ActionInputHelper.toInputPath(input, execRoot);
                 boolean childAdded =
-                    currDir.addChild(FileNode.createExecutable(path.getBaseName(), inputPath, d));
+                    currDir.addChild(
+                        FileNode.createExecutable(
+                            path.getBaseName(), inputPath, d, toolInputs.contains(path)));
                 return childAdded ? 1 : 0;
               }
 
@@ -157,7 +176,7 @@ class DirectoryTreeBuilder {
               SortedMap<PathFragment, ActionInput> directoryInputs =
                   explodeDirectory(input.getExecPath(), execRoot);
               return buildFromActionInputs(
-                  directoryInputs, metadataProvider, execRoot, digestUtil, tree);
+                  directoryInputs, toolInputs, metadataProvider, execRoot, digestUtil, tree);
 
             case SYMLINK:
               {
