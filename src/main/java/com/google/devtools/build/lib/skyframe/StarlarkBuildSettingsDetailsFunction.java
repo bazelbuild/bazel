@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
@@ -87,7 +88,13 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
               .collect(
                   toImmutableMap(
                       Rule::getLabel,
-                      rule -> rule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME)));
+                      rule -> {
+                        if (rule.getRuleClassObject().getBuildSetting().allowsMultiple()) {
+                          return ImmutableList.of(
+                              rule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME));
+                        }
+                        return rule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
+                      }));
       ImmutableMap<Label, Type<?>> buildSettingToType =
           actualRules.stream()
               .collect(

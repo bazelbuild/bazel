@@ -81,14 +81,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /** Blaze module that writes an partial execution graph with performance data. */
-public class ExecutionGraphDumpModule extends BlazeModule {
+public class ExecutionGraphModule extends BlazeModule {
 
   private static final String ACTION_DUMP_NAME = "execution_graph_dump.proto.zst";
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Options for the generated execution graph. */
-  public static class ExecutionGraphDumpOptions extends OptionsBase {
+  public static class ExecutionGraphOptions extends OptionsBase {
     @Option(
         name = "experimental_execution_graph_log",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -128,7 +128,7 @@ public class ExecutionGraphDumpModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
         defaultValue = "false",
-        help = "Subscribe to ActionMiddlemanEvent in ExecutionGraphDumpModule.")
+        help = "Subscribe to ActionMiddlemanEvent in ExecutionGraphModule.")
     public boolean logMiddlemanActions;
 
     @Option(
@@ -136,7 +136,7 @@ public class ExecutionGraphDumpModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
         defaultValue = "true",
-        help = "Subscribe to CachedActionEvent in ExecutionGraphDumpModule.")
+        help = "Subscribe to CachedActionEvent in ExecutionGraphModule.")
     public boolean logCachedActions;
 
     @Option(
@@ -144,7 +144,7 @@ public class ExecutionGraphDumpModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
         defaultValue = "true",
-        help = "Subscribe to ActionCompletionEvent in ExecutionGraphDumpModule.")
+        help = "Subscribe to ActionCompletionEvent in ExecutionGraphModule.")
     public boolean logMissedActions;
   }
 
@@ -164,14 +164,14 @@ public class ExecutionGraphDumpModule extends BlazeModule {
 
   private ActionDumpWriter writer;
   private CommandEnvironment env;
-  private ExecutionGraphDumpOptions options;
+  private ExecutionGraphOptions options;
   private NanosToMillisSinceEpochConverter nanosToMillis =
       BlazeClock.createNanosToMillisSinceEpochConverter();
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
-        ? ImmutableList.of(ExecutionGraphDumpOptions.class)
+        ? ImmutableList.of(ExecutionGraphOptions.class)
         : ImmutableList.of();
   }
 
@@ -181,7 +181,7 @@ public class ExecutionGraphDumpModule extends BlazeModule {
   }
 
   @VisibleForTesting
-  void setOptions(ExecutionGraphDumpOptions options) {
+  void setOptions(ExecutionGraphOptions options) {
     this.options = options;
   }
 
@@ -195,10 +195,10 @@ public class ExecutionGraphDumpModule extends BlazeModule {
     this.env = env;
 
     if (env.getCommand().builds()) {
-      ExecutionGraphDumpOptions options =
+      ExecutionGraphOptions options =
           Preconditions.checkNotNull(
-              env.getOptions().getOptions(ExecutionGraphDumpOptions.class),
-              "ExecutionGraphDumpOptions must be present for ExecutionGraphDumpModule");
+              env.getOptions().getOptions(ExecutionGraphOptions.class),
+              "ExecutionGraphOptions must be present for ExecutionGraphModule");
       if (!options.executionGraphLogFile.isBlank()) {
         env.getEventBus().register(this);
       }
@@ -678,28 +678,28 @@ public class ExecutionGraphDumpModule extends BlazeModule {
     OptionsParsingResult parsingResult = env.getOptions();
     BuildEventProtocolOptions bepOptions =
         Preconditions.checkNotNull(parsingResult.getOptions(BuildEventProtocolOptions.class));
-    ExecutionGraphDumpOptions executionGraphDumpOptions =
-        Preconditions.checkNotNull(parsingResult.getOptions(ExecutionGraphDumpOptions.class));
+    ExecutionGraphOptions executionGraphOptions =
+        Preconditions.checkNotNull(parsingResult.getOptions(ExecutionGraphOptions.class));
     if (bepOptions.streamingLogFileUploads) {
       return new StreamingActionDumpWriter(
           env.getRuntime().getBugReporter(),
           env.getOptions().getOptions(LocalExecutionOptions.class).localLockfreeOutput,
           newUploader(env, bepOptions).startUpload(LocalFileType.PERFORMANCE_LOG, null),
           env.getCommandId(),
-          executionGraphDumpOptions.depType,
-          executionGraphDumpOptions.queueSize);
+          executionGraphOptions.depType,
+          executionGraphOptions.queueSize);
     }
 
     Path actionGraphFile =
-        env.getWorkingDirectory().getRelative(executionGraphDumpOptions.executionGraphLogFile);
+        env.getWorkingDirectory().getRelative(executionGraphOptions.executionGraphLogFile);
     try {
       return new FilesystemActionDumpWriter(
           env.getRuntime().getBugReporter(),
           env.getOptions().getOptions(LocalExecutionOptions.class).localLockfreeOutput,
           actionGraphFile,
           env.getCommandId(),
-          executionGraphDumpOptions.depType,
-          executionGraphDumpOptions.queueSize);
+          executionGraphOptions.depType,
+          executionGraphOptions.queueSize);
     } catch (IOException e) {
       throw new ActionDumpFileCreationException(actionGraphFile, e);
     }
@@ -747,8 +747,7 @@ public class ExecutionGraphDumpModule extends BlazeModule {
   private static FailureDetail makeReportWriteFailedDetail() {
     return FailureDetail.newBuilder()
         .setMessage("could not open action dump file for writing")
-        .setBuildReport(
-            BuildReport.newBuilder().setCode(Code.BUILD_REPORT_WRITE_FAILED))
+        .setBuildReport(BuildReport.newBuilder().setCode(Code.BUILD_REPORT_WRITE_FAILED))
         .build();
   }
 

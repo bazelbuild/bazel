@@ -489,6 +489,7 @@ public class BuildRequestOptions extends OptionsBase {
               + "line. It is an error to specify a file here as well as command-line patterns.")
   public String targetPatternFile;
 
+  /** Do not use directly. Instead use {@link shouldMergeSkyframeAnalysisExecution}. */
   @Option(
       name = "experimental_merged_skyframe_analysis_execution",
       defaultValue = "false",
@@ -496,7 +497,7 @@ public class BuildRequestOptions extends OptionsBase {
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
       help = "If this flag is set, the analysis and execution phases of Skyframe are merged.")
-  public boolean mergedSkyframeAnalysisExecution;
+  public boolean mergedSkyframeAnalysisExecutionDoNotUseDirectly;
 
   /** Converter for filesystem value checker threads. */
   public static class ThreadConverter extends ResourceConverter {
@@ -549,11 +550,12 @@ public class BuildRequestOptions extends OptionsBase {
    * analysis and execution in that case and --experimental_merged_skyframe_analysis_execution
    * should be ignored.
    *
-   * <p>This method should always be preferred over {@link mergedSkyframeAnalysisExecution} to
-   * determine whether analysis and execution should be merged.
+   * <p>This method should always be preferred over {@link
+   * mergedSkyframeAnalysisExecutionDoNotUseDirectly} to determine whether analysis and execution
+   * should be merged. The only exception to this is in {@link BuildRequest}.
    */
   public boolean shouldMergeSkyframeAnalysisExecution() {
-    return mergedSkyframeAnalysisExecution && performExecutionPhase;
+    return mergedSkyframeAnalysisExecutionDoNotUseDirectly && performExecutionPhase;
   }
 
   /**

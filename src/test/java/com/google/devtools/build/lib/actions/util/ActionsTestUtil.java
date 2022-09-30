@@ -267,6 +267,12 @@ public final class ActionsTestUtil {
     return treeArtifact;
   }
 
+  public static SpecialArtifact createUnresolvedSymlinkArtifactWithExecPath(
+      ArtifactRoot root, PathFragment execPath) {
+    return SpecialArtifact.create(
+        root, execPath, NULL_ARTIFACT_OWNER, SpecialArtifactType.UNRESOLVED_SYMLINK);
+  }
+
   public static void assertNoArtifactEndingWith(RuleConfiguredTarget target, String path) {
     Pattern endPattern = Pattern.compile(path + "$");
     for (ActionAnalysisMetadata action : target.getActions()) {

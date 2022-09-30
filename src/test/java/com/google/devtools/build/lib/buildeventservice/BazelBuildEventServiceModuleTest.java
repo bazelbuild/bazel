@@ -709,10 +709,12 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   public void oom_firstReportedViaHandleCrash() throws Exception {
     testOom(
         () -> {
+          OutOfMemoryError oom = new OutOfMemoryError();
           // Simulates an OOM coming from RetainedHeapLimiter, which reports the error by calling
-          // handleCrash. Uses keepAlive() to avoid exiting the JVM and aborting the test.
-          BugReport.handleCrash(Crash.from(new OutOfMemoryError()), CrashContext.keepAlive());
-          BugReport.maybePropagateUnprocessedThrowableIfInTest();
+          // handleCrash. Uses keepAlive() to avoid exiting the JVM and aborting the test, then
+          // throw the original oom to ensure control flow terminates.
+          BugReport.handleCrash(Crash.from(oom), CrashContext.keepAlive());
+          throw oom;
         });
   }
 

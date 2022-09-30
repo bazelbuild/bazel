@@ -158,7 +158,7 @@ public class DynamicExecutionOptions extends OptionsBase {
       name = "experimental_dynamic_exclude_tools",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      defaultValue = "false",
+      defaultValue = "true",
       help =
           "When set, targets that are build \"for tool\" are not subject to dynamic execution. Such"
               + " targets are extremely unlikely to be built incrementally and thus not worth"

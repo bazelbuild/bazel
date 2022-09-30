@@ -17,7 +17,6 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-import gzip
 import os
 import tarfile
 
@@ -36,30 +35,22 @@ class TarFileWriter(object):
 
   def __init__(self,
                name,
-               compression='',
                root_directory='./',
                preserve_tar_mtimes=False):
     """TarFileWriter wraps tarfile.open().
 
     Args:
       name: the tar file name.
-      compression: compression type: gz, tgz.
       root_directory: virtual root to prepend to elements in the archive.
       preserve_tar_mtimes: if true, keep file mtimes from input tar file.
     """
     mode = 'w:'
-    self.gz = compression in ['tgz', 'gz']
     self.name = name
     self.root_directory = root_directory.rstrip('/')
 
     self.preserve_mtime = preserve_tar_mtimes
 
     self.fileobj = None
-    if self.gz:
-      # The Tarfile class doesn't allow us to specify gzip's mtime attribute.
-      # Instead, we manually re-implement gzopen from tarfile.py and set mtime.
-      self.fileobj = gzip.GzipFile(
-          filename=name, mode='w', compresslevel=9, mtime=DEFAULT_MTIME)
     self.tar = tarfile.open(name=name, mode=mode, fileobj=self.fileobj)
     self.members = set([])
     self.directories = set([])

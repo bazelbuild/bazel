@@ -200,7 +200,7 @@ public final class BugReportTest {
       int code = ((ExitException) e).code;
       assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
     }
-    assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
+    assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest()).isSameInstanceAs(t);
 
     verify(mockRuntime)
         .cleanUpForCrash(DetailedExitCode.of(crashType.expectedExitCode, expectedFailureDetail));
@@ -223,7 +223,7 @@ public final class BugReportTest {
       int code = ((ExitException) e).code;
       assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
     }
-    assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
+    assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest()).isSameInstanceAs(t);
 
     verify(mockRuntime)
         .cleanUpForCrash(DetailedExitCode.of(crashType.expectedExitCode, expectedFailureDetail));
@@ -238,7 +238,7 @@ public final class BugReportTest {
         createExpectedFailureDetail(t, crashType.expectedFailureDetailCode);
 
     BugReport.handleCrash(Crash.from(t), CrashContext.keepAlive());
-    assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
+    assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest()).isSameInstanceAs(t);
 
     verify(mockRuntime)
         .cleanUpForCrash(DetailedExitCode.of(crashType.expectedExitCode, expectedFailureDetail));
@@ -255,7 +255,7 @@ public final class BugReportTest {
     BugReport.handleCrash(
         Crash.from(t),
         CrashContext.keepAlive().withExtraOomInfo("Build fewer targets!").reportingTo(handler));
-    assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
+    assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest()).isSameInstanceAs(t);
 
     verify(handler).handle(event.capture());
     assertThat(event.getValue().getKind()).isEqualTo(EventKind.FATAL);
@@ -282,7 +282,7 @@ public final class BugReportTest {
         .fillInCrashContext(any());
 
     BugReport.handleCrash(Crash.from(t), CrashContext.keepAlive());
-    assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
+    assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest()).isSameInstanceAs(t);
 
     verify(handler).handle(event.capture());
     assertThat(event.getValue().getKind()).isEqualTo(EventKind.FATAL);

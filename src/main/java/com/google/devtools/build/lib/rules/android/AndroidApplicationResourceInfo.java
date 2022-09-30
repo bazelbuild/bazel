@@ -15,12 +15,16 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fromNoneable;
 
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidApplicationResourceInfoApi;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 
 /** A provider for Android resource APKs (".ap_") and related info. */
@@ -44,6 +48,7 @@ public class AndroidApplicationResourceInfo extends NativeInfo
   private final Artifact buildStampJar;
   private final boolean shouldCompileJavaSrcs;
   private final NativeLibs nativeLibs;
+  private final NestedSet<Artifact> transitiveNativeLibs;
 
   AndroidApplicationResourceInfo(
       Artifact resourceApk,
@@ -57,7 +62,8 @@ public class AndroidApplicationResourceInfo extends NativeInfo
       Artifact databindingLayoutInfoZip,
       Artifact buildStampJar,
       boolean shouldCompileJavaSrcs,
-      NativeLibs nativeLibs) {
+      NativeLibs nativeLibs,
+      NestedSet<Artifact> transitiveNativeLibs) {
     this.resourceApk = resourceApk;
     this.resourceJavaSrcJar = resourceJavaSrcJar;
     this.resourceJavaClassJar = resourceJavaClassJar;
@@ -70,6 +76,7 @@ public class AndroidApplicationResourceInfo extends NativeInfo
     this.buildStampJar = buildStampJar;
     this.shouldCompileJavaSrcs = shouldCompileJavaSrcs;
     this.nativeLibs = nativeLibs;
+    this.transitiveNativeLibs = transitiveNativeLibs;
   }
 
   @Override
@@ -139,8 +146,41 @@ public class AndroidApplicationResourceInfo extends NativeInfo
   }
 
   @Nullable
+  @Override
+  public Dict<String, Depset> getNativeLibsStarlark() {
+    if (nativeLibs == null) {
+      return null;
+    }
+    return Dict.immutableCopyOf(
+        Maps.transformValues(nativeLibs.getMap(), set -> Depset.of(Artifact.TYPE, set)));
+  }
+
+  @Nullable
+  @Override
+  public Artifact getNativeLibsNameStarlark() {
+    if (nativeLibs == null) {
+      return null;
+    }
+    return nativeLibs.getName();
+  }
+
+  @Nullable
+  @Override
+  public Depset getTransitiveNativeLibsStarlark() {
+    if (transitiveNativeLibs == null) {
+      return null;
+    }
+    return Depset.of(Artifact.TYPE, transitiveNativeLibs);
+  }
+
+  @Nullable
   public NativeLibs getNativeLibs() {
     return nativeLibs;
+  }
+
+  @Nullable
+  public NestedSet<Artifact> getTransitiveNativeLibs() {
+    return transitiveNativeLibs;
   }
 
   /** Provider for {@link AndroidApplicationResourceInfo}. */
@@ -165,7 +205,8 @@ public class AndroidApplicationResourceInfo extends NativeInfo
         Object databindingLayoutInfoZip,
         Object buildStampJar,
         boolean shouldCompileJavaSrcs,
-        Object nativeLibs)
+        Object nativeLibs,
+        Object transitiveNativeLibs)
         throws EvalException {
 
       return new AndroidApplicationResourceInfo(
@@ -180,7 +221,8 @@ public class AndroidApplicationResourceInfo extends NativeInfo
           fromNoneable(databindingLayoutInfoZip, Artifact.class),
           fromNoneable(buildStampJar, Artifact.class),
           shouldCompileJavaSrcs,
-          AndroidStarlarkData.getNativeLibs(nativeLibs));
+          AndroidStarlarkData.getNativeLibs(nativeLibs),
+          AndroidStarlarkData.fromNoneableDepset(transitiveNativeLibs, "transitive_native_libs"));
     }
   }
 }

@@ -878,7 +878,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_enable_cc_toolchain_resolution",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},

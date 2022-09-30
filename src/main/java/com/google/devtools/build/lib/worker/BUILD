@@ -25,10 +25,16 @@ java_library(
             "WorkerMetricsEvent.java",
             "WorkerOptions.java",
             "WorkerLifecycleManager.java",
+            "JsonWorkerMessageProtocol.java",
+            "JsonWorkerProtocol.java",
+            "ProtoWorkerMessageProtocol.java",
+            "ProtoWorkerProtocol.java",
+            "WorkerProtocolImpl.java",
         ],
     ),
     deps = [
         ":worker_key",
+        ":worker_protocol",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
@@ -43,6 +49,23 @@ java_library(
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party/protobuf:protobuf_java",
+        "//third_party/protobuf:protobuf_java_util",
+    ],
+)
+
+java_library(
+    name = "worker_protocol",
+    srcs = [
+        "JsonWorkerProtocol.java",
+        "ProtoWorkerProtocol.java",
+        "WorkerProtocolImpl.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:gson",
+        "//third_party:guava",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
     ],

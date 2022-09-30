@@ -1,6 +1,6 @@
 toc:
-- label: "5.3"
-  path: https://docs.bazel.build/versions/5.3.0/bazel-overview.html
+- label: "5.3.1"
+  path: https://docs.bazel.build/versions/5.3.1/bazel-overview.html
 - label: "5.2"
   path: https://docs.bazel.build/versions/5.2.0/bazel-overview.html
 - label: "5.1.1"

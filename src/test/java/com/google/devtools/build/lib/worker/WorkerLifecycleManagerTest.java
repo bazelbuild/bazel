@@ -89,10 +89,12 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1024 * 100;
 
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
 
-    WorkerLifecycleManager.evictWorkers(workerMetrics, workerPool, options);
+    manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -117,10 +119,12 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 0;
 
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
 
-    WorkerLifecycleManager.evictWorkers(workerMetrics, workerPool, options);
+    manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -140,10 +144,12 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
 
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
 
-    WorkerLifecycleManager.evictWorkers(workerMetrics, workerPool, options);
+    manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -168,10 +174,12 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
 
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
 
-    WorkerLifecycleManager.evictWorkers(workerMetrics, workerPool, options);
+    manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(0);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -208,11 +216,12 @@ public final class WorkerLifecycleManagerTest {
 
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 2;
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(3);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
 
-    WorkerLifecycleManager.evictWorkers(workerMetrics, workerPool, options);
+    manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -250,10 +259,12 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 2;
 
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(2);
     assertThat(workerPool.getNumActive(key)).isEqualTo(1);
 
-    WorkerLifecycleManager.evictWorkers(workerMetrics, workerPool, options);
+    manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(0);
     assertThat(workerPool.getNumActive(key)).isEqualTo(1);
@@ -301,12 +312,14 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 2;
 
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+
     assertThat(workerPool.getNumIdlePerKey(key1)).isEqualTo(2);
     assertThat(workerPool.getNumActive(key1)).isEqualTo(0);
     assertThat(workerPool.getNumIdlePerKey(key2)).isEqualTo(2);
     assertThat(workerPool.getNumActive(key2)).isEqualTo(0);
 
-    WorkerLifecycleManager.evictWorkers(workerMetrics, workerPool, options);
+    manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key1)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key1)).isEqualTo(0);

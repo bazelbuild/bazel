@@ -484,7 +484,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
     String actionId = getStringForIndex(indexer, VarInt.getVarInt(source));
 
-    return new RemoteFileArtifactValue(digest, size, locationIndex, actionId);
+    return RemoteFileArtifactValue.create(digest, size, locationIndex, actionId);
   }
 
   /** @return action data encoded as a byte[] array. */

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
@@ -22,6 +23,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 
@@ -144,6 +146,30 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       structField = true)
   boolean shouldCompileJavaSrcs();
 
+  @Nullable
+  @StarlarkMethod(
+      name = "native_libs",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  Dict<String, Depset> getNativeLibsStarlark();
+
+  @Nullable
+  @StarlarkMethod(
+      name = "native_libs_name",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  FileApi getNativeLibsNameStarlark();
+
+  @Nullable
+  @StarlarkMethod(
+      name = "transitive_native_libs",
+      documented = false,
+      allowReturnNones = true,
+      structField = true)
+  Depset getTransitiveNativeLibsStarlark();
+
   /** Provider for {@link AndroidApplicationResourceInfoApi}. */
   @StarlarkBuiltin(
       name = "Provider",
@@ -245,6 +271,15 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
               named = true,
               doc = "",
               defaultValue = "None"),
+          @Param(
+              name = "transitive_native_libs",
+              allowedTypes = {
+                @ParamType(type = Depset.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              doc = "",
+              defaultValue = "None"),
         },
         selfCall = true)
     @StarlarkConstructor
@@ -260,7 +295,8 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
         Object databindingLayoutInfoZip,
         Object buildStampJar,
         boolean shouldCompileJava,
-        Object nativeLibs)
+        Object nativeLibs,
+        Object transitiveNativeLibs)
         throws EvalException;
   }
 }

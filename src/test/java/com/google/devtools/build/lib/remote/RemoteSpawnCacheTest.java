@@ -422,19 +422,15 @@ public class RemoteSpawnCacheTest {
   public void noRemoteCacheSpawns_combinedCache() throws Exception {
     // Checks that spawns satisfying Spawns.mayBeCachedRemotely=false are not looked up in the
     // remote cache, and that the results/artifacts are not uploaded to the remote cache.
-    // For the purposes of execution requirements, a combined cache with a remote component
-    // is considered a remote cache
+    // The disk cache part of a combined cache is considered as a local cache hence spawns tagged
+    // with NO_REMOTE can sill hit it.
     RemoteOptions combinedCacheOptions = Options.getDefaults(RemoteOptions.class);
     combinedCacheOptions.remoteCache = "https://somecache.com";
     combinedCacheOptions.diskCache = PathFragment.create("/etc/something/cache/here");
     RemoteSpawnCache remoteSpawnCache = remoteSpawnCacheWithOptions(combinedCacheOptions);
 
     for (String requirement :
-        ImmutableList.of(
-            ExecutionRequirements.NO_CACHE,
-            ExecutionRequirements.LOCAL,
-            ExecutionRequirements.NO_REMOTE_CACHE,
-            ExecutionRequirements.NO_REMOTE)) {
+        ImmutableList.of(ExecutionRequirements.NO_CACHE, ExecutionRequirements.LOCAL)) {
       SimpleSpawn uncacheableSpawn = simpleSpawnWithExecutionInfo(ImmutableMap.of(requirement, ""));
       CacheHandle entry = remoteSpawnCache.lookup(uncacheableSpawn, simplePolicy);
       verify(remoteCache, never())

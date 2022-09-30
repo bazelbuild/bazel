@@ -204,7 +204,7 @@ public class CompactPersistentActionCacheTest {
             .getHashFunction()
             .hashBytes(bytes)
             .asBytes();
-    return new RemoteFileArtifactValue(digest, bytes.length, 1, "action-id");
+    return RemoteFileArtifactValue.create(digest, bytes.length, 1, "action-id");
   }
 
   private TreeArtifactValue createTreeMetadata(

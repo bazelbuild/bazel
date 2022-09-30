@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -55,9 +54,14 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
     mapper = AggregatingAttributeMapper.of(rule);
   }
 
-  private static Label getDefaultMallocLabel(Rule rule) {
-    return Verify.verifyNotNull(
-        (Label) rule.getRuleClassObject().getAttributeByName("malloc").getDefaultValueUnchecked());
+  @Override
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder =
+        new ConfiguredRuleClassProvider.Builder()
+            .addRuleDefinition(new RuleWithDefaults())
+            .addRuleDefinition(new RuleWithComputedDefaults());
+    TestRuleClassProvider.addStandardRules(builder);
+    return builder.build();
   }
 
   /**
@@ -174,20 +178,6 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
   }
 
   @Test
-  public void testVisitationWithDefaultValues() throws Exception {
-    Rule rule = scratchRule("a", "myrule",
-        "cc_binary(name = 'myrule',",
-        "    srcs = [],",
-        "    malloc = select({",
-        "        '//conditions:a': None,",
-        "    }))");
-
-    assertThat(getLabelsForAttribute(AggregatingAttributeMapper.of(rule), "malloc"))
-        .containsExactly("//conditions:a", getDefaultMallocLabel(rule).toString());
-  }
-
-
-  @Test
   public void testGetReachableLabels() throws Exception {
     Rule rule = scratchRule("x", "main",
         "cc_binary(",
@@ -220,18 +210,61 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
     assertThat(mapper.getReachableLabels("srcs", false)).containsExactlyElementsIn(valueLabels);
   }
 
+  /** Custom rule to support testing over default valuess. */
+  public static final class RuleWithDefaults
+      implements RuleDefinition, RuleConfiguredTargetFactory {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .add(
+              attr("attribute", BuildType.LABEL).value(label("//default:value")).allowedFileTypes())
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("rule_with_default")
+          .ancestors(BaseRuleClasses.NativeBuildRule.class)
+          .factoryClass(UnknownRuleConfiguredTarget.class)
+          .build();
+    }
+
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  @Test
+  public void testVisitationWithDefaultValues() throws Exception {
+    Rule rule =
+        scratchRule(
+            "a",
+            "myrule",
+            "rule_with_default(name = 'myrule',",
+            "    attribute = select({",
+            "        '//conditions:a': None,",
+            "    }))");
+
+    assertThat(getLabelsForAttribute(AggregatingAttributeMapper.of(rule), "attribute"))
+        .containsExactly("//conditions:a", "//default:value");
+  }
+
   @Test
   public void testGetReachableLabelsWithDefaultValues() throws Exception {
-    Rule rule = scratchRule("a", "myrule",
-        "cc_binary(name = 'myrule',",
-        "    srcs = [],",
-        "    malloc = select({",
-        "        '//conditions:a': None,",
-        "    }))");
+    Rule rule =
+        scratchRule(
+            "a",
+            "myrule",
+            "rule_with_default(name = 'myrule',",
+            "    attribute = select({",
+            "        '//conditions:a': None,",
+            "    }))");
 
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    assertThat(mapper.getReachableLabels("malloc", true))
-        .containsExactly(getDefaultMallocLabel(rule), label("//conditions:a"));
+    assertThat(mapper.getReachableLabels("attribute", true))
+        .containsExactly(label("//default:value"), label("//conditions:a"));
   }
 
   /**
@@ -279,15 +312,6 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
     public ConfiguredTarget create(RuleContext ruleContext) {
       throw new UnsupportedOperationException();
     }
-  }
-
-  @Override
-  protected ConfiguredRuleClassProvider createRuleClassProvider() {
-    ConfiguredRuleClassProvider.Builder builder =
-        new ConfiguredRuleClassProvider.Builder()
-            .addRuleDefinition(new RuleWithComputedDefaults());
-    TestRuleClassProvider.addStandardRules(builder);
-    return builder.build();
   }
 
   @Test

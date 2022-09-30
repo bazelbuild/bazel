@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -30,19 +31,21 @@ import java.util.Map;
 class InMemoryRemoteCache extends RemoteExecutionCache {
 
   InMemoryRemoteCache(
-      Map<Digest, byte[]> casEntries,
-      RemoteOptions options,
-      DigestUtil digestUtil) {
-    super(new InMemoryCacheClient(casEntries), options, digestUtil);
+      Map<Digest, byte[]> casEntries, RemoteOptions options, DigestUtil digestUtil) {
+    super(
+        CacheCapabilities.getDefaultInstance(),
+        new InMemoryCacheClient(casEntries),
+        options,
+        digestUtil);
   }
 
   InMemoryRemoteCache(RemoteOptions options, DigestUtil digestUtil) {
-    super(new InMemoryCacheClient(), options, digestUtil);
+    super(CacheCapabilities.getDefaultInstance(), new InMemoryCacheClient(), options, digestUtil);
   }
 
   InMemoryRemoteCache(
       RemoteCacheClient cacheProtocol, RemoteOptions options, DigestUtil digestUtil) {
-    super(cacheProtocol, options, digestUtil);
+    super(CacheCapabilities.getDefaultInstance(), cacheProtocol, options, digestUtil);
   }
 
   Digest addContents(RemoteActionExecutionContext context, String txt)

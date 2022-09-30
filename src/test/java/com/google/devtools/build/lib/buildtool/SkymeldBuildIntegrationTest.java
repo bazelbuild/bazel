@@ -534,6 +534,18 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
         "Action foo/aspect_output failed: (Exit 1): bash failed: error executing command");
   }
 
+  @Test
+  public void targetCycle_doesNotCrash() throws Exception {
+    write(
+        "a/BUILD",
+        "alias(name='a', actual=':b')",
+        "alias(name='b', actual=':c')",
+        "alias(name='c', actual=':a')",
+        "filegroup(name='d', srcs=[':c'])");
+    assertThrows(ViewCreationFailedException.class, () -> buildTarget("//a:d"));
+    events.assertContainsError("cycle in dependency graph");
+  }
+
   private void assertSingleAnalysisPhaseCompleteEventWithLabels(String... labels) {
     assertThat(analysisEventsSubscriber.getAnalysisPhaseCompleteEvents()).hasSize(1);
     AnalysisPhaseCompleteEvent analysisPhaseCompleteEvent =

@@ -960,6 +960,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.enableAspectHints = enableAspectHints;
     host.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
 
+    host.usePlatformsRepoForConstraints = usePlatformsRepoForConstraints;
     return host;
   }
 

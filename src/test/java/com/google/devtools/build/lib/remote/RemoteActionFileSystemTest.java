@@ -169,7 +169,7 @@ public final class RemoteActionFileSystemTest {
     byte[] b = contents.getBytes(StandardCharsets.UTF_8);
     HashCode h = HASH_FUNCTION.getHashFunction().hashBytes(b);
     FileArtifactValue f =
-        new RemoteFileArtifactValue(h.asBytes(), b.length, /* locationIndex= */ 1, "action-id");
+        RemoteFileArtifactValue.create(h.asBytes(), b.length, /* locationIndex= */ 1, "action-id");
     inputs.putWithNoDepOwner(a, f);
     return a;
   }

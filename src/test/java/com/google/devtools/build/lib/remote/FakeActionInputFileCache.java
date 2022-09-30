@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
@@ -74,6 +75,15 @@ final class FakeActionInputFileCache implements MetadataProvider {
     Path inputFile = execRoot.getRelative(input.getExecPath());
     inputFile.createDirectoryAndParents();
     Digest digest = digestUtil.compute(content);
+    setDigest(input, digest.getHash());
+    return digest;
+  }
+
+  public Digest createScratchInputSymlink(ActionInput input, String target) throws IOException {
+    Path inputFile = execRoot.getRelative(input.getExecPath());
+    inputFile.getParentDirectory().createDirectoryAndParents();
+    inputFile.createSymbolicLink(PathFragment.create(target));
+    Digest digest = digestUtil.compute(inputFile);
     setDigest(input, digest.getHash());
     return digest;
   }

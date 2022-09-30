@@ -29,11 +29,13 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.bazel.BazelVersion;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.Selection.SelectionResult;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
@@ -56,6 +58,8 @@ public class BazelModuleResolutionFunction implements SkyFunction {
 
   public static final Precomputed<CheckDirectDepsMode> CHECK_DIRECT_DEPENDENCIES =
       new Precomputed<>("check_direct_dependency");
+  public static final Precomputed<BazelCompatibilityMode> BAZEL_COMPATIBILITY_MODE =
+      new Precomputed<>("bazel_compatibility_mode");
 
   @Override
   @Nullable
@@ -79,9 +83,11 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     }
     ImmutableMap<ModuleKey, Module> resolvedDepGraph = selectionResult.getResolvedDepGraph();
 
-    // TODO(salmasamy) add flag to ignore version compatability check
     try {
-      checkCompatibility(resolvedDepGraph.values());
+      checkCompatibility(
+          resolvedDepGraph.values(),
+          Objects.requireNonNull(BAZEL_COMPATIBILITY_MODE.get(env)),
+          env.getListener());
     } catch (ExternalDepsException e) {
       throw new BazelModuleResolutionFunctionException(e, Transience.PERSISTENT);
     }
@@ -91,8 +97,13 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     return createValue(resolvedDepGraph, selectionResult.getUnprunedDepGraph(), overrides);
   }
 
-  public static void checkCompatibility(ImmutableCollection<Module> modules)
+  public static void checkCompatibility(
+      ImmutableCollection<Module> modules, BazelCompatibilityMode mode, EventHandler eventHandler)
       throws ExternalDepsException {
+    if (mode == BazelCompatibilityMode.OFF) {
+      return;
+    }
+
     String currentBazelVersion = BlazeVersionInfo.instance().getVersion();
     if (Strings.isNullOrEmpty(currentBazelVersion)) {
       return;
@@ -102,12 +113,22 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     for (Module module : modules) {
       for (String compatVersion : module.getBazelCompatibility()) {
         if (!curVersion.satisfiesCompatibility(compatVersion)) {
-          throw ExternalDepsException.withMessage(
-              Code.VERSION_RESOLUTION_ERROR,
-              "Bazel version %s is not compatible with module {%s -> bazel_compatability: %s}",
-              curVersion.getOriginal(),
-              module.getName(),
-              compatVersion);
+          String message =
+              String.format(
+                  "Bazel version %s is not compatible with module \"%s@%s\" (bazel_compatibility:"
+                      + " %s)",
+                  curVersion.getOriginal(),
+                  module.getName(),
+                  module.getVersion().getOriginal(),
+                  module.getBazelCompatibility());
+
+          if (mode == BazelCompatibilityMode.WARNING) {
+            eventHandler.handle(Event.warn(message));
+          } else {
+            eventHandler.handle(Event.error(message));
+            throw ExternalDepsException.withMessage(
+                Code.VERSION_RESOLUTION_ERROR, "Bazel compatibility check failed");
+          }
         }
       }
     }

@@ -22,9 +22,11 @@ import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -76,6 +78,8 @@ public class UploadManifest {
   private final RemotePathResolver remotePathResolver;
   private final ActionResult.Builder result;
   private final boolean followSymlinks;
+  private final boolean allowDanglingSymlinks;
+  private final boolean allowAbsoluteSymlinks;
   private final Map<Digest, Path> digestToFile = new HashMap<>();
   private final Map<Digest, ByteString> digestToBlobs = new HashMap<>();
   @Nullable private ActionKey actionKey;
@@ -84,6 +88,7 @@ public class UploadManifest {
 
   public static UploadManifest create(
       RemoteOptions remoteOptions,
+      CacheCapabilities cacheCapabilities,
       DigestUtil digestUtil,
       RemotePathResolver remotePathResolver,
       ActionKey actionKey,
@@ -103,7 +108,11 @@ public class UploadManifest {
             digestUtil,
             remotePathResolver,
             result,
-            /* followSymlinks= */ !remoteOptions.incompatibleRemoteSymlinks);
+            /* followSymlinks= */ !remoteOptions.incompatibleRemoteSymlinks,
+            /* allowDanglingSymlinks= */ remoteOptions.incompatibleRemoteDanglingSymlinks,
+            /* allowAbsoluteSymlinks= */ cacheCapabilities
+                .getSymlinkAbsolutePathStrategy()
+                .equals(SymlinkAbsolutePathStrategy.Value.ALLOWED));
     manifest.addFiles(outputFiles);
     manifest.setStdoutStderr(outErr);
     manifest.addAction(actionKey, action, command);
@@ -140,11 +149,15 @@ public class UploadManifest {
       DigestUtil digestUtil,
       RemotePathResolver remotePathResolver,
       ActionResult.Builder result,
-      boolean followSymlinks) {
+      boolean followSymlinks,
+      boolean allowDanglingSymlinks,
+      boolean allowAbsoluteSymlinks) {
     this.digestUtil = digestUtil;
     this.remotePathResolver = remotePathResolver;
     this.result = result;
     this.followSymlinks = followSymlinks;
+    this.allowDanglingSymlinks = allowDanglingSymlinks;
+    this.allowAbsoluteSymlinks = allowAbsoluteSymlinks;
   }
 
   private void setStdoutStderr(FileOutErr outErr) throws IOException {
@@ -186,25 +199,38 @@ public class UploadManifest {
         // Need to resolve the symbolic link to know what to add, file or directory.
         FileStatus statFollow = file.statIfFound(Symlinks.FOLLOW);
         if (statFollow == null) {
-          throw new IOException(
-              String.format("Action output %s is a dangling symbolic link to %s ", file, target));
-        }
-        if (statFollow.isSpecialFile()) {
-          illegalOutput(file);
-        }
-        Preconditions.checkState(
-            statFollow.isFile() || statFollow.isDirectory(), "Unknown stat type for %s", file);
-        if (!followSymlinks && !target.isAbsolute()) {
-          if (statFollow.isFile()) {
+          if (allowDanglingSymlinks) {
+            if (target.isAbsolute() && !allowAbsoluteSymlinks) {
+              throw new IOException(
+                  String.format(
+                      "Action output %s is an absolute symbolic link to %s, which is not allowed by"
+                          + " the remote cache",
+                      file, target));
+            }
+            // Report symlink to a file since we don't know any better.
             addFileSymbolicLink(file, target);
           } else {
-            addDirectorySymbolicLink(file, target);
+            throw new IOException(
+                String.format(
+                    "Action output %s is a dangling symbolic link to %s. ", file, target));
           }
+        } else if (statFollow.isSpecialFile()) {
+          illegalOutput(file);
         } else {
-          if (statFollow.isFile()) {
-            addFile(digestUtil.compute(file), file);
+          Preconditions.checkState(
+              statFollow.isFile() || statFollow.isDirectory(), "Unknown stat type for %s", file);
+          if (!followSymlinks && !target.isAbsolute()) {
+            if (statFollow.isFile()) {
+              addFileSymbolicLink(file, target);
+            } else {
+              addDirectorySymbolicLink(file, target);
+            }
           } else {
-            addDirectory(file);
+            if (statFollow.isFile()) {
+              addFile(digestUtil.compute(file), file);
+            } else {
+              addDirectory(file);
+            }
           }
         }
       } else {

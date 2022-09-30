@@ -134,8 +134,8 @@ public interface SkyFunction {
      *
      * <p>On a subsequent evaluation, if any of this value's dependencies have changed they will be
      * re-evaluated in the same order as originally requested by the {@code SkyFunction} using this
-     * {@code getValue} call (see {@link #getOrderedValuesAndExceptions} for when preserving the
-     * order is not important).
+     * {@code getValue} call (see {@link #getValuesAndExceptions} for when preserving the order is
+     * not important).
      *
      * <p>This method and the ones below may throw {@link InterruptedException}. Such exceptions
      * must not be caught by the {@link SkyFunction#compute} implementation. Instead, they should be
@@ -190,15 +190,15 @@ public interface SkyFunction {
      * be thought of as a "dependency group" -- they are requested together by this value.
      *
      * <p>In general, if the result of one getValue call can affect the argument of a later getValue
-     * call, the two calls cannot be merged into a single getOrderedValuesAndExceptions call, since
-     * the result of the first call might change on a later evaluation. Inversely, if the result of
-     * one getValue call cannot affect the parameters of the next getValue call, the two keys can
-     * form a dependency group and the two getValue calls should be merged into one
-     * getOrderedValuesAndExceptions call. In the latter case, if we fail to combine the _multiple_
-     * getValue (or getOrderedValuesAndExceptions) calls into one _single_
-     * getOrderedValuesAndExceptions call, it would result in multiple dependency groups with an
-     * implicit ordering between them. This would unnecessarily cause sequential evaluations of
-     * these groups and could impact overall performance.
+     * call, the two calls cannot be merged into a single getValuesAndExceptions call, since the
+     * result of the first call might change on a later evaluation. Inversely, if the result of one
+     * getValue call cannot affect the parameters of the next getValue call, the two keys can form a
+     * dependency group and the two getValue calls should be merged into one getValuesAndExceptions
+     * call. In the latter case, if we fail to combine the _multiple_ getValue (or
+     * getValuesAndExceptions) calls into one _single_ getValuesAndExceptions call, it would result
+     * in multiple dependency groups with an implicit ordering between them. This would
+     * unnecessarily cause sequential evaluations of these groups and could impact overall
+     * performance.
      *
      * <p>On subsequent evaluations, when checking to see if dependencies require re-evaluation, all
      * the values within one group may be simultaneously checked. A SkyFunction should request a
@@ -213,42 +213,40 @@ public interface SkyFunction {
      * value, will request all values in the group again anyway, so they would have to have been
      * built in any case.
      *
-     * <p>Example of when to use getOrderedValuesAndExceptions: A ListProcessor value is built with
-     * key inputListRef. The {@link #compute} method first calls
-     * getValue(InputList.key(inputListRef)), and retrieves inputList. It then iterates through
-     * inputList, calling getValue on each input. Finally, it processes the whole list and returns.
-     * Say inputList is (a, b, c). Since the {@link #compute} method will unconditionally call
-     * getValue(a), getValue(b), and getValue (c), the {@link #compute} method can instead just call
-     * getOrderedValuesAndExceptions({a, b, c}). If the value is later dirtied the evaluator will
-     * evaluate a, b, and c in parallel (assuming the inputList value was unchanged), and
-     * re-evaluate the ListProcessor value only if at least one of them was changed. On the other
-     * hand, if the InputList changes to be (a, b, d), then the evaluator will see that the first
-     * dep has changed, and call the {@link #compute} method to re-evaluate from scratch, without
-     * considering the dep group of {a, b, c}.
+     * <p>Example of when to use getValuesAndExceptions: A ListProcessor value is built with key
+     * inputListRef. The {@link #compute} method first calls getValue(InputList.key(inputListRef)),
+     * and retrieves inputList. It then iterates through inputList, calling getValue on each input.
+     * Finally, it processes the whole list and returns. Say inputList is (a, b, c). Since the
+     * {@link #compute} method will unconditionally call getValue(a), getValue(b), and getValue(c),
+     * the {@link #compute} method can instead just call getValuesAndExceptions({a, b, c}). If the
+     * value is later dirtied the evaluator will evaluate a, b, and c in parallel (assuming the
+     * inputList value was unchanged), and re-evaluate the ListProcessor value only if at least one
+     * of them was changed. On the other hand, if the InputList changes to be (a, b, d), then the
+     * evaluator will see that the first dep has changed, and call the {@link #compute} method to
+     * re-evaluate from scratch, without considering the dep group of {a, b, c}.
      *
-     * <p>Example of when not to use getOrderedValuesAndExceptions: A BestMatch value is built with
-     * key &lt;potentialMatchesRef, matchCriterion&gt;. The {@link #compute} method first calls
+     * <p>Example of when not to use getValuesAndExceptions: A BestMatch value is built with key
+     * &lt;potentialMatchesRef, matchCriterion&gt;. The {@link #compute} method first calls
      * getValue(PotentialMatches.key(potentialMatchesRef) and retrieves potentialMatches. It then
      * iterates through potentialMatches, calling getValue on each potential match until it finds
      * one that satisfies matchCriterion. In this case, if potentialMatches is (a, b, c), it would
-     * be <i>incorrect</i> to call getOrderedValuesAndExceptions({a, b, c}), because it is not known
-     * yet whether requesting b or c will be necessary -- if a matches, then we will never call b or
-     * c.
+     * be <i>incorrect</i> to call getValuesAndExceptions({a, b, c}), because it is not known yet
+     * whether requesting b or c will be necessary -- if a matches, then we will never call b or c.
      *
-     * <p>Returns a {@link SkyframeIterableResult}, which contains the results in the same order as
-     * {@code depKeys}.
+     * <p>Returns a {@link SkyframeLookupResult}, which allows the calling {@code SkyFunction} to
+     * get a value or throw an exception per SkyKey.
      */
-    SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
+    SkyframeLookupResult getValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
         throws InterruptedException;
 
     /**
-     * Similar to {@link #getOrderedValuesAndExceptions}, but returns a {@link
-     * SkyframeLookupResult}, which allows the calling {@code SkyFunction} to get value or throw
-     * exception per SkyKey.
+     * Similar to {@link #getValuesAndExceptions}, but returns a {@link SkyframeIterableResult},
+     * which contains the results in the same order as {@code depKeys}.
      *
-     * <p>Use {@link #getOrderedValuesAndExceptions} in preference, since it creates less garbage.
+     * <p>Prefer {@link #getValuesAndExceptions} at it creates slightly less garbage.
      */
-    SkyframeLookupResult getValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
+    // TODO(jhorvitz): Delete this method now that it has no benefit over getValuesAndExceptions.
+    SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
         throws InterruptedException;
 
     /**

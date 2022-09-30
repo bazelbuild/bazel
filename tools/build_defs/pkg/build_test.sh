@@ -62,8 +62,8 @@ function assert_content() {
 ./usr/
 ./usr/titi"
   check_eq "$listing" "$(get_tar_listing $1)"
-  check_eq "-rw-r--r--" "$(get_tar_permission $1 ./usr/titi)"
-  check_eq "-rw-r--r--" "$(get_tar_permission $1 ./etc/nsswitch.conf)"
+  check_eq "-rwxr-xr-x" "$(get_tar_permission $1 ./usr/titi)"
+  check_eq "-rwxr-xr-x" "$(get_tar_permission $1 ./etc/nsswitch.conf)"
 }
 
 function test_tar() {
@@ -72,9 +72,7 @@ function test_tar() {
 ./etc/nsswitch.conf
 ./usr/
 ./usr/titi"
-  for i in "" ".gz"; do
-    assert_content "test-tar-${i:1}.tar$i"
-  done;
+  assert_content "test-tar.tar"
 
   check_eq "./
 ./nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-empty.tar)"

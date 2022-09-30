@@ -356,6 +356,7 @@ final class ExecutionServer extends ExecutionImplBase {
         UploadManifest manifest =
             UploadManifest.create(
                 cache.getRemoteOptions(),
+                cache.getCacheCapabilities(),
                 digestUtil,
                 RemotePathResolver.createDefault(workingDirectory),
                 actionKey,

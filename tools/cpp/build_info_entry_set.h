@@ -15,6 +15,7 @@
 #ifndef BAZEL_TOOLS_CPP_BUILD_INFO_ENTRY_SET_H_
 #define BAZEL_TOOLS_CPP_BUILD_INFO_ENTRY_SET_H_
 
+#include <map>
 #include <string>
 #include <unordered_map>
 
@@ -55,17 +56,14 @@ class BuildInfoEntrySet {
     }
   };
 
-  virtual std::unordered_map<std::string, BuildInfoEntry>
-  GetVolatileFileEntries() = 0;
-  virtual std::unordered_map<std::string, BuildInfoEntry>
-  GetNonVolatileFileEntries() = 0;
-  virtual std::unordered_map<std::string, BuildInfoEntry>
-  GetRedactedFileEntries() = 0;
+  virtual std::map<std::string, BuildInfoEntry> GetVolatileFileEntries() = 0;
+  virtual std::map<std::string, BuildInfoEntry> GetNonVolatileFileEntries() = 0;
+  virtual std::map<std::string, BuildInfoEntry> GetRedactedFileEntries() = 0;
   virtual ~BuildInfoEntrySet() = 0;
 
  protected:
-  std::unordered_map<std::string, BuildInfoEntry> TranslateKeys(
-      const std::unordered_map<std::string, std::string>& key_translations,
+  std::map<std::string, BuildInfoEntry> TranslateKeys(
+      const std::map<std::string, std::string>& translation_keys,
       std::unordered_map<std::string, KeyDescription>& keys,
       std::unordered_map<std::string, std::string>& values);
 

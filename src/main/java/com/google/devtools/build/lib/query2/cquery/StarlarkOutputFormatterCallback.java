@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfigur
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.StarlarkLibrary;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
@@ -186,6 +188,8 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
     try (Mutability mu = Mutability.create("formatter")) {
       ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
       Starlark.addMethods(env, new CqueryDialectGlobals(), StarlarkSemantics.DEFAULT);
+      env.putAll(StarlarkLibrary.COMMON);
+      env.put("struct", StructProvider.STRUCT);
       Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, env.buildOrThrow());
 
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);

@@ -87,7 +87,7 @@ public abstract class ActionInputPrefetcherTestBase {
     byte[] contentsBytes = contents.getBytes(UTF_8);
     HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contentsBytes);
     FileArtifactValue f =
-        new RemoteFileArtifactValue(
+        RemoteFileArtifactValue.create(
             hashCode.asBytes(), contentsBytes.length, /* locationIndex= */ 1, "action-id");
     metadata.put(a, f);
     cas.put(hashCode, contentsBytes);

@@ -95,7 +95,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     ImmutableList.Builder<String> fullArgs = ImmutableList.builder();
     fullArgs.add("--incompatible_enable_android_toolchain_resolution");
     // Uncomment the below to get more info when tests fail because of toolchain resolution.
-    //  fullArgs.add("--toolchain_resolution_debug=tools/android:.*toolchain_type");
+    // fullArgs.add("--toolchain_resolution_debug=tools/android:.*toolchain_type");
     boolean hasPlatform = false;
     for (String arg : args) {
       if (arg.startsWith("--android_sdk=")) {

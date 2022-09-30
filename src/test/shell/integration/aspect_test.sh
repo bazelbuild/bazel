@@ -109,7 +109,7 @@ EOF
       && fail "Expected failure"
   local -r exit_code="$?"
   [[ "$exit_code" == 1 ]] || fail "Unexpected exit code: $exit_code"
-  expect_log "ERROR: Analysis of target '//test:brokentarget' failed"
+  expect_log "Analysis of target '//test:brokentarget' failed"
   expect_not_log "Analysis of aspects"
 }
 

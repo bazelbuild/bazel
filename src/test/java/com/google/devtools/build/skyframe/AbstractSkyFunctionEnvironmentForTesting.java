@@ -74,7 +74,7 @@ public abstract class AbstractSkyFunctionEnvironmentForTesting
   public final SkyframeLookupResult getValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
       throws InterruptedException {
     Map<SkyKey, ValueOrUntypedException> valuesOrExceptions = getValueOrUntypedExceptions(depKeys);
-    return new SkyframeLookupResult(() -> valuesMissing = true, valuesOrExceptions::get);
+    return new SimpleSkyframeLookupResult(() -> valuesMissing = true, valuesOrExceptions::get);
   }
 
   @Override
@@ -82,6 +82,6 @@ public abstract class AbstractSkyFunctionEnvironmentForTesting
       Iterable<? extends SkyKey> depKeys) throws InterruptedException {
     List<ValueOrUntypedException> valuesOrExceptions = getOrderedValueOrUntypedExceptions(depKeys);
     Iterator<ValueOrUntypedException> valuesOrExceptionsi = valuesOrExceptions.iterator();
-    return new SkyframeIterableResult(() -> valuesMissing = true, valuesOrExceptionsi);
+    return new SimpleSkyframeIterableResult(() -> valuesMissing = true, valuesOrExceptionsi);
   }
 }

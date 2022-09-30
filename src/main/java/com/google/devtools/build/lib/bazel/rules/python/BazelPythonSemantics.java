@@ -92,12 +92,20 @@ public class BazelPythonSemantics implements PythonSemantics {
   public void collectRunfilesForBinary(
       RuleContext ruleContext, Runfiles.Builder builder, PyCommon common, CcInfo ccInfo) {
     addRuntime(ruleContext, common, builder);
+    // select() and build configuration should ideally remove coverage as
+    // as dependency, but guard against including it at runtime just in case.
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      addCoverageSupport(ruleContext, common, builder);
+    }
   }
 
   @Override
   public void collectDefaultRunfilesForBinary(
       RuleContext ruleContext, PyCommon common, Runfiles.Builder builder) {
     addRuntime(ruleContext, common, builder);
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      addCoverageSupport(ruleContext, common, builder);
+    }
   }
 
   @Override
@@ -154,6 +162,9 @@ public class BazelPythonSemantics implements PythonSemantics {
     // first-stage.
     String pythonBinary = getPythonBinary(ruleContext, common, bazelConfig);
 
+    // The python code coverage tool to use, if any.
+    String coverageTool = getCoverageTool(ruleContext, common);
+
     // Version information for host config diagnostic warning.
     PythonVersion attrVersion = PyCommon.readPythonVersionFromAttribute(ruleContext.attributes());
     boolean attrVersionSpecifiedExplicitly = attrVersion != null;
@@ -172,6 +183,7 @@ public class BazelPythonSemantics implements PythonSemantics {
                 Substitution.of(
                     "%main%", common.determineMainExecutableSource(/*withWorkspaceName=*/ true)),
                 Substitution.of("%python_binary%", pythonBinary),
+                Substitution.of("%coverage_tool%", coverageTool == null ? "" : coverageTool),
                 Substitution.of("%imports%", Joiner.on(":").join(common.getImports().toList())),
                 Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
                 Substitution.of("%is_zipfile%", boolToLiteral(isForZipFile)),
@@ -459,6 +471,31 @@ public class BazelPythonSemantics implements PythonSemantics {
     }
 
     return pythonBinary;
+  }
+
+  private static void addCoverageSupport(
+      RuleContext ruleContext, PyCommon common, Runfiles.Builder builder) {
+    PyRuntimeInfo provider = getRuntime(ruleContext, common);
+    if (provider != null && provider.getCoverageTool() != null) {
+      builder.addArtifact(provider.getCoverageTool());
+      builder.addTransitiveArtifacts(provider.getCoverageToolFiles());
+    }
+  }
+
+  @Nullable
+  private static String getCoverageTool(RuleContext ruleContext, PyCommon common) {
+    if (!ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      return null;
+    }
+    String coverageTool = null;
+    PyRuntimeInfo provider = getRuntime(ruleContext, common);
+    if (provider != null && provider.getCoverageTool() != null) {
+      PathFragment workspaceName =
+          PathFragment.create(ruleContext.getRule().getPackage().getWorkspaceName());
+      coverageTool =
+          workspaceName.getRelative(provider.getCoverageTool().getRunfilesPath()).getPathString();
+    }
+    return coverageTool;
   }
 
   private static String getStubShebang(RuleContext ruleContext, PyCommon common) {

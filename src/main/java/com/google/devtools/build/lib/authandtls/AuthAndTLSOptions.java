@@ -123,7 +123,7 @@ public class AuthAndTLSOptions extends OptionsBase {
               + " granularity; it is an error to set a value less than one second. By default,"
               + " keep-alive pings are disabled. You should coordinate with the service owner"
               + " before enabling this setting. For example to set a value of 30 seconds to this"
-              + " flag, it should be done as this --grpc_keepalive_time=30s ")
+              + " flag, it should be done as this --grpc_keepalive_time=30s")
   public Duration grpcKeepaliveTime;
 
   @Option(
