@@ -1709,6 +1709,9 @@ java_library(
 java_library(
     name = "config/core_option_converters",
     srcs = ["config/CoreOptionConverters.java"],
+    exports = [
+        "//src/main/java/com/google/devtools/build/lib/exec:regex_filter_assignment_converter",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",

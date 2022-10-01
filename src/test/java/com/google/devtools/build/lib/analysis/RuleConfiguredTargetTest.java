@@ -94,25 +94,42 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRegexFeatureOverrideGlobal() throws Exception {
+    useConfiguration("--features=-feature", "--features=foo", "--regex_features=//a:a=feature");
+    scratch.file("a/BUILD", "cc_library(name = 'a')");
+    RuleContext ruleContext = getRuleContext(configure("//a"));
+    ImmutableSet<String> disabledFeatures = ruleContext.getDisabledFeatures();
+    ImmutableSet<String> features = ruleContext.getFeatures();
+    assertThat(features).contains("foo");
+    assertThat(features).contains("feature");
+    assertThat(disabledFeatures).doesNotContain("feature");
+    assertThat(disabledFeatures).doesNotContain("foo");
+  }
+
+  @Test
   public void testFeaturesInPackageOverrideFeaturesFromCommandLine() throws Exception {
-    useConfiguration("--features=feature");
-    scratch.file("a/BUILD", "package(features = ['-feature'])", "cc_library(name = 'a')");
+    useConfiguration("--features=feature", "--regex_features=//a:a=regex_feature");
+    scratch.file("a/BUILD", "package(features = ['-feature', '-regex_feature'])", "cc_library(name = 'a')");
     RuleContext ruleContext = getRuleContext(configure("//a"));
     ImmutableSet<String> features = ruleContext.getFeatures();
     ImmutableSet<String> disabledFeatures = ruleContext.getDisabledFeatures();
     assertThat(features).doesNotContain("feature");
+    assertThat(features).doesNotContain("regex_feature");
     assertThat(disabledFeatures).contains("feature");
+    assertThat(disabledFeatures).contains("regex_feature");
   }
 
   @Test
   public void testFeaturesInRuleOverrideFeaturesFromCommandLine() throws Exception {
-    useConfiguration("--features=feature");
-    scratch.file("a/BUILD", "cc_library(name = 'a', features = ['-feature'])");
+    useConfiguration("--features=feature", "--regex_features=//a:a=regex_feature");
+    scratch.file("a/BUILD", "cc_library(name = 'a', features = ['-feature', '-regex_feature'])");
     RuleContext ruleContext = getRuleContext(configure("//a"));
     ImmutableSet<String> features = ruleContext.getFeatures();
     ImmutableSet<String> disabledFeatures = ruleContext.getDisabledFeatures();
     assertThat(features).doesNotContain("feature");
+    assertThat(features).doesNotContain("regex_feature");
     assertThat(disabledFeatures).contains("feature");
+    assertThat(disabledFeatures).contains("regex_feature");
   }
 
   @Test
@@ -128,7 +145,20 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testFeaturesDisabledFromCommandLineOverrideAll() throws Exception {
+  public void testFeaturesDisabledFromRegexOverridesGlobal() throws Exception {
+    useConfiguration("--features=feature", "--features=-foo", "--regex_features=//a:a=-feature");
+    scratch.file("a/BUILD", "cc_library(name = 'a')");
+    RuleContext ruleContext = getRuleContext(configure("//a"));
+    ImmutableSet<String> features = ruleContext.getFeatures();
+    ImmutableSet<String> disabledFeatures = ruleContext.getDisabledFeatures();
+    assertThat(features).doesNotContain("foo");
+    assertThat(features).doesNotContain("feature");
+    assertThat(disabledFeatures).contains("feature");
+    assertThat(disabledFeatures).contains("foo");
+  }
+
+  @Test
+  public void testFeaturesDisabledFromCommandLineOverridesBuildFiles() throws Exception {
     useConfiguration("--features=-package_feature", "--features=-rule_feature");
     scratch.file(
         "a/BUILD",

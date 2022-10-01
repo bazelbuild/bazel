@@ -94,6 +94,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -241,16 +242,29 @@ public final class RuleContext extends TargetContext
     if (attributes().has("features", Type.STRING_LIST)) {
       parseFeatures(attributes().get("features", Type.STRING_LIST), ruleEnabled, ruleDisabled);
     }
+    Set<String> regexEnabled = new HashSet<>();
+    Set<String> regexDisabled = new HashSet<>();
+    ImmutableList.Builder<String> regexFeatures = ImmutableList.builder();
+    for (Map.Entry<RegexFilter, List<String>> e: getConfiguration().getRegexFeatures()) {
+      if (e.getKey().isIncluded(rule.getLabel().toString())) {
+        regexFeatures.addAll(e.getValue());
+      }
+    }
+    parseFeatures(regexFeatures.build(), regexEnabled, regexDisabled);
 
     Set<String> ruleDisabledFeatures =
         Sets.union(ruleDisabled, Sets.difference(packageDisabled, ruleEnabled));
-    allDisabledFeatures.addAll(Sets.union(ruleDisabledFeatures, globallyDisabled));
+    Set<String> flagDisabledFeatures =
+        Sets.union(regexDisabled, Sets.difference(globallyDisabled, regexEnabled));
+    allDisabledFeatures.addAll(Sets.union(ruleDisabledFeatures, flagDisabledFeatures));
 
+    Set<String> flagFeatures =
+        Sets.difference(Sets.union(globallyEnabled, regexEnabled), regexDisabled);
     Set<String> packageFeatures =
-        Sets.difference(Sets.union(globallyEnabled, packageEnabled), packageDisabled);
+        Sets.difference(Sets.union(flagFeatures, packageEnabled), packageDisabled);
     Set<String> ruleFeatures =
         Sets.difference(Sets.union(packageFeatures, ruleEnabled), ruleDisabled);
-    allEnabledFeatures.addAll(Sets.difference(ruleFeatures, globallyDisabled));
+    allEnabledFeatures.addAll(Sets.difference(ruleFeatures, flagDisabledFeatures));
   }
 
   private static void parseFeatures(

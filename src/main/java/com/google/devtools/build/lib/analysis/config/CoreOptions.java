@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.exec.RegexFilterAssignmentConverter;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
@@ -625,6 +626,21 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public List<String> defaultFeatures;
 
   @Option(
+      name = "regex_features",
+      allowMultiple = true,
+      defaultValue = "null",
+      converter = RegexFilterAssignmentConverter.class,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "The given features will be enabled or disabled by default for all targets matching the regex. "
+              + "Specifying -<feature> will disable the feature globally. "
+              + "Negative features always override positive ones. "
+              + "This flag is used to enable rolling out default feature changes without a "
+              + "Bazel release.")
+  public List<Map.Entry<RegexFilter, List<String>>> regexFeatures;
+
+  @Option(
       name = "target_environment",
       converter = LabelListConverter.class,
       allowMultiple = true,
@@ -948,6 +964,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
     // === Pass on C++ compiler features.
     host.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
+    host.regexFeatures = ImmutableList.copyOf(regexFeatures);
 
     // Save host options in case of a further exec->host transition.
     host.hostCpu = hostCpu;

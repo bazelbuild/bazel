@@ -837,6 +837,11 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return options.defaultFeatures;
   }
 
+  /** @return the list of regex features used for all packages. */
+  public List<Map.Entry<RegexFilter, List<String>>> getRegexFeatures() {
+    return options.regexFeatures;
+  }
+
   /**
    * Returns the "top-level" environment space, i.e. the set of environments all top-level targets
    * must be compatible with. An empty value implies no restrictions.
