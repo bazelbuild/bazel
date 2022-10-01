@@ -40,7 +40,11 @@ java_library(
         ),
         "//conditions:default": ["NoAndroidSdkStub.java"],
     }),
-    visibility = ["//src/test/java/com/google/devtools/build/android/r8:__pkg__"],
+    visibility = [
+            "//src/test/java/com/google/devtools/build/android/r8:__pkg__",
+            # needed to test DexFileSplitter with desugared jars
+            "//src/test/java/com/google/devtools/build/android/dexer:__pkg__",
+     ],
     runtime_deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar/dependencies",
     ],

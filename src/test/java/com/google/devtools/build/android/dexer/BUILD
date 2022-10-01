@@ -34,6 +34,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//src/tools/android/java/com/google/devtools/build/android/dexer",
+        "//src/tools/android/java/com/google/devtools/build/android/r8",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",
@@ -47,7 +48,10 @@ java_library(
 
 java_library(
     name = "testdata",
-    srcs = glob(["testdata/**/*.java"]),
+    srcs = glob(
+            ["testdata/**/*.java"],
+            exclude = ["testdata/innerclasses/*"],
+    ),
 )
 
 java_test(
@@ -56,6 +60,7 @@ java_test(
     data = [
         "test_main_dex_list.txt",
         ":mixed_testinput",
+        ":innerclasses_testinput",
         ":testdata",
         ":tests",
     ],
@@ -64,6 +69,7 @@ java_test(
         "-Dtestinputjar=io_bazel/$(location :tests)",
         "-Dtestinputjar2=io_bazel/$(location :testdata)",
         "-Dmixedinputjar=io_bazel/$(location :mixed_testinput)",
+        "-Dinnerclassesinputjar=io_bazel/$(location :innerclasses_testinput)"
     ],
     runtime_deps = [
         ":tests",
@@ -89,4 +95,9 @@ genrule(
 java_library(
     name = "mixed_testinput",
     srcs = [":mixed_srcjar_gen"],
+)
+
+android_library(
+    name = "innerclasses_testinput",
+    srcs = glob(["testdata/innerclasses/*.java"]),
 )

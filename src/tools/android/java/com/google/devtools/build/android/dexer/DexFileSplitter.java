@@ -23,6 +23,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
@@ -39,6 +40,7 @@ import java.io.InputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -269,52 +271,120 @@ class DexFileSplitter implements Closeable {
     closer.close();
   }
 
+  private boolean isOuterClass(String classFile) {
+    String components[] = classFile.split("/");
+    return !components[components.length-1].contains("$");
+  }
+
   private void processDexFiles(
       ImmutableList<Map.Entry<String, ZipFile>> filesToProcess, Predicate<String> filter)
       throws IOException {
+
+    // Collect a class and its inner classes as a unit so that they can be placed in
+    // in a single shard in the next step.
+    // Here we assume filesToProcess is sorted in lexicographical order and outer classes
+    // appear before than the inner classes. 
+    List<Map.Entry<String, ZipFile>> zipEntries = Lists.newArrayList();
     for (Map.Entry<String, ZipFile> entry : filesToProcess) {
       String filename = entry.getKey();
       if (filter.test(filename)) {
-        ZipFile zipFile = entry.getValue();
-        processDexEntry(zipFile, zipFile.getEntry(filename));
+        boolean isOuter = isOuterClass(filename);
+
+	    // TODO: optimize- this currently creates a list of size one for most cases
+        if (!zipEntries.isEmpty() && isOuter) { 
+            processDexEntries(zipEntries);
+        }
+        if (isOuter) {
+            zipEntries.clear();
+        }
+        zipEntries.add(entry);
       }
     }
+    processDexEntries(zipEntries);
   }
 
-  private void processDexEntry(ZipFile zip, ZipEntry entry) throws IOException {
-    String filename = entry.getName();
-    checkState(filename.endsWith(".class.dex"),
-        "%s isn't a dex archive: %s", zip.getName(), filename);
-    checkState(entry.getMethod() == ZipEntry.STORED, "Expect to process STORED: %s", filename);
-    if (inCoreLib == null) {
-      inCoreLib = filename.startsWith("j$/");
-    } else if (inCoreLib != filename.startsWith("j$/")) {
-      // Put j$.xxx classes in separate file.  This shouldn't normally happen (b/134705306).
-      nextShard();
-      inCoreLib = !inCoreLib;
-    }
-    if (inCoreLib) {
-      System.err.printf(
-          "WARNING: Unexpected file %s found. Please ensure this only happens in test APKs.%n",
-          filename);
-    }
+  private void processDexEntries(List<Map.Entry<String, ZipFile>> zipEntries) throws IOException {
+      List<DexEntry> dexEntries = Lists.newArrayList();
+      for (Map.Entry<String, ZipFile> ze: zipEntries) {
+        String filename = ze.getKey(); 
+        ZipFile zip = ze.getValue();
+        ZipEntry entry = zip.getEntry(filename);
+        checkState(filename.endsWith(".class.dex"),
+                "%s isn't a dex archive: %s", zip.getName(), filename);
+        checkState(entry.getMethod() == ZipEntry.STORED, "Expect to process STORED: %s", filename);
+        if (inCoreLib == null) {
+            inCoreLib = filename.startsWith("j$/");
+        } else if (inCoreLib != filename.startsWith("j$/")) {
+            // Put j$.xxx classes in separate file.  This shouldn't normally happen (b/134705306).
+            nextShard();
+            inCoreLib = !inCoreLib;
+        }
+        if (inCoreLib) {
+            System.err.printf(
+                    "WARNING: Unexpected file %s found. Please ensure this only happens in test APKs.%n",
+                    filename);
+        }
 
-    try (InputStream entryStream = zip.getInputStream(entry)) {
-      // We don't want to use the Dex(InputStream) constructor because it closes the stream,
-      // which will break the for loop, and it has its own bespoke way of reading the file into
-      // a byte buffer before effectively calling Dex(byte[]) anyway.
-      // TODO(kmb) since entry is stored, mmap content and give to Dex(ByteBuffer) and output zip
-      byte[] content = new byte[(int) entry.getSize()];
-      ByteStreams.readFully(entryStream, content); // throws if file is smaller than expected
-      checkState(entryStream.read() == -1,
-          "Too many bytes in jar entry %s, expected %s", entry, entry.getSize());
+        try (InputStream entryStream = zip.getInputStream(entry)) {
+            // We don't want to use the Dex(InputStream) constructor because it closes the stream,
+            // which will break the for loop, and it has its own bespoke way of reading the file into
+            // a byte buffer before effectively calling Dex(byte[]) anyway.
+            // TODO(kmb) since entry is stored, mmap content and give to Dex(ByteBuffer) and output zip
+            byte[] content = new byte[(int) entry.getSize()];
+            ByteStreams.readFully(entryStream, content); // throws if file is smaller than expected
+            checkState(entryStream.read() == -1,
+                    "Too many bytes in jar entry %s, expected %s", entry, entry.getSize());
 
-      Dex dexFile = new Dex(content);
-      if (tracker.track(dexFile)) {
-        nextShard();
-        tracker.track(dexFile);
+            dexEntries.add(new DexEntry(new Dex(content), entry, content));
+
+        }
+
       }
-      curOut.writeAsync(entry, content);
-    }
+
+      // A list of dexes mixed between several classes
+      List<Dex> dexFiles = dexEntries.stream()
+          .map(e -> e.getDexFile())
+          .collect(ImmutableList.toImmutableList());
+
+      // Track all dex files for a class and its inner classes as a unit.
+      // Placing inner classes in a different shard than its outer class
+      // can lead to D8 failing during dex merge.
+      if (tracker.track(dexFiles)) {
+          nextShard();
+          checkState(!tracker.track(dexFiles),
+                  "Impossible to fit %s and all of its inner classes in a single shard",
+                  dexEntries.get(0).getEntry().getName());
+      }
+
+      for (DexEntry dexEntry : dexEntries) {
+          curOut.writeAsync(dexEntry.getEntry(), dexEntry.getContent());
+      }
+  }
+
+   /**
+    * Data class to hold information fro a dex file 
+    */
+  private static class DexEntry {
+      private Dex dexFile;
+      private ZipEntry entry;
+      private byte[] content;
+
+      public DexEntry(Dex dexFile, ZipEntry entry, byte[] content) {
+          this.dexFile = dexFile;
+          this.entry = entry;
+          this.content = content;
+      }
+
+      public Dex getDexFile() {
+          return dexFile;
+      }
+
+      public ZipEntry getEntry() {
+          return entry;
+      }
+
+      public byte[] getContent() {
+          return content;
+      }
   }
 }

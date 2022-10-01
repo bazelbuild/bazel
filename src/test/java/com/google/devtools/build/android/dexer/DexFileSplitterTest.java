@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.runfiles.Runfiles;
+import com.google.devtools.build.android.r8.Desugar;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystems;
@@ -47,6 +48,7 @@ public class DexFileSplitterTest {
   private static final Path INPUT_JAR;
   private static final Path INPUT_JAR2;
   private static final Path MIXED_JAR;
+  private static final Path INNER_JAR;
   private static final Path MAIN_DEX_LIST_FILE;
   static final String DEX_PREFIX = "classes";
 
@@ -58,6 +60,7 @@ public class DexFileSplitterTest {
       INPUT_JAR2 = Paths.get(runfiles.rlocation(System.getProperty("testinputjar2")));
       MIXED_JAR = Paths.get(runfiles.rlocation(System.getProperty("mixedinputjar")));
       MAIN_DEX_LIST_FILE = Paths.get(runfiles.rlocation(System.getProperty("testmaindexlist")));
+      INNER_JAR = Paths.get(runfiles.rlocation(System.getProperty("innerclassesinputjar")));
     } catch (Exception e) {
       throw new ExceptionInInitializerError(e);
     }
@@ -229,6 +232,74 @@ public class DexFileSplitterTest {
     assertThat(dexEntries(outputArchives.get(2))).containsExactly("zzz/Bar.class.dex");
   }
 
+  @Test
+  public void testInnerClasses_keptTogether() throws Exception {
+    Path desugaredJar = desugarJar(INNER_JAR, "inner_together.jar");
+
+    System.out.println(desugaredJar.toString());
+    Path innerArchive = buildDexArchive(desugaredJar, "inner_together.jar.dex.zip");
+    // Pick a number such that OuterClass is packed with its inner classes 
+    // and other classes as well (total number of methods = 34 with OuterClass = 21)
+    ImmutableList<Path> outputArchives =
+        runDexSplitter(24, "inner_input", innerArchive);
+
+    String basepath = "com/google/devtools/build/android/dexer/testdata/innerclasses/";
+    String outerClass = basepath + "OuterClass.class.dex";
+    String outerClassLambdaName = "OuterClass$$ExternalSyntheticLambda";
+    String shouldBeTogether[] = new String[6];
+    for (int i = 0; i < shouldBeTogether.length; i++) {
+        shouldBeTogether[i] = basepath + outerClassLambdaName + i + ".class.dex";
+    }
+
+    // Assert that all inner classes are in the same archive
+    ImmutableSet<String> entries = ImmutableSet.of();
+    for (Path out : outputArchives) {
+        entries = dexEntries(out);
+        if (entries.contains(outerClass)) {
+            break;
+        }
+    }
+
+    for (int i = 0; i < shouldBeTogether.length; i++) {
+        assertThat(entries).contains(shouldBeTogether[i]);
+    }
+
+    assertThat(outputArchives).hasSize(3);
+  }
+
+  @Test
+  public void testInnerClasses_oneShard() throws Exception {
+    Path desugaredJar = desugarJar(INNER_JAR, "inner_one.jar");
+
+    System.out.println(desugaredJar.toString());
+    Path innerArchive = buildDexArchive(desugaredJar, "inner_one.jar.dex.zip");
+
+    // Pick a sufficiently high number to guarantee all classes fit
+    ImmutableList<Path> outputArchives =
+        runDexSplitter(256, "inner_input_one", innerArchive);
+
+    assertThat(outputArchives).hasSize(1);
+  }
+
+  @Test
+  public void testInnerClasses_doNotFit() throws Exception {
+    Path desugaredJar = desugarJar(INNER_JAR, "inner_fail.jar");
+    Path innerArchive = buildDexArchive(desugaredJar, "inner_fail.jar.dex.zip");
+
+    try {
+      ImmutableList<Path> outputArchives =
+      // Pick a sufficiently small number to guarantee fields wont fit
+      // (OuterClass has 21 methods)
+      runDexSplitter(20, "inner_input_fail", innerArchive);
+      fail("IllegalStateException expected");
+    } catch (IllegalStateException e) {
+      assertThat(e).hasMessageThat().contains("Impossible to fit");
+    }
+  }
+
+
+
+
   private static Iterable<String> expectedMainDexEntries() throws IOException {
     return Iterables.transform(
         Files.readAllLines(MAIN_DEX_LIST_FILE),
@@ -345,6 +416,20 @@ public class DexFileSplitterTest {
     DexBuilder.buildDexArchive(options, new Dexing(new DxContext(), dexingOptions));
     return options.outputZip;
   }
+
+  private Path desugarJar(Path inputJar, String outputJar) throws Exception {
+    Desugar.DesugarOptions options = new Desugar.DesugarOptions();
+    options.inputJars = ImmutableList.of(inputJar);
+    options.outputJars =
+        ImmutableList.of(FileSystems.getDefault().getPath(System.getenv("TEST_TMPDIR"), outputJar));
+    options.bootclasspath = ImmutableList.of();
+    options.classpath = ImmutableList.of();
+    options.minSdkVersion = 21;
+    new Desugar(options).desugar();
+    return options.outputJars.get(0);
+  }
+
+
 
   // Can't use lambda for Java 7 compatibility so we can run this Jar through dx without desugaring.
   private enum ZipEntryName implements Function<ZipEntry, String> {
