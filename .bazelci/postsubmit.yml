@@ -18,6 +18,7 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
+      - "//src/main/java/..."
     test_flags:
       - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
@@ -61,6 +62,7 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
+      - "//src/main/java/..."
     test_flags:
       - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
@@ -104,6 +106,7 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
+      - "//src/main/java/..."
     test_flags:
       - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
@@ -130,6 +133,7 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
+      - "//src/main/java/..."
     test_flags:
       - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
@@ -172,6 +176,7 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
+      - "//src/main/java/..."
     test_flags:
       - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
@@ -211,6 +216,7 @@ tasks:
       - "//src:bazel.exe"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
+      - "//src/main/java/..."
     test_flags:
       - "--copt=-w"
       - "--host_copt=-w"
@@ -272,6 +278,7 @@ tasks:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
+      - "//src/main/java/..."
     test_flags:
       - "--config=ubuntu1804_java11"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
