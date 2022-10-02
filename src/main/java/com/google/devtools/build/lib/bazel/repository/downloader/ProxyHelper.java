@@ -20,7 +20,7 @@ import java.net.Authenticator;
 import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
 import java.net.Proxy;
-import java.net.URL;
+import java.net.URI;
 import java.net.URLDecoder;
 import java.util.Map;
 import java.util.Objects;
@@ -53,7 +53,7 @@ public class ProxyHelper {
    *
    * @param requestedUrl remote resource that may need to be retrieved through a proxy
    */
-  public Proxy createProxyIfNeeded(URL requestedUrl) throws IOException {
+  public Proxy createProxyIfNeeded(URI requestedUri) throws IOException {
     String proxyAddress = null;
     String noProxyUrl = env.get("no_proxy");
     if (Strings.isNullOrEmpty(noProxyUrl)) {
@@ -61,7 +61,7 @@ public class ProxyHelper {
     }
     if (!Strings.isNullOrEmpty(noProxyUrl)) {
       String[] noProxyUrlArray = noProxyUrl.split("\\s*,\\s*");
-      String requestedHost = requestedUrl.getHost();
+      String requestedHost = requestedUri.getHost();
       for (int i = 0; i < noProxyUrlArray.length; i++) {
         if (noProxyUrlArray[i].startsWith(".")) {
           // This entry applies to sub-domains only.
@@ -77,7 +77,7 @@ public class ProxyHelper {
         }
       }
     }
-    if (HttpUtils.isProtocol(requestedUrl, "https")) {
+    if (HttpUtils.isProtocol(requestedUri, "https")) {
       proxyAddress =
           Stream.of(
                   (Supplier<String>) () -> env.get("https_proxy"),
@@ -95,7 +95,7 @@ public class ProxyHelper {
               .filter(Objects::nonNull)
               .findFirst()
               .orElse(null);
-    } else if (HttpUtils.isProtocol(requestedUrl, "http")) {
+    } else if (HttpUtils.isProtocol(requestedUri, "http")) {
       proxyAddress =
           Stream.of(
                   (Supplier<String>) () -> env.get("http_proxy"),

@@ -115,7 +115,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
 
   @Override
   public void download(
-      List<URL> urls,
+      List<URI> uris,
       Map<URI, Map<String, List<String>>> authHeaders,
       com.google.common.base.Optional<Checksum> checksum,
       String canonicalId,
@@ -132,7 +132,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     final FetchBlobRequest request =
         newFetchBlobRequest(
             options.remoteInstanceName,
-            urls,
+            uris,
             authHeaders,
             checksum,
             canonicalId,
@@ -166,22 +166,22 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       eventHandler.handle(
           Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
       fallbackDownloader.download(
-          urls, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv, type);
+          uris, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv, type);
     }
   }
 
   @VisibleForTesting
   static FetchBlobRequest newFetchBlobRequest(
       String instanceName,
-      List<URL> urls,
+      List<URI> uris,
       Map<URI, Map<String, List<String>>> authHeaders,
       com.google.common.base.Optional<Checksum> checksum,
       String canonicalId,
       boolean includeAllHeaders) {
     FetchBlobRequest.Builder requestBuilder =
         FetchBlobRequest.newBuilder().setInstanceName(instanceName);
-    for (URL url : urls) {
-      requestBuilder.addUris(url.toString());
+    for (URI uri : uris) {
+      requestBuilder.addUris(uri.toString());
     }
     if (checksum.isPresent()) {
       requestBuilder.addQualifiers(

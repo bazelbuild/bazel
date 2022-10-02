@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
@@ -28,7 +29,8 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
-import java.net.URL;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLConnection;
 import java.util.zip.GZIPInputStream;
 import javax.annotation.WillCloseWhenClosed;
@@ -38,6 +40,7 @@ import javax.annotation.WillCloseWhenClosed;
  *
  * <p>This class is not thread safe, but it is safe to message pass its objects between threads.
  */
+// TODO(yannic): Delete this class.
 @ThreadCompatible
 final class HttpStream extends FilterInputStream {
 
@@ -57,19 +60,20 @@ final class HttpStream extends FilterInputStream {
       this.progressInputStreamFactory = progressInputStreamFactory;
     }
 
+    @VisibleForTesting
     HttpStream create(
         @WillCloseWhenClosed URLConnection connection,
-        URL originalUrl,
+        URI originalUri,
         Optional<Checksum> checksum,
         Reconnector reconnector)
         throws IOException {
-      return create(connection, originalUrl, checksum, reconnector, Optional.<String>absent());
+      return create(connection, originalUri, checksum, reconnector, Optional.<String>absent());
     }
 
     @SuppressWarnings("resource")
     HttpStream create(
         @WillCloseWhenClosed URLConnection connection,
-        URL originalUrl,
+        URI originalUri,
         Optional<Checksum> checksum,
         Reconnector reconnector,
         Optional<String> type)
@@ -97,7 +101,7 @@ final class HttpStream extends FilterInputStream {
           // ignored
         }
 
-        stream = progressInputStreamFactory.create(stream, connection.getURL(), originalUrl);
+        stream = progressInputStreamFactory.create(stream, connection.getURL().toURI(), originalUri);
 
         // Determine if we need to transparently gunzip. See RFC2616 § 3.5 and § 14.11. Please note
         // that some web servers will send Content-Encoding: gzip even when we didn't request it if
@@ -106,7 +110,7 @@ final class HttpStream extends FilterInputStream {
         // should not decompress it to preserve the desired file format.
         if (GZIP_CONTENT_ENCODING.contains(Strings.nullToEmpty(connection.getContentEncoding()))
             && !GZIPPED_EXTENSIONS.contains(HttpUtils.getExtension(connection.getURL().getPath()))
-            && !GZIPPED_EXTENSIONS.contains(HttpUtils.getExtension(originalUrl.getPath()))
+            && !GZIPPED_EXTENSIONS.contains(HttpUtils.getExtension(originalUri.getPath()))
             && !typeIsGZIP(type)) {
           stream = new GZIPInputStream(stream, GZIP_BUFFER_BYTES);
         }
@@ -130,6 +134,8 @@ final class HttpStream extends FilterInputStream {
             stream = new SequenceInputStream(new ByteArrayInputStream(buffer), stream);
           }
         }
+      } catch (URISyntaxException e) {
+        throw new IllegalStateException(e);
       } catch (Exception e) {
         try {
           stream.close();
@@ -138,7 +144,7 @@ final class HttpStream extends FilterInputStream {
         }
         throw e;
       }
-      return new HttpStream(stream, connection.getURL());
+      return new HttpStream(stream);
     }
 
     /**
@@ -162,15 +168,7 @@ final class HttpStream extends FilterInputStream {
     }
   }
 
-  private final URL url;
-
-  HttpStream(@WillCloseWhenClosed InputStream delegate, URL url) {
+  HttpStream(@WillCloseWhenClosed InputStream delegate) {
     super(delegate);
-    this.url = url;
-  }
-
-  /** Returns final redirected URL. */
-  URL getUrl() {
-    return url;
   }
 }

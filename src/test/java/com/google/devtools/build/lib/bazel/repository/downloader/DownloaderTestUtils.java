@@ -27,14 +27,6 @@ import javax.annotation.WillNotClose;
 
 final class DownloaderTestUtils {
 
-  static URL makeUrl(String url) {
-    try {
-      return new URL(url);
-    } catch (MalformedURLException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
   static void sendLines(@WillNotClose Socket socket, String... data) throws IOException {
     ByteStreams.copy(
         new ByteArrayInputStream(Joiner.on("\r\n").join(data).getBytes(ISO_8859_1)),

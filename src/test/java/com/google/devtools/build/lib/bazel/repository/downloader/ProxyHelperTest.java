@@ -20,7 +20,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.net.Proxy;
-import java.net.URL;
+import java.net.URI;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,28 +35,28 @@ public class ProxyHelperTest {
   @Test
   public void testCreateIfNeededHttpLowerCase() throws Exception {
     ProxyHelper helper = new ProxyHelper(ImmutableMap.of("http_proxy", "http://my.example.com"));
-    Proxy proxy = helper.createProxyIfNeeded(new URL("http://www.something.com"));
+    Proxy proxy = helper.createProxyIfNeeded(URI.create("http://www.something.com"));
     assertThat(proxy.toString()).endsWith("my.example.com:80");
   }
 
   @Test
   public void testCreateIfNeededHttpUpperCase() throws Exception {
     ProxyHelper helper = new ProxyHelper(ImmutableMap.of("HTTP_PROXY", "http://my.example.com"));
-    Proxy proxy = helper.createProxyIfNeeded(new URL("http://www.something.com"));
+    Proxy proxy = helper.createProxyIfNeeded(URI.create("http://www.something.com"));
     assertThat(proxy.toString()).endsWith("my.example.com:80");
   }
 
   @Test
   public void testCreateIfNeededHttpsLowerCase() throws Exception {
     ProxyHelper helper = new ProxyHelper(ImmutableMap.of("https_proxy", "https://my.example.com"));
-    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.something.com"));
+    Proxy proxy = helper.createProxyIfNeeded(URI.create("https://www.something.com"));
     assertThat(proxy.toString()).endsWith("my.example.com:443");
   }
 
   @Test
   public void testCreateIfNeededHttpsUpperCase() throws Exception {
     ProxyHelper helper = new ProxyHelper(ImmutableMap.of("HTTPS_PROXY", "https://my.example.com"));
-    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.something.com"));
+    Proxy proxy = helper.createProxyIfNeeded(URI.create("https://www.something.com"));
     assertThat(proxy.toString()).endsWith("my.example.com:443");
   }
 
@@ -69,7 +69,7 @@ public class ProxyHelperTest {
                 "something.com,example.com,localhost",
                 "HTTPS_PROXY",
                 "https://my.example.com"));
-    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(URI.create("https://www.example.com"));
     assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
   }
 
@@ -82,7 +82,7 @@ public class ProxyHelperTest {
                 "something.com,example.com,localhost",
                 "HTTPS_PROXY",
                 "https://my.example.com"));
-    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(URI.create("https://www.example.com"));
     assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
   }
 
@@ -95,7 +95,7 @@ public class ProxyHelperTest {
                 "something.com,example.com,localhost",
                 "HTTPS_PROXY",
                 "https://my.example.com"));
-    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(URI.create("https://www.example.com"));
     assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
   }
 
@@ -108,7 +108,7 @@ public class ProxyHelperTest {
                 "something.com,example.com,localhost",
                 "HTTPS_PROXY",
                 "https://my.example.com"));
-    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(URI.create("https://www.example.com"));
     assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
   }
 
@@ -121,13 +121,13 @@ public class ProxyHelperTest {
                 "something.com ,   example.com, localhost",
                 "HTTPS_PROXY",
                 "https://my.example.com"));
-    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.something.com"));
+    Proxy proxy = helper.createProxyIfNeeded(URI.create("https://www.something.com"));
     assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
 
-    Proxy proxy2 = helper.createProxyIfNeeded(new URL("https://www.example.com"));
+    Proxy proxy2 = helper.createProxyIfNeeded(URI.create("https://www.example.com"));
     assertThat(proxy2).isEqualTo(Proxy.NO_PROXY);
 
-    Proxy proxy3 = helper.createProxyIfNeeded(new URL("https://localhost"));
+    Proxy proxy3 = helper.createProxyIfNeeded(URI.create("https://localhost"));
     assertThat(proxy3).isEqualTo(Proxy.NO_PROXY);
   }
 
@@ -140,7 +140,7 @@ public class ProxyHelperTest {
                 "something.com,example.com,localhost",
                 "HTTPS_PROXY",
                 "https://my.example.com"));
-    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.not-example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(URI.create("https://www.not-example.com"));
     assertThat(proxy.toString()).endsWith("my.example.com:443");
   }
 
@@ -153,7 +153,7 @@ public class ProxyHelperTest {
                 ".something.com,example.com,localhost",
                 "HTTPS_PROXY",
                 "https://my.example.com"));
-    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.my.something.com"));
+    Proxy proxy = helper.createProxyIfNeeded(URI.create("https://www.my.something.com"));
     assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
   }
 
@@ -166,7 +166,7 @@ public class ProxyHelperTest {
                 "something.com,example.com,localhost",
                 "HTTPS_PROXY",
                 "https://my.example.com"));
-    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.my.subdomain.something.com"));
+    Proxy proxy = helper.createProxyIfNeeded(URI.create("https://www.my.subdomain.something.com"));
     assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
   }
 
@@ -179,7 +179,7 @@ public class ProxyHelperTest {
     assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
     Map<String, String> env = ImmutableMap.of();
     ProxyHelper helper = new ProxyHelper(env);
-    proxy = helper.createProxyIfNeeded(new URL("https://www.something.com"));
+    proxy = helper.createProxyIfNeeded(URI.create("https://www.something.com"));
     assertThat(proxy).isEqualTo(Proxy.NO_PROXY);
   }
 

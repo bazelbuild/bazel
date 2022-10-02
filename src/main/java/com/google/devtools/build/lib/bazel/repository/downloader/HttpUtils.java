@@ -19,35 +19,29 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.Collection;
 
 /** HTTP utilities. */
 public final class HttpUtils {
-
-  /** Returns {@code true} if {@code url} is supported by {@link HttpDownloader}. */
-  public static boolean isUrlSupportedByDownloader(URL url) {
-    return isHttp(url) || isProtocol(url, "file");
+  public static boolean isUrlSupportedByDownloader(URI uri) {
+    return isHttp(uri) || isProtocol(uri, "file");
   }
 
-  static boolean isHttp(URL url) {
-    return isProtocol(url, "http") || isProtocol(url, "https");
+  private static boolean isHttp(URI uri) {
+    Preconditions.checkNotNull(uri);
+
+    return isProtocol(uri, "http") || isProtocol(uri, "https");
   }
 
-  static boolean isProtocol(URL url, String protocol) {
+  static boolean isProtocol(URI uri, String protocol) {
+    Preconditions.checkNotNull(uri);
+    Preconditions.checkNotNull(protocol);
+
     // An implementation should accept uppercase letters as equivalent to lowercase in scheme names
     // (e.g., allow "HTTP" as well as "http") for the sake of robustness. Quoth RFC3986 § 3.1
-    return Ascii.equalsIgnoreCase(protocol, url.getProtocol());
-  }
-
-  static void checkUrlsArgument(Collection<URL> urls) {
-    Preconditions.checkArgument(!urls.isEmpty(), "urls list empty");
-    for (URL url : urls) {
-      Preconditions.checkArgument(isUrlSupportedByDownloader(url), "unsupported protocol: %s", url);
-    }
+    return Ascii.equalsIgnoreCase(protocol, uri.getScheme());
   }
 
   static String getExtension(String path) {
@@ -58,19 +52,19 @@ public final class HttpUtils {
     return Ascii.toLowerCase(path.substring(index + 1));
   }
 
-  static URL getLocation(HttpURLConnection connection) throws IOException {
+  static URI getLocation(HttpURLConnection connection) throws IOException {
     String newLocation = connection.getHeaderField("Location");
     if (newLocation == null) {
       throw new IOException("Remote redirect missing Location.");
     }
-    URL result = mergeUrls(URI.create(newLocation), connection.getURL());
+    URI result = mergeUrls(URI.create(newLocation), connection.getURL());
     if (!isHttp(result)) {
       throw new IOException("Bad Location: " + newLocation);
     }
     return result;
   }
 
-  private static URL mergeUrls(URI preferred, URL original) throws IOException {
+  private static URI mergeUrls(URI preferred, URL original) throws IOException {
     // Try to short cut to preferred.toURL() to preserve the original presentation of the
     // quoting (as a call to the structed URI constructor puts quoting into a canocial form).
     // This is necessary as some sites rely on the precise presentation for the authentication
@@ -81,7 +75,7 @@ public final class HttpUtils {
       // In this case we obviously do not inherit anything from the original URL, as all inheritable
       // fields are either set explicitly or not present in the original either. Therefore, it is
       // safe to short cut.
-      return preferred.toURL();
+      return preferred;
     }
 
     // If the Location value provided in a 3xx (Redirection) response does not have a fragment
@@ -110,13 +104,11 @@ public final class HttpUtils {
     if (fragment == null) {
       fragment = original.getRef();
     }
-    URL result;
     try {
-      result = new URI(protocol, userInfo, host, port, path, query, fragment).toURL();
-    } catch (URISyntaxException | MalformedURLException e) {
+      return new URI(protocol, userInfo, host, port, path, query, fragment);
+    } catch (URISyntaxException e) {
       throw new IOException("Could not merge " + preferred + " into " + original, e);
     }
-    return result;
   }
 
   private HttpUtils() {}

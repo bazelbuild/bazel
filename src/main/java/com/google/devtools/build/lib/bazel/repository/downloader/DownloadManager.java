@@ -24,20 +24,24 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.hash.Hasher;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCacheHitEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter.RewrittenURL;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -98,7 +102,7 @@ public class DownloadManager {
    * the {@link RepositoryCache}. If it doesn't exist, proceed to download the file and load it into
    * the cache prior to returning the value.
    *
-   * @param originalUrls list of mirror URLs with identical content
+   * @param originalUris list of mirror URIs with identical content
    * @param checksum valid checksum which is checked, or absent to disable
    * @param type extension, e.g. "tar.gz" to force on downloaded filename, or empty to not do this
    * @param output destination filename if {@code type} is <i>absent</i>, otherwise output directory
@@ -110,7 +114,7 @@ public class DownloadManager {
    * @throws InterruptedException if this thread is being cast into oblivion
    */
   public Path download(
-      List<URL> originalUrls,
+      List<URI> originalUris,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
       String canonicalId,
@@ -123,8 +127,13 @@ public class DownloadManager {
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }
+
     if (Strings.isNullOrEmpty(canonicalId) && urlsAsDefaultCanonicalId) {
-      canonicalId = originalUrls.stream().map(URL::toExternalForm).collect(Collectors.joining(" "));
+      Hasher hasher = DigestHashFunction.SHA256.getHashFunction().newHasher();
+      for (URI uri : originalUris) {
+        hasher.putString(uri.toASCIIString(), StandardCharsets.UTF_8);
+      }
+      canonicalId = hasher.hash().toString();
     }
 
     // TODO(andreisolo): This code path is inconsistent as the authHeaders are fetched from a
@@ -132,30 +141,30 @@ public class DownloadManager {
     //  by Starlark code -, or if a UrlRewriter is present. However, if it comes directly from a
     //  ctx.download{,_and_extract}, this not the case. Should be refactored to handle all .netrc
     //  parsing in one place, in Java code (similarly to #downloadAndReadOneUrl).
-    ImmutableList<URL> rewrittenUrls = ImmutableList.copyOf(originalUrls);
+    ImmutableList<URI> rewrittenUrls = ImmutableList.copyOf(originalUris);
     Map<URI, Map<String, List<String>>> rewrittenAuthHeaders = authHeaders;
 
     if (rewriter != null) {
-      ImmutableList<UrlRewriter.RewrittenURL> rewrittenUrlMappings = rewriter.amend(originalUrls);
+      ImmutableList<UrlRewriter.RewrittenURL> rewrittenUrlMappings = rewriter.amend(originalUris);
       rewrittenUrls =
-          rewrittenUrlMappings.stream().map(url -> url.url()).collect(toImmutableList());
+          rewrittenUrlMappings.stream().map(url -> url.uri()).collect(toImmutableList());
       rewrittenAuthHeaders =
           rewriter.updateAuthHeaders(rewrittenUrlMappings, authHeaders, netrcCreds);
     }
 
-    URL mainUrl; // The "main" URL for this request
+    URI mainUri; // The "main" URI for this request
     // Used for reporting only and determining the file name only.
     if (rewrittenUrls.isEmpty()) {
       if (type.isPresent() && !Strings.isNullOrEmpty(type.get())) {
-        mainUrl = new URL("http://nonexistent.example.org/cacheprobe." + type.get());
+        mainUri = URI.create("http://nonexistent.example.org/cacheprobe." + type.get());
       } else {
-        mainUrl = new URL("http://nonexistent.example.org/cacheprobe");
+        mainUri = URI.create("http://nonexistent.example.org/cacheprobe");
       }
     } else {
-      mainUrl = rewrittenUrls.get(0);
+      mainUri = rewrittenUrls.get(0);
     }
-    Path destination = getDownloadDestination(mainUrl, type, output);
-    ImmutableSet<String> candidateFileNames = getCandidateFileNames(mainUrl, destination);
+    Path destination = getDownloadDestination(mainUri, type, output);
+    ImmutableSet<String> candidateFileNames = getCandidateFileNames(mainUri, destination);
 
     // Is set to true if the value should be cached by the checksum value provided
     boolean isCachingByProvidedChecksum = false;
@@ -165,7 +174,7 @@ public class DownloadManager {
       KeyType cacheKeyType = checksum.get().getKeyType();
       try {
         eventHandler.post(
-            new CacheProgress(mainUrl.toString(), "Checking in " + cacheKeyType + " cache"));
+            new CacheProgress(mainUri.toString(), "Checking in " + cacheKeyType + " cache"));
         String currentChecksum = RepositoryCache.getChecksum(cacheKeyType, destination);
         if (currentChecksum.equals(cacheKey)) {
           // No need to download.
@@ -174,7 +183,7 @@ public class DownloadManager {
       } catch (IOException e) {
         // Ignore error trying to hash. We'll attempt to retrieve from cache or just download again.
       } finally {
-        eventHandler.post(new CacheProgress(mainUrl.toString()));
+        eventHandler.post(new CacheProgress(mainUri.toString()));
       }
 
       if (repositoryCache.isEnabled()) {
@@ -185,7 +194,7 @@ public class DownloadManager {
               repositoryCache.get(cacheKey, destination, cacheKeyType, canonicalId);
           if (cachedDestination != null) {
             // Cache hit!
-            eventHandler.post(new RepositoryCacheHitEvent(context, cacheKey, mainUrl));
+            eventHandler.post(new RepositoryCacheHitEvent(context, cacheKey, mainUri));
             return cachedDestination;
           }
         } catch (IOException e) {
@@ -195,9 +204,9 @@ public class DownloadManager {
 
       if (rewrittenUrls.isEmpty()) {
         StringBuilder message = new StringBuilder("Cache miss and no url specified");
-        if (!originalUrls.isEmpty()) {
+        if (!originalUris.isEmpty()) {
           message.append(" - ");
-          message.append(getRewriterBlockedAllUrlsMessage(originalUrls));
+          message.append(getRewriterBlockedAllUrlsMessage(originalUris));
         }
         throw new IOException(message.toString());
       }
@@ -217,14 +226,14 @@ public class DownloadManager {
             try {
               eventHandler.post(
                   new CacheProgress(
-                      mainUrl.toString(), "Checking " + cacheKeyType + " of " + candidate));
+                      mainUri.toString(), "Checking " + cacheKeyType + " of " + candidate));
               match = RepositoryCache.getChecksum(cacheKeyType, candidate).equals(cacheKey);
             } catch (IOException e) {
               // Not finding anything in a distdir is a normal case, so handle it absolutely
               // quietly. In fact, it is common to specify a whole list of dist dirs,
               // with the assumption that only one will contain an entry.
             } finally {
-              eventHandler.post(new CacheProgress(mainUrl.toString()));
+              eventHandler.post(new CacheProgress(mainUri.toString()));
             }
             if (match) {
               if (isCachingByProvidedChecksum) {
@@ -248,8 +257,8 @@ public class DownloadManager {
       throw new IOException(String.format("Failed to download %s: download is disabled.", context));
     }
 
-    if (rewrittenUrls.isEmpty() && !originalUrls.isEmpty()) {
-      throw new IOException(getRewriterBlockedAllUrlsMessage(originalUrls));
+    if (rewrittenUrls.isEmpty() && !originalUris.isEmpty()) {
+      throw new IOException(getRewriterBlockedAllUrlsMessage(originalUris));
     }
 
     for (int attempt = 0; attempt <= retries; ++attempt) {
@@ -290,7 +299,7 @@ public class DownloadManager {
    * the {@link RepositoryCache}. If it doesn't exist, proceed to download the file and load it into
    * the cache prior to returning the value.
    *
-   * @param originalUrl the original URL of the file
+   * @param originalUri the original URI of the file
    * @param eventHandler CLI progress reporter
    * @param clientEnv environment variables in shell issuing this command
    * @throws IllegalArgumentException on parameter badness, which should be checked beforehand
@@ -298,46 +307,42 @@ public class DownloadManager {
    * @throws InterruptedException if this thread is being cast into oblivion
    */
   public byte[] downloadAndReadOneUrl(
-      URL originalUrl, ExtendedEventHandler eventHandler, Map<String, String> clientEnv)
+      URI originalUri, ExtendedEventHandler eventHandler, Map<String, String> clientEnv)
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }
     Map<URI, Map<String, List<String>>> authHeaders = ImmutableMap.of();
-    ImmutableList<URL> rewrittenUrls = ImmutableList.of(originalUrl);
+    ImmutableList<URI> rewrittenUris = ImmutableList.of(originalUri);
 
     if (netrcCreds != null) {
-      try {
-        Map<String, List<String>> metadata = netrcCreds.getRequestMetadata(originalUrl.toURI());
-        if (!metadata.isEmpty()) {
-          Entry<String, List<String>> headers = metadata.entrySet().iterator().next();
-          authHeaders =
-              ImmutableMap.of(
-                  originalUrl.toURI(),
-                  ImmutableMap.of(headers.getKey(), ImmutableList.of(headers.getValue().get(0))));
-        }
-      } catch (URISyntaxException e) {
-        // If the credentials extraction failed, we're letting bazel try without credentials.
+      Map<String, List<String>> metadata = netrcCreds.getRequestMetadata(originalUri);
+      if (!metadata.isEmpty()) {
+        Entry<String, List<String>> headers = metadata.entrySet().iterator().next();
+        authHeaders =
+            ImmutableMap.of(
+                originalUri,
+                ImmutableMap.of(headers.getKey(), ImmutableList.of(headers.getValue().get(0))));
       }
     }
 
     if (rewriter != null) {
       ImmutableList<UrlRewriter.RewrittenURL> rewrittenUrlMappings =
-          rewriter.amend(ImmutableList.of(originalUrl));
-      rewrittenUrls =
-          rewrittenUrlMappings.stream().map(RewrittenURL::url).collect(toImmutableList());
+          rewriter.amend(ImmutableList.of(originalUri));
+      rewrittenUris =
+          rewrittenUrlMappings.stream().map(RewrittenURL::uri).collect(toImmutableList());
       authHeaders = rewriter.updateAuthHeaders(rewrittenUrlMappings, authHeaders, netrcCreds);
     }
 
-    if (rewrittenUrls.isEmpty()) {
-      throw new IOException(getRewriterBlockedAllUrlsMessage(ImmutableList.of(originalUrl)));
+    if (rewrittenUris.isEmpty()) {
+      throw new IOException(getRewriterBlockedAllUrlsMessage(ImmutableList.of(originalUri)));
     }
 
     HttpDownloader httpDownloader = new HttpDownloader();
     for (int attempt = 0; attempt <= retries; ++attempt) {
       try {
         return httpDownloader.downloadAndReadOneUrl(
-            rewrittenUrls.get(0), authHeaders, eventHandler, clientEnv);
+            rewrittenUris.get(0), authHeaders, eventHandler, clientEnv);
       } catch (ContentLengthMismatchException e) {
         if (attempt == retries) {
           throw e;
@@ -351,12 +356,12 @@ public class DownloadManager {
   }
 
   @Nullable
-  private String getRewriterBlockedAllUrlsMessage(List<URL> originalUrls) {
+  private String getRewriterBlockedAllUrlsMessage(List<URI> originalUris) {
     if (rewriter == null) {
       return null;
     }
     StringBuilder message = new StringBuilder("Configured URL rewriter blocked all URLs: ");
-    message.append(originalUrls);
+    message.append(originalUris);
     String rewriterMessage = rewriter.getAllBlockedMessage();
     if (rewriterMessage != null) {
       message.append(" - ").append(rewriterMessage);
@@ -364,13 +369,13 @@ public class DownloadManager {
     return message.toString();
   }
 
-  private Path getDownloadDestination(URL url, Optional<String> type, Path output) {
+  private Path getDownloadDestination(URI uri, Optional<String> type, Path output) {
     if (!type.isPresent()) {
       return output;
     }
     String basename =
         MoreObjects.firstNonNull(
-            Strings.emptyToNull(PathFragment.create(url.getPath()).getBaseName()), "temp");
+            Strings.emptyToNull(PathFragment.create(uri.getPath()).getBaseName()), "temp");
     if (!type.get().isEmpty()) {
       String suffix = "." + type.get();
       if (!basename.endsWith(suffix)) {
@@ -385,8 +390,8 @@ public class DownloadManager {
    * specified that is unrelated to the primary URL. This happens, e.g., when the paramter output is
    * specified in ctx.download.
    */
-  private static ImmutableSet<String> getCandidateFileNames(URL url, Path destination) {
-    String urlBaseName = PathFragment.create(url.getPath()).getBaseName();
+  private static ImmutableSet<String> getCandidateFileNames(URI uri, Path destination) {
+    String urlBaseName = PathFragment.create(uri.getPath()).getBaseName();
     if (!Strings.isNullOrEmpty(urlBaseName) && !urlBaseName.equals(destination.getBaseName())) {
       return ImmutableSet.of(urlBaseName, destination.getBaseName());
     } else {

@@ -75,7 +75,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
-import java.net.URL;
+import java.net.URI;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
@@ -1253,18 +1253,18 @@ public class UiStateTrackerTest extends FoundationTestCase {
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
     UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 80);
 
-    URL url = new URL("http://example.org/first/dep");
+    URI uri = URI.create("http://example.org/first/dep");
 
     stateTracker.buildStarted();
-    stateTracker.downloadProgress(new DownloadProgressEvent(url));
+    stateTracker.downloadProgress(new DownloadProgressEvent(uri));
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(6));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
 
-    assertWithMessage("Progress bar should contain '" + url.toString() + "', but was:\n" + output)
-        .that(output.contains(url.toString()))
+    assertWithMessage("Progress bar should contain '" + uri.toString() + "', but was:\n" + output)
+        .that(output.contains(uri.toString()))
         .isTrue();
     assertWithMessage("Progress bar should contain '6s', but was:\n" + output)
         .that(output.contains("6s"))
@@ -1272,14 +1272,14 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     // Progress on the pending download should be reported appropriately
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
-    stateTracker.downloadProgress(new DownloadProgressEvent(url, 256));
+    stateTracker.downloadProgress(new DownloadProgressEvent(uri, 256));
 
     terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
 
-    assertWithMessage("Progress bar should contain '" + url.toString() + "', but was:\n" + output)
-        .that(output.contains(url.toString()))
+    assertWithMessage("Progress bar should contain '" + uri.toString() + "', but was:\n" + output)
+        .that(output.contains(uri.toString()))
         .isTrue();
     assertWithMessage("Progress bar should contain '7s', but was:\n" + output)
         .that(output.contains("7s"))
@@ -1290,7 +1290,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     // After finishing the download, it should no longer be reported.
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
-    stateTracker.downloadProgress(new DownloadProgressEvent(url, 256, true));
+    stateTracker.downloadProgress(new DownloadProgressEvent(uri, 256, true));
 
     terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
@@ -1308,15 +1308,15 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
     UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 60);
-    URL url = new URL("http://example.org/some/really/very/very/long/path/filename.tar.gz");
+    URI uri = URI.create("http://example.org/some/really/very/very/long/path/filename.tar.gz");
 
     stateTracker.buildStarted();
-    stateTracker.downloadProgress(new DownloadProgressEvent(url));
+    stateTracker.downloadProgress(new DownloadProgressEvent(uri));
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(6));
     for (int i = 0; i < 10; i++) {
       stateTracker.downloadProgress(
           new DownloadProgressEvent(
-              new URL(
+              URI.create(
                   "http://otherhost.example/another/also/length/path/to/another/download"
                       + i
                       + ".zip")));

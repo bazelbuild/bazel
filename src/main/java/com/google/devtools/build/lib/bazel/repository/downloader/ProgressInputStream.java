@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -22,7 +23,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
+import java.net.URI;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.WillCloseWhenClosed;
@@ -50,9 +51,9 @@ final class ProgressInputStream extends InputStream {
       this.eventHandler = eventHandler;
     }
 
-    InputStream create(@WillCloseWhenClosed InputStream delegate, URL url, URL originalUrl) {
+    InputStream create(@WillCloseWhenClosed InputStream delegate, URI uri, URI originalUri) {
       return new ProgressInputStream(
-          locale, clock, eventHandler, PROGRESS_INTERVAL_MS, delegate, url, originalUrl);
+          locale, clock, eventHandler, PROGRESS_INTERVAL_MS, delegate, uri, originalUri);
     }
   }
 
@@ -61,29 +62,30 @@ final class ProgressInputStream extends InputStream {
   private final ExtendedEventHandler eventHandler;
   private final InputStream delegate;
   private final long intervalMs;
-  private final URL url;
-  private final URL originalUrl;
+  private final URI uri;
+  private final URI originalUri;
   private final AtomicLong toto = new AtomicLong();
   private final AtomicLong nextEvent;
 
+  @VisibleForTesting
   ProgressInputStream(
       Locale locale,
       Clock clock,
       ExtendedEventHandler eventHandler,
       long intervalMs,
       InputStream delegate,
-      URL url,
-      URL originalUrl) {
+      URI uri,
+      URI originalUri) {
     Preconditions.checkArgument(intervalMs >= 0);
     this.locale = locale;
     this.clock = clock;
     this.eventHandler = eventHandler;
     this.intervalMs = intervalMs;
     this.delegate = delegate;
-    this.url = url;
-    this.originalUrl = originalUrl;
+    this.uri = uri;
+    this.originalUri = originalUri;
     this.nextEvent = new AtomicLong(clock.currentTimeMillis() + intervalMs);
-    eventHandler.post(new DownloadProgressEvent(originalUrl, url, 0, false));
+    eventHandler.post(new DownloadProgressEvent(originalUri, 0, false));
   }
 
   @Override
@@ -112,7 +114,7 @@ final class ProgressInputStream extends InputStream {
   @Override
   public void close() throws IOException {
     delegate.close();
-    eventHandler.post(new DownloadProgressEvent(originalUrl, url, toto.get(), true));
+    eventHandler.post(new DownloadProgressEvent(originalUri, toto.get(), true));
   }
 
   private void reportProgress(long bytesRead) {
@@ -121,13 +123,13 @@ final class ProgressInputStream extends InputStream {
       return;
     }
     String via = "";
-    if (!url.getHost().equals(originalUrl.getHost())) {
-      via = " via " + url.getHost();
+    if (!uri.getHost().equals(originalUri.getHost())) {
+      via = " via " + uri.getHost();
     }
-    eventHandler.post(new DownloadProgressEvent(originalUrl, url, bytesRead, false));
+    eventHandler.post(new DownloadProgressEvent(originalUri, bytesRead, false));
     eventHandler.handle(
         Event.progress(
-            String.format(locale, "Downloading %s%s: %,d bytes", originalUrl, via, bytesRead)));
+            String.format(locale, "Downloading %s%s: %,d bytes", originalUri, via, bytesRead)));
     nextEvent.set(now + intervalMs);
   }
 }

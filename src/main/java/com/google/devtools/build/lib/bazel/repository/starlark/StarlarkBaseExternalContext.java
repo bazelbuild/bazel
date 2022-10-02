@@ -239,7 +239,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     return result.build();
   }
 
-  private static ImmutableList<URL> getUrls(
+  private static ImmutableList<URI> getUris(
       Object urlOrList, boolean ensureNonEmpty, boolean checksumGiven)
       throws RepositoryFunctionException, EvalException {
     ImmutableList<String> urlStrings;
@@ -251,28 +251,30 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     if (ensureNonEmpty && urlStrings.isEmpty()) {
       throw new RepositoryFunctionException(new IOException("urls not set"), Transience.PERSISTENT);
     }
-    ImmutableList.Builder<URL> urls = ImmutableList.builder();
+    ImmutableList.Builder<URI> urls = ImmutableList.builder();
     for (String urlString : urlStrings) {
-      URL url;
+      URI uri;
       try {
-        url = new URL(urlString);
-      } catch (MalformedURLException e) {
+        // URL has the stricter syntax, so we create a URL first to verify it's valid according to
+        // RFC 2396.
+        uri = new URL(urlString).toURI();
+      } catch (MalformedURLException | URISyntaxException e) {
         throw new RepositoryFunctionException(
             new IOException("Bad URL: " + urlString, e), Transience.PERSISTENT);
       }
-      if (!HttpUtils.isUrlSupportedByDownloader(url)) {
+      if (!HttpUtils.isUrlSupportedByDownloader(uri)) {
         throw new RepositoryFunctionException(
-            new IOException("Unsupported protocol: " + url.getProtocol()), Transience.PERSISTENT);
+            new IOException("Unsupported protocol: " + uri.getScheme()), Transience.PERSISTENT);
       }
       if (!checksumGiven) {
-        if (!Ascii.equalsIgnoreCase("http", url.getProtocol())) {
-          urls.add(url);
+        if (!Ascii.equalsIgnoreCase("http", uri.getScheme())) {
+          urls.add(uri);
         }
       } else {
-        urls.add(url);
+        urls.add(uri);
       }
     }
-    ImmutableList<URL> urlsResult = urls.build();
+    ImmutableList<URI> urlsResult = urls.build();
     if (ensureNonEmpty && urlsResult.isEmpty()) {
       throw new RepositoryFunctionException(
           new IOException(
@@ -283,7 +285,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     return urlsResult;
   }
 
-  private void warnAboutChecksumError(List<URL> urls, String errorMessage) {
+  private void warnAboutChecksumError(List<URI> urls, String errorMessage) {
     // Inform the user immediately, even though the file will still be downloaded.
     // This cannot be done by a regular error event, as all regular events are recorded
     // and only shown once the execution of the repository rule is finished.
@@ -292,7 +294,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     reportProgress("Will fail after download of " + url + ". " + errorMessage);
   }
 
-  private Optional<Checksum> validateChecksum(String sha256, String integrity, List<URL> urls)
+  private Optional<Checksum> validateChecksum(String sha256, String integrity, List<URI> uris)
       throws RepositoryFunctionException, EvalException {
     if (!sha256.isEmpty()) {
       if (!integrity.isEmpty()) {
@@ -301,7 +303,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       try {
         return Optional.of(Checksum.fromString(KeyType.SHA256, sha256));
       } catch (Checksum.InvalidChecksumException e) {
-        warnAboutChecksumError(urls, e.getMessage());
+        warnAboutChecksumError(uris, e.getMessage());
         throw new RepositoryFunctionException(
             Starlark.errorf(
                 "Checksum error in %s: %s", getIdentifyingStringForLogging(), e.getMessage()),
@@ -316,7 +318,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     try {
       return Optional.of(Checksum.fromSubresourceIntegrity(integrity));
     } catch (Checksum.InvalidChecksumException e) {
-      warnAboutChecksumError(urls, e.getMessage());
+      warnAboutChecksumError(uris, e.getMessage());
       throw new RepositoryFunctionException(
           Starlark.errorf(
               "Checksum error in %s: %s", getIdentifyingStringForLogging(), e.getMessage()),
@@ -450,15 +452,15 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     ImmutableMap<URI, Map<String, List<String>>> authHeaders =
         getAuthHeaders(getAuthContents(authUnchecked, "auth"));
 
-    ImmutableList<URL> urls =
-        getUrls(
+    ImmutableList<URI> uris =
+        getUris(
             url,
             /*ensureNonEmpty=*/ !allowFail,
             /*checksumGiven=*/ !Strings.isNullOrEmpty(sha256) || !Strings.isNullOrEmpty(integrity));
     Optional<Checksum> checksum;
     RepositoryFunctionException checksumValidation = null;
     try {
-      checksum = validateChecksum(sha256, integrity, urls);
+      checksum = validateChecksum(sha256, integrity, uris);
     } catch (RepositoryFunctionException e) {
       checksum = Optional.<Checksum>absent();
       checksumValidation = e;
@@ -467,7 +469,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     StarlarkPath outputPath = getPath("download()", output);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDownloadEvent(
-            urls,
+            uris,
             output.toString(),
             sha256,
             integrity,
@@ -482,7 +484,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       makeDirectories(outputPath.getPath());
       downloadedPath =
           downloadManager.download(
-              urls,
+              uris,
               authHeaders,
               checksum,
               canonicalId,
@@ -639,15 +641,15 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     ImmutableMap<URI, Map<String, List<String>>> authHeaders =
         getAuthHeaders(getAuthContents(auth, "auth"));
 
-    ImmutableList<URL> urls =
-        getUrls(
+    ImmutableList<URI> uris =
+        getUris(
             url,
             /*ensureNonEmpty=*/ !allowFail,
             /*checksumGiven=*/ !Strings.isNullOrEmpty(sha256) || !Strings.isNullOrEmpty(integrity));
     Optional<Checksum> checksum;
     RepositoryFunctionException checksumValidation = null;
     try {
-      checksum = validateChecksum(sha256, integrity, urls);
+      checksum = validateChecksum(sha256, integrity, uris);
     } catch (RepositoryFunctionException e) {
       checksum = Optional.absent();
       checksumValidation = e;
@@ -658,7 +660,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDownloadAndExtractEvent(
-            urls,
+            uris,
             output.toString(),
             sha256,
             integrity,
@@ -685,7 +687,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
       downloadedPath =
           downloadManager.download(
-              urls,
+              uris,
               authHeaders,
               checksum,
               canonicalId,

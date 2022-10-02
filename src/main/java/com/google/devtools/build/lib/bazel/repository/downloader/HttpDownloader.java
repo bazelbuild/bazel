@@ -62,7 +62,7 @@ public class HttpDownloader implements Downloader {
 
   @Override
   public void download(
-      List<URL> urls,
+      List<URI> uris,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
       String canonicalId,
@@ -79,10 +79,10 @@ public class HttpDownloader implements Downloader {
 
     List<IOException> ioExceptions = ImmutableList.of();
 
-    for (URL url : urls) {
+    for (URI uri : uris) {
       SEMAPHORE.acquire();
 
-      try (HttpStream payload = multiplexer.connect(url, checksum, authHeaders, type);
+      try (HttpStream payload = multiplexer.connect(uri, checksum, authHeaders, type);
           OutputStream out = destination.getOutputStream()) {
         try {
           ByteStreams.copy(payload, out);
@@ -102,11 +102,11 @@ public class HttpDownloader implements Downloader {
         }
         ioExceptions.add(e);
         eventHandler.handle(
-            Event.warn("Download from " + url + " failed: " + e.getClass() + " " + e.getMessage()));
+            Event.warn("Download from " + uri + " failed: " + e.getClass() + " " + e.getMessage()));
         continue;
       } finally {
         SEMAPHORE.release();
-        eventHandler.post(new FetchEvent(url.toString(), success));
+        eventHandler.post(new FetchEvent(uri.toString(), success));
       }
     }
 
@@ -114,7 +114,7 @@ public class HttpDownloader implements Downloader {
       final IOException exception =
           new IOException(
               "Error downloading "
-                  + urls
+                  + uris
                   + " to "
                   + destination
                   + (ioExceptions.isEmpty()
@@ -131,7 +131,7 @@ public class HttpDownloader implements Downloader {
 
   /** Downloads the contents of one URL and reads it into a byte array. */
   public byte[] downloadAndReadOneUrl(
-      URL url,
+      URI uri,
       Map<URI, Map<String, List<String>>> authHeaders,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv)
@@ -141,7 +141,7 @@ public class HttpDownloader implements Downloader {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     SEMAPHORE.acquire();
     try (HttpStream payload =
-        multiplexer.connect(url, Optional.absent(), authHeaders, Optional.absent())) {
+        multiplexer.connect(uri, Optional.absent(), authHeaders, Optional.absent())) {
       ByteStreams.copy(payload, out);
     } catch (SocketTimeoutException e) {
       // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify

@@ -40,7 +40,6 @@ import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Base64;
@@ -69,7 +68,7 @@ public class UrlRewriter {
   private static final ImmutableSet<String> REWRITABLE_SCHEMES = ImmutableSet.of("http", "https");
 
   private final UrlRewriterConfig config;
-  private final Function<URL, List<RewrittenURL>> rewriter;
+  private final Function<URI, List<RewrittenURL>> rewriter;
 
   @VisibleForTesting
   UrlRewriter(Consumer<String> log, String filePathForErrorReporting, Reader reader)
@@ -110,10 +109,10 @@ public class UrlRewriter {
    * @param urls The input list of {@link URL}s. May be empty.
    * @return The amended lists of URLs.
    */
-  public ImmutableList<RewrittenURL> amend(List<URL> urls) {
-    Objects.requireNonNull(urls, "URLS to check must be set but may be empty");
+  public ImmutableList<RewrittenURL> amend(List<URI> uris) {
+    Objects.requireNonNull(uris, "URLS to check must be set but may be empty");
 
-    return urls.stream().map(rewriter).flatMap(Collection::stream).collect(toImmutableList());
+    return uris.stream().map(rewriter).flatMap(Collection::stream).collect(toImmutableList());
   }
 
   /**
@@ -138,20 +137,16 @@ public class UrlRewriter {
         continue;
       }
 
-      String userInfo = url.url().getUserInfo();
+      String userInfo = url.uri().getUserInfo();
       if (userInfo != null) {
-        try {
-          String token =
-              "Basic " + Base64.getEncoder().encodeToString(userInfo.getBytes(ISO_8859_1));
-          updatedAuthHeaders.put(
-              url.url().toURI(), ImmutableMap.of("Authorization", ImmutableList.of(token)));
-        } catch (URISyntaxException e) {
-          // If the credentials extraction failed, we're letting bazel try without credentials.
-        }
+        String token =
+            "Basic " + Base64.getEncoder().encodeToString(userInfo.getBytes(ISO_8859_1));
+        updatedAuthHeaders.put(
+            url.uri(), ImmutableMap.of("Authorization", ImmutableList.of(token)));
       } else if (netrcCreds != null) {
         try {
           Map<String, List<String>> urlAuthHeaders =
-              netrcCreds.getRequestMetadata(url.url().toURI());
+              netrcCreds.getRequestMetadata(url.uri());
           if (urlAuthHeaders == null || urlAuthHeaders.isEmpty()) {
             continue;
           }
@@ -160,11 +155,11 @@ public class UrlRewriter {
               urlAuthHeaders.entrySet().stream().findFirst().get();
           if (firstAuthHeader.getValue() != null && !firstAuthHeader.getValue().isEmpty()) {
             updatedAuthHeaders.put(
-                url.url().toURI(),
+                url.uri(),
                 ImmutableMap.of(
                     firstAuthHeader.getKey(), ImmutableList.of(firstAuthHeader.getValue().get(0))));
           }
-        } catch (URISyntaxException | IOException e) {
+        } catch (IOException e) {
           // If the credentials extraction failed, we're letting bazel try without credentials.
         }
       }
@@ -173,28 +168,28 @@ public class UrlRewriter {
     return ImmutableMap.copyOf(updatedAuthHeaders);
   }
 
-  private ImmutableList<RewrittenURL> rewrite(URL url) {
-    Preconditions.checkNotNull(url);
+  private ImmutableList<RewrittenURL> rewrite(URI uri) {
+    Preconditions.checkNotNull(uri);
 
     // Cowardly refuse to rewrite non-HTTP(S) urls
     if (REWRITABLE_SCHEMES.stream()
-        .noneMatch(scheme -> Ascii.equalsIgnoreCase(scheme, url.getProtocol()))) {
-      return ImmutableList.of(RewrittenURL.create(url, false));
+        .noneMatch(scheme -> Ascii.equalsIgnoreCase(scheme, uri.getScheme()))) {
+      return ImmutableList.of(RewrittenURL.create(uri, false));
     }
 
-    ImmutableList<RewrittenURL> rewrittenUrls = applyRewriteRules(url);
+    ImmutableList<RewrittenURL> rewrittenUrls = applyRewriteRules(uri);
 
     ImmutableList.Builder<RewrittenURL> toReturn = ImmutableList.builder();
     // Now iterate over the URLs
     for (RewrittenURL consider : rewrittenUrls) {
       // If there's an allow entry, add it to the set to return and continue
-      if (isAllowMatched(consider.url())) {
+      if (isAllowMatched(consider.uri())) {
         toReturn.add(consider);
         continue;
       }
 
       // If there's no block that matches the domain, add it to the set to return and continue
-      if (!isBlockMatched(consider.url())) {
+      if (!isBlockMatched(consider.uri())) {
         toReturn.add(consider);
       }
     }
@@ -202,35 +197,35 @@ public class UrlRewriter {
     return toReturn.build();
   }
 
-  private boolean isAllowMatched(URL url) {
+  private boolean isAllowMatched(URI uri) {
     for (String host : config.getAllowList()) {
-      if (isMatchingHostName(url, host)) {
+      if (isMatchingHostName(uri, host)) {
         return true;
       }
     }
     return false;
   }
 
-  private boolean isBlockMatched(URL url) {
+  private boolean isBlockMatched(URI uri) {
     for (String host : config.getBlockList()) {
       // Allow a wild-card block
       if ("*".equals(host)) {
         return true;
       }
 
-      if (isMatchingHostName(url, host)) {
+      if (isMatchingHostName(uri, host)) {
         return true;
       }
     }
     return false;
   }
 
-  private static boolean isMatchingHostName(URL url, String host) {
-    return host.equals(url.getHost()) || url.getHost().endsWith("." + host);
+  private static boolean isMatchingHostName(URI uri, String host) {
+    return host.equals(uri.getHost()) || uri.getHost().endsWith("." + host);
   }
 
-  private ImmutableList<RewrittenURL> applyRewriteRules(URL url) {
-    String withoutScheme = url.toString().substring(url.getProtocol().length() + 3);
+  private ImmutableList<RewrittenURL> applyRewriteRules(URI uri) {
+    String withoutScheme = uri.toString().substring(uri.getScheme().length() + 3);
 
     ImmutableSet.Builder<String> rewrittenUrls = ImmutableSet.builder();
 
@@ -247,25 +242,25 @@ public class UrlRewriter {
     }
 
     if (!matchMade) {
-      return ImmutableList.of(RewrittenURL.create(url, false));
+      return ImmutableList.of(RewrittenURL.create(uri, false));
     }
 
     return rewrittenUrls.build().stream()
-        .map(urlString -> prefixWithProtocol(urlString, url.getProtocol()))
+        .map(urlString -> prefixWithProtocol(urlString, uri.getScheme()))
         .map(plainUrl -> RewrittenURL.create(plainUrl, true))
         .collect(toImmutableList());
   }
 
   /** Prefixes url with protocol if not already prefixed by {@link #REWRITABLE_SCHEMES} */
-  private static URL prefixWithProtocol(String url, String protocol) {
+  private static URI prefixWithProtocol(String url, String protocol) {
     try {
       for (String schemaPrefix : REWRITABLE_SCHEMES) {
         if (url.startsWith(schemaPrefix + "://")) {
-          return new URL(url);
+          return URI.create(url);
         }
       }
-      return new URL(protocol + "://" + url);
-    } catch (MalformedURLException e) {
+      return URI.create(protocol + "://" + url);
+    } catch (IllegalArgumentException e) {
       throw new IllegalStateException(e);
     }
   }
@@ -329,11 +324,11 @@ public class UrlRewriter {
   /** Holds the URL along with meta-info, such as whether URL was re-written or not. */
   @AutoValue
   public abstract static class RewrittenURL {
-    static RewrittenURL create(URL url, boolean rewritten) {
-      return new AutoValue_UrlRewriter_RewrittenURL(url, rewritten);
+    static RewrittenURL create(URI uri, boolean rewritten) {
+      return new AutoValue_UrlRewriter_RewrittenURL(uri, rewritten);
     }
 
-    abstract URL url();
+    abstract URI uri();
 
     abstract boolean rewritten();
   }

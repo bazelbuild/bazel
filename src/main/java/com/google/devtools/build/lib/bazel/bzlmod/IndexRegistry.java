@@ -77,7 +77,7 @@ public class IndexRegistry implements Registry {
       throws IOException, InterruptedException {
     try {
       return Optional.of(
-          downloadManager.downloadAndReadOneUrl(new URL(url), eventHandler, clientEnv));
+          downloadManager.downloadAndReadOneUrl(URI.create(url), eventHandler, clientEnv));
     } catch (FileNotFoundException e) {
       return Optional.empty();
     }

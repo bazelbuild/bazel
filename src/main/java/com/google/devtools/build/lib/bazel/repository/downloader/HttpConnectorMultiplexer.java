@@ -73,8 +73,9 @@ final class HttpConnectorMultiplexer {
     this.httpStreamFactory = httpStreamFactory;
   }
 
-  public HttpStream connect(URL url, Optional<Checksum> checksum) throws IOException {
-    return connect(url, checksum, ImmutableMap.of(), Optional.absent());
+  @VisibleForTesting
+  HttpStream connect(URI uri, Optional<Checksum> checksum) throws IOException {
+    return connect(uri, checksum, ImmutableMap.of(), Optional.absent());
   }
 
   /**
@@ -85,7 +86,7 @@ final class HttpConnectorMultiplexer {
    * uncompressed files. It reports download progress. It enforces a SHA-256 checksum which
    * continues to be enforced even after this method returns.
    *
-   * @param url the URL to conenct to. can be: file, http, or https
+   * @param uri the {@link URI} to conenct to. can be: file, http, or https
    * @param checksum checksum lazily checked on entire payload, or empty to disable
    * @param authHeaders the authentication headers
    * @param type extension, e.g. "tar.gz" to force on downloaded filename, or empty to not do this
@@ -95,27 +96,27 @@ final class HttpConnectorMultiplexer {
    * @throws IllegalArgumentException if {@code urls} is empty or has an unsupported protocol
    */
   public HttpStream connect(
-      URL url,
+      URI uri,
       Optional<Checksum> checksum,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<String> type)
       throws IOException {
-    Preconditions.checkArgument(HttpUtils.isUrlSupportedByDownloader(url));
+    Preconditions.checkArgument(HttpUtils.isUrlSupportedByDownloader(uri));
     if (Thread.interrupted()) {
       throw new InterruptedIOException();
     }
-    Function<URL, ImmutableMap<String, List<String>>> headerFunction =
+    Function<URI, ImmutableMap<String, List<String>>> headerFunction =
         getHeaderFunction(REQUEST_HEADERS, authHeaders);
-    URLConnection connection = connector.connect(url, headerFunction);
+    URLConnection connection = connector.connect(uri, headerFunction);
     return httpStreamFactory.create(
         connection,
-        url,
+        uri,
         checksum,
         (Throwable cause, ImmutableMap<String, List<String>> extraHeaders) -> {
           eventHandler.handle(
-              Event.progress(String.format("Lost connection for %s due to %s", url, cause)));
+              Event.progress(String.format("Lost connection for %s due to %s", uri, cause)));
           return connector.connect(
-              connection.getURL(),
+              uri,
               newUrl ->
                   new ImmutableMap.Builder<String, List<String>>()
                       .putAll(headerFunction.apply(newUrl))
@@ -126,20 +127,15 @@ final class HttpConnectorMultiplexer {
   }
 
   @VisibleForTesting
-  static Function<URL, ImmutableMap<String, List<String>>> getHeaderFunction(
+  static Function<URI, ImmutableMap<String, List<String>>> getHeaderFunction(
       Map<String, List<String>> baseHeaders,
       Map<URI, Map<String, List<String>>> additionalHeaders) {
-    return url -> {
+    return uri -> {
       ImmutableMap<String, List<String>> headers = ImmutableMap.copyOf(baseHeaders);
-      try {
-        if (additionalHeaders.containsKey(url.toURI())) {
-          Map<String, List<String>> newHeaders = new HashMap<>(headers);
-          newHeaders.putAll(additionalHeaders.get(url.toURI()));
-          headers = ImmutableMap.copyOf(newHeaders);
-        }
-      } catch (URISyntaxException e) {
-        // If we can't convert the URL to a URI (because it is syntactically malformed), still try
-        // to do the connection, not adding authentication information as we cannot look it up.
+      if (additionalHeaders.containsKey(uri)) {
+        Map<String, List<String>> newHeaders = new HashMap<>(headers);
+        newHeaders.putAll(additionalHeaders.get(uri));
+        headers = ImmutableMap.copyOf(newHeaders);
       }
       return headers;
     };

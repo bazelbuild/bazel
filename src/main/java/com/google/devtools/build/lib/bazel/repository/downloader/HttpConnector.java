@@ -32,7 +32,7 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
-import java.net.URL;
+import java.net.URI;
 import java.net.URLConnection;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -92,15 +92,15 @@ class HttpConnector {
   }
 
   URLConnection connect(
-      URL originalUrl, Function<URL, ImmutableMap<String, List<String>>> requestHeaders)
+      URI originalUri, Function<URI, ImmutableMap<String, List<String>>> requestHeaders)
       throws IOException {
 
     if (Thread.interrupted()) {
       throw new InterruptedIOException();
     }
-    URL url = originalUrl;
-    if (HttpUtils.isProtocol(url, "file")) {
-      return url.openConnection();
+    URI uri = originalUri;
+    if (HttpUtils.isProtocol(uri, "file")) {
+      return uri.toURL().openConnection();
     }
     List<Throwable> suppressions = new ArrayList<>();
     int retries = 0;
@@ -110,14 +110,14 @@ class HttpConnector {
       HttpURLConnection connection = null;
       try {
         connection = (HttpURLConnection)
-            url.openConnection(proxyHelper.createProxyIfNeeded(url));
+            uri.toURL().openConnection(proxyHelper.createProxyIfNeeded(uri));
         // TODO(zecke): Revise once https://bugs.openjdk.java.net/browse/JDK-8163921 is fixed.
         connection.addRequestProperty("Accept", "text/html, image/gif, image/jpeg, */*");
         boolean isAlreadyCompressed =
-            COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(url.getPath()))
-                || COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(originalUrl.getPath()));
+            COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(uri.getPath()))
+                || COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(originalUri.getPath()));
         connection.setInstanceFollowRedirects(false);
-        for (Map.Entry<String, List<String>> entry : requestHeaders.apply(url).entrySet()) {
+        for (Map.Entry<String, List<String>> entry : requestHeaders.apply(uri).entrySet()) {
           if (isAlreadyCompressed && Ascii.equalsIgnoreCase(entry.getKey(), "Accept-Encoding")) {
             // We're not going to ask for compression if we're downloading a file that already
             // appears to be compressed.
@@ -164,12 +164,12 @@ class HttpConnector {
         } else if (code == 301 || code == 302 || code == 303 || code == 307) {
           readAllBytesAndClose(connection.getInputStream());
           if (++redirects == MAX_REDIRECTS) {
-            eventHandler.handle(Event.progress("Redirect loop detected in " + originalUrl));
+            eventHandler.handle(Event.progress("Redirect loop detected in " + originalUri));
             throw new UnrecoverableHttpException("Redirect loop detected");
           }
-          url = HttpUtils.getLocation(connection);
+          uri = HttpUtils.getLocation(connection);
           if (code == 301) {
-            originalUrl = url;
+            originalUri = uri;
           }
         } else if (code == 403) {
           // jart@ has noticed BitBucket + Amazon AWS downloads frequently flake with this code.
@@ -216,7 +216,7 @@ class HttpConnector {
         // exponential backoff. Furthermore RFC law didn't use the magic word "MUST".
         int timeout = IntMath.pow(2, retries) * MIN_RETRY_DELAY_MS;
         if (e instanceof SocketTimeoutException) {
-          eventHandler.handle(Event.progress("Timeout connecting to " + url));
+          eventHandler.handle(Event.progress("Timeout connecting to " + uri));
           connectTimeout = Math.min(connectTimeout * 2, scale(MAX_CONNECT_TIMEOUT_MS));
           // If we got connect timeout, we're already doing exponential backoff, so no point
           // in sleeping too.
@@ -233,7 +233,7 @@ class HttpConnector {
             e = new IOException(e.getMessage(), e);
           } else {
             eventHandler
-                .handle(Event.progress(format("Error connecting to %s: %s", url, e.getMessage())));
+                .handle(Event.progress(format("Error connecting to %s: %s", uri, e.getMessage())));
           }
           for (Throwable suppressed : suppressions) {
             e.addSuppressed(suppressed);
@@ -243,8 +243,8 @@ class HttpConnector {
         // Java 7 allows us to create a tree of all errors that led to the ultimate failure.
         suppressions.add(e);
         eventHandler.handle(
-            Event.progress(format("Failed to connect to %s trying again in %,dms", url, timeout)));
-        url = originalUrl;
+            Event.progress(format("Failed to connect to %s trying again in %,dms", uri, timeout)));
+        uri = originalUri;
         try {
           sleeper.sleepMillis(timeout);
         } catch (InterruptedException translated) {
@@ -254,7 +254,7 @@ class HttpConnector {
         if (connection != null) {
           connection.disconnect();
         }
-        eventHandler.handle(Event.progress(format("Unknown error connecting to %s: %s", url, e)));
+        eventHandler.handle(Event.progress(format("Unknown error connecting to %s: %s", uri, e)));
         throw e;
       }
     }

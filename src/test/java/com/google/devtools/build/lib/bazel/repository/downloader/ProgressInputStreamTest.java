@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.bazel.repository.downloader.DownloaderTestUtils.makeUrl;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -35,7 +34,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
+import java.net.URI;
 import java.util.Locale;
 import org.junit.After;
 import org.junit.Test;
@@ -51,9 +50,9 @@ public class ProgressInputStreamTest {
   private final ExtendedEventHandler extendedEventHandler =
       new Reporter(new EventBus(), eventHandler);
   private final InputStream delegate = mock(InputStream.class);
-  private final URL url = makeUrl("http://lol.example");
+  private final URI uri = URI.create("http://lol.example");
   private ProgressInputStream stream =
-      new ProgressInputStream(Locale.US, clock, extendedEventHandler, 1, delegate, url, url);
+      new ProgressInputStream(Locale.US, clock, extendedEventHandler, 1, delegate, uri, uri);
 
   @After
   public void after() throws Exception {
@@ -126,7 +125,7 @@ public class ProgressInputStreamTest {
   @Test
   public void bufferReadsAfterIntervalInGermany_usesPeriodAsSeparator() throws Exception {
     stream =
-        new ProgressInputStream(Locale.GERMANY, clock, extendedEventHandler, 1, delegate, url, url);
+        new ProgressInputStream(Locale.GERMANY, clock, extendedEventHandler, 1, delegate, uri, uri);
     byte[] buffer = new byte[1024];
     when(delegate.read(any(byte[].class), anyInt(), anyInt())).thenReturn(1024);
     clock.advanceMillis(1);
@@ -144,8 +143,8 @@ public class ProgressInputStreamTest {
             extendedEventHandler,
             1,
             delegate,
-            new URL("http://cdn.example/foo"),
-            url);
+            URI.create("http://cdn.example/foo"),
+            uri);
     when(delegate.read()).thenReturn(42);
     assertThat(stream.read()).isEqualTo(42);
     clock.advanceMillis(1);

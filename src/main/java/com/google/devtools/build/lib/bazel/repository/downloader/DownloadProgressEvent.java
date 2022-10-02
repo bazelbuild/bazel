@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import java.net.URL;
+import java.net.URI;
 import java.text.NumberFormat;
 import java.util.Locale;
 
@@ -24,41 +24,27 @@ import java.util.Locale;
  * being downloaded and the number of bytes read so far.
  */
 public class DownloadProgressEvent implements ExtendedEventHandler.FetchProgress {
-  private final URL originalUrl;
-  private final URL actualUrl;
+  private final URI originalUri;
   private final long bytesRead;
   private final boolean downloadFinished;
 
-  public DownloadProgressEvent(URL originalUrl, URL actualUrl, long bytesRead, boolean finished) {
-    this.originalUrl = originalUrl;
-    this.actualUrl = actualUrl;
+  public DownloadProgressEvent(URI originalUri, long bytesRead, boolean finished) {
+    this.originalUri = originalUri;
     this.bytesRead = bytesRead;
     this.downloadFinished = finished;
   }
 
-  public DownloadProgressEvent(URL originalUrl, long bytesRead, boolean finished) {
-    this(originalUrl, null, bytesRead, finished);
+  public DownloadProgressEvent(URI uri, long bytesRead) {
+    this(uri, bytesRead, false);
   }
 
-  public DownloadProgressEvent(URL url, long bytesRead) {
-    this(url, bytesRead, false);
-  }
-
-  public DownloadProgressEvent(URL url) {
-    this(url, 0);
-  }
-
-  public URL getOriginalUrl() {
-    return originalUrl;
+  public DownloadProgressEvent(URI uri) {
+    this(uri, 0);
   }
 
   @Override
   public String getResourceIdentifier() {
-    return originalUrl.toString();
-  }
-
-  public URL getActualUrl() {
-    return actualUrl;
+    return originalUri.toString();
   }
 
   @Override

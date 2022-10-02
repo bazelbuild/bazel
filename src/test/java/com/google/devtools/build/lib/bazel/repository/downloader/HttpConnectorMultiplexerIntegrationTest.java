@@ -35,7 +35,7 @@ import java.net.InetAddress;
 import java.net.Proxy;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URL;
+import java.net.URI;
 import java.util.Locale;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
@@ -83,7 +83,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
 
   @Before
   public void before() throws Exception {
-    when(proxyHelper.createProxyIfNeeded(any(URL.class))).thenReturn(Proxy.NO_PROXY);
+    when(proxyHelper.createProxyIfNeeded(any(URI.class))).thenReturn(Proxy.NO_PROXY);
   }
 
   @After
@@ -117,7 +117,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
       barrier.await();
       try (HttpStream stream =
           multiplexer.connect(
-              new URL(String.format("http://localhost:%d", server.getLocalPort())), HELLO_SHA256)) {
+              URI.create(String.format("http://localhost:%d", server.getLocalPort())), HELLO_SHA256)) {
         assertThat(toByteArray(stream)).isEqualTo("hello".getBytes(US_ASCII));
       }
     }
@@ -150,7 +150,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
               IOException.class,
               () ->
                   multiplexer.connect(
-                      new URL(String.format("http://localhost:%d", server.getLocalPort())),
+                      URI.create(String.format("http://localhost:%d", server.getLocalPort())),
                       HELLO_SHA256));
       assertThat(e).hasMessageThat().containsMatch("Checksum was .+ but wanted");
     }
@@ -184,7 +184,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
               IOException.class,
               () ->
                   multiplexer.connect(
-                      new URL(String.format("http://localhost:%d", server.getLocalPort())),
+                      URI.create(String.format("http://localhost:%d", server.getLocalPort())),
                       HELLO_SHA256));
       assertThat(e).hasMessageThat().contains("GET returned 503 MELTDOWN");
     }

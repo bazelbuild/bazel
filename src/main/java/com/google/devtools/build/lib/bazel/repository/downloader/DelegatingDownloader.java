@@ -46,7 +46,7 @@ public class DelegatingDownloader implements Downloader {
 
   @Override
   public void download(
-      List<URL> urls,
+      List<URI> uris,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
       String canonicalId,
@@ -60,6 +60,6 @@ public class DelegatingDownloader implements Downloader {
       downloader = delegate;
     }
     downloader.download(
-        urls, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv, type);
+        uris, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv, type);
   }
 }

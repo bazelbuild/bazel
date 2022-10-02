@@ -15,26 +15,27 @@
 package com.google.devtools.build.lib.bazel.repository.cache;
 
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import java.net.URI;
 import java.net.URL;
 
 /** Event reporting about cache hits for download requests. */
 public final class RepositoryCacheHitEvent implements Postable {
   private final String context;
   private final String hash;
-  private final URL url;
+  private final URI uri;
 
-  public RepositoryCacheHitEvent(String context, String hash, URL url) {
+  public RepositoryCacheHitEvent(String context, String hash, URI uri) {
     this.context = context;
     this.hash = hash;
-    this.url = url;
+    this.uri = uri;
   }
 
   public String getContext() {
     return context;
   }
 
-  public URL getUrl() {
-    return url;
+  public URI getUri() {
+    return uri;
   }
 
   public String getFileHash() {

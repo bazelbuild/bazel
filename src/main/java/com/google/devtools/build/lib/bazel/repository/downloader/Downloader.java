@@ -32,7 +32,7 @@ public interface Downloader {
    * <p>On failure the output file will be in an undefined state, and may or may not exist. The
    * caller is responsible for cleaning up outputs of failed downloads.
    *
-   * @param urls list of mirror URLs with identical content
+   * @param uris list of mirror {@link URI}s with identical content
    * @param authHeaders map of authentication headers per URL
    * @param checksum valid checksum which is checked, or absent to disable
    * @param output path to the destination file to write
@@ -41,7 +41,7 @@ public interface Downloader {
    * @throws InterruptedException if this thread is being cast into oblivion
    */
   void download(
-      List<URL> urls,
+      List<URI> uris,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
       String canonicalId,

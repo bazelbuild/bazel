@@ -163,9 +163,9 @@ public class GrpcRemoteDownloaderTest {
   }
 
   private static byte[] downloadBlob(
-      GrpcRemoteDownloader downloader, URL url, Optional<Checksum> checksum)
+      GrpcRemoteDownloader downloader, URI uri, Optional<Checksum> checksum)
       throws IOException, InterruptedException {
-    final List<URL> urls = ImmutableList.of(url);
+    final List<URI> uris = ImmutableList.of(uri);
     com.google.common.base.Optional<Checksum> guavaChecksum =
         com.google.common.base.Optional.<Checksum>absent();
     if (checksum.isPresent()) {
@@ -180,7 +180,7 @@ public class GrpcRemoteDownloaderTest {
     Scratch scratch = new Scratch();
     final Path destination = scratch.resolve("output file path");
     downloader.download(
-        urls,
+        uris,
         authHeaders,
         guavaChecksum,
         canonicalId,
@@ -221,7 +221,7 @@ public class GrpcRemoteDownloaderTest {
     getFromFuture(cacheClient.uploadBlob(context, contentDigest, ByteString.copyFrom(content)));
     final byte[] downloaded =
         downloadBlob(
-            downloader, new URL("http://example.com/content.txt"), Optional.<Checksum>empty());
+            downloader, URI.create("http://example.com/content.txt"), Optional.<Checksum>empty());
 
     assertThat(downloaded).isEqualTo(content);
   }
@@ -241,8 +241,8 @@ public class GrpcRemoteDownloaderTest {
     Downloader fallbackDownloader = mock(Downloader.class);
     doAnswer(
             invocation -> {
-              List<URL> urls = invocation.getArgument(0);
-              if (urls.equals(ImmutableList.of(new URL("http://example.com/content.txt")))) {
+              List<URI> uris = invocation.getArgument(0);
+              if (uris.equals(ImmutableList.of(URI.create("http://example.com/content.txt")))) {
                 Path output = invocation.getArgument(4);
                 FileSystemUtils.writeContent(output, content);
               }
@@ -254,7 +254,7 @@ public class GrpcRemoteDownloaderTest {
 
     final byte[] downloaded =
         downloadBlob(
-            downloader, new URL("http://example.com/content.txt"), Optional.<Checksum>empty());
+            downloader, URI.create("http://example.com/content.txt"), Optional.<Checksum>empty());
 
     assertThat(downloaded).isEqualTo(content);
   }
@@ -291,7 +291,7 @@ public class GrpcRemoteDownloaderTest {
     final byte[] downloaded =
         downloadBlob(
             downloader,
-            new URL("http://example.com/content.txt"),
+            URI.create("http://example.com/content.txt"),
             Optional.of(Checksum.fromString(KeyType.SHA256, contentDigest.getHash())));
 
     assertThat(downloaded).isEqualTo(content);
@@ -334,7 +334,7 @@ public class GrpcRemoteDownloaderTest {
             () ->
                 downloadBlob(
                     downloader,
-                    new URL("http://example.com/content.txt"),
+                    URI.create("http://example.com/content.txt"),
                     Optional.of(Checksum.fromString(KeyType.SHA256, contentDigest.getHash()))));
 
     assertThat(e).hasMessageThat().contains(contentDigest.getHash());
@@ -347,9 +347,9 @@ public class GrpcRemoteDownloaderTest {
         GrpcRemoteDownloader.newFetchBlobRequest(
             "instance name",
             ImmutableList.of(
-                new URL("http://example.com/a"),
-                new URL("http://example.com/b"),
-                new URL("file:/not/limited/to/http")),
+                URI.create("http://example.com/a"),
+                URI.create("http://example.com/b"),
+                URI.create("file:/not/limited/to/http")),
             ImmutableMap.of(
                 new URI("http://example.com"),
                 ImmutableMap.of(
@@ -403,9 +403,9 @@ public class GrpcRemoteDownloaderTest {
         GrpcRemoteDownloader.newFetchBlobRequest(
             "instance name",
             ImmutableList.of(
-                new URL("http://example.com/a"),
-                new URL("http://example.com/b"),
-                new URL("file:/not/limited/to/http")),
+                URI.create("http://example.com/a"),
+                URI.create("http://example.com/b"),
+                URI.create("file:/not/limited/to/http")),
             ImmutableMap.of(
                 new URI("http://example.com"),
                 ImmutableMap.of(
