@@ -383,6 +383,37 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void existingRule_unionableWithDict() throws Exception {
+    scratch.file(
+        "test/test.bzl",
+        "def save_as_union(dict_val, r):",
+        "  test.save('dict_val | r', dict_val | r)",
+        "  test.save('r | dict_val', r | dict_val)",
+        "  dict_val |= r",
+        "  test.save('dict_val |= r', dict_val)");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:test.bzl', 'save_as_union')",
+        "cc_library(",
+        "    name ='rulename',",
+        ")",
+        "save_as_union({'name': 'dictname', 'dictkey': 1}, existing_rule('rulename'))");
+    getConfiguredTarget("//test:rulename");
+    Map<String, Object> unionDictWithExistingRule =
+        Dict.cast(getSaved("dict_val | r"), String.class, Object.class, "dict_val | r");
+    assertThat(unionDictWithExistingRule)
+        .containsAtLeast("name", "rulename", "dictkey", StarlarkInt.of(1), "kind", "cc_library");
+    Map<String, Object> unionExistingRuleWithDict =
+        Dict.cast(getSaved("r | dict_val"), String.class, Object.class, "r | dict_val");
+    assertThat(unionExistingRuleWithDict)
+        .containsAtLeast("name", "dictname", "dictkey", StarlarkInt.of(1), "kind", "cc_library");
+    Map<String, Object> inPlaceUnionDictWithExistingRule =
+        Dict.cast(getSaved("dict_val |= r"), String.class, Object.class, "dict_val | r");
+    assertThat(inPlaceUnionDictWithExistingRule)
+        .containsAtLeast("name", "rulename", "dictkey", StarlarkInt.of(1), "kind", "cc_library");
+  }
+
+  @Test
   public void existingRule_asKwargs() throws Exception {
     scratch.file(
         "test/test.bzl",
