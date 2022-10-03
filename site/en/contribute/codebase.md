@@ -380,7 +380,14 @@ Generating a new `SkyValue` involves the following steps:
 
 A consequence of this is that if not all dependencies are available in (3), the
 function needs to be completely restarted and thus computation needs to be
-re-done. This is obviously inefficient. We work around this in a number of ways:
+re-done, which is obviously inefficient. `SkyFunction.Environment.getState()`
+lets us directly work around this issue by having Skyframe maintain the
+`SkyKeyComputeState` instance between calls to `SkyFunction.compute` for the
+same `SkyKey`. Check out the example in the javadoc for
+`SkyFunction.Environment.getState()`, as well as real usages in the Bazel
+codebase.
+
+Other indirect workarounds:
 
 1.  Declaring dependencies of `SkyFunction`s in groups so that if a function
     has, say, 10 dependencies, it only needs to restart once instead of ten
@@ -388,12 +395,8 @@ re-done. This is obviously inefficient. We work around this in a number of ways:
 2.  Splitting `SkyFunction`s so that one function does not need to be restarted
     many times. This has the side effect of interning data into Skyframe that
     may be internal to the `SkyFunction`, thus increasing memory use.
-3.  Using caches "behind the back of Skyframe" to keep state (such as the state of
-    actions being executed in `ActionExecutionFunction.stateMap` . In the
-    extreme, this ends up resulting in writing code in continuation-passing
-    style (such as action execution), which does not help readability.
 
-Of course, these are all just workarounds for the limitations of Skyframe, which
+These are all just workarounds for the limitations of Skyframe, which
 is mostly a consequence of the fact that Java doesn't support lightweight
 threads and that we routinely have hundreds of thousands of in-flight Skyframe
 nodes.
@@ -1660,10 +1663,13 @@ Of integration tests, we have two kinds:
 1.  Ones implemented using a very elaborate bash test framework under
     `src/test/shell`
 2.  Ones implemented in Java. These are implemented as subclasses of
-    `AbstractBlackBoxTest`.
+    `BuildIntegrationTestCase`
 
-`AbstractBlackBoxTest` has the virtue that it works on Windows, too, but most of
-our integration tests are written in bash.
+`BuildIntegrationTestCase` is the preferred integration testing framework as it
+is well-equipped for most testing scenarios. As it is a Java framework, it
+provides debuggability and seamless integration with many common development
+tools. There are many examples of `BuildIntegrationTestCase` classes in the
+Bazel repository.
 
 Analysis tests are implemented as subclasses of `BuildViewTestCase`. There is a
 scratch file system you can use to write BUILD files, then various helper
