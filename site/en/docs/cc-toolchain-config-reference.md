@@ -156,7 +156,7 @@ support and expansion. These are:
    </td>
   </tr>
   <tr>
-   <td><code>implies = ['feature']</code>
+   <td><pre>implies = ['feature']</pre>
    </td>
    <td><p>Feature-level. This feature implies the specified feature(s).
        Enabling a feature also implicitly enables all features implied by it
@@ -167,7 +167,7 @@ support and expansion. These are:
    </td>
   </tr>
   <tr>
-   <td><code>provides = ['feature']</code>
+   <td><pre>provides = ['feature']</pre>
    </td>
    <td><p>Feature-level. Indicates that this feature is one of several mutually
        exclusive alternate features. For example, all of the sanitizers could
