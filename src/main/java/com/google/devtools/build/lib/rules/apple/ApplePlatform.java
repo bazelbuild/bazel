@@ -41,7 +41,6 @@ public enum ApplePlatform implements ApplePlatformApi {
   WATCHOS_SIMULATOR("watchos_simulator", "WatchSimulator", PlatformType.WATCHOS, false),
   CATALYST("catalyst", "MacOSX", PlatformType.CATALYST, true);
 
-  // TODO(b/180572694): Remove ios_sim_arm64 after platforms based toolchain resolution supported.
   private static final ImmutableSet<String> IOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("ios_x86_64", "ios_i386", "ios_sim_arm64");
   private static final ImmutableSet<String> IOS_DEVICE_TARGET_CPUS =
@@ -49,7 +48,7 @@ public enum ApplePlatform implements ApplePlatformApi {
   private static final ImmutableSet<String> WATCHOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("watchos_i386", "watchos_x86_64", "watchos_arm64");
   private static final ImmutableSet<String> WATCHOS_DEVICE_TARGET_CPUS =
-      ImmutableSet.of("watchos_armv7k", "watchos_arm64_32");
+      ImmutableSet.of("watchos_armv7k", "watchos_arm64_32", "watchos_device_arm64");
   private static final ImmutableSet<String> TVOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("tvos_x86_64", "tvos_sim_arm64");
   private static final ImmutableSet<String> TVOS_DEVICE_TARGET_CPUS =

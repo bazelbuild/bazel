@@ -75,9 +75,11 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   /** Prefix for macOS cpu values */
   private static final String MACOS_CPU_PREFIX = "darwin_";
 
-  // TODO(b/180572694): Remove after platforms based toolchain resolution supported.
-  /** Prefix for forced iOS and tvOS simulator cpu values */
-  public static final String FORCED_SIMULATOR_CPU_PREFIX = "sim_";
+  /** Prefix for simulator environment cpu values */
+  public static final String SIMULATOR_ENVIRONMENT_CPU_PREFIX = "sim_";
+
+  /** Prefix for device environment cpu values */
+  public static final String DEVICE_ENVIRONMENT_CPU_PREFIX = "device_";
 
   /** Default cpu for iOS builds. */
   @VisibleForTesting
@@ -222,21 +224,19 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    */
   @Override
   public String getSingleArchitecture() {
-    return getSingleArchitecture(applePlatformType, appleCpus, /* removeSimPrefix= */ true);
+    return getSingleArchitecture(applePlatformType, appleCpus, /* removeEnvironmentPrefix= */ true);
   }
 
   private static String getSingleArchitecture(
-      PlatformType applePlatformType, AppleCpus appleCpus, boolean removeSimPrefix) {
-    // The removeSimPrefix argument is necessary due to a simulator and device both using arm64
-    // architecture. In the case of Starlark asking for the architecture, we should return the
-    // actual architecture (arm64) but in other cases in this class what we actually want is the
-    // CPU without the ios/tvos prefix (e.g. sim_arm64). This parameter is provided in the private
-    // method so that internal to this class we are able to use both without duplicating retrieval
-    // logic.
-    // TODO(b/180572694): Remove removeSimPrefix parameter once platforms are used instead of CPU
+      PlatformType applePlatformType, AppleCpus appleCpus, boolean removeEnvironmentPrefix) {
+    // The removeEnvironmentPrefix argument is used to remove the environment data from the CPU
+    // - e.g. whether the target CPU is for simulator, device or catalyst. For older CPUs,
+    // no environment may be provided.
     String cpu = getPrefixedAppleCpu(applePlatformType, appleCpus);
-    if (removeSimPrefix && cpu.startsWith(FORCED_SIMULATOR_CPU_PREFIX)) {
-      cpu = cpu.substring(FORCED_SIMULATOR_CPU_PREFIX.length());
+    if (removeEnvironmentPrefix && cpu.startsWith(SIMULATOR_ENVIRONMENT_CPU_PREFIX)) {
+      cpu = cpu.substring(SIMULATOR_ENVIRONMENT_CPU_PREFIX.length());
+    } else if (removeEnvironmentPrefix && cpu.startsWith(DEVICE_ENVIRONMENT_CPU_PREFIX)) {
+      cpu = cpu.substring(DEVICE_ENVIRONMENT_CPU_PREFIX.length());
     }
     return cpu;
   }
@@ -319,7 +319,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   public ApplePlatform getSingleArchPlatform() {
     return ApplePlatform.forTarget(
         applePlatformType,
-        getSingleArchitecture(applePlatformType, appleCpus, /* removeSimPrefix= */ false));
+        getSingleArchitecture(applePlatformType, appleCpus, /* removeEnvironmentPrefix= */ false));
   }
 
   /**
@@ -384,7 +384,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
       AppleCpus appleCpus,
       EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> platformBitcodeModes) {
     String architecture =
-        getSingleArchitecture(applePlatformType, appleCpus, /* removeSimPrefix= */ false);
+        getSingleArchitecture(applePlatformType, appleCpus, /* removeEnvironmentPrefix= */ false);
     String cpuString = ApplePlatform.cpuStringForTarget(applePlatformType, architecture);
     if (ApplePlatform.isApplePlatform(cpuString)) {
       ApplePlatform platform = ApplePlatform.forTarget(applePlatformType, architecture);
