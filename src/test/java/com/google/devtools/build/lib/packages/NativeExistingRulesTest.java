@@ -337,6 +337,52 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void existingRule_asDictArgument() throws Exception {
+    scratch.file(
+        "test/test.bzl",
+        "def save_as_dict(r):",
+        "  test.save('type(dict(r))', type(dict(r)))",
+        "  test.save('dict(r)[\"name\"]', dict(r)[\"name\"])",
+        "  test.save('dict(r)[\"kind\"]', dict(r)[\"kind\"])");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:test.bzl', 'save_as_dict')", //
+        "cc_library(",
+        "    name ='rulename',",
+        ")",
+        "save_as_dict(existing_rule('rulename'))");
+    getConfiguredTarget("//test:rulename");
+    assertThat(getSaved("type(dict(r))")).isEqualTo("dict");
+    assertThat(getSaved("dict(r)[\"name\"]")).isEqualTo("rulename");
+    assertThat(getSaved("dict(r)[\"kind\"]")).isEqualTo("cc_library");
+  }
+
+  @Test
+  public void existingRule_asDictUpdateArgument() throws Exception {
+    // We do not test `existing_rule(r).update({...})` because `existing_rule(r)` may be immutable
+    // (as verified by other test cases).
+    scratch.file(
+        "test/test.bzl",
+        "def save_as_updated_dict(r):",
+        "  updated_dict = {'name': 'dictname', 'dictkey': 1}",
+        "  updated_dict.update(r)",
+        "  test.save('updated_dict[\"name\"]', updated_dict[\"name\"])",
+        "  test.save('updated_dict[\"kind\"]', updated_dict[\"kind\"])",
+        "  test.save('updated_dict[\"dictkey\"]', updated_dict[\"dictkey\"])");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:test.bzl', 'save_as_updated_dict')", //
+        "cc_library(",
+        "    name ='rulename',",
+        ")",
+        "save_as_updated_dict(existing_rule('rulename'))");
+    getConfiguredTarget("//test:rulename");
+    assertThat(getSaved("updated_dict[\"name\"]")).isEqualTo("rulename");
+    assertThat(getSaved("updated_dict[\"kind\"]")).isEqualTo("cc_library");
+    assertThat(getSaved("updated_dict[\"dictkey\"]")).isEqualTo(StarlarkInt.of(1));
+  }
+
+  @Test
   public void existingRule_asKwargs() throws Exception {
     scratch.file(
         "test/test.bzl",
