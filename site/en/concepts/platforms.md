@@ -4,18 +4,15 @@ Book: /_book.yaml
 # Building with Platforms
 
 Bazel has sophisticated support for modeling [platforms][Platforms] and
-[toolchains][Toolchains]. Integrating this into real projects requires
-coherent cooperation between project and library owners, rule maintainers,
-and core Bazel devs.
+[toolchains][Toolchains]. Integrating this with real projects requires
+careful cooperation between code owners, rule maintainers, and core Bazel devs.
 
-This page summarizes the arguments for using platforms and shows how to
-navigate these relationships for maximum value with minimum cognitive
-overhead.
+This page summarizes the purpose of platforms and shows how to build with them.
 
-**In short**, the core APIs are available but the rule and depot migrations required
-to make them work universally are ongoing. This means you *may* be able to use
-platforms and toolchains with your project, with some work. But you have to
-explicitly opt your project in.
+**tl;dr:** Bazel's platform and toolchain APIs are available but won't work
+everywhere until all language rules, `select()`s and other legacy references
+are updated. This work is ongoing. Eventually all builds will be platform-based.
+Read below to see where your builds fit.
 
 For more formal documentation, see:
 
@@ -24,34 +21,33 @@ For more formal documentation, see:
 
 ## Background {:#background}
 
-*Platforms* and *toolchains* were introduced to *standardize* the need for
- software projects to target different kinds of computers with different
- language-appropriate tools.
+*Platforms* and *toolchains* were introduced to *standardize* how software
+projects target different machines and build with the right language tools.
 
 This is a relatively recent addition to Bazel. It was
 [inspired][Inspiration]{: .external}
-by the observation that language maintainers were *already* doing this in ad hoc
-and incompatible ways. For example, C++ rules use `--cpu` and `--crosstool_top`
-to set a build's target CPU and C++ toolchain. Neither of these correctly models a
-"platform". Historic attempts to use them for that inevitably led to awkward and
-inaccurate build APIs. They also don't say anything about Java  toolchains,
-which evolved their own independent interface with `--java_toolchain`.
+by the observation that language maintainers were *already* doing this in ad
+hoc, incompatible ways. For example, C++ rules use `--cpu` and `--crosstool_top`
+to set a build's target CPU and C++ toolchain. Neither of these correctly models
+a "platform". Historic attempts to do so caused awkward and inaccurate builds.
+These flags also don't control Java compilation, which evolved its own
+independent interface with `--java_toolchain`.
 
-Bazel aims to excel at large, mixed-language, multi-platform projects. This
+Bazel is intended for large, multi-language, multi-platform projects. This
 demands more principled support for these concepts, including clear APIs that
-bind rather than diverge languages and projects. This is what the new platform
-and toolchain APIs achieve.
+encourage language and project interoperability. This is what these new APIs are
+for.
 
 ### Migration {:#migration}
 
-These APIs aren't enough for all projects to use platforms, and the old APIs
-have to be retired. This isn't trivial because all of a project's languages,
-toolchains, dependencies, and `select()`s have to support the new APIs. This
-requires an *ordered migration sequence* to keep projects working correctly.
+The platform and toolchain APIs only work when projects actually use them. This
+isn't trivial because a project's rule logic, toolchains, dependencies, and
+`select()`s have to support them. This requires a careful migration sequence
+to keep all projects and their dependencies working correctly.
 
 For example, Bazel's
-[C++ Rules] already support platforms while the
-[Android Rules] don't. *Your* C++ project may not care about Android. But others may. So
+[C++ Rules] support platforms. But the [Apple Rules] don't. *Your* C++ project
+may not care about Apple. But others may. So
 it's not yet safe to globally enable platforms for all C++ builds.
 
 The remainder of this page describes this migration sequence and how and when
@@ -84,8 +80,8 @@ understand the machine properties implied by `//:myplatform`.
 repo if the platform is unique to your project, otherwise somewhere all projects
 that may use this platform can find.
 
-The old APIs will be removed as soon as this goal is achieved and this will
-become the standard way projects select platforms and toolchains.
+The old APIs will be removed as soon as this goal is achieved. Then this will
+be the standard way projects select platforms and toolchains.
 
 ## Should I use platforms? {:#use-platforms-reason}
 
@@ -202,9 +198,7 @@ API][Toolchains] (`ctx.toolchains`) and stop reading legacy settings like
 If you're designing a new rule set, you must support platforms from the
 beginning. This automatically makes your rules compatible with other
 rules and projects, with increasing value as the platform API becomes
-more ubiquitious.
-
-Details:
+more ubiquitous.
 
 ### Common platform properties {:#common-platform-properties}
 
@@ -255,19 +249,18 @@ bazel build //:my_cpp_project` --cpu=... --crosstool_top=...  --compiler=...
 ```
 
 If your project is pure C++ and not depended on by non-C++ projects, you can use
-this mode safely as long as your [`select`](#select)s and
-[transitions](#transitions) also work with platforms. See
+platforms safely as long as your [`select`](#select)s and
+[transitions](#transitions) are compatible. See
 [#7260](https://github.com/bazelbuild/bazel/issues/7260){: .external} and
-[Configuring C++ toolchains] for further migration guidance.
+[Configuring C++ toolchains] for more guidance.
 
-This mode is not enabled by default. This is because Android and iOS projects
+This mode is not enabled by default. This is because Apple projects
 still configure C++ dependencies with `--cpu` and `--crosstool_top`
-([example](https://github.com/bazelbuild/bazel/issues/8716#issuecomment-507230303){: .external}). Enabling
-it requires adding platform support for Android and iOS.
+([example](https://github.com/bazelbuild/bazel/issues/8716#issuecomment-507230303){: .external}). So this depends on the Apple rules migrating to platforms.
 
 ### Java {:#java}
 
-Bazel's Java rules use platforms and configuration flags to select toolchains.
+Bazel's Java rules use platforms.
 
 This replaces legacy flags `--java_toolchain`, `--host_java_toolchain`,
 `--javabase`, and `--host_javabase`.
@@ -279,18 +272,10 @@ If you are still using legacy flags, follow the migration process in [Issue #784
 
 ### Android {:#android}
 
-Bazel's Android rules do not yet support platforms to select Android toolchains.
+Bazel's Android rules use platforms to select toolchains when you set
+`--incompatible_enable_android_toolchain_resolution`.
 
-They do support setting `--platforms` to select NDK toolchains: see
-[here][Android Rules Platforms].
-
-Most importantly,
-[`--fat_apk_cpu`][Android Rules Platforms],
-which builds multi-architecture fat APKs, does not work with platform-enabled
-C++. This is because it sets legacy flags like `--cpu` and `--crosstool_top`,
-which platform-enabled C++ rules don't read. Until this is migrated, using
-`--fat_apk_cpu` with `--platforms` requires [platform
-mappings](#platform-mappings).
+This is not enabled by default. But migration is well on its way.
 
 ### Apple {:#apple}
 
@@ -456,6 +441,7 @@ contact
 [Inspiration]: https://blog.bazel.build/2019/02/11/configurable-builds-part-1.html
 [C++ Rules]: /docs/bazel-and-cpp
 [Android Rules]: /docs/bazel-and-android
+[Apple Rules]: https://github.com/bazelbuild/rules_apple
 [Common Platform Declarations]: https://github.com/bazelbuild/platforms#motivation
 [select()]: /docs/configurable-attributes
 [select() Platforms]: /docs/configurable-attributes#platforms
@@ -471,4 +457,3 @@ contact
 [Starlark transitions]: /rules/config#user-defined-transitions
 [Defining Constraints and Platforms]: /docs/platforms#constraints-platforms
 [Configuring C++ toolchains]: /tutorials/cc-toolchain-config
-[Android Rules Platforms]: /docs/android-ndk#integration-platforms
