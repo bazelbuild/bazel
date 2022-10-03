@@ -27,6 +27,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Tuple;
 import org.junit.Before;
@@ -202,9 +203,11 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
 
     getConfiguredTarget("//test/getrule:BUILD");
     assertThat(Starlark.toIterable(getSaved("all_str")))
-        .containsExactly("genrule", "a", "nop_rule", "c").inOrder();
+        .containsExactly("genrule", "a", "nop_rule", "c")
+        .inOrder();
     assertThat(Starlark.toIterable(getSaved("a_str")))
-        .containsExactly("genrule", "a", ":a.txt", "//test:bla").inOrder();
+        .containsExactly("genrule", "a", ":a.txt", "//test:bla")
+        .inOrder();
     assertThat(Starlark.toIterable(getSaved("c_str")))
         .containsExactly("nop_rule", "c", ":a")
         .inOrder();
@@ -233,6 +236,42 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
             "stamp",
             "heuristic_label_expansion",
             "kind");
+  }
+
+  @Test
+  public void existingRule_ignoresHiddenAttributes() throws Exception {
+    scratch.file(
+        "test/inc.bzl", //
+        "def _check_hidden_attr_exists(ctx):",
+        "    if ctx.attr._hidden_attr != 'hidden_val':",
+        "        fail('ctx.attr._hidden_attr != \"hidden_val\"')",
+        "    pass",
+        "my_rule = rule(",
+        "    attrs = {",
+        "        '_hidden_attr': attr.string(default = 'hidden_val'),",
+        "        'normal_attr': attr.string(default = 'normal_val'),",
+        "    },",
+        "    implementation = _check_hidden_attr_exists",
+        ")",
+        "def f():",
+        "    my_rule(name = 'rulename')",
+        "    r = native.existing_rule('rulename')",
+        "    test.save('r.keys()', r.keys())",
+        "    test.save('r.values()', r.values())",
+        "    test.save('\"_hidden_attr\" in r', \"_hidden_attr\" in r)");
+    scratch.file(
+        "test/BUILD",
+        "load('inc.bzl', 'f')", //
+        "f()");
+
+    assertThat(getConfiguredTarget("//test:rulename")).isNotNull();
+    assertThat(Starlark.toIterable(getSaved("r.keys()")))
+        .containsAtLeast("name", "kind", "normal_attr");
+    assertThat(Starlark.toIterable(getSaved("r.keys()"))).doesNotContain("_hidden_attr");
+    assertThat(Starlark.toIterable(getSaved("r.values()")))
+        .containsAtLeast("rulename", "my_rule", "normal_val");
+    assertThat(Starlark.toIterable(getSaved("r.values()"))).doesNotContain("hidden_val");
+    assertThat((Boolean) getSaved("\"_hidden_attr\" in r")).isFalse();
   }
 
   @Test
@@ -295,6 +334,69 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     assertThat(getSaved("r.get('invalid_attr', 123)")).isEqualTo(StarlarkInt.of(123));
     assertThat(getSaved("'define_values' in r")).isEqualTo(true);
     assertThat(getSaved("'invalid_attr' in r")).isEqualTo(false);
+  }
+
+  @Test
+  public void existingRule_asKwargs() throws Exception {
+    scratch.file(
+        "test/test.bzl",
+        "def save_kwargs(**kwargs):",
+        "  test.save('kwargs[\"name\"]', kwargs[\"name\"])",
+        "  test.save('kwargs[\"kind\"]', kwargs[\"kind\"])",
+        "def save_kwargs_of_existing_rule(name):",
+        "  save_kwargs(**native.existing_rule(name))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:test.bzl', 'save_kwargs_of_existing_rule')", //
+        "cc_library(",
+        "    name ='rulename',",
+        ")",
+        "save_kwargs_of_existing_rule('rulename')");
+    getConfiguredTarget("//test:rulename");
+    assertThat(getSaved("kwargs[\"name\"]")).isEqualTo("rulename");
+    assertThat(getSaved("kwargs[\"kind\"]")).isEqualTo("cc_library");
+  }
+
+  // Regression test for https://github.com/bazelbuild/bazel/issues/16256
+  @Test
+  public void existingRule_encodesToJson() throws Exception {
+    // We need a Starlark rule - native rules can have attribute values that the json encoder
+    // doesn't handle.
+    scratch.file(
+        "test/test.bzl",
+        "def _dummy_impl(ctx):",
+        "  pass",
+        "test_library = rule(",
+        "  implementation = _dummy_impl,",
+        "  attrs = {'srcs': attr.label_list(allow_files = True)},",
+        ")",
+        // TODO(b/249397668): simplifying this to `json_encode = json.encode` etc. causes a
+        // NoCodecException. Need to investigate.
+        "def json_encode(value):",
+        "  return json.encode(value)",
+        "def json_decode(text):",
+        "  return json.decode(text)",
+        "def save(name, object):",
+        "  test.save(name, object)");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:test.bzl', 'test_library', 'json_decode', 'json_encode', 'save')", //
+        "test_library(",
+        "    name ='foo',",
+        "    srcs = ['foo.cc'],",
+        ")",
+        "save('foo', json_decode(json_encode(existing_rule('foo'))))");
+    scratch.file("test/foo.cc");
+    getConfiguredTarget("//test:foo");
+    // We test a subset of attributes after an encode-decode round trip because the rule also has
+    // default attributes with default values, which will get encoded to json and which will change
+    // whenever default attributes get introduced, making string comparison of encoded json fragile.
+    Map<String, Object> jsonRoundTripValue =
+        Dict.cast(
+            getSaved("foo"), String.class, Object.class, "json round trip of existing_rule('foo')");
+    assertThat(jsonRoundTripValue)
+        .containsAtLeast(
+            "name", "foo", "kind", "test_library", "srcs", StarlarkList.immutableOf(":foo.cc"));
   }
 
   @Test
@@ -379,6 +481,68 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     assertThat(Starlark.toIterable(getSaved("rs1.keys()"))).containsExactly("x");
     assertThat(Starlark.toIterable(getSaved("rs2.keys()"))).containsExactly("x", "y");
     assertThat(Starlark.toIterable(getSaved("rs3.keys()"))).containsExactly("x", "y", "z");
+  }
+
+  // Regression test for https://github.com/bazelbuild/bazel/issues/16256
+  @Test
+  public void existingRules_encodeToJson() throws Exception {
+    // We need a Starlark rule - native rules can have attribute values that the json encoder
+    // doesn't handle.
+    scratch.file(
+        "test/test.bzl",
+        "def _dummy_impl(ctx):",
+        "  pass",
+        "test_library = rule(",
+        "  implementation = _dummy_impl,",
+        "  attrs = {'srcs': attr.label_list(allow_files = True)},",
+        ")",
+        // TODO(b/249397668): simplifying this to `json_encode = json.encode` etc. causes a
+        // NoCodecException. Need to investigate.
+        "def json_encode(value):",
+        "  return json.encode(value)",
+        "def json_decode(text):",
+        "  return json.decode(text)",
+        "def save(name, object):",
+        "  test.save(name, object)");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:test.bzl', 'test_library', 'json_decode', 'json_encode', 'save')", //
+        "test_library(",
+        "    name ='foo',",
+        "    srcs = ['foo.cc'],",
+        ")",
+        "test_library(",
+        "    name ='bar',",
+        "    srcs = ['bar.cc'],",
+        ")",
+        "save('rules', json_decode(json_encode(existing_rules())))");
+    scratch.file("test/foo.cc");
+    getConfiguredTarget("//test:bar");
+    // We test a subset of attributes after an encode-decode round trip because the rule also has
+    // default attributes with default values, which will get encoded to json and which will change
+    // whenever default attributes get introduced, making string comparison of encoded json fragile.
+    Dict<String, Object> jsonRoundTripRulesValue =
+        Dict.cast(
+            getSaved("rules"), String.class, Object.class, "json round trip of `existing_rules()`");
+    assertThat(jsonRoundTripRulesValue.keySet()).containsExactly("foo", "bar");
+    Map<String, Object> jsonRoundTripFooValue =
+        Dict.cast(
+            jsonRoundTripRulesValue.get("foo"),
+            String.class,
+            Object.class,
+            "json round trip of `existing_rule('foo')`");
+    assertThat(jsonRoundTripFooValue)
+        .containsAtLeast(
+            "name", "foo", "kind", "test_library", "srcs", StarlarkList.immutableOf(":foo.cc"));
+    Map<String, Object> jsonRoundTripBarValue =
+        Dict.cast(
+            jsonRoundTripRulesValue.get("bar"),
+            String.class,
+            Object.class,
+            "json round trip of `existing_rule('bar')`");
+    assertThat(jsonRoundTripBarValue)
+        .containsAtLeast(
+            "name", "bar", "kind", "test_library", "srcs", StarlarkList.immutableOf(":bar.cc"));
   }
 
   /**
