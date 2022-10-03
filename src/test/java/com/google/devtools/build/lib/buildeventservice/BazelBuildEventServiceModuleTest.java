@@ -784,6 +784,36 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     assertAndClearBugReporterStoredCrash(OutOfMemoryError.class);
   }
 
+  @Test
+  public void oom_besClosesAfterSpecialCaseTimeoutThrownFromSkyframe() throws Exception {
+    // BES server-side will never finish. The test will pass simply by completing and not waiting
+    // until the test timeout.
+    buildEventService.setDelayBeforeClosingStream(Duration.ofHours(10));
+    write("foo/BUILD", "genrule(name = 'gen', outs = ['gen.out'], cmd = 'touch $@')");
+    AtomicBoolean threwOom = new AtomicBoolean(false);
+    getSkyframeExecutor()
+        .getEvaluator()
+        .injectGraphTransformerForTesting(
+            NotifyingHelper.makeNotifyingTransformer(
+                (key, type, order, context) -> {
+                  if (key instanceof ActionLookupData && !threwOom.getAndSet(true)) {
+                    throw new OutOfMemoryError();
+                  }
+                }));
+    addOptions(
+        "--bes_backend=inprocess",
+        "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE",
+        "--bes_oom_finish_upload_timeout=2s",
+        "--oom_message=Please build fewer targets.");
+
+    assertThrows(OutOfMemoryError.class, () -> buildTarget("//foo:gen"));
+
+    assertThat(runtimeWrapper.getCrashMessages())
+        .containsExactly(
+            TestConstants.PRODUCT_NAME + " is crashing: Crashed: (java.lang.OutOfMemoryError) ");
+    assertAndClearBugReporterStoredCrash(OutOfMemoryError.class);
+  }
+
   /**
    * Trivial, in-memory implementation of a PublishBuildToolEventStream handler that can have
    * pre-configured sleeps triggered at critical junctures.
