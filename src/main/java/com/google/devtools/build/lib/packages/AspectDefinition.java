@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.Missin
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.LabelVisitor;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -39,7 +38,6 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
-import java.util.function.BiPredicate;
 import javax.annotation.Nullable;
 
 /**
@@ -83,13 +81,6 @@ public final class AspectDefinition {
   private final boolean applyToFiles;
   private final boolean applyToGeneratingRules;
 
-  /**
-   * A predicate that checks whether the aspect should propagate down a given attribute in a given
-   * configuration. Defaults to always true. See {@link Builder#propagateViaAttribute(BiPredicate)}
-   * for details.
-   */
-  private final BiPredicate<Object, String> propagateViaAttribute;
-
   private final ImmutableSet<AspectClass> requiredAspectClasses;
 
   private final ImmutableSet<Label> execCompatibleWith;
@@ -110,7 +101,6 @@ public final class AspectDefinition {
       @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean applyToFiles,
       boolean applyToGeneratingRules,
-      BiPredicate<Object, String> propagateViaAttribute,
       ImmutableSet<AspectClass> requiredAspectClasses,
       ImmutableSet<Label> execCompatibleWith,
       ImmutableMap<String, ExecGroup> execGroups) {
@@ -124,7 +114,6 @@ public final class AspectDefinition {
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.applyToFiles = applyToFiles;
     this.applyToGeneratingRules = applyToGeneratingRules;
-    this.propagateViaAttribute = propagateViaAttribute;
     this.requiredAspectClasses = requiredAspectClasses;
     this.execCompatibleWith = execCompatibleWith;
     this.execGroups = execGroups;
@@ -215,15 +204,6 @@ public final class AspectDefinition {
     return applyToGeneratingRules;
   }
 
-  /**
-   * A predicate that checks whether the aspect should propagate down a given attribute in a given
-   * configuration. Defaults to always true. See {@link Builder#propagateViaAttribute(BiPredicate)}
-   * for details.
-   */
-  public BiPredicate<Object, String> propagateViaAttribute() {
-    return propagateViaAttribute;
-  }
-
   public static boolean satisfies(Aspect aspect, AdvertisedProviderSet advertisedProviderSet) {
     return aspect.getDefinition().requiredProviders.isSatisfiedBy(advertisedProviderSet);
   }
@@ -283,8 +263,6 @@ public final class AspectDefinition {
         AdvertisedProviderSet.builder();
     private final RequiredProviders.Builder requiredProviders =
         RequiredProviders.acceptAnyBuilder();
-    private BiPredicate<Object, String> propagateViaAttribute =
-        (BiPredicate<Object, String> & Serializable) (a, c) -> true;
     private final RequiredProviders.Builder requiredAspectProviders =
         RequiredProviders.acceptNoneBuilder();
     @Nullable private LinkedHashSet<String> propagateAlongAttributes = new LinkedHashSet<>();
@@ -356,27 +334,6 @@ public final class AspectDefinition {
     @CanIgnoreReturnValue
     public Builder requiredAspectClasses(ImmutableSet<AspectClass> requiredAspectClasses) {
       this.requiredAspectClasses = requiredAspectClasses;
-      return this;
-    }
-
-    /**
-     * Optional predicate to conditionally propagate down an attribute based on the {@link
-     * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue}.
-     *
-     * <p>This is implemented specifically to support the platform-based Android toolchain
-     * migration. See {@link com.google.devtools.build.lib.rules.android.DexArchiveAspect} for
-     * details. Don't use this for other purposes. It introduces unfortunate API complexity and
-     * should be removed when Android no longer needs it.
-     *
-     * @param propagateFunction {@link BiPredicate} that takes the aspect's build configuration and
-     *     name of the attribute to propagate. If it returns true, propagates down this attribute in
-     *     this configuration. We don't explicitly type with {@link
-     *     com.google.devtools.build.lib.analysis.config.BuildConfigurationValue} because {@link
-     *     AspectDefinition} is a loading phase class, with no access to config symbols.
-     */
-    @CanIgnoreReturnValue
-    public Builder propagateViaAttribute(BiPredicate<Object, String> propagateFunction) {
-      propagateViaAttribute = propagateFunction;
       return this;
     }
 
@@ -668,7 +625,6 @@ public final class AspectDefinition {
           configurationFragmentPolicy.build(),
           applyToFiles,
           applyToGeneratingRules,
-          propagateViaAttribute,
           requiredAspectClasses,
           execCompatibleWith,
           execGroups);
