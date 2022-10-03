@@ -159,6 +159,7 @@ public final class JavaLibraryBuildRequest {
     if (optionsParser.reduceClasspathMode() != OptionsParser.ReduceClasspathMode.NONE) {
       depsBuilder.setReduceClasspath();
     }
+    depsBuilder.setUsageTrackerMode(optionsParser.usageTrackerMode());
     if (optionsParser.getTargetLabel() != null) {
       depsBuilder.setTargetLabel(optionsParser.getTargetLabel());
     }

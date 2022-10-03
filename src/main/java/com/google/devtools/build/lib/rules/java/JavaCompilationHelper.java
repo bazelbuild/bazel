@@ -353,6 +353,7 @@ public final class JavaCompilationHelper {
     builder.setExtraData(JavaCommon.computePerPackageData(ruleContext, javaToolchain));
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());
+    builder.setExperimentalTrackClassUsage(getJavaConfiguration().experimentalTrackClassUsage());
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setTargetLabel(
         attributes.getTargetLabel() == null ? label : attributes.getTargetLabel());

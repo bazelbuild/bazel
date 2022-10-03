@@ -67,6 +67,8 @@ public final class OptionsParser {
    */
   private ReduceClasspathMode reduceClasspathMode = ReduceClasspathMode.NONE;
 
+  private boolean usageTrackerMode = false;
+
   private int fullClasspathLength = -1;
   private int reducedClasspathLength = -1;
 
@@ -155,6 +157,9 @@ public final class OptionsParser {
           break;
         case "--reduce_classpath_mode":
           reduceClasspathMode = ReduceClasspathMode.valueOf(getArgument(argQueue, arg));
+          break;
+        case "--experimental_track_class_usage":
+          usageTrackerMode = true;
           break;
         case "--full_classpath_length":
           fullClasspathLength = Integer.parseInt(getArgument(argQueue, arg));
@@ -376,6 +381,10 @@ public final class OptionsParser {
 
   public ReduceClasspathMode reduceClasspathMode() {
     return reduceClasspathMode;
+  }
+
+  public boolean usageTrackerMode() {
+    return usageTrackerMode;
   }
 
   public int fullClasspathLength() {

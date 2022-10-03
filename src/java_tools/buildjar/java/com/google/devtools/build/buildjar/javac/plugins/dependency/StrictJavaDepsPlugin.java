@@ -19,12 +19,15 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency;
+import com.google.protobuf.ByteString;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Symbol;
@@ -42,6 +45,7 @@ import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Log.WriterKind;
 import com.sun.tools.javac.util.Name;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Method;
@@ -59,6 +63,7 @@ import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
+import javax.tools.FileObject;
 import javax.tools.JavaFileObject;
 
 /**
@@ -76,6 +81,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   private ImplicitDependencyExtractor implicitDependencyExtractor;
   private CheckingTreeScanner checkingTreeScanner;
   private final DependencyModule dependencyModule;
+  private final boolean usageTrackerMode;
 
   /** Marks seen compilation toplevels and their import sections */
   private final Set<JCTree.JCCompilationUnit> toplevels;
@@ -111,8 +117,9 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
    * flagging that dependency. Also, we can check whether the direct dependencies were actually
    * necessary, i.e. if their associated jars were used at all for looking up class definitions.
    */
-  public StrictJavaDepsPlugin(DependencyModule dependencyModule) {
+  public StrictJavaDepsPlugin(DependencyModule dependencyModule, boolean usageTrackerMode) {
     this.dependencyModule = dependencyModule;
+    this.usageTrackerMode = usageTrackerMode;
     toplevels = new HashSet<>();
     trees = new HashSet<>();
     missingTargets = new HashSet<>();
@@ -135,7 +142,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     if (checkingTreeScanner == null) {
       Set<Path> platformJars = dependencyModule.getPlatformJars();
       checkingTreeScanner =
-          new CheckingTreeScanner(dependencyModule, diagnostics, missingTargets, platformJars);
+          new CheckingTreeScanner(dependencyModule, diagnostics, missingTargets, platformJars, usageTrackerMode);
       context.put(CheckingTreeScanner.class, checkingTreeScanner);
     }
   }
@@ -230,6 +237,8 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     /** Collect seen direct dependencies and their associated information */
     private final Map<Path, Deps.Dependency> directDependenciesMap;
 
+    private final Map<Path, Set<Deps.UsedClass>> usedClassesMap;
+
     /** We only emit one warning/error per class symbol */
     private final Set<ClassSymbol> seenClasses = new HashSet<>();
 
@@ -240,6 +249,9 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     /** The set of jars on the compilation bootclasspath. */
     private final Set<Path> platformJars;
 
+    /** The action usage tracker mode. */
+    private boolean usageTrackerMode;
+
     /** The current source, for diagnostics. */
     private JavaFileObject source = null;
 
@@ -247,12 +259,15 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         DependencyModule dependencyModule,
         List<SjdDiagnostic> diagnostics,
         Set<JarOwner> missingTargets,
-        Set<Path> platformJars) {
+        Set<Path> platformJars,
+        boolean usageTrackerMode) {
       this.directJars = dependencyModule.directJars();
       this.diagnostics = diagnostics;
       this.missingTargets = missingTargets;
       this.directDependenciesMap = dependencyModule.getExplicitDependenciesMap();
+      this.usedClassesMap = dependencyModule.getUsedClassesMap();
       this.platformJars = platformJars;
+      this.usageTrackerMode = usageTrackerMode;
     }
 
     Set<ClassSymbol> getSeenClasses() {
@@ -270,6 +285,33 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       // whether that jar was a direct dependency and error out otherwise.
       if (jarPath != null && seenClasses.add(sym.enclClass())) {
         collectExplicitDependency(jarPath, node, sym);
+
+        // Track used classes
+        if (usageTrackerMode) {
+          if (!usedClassesMap.containsKey(jarPath)) {
+            usedClassesMap.put(jarPath, new HashSet());
+          }
+          String internalPath = sym.enclClass().classfile.toString().split(":")[1];
+          Deps.UsedClass usedClass = Deps.UsedClass.newBuilder()
+                  .setFullyQualifiedName(sym.enclClass().fullname.toString())
+                  .setJarInternalPath(internalPath.substring(1, internalPath.length() - 1))
+                  .setHash(hashFile(sym.enclClass().classfile))
+                  .build();
+          usedClassesMap.get(jarPath).add(usedClass);
+        }
+      }
+    }
+
+    /*
+     * Generate Sha256 of input fileObject content.
+     */
+    private static ByteString hashFile(FileObject fileObject) {
+      try {
+        InputStream stream = fileObject.openInputStream();
+        byte[] targetArray = ByteStreams.toByteArray(stream);
+        return ByteString.copyFrom(DigestHashFunction.SHA256.getHashFunction().hashBytes(targetArray).asBytes());
+      } catch (IOException ex) {
+        throw new RuntimeException("Failure to compute hash for " + fileObject, ex);
       }
     }
 

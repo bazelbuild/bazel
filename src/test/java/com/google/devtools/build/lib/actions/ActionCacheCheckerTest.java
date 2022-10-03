@@ -39,11 +39,13 @@ import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
+import com.google.devtools.build.lib.actions.usage.ActionInputUsageTracker;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.FakeArtifactResolverBase;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.FakeMetadataHandlerBase;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.MissDetailsBuilder;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -107,6 +109,10 @@ public class ActionCacheCheckerTest {
     return new ActionCacheChecker(
         cache,
         new FakeArtifactResolverBase(),
+        new ActionInputUsageTracker(
+            ArtifactPathResolver.IDENTITY,
+            BuildRequestOptions.ActionInputUsageTrackerMode.DISABLED
+        ),
         new ActionKeyContext(),
         action -> true,
         ActionCacheChecker.CacheConfig.builder()

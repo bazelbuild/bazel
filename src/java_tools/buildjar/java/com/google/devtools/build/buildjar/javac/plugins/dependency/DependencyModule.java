@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
+import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependencies;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
@@ -76,12 +77,15 @@ public final class DependencyModule {
   private final FixTool fixDepsTool;
   private final ImmutableSet<Path> directJars;
   private final boolean strictClasspathMode;
+  private final boolean usageTrackerMode;
   private final Set<Path> depsArtifacts;
   private final String targetLabel;
   private final Path outputDepsProtoFile;
   private boolean hasMissingTargets;
   private final Map<Path, Dependency> explicitDependenciesMap;
   private final Map<Path, Dependency> implicitDependenciesMap;
+
+  private final Map<Path, Set<Deps.UsedClass>> usedClassesMap;
   private final ImmutableSet<Path> platformJars;
   Set<Path> requiredClasspath;
   private final FixMessage fixMessage;
@@ -93,6 +97,7 @@ public final class DependencyModule {
       FixTool fixDepsTool,
       ImmutableSet<Path> directJars,
       boolean strictClasspathMode,
+      boolean usageTrackerMode,
       Set<Path> depsArtifacts,
       ImmutableSet<Path> platformJars,
       String targetLabel,
@@ -103,11 +108,13 @@ public final class DependencyModule {
     this.fixDepsTool = fixDepsTool;
     this.directJars = directJars;
     this.strictClasspathMode = strictClasspathMode;
+    this.usageTrackerMode = usageTrackerMode;
     this.depsArtifacts = depsArtifacts;
     this.targetLabel = targetLabel;
     this.outputDepsProtoFile = outputDepsProtoFile;
     this.explicitDependenciesMap = new HashMap<>();
     this.implicitDependenciesMap = new HashMap<>();
+    this.usedClassesMap = new HashMap<>();
     this.platformJars = platformJars;
     this.fixMessage = fixMessage;
     this.exemptGenerators = exemptGenerators;
@@ -116,7 +123,7 @@ public final class DependencyModule {
 
   /** Returns a plugin to be enabled in the compiler. */
   public BlazeJavaCompilerPlugin getPlugin() {
-    return new StrictJavaDepsPlugin(this);
+    return new StrictJavaDepsPlugin(this, usageTrackerMode);
   }
 
   /**
@@ -162,11 +169,18 @@ public final class DependencyModule {
     // Filter using the original classpath, to preserve ordering.
     for (Path entry : classpath) {
       if (explicitDependenciesMap.containsKey(entry)) {
-        deps.addDependency(explicitDependenciesMap.get(entry));
+        Deps.Dependency d = explicitDependenciesMap.get(entry).toBuilder()
+                .addAllUsedClasses(usedClassesMap.getOrDefault(entry, Set.of()))
+                .build();
+        deps.addDependency(d);
       } else if (implicitDependenciesMap.containsKey(entry)) {
-        deps.addDependency(implicitDependenciesMap.get(entry));
+        Deps.Dependency d = implicitDependenciesMap.get(entry).toBuilder()
+                .addAllUsedClasses(usedClassesMap.getOrDefault(entry, Set.of()))
+                .build();
+        deps.addDependency(d);
       }
     }
+
     return deps.build();
   }
 
@@ -193,6 +207,10 @@ public final class DependencyModule {
   /** Returns the map collecting precise implicit dependency information. */
   public Map<Path, Dependency> getImplicitDependenciesMap() {
     return implicitDependenciesMap;
+  }
+
+  public Map<Path, Set<Deps.UsedClass>> getUsedClassesMap() {
+    return usedClassesMap;
   }
 
   /** Returns the jars in the platform classpath. */
@@ -228,6 +246,11 @@ public final class DependencyModule {
   /** Returns whether classpath reduction is enabled for this invocation. */
   public boolean reduceClasspath() {
     return strictClasspathMode;
+  }
+
+  /** Writes used classes information in deps file. */
+  public boolean usageTrackerMode() {
+    return usageTrackerMode;
   }
 
   void setHasMissingTargets() {
@@ -337,6 +360,7 @@ public final class DependencyModule {
     private String targetLabel;
     private Path outputDepsProtoFile;
     private boolean strictClasspathMode = false;
+    private boolean usageTrackerMode = false;
     private FixMessage fixMessage = new DefaultFixMessage();
     private final Set<String> exemptGenerators = new LinkedHashSet<>(SJD_EXEMPT_PROCESSORS);
 
@@ -370,6 +394,7 @@ public final class DependencyModule {
           fixDepsTool,
           directJars,
           strictClasspathMode,
+          usageTrackerMode,
           depsArtifacts,
           platformJars,
           targetLabel,
@@ -453,6 +478,16 @@ public final class DependencyModule {
      */
     public Builder setReduceClasspath() {
       this.strictClasspathMode = true;
+      return this;
+    }
+
+    /**
+     * Set action input usage tracking behavior. Used for build time optimization via compilation avoidance.
+     *
+     * @return this Builder instance
+     */
+    public Builder setUsageTrackerMode(boolean usageTrackerMode) {
+      this.usageTrackerMode = usageTrackerMode;
       return this;
     }
 

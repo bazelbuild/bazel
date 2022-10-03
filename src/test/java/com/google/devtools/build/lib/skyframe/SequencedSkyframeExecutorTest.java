@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
@@ -63,6 +64,7 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.usage.ActionInputUsageTracker;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
@@ -738,6 +740,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
       new ActionCacheChecker(
           AMNESIAC_CACHE,
           new ActionsTestUtil.FakeArtifactResolverBase(),
+          new ActionInputUsageTracker(
+              ArtifactPathResolver.IDENTITY,
+              BuildRequestOptions.ActionInputUsageTrackerMode.DISABLED
+          ),
           new ActionKeyContext(),
           Predicates.alwaysTrue(),
           /*cacheConfig=*/ null);

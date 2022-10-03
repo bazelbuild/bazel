@@ -36,10 +36,12 @@ java_library(
         ":plugins",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:JarOwner",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:deps_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:tomcat_annotations_api",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 

@@ -214,6 +214,26 @@ sh_test(
     exec_compatible_with = ["//:highcpu_machine"],
 )
 
+sh_test(
+    name = "bazel_java_compilation_avoidance_test",
+    size = "large",
+    timeout = "eternal",
+    srcs = ["bazel_java_compilation_avoidance.sh"],
+    args = [
+        # java_tools zips to test
+        "src/java_tools.zip",
+        "src/java_tools_prebuilt.zip",
+    ],
+    data = [
+        ":test-deps",
+        "//src:java_tools_prebuilt_zip",
+        "//src:java_tools_zip",
+        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    exec_compatible_with = ["//:highcpu_machine"],
+)
+
 JAVA_VERSIONS = ("11", "17")
 
 JAVA_VERSIONS_COVERAGE = ("11", "17")

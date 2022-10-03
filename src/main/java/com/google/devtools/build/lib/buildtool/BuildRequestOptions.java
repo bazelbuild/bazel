@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CaffeineSpecConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
@@ -410,6 +411,23 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean useActionCache;
 
   @Option(
+          name = "experimental_action_input_usage_tracker",
+          converter = ActionInputUsageTrackerModeConverter.class,
+          defaultValue = "disabled",
+          documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+          effectTags = {
+                  OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+                  OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+          },
+          help = "This flag controls how Bazel tracks usage of action inputs (for rules that supports it, like Java "
+                  + "and Kotlin), in order to achieve compilation avoidance and improve build time. Possible values:\n"
+                  + "  disabled (default): normal behavior, i.e no optimization.\n"
+                  + "  unused_dependencies: tracks unused input artifact. Changes to these won't cause action re-execution.\n"
+                  + "  unused_classes: tracks unused classes. Changes to these won't cause action re-execution.\n")
+  @Nullable
+  public ActionInputUsageTrackerMode experimentalActionInputUsageTrackerMode;
+
+  @Option(
       name = "experimental_action_cache_store_output_metadata",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -620,5 +638,20 @@ public class BuildRequestOptions extends OptionsBase {
     IGNORE,
     /** Will not create or clean up any symlinks, but will record the symlinks. */
     LOG_ONLY
+  }
+
+  public static class ActionInputUsageTrackerModeConverter extends EnumConverter<ActionInputUsageTrackerMode> {
+    public ActionInputUsageTrackerModeConverter() {
+      super(ActionInputUsageTrackerMode.class, "usage tracker mode");
+    }
+  }
+
+  public enum ActionInputUsageTrackerMode {
+    /** Disabled. */
+    DISABLED,
+    /** Tracks unused input artifacts. */
+    UNUSED_DEPENDENCIES,
+    /** Tracks unused classes within input artifacts. */
+    UNUSED_CLASSES,
   }
 }

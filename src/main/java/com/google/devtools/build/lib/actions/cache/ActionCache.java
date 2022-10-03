@@ -231,7 +231,7 @@ public interface ActionCache {
 
     /** Adds metadata of an input file */
     public void addInputFile(
-        PathFragment relativePath, FileArtifactValue md, boolean saveExecPath) {
+            PathFragment relativePath, FileArtifactValue md, boolean saveExecPath, boolean excludeFromDigest) {
       checkState(mdMap != null);
       checkState(!isCorrupted());
       checkState(digest == null);
@@ -240,11 +240,21 @@ public interface ActionCache {
       if (discoversInputs() && saveExecPath) {
         files.add(execPath);
       }
-      mdMap.put(execPath, md);
+      if (!excludeFromDigest) {
+        mdMap.put(execPath, md);
+      }
+    }
+
+    public void addHash(String path, FileArtifactValue md) {
+      checkState(mdMap != null);
+      checkState(!isCorrupted());
+      checkState(digest == null);
+
+      mdMap.put(path, md);
     }
 
     public void addInputFile(PathFragment relativePath, FileArtifactValue md) {
-      addInputFile(relativePath, md, /*saveExecPath=*/ true);
+      addInputFile(relativePath, md, /*saveExecPath=*/ true, false);
     }
 
     /**

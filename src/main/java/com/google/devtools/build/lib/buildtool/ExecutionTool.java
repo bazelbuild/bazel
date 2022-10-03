@@ -31,7 +31,9 @@ import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.usage.ActionInputUsageTracker;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.Executor;
@@ -905,12 +907,18 @@ public class ExecutionTool {
     Predicate<Action> executionFilter =
         CheckUpToDateFilter.fromOptions(request.getOptions(ExecutionOptions.class));
     ArtifactFactory artifactFactory = env.getSkyframeBuildView().getArtifactFactory();
+    ActionInputUsageTracker actionInputUsageTracker = new ActionInputUsageTracker(
+            ArtifactPathResolver.createPathResolver(
+                    executor.getFileSystem(),
+                    executor.getExecRoot()),
+            options.experimentalActionInputUsageTrackerMode);
     return new SkyframeBuilder(
         skyframeExecutor,
         env.getLocalResourceManager(),
         new ActionCacheChecker(
             actionCache,
             artifactFactory,
+            actionInputUsageTracker,
             skyframeExecutor.getActionKeyContext(),
             executionFilter,
             ActionCacheChecker.CacheConfig.builder()
