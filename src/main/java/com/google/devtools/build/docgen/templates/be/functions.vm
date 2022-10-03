@@ -119,13 +119,25 @@ package(default_visibility = ["//foo:target"])
 
 <pre>package_group(name, packages, includes)</pre>
 
-<p>This function defines a set of packages and assigns a label to the
-group. The label can be referenced in <code>visibility</code> attributes.</p>
+<p>This function defines a set of <a href="$expander.expandRef("build-ref#packages")">packages</a>
+and associates a label with the set. The label can be referenced in
+<code>visibility</code> attributes.</p>
 
-<p>Package groups are used for visibility control.  You can grant access to a rule
-to one or more package groups, every rule in the entire source tree, or only to rules declared
-in the same package. For more detailed description of the visibility system, see
-the <a href="common-definitions.html#common.visibility">visibility</a> attribute.
+<p>Package groups are primarily used for visibility control. A publicly visible
+target can be referenced from every package in the source tree. A privately
+visible target can only be referenced within its own package (not subpackages).
+In between these extremes, a target may allow access to its own package plus any
+of the packages described by one or more package groups. For a more detailed
+explanation of the visibility system, see the
+<a href="common-definitions.html#common.visibility">visibility</a>
+attribute.</p>
+
+<p>A given package is considered to be in the group if it either matches the
+<code>packages</code> attribute, or is already contained in one of the other
+package groups mentioned in the <code>includes</code> attribute.</p>
+
+<p>Package groups are technically targets, but are not created by rules, and do
+not themselves have any visibility protection.</p>
 
 <h3 id="package_group_args">Arguments</h3>
 
@@ -151,30 +163,41 @@ the <a href="common-definitions.html#common.visibility">visibility</a> attribute
     <tr>
       <td id="package_group.packages"><code>packages</code></td>
       <td>
-        <p><code>List of <a href="$expander.expandRef("build-ref#packages")">Package</a>; optional</code></p>
-        <p>A complete enumeration of packages in this group.</p>
+        <p><code>List of strings; optional</code></p>
+        <p>A list of zero or more package specifications.</p>
 
-        <p>Packages should be referred to using their full names,
-        starting with a double slash. For
-        example, <code>//foo/bar/main</code> is a valid element
-        of this list.</p>
+        <p>Each package specification string can have one of the following
+        forms:</p>
 
-        <p>You can also specify wildcards: the specification
-        <code>//foo/...</code> specifies every package under
-        <code>//foo</code>, including <code>//foo</code> itself.</p>
+        <ol>
 
-        <p>Package specifications can be prefixed with <code>-</code> to
-        indicate negation: the specification <code>-//foo/bar/...</code>
-        excludes all packages under <code>//foo/bar</code> that would
-        otherwise have been matched by the package patterns in the
-        current <code>package_group</code>. When used together with
-        <code>includes</code>, the set of packages for each package group
-        is computed and then the results are unioned: negative patterns
-        in one package group do not affect the result of included package
-        groups.
+        <li>The full name of a package, without its repository, starting with a
+        double slash. For example, <code>//foo/bar</code> specifies the package
+        having that name and which lives in the same repository as the package
+        group.
 
-        <p>If this attribute is missing, the package group itself will contain
-        no packages (but it can still include other package groups).</p>
+        <li>As above, but with a trailing <code>/...</code>. For example, <code>
+        //foo/...</code> specifies the set of <code>//foo</code> and all its
+        subpackages. As a special case, <code>//...</code> specifies all
+        packages in any repository (in other words, public).
+
+        </ol>
+
+        <p>In addition, a package specification may also be prefixed with
+        <code>-</code> to indicate that it is negated.</p>
+
+        <p>The package group contains any package that matches at least one of
+        its positive specifications and none of its negative specifications
+        For instance, the value <code>[//foo/..., -//foo/tests/...]</code>
+        includes all subpackages of <code>//foo</code> that are not also
+        subpackages of <code>//foo/tests</code>. (<code>//foo</code> itself is
+        included while </code>//foo/tests</code> itself is not.)</p>
+
+        <p>Aside from <code>//...</code>, there is no way to directly specify
+        packages outside the current repository.</p>
+
+        <p>If this attribute is missing, it is the same as setting it to an
+        empty list (in other words, private).
       </td>
     </tr>
     <tr>
@@ -183,12 +206,18 @@ the <a href="common-definitions.html#common.visibility">visibility</a> attribute
         <p><code>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; optional</code></p>
         <p>Other package groups that are included in this one.</p>
 
-        <p>The labels in this attribute must refer to other package
-        groups. Packages in referenced package groups are taken to be part
-        of this package group. This is transitive, that is, if package
-        group <code>a</code> contains package group <code>b</code>,
-        and <code>b</code> contains package group <code>c</code>, every
-        package in <code>c</code> will also be a member of <code>a</code>.</p>
+        <p>The labels in this attribute must refer to other package groups.
+        Packages in referenced package groups are taken to be part of this
+        package group. This is transitive — if package group
+        <code>a</code> includes package group <code>b</code>, and <code>b</code>
+        includes package group <code>c</code>, then every package in
+        <code>c</code> will also be a member of <code>a</code>.</p>
+
+        <p>When used together with negated package specifications, note that the
+        set of packages for each group is first computed independently and the
+        results are then unioned together. This means that negated
+        specifications in one group have no effect on the specifications in
+        another group.</p>
       </td>
     </tr>
   </tbody>

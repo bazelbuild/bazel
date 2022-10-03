@@ -19,32 +19,33 @@ For more details on package and subpackages, see
 ## Visibility specifications {:#visibility-specifications}
 
 All rule targets have a `visibility` attribute that takes a list of labels. One
-target is visible to another if they are in the same package, or if they are
-granted visibility by one of the labels.
+target is visible to another if they are in the same package, or if visibility
+is granted to the depending target's package.
 
-Each label has one of the following forms:
+Each label has one of the following forms. With the exception of the last form,
+these are just syntactic placeholders that do not correspond to any actual
+target.
 
-*   `"//visibility:public"`: Anyone can use this target. (May not be combined
+*   `"//visibility:public"`: Grants access to all packages. (May not be combined
     with any other specification.)
 
-*   `"//visibility:private"`: Only targets in this package can use this
-    target. (May not be combined with any other specification.)
+*   `"//visibility:private"`: Does not grant any additional access; only targets
+    in this package can use this target. (May not be combined with any other
+    specification.)
 
-*   `"//foo/bar:__pkg__"`: Grants access to targets defined in `//foo/bar` (but
-    not its subpackages). Here, `__pkg__` is a special piece of syntax
-    representing all of the targets in a package.
+*   `"//foo/bar:__pkg__"`: Grants access to `//foo/bar` (but not its
+    subpackages).
 
-*   `"//foo/bar:__subpackages__"`: Grants access to targets defined in
-    `//foo/bar`, or any of its direct or indirect subpackages. Again,
-    `__subpackages__` is special syntax.
+*   `"//foo/bar:__subpackages__"`: Grants access `//foo/bar` and all of its
+    direct and indirect subpackages.
 
-*   `"//foo/bar:my_package_group"`: Grants access to all of the packages named
-    by the given [package group](/reference/be/functions#package_group).
+*   `"//some_pkg:my_package_group"`: Grants access to all of the packages that
+    are part of the given [`package_group`](/reference/be/functions#package_group).
 
-    *   Package groups do not support the special `__pkg__` and
-        `__subpackages__` syntax. Within a package group, `"//foo/bar"` is
-        equivalent to `"//foo/bar:__pkg__"` and `"//foo/bar/..."` is equivalent
-        to `"//foo/bar:__subpackages__"`.
+    *   Package groups use a different syntax for specifying packages. Within a
+        package group, the forms `"//foo/bar:__pkg__"` and
+        `"//foo/bar:__subpackages__"` are respectively replaced by `"//foo/bar"`
+        and `"//foo/bar/..."`.
 
 For example, if `//some/package:mytarget` has its `visibility` set to
 `[":__subpackages__", "//tests:__pkg__"]`, then it could be used by any target
@@ -187,12 +188,14 @@ for more details.
 
 ## Visibility of bzl files {:#visibility-bzl-files}
 
-`load` statements are currently not subject to visibility. It is possible to
-load a `bzl` file anywhere in the workspace.
+`BUILD` and `.bzl` files, as processed by Bazel during loading, are not
+considered to be targets and therefore are not subject to visibility. It is
+therefore possible to load a `.bzl` file from anywhere in the workspace.
 
 However, users may choose to run the Buildifier linter.
-The [bzl-visibility](https://github.com/bazelbuild/buildtools/blob/master/WARNINGS.md#bzl-visibility) check
-provides a warning if users `load` from beneath a subdirectory named `internal` or `private`.
+The [bzl-visibility](https://github.com/bazelbuild/buildtools/blob/master/WARNINGS.md#bzl-visibility)
+check provides a warning if users `load` from beneath a subdirectory named
+`internal` or `private`.
 
 ## Visibility of implicit dependencies {:#visibility-implicit-dependencies}
 
