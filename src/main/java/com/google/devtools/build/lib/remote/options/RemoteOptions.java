@@ -622,7 +622,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
 
   @Option(
       name = "incompatible_remote_downloader_send_all_headers",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
