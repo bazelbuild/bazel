@@ -84,7 +84,8 @@ public final class DiffAwarenessManager {
    * ModifiedFileSet.EVERYTHING_MODIFIED} if this is the first such call.
    */
   public ProcessableModifiedFileSet getDiff(
-      EventHandler eventHandler, Root pathEntry, OptionsProvider options) {
+      EventHandler eventHandler, Root pathEntry, OptionsProvider options)
+      throws InterruptedException {
     DiffAwarenessState diffAwarenessState = maybeGetDiffAwarenessState(pathEntry);
     if (diffAwarenessState == null) {
       return BrokenProcessableModifiedFileSet.INSTANCE;
