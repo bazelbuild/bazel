@@ -92,8 +92,11 @@ public class PackageGroup implements Target {
     return includes;
   }
 
-  public List<String> getContainedPackages() {
-    return packageSpecifications.containedPackages().collect(toImmutableList());
+  // See PackageSpecification#asString.
+  public List<String> getContainedPackages(boolean includeDoubleSlash) {
+    return packageSpecifications
+        .streamPackageStrings(includeDoubleSlash)
+        .collect(toImmutableList());
   }
 
   @Override

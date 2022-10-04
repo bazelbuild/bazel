@@ -13,9 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -243,8 +247,7 @@ public class PackageGroupTest extends PackageLoadingTestCase {
 
     // Assert that we're actually using the "everything" package specification, and assert that this
     // means we include packages from the main repo but also from other repos.
-    assertThat(grp.getContainedPackages())
-        .containsExactly(PackageSpecification.everything().toString());
+    assertThat(grp.getContainedPackages(/*includeDoubleSlash=*/ false)).containsExactly("//...");
     assertThat(grp.contains(pkgId("pkg"))).isTrue();
     assertThat(grp.contains(pkgId("somerepo", "pkg"))).isTrue();
   }
@@ -263,6 +266,65 @@ public class PackageGroupTest extends PackageLoadingTestCase {
 
     PackageGroup grp = getPackageGroup("test", "packages");
     assertThat(grp.contains(pkgId("one/two"))).isTrue();
+  }
+
+  @Test
+  public void testStringification() throws Exception {
+    RepositoryName main = RepositoryName.MAIN;
+    RepositoryName other = RepositoryName.create("other");
+    PackageGroupContents contents =
+        PackageGroupContents.create(
+            ImmutableList.of(
+                PackageSpecification.fromString(main, "//a"),
+                PackageSpecification.fromString(main, "//a/b/..."),
+                PackageSpecification.fromString(main, "-//c"),
+                PackageSpecification.fromString(main, "-//c/d/..."),
+                PackageSpecification.fromString(main, "//..."),
+                PackageSpecification.fromString(main, "-//..."),
+                PackageSpecification.fromString(main, "//"),
+                PackageSpecification.fromString(main, "-//"),
+                PackageSpecification.fromString(other, "//z"),
+                PackageSpecification.fromString(other, "//...")));
+    assertThat(
+            contents.streamPackageStrings(/*includeDoubleSlash=*/ false).collect(toImmutableList()))
+        .containsExactly(
+            "a",
+            "a/b/...",
+            "-c",
+            "-c/d/...",
+            "//...",
+            "-//...",
+            "",
+            "-",
+            "@other//z",
+            // TODO(#16323): When parsing is fixed, change this "//..." to "@other//...".
+            "//...");
+    assertThat(
+            contents.streamPackageStrings(/*includeDoubleSlash=*/ true).collect(toImmutableList()))
+        .containsExactly(
+            "//a",
+            "//a/b/...",
+            "-//c",
+            "-//c/d/...",
+            "//...",
+            "-//...",
+            "//",
+            "-//",
+            "@other//z",
+            // TODO(#16323): When parsing is fixed, change this "//..." to "@other//...".
+            "//...");
+    assertThat(contents.streamPackageStringsWithoutRepository().collect(toImmutableList()))
+        .containsExactly(
+            "//a",
+            "//a/b/...",
+            "-//c",
+            "-//c/d/...",
+            "//...",
+            "-//...",
+            "//",
+            "-//",
+            "//z",
+            "//...");
   }
 
   /** Convenience method for obtaining a PackageIdentifier. */

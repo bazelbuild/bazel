@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.LinkedHashMap;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -56,13 +56,41 @@ public abstract class PackageSpecification {
   protected abstract boolean containsPackage(PackageIdentifier packageName);
 
   /**
-   * Returns a {@link String} representation of the {@link PackageSpecification} of the same format
-   * accepted by {@link #fromString}.
+   * Returns a string representation of this package spec.
    *
-   * <p>The returned {@link String} is insensitive to the {@link RepositoryName} associated with the
-   * {@link PackageSpecification}.
+   * <p>The repository is included, unless it is the main repository, in which case there will be no
+   * leading {@literal @}. For instance, {@code "@somerepo//pkg/subpkg"} and {@code
+   * "//otherpkg/..."} are both valid outputs.
+   *
+   * <p>Note that since {@link #fromString} does not accept label strings with repositories, this
+   * representation is not guaranteed to be round-trippable.
+   *
+   * <p>If {@code includeDoubleSlash} is false, then in the case of the main repository, the leading
+   * {@code //} will also be omitted, so that the output looks like {@code otherpkg/...}. This form
+   * is deprecated.
    */
-  protected abstract String toStringWithoutRepository();
+  // TODO(b/77598306): Remove the parameter after switching all callers to pass true.
+  protected abstract String asString(boolean includeDoubleSlash);
+
+  /**
+   * Returns a string representation of this package spec without the repository, and which is
+   * round-trippable through {@link #fromString}.
+   *
+   * <p>For instance, {@code @somerepo//pkg/subpkg/...} turns into {@code "//pkg/subpkg/..."}.
+   *
+   * <p>Omitting the repository means that the returned strings are ambiguous in the absence of
+   * additional context. But, for instance, if interpreted with respect to a {@code package_group}'s
+   * {@code packages} attribute, the strings always have the same repository as the package group.
+   */
+  // TODO(brandjon): This method's main benefit is that it's round-trippable. We could eliminate
+  // it in favor of asString() if we provided a public variant of fromString() that tolerates
+  // repositories.
+  protected abstract String asStringWithoutRepository();
+
+  @Override
+  public String toString() {
+    return asString(/*includeDoubleSlash=*/ false);
+  }
 
   /**
    * Parses the provided {@link String} into a {@link PackageSpecification}.
@@ -196,13 +224,19 @@ public abstract class PackageSpecification {
     }
 
     @Override
-    protected String toStringWithoutRepository() {
-      return "//" + singlePackageName.getPackageFragment().getPathString();
+    protected String asString(boolean includeDoubleSlash) {
+      if (includeDoubleSlash) {
+        return singlePackageName.getCanonicalForm();
+      } else {
+        // PackageIdentifier#toString implements the legacy behavior of omitting the double slash
+        // for the main repo.
+        return singlePackageName.toString();
+      }
     }
 
     @Override
-    public String toString() {
-      return singlePackageName.toString();
+    protected String asStringWithoutRepository() {
+      return "//" + singlePackageName.getPackageFragment().getPathString();
     }
 
     @Override
@@ -237,16 +271,27 @@ public abstract class PackageSpecification {
     }
 
     @Override
-    protected String toStringWithoutRepository() {
-      return "//" + prefix.getPackageFragment().getPathString() + ALL_BENEATH_SUFFIX;
+    protected String asString(boolean includeDoubleSlash) {
+      if (prefix.getPackageFragment().equals(PathFragment.EMPTY_FRAGMENT)) {
+        // Special case: Emit "//..." rather than suffixing "/...", which would yield "/...".
+        // Make sure not to strip the repo in the case of "@repo//...".
+        //
+        // Note that "//..." is the desired result, not "...", even under the legacy behavior of
+        // includeDoubleSlash=false.
+        return prefix.getCanonicalForm() + "...";
+      }
+      if (includeDoubleSlash) {
+        return prefix.getCanonicalForm() + ALL_BENEATH_SUFFIX;
+      } else {
+        // PackageIdentifier#toString implements the legacy behavior of omitting the double slash
+        // for the main repo.
+        return prefix.toString() + ALL_BENEATH_SUFFIX;
+      }
     }
 
     @Override
-    public String toString() {
-      if (prefix.getPackageFragment().equals(PathFragment.EMPTY_FRAGMENT)) {
-        return "//...";
-      }
-      return prefix + "/...";
+    protected String asStringWithoutRepository() {
+      return "//" + prefix.getPackageFragment().getPathString() + ALL_BENEATH_SUFFIX;
     }
 
     @Override
@@ -281,8 +326,13 @@ public abstract class PackageSpecification {
     }
 
     @Override
-    protected String toStringWithoutRepository() {
-      return "-" + delegate.toStringWithoutRepository();
+    protected String asString(boolean includeDoubleSlash) {
+      return "-" + delegate.asString(includeDoubleSlash);
+    }
+
+    @Override
+    protected String asStringWithoutRepository() {
+      return "-" + delegate.asStringWithoutRepository();
     }
 
     @Override
@@ -298,11 +348,6 @@ public abstract class PackageSpecification {
       return obj instanceof NegativePackageSpecification
           && delegate.equals(((NegativePackageSpecification) obj).delegate);
     }
-
-    @Override
-    public String toString() {
-      return "-" + delegate;
-    }
   }
 
   @VisibleForSerialization
@@ -316,7 +361,14 @@ public abstract class PackageSpecification {
     }
 
     @Override
-    protected String toStringWithoutRepository() {
+    protected String asString(boolean includeDoubleSlash) {
+      // Note that "//..." is the desired result, not "...", even under the legacy behavior of
+      // includeDoubleSlash=false.
+      return "//...";
+    }
+
+    @Override
+    protected String asStringWithoutRepository() {
       return "//...";
     }
 
@@ -329,11 +381,6 @@ public abstract class PackageSpecification {
     public int hashCode() {
       return "//...".hashCode();
     }
-
-    @Override
-    public String toString() {
-      return "//...";
-    }
   }
 
   /** Exception class to be thrown when a specification cannot be parsed. */
@@ -344,23 +391,36 @@ public abstract class PackageSpecification {
   }
 
   /**
-   * A collection of {@link PackageSpecification}s from a {@code package_group}, which supports
-   * testing a given package for containment (see {@link #containedPackages()}}.
+   * A collection of {@link PackageSpecification}s logically corresponding to a single {@code
+   * package_group}'s {@code packages} attribute.
+   *
+   * <p>Supports testing whether a given package is contained, taking into account negative specs.
+   *
+   * <p>Duplicate specs (e.g., ["//foo", "//foo"]) may or may not be deduplicated. Iteration order
+   * may vary from the order in which specs were provided, but is guaranteed to be deterministic.
+   *
+   * <p>For modeling a {@code package_group}'s transitive contents (i.e., via the {@code includes}
+   * attribute), see {@link PackageSpecificationProvider}.
    */
   @Immutable
   public static final class PackageGroupContents {
-    private final ImmutableMap<PackageIdentifier, PackageSpecification> singlePackages;
-    private final ImmutableList<PackageSpecification> negativePackageSpecifications;
-    private final ImmutableList<PackageSpecification> allSpecifications;
+    // We separate PackageSpecifications by type.
+    //   - Single positive specs are separate so that we can look them up quickly by package name,
+    //     without requiring a linear search for a satisfying containsPackage().
+    //   - Negative specs need to be separate because their semantics are different (they overrule
+    //     any positive spec).
+    // We don't bother separating out single negative specs. Negatives are pretty rare anyway.
+    private final ImmutableMap<PackageIdentifier, PackageSpecification> singlePositives;
+    private final ImmutableList<PackageSpecification> otherPositives;
+    private final ImmutableList<PackageSpecification> negatives;
 
     private PackageGroupContents(
-        ImmutableMap<PackageIdentifier, PackageSpecification> singlePackages,
-        ImmutableList<PackageSpecification> negativePackageSpecifications,
-        ImmutableList<PackageSpecification> allSpecifications) {
-
-      this.singlePackages = singlePackages;
-      this.negativePackageSpecifications = negativePackageSpecifications;
-      this.allSpecifications = allSpecifications;
+        ImmutableMap<PackageIdentifier, PackageSpecification> singlePositives,
+        ImmutableList<PackageSpecification> otherPositives,
+        ImmutableList<PackageSpecification> negatives) {
+      this.singlePositives = singlePositives;
+      this.otherPositives = otherPositives;
+      this.negatives = negatives;
     }
 
     /**
@@ -369,55 +429,49 @@ public abstract class PackageSpecification {
      */
     public static PackageGroupContents create(
         ImmutableList<PackageSpecification> packageSpecifications) {
-      LinkedHashMap<PackageIdentifier, PackageSpecification> singlePackageBuilder =
-          new LinkedHashMap<>();
-      ImmutableList.Builder<PackageSpecification> negativePackageSpecificationsBuilder =
-          ImmutableList.builder();
-      ImmutableList.Builder<PackageSpecification> allSpecificationsBuilder =
-          ImmutableList.builder();
+      ImmutableMap.Builder<PackageIdentifier, PackageSpecification> singlePositives =
+          ImmutableMap.builder();
+      ImmutableList.Builder<PackageSpecification> otherPositives = ImmutableList.builder();
+      ImmutableList.Builder<PackageSpecification> negatives = ImmutableList.builder();
 
-      for (PackageSpecification packageSpecification : packageSpecifications) {
-        if (packageSpecification instanceof SinglePackage) {
-          singlePackageBuilder.put(
-              ((SinglePackage) packageSpecification).singlePackageName, packageSpecification);
-        } else if (packageSpecification instanceof NegativePackageSpecification) {
-          negativePackageSpecificationsBuilder.add(packageSpecification);
+      for (PackageSpecification spec : packageSpecifications) {
+        if (spec instanceof SinglePackage) {
+          singlePositives.put(((SinglePackage) spec).singlePackageName, spec);
+        } else if (spec instanceof AllPackages || spec instanceof AllPackagesBeneath) {
+          otherPositives.add(spec);
+        } else if (spec instanceof NegativePackageSpecification) {
+          negatives.add(spec);
         } else {
-          allSpecificationsBuilder.add(packageSpecification);
-          if (!(packageSpecification instanceof AllPackages)
-              && !(packageSpecification instanceof AllPackagesBeneath)) {
-            throw new IllegalStateException(
-                "Instance of unhandled class " + packageSpecification.getClass());
-          }
+          throw new IllegalStateException(
+              "Unhandled PackageSpecification subclass " + spec.getClass());
         }
       }
       return new PackageGroupContents(
-          ImmutableMap.copyOf(singlePackageBuilder),
-          negativePackageSpecificationsBuilder.build(),
-          allSpecificationsBuilder.build());
+          singlePositives.buildKeepingLast(), otherPositives.build(), negatives.build());
     }
 
     /**
-     * Returns {@code true} if the package specifications include the provided {@code packageName}.
-     * That is, at least one positive package specification matches, and no negative package
-     * specifications match.
+     * Returns true if the given package matches at least one of this {@code PackageGroupContents}'
+     * positive specifications and none of its negative specifications.
      */
     public boolean containsPackage(PackageIdentifier packageIdentifier) {
       // DO NOT use streams or iterators here as they create excessive garbage.
 
-      // if some negative matches, returns false immediately.
-      for (int i = 0; i < negativePackageSpecifications.size(); i++) {
-        if (negativePackageSpecifications.get(i).containsPackage(packageIdentifier)) {
+      // Check negatives first. If there's a match we get to bail out early. If not, we'd still have
+      // to check all the negatives anyway.
+      for (int i = 0; i < negatives.size(); i++) {
+        if (negatives.get(i).containsPackage(packageIdentifier)) {
           return false;
         }
       }
-
-      if (singlePackages.containsKey(packageIdentifier)) {
+      // Check the map in hopes of passing without having to do a linear scan over all other
+      // positive specs.
+      if (singlePositives.containsKey(packageIdentifier)) {
         return true;
       }
-
-      for (int i = 0; i < allSpecifications.size(); i++) {
-        if (allSpecifications.get(i).containsPackage(packageIdentifier)) {
+      // Oh well.
+      for (int i = 0; i < otherPositives.size(); i++) {
+        if (otherPositives.get(i).containsPackage(packageIdentifier)) {
           return true;
         }
       }
@@ -425,28 +479,27 @@ public abstract class PackageSpecification {
     }
 
     /**
-     * Returns {@link String} representations of the component {@link PackageSpecification}s of the
-     * same format accepted by {@link #fromString}.
+     * Maps {@link PackageSpecification#asString} to the component package specs.
+     *
+     * <p>Note that strings for specs that cross repositories can't be reparsed using {@link
+     * PackageSpecification#fromString}.
      */
-    public Stream<String> containedPackages() {
-      return getStream().map(PackageSpecification::toString);
+    public Stream<String> streamPackageStrings(boolean includeDoubleSlash) {
+      return streamSpecs().map(spec -> spec.asString(includeDoubleSlash));
     }
 
     /**
-     * Returns {@link String} representations of the component {@link PackageSpecification}s of the
-     * same format accepted by {@link #fromString}.
+     * Maps {@link PackageSpecification#asStringWithoutRepository} to the component package specs.
      *
-     * <p>The returned {@link String}s are insensitive to the {@link RepositoryName} associated with
-     * the {@link PackageSpecification}.
+     * <p>Note that this is ambiguous w.r.t. specs that reference other repositories.
      */
-    public Stream<String> containedPackagesWithoutRepository() {
-      return getStream().map(PackageSpecification::toStringWithoutRepository);
+    public Stream<String> streamPackageStringsWithoutRepository() {
+      return streamSpecs().map(PackageSpecification::asStringWithoutRepository);
     }
 
-    private Stream<PackageSpecification> getStream() {
-      return Stream.concat(
-          Stream.concat(allSpecifications.stream(), negativePackageSpecifications.stream()),
-          singlePackages.values().stream());
+    private Stream<PackageSpecification> streamSpecs() {
+      return Streams.concat(
+          otherPositives.stream(), negatives.stream(), singlePositives.values().stream());
     }
   }
 }

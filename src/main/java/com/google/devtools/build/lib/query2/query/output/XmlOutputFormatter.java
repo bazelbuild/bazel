@@ -205,7 +205,11 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       includes.setAttribute("name", "includes");
       elem.appendChild(includes);
       Element packages =
-          createValueElement(doc, Type.STRING_LIST, packageGroup.getContainedPackages());
+          createValueElement(
+              doc,
+              Type.STRING_LIST,
+              // TODO(b/77598306): Migrate to format with leading double slash
+              packageGroup.getContainedPackages(/*includeDoubleSlash=*/ false));
       packages.setAttribute("name", "packages");
       elem.appendChild(packages);
     } else if (target instanceof OutputFile) {

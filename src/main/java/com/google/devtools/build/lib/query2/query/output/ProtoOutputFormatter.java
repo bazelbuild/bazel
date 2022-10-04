@@ -344,7 +344,9 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       PackageGroup packageGroup = (PackageGroup) target;
       Build.PackageGroup.Builder packageGroupPb =
           Build.PackageGroup.newBuilder().setName(packageGroup.getLabel().toString());
-      for (String containedPackage : packageGroup.getContainedPackages()) {
+      // TODO(b/77598306): Migrate to format with leading double slash
+      for (String containedPackage :
+          packageGroup.getContainedPackages(/*includeDoubleSlash=*/ false)) {
         packageGroupPb.addContainedPackage(containedPackage);
       }
       for (Label include : packageGroup.getIncludes()) {
