@@ -658,6 +658,41 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(loc).isEqualTo("foo/libjl.jar");
   }
 
+  /** Asserts that a custom rule has the same behaviour as native rules when 
+   * expanding executable target locations.
+  */
+  @Test
+  public void testExpandLocationExecutableTargets() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  env = {}",
+        "  for k, v in ctx.attr.env.items():",
+        "    env[k] = ctx.expand_location(v, targets = ctx.attr.data)",
+        "  return [DefaultInfo()]",
+        "expand_location_env_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {",
+        "       'data': attr.label_list(allow_files=True),",
+        "       'env': attr.string_dict(),",
+        "    }",
+        ")");
+
+    scratch.file("test/main.py", "");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'expand_location_env_rule')",
+        "py_binary(name = 'main', srcs = ['main.py'])",
+        "expand_location_env_rule(",
+        "  name = 'expand_location_env',",
+        "  data = [':main'],",
+        "  env = {'MAIN_EXECPATH': '$(execpath :main)'},",
+        ")");
+
+    assertThat(getConfiguredTarget("//test:expand_location_env")).isNotNull();
+  }
+
   /** Regression test to check that expand_location allows ${var} and $$. */
   @Test
   public void testExpandLocationWithDollarSignsAndCurlys() throws Exception {

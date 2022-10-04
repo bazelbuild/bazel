@@ -1133,7 +1133,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   /**
-   * Builds a map: Label -> List of files from the given labels
+   * Builds a map: Label -> List of runfiles from the given labels.
    *
    * @param knownLabels List of known labels
    * @return Immutable map with immutable collections as values
@@ -1143,9 +1143,14 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> builder = ImmutableMap.builder();
 
     for (TransitiveInfoCollection current : knownLabels) {
+      Label label = AliasProvider.getDependencyLabel(current);
+      FilesToRunProvider filesToRun = current.getProvider(FilesToRunProvider.class);
+      Artifact executableArtifact = filesToRun.getExecutable();
       builder.put(
-          AliasProvider.getDependencyLabel(current),
-          current.getProvider(FileProvider.class).getFilesToBuild().toList());
+          label,
+          executableArtifact != null
+            ? ImmutableList.of(executableArtifact)
+            : filesToRun.getFilesToRun().toList());
     }
 
     return builder.buildOrThrow();
