@@ -1133,7 +1133,11 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   /**
-   * Builds a map: Label -> List of runfiles from the given labels.
+   * Builds a map: Label -> List of files from the given labels.
+   * It first looks into the runfiles and then into files. If the label being iterated is an
+   * executable, then it will have the same behaviour as native rules special attributes (data,
+   * tools) in which only the executable file is mapped to the label. This allows executable targets
+   * to have the location expansion work with the singular form of location/execpath/rootpath.
    *
    * @param knownLabels List of known labels
    * @return Immutable map with immutable collections as values
