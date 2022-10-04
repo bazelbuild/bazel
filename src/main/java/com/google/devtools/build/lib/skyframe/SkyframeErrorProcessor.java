@@ -455,6 +455,9 @@ public final class SkyframeErrorProcessor {
         actionConflicts = tlce.getTransitiveActionConflicts();
       } else if (isExecutionException(exception)) {
         executionDetailedExitCode = getExecutionDetailedExitCodeFromCause(result, exception);
+      } else if (!errorInfo.getCycleInfo().isEmpty()
+          && isExecutionCycle(errorInfo.getCycleInfo())) {
+        executionDetailedExitCode = CYCLE_CODE;
       }
       return IndividualErrorProcessingResult.create(
           actionConflicts,
