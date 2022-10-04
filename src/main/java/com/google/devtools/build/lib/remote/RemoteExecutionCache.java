@@ -26,8 +26,11 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -75,17 +78,17 @@ public class RemoteExecutionCache extends RemoteCache {
       Map<Digest, Message> additionalInputs,
       boolean force)
       throws IOException, InterruptedException {
-    ImmutableSet<Digest> allDigests =
-        ImmutableSet.<Digest>builder()
-            .addAll(merkleTree.getAllDigests())
-            .addAll(additionalInputs.keySet())
-            .build();
+    Iterable<Digest> merkleTreeAllDigests;
+    try (SilentCloseable s = Profiler.instance().profile("merkleTree.getAllDigests()")) {
+      merkleTreeAllDigests = merkleTree.getAllDigests();
+    }
+    Iterable<Digest> allDigests = Iterables.concat(merkleTreeAllDigests, additionalInputs.keySet());
 
-    if (allDigests.isEmpty()) {
+    if (Iterables.isEmpty(allDigests)) {
       return;
     }
 
-    MissingDigestFinder missingDigestFinder = new MissingDigestFinder(context, allDigests.size());
+    MissingDigestFinder missingDigestFinder = new MissingDigestFinder(context, Iterables.size(allDigests));
     Flowable<TransferResult> uploads =
         Flowable.fromIterable(allDigests)
             .flatMapSingle(
