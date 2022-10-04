@@ -9,6 +9,7 @@ landing_page:
   - options:
     - cards
     - centered-header
+    - no-image-background
     background: white
     heading: Bazel Community Experts
     description: >
