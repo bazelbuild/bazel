@@ -1140,17 +1140,23 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
    */
   public static ImmutableMap<Label, ImmutableCollection<Artifact>> makeLabelMap(
       Iterable<TransitiveInfoCollection> knownLabels) {
+
     ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> builder = ImmutableMap.builder();
 
-    for (TransitiveInfoCollection current : knownLabels) {
-      Label label = AliasProvider.getDependencyLabel(current);
-      FilesToRunProvider filesToRun = current.getProvider(FilesToRunProvider.class);
-      Artifact executableArtifact = filesToRun.getExecutable();
-      builder.put(
-          label,
-          executableArtifact != null
-            ? ImmutableList.of(executableArtifact)
-            : filesToRun.getFilesToRun().toList());
+    for (TransitiveInfoCollection label : knownLabels) {
+      FilesToRunProvider filesToRun = label.getProvider(FilesToRunProvider.class);
+      if (filesToRun != null) {
+        Artifact executableArtifact = filesToRun.getExecutable();
+        builder.put(
+            AliasProvider.getDependencyLabel(label),
+            executableArtifact != null
+              ? ImmutableList.of(executableArtifact)
+              : filesToRun.getFilesToRun().toList());
+      } else {
+        builder.put(
+            AliasProvider.getDependencyLabel(label),
+            label.getProvider(FileProvider.class).getFilesToBuild().toList());
+      }
     }
 
     return builder.buildOrThrow();
