@@ -16,7 +16,7 @@
 # define HAVE_PROCSTAT
 # define STANDARD_JAVABASE "/usr/local/openjdk8"
 #elif defined(__OpenBSD__)
-# define STANDARD_JAVABASE "/usr/local/jdk-1.8.0"
+# define STANDARD_JAVABASE "/usr/local/jdk-17"
 #else
 # error This BSD is not supported
 #endif
