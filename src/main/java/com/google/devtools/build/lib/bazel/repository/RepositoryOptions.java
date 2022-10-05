@@ -49,7 +49,7 @@ public class RepositoryOptions extends OptionsBase {
       name = "registry",
       defaultValue = "null",
       allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
           "Specifies the registries to use to locate Bazel module dependencies. The order is"
@@ -123,7 +123,7 @@ public class RepositoryOptions extends OptionsBase {
       defaultValue = "null",
       allowMultiple = true,
       converter = ModuleOverrideConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Overrides a module with a local directory.")
   public List<ModuleOverride> moduleOverrides;
@@ -190,7 +190,7 @@ public class RepositoryOptions extends OptionsBase {
   @Option(
       name = "ignore_dev_dependency",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "If true, Bazel ignores `bazel_dep` and `use_extension` declared as `dev_dependency` in "
@@ -203,7 +203,7 @@ public class RepositoryOptions extends OptionsBase {
       name = "check_direct_dependencies",
       defaultValue = "warning",
       converter = CheckDirectDepsMode.Converter.class,
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "Check if the direct `bazel_dep` dependencies declared in the root module are the same"
