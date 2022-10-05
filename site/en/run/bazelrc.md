@@ -231,7 +231,7 @@ line. Entries are relative to the workspace root.
 
 Bazel reads optional bazelrc files in this order:
 - System rc-file located at `etc/bazel.bazelrc`.
-- Workspace rc-file located at `$workspace/tools/bazel.rc`.
+- Workspace rc-file located at `$workspace/.bazelrc`.
 - Home rc-file localted at `$HOME/.bazelrc`
 
 Each bazelrc file listed here has a corresponding flag which can be used to disable them (e.g. `--nosystem_rc`, `--noworkspace_rc`, `--nohome_rc`). You can also make Bazel ignore all bazelrcs by passing the `--ignore_all_rc_files` startup option.

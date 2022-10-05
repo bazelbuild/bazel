@@ -9417,7 +9417,7 @@ Cherry picks:
      Fix the Xcode version detection which got broken by the upgrade
      to Xcode 10.0.
    + 86a8217d12263d598e3a1baf2c6aa91b2e0e2eb5:
-     Temporarily restore processing of workspace-wide tools/bazel.rc
+     Temporarily restore processing of workspace-wide .bazelrc
      file.
    + 914b4ce14624171a97ff8b41f9202058f10d15b2:
      Windows: Fix Precondition check for addDynamicInputLinkOptions
@@ -9454,7 +9454,7 @@ Cherry picks:
      Fix the Xcode version detection which got broken by the upgrade
      to Xcode 10.0.
    + 86a8217d12263d598e3a1baf2c6aa91b2e0e2eb5:
-     Temporarily restore processing of workspace-wide tools/bazel.rc
+     Temporarily restore processing of workspace-wide .bazelrc
      file.
 ```
 
