@@ -22,6 +22,7 @@ import javax.annotation.Nullable;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -64,7 +65,7 @@ public class ActionInputUsageTracker {
     private static final Set<String> SUPPORTED_DEPENDENCY_TRACKING_MNEMONICS = Set.of("Javac", "KotlinCompile");
     private static final Set<String> SUPPORTED_CLASS_TRACKING_MNEMONICS = Set.of("Javac", "KotlinCompile");
 
-    private static final boolean VERBOSE_MODE = true;
+    private static final boolean VERBOSE_MODE = false;
 
     private final ArtifactPathResolver pathResolver;
     private final ActionInputUsageTrackerMode trackerMode;
@@ -73,7 +74,7 @@ public class ActionInputUsageTracker {
     public ActionInputUsageTracker(ArtifactPathResolver pathResolver, ActionInputUsageTrackerMode trackerMode) {
         this.pathResolver = pathResolver;
         this.trackerMode = trackerMode;
-        this.trackerInfoMap = new HashMap<>();
+        this.trackerInfoMap = new ConcurrentHashMap<>();
     }
 
     /**
@@ -231,15 +232,15 @@ public class ActionInputUsageTracker {
      * Returns whether input artifact is used by action or not.
      */
     private boolean isUnusedInput(Action action, Artifact input) {
+        if (!supportsInputTracking(action)) {
+            return false;
+        }
+
         // Now that jdeps contains additional info (list of used classes/shas), we don't want these to contribute to
         // cache key, as this could cause undesired change of cache key.
         String artifactExecPath = input.getExecPathString();
         if (artifactExecPath.endsWith(".jdeps")) {
             return true;
-        }
-
-        if (!supportsInputTracking(action)) {
-            return false;
         }
 
         UsageInfo usageInfo = getUsageInfo(action);
