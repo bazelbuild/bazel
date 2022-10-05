@@ -471,9 +471,7 @@ public final class SkyframeErrorProcessor {
       return IndividualErrorProcessingResult.create(
           /*actionConflicts=*/ ImmutableMap.of(),
           getExecutionDetailedExitCodeFromCause(result, exception),
-          /*analysisRootCauses=*/ exception instanceof ActionExecutionException
-              ? ((ActionExecutionException) exception).getRootCauses()
-              : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /*analysisRootCauses=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /*loadingRootCauses=*/ ImmutableSet.of());
     }
 
