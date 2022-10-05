@@ -900,8 +900,10 @@ public final class RemoteModule extends BlazeModule {
     RemoteActionContextProvider actionContextProviderRef = actionContextProvider;
     TempPathGenerator tempPathGeneratorRef = tempPathGenerator;
     AsynchronousFileOutputStream rpcLogFileRef = rpcLogFile;
-    blockWaitingModule.submit(
-        () -> afterCommandTask(actionContextProviderRef, tempPathGeneratorRef, rpcLogFileRef));
+    if (actionContextProviderRef != null || tempPathGeneratorRef != null || rpcLogFileRef != null) {
+      blockWaitingModule.submit(
+          () -> afterCommandTask(actionContextProviderRef, tempPathGeneratorRef, rpcLogFileRef));
+    }
 
     buildEventArtifactUploaderFactoryDelegate.reset();
     repositoryRemoteExecutorFactoryDelegate.reset();
