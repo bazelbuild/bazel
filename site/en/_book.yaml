@@ -353,6 +353,7 @@ upper_tabs:
         path: /contribute/policy
 
 - name: Versions
+  path: /versions/
   menu:
   - column:
     - links:
