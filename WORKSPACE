@@ -289,7 +289,7 @@ dist_http_archive(
     build_file = "//third_party:zstd-jni/zstd-jni.BUILD",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
-    strip_prefix = "zstd-jni-1.5.0-4",
+    strip_prefix = "zstd-jni-1.5.2-3",
 )
 
 http_archive(
