@@ -1403,12 +1403,6 @@ for comparisons.
 Temporary flag for testing bazel default visibility changes. Not intended for general use
 but documented for completeness' sake.
 
-#### `--[no]use_action_cache` {:#use-action-cache}
-
-This option is enabled by default. If disabled, Bazel will not use its local action cache.
-Disabling the local action cache saves memory and disk space for clean builds, but will make
-incremental builds slower.
-
 #### `--starlark_cpu_profile=_file_` {:#starlark-cpu-profile}
 
 This flag, whose value is the name of a file, causes Bazel to gather
