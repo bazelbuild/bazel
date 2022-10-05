@@ -7,7 +7,7 @@ bazel_dep(name = "rules_proto", version = "4.0.0")
 bazel_dep(name = "rules_python", version = "0.4.0")
 
 bazel_dep(name = "platforms", version = "0.0.4")
-bazel_dep(name = "protobuf", version = "3.19.0", repo_name = "com_google_protobuf")
+bazel_dep(name = "protobuf", version = "3.19.2", repo_name = "com_google_protobuf")
 
 cc_configure = use_extension("//tools/cpp:cc_configure.bzl", "cc_configure_extension")
 use_repo(cc_configure, "local_config_cc", "local_config_cc_toolchains")

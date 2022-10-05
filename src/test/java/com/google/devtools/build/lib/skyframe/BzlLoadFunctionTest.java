@@ -87,9 +87,9 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
             packageOptions,
             Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
-            ImmutableMap.<String, String>of(),
+            ImmutableMap.of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
-    skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
+    skyframeExecutor.setActionEnv(ImmutableMap.of());
   }
 
   @Override
@@ -105,6 +105,8 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
             ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
         PrecomputedValue.injected(

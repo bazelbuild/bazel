@@ -75,6 +75,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
     ModuleFileFunction.IGNORE_DEV_DEPS.set(getSkyframeExecutor().getDifferencerForTesting(), false);
     ModuleFileFunction.MODULE_OVERRIDES.set(
         getSkyframeExecutor().getDifferencerForTesting(), ImmutableMap.of());
+    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(
+        getSkyframeExecutor().getDifferencerForTesting(), ImmutableList.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         getSkyframeExecutor().getDifferencerForTesting(), CheckDirectDepsMode.WARNING);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(

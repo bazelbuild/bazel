@@ -58,6 +58,22 @@ public class RepositoryOptions extends OptionsBase {
   public List<String> registries;
 
   @Option(
+      name = "allow_yanked_versions",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Specified the module versions in the form of"
+              + " `<module1>@<version1>,<module2>@<version2>` that will be allowed in the resolved"
+              + " dependency graph even if they are declared yanked in the registry where they come"
+              + " from (if they are not coming from a NonRegistryOverride). Otherwise, yanked"
+              + " versions will cause the resolution to fail. You can also define allowed yanked"
+              + " version with the `BZLMOD_ALLOW_YANKED_VERSIONS` environment variable. You can"
+              + " disable this check by using the keyword 'all' (not recommended).")
+  public List<String> allowedYankedVersions;
+
+  @Option(
       name = "experimental_repository_cache_hardlinks",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,

@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -33,6 +34,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 /**
@@ -113,7 +115,7 @@ public class IndexRegistry implements Registry {
   private <T> Optional<T> grabJson(String url, Class<T> klass, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
     Optional<byte[]> bytes = grabFile(url, eventHandler);
-    if (!bytes.isPresent()) {
+    if (bytes.isEmpty()) {
       return Optional.empty();
     }
     String jsonString = new String(bytes.get(), UTF_8);
@@ -123,7 +125,8 @@ public class IndexRegistry implements Registry {
     try {
       return Optional.of(gson.fromJson(jsonString, klass));
     } catch (JsonParseException e) {
-      throw new IOException(String.format("Unable to parse json at url %s", url), e);
+      throw new IOException(
+          String.format("Unable to parse json at url %s: %s", url, e.getMessage()), e);
     }
   }
 
@@ -140,7 +143,7 @@ public class IndexRegistry implements Registry {
                 getUrl(), "modules", key.getName(), key.getVersion().toString(), "source.json"),
             SourceJson.class,
             eventHandler);
-    if (!sourceJson.isPresent()) {
+    if (sourceJson.isEmpty()) {
       throw new FileNotFoundException(
           String.format("Module %s's source information not found in registry %s", key, getUrl()));
     }
@@ -193,5 +196,40 @@ public class IndexRegistry implements Registry {
         .setRemotePatches(remotePatches.buildOrThrow())
         .setRemotePatchStrip(sourceJson.get().patchStrip)
         .build();
+  }
+
+  @Override
+  public Optional<ImmutableMap<Version, String>> getYankedVersions(
+      String moduleName, ExtendedEventHandler eventHandler)
+      throws IOException, InterruptedException {
+    Optional<MetadataJson> metadataJson =
+        grabJson(
+            constructUrl(getUrl(), "modules", moduleName, "metadata.json"),
+            MetadataJson.class,
+            eventHandler);
+    if (metadataJson.isEmpty()) {
+      return Optional.empty();
+    }
+
+    try {
+      ImmutableMap.Builder<Version, String> yankedVersionsBuilder = new ImmutableMap.Builder<>();
+      if (metadataJson.get().yankedVersions != null) {
+        for (Entry<String, String> e : metadataJson.get().yankedVersions.entrySet()) {
+          yankedVersionsBuilder.put(Version.parse(e.getKey()), e.getValue());
+        }
+      }
+      return Optional.of(yankedVersionsBuilder.buildOrThrow());
+    } catch (ParseException e) {
+      throw new IOException(
+          String.format(
+              "Could not parse module %s's metadata file: %s", moduleName, e.getMessage()));
+    }
+  }
+
+  /** Represents fields available in {@code metadata.json} for each module. */
+  static class MetadataJson {
+    // There are other attributes in the metadata.json file, but for now, we only care about
+    // the yanked_version attribute.
+    Map<String, String> yankedVersions;
   }
 }

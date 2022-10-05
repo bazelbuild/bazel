@@ -19,16 +19,20 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.bazel.BazelVersion;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.Selection.SelectionResult;
+import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -36,8 +40,11 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
+import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
+import com.google.devtools.build.lib.skyframe.ClientEnvironmentValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -45,8 +52,11 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -61,10 +71,20 @@ public class BazelModuleResolutionFunction implements SkyFunction {
   public static final Precomputed<BazelCompatibilityMode> BAZEL_COMPATIBILITY_MODE =
       new Precomputed<>("bazel_compatibility_mode");
 
+  public static final Precomputed<List<String>> ALLOWED_YANKED_VERSIONS =
+      new Precomputed<>("allowed_yanked_versions");
+  private static final String BZLMOD_ALLOWED_YANKED_VERSIONS_ENV = "BZLMOD_ALLOW_YANKED_VERSIONS";
+
   @Override
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
+    ClientEnvironmentValue allowedYankedVersionsFromEnv =
+        (ClientEnvironmentValue)
+            env.getValue(ClientEnvironmentFunction.key(BZLMOD_ALLOWED_YANKED_VERSIONS_ENV));
+    if (allowedYankedVersionsFromEnv == null) {
+      return null;
+    }
     RootModuleFileValue root =
         (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     if (root == null) {
@@ -83,23 +103,24 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     }
     ImmutableMap<ModuleKey, Module> resolvedDepGraph = selectionResult.getResolvedDepGraph();
 
-    try {
-      checkCompatibility(
-          resolvedDepGraph.values(),
-          Objects.requireNonNull(BAZEL_COMPATIBILITY_MODE.get(env)),
-          env.getListener());
-    } catch (ExternalDepsException e) {
-      throw new BazelModuleResolutionFunctionException(e, Transience.PERSISTENT);
-    }
-
+    checkBazelCompatibility(
+        resolvedDepGraph.values(),
+        Objects.requireNonNull(BAZEL_COMPATIBILITY_MODE.get(env)),
+        env.getListener());
+    verifyYankedVersions(
+        resolvedDepGraph,
+        parseYankedVersions(
+            allowedYankedVersionsFromEnv.getValue(),
+            Objects.requireNonNull(ALLOWED_YANKED_VERSIONS.get(env))),
+        env.getListener());
     verifyRootModuleDirectDepsAreAccurate(
         env, initialDepGraph.get(ModuleKey.ROOT), resolvedDepGraph.get(ModuleKey.ROOT));
     return createValue(resolvedDepGraph, selectionResult.getUnprunedDepGraph(), overrides);
   }
 
-  public static void checkCompatibility(
+  public static void checkBazelCompatibility(
       ImmutableCollection<Module> modules, BazelCompatibilityMode mode, EventHandler eventHandler)
-      throws ExternalDepsException {
+      throws BazelModuleResolutionFunctionException {
     if (mode == BazelCompatibilityMode.OFF) {
       return;
     }
@@ -126,10 +147,146 @@ public class BazelModuleResolutionFunction implements SkyFunction {
             eventHandler.handle(Event.warn(message));
           } else {
             eventHandler.handle(Event.error(message));
-            throw ExternalDepsException.withMessage(
-                Code.VERSION_RESOLUTION_ERROR, "Bazel compatibility check failed");
+            throw new BazelModuleResolutionFunctionException(
+                ExternalDepsException.withMessage(
+                    Code.VERSION_RESOLUTION_ERROR, "Bazel compatibility check failed"),
+                Transience.PERSISTENT);
           }
         }
+      }
+    }
+  }
+
+  /**
+   * Parse a set of allowed yanked version from command line flag (--allowed_yanked_versions) and
+   * environment variable (ALLOWED_YANKED_VERSIONS). If `all` is specified, return Optional.empty();
+   * otherwise returns the set of parsed modulel key.
+   */
+  private Optional<ImmutableSet<ModuleKey>> parseYankedVersions(
+      String allowedYankedVersionsFromEnv, List<String> allowedYankedVersionsFromFlag)
+      throws BazelModuleResolutionFunctionException {
+    ImmutableSet.Builder<ModuleKey> allowedYankedVersionBuilder = new ImmutableSet.Builder<>();
+    if (allowedYankedVersionsFromEnv != null) {
+      if (parseModuleKeysFromString(
+          allowedYankedVersionsFromEnv,
+          allowedYankedVersionBuilder,
+          String.format(
+              "envirnoment variable %s=%s",
+              BZLMOD_ALLOWED_YANKED_VERSIONS_ENV, allowedYankedVersionsFromEnv))) {
+        return Optional.empty();
+      }
+    }
+    for (String allowedYankedVersions : allowedYankedVersionsFromFlag) {
+      if (parseModuleKeysFromString(
+          allowedYankedVersions,
+          allowedYankedVersionBuilder,
+          String.format("command line flag --allow_yanked_versions=%s", allowedYankedVersions))) {
+        return Optional.empty();
+      }
+    }
+    return Optional.of(allowedYankedVersionBuilder.build());
+  }
+
+  /**
+   * Parse of a comma-separated list of module version(s) of the form '<module name>@<version>' or
+   * 'all' from the string. Returns true if 'all' is present, otherwise returns false.
+   */
+  private boolean parseModuleKeysFromString(
+      String input, ImmutableSet.Builder<ModuleKey> allowedYankedVersionBuilder, String context)
+      throws BazelModuleResolutionFunctionException {
+    ImmutableList<String> moduleStrs = ImmutableList.copyOf(Splitter.on(',').split(input));
+
+    for (String moduleStr : moduleStrs) {
+      if (moduleStr.equals("all")) {
+        return true;
+      }
+
+      if (moduleStr.isEmpty()) {
+        continue;
+      }
+
+      String[] pieces = moduleStr.split("@", 2);
+
+      if (pieces.length != 2) {
+        throw new BazelModuleResolutionFunctionException(
+            ExternalDepsException.withMessage(
+                Code.VERSION_RESOLUTION_ERROR,
+                "Parsing %s failed, module versions must be of the form '<module name>@<version>'",
+                context),
+            Transience.PERSISTENT);
+      }
+
+      if (!RepositoryName.VALID_MODULE_NAME.matcher(pieces[0]).matches()) {
+        throw new BazelModuleResolutionFunctionException(
+            ExternalDepsException.withMessage(
+                Code.VERSION_RESOLUTION_ERROR,
+                "Parsing %s failed, invalid module name '%s': valid names must 1) only contain"
+                    + " lowercase letters (a-z), digits (0-9), dots (.), hyphens (-), and"
+                    + " underscores (_); 2) begin with a lowercase letter; 3) end with a lowercase"
+                    + " letter or digit.",
+                context,
+                pieces[0]),
+            Transience.PERSISTENT);
+      }
+
+      Version version;
+      try {
+        version = Version.parse(pieces[1]);
+      } catch (ParseException e) {
+        throw new BazelModuleResolutionFunctionException(
+            ExternalDepsException.withCauseAndMessage(
+                Code.VERSION_RESOLUTION_ERROR,
+                e,
+                "Parsing %s failed, invalid version specified for module: %s",
+                context,
+                pieces[1]),
+            Transience.PERSISTENT);
+      }
+
+      allowedYankedVersionBuilder.add(ModuleKey.create(pieces[0], version));
+    }
+    return false;
+  }
+
+  private void verifyYankedVersions(
+      ImmutableMap<ModuleKey, Module> depGraph,
+      Optional<ImmutableSet<ModuleKey>> allowedYankedVersions,
+      ExtendedEventHandler eventHandler)
+      throws BazelModuleResolutionFunctionException, InterruptedException {
+    // Check whether all resolved modules are either not yanked or allowed. Modules with a
+    // NonRegistryOverride are ignored as their metadata is not available whatsoever.
+    for (Module m : depGraph.values()) {
+      if (m.getKey().equals(ModuleKey.ROOT) || m.getRegistry() == null) {
+        continue;
+      }
+      Optional<ImmutableMap<Version, String>> yankedVersions;
+      try {
+        yankedVersions = m.getRegistry().getYankedVersions(m.getKey().getName(), eventHandler);
+      } catch (IOException e) {
+        eventHandler.handle(
+            Event.warn(
+                String.format(
+                    "Could not read metadata file for module %s: %s", m.getKey(), e.getMessage())));
+        continue;
+      }
+      if (yankedVersions.isEmpty()) {
+        continue;
+      }
+      String yankedInfo = yankedVersions.get().get(m.getVersion());
+      if (yankedInfo != null
+          && allowedYankedVersions.isPresent()
+          && !allowedYankedVersions.get().contains(m.getKey())) {
+        throw new BazelModuleResolutionFunctionException(
+            ExternalDepsException.withMessage(
+                Code.VERSION_RESOLUTION_ERROR,
+                "Yanked version detected in your resolved dependency graph: %s, for the reason: "
+                    + "%s.\nYanked versions may contain serious vulnerabilities and should not be "
+                    + "used. To fix this, use a bazel_dep on a newer version of this module. To "
+                    + "continue using this version, allow it using the --allow_yanked_versions "
+                    + "flag or the BZLMOD_ALLOW_YANKED_VERSIONS env variable.",
+                m.getKey(),
+                yankedInfo),
+            Transience.PERSISTENT);
       }
     }
   }
