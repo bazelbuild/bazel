@@ -23,7 +23,7 @@ def _pkg_tar_impl(ctx):
     """Implementation of the pkg_tar rule."""
 
     # Compute the relative path
-    data_path = compute_data_path(ctx.outputs.out, ctx.attr.strip_prefix)
+    data_path = compute_data_path(ctx.outputs.out, ".")
 
     # Start building the arguments.
     args = [
@@ -52,7 +52,6 @@ def _pkg_tar_impl(ctx):
 _real_pkg_tar = rule(
     implementation = _pkg_tar_impl,
     attrs = {
-        "strip_prefix": attr.string(),
         "package_dir": attr.string(default = "/"),
         "srcs": attr.label_list(allow_files = True),
         "out": attr.output(),
