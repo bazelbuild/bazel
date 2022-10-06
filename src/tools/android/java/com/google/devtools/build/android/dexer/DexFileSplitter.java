@@ -291,12 +291,12 @@ class DexFileSplitter implements Closeable {
         boolean isOuter = isOuterClass(filename);
 
 	    // TODO: optimize- this currently creates a list of size one for most cases
-        if (!zipEntries.isEmpty() && isOuter) { 
-            processDexEntries(zipEntries);
-        }
-        if (isOuter) {
-            zipEntries.clear();
-        }
+	 if (isOuter) {
+	    if (!zipEntries.isEmpty()) {
+		processDexEntries(zipEntries);
+	    }
+	    zipEntries.clear();
+	}
         zipEntries.add(entry);
       }
     }
