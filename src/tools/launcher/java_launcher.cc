@@ -321,11 +321,14 @@ ExitCode JavaBinaryLauncher::Launch() {
     }
     classpath << deploy_jar << L';';
   } else {
+    wstring path;
     // Add main advice classpath if exists
     if (!this->main_advice_classpath.empty()) {
-      classpath << this->main_advice_classpath << L';';
+      wstringstream main_advice_classpath_ss(this->main_advice_classpath);
+      while (getline(main_advice_classpath_ss, path, L';')) {
+        classpath << this->Rlocation(path) << L';';
+      }
     }
-    wstring path;
     wstringstream classpath_ss(this->GetLaunchInfoByKey(CLASSPATH));
     while (getline(classpath_ss, path, L';')) {
       classpath << this->Rlocation(path) << L';';
