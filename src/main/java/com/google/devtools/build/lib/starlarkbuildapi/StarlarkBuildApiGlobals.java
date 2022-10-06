@@ -33,36 +33,45 @@ public interface StarlarkBuildApiGlobals {
               + " <code>--experimental_bzl_visibility_allowlist</code> are permitted to call this"
               + " function. Known issue: This feature currently may not work under bzlmod.)</i>"
               + "<p>Sets the bzl-visibility of the .bzl module currently being initialized."
-              + "<p>The bzl-visibility of a .bzl module (not to be confused with target visibility)"
-              + " governs whether or not a <code>load()</code> of that .bzl is permitted from"
-              + " within the BUILD and .bzl files of a particular package. Allowed values include:"
-              + "<ul>"
-              + "<li><code>\"public\"</code> <i>(default)</i>: the .bzl can be loaded anywhere."
-              + "<li><code>\"private\"</code>: the .bzl can only be loaded by files in the same"
-              + " package (subpackages are excluded)."
-              + "<li>a list of package specifications (e.g. <code>[\"//pkg1\","
-              + "\"//pkg2/subpkg/...\"]</code>): the .bzl can be loaded by files in any package"
-              + " matching one of the listed specifications. Package specifications may be package"
-              + " paths, or package paths with a trailing <code>\"/...\"</code> to include all"
-              + " subpackages; negated patterns are not currently supported. All package"
-              + " specifications are within the current repository; the \"@\" syntax is disallowed."
-              + "</ul>"
+              + "<p>The bzl-visibility of a module governs whether or not other BUILD and .bzl"
+              + " files may load it. (This is distinct from the target visibility of the underlying"
+              + " .bzl source file, which governs whether the file may appear as a dependency of"
+              + " other targets.) Bzl-visibility works at the level of packages: To load a"
+              + " module, the file doing the loading must live in a package that has been granted"
+              + " visibility to the module. A module can always be loaded within its own package,"
+              + " regardless of its visibility."
               + "<p>Generally, <code>visibility()</code> is called at the top of the .bzl file,"
               + " immediately after its <code>load()</code> statements. (It is poor style to put"
               + " this declaration later in the file or in a helper method.) It may not be called"
               + " more than once per .bzl, or after the .bzl's top-level code has finished"
-              + " executing."
-              + "<p>Note that a .bzl module having a public bzl-visibility does not necessarily"
-              + " imply that its corresponding file target has public visibility. This means that"
-              + " it's possible to be able to <code>load()</code> a .bzl file without being able to"
-              + " depend on it in a <code>filegroup</code> or other target.",
+              + " executing.",
       parameters = {
         @Param(
             name = "value",
             named = false,
             doc =
-                "The bzl-visibility level to set. May be <code>\"public\"</code>,"
-                    + " <code>\"private\"</code>, or a list of packages.")
+                "A list of package specification strings, or a single package specification string."
+                    + "<p>Package specifications follow the same format as for"
+                    + " <code><a href='${link functions#package_group}'>package_group</a></code>,"
+                    + " except that negative package specifications are not permitted. That is, a"
+                    + " specification may have the forms:"
+                    + "<ul>"
+                    + "<li><code>\"//foo\"</code>: the package <code>//foo</code>" //
+                    + "<li><code>\"//foo/...\"</code>: the package <code>//foo</code> and all of"
+                    + " its subpackages." //
+                    + "<li><code>\"public\"</code> or <code>\"private\"</code>: all packages or no"
+                    + " packages, respectively"
+                    + "</ul>"
+                    + "<p>The \"@\" syntax is not allowed; all specifications are interpreted"
+                    + " relative to the current module's repository."
+                    + "<p>If <code>value</code> is a list of strings, the set of packages granted"
+                    + " visibility to this module is the union of the packages represented by each"
+                    + " specification. (An empty list has the same effect as <code>private</code>.)"
+                    + " If <code>value</code> is a single string, it is treated as if it were the"
+                    + " singleton list <code>[value]</code>."
+                    + "<p>Note that the specification <code>\"//...\"</code> is always interpreted"
+                    + " as \"all packages in the current repository\", regardless of the value of"
+                    + " the <code>--incompatible_fix_package_group_reporoot_syntax</code> flag.")
       },
       // Ordinarily we'd use enableOnlyWithFlag here to gate access on
       // --experimental_bzl_visibility. However, the StarlarkSemantics isn't available at the point
