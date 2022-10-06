@@ -102,14 +102,9 @@ public class StandaloneTestStrategy extends TestStrategy {
       TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     if (action.getExecutionSettings().getInputManifest() == null) {
-      String errorMessage = "cannot run local tests with --nobuild_runfile_manifests";
-      throw new TestExecException(
-          errorMessage,
-          FailureDetail.newBuilder()
-              .setTestAction(
-                  TestAction.newBuilder().setCode(TestAction.Code.LOCAL_TEST_PREREQ_UNMET))
-              .setMessage(errorMessage)
-              .build());
+      throw createTestExecException(
+          TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
+          "cannot run local tests with --nobuild_runfile_manifests");
     }
     Map<String, String> testEnvironment =
         createEnvironment(
@@ -641,6 +636,16 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
   }
 
+  private static TestExecException createTestExecException(
+      TestAction.Code errorCode, String errorMessage) {
+    return new TestExecException(
+        errorMessage,
+        FailureDetail.newBuilder()
+            .setTestAction(TestAction.newBuilder().setCode(errorCode))
+            .setMessage(errorMessage)
+            .build());
+  }
+
   private final class BazelTestAttemptContinuation extends TestAttemptContinuation {
     private final TestRunnerAction testAction;
     private final ActionExecutionContext actionExecutionContext;
@@ -760,6 +765,18 @@ public class StandaloneTestStrategy extends TestStrategy {
             .setHasCoverage(testAction.isCoverageMode());
 
         if (testAction.isCoverageMode() && testAction.getSplitCoveragePostProcessing()) {
+          if (testAction.getCoverageDirectoryTreeArtifact() == null) {
+            // Otherwise we'll get a NPE https://github.com/bazelbuild/bazel/issues/13185
+            TestExecException e =
+                createTestExecException(
+                    TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
+                    "coverageDirectoryTreeArtifact is null:"
+                        + " --experimental_split_coverage_postprocessing depends on"
+                        + " --experimental_fetch_all_coverage_outputs being enabled");
+            closeSuppressed(e, streamed);
+            closeSuppressed(e, fileOutErr);
+            throw e;
+          }
           actionExecutionContext
               .getMetadataHandler()
               .getMetadata(testAction.getCoverageDirectoryTreeArtifact());
