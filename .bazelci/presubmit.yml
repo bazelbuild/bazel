@@ -118,7 +118,7 @@ tasks:
       - gcloud auth list || true
       - ls -aR /var/lib/buildkite-agent/.config
       - echo CiQAMTBkWjL1C+F5oon3+cC1vmum5+c1y5+96WQY44p0Lxd0PeASUQAy7iU0c6E3W5EOSFYfD5fA > /tmp/a
-      - echo MWy/SHaMno1NQSUa4xDOl5yc2kizrtxPPVkX4x9pLNuGUY/xwAn2n1DdiUdWZNWlY1bX2C4ex65e >> tmp/a
+      - echo MWy/SHaMno1NQSUa4xDOl5yc2kizrtxPPVkX4x9pLNuGUY/xwAn2n1DdiUdWZNWlY1bX2C4ex65e >> /tmp/a
       - echo -n P9w8kNhEbw== >> /tmp/a
       - ls -al /tmp/a
       - gcloud kms decrypt --project bazel-untrusted --location global --keyring buildkite --key buildkite-testing-api-token --ciphertext-file /tmp/a --plaintext-file /tmp/output || true
