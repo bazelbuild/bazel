@@ -1773,7 +1773,6 @@ def _impl(ctx):
         cpp_link_executable_action = action_config(
             action_name = ACTION_NAMES.cpp_link_executable,
             implies = [
-                "symbol_counts",
                 "linkstamps",
                 "output_execpath_flags",
                 "runtime_root_flags",
@@ -1798,7 +1797,6 @@ def _impl(ctx):
         cpp_link_executable_action = action_config(
             action_name = ACTION_NAMES.cpp_link_executable,
             implies = [
-                "symbol_counts",
                 "linkstamps",
                 "output_execpath_flags",
                 "runtime_root_flags",
@@ -1823,7 +1821,6 @@ def _impl(ctx):
         cpp_link_executable_action = action_config(
             action_name = ACTION_NAMES.cpp_link_executable,
             implies = [
-                "symbol_counts",
                 "linkstamps",
                 "output_execpath_flags",
                 "runtime_root_flags",
@@ -1847,7 +1844,6 @@ def _impl(ctx):
         cpp_link_executable_action = action_config(
             action_name = ACTION_NAMES.cpp_link_executable,
             implies = [
-                "symbol_counts",
                 "linkstamps",
                 "output_execpath_flags",
                 "runtime_root_flags",
@@ -1871,7 +1867,6 @@ def _impl(ctx):
         cpp_link_executable_action = action_config(
             action_name = ACTION_NAMES.cpp_link_executable,
             implies = [
-                "symbol_counts",
                 "linkstamps",
                 "output_execpath_flags",
                 "runtime_root_flags",
@@ -1895,7 +1890,6 @@ def _impl(ctx):
         cpp_link_executable_action = action_config(
             action_name = ACTION_NAMES.cpp_link_executable,
             implies = [
-                "symbol_counts",
                 "linkstamps",
                 "output_execpath_flags",
                 "runtime_root_flags",
@@ -1920,7 +1914,6 @@ def _impl(ctx):
         cpp_link_executable_action = action_config(
             action_name = ACTION_NAMES.cpp_link_executable,
             implies = [
-                "symbol_counts",
                 "linkstamps",
                 "output_execpath_flags",
                 "runtime_root_flags",
@@ -1945,7 +1938,6 @@ def _impl(ctx):
         cpp_link_executable_action = action_config(
             action_name = ACTION_NAMES.cpp_link_executable,
             implies = [
-                "symbol_counts",
                 "linkstamps",
                 "output_execpath_flags",
                 "runtime_root_flags",
@@ -3526,7 +3518,6 @@ def _impl(ctx):
             action_name = ACTION_NAMES.cpp_link_dynamic_library,
             implies = [
                 "has_configured_linker_path",
-                "symbol_counts",
                 "shared_flag",
                 "linkstamps",
                 "output_execpath_flags",
@@ -3552,7 +3543,6 @@ def _impl(ctx):
             action_name = ACTION_NAMES.cpp_link_dynamic_library,
             implies = [
                 "has_configured_linker_path",
-                "symbol_counts",
                 "shared_flag",
                 "linkstamps",
                 "output_execpath_flags",
@@ -3578,7 +3568,6 @@ def _impl(ctx):
             action_name = ACTION_NAMES.cpp_link_dynamic_library,
             implies = [
                 "has_configured_linker_path",
-                "symbol_counts",
                 "shared_flag",
                 "linkstamps",
                 "output_execpath_flags",
@@ -3603,7 +3592,6 @@ def _impl(ctx):
             action_name = ACTION_NAMES.cpp_link_dynamic_library,
             implies = [
                 "has_configured_linker_path",
-                "symbol_counts",
                 "shared_flag",
                 "linkstamps",
                 "output_execpath_flags",
@@ -3628,7 +3616,6 @@ def _impl(ctx):
             action_name = ACTION_NAMES.cpp_link_dynamic_library,
             implies = [
                 "has_configured_linker_path",
-                "symbol_counts",
                 "shared_flag",
                 "linkstamps",
                 "output_execpath_flags",
@@ -3653,7 +3640,6 @@ def _impl(ctx):
             action_name = ACTION_NAMES.cpp_link_dynamic_library,
             implies = [
                 "has_configured_linker_path",
-                "symbol_counts",
                 "shared_flag",
                 "linkstamps",
                 "output_execpath_flags",
@@ -3679,7 +3665,6 @@ def _impl(ctx):
             action_name = ACTION_NAMES.cpp_link_dynamic_library,
             implies = [
                 "has_configured_linker_path",
-                "symbol_counts",
                 "shared_flag",
                 "linkstamps",
                 "output_execpath_flags",
@@ -3705,7 +3690,6 @@ def _impl(ctx):
             action_name = ACTION_NAMES.cpp_link_dynamic_library,
             implies = [
                 "has_configured_linker_path",
-                "symbol_counts",
                 "shared_flag",
                 "linkstamps",
                 "output_execpath_flags",
@@ -4959,7 +4943,6 @@ def _impl(ctx):
             action_name = ACTION_NAMES.cpp_link_nodeps_dynamic_library,
             implies = [
                 "has_configured_linker_path",
-                "symbol_counts",
                 "shared_flag",
                 "linkstamps",
                 "output_execpath_flags",
@@ -4985,7 +4968,6 @@ def _impl(ctx):
             action_name = ACTION_NAMES.cpp_link_nodeps_dynamic_library,
             implies = [
                 "has_configured_linker_path",
-                "symbol_counts",
                 "shared_flag",
                 "linkstamps",
                 "output_execpath_flags",
@@ -5011,7 +4993,6 @@ def _impl(ctx):
             action_name = ACTION_NAMES.cpp_link_nodeps_dynamic_library,
             implies = [
                 "has_configured_linker_path",
-                "symbol_counts",
                 "shared_flag",
                 "linkstamps",
                 "output_execpath_flags",
@@ -5036,7 +5017,6 @@ def _impl(ctx):
             action_name = ACTION_NAMES.cpp_link_nodeps_dynamic_library,
             implies = [
                 "has_configured_linker_path",
-                "symbol_counts",
                 "shared_flag",
                 "linkstamps",
                 "output_execpath_flags",
@@ -5061,7 +5041,6 @@ def _impl(ctx):
             action_name = ACTION_NAMES.cpp_link_nodeps_dynamic_library,
             implies = [
                 "has_configured_linker_path",
-                "symbol_counts",
                 "shared_flag",
                 "linkstamps",
                 "output_execpath_flags",
@@ -5086,7 +5065,6 @@ def _impl(ctx):
             action_name = ACTION_NAMES.cpp_link_nodeps_dynamic_library,
             implies = [
                 "has_configured_linker_path",
-                "symbol_counts",
                 "shared_flag",
                 "linkstamps",
                 "output_execpath_flags",
@@ -5112,7 +5090,6 @@ def _impl(ctx):
             action_name = ACTION_NAMES.cpp_link_nodeps_dynamic_library,
             implies = [
                 "has_configured_linker_path",
-                "symbol_counts",
                 "shared_flag",
                 "linkstamps",
                 "output_execpath_flags",
@@ -5138,7 +5115,6 @@ def _impl(ctx):
             action_name = ACTION_NAMES.cpp_link_nodeps_dynamic_library,
             implies = [
                 "has_configured_linker_path",
-                "symbol_counts",
                 "shared_flag",
                 "linkstamps",
                 "output_execpath_flags",
@@ -8435,21 +8411,6 @@ def _impl(ctx):
         ],
     )
 
-    symbol_counts_feature = feature(
-        name = "symbol_counts",
-        flag_sets = [
-            flag_set(
-                actions = _NON_OBJC_LINK_ACTIONS,
-                flag_groups = [
-                    flag_group(
-                        flags = ["-Wl,--print-symbol-counts=%{symbol_counts_output}"],
-                        expand_if_available = "symbol_counts_output",
-                    ),
-                ],
-            ),
-        ],
-    )
-
     gcc_coverage_map_format_feature = feature(
         name = "gcc_coverage_map_format",
         flag_sets = [
@@ -8640,7 +8601,6 @@ def _impl(ctx):
         generate_linkmap_feature,
         objc_actions_feature,
         strip_debug_symbols_feature,
-        symbol_counts_feature,
         shared_flag_feature,
         linkstamps_feature,
         output_execpath_flags_feature,

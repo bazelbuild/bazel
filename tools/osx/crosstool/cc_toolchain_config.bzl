@@ -306,7 +306,6 @@ def _impl(ctx):
         implies = [
             "contains_objc_source",
             "has_configured_linker_path",
-            "symbol_counts",
             "shared_flag",
             "linkstamps",
             "output_execpath_flags",
@@ -574,7 +573,6 @@ def _impl(ctx):
         action_name = ACTION_NAMES.cpp_link_executable,
         implies = [
             "contains_objc_source",
-            "symbol_counts",
             "linkstamps",
             "output_execpath_flags",
             "runtime_root_flags",
@@ -644,7 +642,6 @@ def _impl(ctx):
         implies = [
             "contains_objc_source",
             "has_configured_linker_path",
-            "symbol_counts",
             "shared_flag",
             "linkstamps",
             "output_execpath_flags",
@@ -957,21 +954,6 @@ def _impl(ctx):
     fastbuild_feature = feature(name = "fastbuild")
 
     no_legacy_features_feature = feature(name = "no_legacy_features")
-
-    symbol_counts_feature = feature(
-        name = "symbol_counts",
-        flag_sets = [
-            flag_set(
-                actions = all_link_actions,
-                flag_groups = [
-                    flag_group(
-                        flags = ["-Wl,--print-symbol-counts=%{symbol_counts_output}"],
-                        expand_if_available = "symbol_counts_output",
-                    ),
-                ],
-            ),
-        ],
-    )
 
     user_link_flags_feature = feature(
         name = "user_link_flags",
@@ -2730,7 +2712,6 @@ def _impl(ctx):
             contains_objc_source_feature,
             objc_actions_feature,
             strip_debug_symbols_feature,
-            symbol_counts_feature,
             shared_flag_feature,
             kernel_extension_feature,
             linkstamps_feature,
@@ -2812,7 +2793,6 @@ def _impl(ctx):
             contains_objc_source_feature,
             objc_actions_feature,
             strip_debug_symbols_feature,
-            symbol_counts_feature,
             shared_flag_feature,
             kernel_extension_feature,
             linkstamps_feature,

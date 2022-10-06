@@ -926,13 +926,6 @@ Note: The **Action** column indicates the relevant action type, if applicable.
    </td>
   </tr>
   <tr>
-   <td><strong><code>symbol_counts_output</code></strong>
-   </td>
-   <td>link</td>
-   <td>Path to which to write symbol counts.
-   </td>
-  </tr>
-  <tr>
    <td><strong><code>linkstamp_paths</code></strong>
    </td>
    <td>link</td>
@@ -1123,7 +1116,6 @@ conditions.
     <li>Adds <code>autofdo</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>build_interface_libraries</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>dynamic_library_linker_tool</code> (if not present) feature to the top of the toolchain</li>
-    <li>Adds <code>symbol_counts</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>shared_flag</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>linkstamps</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>output_execpath_flags</code> (if not present) feature to the top of the toolchain</li>

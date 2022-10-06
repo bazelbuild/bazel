@@ -312,18 +312,6 @@ extension.
 
 The options `--fdo_instrument` and `--fdo_optimize` cannot be used at the same time.
 
-#### `--[no]output_symbol_counts` {:#output-symbol-counts}
-
-If enabled, each gold-invoked link of a C++ executable binary will output
-a _symbol counts_ file (via the `--print-symbol-counts` gold
-option). For each linker input, the file logs the number of symbols that were
-defined and the number of symbols that were used in the binary.
-This information can be used to track unnecessary link dependencies.
-The symbol counts file is written to the binary's output path with the name
-`[targetname].sc`.
-
-This option is disabled by default.
-
 #### `--java_language_version={{ "<var>" }}version{{ "</var>" }}` {:#java-language-version}
 
 This option specifies the version of Java sources. For example:
