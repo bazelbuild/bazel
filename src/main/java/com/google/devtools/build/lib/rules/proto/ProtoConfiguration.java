@@ -296,8 +296,20 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return options.strictProtoDeps;
   }
 
+  @StarlarkMethod(name = "cc_proto_library_header_suffixes", useStarlarkThread = true, documented = false)
+  public List<String> ccProtoLibraryHeaderSuffixesForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return ccProtoLibraryHeaderSuffixes();
+  }
+
   public List<String> ccProtoLibraryHeaderSuffixes() {
     return ccProtoLibraryHeaderSuffixes;
+  }
+
+  @StarlarkMethod(name = "cc_proto_library_source_suffixes", useStarlarkThread = true, documented = false)
+  public List<String> ccProtoLibrarySourceSuffixesForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return ccProtoLibrarySourceSuffixes();
   }
 
   public List<String> ccProtoLibrarySourceSuffixes() {

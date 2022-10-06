@@ -930,6 +930,24 @@ def _is_stamping_enabled_for_aspect(ctx):
 def _get_local_defines_for_runfiles_lookup(ctx):
     return ["BAZEL_CURRENT_REPOSITORY=\"{}\"".format(ctx.label.workspace_name)]
 
+def _get_strip_include_prefix(ctx, proto_info, include_repository = False):
+    proto_root = proto_info.proto_source_root
+    strip_include_prefix = ""
+    if proto_root != "." or (include_repository and proto_root != ctx.label.workspace_name):
+        if proto_root.startswith(ctx.bin_dir.path):
+            proto_root = proto_root[len(ctx.bin_dir.path):]
+        elif proto_root.startswith(ctx.genfiles_dir.path):
+            proto_root = proto_root[len(ctx.genfiles_dir.path):]
+
+    if include_repository:
+        if proto_root.startswith(ctx.label.workspace_name):
+            proto_root = proto_root[len(ctx.label.workspace_name):]
+
+    if proto_root == ".":
+        strip_include_prefix = ""
+    else:
+        strip_include_prefix = "//" + proto_root
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -976,4 +994,5 @@ cc_helper = struct(
     is_stamping_enabled = _is_stamping_enabled,
     is_stamping_enabled_for_aspect = _is_stamping_enabled_for_aspect,
     get_local_defines_for_runfiles_lookup = _get_local_defines_for_runfiles_lookup,
+    get_strip_include_prefix = _get_strip_include_prefix,
 )
