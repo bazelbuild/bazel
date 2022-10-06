@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
@@ -198,7 +199,15 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
     // TODO(bazel-team): Should aspects be allowed to override providers on the configured target
     // class?
-    return providers.getProvider(providerClass);
+    AnalysisUtils.checkProvider(providerClass);
+    final P provider = providers.getProvider(providerClass);
+    if (provider != null) {
+      return provider;
+    }
+    if (providerClass.isAssignableFrom(getClass())) {
+      return providerClass.cast(this);
+    }
+    return null;
   }
 
   @Override

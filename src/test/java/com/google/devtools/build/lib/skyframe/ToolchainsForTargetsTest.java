@@ -21,8 +21,11 @@ import static com.google.devtools.build.lib.analysis.testing.ToolchainContextSub
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
@@ -42,6 +45,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -515,6 +519,228 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     assertThat(toolchainBContext).hasExecutionPlatform("//platforms:local_platform_b");
     assertThat(toolchainBContext).hasToolchainType("//toolchain:test_toolchain");
     assertThat(toolchainBContext).hasResolvedToolchain("//toolchains:toolchain_1_impl");
+  }
+
+  @CanIgnoreReturnValue
+  private AnalysisResult updateExplicitTarget(String label) throws Exception {
+    return update(
+        new EventBus(),
+        defaultFlags().with(Flag.KEEP_GOING),
+        /*explicitTargetPatterns=*/ ImmutableSet.of(Label.parseAbsoluteUnchecked(label)),
+        /*aspects=*/ ImmutableList.of(),
+        /*aspectsParameters=*/ ImmutableMap.of(),
+        label);
+  }
+
+  @Test
+  public void targetCompatibleWith_matchesExecCompatibleWith() throws Exception {
+    scratch.file(
+        "platforms/BUILD",
+        "constraint_setting(name = 'local_setting')",
+        "constraint_value(name = 'local_value_a', constraint_setting = ':local_setting')",
+        "constraint_value(name = 'local_value_b', constraint_setting = ':local_setting')",
+        "platform(name = 'local_platform_a',",
+        "    constraint_values = [':local_value_a'],",
+        ")",
+        "platform(name = 'local_platform_b',",
+        "    constraint_values = [':local_value_b'],",
+        ")");
+    useConfiguration(
+        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
+    scratch.file(
+        "foo/BUILD",
+        "sh_binary(name = 'tool', srcs = ['a.sh'], ",
+        "  target_compatible_with = ['//platforms:local_value_b'])",
+        "genrule(name = 'runtool', tools = [':tool'], cmd = '', outs = ['b.txt'],",
+        "  exec_compatible_with = ['//platforms:local_value_b'])");
+
+    AnalysisResult result = updateExplicitTarget("//foo:runtool");
+
+    assertThat(result.hasError()).isFalse();
+    assertNoEvents();
+  }
+
+  @Test
+  public void targetCompatibleWith_mismatchesExecCompatibleWith() throws Exception {
+    scratch.file(
+        "platforms/BUILD",
+        "constraint_setting(name = 'local_setting')",
+        "constraint_value(name = 'local_value_a', constraint_setting = ':local_setting')",
+        "constraint_value(name = 'local_value_b', constraint_setting = ':local_setting')",
+        "platform(name = 'local_platform_a',",
+        "    constraint_values = [':local_value_a'],",
+        ")",
+        "platform(name = 'local_platform_b',",
+        "    constraint_values = [':local_value_b'],",
+        ")");
+    useConfiguration(
+        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
+    scratch.file(
+        "foo/BUILD",
+        "sh_binary(name = 'tool', srcs = ['a.sh'], ",
+        "  target_compatible_with = ['//platforms:local_value_a'])",
+        "genrule(name = 'runtool', tools = [':tool'], cmd = '', outs = ['b.txt'],",
+        "  exec_compatible_with = ['//platforms:local_value_b'])");
+
+    reporter.removeHandler(failFastHandler);
+    AnalysisResult result = updateExplicitTarget("//foo:runtool");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "Target //foo:runtool is incompatible and cannot be built, but was explicitly requested");
+  }
+
+  @Test
+  public void targetCompatibleWith_mismatchesExecCompatibleInDifferentPackage() throws Exception {
+    // Regression test for a case where incompatibility happens in an aspect tool in a different
+    // package over a Starlark target with
+    // --incompatible_visibility_private_attributes_at_definition
+    // The tool is replaced with a fake target {@link
+    // IncommpatibleTargetChecker#createIncompatibleRuleConfiguredTarget)
+    // and it's verified if the tool is visible to the Starlark target.
+    scratch.file(
+        "platforms/BUILD",
+        "constraint_setting(name = 'local_setting')",
+        "constraint_value(name = 'local_value_a', constraint_setting = ':local_setting')",
+        "constraint_value(name = 'local_value_b', constraint_setting = ':local_setting')",
+        "platform(name = 'local_platform_a',",
+        "    constraint_values = [':local_value_a'],",
+        ")",
+        "platform(name = 'local_platform_b',",
+        "    constraint_values = [':local_value_b'],",
+        ")");
+
+    useConfiguration(
+        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b",
+        "--incompatible_visibility_private_attributes_at_definition");
+    scratch.file(
+        "foo/lib.bzl",
+        "def _impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  _impl,",
+        "  attrs = { '_my_tool': attr.label(default = '//tool') },",
+        ")");
+    scratch.file(
+        "tool/BUILD",
+        "sh_binary(name = 'tool', srcs = ['a.cc'], ",
+        "  target_compatible_with = ['//platforms:local_value_a'])");
+    scratch.file(
+        "foo/BUILD", //
+        "load(':lib.bzl','my_rule')",
+        "my_rule(name = 'target_in_different_package')");
+
+    reporter.removeHandler(failFastHandler);
+    AnalysisResult result = updateExplicitTarget("//foo:target_in_different_package");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "Target //foo:target_in_different_package is incompatible and cannot be built, but was"
+            + " explicitly requested");
+  }
+
+  @Test
+  public void targetCompatibleWith_mismatchesExecCompatibleDepInDifferentPackage()
+      throws Exception {
+    scratch.file(
+        "platforms/BUILD",
+        "constraint_setting(name = 'local_setting')",
+        "constraint_value(name = 'local_value_a', constraint_setting = ':local_setting')",
+        "constraint_value(name = 'local_value_b', constraint_setting = ':local_setting')",
+        "platform(name = 'local_platform_a',",
+        "    constraint_values = [':local_value_a'],",
+        ")",
+        "platform(name = 'local_platform_b',",
+        "    constraint_values = [':local_value_b'],",
+        ")");
+
+    useConfiguration(
+        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b",
+        "--incompatible_visibility_private_attributes_at_definition");
+    scratch.file(
+        "foo/lib.bzl",
+        "def _impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  _impl,",
+        "  attrs = { '_my_tool': attr.label(default = '//tool') },",
+        ")");
+    scratch.file(
+        "tool/BUILD",
+        "sh_binary(name = 'tool', srcs = ['a.cc'], ",
+        "  target_compatible_with = ['//platforms:local_value_a'])");
+    scratch.file(
+        "foo/BUILD",
+        "load(':lib.bzl','my_rule')",
+        "my_rule(name = 'dep')",
+        "filegroup(name = 'target_with_dep', srcs = [':dep'])");
+
+    reporter.removeHandler(failFastHandler);
+    AnalysisResult result = updateExplicitTarget("//foo:target_with_dep");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "Target //foo:target_with_dep is incompatible and cannot be built, but was"
+            + " explicitly requested");
+  }
+
+  @Test
+  public void targetCompatibleWith_mismatchesExecCompatibleWithinAspect() throws Exception {
+    // Regression test for a case where incompatibility happens in an aspect tool in a different
+    // package over a Starlark target with
+    // --incompatible_visibility_private_attributes_at_definition
+    // The tool is replaced with a fake target {@link
+    // IncommpatibleTargetChecker#createIncompatibleRuleConfiguredTarget)
+    // and it's verified if the tool is visible to the Starlark target the aspect is over.
+    scratch.file(
+        "platforms/BUILD",
+        "constraint_setting(name = 'local_setting')",
+        "constraint_value(name = 'local_value_a', constraint_setting = ':local_setting')",
+        "constraint_value(name = 'local_value_b', constraint_setting = ':local_setting')",
+        "platform(name = 'local_platform_a',",
+        "    constraint_values = [':local_value_a'],",
+        ")",
+        "platform(name = 'local_platform_b',",
+        "    constraint_values = [':local_value_b'],",
+        ")");
+
+    useConfiguration(
+        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b",
+        "--incompatible_visibility_private_attributes_at_definition");
+    scratch.file(
+        "foo/lib.bzl",
+        "def _impl_aspect(ctx, target):",
+        "  return []",
+        "my_aspect = aspect(",
+        "  _impl_aspect,",
+        "  attrs = { '_my_tool': attr.label(default = '//tool') },",
+        "  exec_compatible_with = ['//platforms:local_value_a'],",
+        ")",
+        "def _impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  _impl,",
+        "  attrs = { 'deps': attr.label_list(aspects = [my_aspect]) },",
+        ")",
+        "simple_starlark_rule = rule(",
+        "  _impl,",
+        ")");
+    scratch.file(
+        "tool/BUILD",
+        "sh_binary(name = 'tool', srcs = ['a.cc'], ",
+        "  target_compatible_with = ['//platforms:local_value_b'])");
+    scratch.file(
+        "foo/BUILD",
+        "load(':lib.bzl','my_rule', 'simple_starlark_rule')",
+        "simple_starlark_rule(name = 'simple_dep')",
+        "my_rule(name = 'target_with_aspect', deps = [':simple_dep'])");
+
+    reporter.removeHandler(failFastHandler);
+    AnalysisResult result = updateExplicitTarget("//foo:target_with_aspect");
+
+    // TODO(bazel-team): This should report an error similarly to {@code
+    // #targetCompatibleWith_mismatchesExecCompatibleDepInDifferentPackage}
+    assertThat(result.hasError()).isFalse();
   }
 
   private void assertHasBaselineCoverageAction(String label, String progressMessage)
