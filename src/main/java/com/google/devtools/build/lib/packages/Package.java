@@ -1652,14 +1652,26 @@ public class Package {
       return Label.create(pkg.getPackageIdentifier(), targetName);
     }
 
-    /**
-     * Adds a package group to the package.
-     */
-    void addPackageGroup(String name, Collection<String> packages, Collection<Label> includes,
-        EventHandler eventHandler, Location location)
+    /** Adds a package group to the package. */
+    void addPackageGroup(
+        String name,
+        Collection<String> packages,
+        Collection<Label> includes,
+        boolean allowPublicPrivate,
+        boolean repoRootMeansCurrentRepo,
+        EventHandler eventHandler,
+        Location location)
         throws NameConflictException, LabelSyntaxException {
       PackageGroup group =
-          new PackageGroup(createLabel(name), pkg, packages, includes, eventHandler, location);
+          new PackageGroup(
+              createLabel(name),
+              pkg,
+              packages,
+              includes,
+              allowPublicPrivate,
+              repoRootMeansCurrentRepo,
+              eventHandler,
+              location);
       Target existing = targets.get(group.getName());
       if (existing != null) {
         throw nameConflict(group, existing);

@@ -542,7 +542,18 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
     Location loc = thread.getCallerLocation();
     try {
-      context.pkgBuilder.addPackageGroup(name, packages, includes, context.eventHandler, loc);
+      context.pkgBuilder.addPackageGroup(
+          name,
+          packages,
+          includes,
+          /*allowPublicPrivate=*/ thread
+              .getSemantics()
+              .getBool(BuildLanguageOptions.INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX),
+          /*repoRootMeansCurrentRepo=*/ thread
+              .getSemantics()
+              .getBool(BuildLanguageOptions.INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX),
+          context.eventHandler,
+          loc);
       return Starlark.NONE;
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("package group has invalid name: %s: %s", name, e.getMessage());

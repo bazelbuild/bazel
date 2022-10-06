@@ -218,7 +218,133 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testNegative_everything() throws Exception {
+  public void testEverythingSpecificationWorks() throws Exception {
+    setBuildLanguageOptions("--incompatible_package_group_has_public_syntax=true");
+
+    scratch.file(
+        "fruits/BUILD", //
+        "package_group(",
+        "    name = 'mango',",
+        "    packages = ['public'],",
+        ")");
+    PackageGroup grp = getPackageGroup("fruits", "mango");
+
+    // Assert that we're using the right package spec.
+    assertThat(grp.getContainedPackages(/*includeDoubleSlash=*/ true)).containsExactly("public");
+    // Assert that this package spec contains packages from both inside and outside the main repo.
+    assertThat(grp.contains(pkgId("pkg"))).isTrue();
+    assertThat(grp.contains(pkgId("somerepo", "pkg"))).isTrue();
+  }
+
+  @Test
+  public void testNothingSpecificationWorks() throws Exception {
+    setBuildLanguageOptions("--incompatible_package_group_has_public_syntax=true");
+
+    scratch.file(
+        "fruits/BUILD", //
+        "package_group(",
+        "    name = 'mango',",
+        "    packages = ['private'],",
+        ")");
+    PackageGroup grp = getPackageGroup("fruits", "mango");
+
+    // Assert that we're using the right package spec.
+    assertThat(grp.getContainedPackages(/*includeDoubleSlash=*/ true)).containsExactly("private");
+    assertThat(grp.contains(pkgId("anything"))).isFalse();
+  }
+
+  @Test
+  public void testPublicPrivateAreNotAccessibleWithoutFlag() throws Exception {
+    setBuildLanguageOptions("--incompatible_package_group_has_public_syntax=false");
+
+    scratch.file(
+        "foo/BUILD", //
+        "package_group(",
+        "    name = 'grp1',",
+        "    packages = ['public'],",
+        ")");
+    scratch.file(
+        "bar/BUILD", //
+        "package_group(",
+        "    name = 'grp2',",
+        "    packages = ['private'],",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    getPackageGroup("foo", "grp1");
+    assertContainsEvent(
+        "Use of \"public\" package specification requires enabling"
+            + " --incompatible_package_group_has_public_syntax");
+    getPackageGroup("bar", "grp2");
+    assertContainsEvent(
+        "Use of \"private\" package specification requires enabling"
+            + " --incompatible_package_group_has_public_syntax");
+  }
+
+  @Test
+  public void testRepoRootSubpackagesIsPublic_withoutFlag() throws Exception {
+    setBuildLanguageOptions("--incompatible_fix_package_group_reporoot_syntax=false");
+
+    scratch.file(
+        "fruits/BUILD", //
+        "package_group(",
+        "    name = 'mango',",
+        "    packages = ['//...'],",
+        ")");
+    PackageGroup grp = getPackageGroup("fruits", "mango");
+
+    // Use includeDoubleSlash=true to make package spec stringification distinguish AllPackages from
+    // AllPackagesBeneath with empty package path.
+    assertThat(grp.getContainedPackages(/*includeDoubleSlash=*/ true))
+        // Assert that "//..." gave us AllPackages.
+        .containsExactly("public");
+    assertThat(grp.contains(pkgId("pkg"))).isTrue();
+    assertThat(grp.contains(pkgId("somerepo", "pkg"))).isTrue();
+  }
+
+  @Test
+  public void testRepoRootSubpackagesIsNotPublic_withFlag() throws Exception {
+    setBuildLanguageOptions(
+        "--incompatible_package_group_has_public_syntax=true",
+        "--incompatible_fix_package_group_reporoot_syntax=true");
+
+    scratch.file(
+        "fruits/BUILD", //
+        "package_group(",
+        "    name = 'mango',",
+        "    packages = ['//...'],",
+        ")");
+    PackageGroup grp = getPackageGroup("fruits", "mango");
+
+    // Use includeDoubleSlash=true to make package spec stringification distinguish AllPackages from
+    // AllPackagesBeneath with empty package path.
+    assertThat(grp.getContainedPackages(/*includeDoubleSlash=*/ true))
+        // Assert that "//..." gave us AllPackagesBeneath.
+        .containsExactly("//...");
+    assertThat(grp.contains(pkgId("pkg"))).isTrue();
+    assertThat(grp.contains(pkgId("somerepo", "pkg"))).isFalse();
+  }
+
+  @Test
+  public void testCannotUseNewRepoRootSyntaxWithoutPublicSyntax() throws Exception {
+    setBuildLanguageOptions(
+        "--incompatible_package_group_has_public_syntax=false",
+        "--incompatible_fix_package_group_reporoot_syntax=true");
+
+    scratch.file(
+        "fruits/BUILD", //
+        "package_group(",
+        "    name = 'mango',",
+        "    packages = ['//something'],",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    getPackageGroup("fruits", "mango");
+    assertContainsEvent("Cannot use new \"//...\" meaning without allowing new \"public\" syntax.");
+  }
+
+  @Test
+  public void testNegative_repoRootSubpackages() throws Exception {
     scratch.file(
         "test/BUILD",
         "package_group(",
@@ -236,20 +362,35 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testEverythingSpecificationWorks() throws Exception {
-    scratch.file(
-        "fruits/BUILD", //
-        "package_group(",
-        "    name = 'mango',",
-        "    packages = ['//...'],",
-        ")");
-    PackageGroup grp = getPackageGroup("fruits", "mango");
+  public void testNegative_public() throws Exception {
+    setBuildLanguageOptions("--incompatible_package_group_has_public_syntax=true");
 
-    // Assert that we're actually using the "everything" package specification, and assert that this
-    // means we include packages from the main repo but also from other repos.
-    assertThat(grp.getContainedPackages(/*includeDoubleSlash=*/ false)).containsExactly("//...");
-    assertThat(grp.contains(pkgId("pkg"))).isTrue();
-    assertThat(grp.contains(pkgId("somerepo", "pkg"))).isTrue();
+    scratch.file(
+        "fruits/BUILD",
+        "package_group(",
+        "    name = 'apple',",
+        "    packages = ['-public'],",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    getPackageGroup("fruits", "apple");
+    assertContainsEvent("Cannot negate \"public\" package specification");
+  }
+
+  @Test
+  public void testNegative_private() throws Exception {
+    setBuildLanguageOptions("--incompatible_package_group_has_public_syntax=true");
+
+    scratch.file(
+        "fruits/BUILD",
+        "package_group(",
+        "    name = 'apple',",
+        "    packages = ['-private'],",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    getPackageGroup("fruits", "apple");
+    assertContainsEvent("Cannot negate \"private\" package specification");
   }
 
   @Test
@@ -275,16 +416,18 @@ public class PackageGroupTest extends PackageLoadingTestCase {
     PackageGroupContents contents =
         PackageGroupContents.create(
             ImmutableList.of(
-                PackageSpecification.fromString(main, "//a"),
-                PackageSpecification.fromString(main, "//a/b/..."),
-                PackageSpecification.fromString(main, "-//c"),
-                PackageSpecification.fromString(main, "-//c/d/..."),
-                PackageSpecification.fromString(main, "//..."),
-                PackageSpecification.fromString(main, "-//..."),
-                PackageSpecification.fromString(main, "//"),
-                PackageSpecification.fromString(main, "-//"),
-                PackageSpecification.fromString(other, "//z"),
-                PackageSpecification.fromString(other, "//...")));
+                pkgSpec(main, "//a"),
+                pkgSpec(main, "//a/b/..."),
+                pkgSpec(main, "-//c"),
+                pkgSpec(main, "-//c/d/..."),
+                pkgSpec(main, "//..."),
+                pkgSpec(main, "-//..."),
+                pkgSpec(main, "//"),
+                pkgSpec(main, "-//"),
+                pkgSpec(other, "//z"),
+                pkgSpec(other, "//..."),
+                pkgSpec(main, "public"),
+                pkgSpec(main, "private")));
     assertThat(
             contents.streamPackageStrings(/*includeDoubleSlash=*/ false).collect(toImmutableList()))
         .containsExactly(
@@ -297,8 +440,9 @@ public class PackageGroupTest extends PackageLoadingTestCase {
             "",
             "-",
             "@other//z",
-            // TODO(#16323): When parsing is fixed, change this "//..." to "@other//...".
-            "//...");
+            "@other//...",
+            "//...", // legacy syntax for public
+            "private");
     assertThat(
             contents.streamPackageStrings(/*includeDoubleSlash=*/ true).collect(toImmutableList()))
         .containsExactly(
@@ -311,8 +455,9 @@ public class PackageGroupTest extends PackageLoadingTestCase {
             "//",
             "-//",
             "@other//z",
-            // TODO(#16323): When parsing is fixed, change this "//..." to "@other//...".
-            "//...");
+            "@other//...",
+            "public",
+            "private");
     assertThat(contents.streamPackageStringsWithoutRepository().collect(toImmutableList()))
         .containsExactly(
             "//a",
@@ -324,7 +469,15 @@ public class PackageGroupTest extends PackageLoadingTestCase {
             "//",
             "-//",
             "//z",
-            "//...");
+            "//...",
+            "public",
+            "private");
+  }
+
+  /** Convenience method for obtaining a PackageSpecification. */
+  private PackageSpecification pkgSpec(RepositoryName repository, String spec) throws Exception {
+    return PackageSpecification.fromString(
+        repository, spec, /*allowPublicPrivate=*/ true, /*repoRootMeansCurrentRepo=*/ true);
   }
 
   /** Convenience method for obtaining a PackageIdentifier. */

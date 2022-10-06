@@ -47,6 +47,8 @@ public class PackageGroup implements Target {
       Package pkg,
       Collection<String> packageSpecifications,
       Collection<Label> includes,
+      boolean allowPublicPrivate,
+      boolean repoRootMeansCurrentRepo,
       EventHandler eventHandler,
       Location location) {
     this.label = label;
@@ -61,7 +63,11 @@ public class PackageGroup implements Target {
       PackageSpecification specification = null;
       try {
         specification =
-            PackageSpecification.fromString(label.getRepository(), packageSpecification);
+            PackageSpecification.fromString(
+                label.getRepository(),
+                packageSpecification,
+                allowPublicPrivate,
+                repoRootMeansCurrentRepo);
       } catch (PackageSpecification.InvalidPackageSpecificationException e) {
         errorsFound = true;
         eventHandler.handle(

@@ -45,7 +45,8 @@ target.
     *   Package groups use a different syntax for specifying packages. Within a
         package group, the forms `"//foo/bar:__pkg__"` and
         `"//foo/bar:__subpackages__"` are respectively replaced by `"//foo/bar"`
-        and `"//foo/bar/..."`.
+        and `"//foo/bar/..."`. Likewise, `"//visibility:public"` and
+        `"//visibility:private"` are just `"public"` and `"private"`.
 
 For example, if `//some/package:mytarget` has its `visibility` set to
 `[":__subpackages__", "//tests:__pkg__"]`, then it could be used by any target

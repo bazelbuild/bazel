@@ -61,6 +61,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
   private AspectResolver aspectResolver;
   private DependencyFilter dependencyFilter;
+  private boolean packageGroupIncludesDoubleSlash;
   private boolean relativeLocations;
   private boolean displaySourceFileLocation;
   private QueryOptions queryOptions;
@@ -83,6 +84,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     super.setOptions(options, aspectResolver, hashFunction);
     this.aspectResolver = aspectResolver;
     this.dependencyFilter = FormatUtils.getDependencyFilter(options);
+    this.packageGroupIncludesDoubleSlash = options.incompatiblePackageGroupIncludesDoubleSlash;
     this.relativeLocations = options.relativeLocations;
     this.displaySourceFileLocation = options.displaySourceFileLocation;
 
@@ -208,8 +210,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
           createValueElement(
               doc,
               Type.STRING_LIST,
-              // TODO(b/77598306): Migrate to format with leading double slash
-              packageGroup.getContainedPackages(/*includeDoubleSlash=*/ false));
+              packageGroup.getContainedPackages(packageGroupIncludesDoubleSlash));
       packages.setAttribute("name", "packages");
       elem.appendChild(packages);
     } else if (target instanceof OutputFile) {

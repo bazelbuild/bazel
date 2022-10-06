@@ -178,13 +178,18 @@ not themselves have any visibility protection.</p>
 
         <li>As above, but with a trailing <code>/...</code>. For example, <code>
         //foo/...</code> specifies the set of <code>//foo</code> and all its
-        subpackages. As a special case, <code>//...</code> specifies all
-        packages in any repository (in other words, public).
+        subpackages. <code>//...</code> specifies all packages in the current
+        repository.
+
+        <li>The strings <code>public</code> or <code>private</code>, which
+        respectively specify every package or no package. (This form requires
+        the flag <code>--incompatible_package_group_has_public_syntax</code> to
+        be set.)
 
         </ol>
 
-        <p>In addition, a package specification may also be prefixed with
-        <code>-</code> to indicate that it is negated.</p>
+        <p>In addition, the first two kinds of package specifications may also
+        be prefixed with <code>-</code> to indicate that they are negated.</p>
 
         <p>The package group contains any package that matches at least one of
         its positive specifications and none of its negative specifications
@@ -193,11 +198,24 @@ not themselves have any visibility protection.</p>
         subpackages of <code>//foo/tests</code>. (<code>//foo</code> itself is
         included while </code>//foo/tests</code> itself is not.)</p>
 
-        <p>Aside from <code>//...</code>, there is no way to directly specify
+        <p>Aside from public visibility, there is no way to directly specify
         packages outside the current repository.</p>
 
         <p>If this attribute is missing, it is the same as setting it to an
-        empty list (in other words, private).
+        empty list, which is also the same as setting it to a list containing
+        only <code>private</code>.
+
+        <p><i>Note:</i> The specification <code>//...</code> has a legacy behavior
+        of being the same as <code>public</code>. This behavior is disabled when
+        <code>--incompatible_fix_package_group_reporoot_syntax</code> is
+        enabled.</p>
+
+        <p><i>Note:</i> As a legacy behavior, when this attribute is serialized as
+        part of <code>bazel query --output=proto</code> (or
+        <code>--output=xml</code>), the leading slashes are omitted if
+        <code>--incompatible_package_group_includes_double_slash</code> is not
+        enabled. For instance, <code>//pkg/foo/...</code> will output as
+        <code>\"pkg/foo/...\"</code>.</p>
       </td>
     </tr>
     <tr>

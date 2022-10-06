@@ -443,6 +443,31 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleDisallowStructProviderSyntax;
 
   @Option(
+      name = "incompatible_package_group_has_public_syntax",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "In package_group's `packages` attribute, allows writing \"public\" or \"private\" to"
+              + " refer to all packages or no packages respectively.")
+  public boolean incompatiblePackageGroupHasPublicSyntax;
+
+  @Option(
+      name = "incompatible_fix_package_group_reporoot_syntax",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "In package_group's `packages` attribute, changes the meaning of the value \"//...\" to"
+              + " refer to all packages in the current repository instead of all packages in any"
+              + " repository. You can use the special value \"public\" in place of \"//...\" to"
+              + " obtain the old behavior. This flag requires"
+              + " that --incompatible_package_group_has_public_syntax also be enabled.")
+  public boolean incompatibleFixPackageGroupReporootSyntax;
+
+  @Option(
       name = "incompatible_visibility_private_attributes_at_definition",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -675,6 +700,12 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX,
                 incompatibleDisallowStructProviderSyntax)
+            .setBool(
+                INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX,
+                incompatiblePackageGroupHasPublicSyntax)
+            .setBool(
+                INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX,
+                incompatibleFixPackageGroupReporootSyntax)
             .setBool(INCOMPATIBLE_JAVA_COMMON_PARAMETERS, incompatibleJavaCommonParameters)
             .setBool(INCOMPATIBLE_NEW_ACTIONS_API, incompatibleNewActionsApi)
             .setBool(INCOMPATIBLE_NO_ATTR_LICENSE, incompatibleNoAttrLicense)
@@ -761,6 +792,10 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "-incompatible_disallow_empty_glob";
   public static final String INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX =
       "-incompatible_disallow_struct_provider_syntax";
+  public static final String INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX =
+      "-incompatible_package_group_has_public_syntax";
+  public static final String INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX =
+      "-incompatible_fix_package_group_reporoot_syntax";
   public static final String INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE =
       "+incompatible_do_not_split_linking_cmdline";
   public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =

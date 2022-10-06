@@ -47,10 +47,14 @@ import net.starlark.java.eval.Starlark;
  * packages" specification.
  */
 public abstract class PackageSpecification {
-  private static final String PACKAGE_LABEL = "__pkg__";
-  private static final String SUBTREE_LABEL = "__subpackages__";
+  private static final String PUBLIC_VISIBILITY = "public";
+  private static final String PRIVATE_VISIBILITY = "private";
   private static final String ALL_BENEATH_SUFFIX = "/...";
   private static final String NEGATIVE_PREFIX = "-";
+
+  // Used for interpreting `visibility` labels.
+  private static final String PACKAGE_LABEL = "__pkg__";
+  private static final String SUBTREE_LABEL = "__subpackages__";
 
   /** Returns {@code true} if the package spec includes the provided {@code packageName}. */
   protected abstract boolean containsPackage(PackageIdentifier packageName);
@@ -82,9 +86,13 @@ public abstract class PackageSpecification {
    * additional context. But, for instance, if interpreted with respect to a {@code package_group}'s
    * {@code packages} attribute, the strings always have the same repository as the package group.
    */
-  // TODO(brandjon): This method's main benefit is that it's round-trippable. We could eliminate
-  // it in favor of asString() if we provided a public variant of fromString() that tolerates
-  // repositories.
+  // TODO(brandjon): This method's main benefit is that it's round-trippable. But we can already
+  // achieve the same thing with asString(), if the caller parses out the repo to pass to
+  // fromString() as a separate arg. It'd be nice to eliminate this method in favor of asString()
+  // and make a version of fromString() that can parse repo names in the label. We'd just have to
+  // mimic the Label parsing of repo (we can't reuse Label parsing directly since it won't like the
+  // `/...` syntax). Repo remapping shouldn't come up, since the names we get from stringification
+  // ought to already be canonical/absolute.
   protected abstract String asStringWithoutRepository();
 
   @Override
@@ -93,71 +101,124 @@ public abstract class PackageSpecification {
   }
 
   /**
-   * Parses the provided {@link String} into a {@link PackageSpecification}.
+   * Parses the string {@code spec} into a {@link PackageSpecification}, within the context of the
+   * given repository name.
    *
-   * <p>The {@link String} must have one of the following forms:
+   * <p>{@code spec} may have the following forms:
    *
-   * <ul>
-   * <li>The full name of a single package, without repository qualification, prefixed with "//"
-   *     (e.g. "//foo/bar"). This results in a {@link PackageSpecification} that contains exactly
-   *     the named package.
-   * <li>The full name of a single package, without repository qualification, prefixed with "//",
-   *     and suffixed with "/..." (e.g. "//foo/bar/...") This results in a {@link
-   *     PackageSpecification} that contains all transitive subpackages of that package, inclusive.
-   * <li>Exactly "//...". This results in a {@link PackageSpecification} that contains all packages.
-   * </ul>
+   * <ol>
+   *   <li>The full name of a single package, without repository qualification, prefixed with "//"
+   *       (e.g. "//foo/bar"). The resulting specification contains exactly that package.
+   *   <li>The same, but suffixed with "/..." for a non-root package ("//foo/bar/...") or "..." for
+   *       the root package ("//..."). The resulting specification contains that package and all its
+   *       subpackages.
+   *   <li>The string constants "public" or "private". The resulting specification contains either
+   *       all packages or no packages, respectively.
+   * </ol>
    *
-   * <p>If and only if the {@link String} is one of the first two forms, the returned {@link
-   * PackageSpecification} is specific to the provided {@link RepositoryName}. Note that it is not
-   * possible to construct a repository-specific {@link PackageSpecification} for all transitive
-   * subpackages of the root package (i.e. a repository-specific "//...").
+   * In the first two cases, the repository of the given package name is taken to be {@code
+   * repositoryName}. In the third case the repository name is ignored.
    *
-   * <p>Throws {@link InvalidPackageSpecificationException} if the {@link String} cannot be parsed.
+   * <p>In the first two cases, {@code spec} may also be prefixed by a "-". The resulting
+   * specification contains the same set of packages but is marked as being negated. (Negation logic
+   * is applied at the level of {@link PackageGroupContents}.)
+   *
+   * <p>Setting {@code allowPublicPrivate} to false disallows the string constants "public" and
+   * "private". Note that if {@link #asString} is called with {@code includeDoubleSlash} set to
+   * false, the stringification of "public" and "//public" is ambiguous (likewise for private),
+   * hence why it might be appropriate to prohibit these forms.
+   *
+   * <p>Setting {@code repoRootMeansCurrentRepo} to false restores the following legacy behavior: In
+   * the specific case where {@code spec} is "//..." (or its negation), the package specification
+   * contains <i>all</i> packages (possibly marked as negated) rather than just those packages in
+   * {@code repositoryName}. In other words, "//..." behaves the same as "public". However, "//"
+   * still represents just the root package of {@code repositoryName}.
+   *
+   * <p>To protect against requiring users to update to a disallowed syntax, it is illegal to
+   * specify {@code repoRootMeansCurrentRepo} without also specifying {@code allowPublicPrivate}.
+   *
+   * @throws InvalidPackageSpecificationException if the string does not fit one of these forms
    */
-  public static PackageSpecification fromString(RepositoryName repositoryName, String spec)
+  // TODO(#16365): Remove allowPublicPrivate.
+  // TODO(#16324): Remove legacy behavior and repoRootMeansCurrentRepo param.
+  public static PackageSpecification fromString(
+      RepositoryName repositoryName,
+      String spec,
+      boolean allowPublicPrivate,
+      boolean repoRootMeansCurrentRepo)
       throws InvalidPackageSpecificationException {
-    String result = spec;
-    boolean negative = false;
-    if (result.startsWith(NEGATIVE_PREFIX)) {
-      negative = true;
-      result = result.substring(NEGATIVE_PREFIX.length());
+    if (repoRootMeansCurrentRepo && !allowPublicPrivate) {
+      throw new InvalidPackageSpecificationException(
+          "Cannot use new \"//...\" meaning without allowing new \"public\" syntax. Try enabling"
+              + " --incompatible_package_group_has_public_syntax or disabling"
+              + " --incompatible_fix_package_group_reporoot_syntax.");
     }
-    PackageSpecification packageSpecification = fromStringPositive(repositoryName, result);
+    if (!allowPublicPrivate
+        && (spec.equals(PUBLIC_VISIBILITY) || spec.equals(PRIVATE_VISIBILITY))) {
+      throw new InvalidPackageSpecificationException(
+          String.format(
+              "Use of \"%s\" package specification requires enabling"
+                  + " --incompatible_package_group_has_public_syntax",
+              spec));
+    }
+    boolean negative = false;
+    if (spec.startsWith(NEGATIVE_PREFIX)) {
+      negative = true;
+      spec = spec.substring(NEGATIVE_PREFIX.length());
+      if (spec.equals(PUBLIC_VISIBILITY) || spec.equals(PRIVATE_VISIBILITY)) {
+        throw new InvalidPackageSpecificationException(
+            String.format("Cannot negate \"%s\" package specification", spec));
+      }
+    }
+    PackageSpecification packageSpecification =
+        fromStringPositive(repositoryName, spec, repoRootMeansCurrentRepo);
     return negative ? new NegativePackageSpecification(packageSpecification) : packageSpecification;
   }
 
-  private static PackageSpecification fromStringPositive(RepositoryName repositoryName, String spec)
+  private static PackageSpecification fromStringPositive(
+      RepositoryName repositoryName, String spec, boolean repoRootMeansCurrentRepo)
       throws InvalidPackageSpecificationException {
-    String result = spec;
-    boolean allBeneath = false;
-    if (result.endsWith(ALL_BENEATH_SUFFIX)) {
-      allBeneath = true;
-      result = result.substring(0, result.length() - ALL_BENEATH_SUFFIX.length());
-      if (result.equals("/")) {
-        // spec was "//...".
-        return AllPackages.EVERYTHING;
-      }
+    if (spec.equals(PUBLIC_VISIBILITY)) {
+      return AllPackages.INSTANCE;
+    } else if (spec.equals(PRIVATE_VISIBILITY)) {
+      return NoPackages.INSTANCE;
     }
-
     if (!spec.startsWith("//")) {
       throw new InvalidPackageSpecificationException(
-          String.format("invalid package name '%s': must start with '//'", spec));
+          String.format(
+              "invalid package name '%s': must start with '//' or be 'public' or 'private'", spec));
     }
 
-    PackageIdentifier packageId;
+    String pkgPath;
+    boolean allBeneath = false;
+    if (spec.endsWith(ALL_BENEATH_SUFFIX)) {
+      allBeneath = true;
+      pkgPath = spec.substring(0, spec.length() - ALL_BENEATH_SUFFIX.length());
+      if (pkgPath.equals("/")) {
+        // spec was "//...".
+        if (repoRootMeansCurrentRepo) {
+          pkgPath = "//";
+        } else {
+          // Legacy behavior: //... is "public".
+          return AllPackages.INSTANCE;
+        }
+      }
+    } else {
+      pkgPath = spec;
+    }
+
+    PackageIdentifier unqualifiedPkgId;
     try {
-      packageId = PackageIdentifier.parse(result);
+      unqualifiedPkgId = PackageIdentifier.parse(pkgPath);
     } catch (LabelSyntaxException e) {
       throw new InvalidPackageSpecificationException(
           String.format("invalid package name '%s': %s", spec, e.getMessage()));
     }
-    Verify.verify(packageId.getRepository().isMain());
+    Verify.verify(unqualifiedPkgId.getRepository().isMain());
 
-    PackageIdentifier packageIdForSpecifiedRepository =
-        PackageIdentifier.create(repositoryName, packageId.getPackageFragment());
-    return allBeneath
-        ? new AllPackagesBeneath(packageIdForSpecifiedRepository)
-        : new SinglePackage(packageIdForSpecifiedRepository);
+    PackageIdentifier pkgId =
+        PackageIdentifier.create(repositoryName, unqualifiedPkgId.getPackageFragment());
+    return allBeneath ? new AllPackagesBeneath(pkgId) : new SinglePackage(pkgId);
   }
 
   /**
@@ -165,13 +226,21 @@ public abstract class PackageSpecification {
    *
    * <p>This rejects negative package patterns, and translates the exception type into {@code
    * EvalException}.
+   *
+   * <p>Note that .bzl visibility package specifications always behave as if {@code
+   * --incompatible_package_group_has_public_syntax} and {@code
+   * --incompatible_fix_package_group_reporoot_syntax} are enabled.
    */
-  // TODO(b/22193153): Support negatives too.
   public static PackageSpecification fromStringForBzlVisibility(
       RepositoryName repositoryName, String spec) throws EvalException {
     PackageSpecification result;
     try {
-      result = fromString(repositoryName, spec);
+      result =
+          fromString(
+              repositoryName,
+              spec,
+              /*allowPublicPrivate=*/ true,
+              /*repoRootMeansCurrentRepo=*/ true);
     } catch (InvalidPackageSpecificationException e) {
       throw new EvalException(e.getMessage());
     }
@@ -193,8 +262,8 @@ public abstract class PackageSpecification {
    *
    * <p>If the label's name is neither "__pkg__" nor "__subpackages__", this returns {@code null}.
    *
-   * <p>Note that there is no {@link Label} associated with the {@link RepositoryName}-agnostic "all
-   * packages" specification (corresponding to {@code #fromString(null, "//...")}).
+   * <p>Note that there is no {@link Label} associated with the {@link RepositoryName}-agnostic
+   * "public" specification ("//..." under legacy semantics).
    */
   @Nullable
   static PackageSpecification fromLabel(Label label) {
@@ -208,7 +277,11 @@ public abstract class PackageSpecification {
   }
 
   public static PackageSpecification everything() {
-    return AllPackages.EVERYTHING;
+    return AllPackages.INSTANCE;
+  }
+
+  public static PackageSpecification nothing() {
+    return NoPackages.INSTANCE;
   }
 
   private static final class SinglePackage extends PackageSpecification {
@@ -291,7 +364,12 @@ public abstract class PackageSpecification {
 
     @Override
     protected String asStringWithoutRepository() {
-      return "//" + prefix.getPackageFragment().getPathString() + ALL_BENEATH_SUFFIX;
+      if (prefix.getPackageFragment().equals(PathFragment.EMPTY_FRAGMENT)) {
+        // Special case: Emit "//..." rather than suffixing "/...", which would yield "///...".
+        return "//...";
+      } else {
+        return "//" + prefix.getPackageFragment().getPathString() + ALL_BENEATH_SUFFIX;
+      }
     }
 
     @Override
@@ -336,11 +414,6 @@ public abstract class PackageSpecification {
     }
 
     @Override
-    public int hashCode() {
-      return delegate.hashCode();
-    }
-
-    @Override
     public boolean equals(Object obj) {
       if (this == obj) {
         return true;
@@ -348,12 +421,17 @@ public abstract class PackageSpecification {
       return obj instanceof NegativePackageSpecification
           && delegate.equals(((NegativePackageSpecification) obj).delegate);
     }
+
+    @Override
+    public int hashCode() {
+      return NegativePackageSpecification.class.hashCode() ^ delegate.hashCode();
+    }
   }
 
   @VisibleForSerialization
   static final class AllPackages extends PackageSpecification {
     @SerializationConstant @VisibleForSerialization
-    static final PackageSpecification EVERYTHING = new AllPackages();
+    static final PackageSpecification INSTANCE = new AllPackages();
 
     @Override
     protected boolean containsPackage(PackageIdentifier packageName) {
@@ -362,14 +440,15 @@ public abstract class PackageSpecification {
 
     @Override
     protected String asString(boolean includeDoubleSlash) {
-      // Note that "//..." is the desired result, not "...", even under the legacy behavior of
-      // includeDoubleSlash=false.
-      return "//...";
+      // Under legacy formatting rules, use legacy syntax. This avoids ambiguity between "public"
+      // and "//public", and ensures that AllPackages is round-trippable when the value of
+      // includeDoubleSlash matches allowPublicPrivate.
+      return includeDoubleSlash ? "public" : "//...";
     }
 
     @Override
     protected String asStringWithoutRepository() {
-      return "//...";
+      return "public";
     }
 
     @Override
@@ -379,7 +458,38 @@ public abstract class PackageSpecification {
 
     @Override
     public int hashCode() {
-      return "//...".hashCode();
+      return AllPackages.class.hashCode();
+    }
+  }
+
+  @VisibleForSerialization
+  static final class NoPackages extends PackageSpecification {
+    @SerializationConstant @VisibleForSerialization
+    static final PackageSpecification INSTANCE = new NoPackages();
+
+    @Override
+    protected boolean containsPackage(PackageIdentifier packageName) {
+      return false;
+    }
+
+    @Override
+    protected String asString(boolean includeDoubleSlash) {
+      return "private";
+    }
+
+    @Override
+    protected String asStringWithoutRepository() {
+      return "private";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      return o instanceof NoPackages;
+    }
+
+    @Override
+    public int hashCode() {
+      return NoPackages.class.hashCode();
     }
   }
 
@@ -437,7 +547,11 @@ public abstract class PackageSpecification {
       for (PackageSpecification spec : packageSpecifications) {
         if (spec instanceof SinglePackage) {
           singlePositives.put(((SinglePackage) spec).singlePackageName, spec);
-        } else if (spec instanceof AllPackages || spec instanceof AllPackagesBeneath) {
+        } else if (spec instanceof AllPackages
+            || spec instanceof AllPackagesBeneath
+            // We can't drop NoPackages because it still needs to be serialized, e.g. in bazel query
+            // output.
+            || spec instanceof NoPackages) {
           otherPositives.add(spec);
         } else if (spec instanceof NegativePackageSpecification) {
           negatives.add(spec);
@@ -483,6 +597,10 @@ public abstract class PackageSpecification {
      *
      * <p>Note that strings for specs that cross repositories can't be reparsed using {@link
      * PackageSpecification#fromString}.
+     *
+     * <p>The special public constant will serialize as {@code "public"} if {@code
+     * includeDoubleSlash} is true, and {@code "//..."} otherwise. The private constant will always
+     * serialize as {@code "private"},
      */
     public Stream<String> streamPackageStrings(boolean includeDoubleSlash) {
       return streamSpecs().map(spec -> spec.asString(includeDoubleSlash));
@@ -492,6 +610,9 @@ public abstract class PackageSpecification {
      * Maps {@link PackageSpecification#asStringWithoutRepository} to the component package specs.
      *
      * <p>Note that this is ambiguous w.r.t. specs that reference other repositories.
+     *
+     * <p>The special public and private constants will serialize as {@code "public"} and {@code
+     * "private"} respectively.
      */
     public Stream<String> streamPackageStringsWithoutRepository() {
       return streamSpecs().map(PackageSpecification::asStringWithoutRepository);
