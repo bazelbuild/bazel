@@ -145,7 +145,7 @@ tasks:
       - "-//src/java_tools/import_deps_checker/..."
   macos:
     xcode_version: "13.0"
-    shards: 5
+    shards: 4
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
