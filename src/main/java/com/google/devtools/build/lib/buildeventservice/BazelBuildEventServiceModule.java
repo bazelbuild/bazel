@@ -102,7 +102,9 @@ public class BazelBuildEventServiceModule
           new BuildEventServiceGrpcClient(
               newGrpcChannel(config),
               credentials != null ? MoreCallCredentials.from(credentials) : null,
-              makeGrpcInterceptor(config));
+              makeGrpcInterceptor(config),
+              env.getBuildRequestId(),
+              env.getCommandId());
     }
     return client;
   }

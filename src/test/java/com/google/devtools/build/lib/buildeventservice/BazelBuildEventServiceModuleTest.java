@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.buildeventservice.BuildEventServiceM
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
 
+import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.network.ConnectivityStatus;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.network.NoOpConnectivityModule;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -74,6 +76,7 @@ import com.google.protobuf.Empty;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
 import io.grpc.Server;
+import io.grpc.ServerInterceptors;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -180,7 +183,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
   @Before
   public void setUp() throws Exception {
-    serviceRegistry.addService(buildEventService);
+    serviceRegistry.addService(
+        ServerInterceptors.intercept(
+            buildEventService, new TracingMetadataUtils.ServerHeadersInterceptor()));
     fakeServer =
         InProcessServerBuilder.forName(fakeServerName)
             .fallbackHandlerRegistry(serviceRegistry)
@@ -960,6 +965,11 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     @Override
     public void publishLifecycleEvent(
         PublishLifecycleEventRequest request, StreamObserver<Empty> responseObserver) {
+      RequestMetadata metadata = TracingMetadataUtils.fromCurrentContext();
+      assertThat(metadata.getToolInvocationId()).isNotEmpty();
+      assertThat(metadata.getCorrelatedInvocationsId()).isNotEmpty();
+      assertThat(metadata.getActionId()).isEqualTo("publish_lifecycle_event");
+
       responseObserver.onNext(Empty.getDefaultInstance());
       responseObserver.onCompleted();
     }
@@ -968,6 +978,11 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     public synchronized StreamObserver<PublishBuildToolEventStreamRequest>
         publishBuildToolEventStream(
             StreamObserver<PublishBuildToolEventStreamResponse> responseObserver) {
+      RequestMetadata metadata = TracingMetadataUtils.fromCurrentContext();
+      assertThat(metadata.getToolInvocationId()).isNotEmpty();
+      assertThat(metadata.getCorrelatedInvocationsId()).isNotEmpty();
+      assertThat(metadata.getActionId()).isEqualTo("publish_build_tool_event_stream");
+
       if (errorMessage != null) {
         return new ErroringPublishBuildStreamObserver(responseObserver, errorMessage);
       }
