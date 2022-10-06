@@ -115,8 +115,7 @@ tasks:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - gcloud info
-      - strings /var/lib/buildkite-agent/.config/gcloud/access_tokens.db | egrep .............
-      - strings /var/lib/buildkite-agent/.config/gcloud/credentials.db | egrep .............
+      - ls -R /var/lib/buildkite-agent/.config/gcloud
       - echo CiQA4DEB9ldzC+E39KomywtqXfaQ86hhulgeDsicds2BuvbCYzsSUAAqwcvXZPh9IMWlwWh94J2F > /tmp/a
       - echo exosKKaWB0tSRJiPKnv2NPDfEqGul0ZwVjtWeASpugwxxKeLhFhPMcgHMPfndH6j2GEIY6nkKRbP >> /tmp/a
       - echo uwoRMCwe >> /tmp/a
