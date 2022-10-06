@@ -41,19 +41,32 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
 
   @Override
   public void visibility(Object value, StarlarkThread thread) throws EvalException {
-    // Manually check the experimental flag because enableOnlyWithFlag doesn't work for top-level
-    // builtins.
+    // Confirm .bzl visibility is enabled. We manually check the experimental flag here because
+    // StarlarkMethod.enableOnlyWithFlag doesn't work for top-level builtins.
     if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_BZL_VISIBILITY)) {
       throw Starlark.errorf("Use of `visibility()` requires --experimental_bzl_visibility");
     }
 
-    // Fail if we're not initializing a .bzl module, or if that .bzl module isn't on the
-    // experimental allowlist, or if visibility is already set.
+    // Fail if we're not initializing a .bzl module
     BzlInitThreadContext context = BzlInitThreadContext.fromOrFailFunction(thread, "visibility");
+    // Fail if we're not called from the top level. (We prohibit calling visibility() from within
+    // helper functions because it's more magical / less readable, and it makes it more difficult
+    // for static tooling to mechanically find and modify visibility() declarations.)
+    ImmutableList<StarlarkThread.CallStackEntry> callStack = thread.getCallStack();
+    if (!(callStack.size() == 2
+        && callStack.get(0).name.equals("<toplevel>")
+        && callStack.get(1).name.equals("visibility"))) {
+      throw Starlark.errorf(
+          ".bzl visibility may only be set at the top level, not inside a function");
+    }
+
+    // Fail if the .bzl module isn't on the experimental allowlist.
     PackageIdentifier pkgId = context.getBzlFile().getPackageIdentifier();
     List<String> allowlist =
         thread.getSemantics().get(BuildLanguageOptions.EXPERIMENTAL_BZL_VISIBILITY_ALLOWLIST);
     checkVisibilityAllowlist(pkgId, allowlist);
+
+    // Fail if the module's visibility is already set.
     if (context.getBzlVisibility() != null) {
       throw Starlark.errorf(".bzl visibility may not be set more than once");
     }

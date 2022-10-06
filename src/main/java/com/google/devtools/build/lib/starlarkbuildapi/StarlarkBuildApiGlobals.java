@@ -40,11 +40,10 @@ public interface StarlarkBuildApiGlobals {
               + " module, the file doing the loading must live in a package that has been granted"
               + " visibility to the module. A module can always be loaded within its own package,"
               + " regardless of its visibility."
-              + "<p>Generally, <code>visibility()</code> is called at the top of the .bzl file,"
-              + " immediately after its <code>load()</code> statements. (It is poor style to put"
-              + " this declaration later in the file or in a helper method.) It may not be called"
-              + " more than once per .bzl, or after the .bzl's top-level code has finished"
-              + " executing.",
+              + "<p><code>visibility()</code> may only be called once per .bzl file, and only at"
+              + " the top level, not inside a function. The preferred style is to put this call"
+              + " immediately below the <code>load()</code> statements and any brief logic needed"
+              + " to determine the argument.",
       parameters = {
         @Param(
             name = "value",

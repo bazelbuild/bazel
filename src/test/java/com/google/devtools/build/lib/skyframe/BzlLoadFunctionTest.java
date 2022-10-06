@@ -698,36 +698,20 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testBzlVisibility_setNonlocally() throws Exception {
+  public void testBzlVisibility_cannotBeSetInFunction() throws Exception {
     setBuildLanguageOptions(
         "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
 
-    // Checks a case where visibility() is called in a different package than the module that is
-    // actually being initialized. (This is bad style in practice, but it's semantically simpler to
-    // allow it than to go out of our way to ban it.)
     scratch.file("a/BUILD");
     scratch.file(
         "a/foo.bzl", //
-        "load(\"//b:bar.bzl\", \"x\")");
-    scratch.file("b/BUILD");
-    scratch.file(
-        "b/bar.bzl", //
-        "load(\"//c:helper.bzl\", \"helper\")",
-        "helper()",
-        "x = 1");
-    scratch.file("c/BUILD");
-    scratch.file(
-        "c/helper.bzl", //
-        // Should have a visibility("public") call here, but let's omit it and rely on the default
-        // being public. That way we can also test that c need not be in the allowlist just to call
-        // visibility() on behalf of b.
         "def helper():",
-        "    visibility(\"private\")");
+        "    visibility(\"public\")",
+        "helper()");
 
     reporter.removeHandler(failFastHandler);
-    checkFailingLookup(
-        "//a:foo.bzl", "module //a:foo.bzl contains .bzl load-visibility violations");
-    assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a.");
+    checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
+    assertContainsEvent(".bzl visibility may only be set at the top level");
   }
 
   @Test
