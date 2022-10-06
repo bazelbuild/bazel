@@ -75,7 +75,7 @@ class TempJunction(object):
       testonly_mkdtemp: function(); for testing only; a custom function that
         returns a temp directory path, you can use it to mock out
         tempfile.mkdtemp
-      testonly_maxpath: int; for testing oly; maximum path length before the
+      testonly_maxpath: int; for testing only; maximum path length before the
         path is a "long path" (typically MAX_PATH on Windows)
     """
     self._target = os.path.abspath(junction_target)

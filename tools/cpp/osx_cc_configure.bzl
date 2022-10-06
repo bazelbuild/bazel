@@ -140,7 +140,7 @@ def configure_osx_toolchain(repository_ctx, cpu_value, overriden_tools):
 
     Args:
       repository_ctx: The repository context.
-      overriden_tools: dictionary of overriden tools.
+      overriden_tools: dictionary of overridden tools.
     """
     paths = resolve_labels(repository_ctx, [
         "@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl",

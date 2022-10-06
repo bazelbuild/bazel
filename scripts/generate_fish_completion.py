@@ -240,7 +240,7 @@ class Arg(object):
     Args:
         output_file: File object to write completions into. Must be open in
           a writable mode.
-        command: String containg the command name (i.e. "bazel").
+        command: String containing the command name (i.e. "bazel").
     """
     args = self._get_complete_args_base(
         command=command, subcommand=self.expected_subcommand)

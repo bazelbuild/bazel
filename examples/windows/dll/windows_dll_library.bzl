@@ -2,7 +2,7 @@
 This is a simple windows_dll_library rule for builing a DLL Windows
 that can be depended on by other cc rules.
 
-Example useage:
+Example usage:
   windows_dll_library(
       name = "hellolib",
       srcs = [

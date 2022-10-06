@@ -84,7 +84,7 @@ function generate_from_template() {
 # Generate the email for the release.
 # The first line of the output will be the recipient, the second line
 # the mail subjects and the subsequent lines the mail, its content.
-# If no planed release, then this function output will be empty.
+# If no planned release, then this function output will be empty.
 function generate_email() {
   RELEASE_CANDIDATE_URL="https://releases.bazel.build/%release_name%/rc%rc%/index.html"
   RELEASE_URL="https://github.com/bazelbuild/bazel/releases/tag/%release_name%"
@@ -214,7 +214,7 @@ function ensure_gpg_secret_key_imported() {
 
   # Make sure we use stronger digest algorithm。
   # We use reprepro to generate the debian repository,
-  # but there's no way to pass flags to gpg using reprepro, so writting it into
+  # but there's no way to pass flags to gpg using reprepro, so writing it into
   # ~/.gnupg/gpg.conf
   if ! grep "digest-algo sha256" ~/.gnupg/gpg.conf > /dev/null; then
     echo "digest-algo sha256" >> ~/.gnupg/gpg.conf
