@@ -177,6 +177,14 @@ public final class BuildLanguageOptions extends OptionsBase {
   public List<String> experimentalBzlVisibilityAllowlist;
 
   @Option(
+      name = "check_bzl_visibility",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help = "If disabled, bzl-visibility errors in load() statements are demoted to warnings.")
+  public boolean checkBzlVisibility;
+
+  @Option(
       name = "experimental_cc_skylark_api_enabled_packages",
       converter = CommaSeparatedOptionListConverter.class,
       defaultValue = "",
@@ -674,6 +682,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .set(EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE, experimentalBuiltinsInjectionOverride)
             .setBool(EXPERIMENTAL_BZL_VISIBILITY, experimentalBzlVisibility)
             .set(EXPERIMENTAL_BZL_VISIBILITY_ALLOWLIST, experimentalBzlVisibilityAllowlist)
+            .setBool(CHECK_BZL_VISIBILITY, checkBzlVisibility)
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
             .setBool(ENABLE_BZLMOD, enableBzlmod)
@@ -762,6 +771,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_allow_tags_propagation";
   public static final String EXPERIMENTAL_BUILTINS_DUMMY = "-experimental_builtins_dummy";
   public static final String EXPERIMENTAL_BZL_VISIBILITY = "-experimental_bzl_visibility";
+  public static final String CHECK_BZL_VISIBILITY = "+check_bzl_visibility";
   public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "-experimental_cc_shared_library";
   public static final String EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE =
       "-experimental_disable_external_package";

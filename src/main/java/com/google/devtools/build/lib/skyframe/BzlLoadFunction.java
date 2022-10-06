@@ -776,6 +776,8 @@ public class BzlLoadFunction implements SkyFunction {
         loadValues,
         loadKeys,
         programLoads,
+        /*demoteErrorsToWarnings=*/ !builtins.starlarkSemantics.getBool(
+            BuildLanguageOptions.CHECK_BZL_VISIBILITY),
         env.getListener());
 
     // Accumulate a transitive digest of the bzl file, the digests of its direct loads, and the
@@ -1104,29 +1106,35 @@ public class BzlLoadFunction implements SkyFunction {
       List<BzlLoadValue> loadValues,
       List<BzlLoadValue.Key> loadKeys,
       List<Pair<String, Location>> programLoads,
+      boolean demoteErrorsToWarnings,
       EventHandler handler)
       throws BzlLoadFailedException {
-    boolean ok = true;
+    boolean foundViolation = false;
     for (int i = 0; i < loadValues.size(); i++) {
       BzlVisibility loadVisibility = loadValues.get(i).getBzlVisibility();
       Label loadLabel = loadKeys.get(i).getLabel();
       PackageIdentifier loadPackage = loadLabel.getPackageIdentifier();
       if (!(requestingPackage.equals(loadPackage)
           || loadVisibility.allowsPackage(requestingPackage))) {
-        handler.handle(
-            Event.error(
-                programLoads.get(i).second,
-                String.format(
-                    // TODO(brandjon): Consider whether we should try to report error messages (here
-                    // and elsewhere) using the literal text of the load() rather than the (already
-                    // repo-remapped) label.
-                    "Starlark file %s is not visible for loading from package %s. Check the"
-                        + " file's `visibility()` declaration.",
-                    loadLabel, requestingPackage.getCanonicalForm())));
-        ok = false;
+        Location loc = programLoads.get(i).second;
+        String msg =
+            String.format(
+                // TODO(brandjon): Consider whether we should try to report error messages (here
+                // and elsewhere) using the literal text of the load() rather than the (already
+                // repo-remapped) label.
+                "Starlark file %s is not visible for loading from package %s. Check the"
+                    + " file's `visibility()` declaration.",
+                loadLabel, requestingPackage.getCanonicalForm());
+        if (demoteErrorsToWarnings) {
+          msg += " Continuing because --nocheck_bzl_visibility is active";
+          handler.handle(Event.warn(loc, msg));
+        } else {
+          handler.handle(Event.error(loc, msg));
+        }
+        foundViolation = true;
       }
     }
-    if (!ok) {
+    if (foundViolation && !demoteErrorsToWarnings) {
       throw BzlLoadFailedException.visibilityViolation(requestingFileDescription);
     }
   }

@@ -43,7 +43,9 @@ public interface StarlarkBuildApiGlobals {
               + "<p><code>visibility()</code> may only be called once per .bzl file, and only at"
               + " the top level, not inside a function. The preferred style is to put this call"
               + " immediately below the <code>load()</code> statements and any brief logic needed"
-              + " to determine the argument.",
+              + " to determine the argument."
+              + "<p>If the flag <code>--check_bzl_visibility</code> is set to false, bzl-visibility"
+              + " violations will emit warnings but not fail the build.",
       parameters = {
         @Param(
             name = "value",

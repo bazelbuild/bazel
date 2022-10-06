@@ -1001,6 +1001,28 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBzlVisibility_errorsDemotedToWarningWhenBreakGlassFlagIsSet() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true",
+        "--experimental_bzl_visibility_allowlist=everyone",
+        "--check_bzl_visibility=false");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl", //
+        "visibility(\"private\")",
+        "x = 1");
+
+    checkSuccessfulLookup("//a:foo.bzl");
+    assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a.");
+    assertContainsEvent("Continuing because --nocheck_bzl_visibility is active");
+  }
+
+  @Test
   public void testLoadFromNonExistentRepository_producesMeaningfulError() throws Exception {
     scratch.file("BUILD", "load(\"@repository//dir:file.bzl\", \"foo\")");
 

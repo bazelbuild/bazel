@@ -642,6 +642,7 @@ public class PackageFunction implements SkyFunction {
       String requestingFileDescription,
       List<Pair<String, Location>> programLoads,
       List<BzlLoadValue.Key> keys,
+      StarlarkSemantics semantics,
       @Nullable BzlLoadFunction bzlLoadFunctionForInlining)
       throws NoSuchPackageException, InterruptedException {
     List<BzlLoadValue> bzlLoads;
@@ -656,7 +657,13 @@ public class PackageFunction implements SkyFunction {
       // Validate that the current BUILD/WORKSPACE file satisfies each loaded dependency's
       // bzl-visibility.
       BzlLoadFunction.checkLoadVisibilities(
-          packageId, requestingFileDescription, bzlLoads, keys, programLoads, env.getListener());
+          packageId,
+          requestingFileDescription,
+          bzlLoads,
+          keys,
+          programLoads,
+          /*demoteErrorsToWarnings=*/ !semantics.getBool(BuildLanguageOptions.CHECK_BZL_VISIBILITY),
+          env.getListener());
     } catch (BzlLoadFailedException e) {
       Throwable rootCause = Throwables.getRootCause(e);
       throw PackageFunctionException.builder()
@@ -1314,6 +1321,7 @@ public class PackageFunction implements SkyFunction {
                   "file " + buildFileLabel.getCanonicalForm(),
                   programLoads,
                   keys.build(),
+                  starlarkBuiltinsValue.starlarkSemantics,
                   bzlLoadFunctionForInlining);
         } catch (NoSuchPackageException e) {
           throw new PackageFunctionException(e, Transience.PERSISTENT);
