@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.buildtool.BuildTool.ExitException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
@@ -199,8 +201,15 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
     if (result.isEmpty()) {
       env.getReporter().handle(Event.info("Empty query results"));
     }
+
+    Iterable<T> callbackResults = aggregateResultsCallback.getResult();
+
+    try (SilentCloseable c = Profiler.instance().profile("postProcessAnalysisResult")) {
+      callbackResults = postAnalysisQueryEnvironment.orderResults(callbackResults);
+    }
+
     callback.start();
-    callback.process(aggregateResultsCallback.getResult());
+    callback.process(callbackResults);
     callback.close(/*failFast=*/ !result.getSuccess());
 
     queryRuntimeHelper.afterQueryOutputIsWritten();
