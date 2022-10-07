@@ -1430,4 +1430,74 @@ EOF
   expect_not_log "QueryException"
 }
 
+function write_chained_targets() {
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+sh_library(name = '0')
+sh_library(name = '1', deps = ['0'])
+sh_library(name = '2', deps = ['1'])
+sh_library(name = '3', deps = ['2'])
+sh_library(name = '4', deps = ['3'])
+sh_library(name = '5', deps = ['4'])
+sh_library(name = '6', deps = ['5'])
+sh_library(name = '7', deps = ['6'])
+sh_library(name = '8', deps = ['7'])
+sh_library(name = '9', deps = ['8'])
+sh_library(name = '10', deps = ['9'])
+EOF
+}
+
+function write_parallel_targets() {
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+sh_library(name = '0')
+sh_library(name = '1', deps = ['0'])
+sh_library(name = '2', deps = ['0'])
+sh_library(name = '3', deps = ['0'])
+sh_library(name = '4', deps = ['0'])
+sh_library(name = '5', deps = ['0'])
+sh_library(name = '6', deps = ['0'])
+sh_library(name = '7', deps = ['0'])
+sh_library(name = '8', deps = ['0'])
+sh_library(name = '9', deps = ['0'])
+sh_library(name = '10', deps = ['0'])
+EOF
+}
+
+function test_cquery_auto_ordering() {
+  local -r pkg=$FUNCNAME
+  write_parallel_targets $pkg
+  bazel cquery "deps(//$pkg:all)" > output 2> "$TEST_log" || fail "Expected success"
+  local -r actual_ordering=`egrep -o ":\d+" < output | cut -c2-`
+  local -r expected_ordering=`seq 10 0 | sort -r | sed "s| |\n|g"`
+  assert_equals "${expected_ordering}" "${actual_ordering}"
+}
+
+function test_cquery_full_ordering() {
+  local -r pkg=$FUNCNAME
+  write_parallel_targets $pkg
+  bazel cquery --order_output=full "deps(//$pkg:all)" > output 2> "$TEST_log" || fail "Expected success"
+  local -r actual_ordering=`egrep -o ":\d+" < output | cut -c2-`
+  local -r expected_ordering=`seq 10 0 | sort -r | sed "s| |\n|g"`
+  assert_equals "${expected_ordering}" "${actual_ordering}"
+}
+
+function test_cquery_deps_ordering() {
+  local -r pkg=$FUNCNAME
+  write_chained_targets $pkg
+  bazel cquery --order_output=deps "deps(//$pkg:all)" > output 2> "$TEST_log" || fail "Expected success"
+  local -r actual_ordering=`egrep -o ":\d+" < output | cut -c2-`
+  local -r expected_ordering=`seq 10 0 | sed "s| |\n|g"`
+  assert_equals "${expected_ordering}" "${actual_ordering}"
+}
+
+function test_cquery_no_ordering() {
+  local -r pkg=$FUNCNAME
+  write_chained_targets $pkg
+  bazel cquery --order_output=no "deps(//$pkg:all)" > output 2> "$TEST_log" || fail "Expected success"
+  local -r actual_ordering=`egrep -o ":\d+" < output | cut -c2- | sort -nr`
+  local -r expected_ordering=`seq 10 0 | sed "s| |\n|g"`
+  assert_equals "${expected_ordering}" "${actual_ordering}"
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"
