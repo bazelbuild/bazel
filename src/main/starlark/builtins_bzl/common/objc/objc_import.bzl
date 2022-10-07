@@ -20,6 +20,7 @@ load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
 
 objc_internal = _builtins.internal.objc_internal
 CcInfo = _builtins.toplevel.CcInfo
+cc_common = _builtins.toplevel.cc_common
 
 def _objc_import_impl(ctx):
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
@@ -32,14 +33,46 @@ def _objc_import_impl(ctx):
         empty_compilation_artifacts = True,
     )
 
+    compilation_support.validate_attributes(common_variables)
+
     (compilation_context, _, _, _) = compilation_support.register_compile_and_archive_actions(
         common_variables,
     )
 
-    compilation_support.validate_attributes(common_variables)
+    libraries_to_link = []
+    for archive in ctx.files.archives:
+        library_to_link = cc_common.create_library_to_link(
+            actions = ctx.actions,
+            cc_toolchain = cc_toolchain,
+            static_library = archive,
+            alwayslink = common_variables.alwayslink,
+        )
+        libraries_to_link.append(library_to_link)
+
+    linking_context = cc_common.create_linking_context(
+        linker_inputs = depset(
+            direct = [
+                cc_common.create_linker_input(
+                    owner = ctx.label,
+                    libraries = depset(libraries_to_link),
+                    user_link_flags = common_variables.objc_linking_context.linkopts,
+                ),
+            ],
+        ),
+    )
+
+    cc_info = cc_common.merge_cc_infos(
+        direct_cc_infos = [
+            CcInfo(
+                compilation_context = compilation_context,
+                linking_context = linking_context,
+            ),
+        ],
+        cc_infos = [dep[CcInfo] for dep in ctx.attr.deps],
+    )
 
     return [
-        CcInfo(compilation_context = compilation_context),
+        cc_info,
         common_variables.objc_provider,
     ]
 
