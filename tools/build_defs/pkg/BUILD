@@ -37,7 +37,6 @@ py_test(
     name = "archive_test",
     srcs = [
         "archive_test.py",
-        "testenv.py",
     ],
     data = [":archive_testdata"],
     python_version = "PY3",
