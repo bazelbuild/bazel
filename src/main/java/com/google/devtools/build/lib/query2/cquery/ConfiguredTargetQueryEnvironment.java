@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.SkyQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.cquery.ProtoOutputFormatterCallback.OutputType;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
@@ -523,5 +524,22 @@ public class ConfiguredTargetQueryEnvironment
         configuredTargetKeyExtractor,
         KeyedConfiguredTarget.class,
         SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
+  }
+
+  class KeyedConfiguredTargetOrdering implements Comparator<KeyedConfiguredTarget> {
+    @Override
+    public int compare(KeyedConfiguredTarget o1, KeyedConfiguredTarget o2) {
+      return o1.getLabel().compareTo(o2.getLabel());
+    }
+  }
+
+  @Override
+  public Comparator<KeyedConfiguredTarget> getFullOrderingComparator() {
+    return new KeyedConfiguredTargetOrdering();
+  }
+
+  @Override
+  public OrderOutput getOrderOutput() {
+    return cqueryOptions.orderOutput;
   }
 }

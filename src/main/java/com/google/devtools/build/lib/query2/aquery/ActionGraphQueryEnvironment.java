@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.SkyQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.InputsFunction;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
@@ -51,6 +52,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -354,5 +356,23 @@ public class ActionGraphQueryEnvironment
 
   public void setActionFilters(AqueryActionFilter actionFilters) {
     this.actionFilters = actionFilters;
+  }
+
+  class ConfiguredTargetValueOrdering implements Comparator<KeyedConfiguredTargetValue> {
+    @Override
+    public int compare(KeyedConfiguredTargetValue o1, KeyedConfiguredTargetValue o2) {
+      return o1.getConfiguredTarget().getOriginalLabel().compareTo(
+        o2.getConfiguredTarget().getOriginalLabel());
+    }
+  }
+
+  @Override
+  public Comparator<KeyedConfiguredTargetValue> getFullOrderingComparator() {
+    return new ConfiguredTargetValueOrdering();
+  }
+
+  @Override
+  public OrderOutput getOrderOutput() {
+    return aqueryOptions.orderOutput;
   }
 }

@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.graph.Digraph;
+import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -44,6 +46,8 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -574,6 +578,51 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   @Override
   public void close() {}
+
+  protected abstract OrderOutput getOrderOutput();
+
+  protected abstract Comparator<T> getFullOrderingComparator();
+
+  public Iterable<T> orderResults(Iterable<T> resultList)
+          throws InterruptedException {
+    OrderOutput orderOutput = this.getOrderOutput();
+
+    // No-op if order_output=no
+    if (orderOutput == OrderOutput.NO) {
+      return resultList;
+    }
+
+    // Behavior of order_output=auto depends on the output format
+    if (orderOutput == OrderOutput.AUTO) {
+      orderOutput = this.getOutputFormat().endsWith("proto") ? OrderOutput.DEPS : OrderOutput.FULL;
+    }
+
+    Digraph<T> graph = new Digraph<>();
+
+    // First pass: create nodes for dependency Digraph
+    for (T result : resultList) {
+      Node<T> node = graph.createNode(result);
+    }
+
+    // Second pass: create edges between nodes
+    for (T result : resultList) {
+      for (T dep : getFwdDeps(ImmutableList.of(result))) {
+        if (graph.getNodeMaybe(dep) != null) {
+          graph.addEdge(
+                  graph.getNode(result),
+                  graph.createNode(dep)
+          );
+        }
+      }
+    }
+
+    return Iterables.transform(
+            orderOutput == OrderOutput.DEPS
+                    ? graph.getTopologicalOrder()
+                    : graph.getTopologicalOrder(this.getFullOrderingComparator()),
+            Node::getLabel
+    );
+  }
 
   /** A wrapper class for the set of top-level configurations in a query. */
   public static class TopLevelConfigurations {
