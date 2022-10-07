@@ -113,9 +113,11 @@ public class JavaImport implements RuleConfiguredTargetFactory {
           ruleContext.getUniqueDirectoryArtifact(
               "_java_import", "jdeps.proto", ruleContext.getBinOrGenfilesDirectory());
       JavaCompilationArgsProvider provider = JavaCompilationArgsProvider.legacyFromTargets(targets);
+      boolean pruneTransitiveDeps = ruleContext.getFragment(JavaConfiguration.class)
+          .experimentalPruneTransitiveDeps();
       JavaTargetAttributes attributes =
           new JavaTargetAttributes.Builder(semantics)
-              .merge(provider)
+              .merge(provider, pruneTransitiveDeps)
               .addDirectJars(provider.getDirectCompileTimeJars())
               .build();
       ImportDepsCheckActionBuilder.newBuilder()
