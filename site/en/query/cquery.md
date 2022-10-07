@@ -123,9 +123,9 @@ prefix of a complete ID, similar to
 configured versions of `//foo`.
 
 For `cquery`, a target pattern in the query expression evaluates
-to every configured target with a label that matches that pattern. Output is
-deterministic, but `cquery` makes no ordering guarantee beyond the
-[core query ordering contract](/reference/query#graph-order).
+to every configured target with a label that matches that pattern.
+Output ordering can be controlled by the
+[`--order_output`](reference/command-line-reference#flag--order_output) flag.
 
 This produces subtler results for query expressions than with `query`.
 For example, the following can produce multiple results:
