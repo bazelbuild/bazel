@@ -2582,45 +2582,4 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(userLinkFlags).containsAtLeast("-framework", "UIKit").inOrder();
     assertThat(userLinkFlags).containsAtLeast("-lz", "-lc++", "-lxml2", "-lsqlite3");
   }
-
-  @Test
-  public void testNoDuplicateSdkUserLinkFlagsFromMultipleDepsOnCcInfo() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "objc_library(",
-        "    name = 'foo',",
-        "    linkopts = [",
-        "        '-lsqlite3',",
-        "        '-framework UIKit',",
-        "    ],",
-        "    sdk_dylibs = ['libc++'],",
-        "    sdk_frameworks = ['Foundation'],",
-        "    deps = [':bar', ':car'],",
-        ")",
-        "objc_library(",
-        "    name = 'bar',",
-        "    linkopts = [",
-        "        '-lsqlite3',",
-        "        '-framework CoreData',",
-        "    ],",
-        "    sdk_frameworks = ['Foundation'],",
-        ")",
-        "objc_library(",
-        "    name = 'car',",
-        "    linkopts = [",
-        "        '-framework UIKit',",
-        "        '-framework CoreData',",
-        "    ],",
-        "    sdk_dylibs = ['libc++'],",
-        ")");
-    ImmutableList<String> userLinkFlags = getCcInfoUserLinkFlagsFromTarget("//x:foo");
-    assertThat(userLinkFlags).isNotEmpty();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "CoreData").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "Foundation").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "UIKit").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-lc++", "-lsqlite3");
-    ImmutableList<String> userLinkFlagsWithoutFrameworkFlags =
-        userLinkFlags.stream().filter(s -> !s.equals("-framework")).collect(toImmutableList());
-    assertThat(userLinkFlagsWithoutFrameworkFlags).containsNoDuplicates();
-  }
 }

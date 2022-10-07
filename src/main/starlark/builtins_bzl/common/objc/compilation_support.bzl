@@ -83,7 +83,11 @@ def _build_common_variables(
     else:
         compilation_artifacts = objc_internal.create_compilation_artifacts(ctx = ctx)
 
-    (objc_provider, objc_compilation_context, cc_linking_contexts) = objc_common.create_context_and_provider(
+    (
+        objc_provider,
+        objc_compilation_context,
+        objc_linking_context,
+    ) = objc_common.create_context_and_provider(
         ctx = ctx,
         compilation_attributes = compilation_attributes,
         compilation_artifacts = compilation_artifacts,
@@ -104,7 +108,7 @@ def _build_common_variables(
         extra_disabled_features = extra_disabled_features,
         extra_enabled_features = extra_enabled_features,
         objc_compilation_context = objc_compilation_context,
-        cc_linking_contexts = cc_linking_contexts,
+        objc_linking_context = objc_linking_context,
         toolchain = toolchain,
         alwayslink = alwayslink,
         use_pch = use_pch,
@@ -266,6 +270,12 @@ def _register_compile_and_archive_actions_for_j2objc(
         cc_linking_contexts,
         extra_compile_args):
     compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
+
+    objc_linking_context = struct(
+        cc_linking_contexts = cc_linking_contexts,
+        linkopts = [],
+    )
+
     common_variables = struct(
         ctx = ctx,
         intermediate_artifacts = intermediate_artifacts,
@@ -274,7 +284,7 @@ def _register_compile_and_archive_actions_for_j2objc(
         extra_enabled_features = ["j2objc_transpiled"],
         extra_disabled_features = ["layering_check", "parse_headers"],
         objc_compilation_context = objc_compilation_context,
-        cc_linking_contexts = cc_linking_contexts,
+        objc_linking_context = objc_linking_context,
         toolchain = toolchain,
         alwayslink = False,
         use_pch = False,
@@ -461,12 +471,14 @@ def _cc_compile_and_link(
     )
 
     if len(compilation_outputs.objects) != 0 or len(compilation_outputs.pic_objects) != 0:
+        objc_linking_context = common_variables.objc_linking_context
         cc_common.create_linking_context_from_compilation_outputs(
             actions = ctx.actions,
             feature_configuration = feature_configuration,
             cc_toolchain = common_variables.toolchain,
             compilation_outputs = compilation_outputs,
-            linking_contexts = common_variables.cc_linking_contexts,
+            user_link_flags = objc_linking_context.linkopts,
+            linking_contexts = objc_linking_context.cc_linking_contexts,
             name = common_variables.ctx.label.name + intermediate_artifacts.archive_file_name_suffix,
             language = language,
             alwayslink = common_variables.alwayslink,

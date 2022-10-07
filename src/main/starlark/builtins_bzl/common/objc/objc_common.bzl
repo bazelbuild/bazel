@@ -90,22 +90,27 @@ def _create_context_and_provider(
         "includes": [],
     }
 
+    # Merge cc_linking_context's library and linkopt information into
+    # objc_provider.
+    all_non_sdk_linkopts = []
     for cc_linking_context in cc_linking_contexts_for_merging:
-        link_opts = []
+        linkopts = []
         libraries_to_link = []
         for linker_input in cc_linking_context.linker_inputs.to_list():
-            link_opts.extend(linker_input.user_link_flags)
+            linkopts.extend(linker_input.user_link_flags)
             libraries_to_link.extend(linker_input.libraries)
-        _add_linkopts(objc_provider_kwargs, link_opts)
+        non_sdk_linkopts = _add_linkopts(objc_provider_kwargs, linkopts)
+        all_non_sdk_linkopts.extend(non_sdk_linkopts)
 
         objc_provider_kwargs["cc_library"].append(
             depset(direct = libraries_to_link, order = "topological"),
         )
 
-    _add_linkopts(
+    non_sdk_linkopts = _add_linkopts(
         objc_provider_kwargs,
         objc_internal.expand_toolchain_and_ctx_variables(ctx = ctx, flags = linkopts),
     )
+    all_non_sdk_linkopts.extend(non_sdk_linkopts)
 
     # Temporary solution to specially handle linkstamps, so that they don't get
     # dropped.  When linking info has been fully migrated to CcInfo, we can
@@ -204,39 +209,84 @@ def _create_context_and_provider(
         **objc_compilation_context_kwargs
     )
 
+    # The non-straightfoward way we initialize the sdk related
+    # information in linkopts (sdk_framework, weak_sdk_framework,
+    # sdk_dylib):
+    #
+    # - Filter them out of cc_linking_contexts_for_merging and self's
+    #   linkopts.  Add them to corresponding fields in
+    #   objc_provider_kwargs.  This also has the side effect that it
+    #   deduplicates those fields.
+    #
+    # - Use the sdk fields in objc_provider_kwargs to construct
+    #   cc_linking_context's linkopts.
+    all_linkopts = all_non_sdk_linkopts
+    for sdk_framework in objc_provider_kwargs["sdk_framework"]:
+        all_linkopts.append("-framework")
+        all_linkopts.append(sdk_framework)
+
+    for weak_sdk_framework in objc_provider_kwargs["weak_sdk_framework"]:
+        all_linkopts.append("-weak_framework")
+        all_linkopts.append(weak_sdk_framework)
+
+    for sdk_dylib in objc_provider_kwargs["sdk_dylib"]:
+        if sdk_dylib.startswith("lib"):
+            sdk_dylib = sdk_dylib[3:]
+        all_linkopts.append("-l%s" % sdk_dylib)
+
+    objc_linking_context = struct(
+        cc_linking_contexts = cc_linking_contexts,
+        linkopts = all_linkopts,
+    )
+
     return (
         apple_common.new_objc_provider(**objc_provider_kwargs_built),
         objc_compilation_context,
-        cc_linking_contexts,
+        objc_linking_context,
     )
 
 def _is_cpp_source(source_file):
     return source_file.extension in ["cc", "cpp", "mm", "cxx", "C"]
 
-def _add_linkopts(objc_provider_kwargs, link_opts):
-    framework_link_opts = {}
-    non_framework_link_opts = []
+def _add_linkopts(objc_provider_kwargs, linkopts):
+    non_sdk_linkopts = []
+    sdk_frameworks = {}
+    weak_sdk_frameworks = {}
+    sdk_dylib = {}
     i = 0
     skip_next = False
-    for arg in link_opts:
+    for arg in linkopts:
         if skip_next:
             skip_next = False
             i += 1
             continue
-        if arg == "-framework" and i < len(link_opts) - 1:
-            framework_link_opts[link_opts[i + 1]] = True
+        if arg == "-framework" and i < len(linkopts) - 1:
+            sdk_frameworks[linkopts[i + 1]] = True
             skip_next = True
+        elif arg == "-weak_framework" and i < len(linkopts) - 1:
+            weak_sdk_frameworks[linkopts[i + 1]] = True
+            skip_next = True
+        elif arg.startswith("-Wl,-framework,"):
+            sdk_frameworks[arg[len("-Wl,-framework,"):]] = True
+        elif arg.startswith("-Wl,-weak_framework,"):
+            weak_sdk_frameworks[arg[len("-Wl,-weak_framework,"):]] = True
+        elif arg.startswith("-l"):
+            sdk_dylib[arg[2:]] = True
         else:
-            non_framework_link_opts.append(arg)
+            non_sdk_linkopts.append(arg)
         i += 1
 
-    objc_provider_kwargs["sdk_framework"].extend(framework_link_opts.keys())
+    objc_provider_kwargs["sdk_framework"].extend(sdk_frameworks.keys())
+    objc_provider_kwargs["weak_sdk_framework"].extend(weak_sdk_frameworks.keys())
+    objc_provider_kwargs["sdk_dylib"].extend(sdk_dylib.keys())
     objc_provider_kwargs["linkopt"].append(
         depset(
-            direct = non_framework_link_opts,
+            direct = non_sdk_linkopts,
             order = "topological",
         ),
     )
+
+    return non_sdk_linkopts
 
 objc_common = struct(
     create_context_and_provider = _create_context_and_provider,
