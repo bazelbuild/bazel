@@ -30,9 +30,13 @@ def _create_context_and_provider(
         runtime_deps,
         linkopts):
     objc_providers = []
-    cc_linking_contexts = []
     cc_compilation_contexts = []
-    cc_linkstamp_contexts = []
+    cc_linking_contexts = []
+
+    # List of CcLinkingContext to be merged into ObjcProvider, to be done for
+    # deps that don't have ObjcProviders.  TODO(waltl): remove after objc link
+    # info migration.
+    cc_linking_contexts_for_merging = []
     for dep in deps:
         if apple_common.Objc in dep:
             objc_providers.append(dep[apple_common.Objc])
@@ -40,15 +44,11 @@ def _create_context_and_provider(
             # We only use CcInfo's linking info if there is no ObjcProvider.
             # This is required so that objc_library archives do not get treated
             # as if they are from cc targets.
-            cc_linking_contexts.append(dep[CcInfo].linking_context)
+            cc_linking_contexts_for_merging.append(dep[CcInfo].linking_context)
 
         if CcInfo in dep:
             cc_compilation_contexts.append(dep[CcInfo].compilation_context)
-
-            # Temporary solution to specially handle linkstamps, so that they
-            # don't get dropped.  When linking info has been fully migrated to
-            # CcInfo, we can drop this.
-            cc_linkstamp_contexts.append(dep[CcInfo].linking_context)
+            cc_linking_contexts.append(dep[CcInfo].linking_context)
 
     runtime_objc_providers = []
     for runtime_dep in runtime_deps:
@@ -90,10 +90,10 @@ def _create_context_and_provider(
         "includes": [],
     }
 
-    for link_provider in cc_linking_contexts:
+    for cc_linking_context in cc_linking_contexts_for_merging:
         link_opts = []
         libraries_to_link = []
-        for linker_input in link_provider.linker_inputs.to_list():
+        for linker_input in cc_linking_context.linker_inputs.to_list():
             link_opts.extend(linker_input.user_link_flags)
             libraries_to_link.extend(linker_input.libraries)
         _add_linkopts(objc_provider_kwargs, link_opts)
@@ -107,8 +107,11 @@ def _create_context_and_provider(
         objc_internal.expand_toolchain_and_ctx_variables(ctx = ctx, flags = linkopts),
     )
 
-    for cc_linkstamp_context in cc_linkstamp_contexts:
-        objc_provider_kwargs["linkstamp"].extend(cc_linkstamp_context.linkstamps().to_list())
+    # Temporary solution to specially handle linkstamps, so that they don't get
+    # dropped.  When linking info has been fully migrated to CcInfo, we can
+    # drop this.
+    for cc_linking_context in cc_linking_contexts:
+        objc_provider_kwargs["linkstamp"].extend(cc_linking_context.linkstamps().to_list())
 
     if compilation_attributes != None:
         sdk_dir = apple_common.apple_toolchain().sdk_dir()
@@ -201,7 +204,11 @@ def _create_context_and_provider(
         **objc_compilation_context_kwargs
     )
 
-    return (apple_common.new_objc_provider(**objc_provider_kwargs_built), objc_compilation_context)
+    return (
+        apple_common.new_objc_provider(**objc_provider_kwargs_built),
+        objc_compilation_context,
+        cc_linking_contexts,
+    )
 
 def _is_cpp_source(source_file):
     return source_file.extension in ["cc", "cpp", "mm", "cxx", "C"]

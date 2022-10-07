@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.util.stream.Collectors.toList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -292,6 +292,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                         intermediateArtifacts,
                         common.getCompilationArtifacts().get(),
                         common.getObjcCompilationContext(),
+                        StarlarkList.immutableCopyOf(common.getCcLinkingContexts()),
                         StarlarkList.immutableCopyOf(extraCompileArgs)),
                     new HashMap<>());
 
@@ -310,7 +311,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
               ImmutableList.<PathFragment>of(),
               depAttributes,
               otherDeps);
-      ccCompilationContext = common.getCcCompilationContext();
+      ccCompilationContext = common.createCcCompilationContext();
     }
 
     return builder
@@ -873,28 +874,30 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       builder.setHasModuleMap();
     }
 
+    ImmutableList.Builder<CcInfo> ccInfos = new ImmutableList.Builder<>();
     for (String attrName : dependentAttributes) {
       if (ruleContext.attributes().has(attrName, BuildType.LABEL_LIST)
           || ruleContext.attributes().has(attrName, BuildType.LABEL)) {
-        ImmutableList.Builder<CcInfo> ccInfoList = new ImmutableList.Builder<>();
         for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attrName)) {
           CcInfo ccInfo = dep.get(CcInfo.PROVIDER);
           if (ccInfo != null) {
-            ccInfoList.add(ccInfo);
+            ccInfos.add(ccInfo);
           }
         }
-        builder.addCcCompilationContexts(ccInfoList.build());
         builder.addObjcProviders(
             ruleContext.getPrerequisites(attrName, ObjcProvider.STARLARK_CONSTRUCTOR));
       }
     }
+    builder.addCcInfos(ccInfos.build());
 
     // We can't just use addDeps since that now takes ConfiguredTargetAndData and we only have
     // TransitiveInfoCollections
     builder.addObjcProviders(
-        otherDeps.stream().map(d -> d.get(ObjcProvider.STARLARK_CONSTRUCTOR)).collect(toList()));
-    builder.addCcCompilationContexts(
-        otherDeps.stream().map(d -> d.get(CcInfo.PROVIDER)).collect(toList()));
+        otherDeps.stream()
+            .map(d -> d.get(ObjcProvider.STARLARK_CONSTRUCTOR))
+            .collect(toImmutableList()));
+    builder.addCcInfos(
+        otherDeps.stream().map(d -> d.get(CcInfo.PROVIDER)).collect(toImmutableList()));
 
     return builder
         .addIncludes(headerSearchPaths)

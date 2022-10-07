@@ -83,7 +83,7 @@ def _build_common_variables(
     else:
         compilation_artifacts = objc_internal.create_compilation_artifacts(ctx = ctx)
 
-    (objc_provider, objc_compilation_context) = objc_common.create_context_and_provider(
+    (objc_provider, objc_compilation_context, cc_linking_contexts) = objc_common.create_context_and_provider(
         ctx = ctx,
         compilation_attributes = compilation_attributes,
         compilation_artifacts = compilation_artifacts,
@@ -104,7 +104,9 @@ def _build_common_variables(
         extra_disabled_features = extra_disabled_features,
         extra_enabled_features = extra_enabled_features,
         objc_compilation_context = objc_compilation_context,
+        cc_linking_contexts = cc_linking_contexts,
         toolchain = toolchain,
+        alwayslink = alwayslink,
         use_pch = use_pch,
         objc_config = ctx.fragments.objc,
         objc_provider = objc_provider,
@@ -261,6 +263,7 @@ def _register_compile_and_archive_actions_for_j2objc(
         intermediate_artifacts,
         compilation_artifacts,
         objc_compilation_context,
+        cc_linking_contexts,
         extra_compile_args):
     compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
     common_variables = struct(
@@ -271,7 +274,9 @@ def _register_compile_and_archive_actions_for_j2objc(
         extra_enabled_features = ["j2objc_transpiled"],
         extra_disabled_features = ["layering_check", "parse_headers"],
         objc_compilation_context = objc_compilation_context,
+        cc_linking_contexts = cc_linking_contexts,
         toolchain = toolchain,
+        alwayslink = False,
         use_pch = False,
         objc_config = ctx.fragments.objc,
         objc_provider = None,
@@ -455,19 +460,16 @@ def _cc_compile_and_link(
         ],
     )
 
-    linking_contexts = []
-    if hasattr(common_variables.ctx.attr, "deps"):
-        linking_contexts = cc_helper.get_linking_contexts_from_deps(common_variables.ctx.attr.deps)
-
     if len(compilation_outputs.objects) != 0 or len(compilation_outputs.pic_objects) != 0:
         cc_common.create_linking_context_from_compilation_outputs(
             actions = ctx.actions,
             feature_configuration = feature_configuration,
             cc_toolchain = common_variables.toolchain,
             compilation_outputs = compilation_outputs,
-            linking_contexts = linking_contexts,
+            linking_contexts = common_variables.cc_linking_contexts,
             name = common_variables.ctx.label.name + intermediate_artifacts.archive_file_name_suffix,
             language = language,
+            alwayslink = common_variables.alwayslink,
             disallow_dynamic_library = True,
             additional_inputs = additional_inputs,
             grep_includes = _get_grep_includes(ctx),

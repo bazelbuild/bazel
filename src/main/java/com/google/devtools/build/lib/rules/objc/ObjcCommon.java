@@ -36,7 +36,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -53,6 +52,7 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -109,10 +109,14 @@ public final class ObjcCommon implements StarlarkValue {
     private Iterable<String> linkopts = ImmutableList.of();
     private boolean hasModuleMap;
     private Iterable<Artifact> extraImportLibraries = ImmutableList.of();
-    private Iterable<CcCompilationContext> ccCompilationContexts = ImmutableList.of();
-    private Iterable<CcCompilationContext> directCCompilationContexts = ImmutableList.of();
-    private Iterable<CcLinkingContext> ccLinkingContexts = ImmutableList.of();
-    private Iterable<CcLinkingContext> ccLinkStampContexts = ImmutableList.of();
+    private final List<CcCompilationContext> ccCompilationContexts = new ArrayList<>();
+    private final List<CcLinkingContext> ccLinkingContexts = new ArrayList<>();
+    private final List<CcCompilationContext> directCCompilationContexts = new ArrayList<>();
+    // List of CcLinkingContext to be merged into ObjcProvider, to be done for deps that don't have
+    // ObjcProviders.
+    // TODO(b/171413861): remove after objc link info migration.
+    private final List<CcLinkingContext> ccLinkingContextsForMerging = new ArrayList<>();
+    private final List<CcLinkingContext> ccLinkStampContexts = new ArrayList<>();
 
     /**
      * Builder for {@link ObjcCommon} obtaining both attribute data and configuration data from the
@@ -155,28 +159,32 @@ public final class ObjcCommon implements StarlarkValue {
       return this;
     }
 
-    private static ImmutableList<CcCompilationContext> getCcCompilationContexts(
-        Iterable<CcInfo> ccInfos) {
-      return Streams.stream(ccInfos)
-          .map(CcInfo::getCcCompilationContext)
-          .collect(ImmutableList.toImmutableList());
-    }
-
     @CanIgnoreReturnValue
     Builder addDirectCcCompilationContexts(Iterable<CcInfo> ccInfos) {
       // TODO(waltl): Support direct CcCompilationContexts in CcCompilationHelper.
       Preconditions.checkState(
           this.purpose.equals(Purpose.LINK_ONLY),
           "direct CcCompilationContext is only supported for LINK_ONLY purpose");
-      this.directCCompilationContexts =
-          Iterables.concat(this.directCCompilationContexts, getCcCompilationContexts(ccInfos));
+      ccInfos.forEach(ccInfo -> directCCompilationContexts.add(ccInfo.getCcCompilationContext()));
       return this;
     }
 
     @CanIgnoreReturnValue
     Builder addCcCompilationContexts(Iterable<CcInfo> ccInfos) {
-      this.ccCompilationContexts =
-          Iterables.concat(this.ccCompilationContexts, getCcCompilationContexts(ccInfos));
+      ccInfos.forEach(ccInfo -> ccCompilationContexts.add(ccInfo.getCcCompilationContext()));
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    Builder addCcLinkingContexts(Iterable<CcInfo> ccInfos) {
+      ccInfos.forEach(ccInfo -> ccLinkingContexts.add(ccInfo.getCcLinkingContext()));
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    Builder addCcInfos(Iterable<CcInfo> ccInfos) {
+      addCcCompilationContexts(ccInfos);
+      addCcLinkingContexts(ccInfos);
       return this;
     }
 
@@ -184,8 +192,6 @@ public final class ObjcCommon implements StarlarkValue {
     Builder addDeps(List<? extends TransitiveInfoCollection> deps) {
       ImmutableList.Builder<ObjcProvider> objcProviders = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> ccInfos = ImmutableList.builder();
-      ImmutableList.Builder<CcLinkingContext> ccLinkingContexts = ImmutableList.builder();
-      ImmutableList.Builder<CcLinkingContext> ccLinkStampContexts = ImmutableList.builder();
 
       for (TransitiveInfoCollection dep : deps) {
         if (dep.get(ObjcProvider.STARLARK_CONSTRUCTOR) != null) {
@@ -193,23 +199,23 @@ public final class ObjcCommon implements StarlarkValue {
         } else {
           // We only use CcInfo's linking info if there is no ObjcProvider.  This is required so
           // that objc_library archives do not get treated as if they are from cc targets.
-          addAnyContexts(ccLinkingContexts, dep, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
+          addAnyContexts(
+              ccLinkingContextsForMerging, dep, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
         }
         addAnyProviders(ccInfos, dep, CcInfo.PROVIDER);
         // Temporary solution to specially handle LinkStamps, so that they don't get dropped.  When
         // linking info has been fully migrated to CcInfo, we can drop this.
         addAnyContexts(ccLinkStampContexts, dep, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
       }
+
       addObjcProviders(objcProviders.build());
-      addCcCompilationContexts(ccInfos.build());
-      this.ccLinkingContexts = Iterables.concat(this.ccLinkingContexts, ccLinkingContexts.build());
-      this.ccLinkStampContexts =
-          Iterables.concat(this.ccLinkStampContexts, ccLinkStampContexts.build());
+      addCcInfos(ccInfos.build());
 
       return this;
     }
 
-    private <T extends Info> ImmutableList.Builder<T> addAnyProviders(
+    @CanIgnoreReturnValue
+    private static <T extends Info> ImmutableList.Builder<T> addAnyProviders(
         ImmutableList.Builder<T> listBuilder,
         TransitiveInfoCollection collection,
         BuiltinProvider<T> providerClass) {
@@ -220,16 +226,17 @@ public final class ObjcCommon implements StarlarkValue {
       return listBuilder;
     }
 
-    private <T extends Info, U> ImmutableList.Builder<U> addAnyContexts(
-        ImmutableList.Builder<U> listBuilder,
+    @CanIgnoreReturnValue
+    private static <T extends Info, U> List<U> addAnyContexts(
+        List<U> list,
         TransitiveInfoCollection collection,
         BuiltinProvider<T> providerClass,
         Function<T, U> getContext) {
       T provider = collection.get(providerClass);
       if (provider != null) {
-        listBuilder.add(getContext.apply(provider));
+        list.add(getContext.apply(provider));
       }
-      return listBuilder;
+      return list;
     }
 
     /**
@@ -283,6 +290,16 @@ public final class ObjcCommon implements StarlarkValue {
     }
 
     ObjcCommon build() {
+      ImmutableList<CcCompilationContext> ccCompilationContexts =
+          ImmutableList.copyOf(this.ccCompilationContexts);
+      ImmutableList<CcLinkingContext> ccLinkingContexts =
+          ImmutableList.copyOf(this.ccLinkingContexts);
+      ImmutableList<CcCompilationContext> directCCompilationContexts =
+          ImmutableList.copyOf(this.directCCompilationContexts);
+      ImmutableList<CcLinkingContext> ccLinkingContextsForMerging =
+          ImmutableList.copyOf(this.ccLinkingContextsForMerging);
+      ImmutableList<CcLinkingContext> ccLinkStampContexts =
+          ImmutableList.copyOf(this.ccLinkStampContexts);
 
       ObjcCompilationContext.Builder objcCompilationContextBuilder =
           ObjcCompilationContext.builder();
@@ -302,15 +319,14 @@ public final class ObjcCommon implements StarlarkValue {
           // CcCompilationHelper.getStlCcCompilationContext(), but probably shouldn't.
           .addCcCompilationContexts(ccCompilationContexts);
 
-      for (CcLinkingContext linkProvider : ccLinkingContexts) {
-        ImmutableList<String> linkOpts = linkProvider.getFlattenedUserLinkFlags();
+      for (CcLinkingContext ccLinkingContext : ccLinkingContextsForMerging) {
+        ImmutableList<String> linkOpts = ccLinkingContext.getFlattenedUserLinkFlags();
         addLinkoptsToObjcProvider(linkOpts, objcProvider);
-        objcProvider
-            .addTransitiveAndPropagate(
-                CC_LIBRARY,
-                NestedSetBuilder.<LibraryToLink>linkOrder()
-                    .addTransitive(linkProvider.getLibraries())
-                    .build());
+        objcProvider.addTransitiveAndPropagate(
+            CC_LIBRARY,
+            NestedSetBuilder.<LibraryToLink>linkOrder()
+                .addTransitive(ccLinkingContext.getLibraries())
+                .build());
       }
       addLinkoptsToObjcProvider(linkopts, objcProvider);
 
@@ -391,7 +407,11 @@ public final class ObjcCommon implements StarlarkValue {
       ObjcCompilationContext objcCompilationContext = objcCompilationContextBuilder.build();
 
       return new ObjcCommon(
-          purpose, objcProvider.build(), objcCompilationContext, compilationArtifacts);
+          purpose,
+          objcProvider.build(),
+          objcCompilationContext,
+          ccLinkingContexts,
+          compilationArtifacts);
     }
 
     private void addLinkoptsToObjcProvider(
@@ -417,6 +437,7 @@ public final class ObjcCommon implements StarlarkValue {
   private final Purpose purpose;
   private final ObjcProvider objcProvider;
   private final ObjcCompilationContext objcCompilationContext;
+  private final ImmutableList<CcLinkingContext> ccLinkingContexts;
 
   private final Optional<CompilationArtifacts> compilationArtifacts;
 
@@ -424,10 +445,12 @@ public final class ObjcCommon implements StarlarkValue {
       Purpose purpose,
       ObjcProvider objcProvider,
       ObjcCompilationContext objcCompilationContext,
+      ImmutableList<CcLinkingContext> ccLinkingContexts,
       Optional<CompilationArtifacts> compilationArtifacts) {
     this.purpose = purpose;
     this.objcProvider = Preconditions.checkNotNull(objcProvider);
     this.objcCompilationContext = Preconditions.checkNotNull(objcCompilationContext);
+    this.ccLinkingContexts = Preconditions.checkNotNull(ccLinkingContexts);
     this.compilationArtifacts = Preconditions.checkNotNull(compilationArtifacts);
   }
 
@@ -443,18 +466,33 @@ public final class ObjcCommon implements StarlarkValue {
     return objcCompilationContext;
   }
 
-  public CcCompilationContext getCcCompilationContext() {
-    return objcCompilationContext.createCcCompilationContext();
+  public ImmutableList<CcLinkingContext> getCcLinkingContexts() {
+    return ccLinkingContexts;
   }
 
   public Optional<CompilationArtifacts> getCompilationArtifacts() {
     return compilationArtifacts;
   }
 
+  public CcCompilationContext createCcCompilationContext() {
+    return objcCompilationContext.createCcCompilationContext();
+  }
+
+  public CcLinkingContext createCcLinkingContext() {
+    return CcLinkingContext.merge(ccLinkingContexts);
+  }
+
+  public CcInfo createCcInfo() {
+    return CcInfo.builder()
+        .setCcCompilationContext(createCcCompilationContext())
+        .setCcLinkingContext(createCcLinkingContext())
+        .build();
+  }
+
   /**
-   * Returns an {@link Optional} containing the compiled {@code .a} file, or
-   * {@link Optional#absent()} if this object contains no {@link CompilationArtifacts} or the
-   * compilation information has no sources.
+   * Returns an {@link Optional} containing the compiled {@code .a} file, or {@link
+   * Optional#absent()} if this object contains no {@link CompilationArtifacts} or the compilation
+   * information has no sources.
    */
   public Optional<Artifact> getCompiledArchive() {
     if (compilationArtifacts.isPresent()) {

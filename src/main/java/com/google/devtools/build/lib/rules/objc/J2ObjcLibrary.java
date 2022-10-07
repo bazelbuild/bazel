@@ -88,7 +88,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(j2ObjcMappingFileProvider)
         .addNativeDeclaredProvider(objcProvider)
         .addNativeDeclaredProvider(
-            CcInfo.builder().setCcCompilationContext(common.getCcCompilationContext()).build())
+            CcInfo.builder().setCcCompilationContext(common.createCcCompilationContext()).build())
         .addStarlarkTransitiveInfo(ObjcProvider.STARLARK_NAME, objcProvider)
         .build();
   }
