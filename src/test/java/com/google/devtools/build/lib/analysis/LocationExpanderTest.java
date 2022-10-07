@@ -60,12 +60,12 @@ public class LocationExpanderTest {
 
   private LocationExpander makeExpander(RuleErrorConsumer ruleErrorConsumer) throws Exception {
     LocationFunction f1 = new LocationFunctionBuilder("//a", false)
-        .setExecPaths(false)
+        .setPathType(LocationFunction.PathType.LOCATION)
         .add("//a", "/exec/src/a")
         .build();
 
     LocationFunction f2 = new LocationFunctionBuilder("//b", true)
-        .setExecPaths(false)
+        .setPathType(LocationFunction.PathType.LOCATION)
         .add("//b", "/exec/src/b")
         .build();
 
@@ -74,7 +74,8 @@ public class LocationExpanderTest {
         ImmutableMap.<String, LocationFunction>of(
             "location", f1,
             "locations", f2),
-        RepositoryMapping.ALWAYS_FALLBACK);
+        RepositoryMapping.ALWAYS_FALLBACK,
+        "workspace");
   }
 
   private String expand(String input) throws Exception {
@@ -126,7 +127,7 @@ public class LocationExpanderTest {
   @Test
   public void expansionWithRepositoryMapping() throws Exception {
     LocationFunction f1 = new LocationFunctionBuilder("//a", false)
-        .setExecPaths(false)
+        .setPathType(LocationFunction.PathType.LOCATION)
         .add("@bar//a", "/exec/src/a")
         .build();
 
@@ -137,7 +138,8 @@ public class LocationExpanderTest {
         new LocationExpander(
             new Capture(),
             ImmutableMap.<String, LocationFunction>of("location", f1),
-            RepositoryMapping.createAllowingFallback(repositoryMapping));
+            RepositoryMapping.createAllowingFallback(repositoryMapping),
+            "workspace");
 
     String value = locationExpander.expand("$(location @foo//a)");
     assertThat(value).isEqualTo("src/a");
