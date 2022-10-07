@@ -601,7 +601,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
     // First pass: create nodes for dependency Digraph
     for (T result : resultList) {
-      Node<T> node = graph.createNode(result);
+      graph.createNode(result);
     }
 
     // Second pass: create edges between nodes
@@ -610,7 +610,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         if (graph.getNodeMaybe(dep) != null) {
           graph.addEdge(
                   graph.getNode(result),
-                  graph.createNode(dep)
+                  graph.getNode(dep)
           );
         }
       }
