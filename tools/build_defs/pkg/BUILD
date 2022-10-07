@@ -25,7 +25,7 @@ filegroup(
 py_library(
     name = "archive",
     srcs = ["archive.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
 )
 
 filegroup(
@@ -61,7 +61,7 @@ py_binary(
     name = "build_tar",
     srcs = ["build_tar.py"],
     python_version = "PY3",
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         ":archive",
