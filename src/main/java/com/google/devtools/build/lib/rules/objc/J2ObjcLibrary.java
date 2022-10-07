@@ -49,12 +49,14 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
       ImmutableList.of("java_import", "java_library", "java_proto_library", "proto_library");
 
   private ObjcCommon common(RuleContext ruleContext) throws InterruptedException {
+    List<CcInfo> depsCcInfos = ruleContext.getPrerequisites("deps", CcInfo.PROVIDER);
     return new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext)
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
         .addDeps(ruleContext.getPrerequisites("deps"))
+        .addCcLinkingContexts(depsCcInfos)
         .addDeps(ruleContext.getPrerequisites("jre_deps"))
-        .addDirectCcCompilationContexts(ruleContext.getPrerequisites("deps", CcInfo.PROVIDER))
+        .addDirectCcCompilationContexts(depsCcInfos)
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .build();
   }
@@ -87,8 +89,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(j2ObjcEntryClassProvider)
         .addNativeDeclaredProvider(j2ObjcMappingFileProvider)
         .addNativeDeclaredProvider(objcProvider)
-        .addNativeDeclaredProvider(
-            CcInfo.builder().setCcCompilationContext(common.createCcCompilationContext()).build())
+        .addNativeDeclaredProvider(common.createCcInfo())
         .addStarlarkTransitiveInfo(ObjcProvider.STARLARK_NAME, objcProvider)
         .build();
   }

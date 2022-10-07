@@ -32,14 +32,14 @@ def _objc_import_impl(ctx):
         empty_compilation_artifacts = True,
     )
 
-    (cc_compilation_context, _, _) = compilation_support.register_compile_and_archive_actions(
+    (compilation_context, _, _, _) = compilation_support.register_compile_and_archive_actions(
         common_variables,
     )
 
     compilation_support.validate_attributes(common_variables)
 
     return [
-        CcInfo(compilation_context = cc_compilation_context),
+        CcInfo(compilation_context = compilation_context),
         common_variables.objc_provider,
     ]
 

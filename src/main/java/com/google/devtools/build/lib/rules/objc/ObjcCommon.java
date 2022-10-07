@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIB
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.J2OBJC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKOPT;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKSTAMP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
@@ -116,7 +115,6 @@ public final class ObjcCommon implements StarlarkValue {
     // ObjcProviders.
     // TODO(b/171413861): remove after objc link info migration.
     private final List<CcLinkingContext> ccLinkingContextsForMerging = new ArrayList<>();
-    private final List<CcLinkingContext> ccLinkStampContexts = new ArrayList<>();
 
     /**
      * Builder for {@link ObjcCommon} obtaining both attribute data and configuration data from the
@@ -203,9 +201,6 @@ public final class ObjcCommon implements StarlarkValue {
               ccLinkingContextsForMerging, dep, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
         }
         addAnyProviders(ccInfos, dep, CcInfo.PROVIDER);
-        // Temporary solution to specially handle LinkStamps, so that they don't get dropped.  When
-        // linking info has been fully migrated to CcInfo, we can drop this.
-        addAnyContexts(ccLinkStampContexts, dep, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
       }
 
       addObjcProviders(objcProviders.build());
@@ -298,8 +293,6 @@ public final class ObjcCommon implements StarlarkValue {
           ImmutableList.copyOf(this.directCCompilationContexts);
       ImmutableList<CcLinkingContext> ccLinkingContextsForMerging =
           ImmutableList.copyOf(this.ccLinkingContextsForMerging);
-      ImmutableList<CcLinkingContext> ccLinkStampContexts =
-          ImmutableList.copyOf(this.ccLinkStampContexts);
 
       ObjcCompilationContext.Builder objcCompilationContextBuilder =
           ObjcCompilationContext.builder();
@@ -329,10 +322,6 @@ public final class ObjcCommon implements StarlarkValue {
                 .build());
       }
       addLinkoptsToObjcProvider(linkopts, objcProvider);
-
-      for (CcLinkingContext ccLinkStampContext : ccLinkStampContexts) {
-        objcProvider.addAll(LINKSTAMP, ccLinkStampContext.getLinkstamps());
-      }
 
       if (compilationAttributes.isPresent()) {
         CompilationAttributes attributes = compilationAttributes.get();

@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
@@ -255,6 +256,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
     ObjcCommon common;
     CcCompilationContext ccCompilationContext = null;
+    CcLinkingContext ccLinkingContext = null;
 
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext);
@@ -297,6 +299,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                     new HashMap<>());
 
         ccCompilationContext = (CcCompilationContext) compilationResult.get(0);
+        ccLinkingContext = (CcLinkingContext) compilationResult.get(1);
       } catch (RuleErrorException e) {
         ruleContext.ruleError(e.getMessage());
       }
@@ -312,6 +315,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
               depAttributes,
               otherDeps);
       ccCompilationContext = common.createCcCompilationContext();
+      ccLinkingContext = common.createCcLinkingContext();
     }
 
     return builder
@@ -319,7 +323,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             exportedJ2ObjcMappingFileProvider(base, ruleContext, directJ2ObjcMappingFileProvider))
         .addNativeDeclaredProvider(common.getObjcProvider())
         .addNativeDeclaredProvider(
-            CcInfo.builder().setCcCompilationContext(ccCompilationContext).build())
+            CcInfo.builder()
+                .setCcCompilationContext(ccCompilationContext)
+                .setCcLinkingContext(ccLinkingContext)
+                .build())
         .build();
   }
 

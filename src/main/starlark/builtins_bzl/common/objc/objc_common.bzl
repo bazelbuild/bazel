@@ -73,7 +73,6 @@ def _create_context_and_provider(
         "providers": objc_providers,
         "cc_library": [],
         "sdk_framework": [],
-        "linkstamp": [],
         "force_load_library": [],
         "umbrella_header": [],
         "module_map": [],
@@ -111,12 +110,6 @@ def _create_context_and_provider(
         objc_internal.expand_toolchain_and_ctx_variables(ctx = ctx, flags = linkopts),
     )
     all_non_sdk_linkopts.extend(non_sdk_linkopts)
-
-    # Temporary solution to specially handle linkstamps, so that they don't get
-    # dropped.  When linking info has been fully migrated to CcInfo, we can
-    # drop this.
-    for cc_linking_context in cc_linking_contexts:
-        objc_provider_kwargs["linkstamp"].extend(cc_linking_context.linkstamps().to_list())
 
     if compilation_attributes != None:
         sdk_dir = apple_common.apple_toolchain().sdk_dir()

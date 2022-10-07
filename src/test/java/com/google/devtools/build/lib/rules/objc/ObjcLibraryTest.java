@@ -2554,6 +2554,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    linkopts = [",
         "        '-lxml2',",
         "        '-framework AVFoundation',",
+        "        '-Wl,-framework,Framework',",
         "    ],",
         "    sdk_dylibs = ['libz'],",
         "    sdk_frameworks = ['CoreData'],",
@@ -2563,6 +2564,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    name = 'bar',",
         "    linkopts = [",
         "        '-lsqlite3',",
+        "        '-Wl,-weak_framework,WeakFrameworkFromLinkOpt',",
         "    ],",
         "    sdk_frameworks = ['Foundation'],",
         ")",
@@ -2572,6 +2574,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "        '-framework UIKit',",
         "    ],",
         "    sdk_dylibs = ['libc++'],",
+        "    weak_sdk_frameworks = ['WeakFramework'],",
         ")");
 
     ImmutableList<String> userLinkFlags = getCcInfoUserLinkFlagsFromTarget("//x:foo");
@@ -2581,5 +2584,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(userLinkFlags).containsAtLeast("-framework", "Foundation").inOrder();
     assertThat(userLinkFlags).containsAtLeast("-framework", "UIKit").inOrder();
     assertThat(userLinkFlags).containsAtLeast("-lz", "-lc++", "-lxml2", "-lsqlite3");
+    assertThat(userLinkFlags).containsAtLeast("-framework", "Framework").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-weak_framework", "WeakFramework").inOrder();
+    assertThat(userLinkFlags)
+        .containsAtLeast("-weak_framework", "WeakFrameworkFromLinkOpt")
+        .inOrder();
   }
 }

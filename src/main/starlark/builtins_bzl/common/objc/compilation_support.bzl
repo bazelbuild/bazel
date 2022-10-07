@@ -319,7 +319,7 @@ def _register_compile_and_archive_actions(
 
         _register_obj_file_list_action(
             common_variables,
-            compilation_result[1].objects,
+            compilation_result[2].objects,
             obj_list,
         )
     else:
@@ -453,7 +453,7 @@ def _cc_compile_and_link(
     if link_action_input != None:
         additional_inputs.append(link_action_input)
 
-    cc_compilation_context = cc_common.merge_compilation_contexts(
+    compilation_context = cc_common.merge_compilation_contexts(
         compilation_contexts = [arc_compilation_context, non_arc_compilation_context],
     )
 
@@ -470,9 +470,9 @@ def _cc_compile_and_link(
         ],
     )
 
+    objc_linking_context = common_variables.objc_linking_context
     if len(compilation_outputs.objects) != 0 or len(compilation_outputs.pic_objects) != 0:
-        objc_linking_context = common_variables.objc_linking_context
-        cc_common.create_linking_context_from_compilation_outputs(
+        (linking_context, _) = cc_common.create_linking_context_from_compilation_outputs(
             actions = ctx.actions,
             feature_configuration = feature_configuration,
             cc_toolchain = common_variables.toolchain,
@@ -486,6 +486,17 @@ def _cc_compile_and_link(
             additional_inputs = additional_inputs,
             grep_includes = _get_grep_includes(ctx),
             variables_extension = non_arc_extensions,
+        )
+    else:
+        linker_input = cc_common.create_linker_input(
+            owner = ctx.label,
+            user_link_flags = objc_linking_context.linkopts,
+        )
+        cc_linking_context = cc_common.create_linking_context(
+            linker_inputs = depset(direct = [linker_input]),
+        )
+        linking_context = cc_common.merge_linking_contexts(
+            linking_contexts = [cc_linking_context] + objc_linking_context.cc_linking_contexts,
         )
 
     arc_output_groups = cc_helper.build_output_groups_for_emitting_compile_providers(
@@ -511,7 +522,7 @@ def _cc_compile_and_link(
         [arc_output_groups, non_arc_output_groups],
     )
 
-    return (cc_compilation_context, compilation_outputs, merged_output_groups)
+    return (compilation_context, linking_context, compilation_outputs, merged_output_groups)
 
 def _get_object_files(ctx):
     if not hasattr(ctx.attr, "srcs"):
