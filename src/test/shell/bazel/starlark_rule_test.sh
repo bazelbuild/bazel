@@ -133,7 +133,7 @@ EOF
   chmod +x bin.sh
 
   # //:x would fail without the bugfix of https://github.com/bazelbuild/bazel/issues/13189
-  bazel build //:x &> $TEST_log || fail "Expected sucesss"
+  bazel build //:x &> $TEST_log || fail "Expected success"
   bazel build //:y &> $TEST_log || fail "Expected success"
   rm BUILD bin.sh foo.bzl
 }

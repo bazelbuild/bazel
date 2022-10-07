@@ -451,7 +451,7 @@ class TestBase(unittest.TestCase):
         the program, won't be removed by env_remove.
       shell: {bool: bool}; optional; whether to use the shell as the program
         to execute
-      cwd: string; the current working dirctory, will be self._test_cwd if not
+      cwd: string; the current working directory, will be self._test_cwd if not
         specified.
       allow_failure: bool; if false, the function checks the return code is 0
       executable: string or None; executable program to run; use args[0]

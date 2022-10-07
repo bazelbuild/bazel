@@ -81,7 +81,7 @@ public class RepositoryCacheTest {
   }
 
   /**
-   * Test that the put mehtod without cache key correctly stores the downloaded file into the cache.
+   * Test that the put method without cache key correctly stores the downloaded file into the cache.
    */
   @Test
   public void testPutCacheValueWithoutHash() throws Exception {

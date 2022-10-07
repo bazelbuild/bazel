@@ -126,7 +126,7 @@ int main(void) {
 }
 EOF
 
-  bazel build //$pkg:a || fail "build failled"
+  bazel build //$pkg:a || fail "build failed"
 }
 
 function test_no_recompile_on_shutdown() {

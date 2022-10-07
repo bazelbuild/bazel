@@ -1369,7 +1369,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "libdep2.a", "b.rlib", "c.a", "d.a", "libdep1.a"),
         ImmutableList.of("a.pic.a", "b.rlib", "c.pic.a", "e.pic.a"),
-        // The suffix of dynamic library is caculated based on repository name and package path
+        // The suffix of dynamic library is calculated based on repository name and package path
         // to avoid conflicts with dynamic library from other packages.
         ImmutableList.of("a.so", "libdep2_61.so", "b.so", "e.so", "libdep1_61.so"));
   }

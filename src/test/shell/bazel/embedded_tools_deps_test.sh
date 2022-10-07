@@ -45,7 +45,7 @@ grep -v "^@bazel_tools//\|^@remote_java_tools\|^@debian_cc_deps" \
   "${TEST_SRCDIR}/io_bazel/src/test/shell/bazel/embedded_tools_deps" \
   | sort >"${current_deps}"
 
-# TODO: This is a temproary hack to make this test works both before and after
+# TODO: This is a temporary hack to make this test works both before and after
 # https://github.com/bazelbuild/bazel/pull/11300
 # Remove the following line after the PR is merged.
 sed -i.bak s/\:zlib$/\:zlib_checked_in/ "${current_deps}"

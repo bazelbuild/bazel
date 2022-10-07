@@ -585,7 +585,7 @@ public final class GrpcServerTest {
 
   /**
    * Ensure that if a command is marked as preemptible, running a second preemptible command
-   * interupts the first command.
+   * interrupts the first command.
    */
   @Test
   public void testMultiPreeempt() throws Exception {

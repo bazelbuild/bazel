@@ -6,7 +6,7 @@ my_repo = repository_rule(
     doc = "Minimal example of a repository rule.",
     attrs = {
         "useless": attr.string(
-            doc = "This argument will be ingored. You don't have to specify it, but you may.",
+            doc = "This argument will be ignored. You don't have to specify it, but you may.",
             default = "ignoreme",
         ),
     },

@@ -45,7 +45,7 @@ EOF
     --spawn_strategy=docker \
     --remote_default_exec_properties="container-image=docker://bad_flag_container" \
     //t:echo \
-    &> $TEST_log && fail "Expected build to fail, it succeded"
+    &> $TEST_log && fail "Expected build to fail, it succeeded"
   grep "bad_platform_container" $TEST_log || fail "Wrong container was chosen"
 }
 
@@ -66,7 +66,7 @@ EOF
     --spawn_strategy=docker \
     --remote_default_exec_properties="container-image=docker://bad_flag_container" \
     //t:echo \
-    &> $TEST_log && fail "Expected build to fail, it succeded"
+    &> $TEST_log && fail "Expected build to fail, it succeeded"
   grep "bad_flag_container" $TEST_log || fail "Wrong container was chosen"
 }
 

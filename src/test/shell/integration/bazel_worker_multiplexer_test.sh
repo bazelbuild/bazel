@@ -209,7 +209,7 @@ EOF
   bazel build --worker_verbose :hello_world_2 >> $TEST_log 2>&1 \
     && fail "expected build to fail" || true
 
-  error_msgs=$(egrep -o -- 'Worker process (did not return a|returned an unparseable) WorkResponse' "$TEST_log")
+  error_msgs=$(egrep -o -- 'Worker process (did not return a|returned an unparsable) WorkResponse' "$TEST_log")
 
   [ -n "$error_msgs" ] \
     || fail "expected error message not found"
@@ -323,7 +323,7 @@ EOF
     && fail "expected build to fail" || true
 
   # Check that a helpful error message was printed.
-  expect_log "Worker process returned an unparseable WorkResponse!"
+  expect_log "Worker process returned an unparsable WorkResponse!"
   expect_log "Did you try to print something to stdout"
   expect_log "I'm a poisoned worker and this is not a protobuf."
 }

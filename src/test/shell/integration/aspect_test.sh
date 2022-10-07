@@ -166,7 +166,7 @@ EOF
 
   # without using --incompatible_top_level_aspects_require_providers, aspect_a
   # and aspect_b should attempt to run on top level target: target_with_a and
-  # propagate to its dependencies where they will run based on the depdencies
+  # propagate to its dependencies where they will run based on the dependencies
   # advertised providers.
   bazel build "${package}:target_with_a" \
         --aspects="//${package}:lib.bzl%aspect_a" \
@@ -188,7 +188,7 @@ EOF
 
   # using --incompatible_top_level_aspects_require_providers, the top level
   # target rule's advertised providers will be checked and only aspect_a will be
-  # applied on target_with_a and propgated to its dependencies.
+  # applied on target_with_a and propagated to its dependencies.
   bazel build "${package}:target_with_a" \
         --aspects="//${package}:lib.bzl%aspect_a" \
         --aspects="//${package}:lib.bzl%aspect_b" &>"$TEST_log" \

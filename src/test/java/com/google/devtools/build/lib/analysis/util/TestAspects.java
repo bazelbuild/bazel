@@ -969,7 +969,7 @@ public class TestAspects {
                   .advertiseProvider(RequiredProvider2.class));
 
   /**
-   * Rule with an implcit dependency.
+   * Rule with an implicit dependency.
    */
   public static final MockRule IMPLICIT_DEP_RULE = () ->
       MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(

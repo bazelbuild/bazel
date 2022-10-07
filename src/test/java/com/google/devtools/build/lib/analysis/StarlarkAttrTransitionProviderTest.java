@@ -844,7 +844,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void testBannedNativeOptionOutput() throws Exception {
-    // Just picked an arbirtary incompatible_ flag; however, could be any flag
+    // Just picked an arbitrary incompatible_ flag; however, could be any flag
     // besides incompatible_enable_cc_toolchain_resolution (and might not even need to be real).
     writeAllowlistFile();
 

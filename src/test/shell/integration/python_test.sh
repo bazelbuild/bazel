@@ -146,7 +146,7 @@ EOF
   # remotely, but network access is disabled by default, so it times out.
 
   # The upcoming Starlark implementation doesn't support this behavior.
-  # This feature is planed for removal.
+  # This feature is planned for removal.
   # See https://github.com/bazelbuild/bazel/issues/16303
   if [[ "$PRODUCT_NAME" == "bazel" ]]; then
     bazel build --experimental_build_transitive_python_runfiles --nostamp :sh-tool

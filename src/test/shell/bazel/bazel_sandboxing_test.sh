@@ -292,7 +292,7 @@ function test_sandbox_undeclared_deps_starlark_with_local_tag() {
 
 function test_sandbox_block_filesystem() {
   # The point of this test is to attempt to read something from the filesystem
-  # that is blocked via --sandbox_block_path= and thus should't be accessible.
+  # that is blocked via --sandbox_block_path= and thus shouldn't be accessible.
   #
   # /var/log is an arbitrary choice of directory that should exist on all
   # Unix-like systems.

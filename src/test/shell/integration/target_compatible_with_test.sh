@@ -1368,7 +1368,7 @@ load(":defs.bzl", "basic_rule", "rule_with_aspect")
 # This target is compatible with all platforms and configurations. This target
 # exists to validate the behaviour of aspects running against incompatible
 # targets. The expectation is that the aspect should _not_ propagate to this
-# compatible target from an incomaptible target. I.e. an aspect should _not_
+# compatible target from an incompatible target. I.e. an aspect should _not_
 # evaluate this target if "basic_foo3_target" is incompatible.
 basic_rule(
     name = "basic_universal_target",

@@ -130,7 +130,7 @@ EOF
 }
 
 test_lib_paths_main() {
-  # Verify that libaries from the main repository can be used via include
+  # Verify that libraries from the main repository can be used via include
   # path relative to their repository root and that they may refer to other
   # truly source files from the same library via paths relative to their
   # repository root.
@@ -165,7 +165,7 @@ EOF
 }
 
 test_lib_paths_remote() {
-  # Verify that libaries from an external repository can be used via include
+  # Verify that libraries from an external repository can be used via include
   # path relative to their repository root and that they may refer to other
   # truly source files from the same library via paths relative to their
   # repository root.
@@ -210,7 +210,7 @@ EOF
 }
 
 test_lib_paths_all_remote() {
-  # Verify that libaries from an external repository can be used by another
+  # Verify that libraries from an external repository can be used by another
   # external repository via include path relative to their repository root and
   # that they may refer to other truly source files from the same library via
   # paths relative to their repository root.

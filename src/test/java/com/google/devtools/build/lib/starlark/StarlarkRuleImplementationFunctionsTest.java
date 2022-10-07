@@ -903,7 +903,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
    * encoded string which has been ingested as Latin 1. The hack converts the string to its
    * "correct" UTF-8 value. Once Blaze starts calling {@link
    * net.starlark.java.syntax.ParserInput#fromUTF8} instead of {@code fromLatin1} and the hack for
-   * the substituations parameter is removed, this test will fail.
+   * the substitutions parameter is removed, this test will fail.
    */
   @Test
   public void testCreateTemplateActionWithWrongEncoding() throws Exception {

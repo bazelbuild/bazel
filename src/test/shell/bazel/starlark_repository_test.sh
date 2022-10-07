@@ -1174,10 +1174,10 @@ def _impl(repository_ctx):
 repo = repository_rule(implementation = _impl, local = False)
 EOF
 
-  # This test case explictly verifies that a checksum is returned, even if
+  # This test case explicitly verifies that a checksum is returned, even if
   # none was provided by the call to download_and_extract. So we do have to
   # allow a download without provided checksum, even though it is plain http;
-  # nevertheless, localhost is pretty safe against man-in-the-middle attacs.
+  # nevertheless, localhost is pretty safe against man-in-the-middle attacks.
   bazel build @foo//:all \
         >& $TEST_log && shutdown_server || fail "Execution of @foo//:all failed"
 
@@ -1541,7 +1541,7 @@ EOF
 
 function test_download_failure_message() {
   # Regression test for #7850
-  # Verify that the for a failed downlaod, it is clearly indicated
+  # Verify that the for a failed download, it is clearly indicated
   # what was attempted to download and how it fails.
   cat > BUILD <<'EOF'
 genrule(
@@ -1758,7 +1758,7 @@ EOF
 }
 
 function test_netrc_reading() {
-  # Write a badly formated, but correct, .netrc file
+  # Write a badly formatted, but correct, .netrc file
   cat > .netrc <<'EOF'
 machine ftp.example.com
 macdef init
@@ -1865,7 +1865,7 @@ machine	  oauthlife.com
 	password	TOKEN
 EOF
   # Read a given .netrc file and combine it with a list of URL,
-  # and write the obtained authentication dicionary to disk; this
+  # and write the obtained authentication dictionary to disk; this
   # is not the intended way of using, but makes testing easy.
   cat > def.bzl <<'EOF'
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_netrc", "use_netrc")
@@ -1978,7 +1978,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel build //:it > "${TEST_log}" 2>&1 && fail "Expeceted failure" || :
+  bazel build //:it > "${TEST_log}" 2>&1 && fail "Expected failure" || :
   expect_log 'plain http.*missing checksum'
 
   # After adding a good checksum, we expect success

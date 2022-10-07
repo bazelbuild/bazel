@@ -516,7 +516,7 @@ EOF
     && fail "expected build to fail" || true
 
   # Check that a helpful error message was printed.
-  expect_log "Worker process returned an unparseable WorkResponse!"
+  expect_log "Worker process returned an unparsable WorkResponse!"
   expect_log "Did you try to print something to stdout"
   expect_log "Not UTF-8, printing first 1024 bytes as hex"
   expect_log "49 27 6D 20 61 20 70 6F  69 73 6F 6E 65 64 20 77  |I'm a po isoned w|"

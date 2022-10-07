@@ -210,7 +210,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
     assertThat(mapper.getReachableLabels("srcs", false)).containsExactlyElementsIn(valueLabels);
   }
 
-  /** Custom rule to support testing over default valuess. */
+  /** Custom rule to support testing over default values. */
   public static final class RuleWithDefaults
       implements RuleDefinition, RuleConfiguredTargetFactory {
     @Override

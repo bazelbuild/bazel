@@ -307,7 +307,7 @@ def _actions_test_impl(target, ctx):
         compile_action = action
 
     if not compile_action:
-      fail("Couln't find compile action")
+      fail("Couldn't find compile action")
 
     aspect_out = ctx.actions.declare_file("run_timestamp")
     ctx.actions.run_shell(

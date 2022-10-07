@@ -266,7 +266,7 @@ function test_unused_shutdown() {
   check_unused_content "pkg/b.input"
 
   # Change c:
-  # The build should be trigerred, and the newer version of "b" should be used.
+  # The build should be triggered, and the newer version of "b" should be used.
   echo "unused" > pkg/c.input
   bazel build //pkg:output || fail "build failed"
   check_output_content "contentA newContentB"

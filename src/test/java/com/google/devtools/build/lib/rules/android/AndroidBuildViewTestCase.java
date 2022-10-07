@@ -379,7 +379,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return null;
   }
 
-  // Returns an artifact that will be generated when a rule has assets that are processed seperately
+  // Returns an artifact that will be generated when a rule has assets that are processed separately
   static Artifact getDecoupledAssetArtifact(ConfiguredTarget target) {
     return target.get(AndroidAssetsInfo.PROVIDER).getValidationResult();
   }
@@ -506,7 +506,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
           .isNotNull();
       SpawnAction proOptimization = getGeneratingSpawnAction(preoptimizationOutput);
 
-      // Verify intitial step.
+      // Verify initial step.
       assertThat(proOptimization.getArguments()).contains("-runtype INITIAL");
       checkProguardLibJars(proOptimization, expectedlibraryJars);
     }

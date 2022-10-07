@@ -287,7 +287,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     clock.advanceMillis(120000);
 
     UiStateTracker stateTracker = getUiStateTracker(clock);
-    // Mimick being at the execution phase.
+    // Mimic being at the execution phase.
     simulateExecutionPhase(stateTracker);
     stateTracker.actionStarted(new ActionStartedEvent(mockAction(message, "bar/foo"), 123456789));
 

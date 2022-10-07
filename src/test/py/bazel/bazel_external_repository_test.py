@@ -388,7 +388,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         'local_repository(name = "other_repo", path="../other_repo")',
     ])
     # This should not exclude @other_repo//foo/bar, because .bazelignore doesn't
-    # support having repository name in the path fragement.
+    # support having repository name in the path fragment.
     self.ScratchFile('my_repo/.bazelignore', ['@other_repo//foo/bar'])
 
     exit_code, _, stderr = self.RunBazel(
@@ -398,7 +398,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
   def testExternalBazelignoreContainingRepoName(self):
     self.ScratchFile('other_repo/WORKSPACE')
     # This should not exclude @third_repo//foo/bar, because .bazelignore doesn't
-    # support having repository name in the path fragement.
+    # support having repository name in the path fragment.
     self.ScratchFile('other_repo/.bazelignore', ['@third_repo//foo/bar'])
     self.ScratchFile('other_repo/BUILD', [
         'filegroup(',
