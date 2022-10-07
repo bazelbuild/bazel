@@ -88,42 +88,6 @@ pkg_tar(
     ],
     build_tar = ":build_tar",
     package_dir = "/",
-    strip_prefix = ".",
-)
-
-pkg_tar(
-    name = "test-tar-strip_prefix-empty",
-    srcs = [
-        ":etc/nsswitch.conf",
-    ],
-    build_tar = ":build_tar",
-    strip_prefix = "",
-)
-
-pkg_tar(
-    name = "test-tar-strip_prefix-none",
-    srcs = [
-        ":etc/nsswitch.conf",
-    ],
-    build_tar = ":build_tar",
-)
-
-pkg_tar(
-    name = "test-tar-strip_prefix-etc",
-    srcs = [
-        ":etc/nsswitch.conf",
-    ],
-    build_tar = ":build_tar",
-    strip_prefix = "etc",
-)
-
-pkg_tar(
-    name = "test-tar-strip_prefix-dot",
-    srcs = [
-        ":etc/nsswitch.conf",
-    ],
-    build_tar = ":build_tar",
-    strip_prefix = ".",
 )
 
 sh_test(
@@ -135,10 +99,6 @@ sh_test(
     data = [
         "testenv.sh",
         ":test-tar.tar",
-        ":test-tar-strip_prefix-dot.tar",
-        ":test-tar-strip_prefix-empty.tar",
-        ":test-tar-strip_prefix-etc.tar",
-        ":test-tar-strip_prefix-none.tar",
     ],
     tags = [
         # TODO(laszlocsomor): fix on Windows or describe why it cannot pass.

@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.skyframe.ActionArtifactCycleReporter.IS_ARTIFACT_OR_ACTION_SKY_KEY;
+import static com.google.devtools.build.lib.skyframe.ActionArtifactCycleReporter.ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
@@ -455,6 +455,9 @@ public final class SkyframeErrorProcessor {
         actionConflicts = tlce.getTransitiveActionConflicts();
       } else if (isExecutionException(exception)) {
         executionDetailedExitCode = getExecutionDetailedExitCodeFromCause(result, exception);
+      } else if (!errorInfo.getCycleInfo().isEmpty()
+          && isExecutionCycle(errorInfo.getCycleInfo())) {
+        executionDetailedExitCode = CYCLE_CODE;
       }
       return IndividualErrorProcessingResult.create(
           actionConflicts,
@@ -468,9 +471,7 @@ public final class SkyframeErrorProcessor {
       return IndividualErrorProcessingResult.create(
           /*actionConflicts=*/ ImmutableMap.of(),
           getExecutionDetailedExitCodeFromCause(result, exception),
-          /*analysisRootCauses=*/ exception instanceof ActionExecutionException
-              ? ((ActionExecutionException) exception).getRootCauses()
-              : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /*analysisRootCauses=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /*loadingRootCauses=*/ ImmutableSet.of());
     }
 
@@ -932,7 +933,7 @@ public final class SkyframeErrorProcessor {
 
   private static boolean isExecutionCycle(Iterable<CycleInfo> cycleInfoCollection) {
     for (CycleInfo cycleInfo : cycleInfoCollection) {
-      if (cycleInfo.getCycle().stream().allMatch(IS_ARTIFACT_OR_ACTION_SKY_KEY)) {
+      if (cycleInfo.getCycle().stream().allMatch(ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP)) {
         // All these cycle info belong to the same top level key. If one of them is
         // execution-related, we consider the error to be execution-related.
         return true;

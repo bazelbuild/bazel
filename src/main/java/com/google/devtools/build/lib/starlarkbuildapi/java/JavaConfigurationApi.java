@@ -19,6 +19,8 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A java compiler configuration. */
@@ -71,4 +73,10 @@ public interface JavaConfigurationApi extends StarlarkValue {
       structField = true,
       doc = "A list containing the labels provided with --plugins, if any.")
   ImmutableList<Label> getPlugins();
+
+  @StarlarkMethod(
+      name = "disallow_java_import_empty_jars",
+      doc = "Returns true if empty java_import jars are not allowed.",
+      useStarlarkThread = true)
+  boolean getDisallowJavaImportEmptyJarsInStarlark(StarlarkThread thread) throws EvalException;
 }

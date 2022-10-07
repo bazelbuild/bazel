@@ -606,6 +606,15 @@ public class JavaOptions extends FragmentOptions {
   public boolean disallowJavaImportExports;
 
   @Option(
+      name = "incompatible_disallow_java_import_empty_jars",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "When enabled, empty java_import.jars is not supported.")
+  public boolean disallowJavaImportEmptyJars;
+
+  @Option(
       name = "experimental_enable_jspecify",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -676,6 +685,8 @@ public class JavaOptions extends FragmentOptions {
     host.multiReleaseDeployJars = multiReleaseDeployJars;
 
     host.disallowJavaImportExports = disallowJavaImportExports;
+
+    host.disallowJavaImportEmptyJars = disallowJavaImportEmptyJars;
 
     return host;
   }

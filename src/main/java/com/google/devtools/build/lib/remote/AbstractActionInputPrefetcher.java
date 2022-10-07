@@ -64,13 +64,23 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   /** Priority for the staging task. */
   protected enum Priority {
     /**
-     * High priority tasks are tasks that are critical to the wall time e.g. staging inputs to local
-     * actions.
+     * Critical priority tasks are tasks that are critical to the execution time e.g. staging files
+     * for in-process actions.
+     */
+    CRITICAL,
+    /**
+     * High priority tasks are tasks that may have impact on the execution time e.g. staging outputs
+     * that are inputs to local actions which will be executed later.
      */
     HIGH,
     /**
-     * Low priority tasks are tasks that don't have impact on the wall time e.g. staging outputs of
-     * toplevel targets/aspects.
+     * Medium priority tasks are tasks that may or may not have the impact on the execution time
+     * e.g. staging inputs for local branch of dynamically scheduled actions.
+     */
+    MEDIUM,
+    /**
+     * Low priority tasks are tasks that don't have impact on the execution time e.g. staging
+     * outputs of toplevel targets/aspects.
      */
     LOW,
   }
@@ -109,7 +119,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   @Override
   public ListenableFuture<Void> prefetchFiles(
       Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider) {
-    return prefetchFiles(inputs, metadataProvider, Priority.HIGH);
+    return prefetchFiles(inputs, metadataProvider, Priority.MEDIUM);
   }
 
   protected ListenableFuture<Void> prefetchFiles(
@@ -252,7 +262,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * <p>The file will be written into a temporary file and moved to the final destination after the
    * download finished.
    */
-  public Completable downloadFileRx(Path path, FileArtifactValue metadata, Priority priority) {
+  private Completable downloadFileRx(Path path, FileArtifactValue metadata, Priority priority) {
     if (!shouldDownloadFile(path, metadata)) {
       return Completable.complete();
     }
@@ -290,16 +300,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   /**
-   * Downloads file into the {@code path} with its metadata.
-   *
-   * <p>The file will be written into a temporary file and moved to the final destination after the
-   * download finished.
-   */
-  private ListenableFuture<Void> downloadFileAsync(Path path, FileArtifactValue metadata) {
-    return toListenableFuture(downloadFileRx(path, metadata, Priority.LOW));
-  }
-
-  /**
    * Download file to the {@code path} with given metadata. Blocking await for the download to
    * complete.
    *
@@ -308,7 +308,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   public void downloadFile(Path path, FileArtifactValue metadata)
       throws IOException, InterruptedException {
-    getFromFuture(downloadFileAsync(path, metadata));
+    getFromFuture(toListenableFuture(downloadFileRx(path, metadata, Priority.CRITICAL)));
   }
 
   private void finalizeDownload(Path tmpPath, Path path) throws IOException {

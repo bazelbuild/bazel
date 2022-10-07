@@ -48,6 +48,7 @@ function test_shared_library_symbols() {
   check_symbol_absent "$symbols" "_Z3quxv"
   check_symbol_absent "$symbols" "_Z4bar3v"
   check_symbol_absent "$symbols" "_Z4bar4v"
+  check_symbol_absent "$symbols" "_Z18implementation_depv"
 }
 
 function test_shared_library_user_link_flags() {

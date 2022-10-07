@@ -339,10 +339,10 @@ public class Dict<K, V>
 
   // Common implementation of dict(pairs, **kwargs) and dict.update(pairs, **kwargs).
   static void update(
-      String funcname, Dict<Object, Object> dict, Object pairs, Dict<String, Object> kwargs)
+      String funcname, Dict<Object, Object> dict, Object pairs, Map<String, Object> kwargs)
       throws EvalException {
-    if (pairs instanceof Dict) { // common case
-      dict.putEntries((Dict<?, ?>) pairs);
+    if (pairs instanceof Map) { // common case
+      dict.putEntries((Map<?, ?>) pairs);
     } else {
       Iterable<?> iterable;
       try {

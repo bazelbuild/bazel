@@ -94,7 +94,6 @@ public final class RuleConfiguredTargetBuilder {
     this.ruleContext = ruleContext;
     // Avoid building validations in analysis tests (b/143988346)
     add(LicensesProvider.class, LicensesProviderImpl.of(ruleContext));
-    add(VisibilityProvider.class, new VisibilityProviderImpl(ruleContext.getVisibility()));
   }
 
   /**

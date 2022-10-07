@@ -792,6 +792,27 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBzlVisibilityViolationDemotedToWarningWhenBreakGlassFlagIsSet() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true",
+        "--experimental_bzl_visibility_allowlist=b",
+        "--check_bzl_visibility=false");
+
+    scratch.file(
+        "a/BUILD", //
+        "load(\"//b:foo.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/foo.bzl", //
+        "visibility(\"private\")",
+        "x = 1");
+
+    validPackageWithoutErrors(PackageValue.key(PackageIdentifier.createInMainRepo("a")));
+    assertContainsEvent("Starlark file //b:foo.bzl is not visible for loading from package //a.");
+    assertContainsEvent("Continuing because --nocheck_bzl_visibility is active");
+  }
+
+  @Test
   public void testVisibilityCallableNotAvailableInBUILD() throws Exception {
     setBuildLanguageOptions(
         "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=a");

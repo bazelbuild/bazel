@@ -75,7 +75,7 @@ public class WorkerMetricsCollector {
    */
   MemoryCollectionResult collectMemoryUsageByPid(OS os, ImmutableSet<Long> processIds) {
     // TODO(b/181317827): Support Windows.
-    if (os != OS.LINUX && os != OS.DARWIN) {
+    if (processIds.isEmpty() || (os != OS.LINUX && os != OS.DARWIN)) {
       return new MemoryCollectionResult(
           ImmutableMap.of(), Instant.ofEpochMilli(clock.currentTimeMillis()));
     }

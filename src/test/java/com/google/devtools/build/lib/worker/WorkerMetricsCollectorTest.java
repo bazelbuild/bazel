@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.worker;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -30,22 +32,15 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.time.Instant;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
 
 /** Unit tests for the WorkerSpawnRunner. */
 @RunWith(JUnit4.class)
 public class WorkerMetricsCollectorTest {
 
-  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   private final WorkerMetricsCollector spyCollector = spy(WorkerMetricsCollector.instance());
-  @Captor ArgumentCaptor<ImmutableSet<Long>> pidsCaptor;
   ManualClock clock = new ManualClock();
 
   @Before
@@ -212,8 +207,10 @@ public class WorkerMetricsCollectorTest {
     ImmutableList<WorkerMetric> expectedMetrics =
         ImmutableList.of(workerMetric1, workerMetric2, workerMetric3);
 
-    when(spyCollector.collectMemoryUsageByPid(any(), pidsCaptor.capture()))
-        .thenReturn(memoryCollectionResult);
+    doReturn(memoryCollectionResult)
+        .when(spyCollector)
+        .collectMemoryUsageByPid(any(), eq(expectedPids));
+
     clock.setTime(registrationTime.toEpochMilli());
 
     spyCollector.registerWorker(props1);
@@ -222,7 +219,6 @@ public class WorkerMetricsCollectorTest {
 
     ImmutableList<WorkerMetric> metrics = spyCollector.collectMetrics();
 
-    assertThat(pidsCaptor.getValue()).containsExactlyElementsIn(expectedPids);
     assertThat(metrics).containsExactlyElementsIn(expectedMetrics);
     assertThat(spyCollector.getWorkerIdToWorkerProperties()).isEqualTo(propsMap);
   }

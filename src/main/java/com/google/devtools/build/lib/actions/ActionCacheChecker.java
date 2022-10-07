@@ -220,12 +220,25 @@ public class ActionCacheChecker {
     if (handler != null) {
       if (cacheConfig.verboseExplanations()) {
         String keyDescription = action.describeKey();
+        String execPlatform =
+            action.getExecutionPlatform() == null
+                ? "<null>"
+                : action.getExecutionPlatform().toString();
+        String execProps = action.getExecProperties().toString();
         reportRebuild(
             handler,
             action,
             keyDescription == null
                 ? "action command has changed"
-                : "action command has changed.\nNew action: " + keyDescription);
+                : "action command has changed.\n"
+                    + "New action: "
+                    + keyDescription // keyDescription ends with newline already.
+                    + "    Platform: "
+                    + execPlatform
+                    + "\n"
+                    + "    Exec Properties: "
+                    + execProps
+                    + "\n");
       } else {
         reportRebuild(
             handler,

@@ -2974,33 +2974,48 @@ function test_external_cc_test_sibling_repository_layout() {
       @other_repo//test >& $TEST_log || fail "Test should pass"
 }
 
-function test_unresolved_symlink_input() {
+function do_test_unresolved_symlink() {
+  local -r strategy=$1
+  local -r link_target=$2
+
   mkdir -p symlink
   touch symlink/BUILD
-  cat > symlink/symlink.bzl <<EOF
-def _dangling_symlink_impl(ctx):
-    symlink = ctx.actions.declare_symlink(ctx.label.name)
-    ctx.actions.symlink(
-        output = symlink,
-        target_path = ctx.attr.link_target,
-    )
-    return DefaultInfo(files = depset([symlink]))
+  cat > symlink/symlink.bzl <<'EOF'
+def _unresolved_symlink_impl(ctx):
+  symlink = ctx.actions.declare_symlink(ctx.label.name)
 
-dangling_symlink = rule(
-    implementation = _dangling_symlink_impl,
-    attrs = {"link_target": attr.string()},
+  if ctx.attr.strategy == "internal":
+    ctx.actions.symlink(
+      output = symlink,
+      target_path = ctx.attr.link_target,
+    )
+  elif ctx.attr.strategy == "spawn":
+    ctx.actions.run_shell(
+      outputs = [symlink],
+      command = "ln -s $1 $2",
+      arguments = [ctx.attr.link_target, symlink.path],
+    )
+
+  return DefaultInfo(files = depset([symlink]))
+
+unresolved_symlink = rule(
+  implementation = _unresolved_symlink_impl,
+  attrs = {
+    "link_target": attr.string(mandatory = True),
+    "strategy": attr.string(values = ["internal", "spawn"], mandatory = True),
+  },
 )
 EOF
 
   mkdir -p pkg
-  cat > pkg/BUILD <<'EOF'
-load("//symlink:symlink.bzl", "dangling_symlink")
-dangling_symlink(name="a", link_target="non/existent")
+  cat > pkg/BUILD <<EOF
+load("//symlink:symlink.bzl", "unresolved_symlink")
+unresolved_symlink(name="a", link_target="$link_target", strategy="$strategy")
 genrule(
     name = "b",
     srcs = [":a"],
     outs = ["b.txt"],
-    cmd = "readlink $(location :a) > $@",
+    cmd = "readlink \$(location :a) > \$@",
 )
 EOF
 
@@ -3011,7 +3026,10 @@ EOF
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     //pkg:b &>$TEST_log || fail "expected build to succeed"
-  [[ $(cat bazel-bin/pkg/b.txt) == non/existent ]] || fail "expected symlink target to be non/existent"
+
+  if [[ "$(cat bazel-bin/pkg/b.txt)" != "$link_target" ]]; then
+    fail "expected symlink target to be $link_target"
+  fi
 
   bazel clean --expunge
   bazel \
@@ -3022,7 +3040,26 @@ EOF
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_merkle_tree_cache \
     //pkg:b &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
-  [[ $(cat bazel-bin/pkg/b.txt) == non/existent ]] || fail "expected symlink target to be non/existent"
+
+  if [[ "$(cat bazel-bin/pkg/b.txt)" != "$link_target" ]]; then
+    fail "expected symlink target to be $link_target"
+  fi
+}
+
+function test_unresolved_symlink_internal_relative() {
+  do_test_unresolved_symlink internal non/existent
+}
+
+function test_unresolved_symlink_internal_absolute() {
+  do_test_unresolved_symlink internal /non/existent
+}
+
+function test_unresolved_symlink_spawn_relative() {
+  do_test_unresolved_symlink spawn non/existent
+}
+
+function test_unresolved_symlink_spawn_absolute() {
+  do_test_unresolved_symlink spawn /non/existent
 }
 
 run_suite "Remote execution and remote cache tests"

@@ -190,4 +190,42 @@ EOF
       &> $TEST_log || fail "bazel run failed"
 }
 
+# When invoking a Python binary using the runfiles manifest, the stub
+# script's argv[0] will point to a location in the execroot; not the
+# runfiles directory of the caller. The stub script should still be
+# capable of finding its runfiles directory by considering RUNFILES_DIR
+# and RUNFILES_MANIFEST_FILE set by the caller.
+function test_python_through_bash_without_runfile_links() {
+  mkdir -p python_through_bash
+
+  cat > python_through_bash/BUILD << EOF
+py_binary(
+    name = "inner",
+    srcs = ["inner.py"],
+)
+
+sh_binary(
+    name = "outer",
+    srcs = ["outer.sh"],
+    data = [":inner"],
+)
+EOF
+
+  cat > python_through_bash/outer.sh << EOF
+#!/bin/bash
+# * Bazel run guarantees that our CWD is the runfiles directory itself, so a
+#   relative path will work.
+# * We can't use the usual shell runfiles library because it doesn't work in the
+#   Google environment nested within a generated shell test.
+find . -name inner$EXE_EXT | xargs env
+EOF
+  chmod +x python_through_bash/outer.sh
+
+  touch python_through_bash/inner.py
+
+  bazel run --nobuild_runfile_links //python_through_bash:outer \
+    &> $TEST_log || fail "bazel run failed"
+  expect_log "I am Python"
+}
+
 run_suite "Tests for the Python rules without Python execution"

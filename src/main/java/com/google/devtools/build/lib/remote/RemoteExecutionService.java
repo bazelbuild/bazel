@@ -742,14 +742,6 @@ public class RemoteExecutionService {
 
   private void createSymlinks(Iterable<SymlinkMetadata> symlinks) throws IOException {
     for (SymlinkMetadata symlink : symlinks) {
-      if (symlink.target().isAbsolute()) {
-        // We do not support absolute symlinks as outputs.
-        throw new IOException(
-            String.format(
-                "Action output %s is a symbolic link to an absolute path %s. "
-                    + "Symlinks to absolute paths in action outputs are not supported.",
-                symlink.path(), symlink.target()));
-      }
       Preconditions.checkNotNull(
               symlink.path().getParentDirectory(),
               "Failed creating directory and parents for %s",
@@ -1116,14 +1108,27 @@ public class RemoteExecutionService {
 
       List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
       for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-        symlinksInDirectories.addAll(entry.getValue().symlinks());
+        for (SymlinkMetadata symlink : entry.getValue().symlinks()) {
+          // Symlinks should not be allowed inside directories because their semantics are unclear:
+          // tree artifacts are defined as a collection of regular files, and resolving the symlinks
+          // locally is asking for trouble. Sadly, we did start permitting relative symlinks at some
+          // point, so we can only ban the absolute ones.
+          // See https://github.com/bazelbuild/bazel/issues/16361.
+          if (symlink.target().isAbsolute()) {
+            throw new IOException(
+                String.format(
+                    "Unsupported absolute symlink '%s' inside tree artifact '%s'",
+                    symlink.path(), entry.getKey()));
+          }
+          symlinksInDirectories.add(symlink);
+        }
       }
 
       Iterable<SymlinkMetadata> symlinks =
           Iterables.concat(metadata.symlinks(), symlinksInDirectories);
 
       // Create the symbolic links after all downloads are finished, because dangling symlinks
-      // might not be supported on all platforms
+      // might not be supported on all platforms.
       createSymlinks(symlinks);
     } else {
       // TODO(bazel-team): We should unify this if-block to rely on downloadOutputs above but, as of

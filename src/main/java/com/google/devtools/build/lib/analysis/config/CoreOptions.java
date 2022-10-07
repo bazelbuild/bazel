@@ -467,12 +467,13 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " '//package:target --options'.")
   public RunUnder runUnder;
 
+  // TODO(b/248763226): Consider moving this to a non-FragmentOptions.
   @Option(
       name = "check_visibility",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      help = "If disabled, visibility errors are demoted to warnings.")
+      help = "If disabled, visibility errors in target dependencies are demoted to warnings.")
   public boolean checkVisibility;
 
   @Option(

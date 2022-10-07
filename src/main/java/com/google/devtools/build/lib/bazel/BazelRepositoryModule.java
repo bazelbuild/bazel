@@ -138,6 +138,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
+  private List<String> allowedYankedVersions = ImmutableList.of();
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
 
   public BazelRepositoryModule() {
@@ -417,6 +418,7 @@ public class BazelRepositoryModule extends BlazeModule {
       ignoreDevDeps.set(repoOptions.ignoreDevDependency);
       checkDirectDepsMode = repoOptions.checkDirectDependencies;
       bazelCompatibilityMode = repoOptions.bazelCompatibilityMode;
+      allowedYankedVersions = repoOptions.allowedYankedVersions;
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
         registries = repoOptions.registries;
@@ -491,7 +493,9 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, checkDirectDepsMode),
         PrecomputedValue.injected(
-            BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, bazelCompatibilityMode));
+            BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, bazelCompatibilityMode),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, allowedYankedVersions));
   }
 
   @Override

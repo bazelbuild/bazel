@@ -366,6 +366,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                         BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
                         CheckDirectDepsMode.WARNING),
                     PrecomputedValue.injected(
+                        BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
+                    PrecomputedValue.injected(
                         BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
                         BazelCompatibilityMode.ERROR)))
             .setEnvironmentExtensions(getEnvironmentExtensions())
@@ -403,6 +405,9 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                 PrecomputedValue.injected(
                     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
                     CheckDirectDepsMode.WARNING))
+            .add(
+                PrecomputedValue.injected(
+                    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()))
             .add(
                 PrecomputedValue.injected(
                     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,

@@ -64,18 +64,17 @@ public interface DiffAwareness extends Closeable {
   /**
    * Returns the set of files of interest that have been modified between the given two views.
    *
-   * <p>The given views must have come from previous calls to {@link #getCurrentView} on the
-   * {@link DiffAwareness} instance (i.e. using a {@link View} from another instance is not
-   * supported).
+   * <p>The given views must have come from previous calls to {@link #getCurrentView} on the {@link
+   * DiffAwareness} instance (i.e. using a {@link View} from another instance is not supported).
    *
-   * @throws IncompatibleViewException if the given views are not compatible with this
-   *     {@link DiffAwareness} instance. This probably indicates a bug.
+   * @throws IncompatibleViewException if the given views are not compatible with this {@link
+   *     DiffAwareness} instance. This probably indicates a bug.
    * @throws BrokenDiffAwarenessException if something is wrong and the caller should discard this
    *     {@link DiffAwareness} instance. The {@link DiffAwareness} is expected to close itself in
    *     this case.
    */
   ModifiedFileSet getDiff(View oldView, View newView)
-      throws IncompatibleViewException, BrokenDiffAwarenessException;
+      throws IncompatibleViewException, InterruptedException, BrokenDiffAwarenessException;
 
   /** @return the name of this implementation */
   String name();

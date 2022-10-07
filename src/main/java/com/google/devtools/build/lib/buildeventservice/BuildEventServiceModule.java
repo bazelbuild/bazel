@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventservice;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
@@ -78,6 +80,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -237,7 +240,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       Uninterruptibles.getUninterruptibly(
           Futures.allAsList(waitingFutureMap.values()),
           getMaxWaitForPreviousInvocation().toMillis(),
-          TimeUnit.MILLISECONDS);
+          MILLISECONDS);
       long waitedMillis = stopwatch.elapsed().toMillis();
       if (waitedMillis > 100) {
         reporter.handle(
@@ -426,8 +429,18 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
         constructCloseFuturesMapWithTimeouts(streamer.getCloseFuturesMap());
     try {
       logger.atInfo().log("Closing pending build event transports");
-      Uninterruptibles.getUninterruptibly(Futures.allAsList(closeFuturesWithTimeoutsMap.values()));
-    } catch (ExecutionException e) {
+      ListenableFuture<List<Void>> besClosedFuture =
+          Futures.allAsList(closeFuturesWithTimeoutsMap.values());
+      if (reason == AbortReason.OUT_OF_MEMORY) {
+        // GC thrashing during severe OOMs may prevent future completion, so don't wait forever.
+        // We do want to wait in case this is a "benign" OOM - a brief high-water-mark - because
+        // then we can preserve that information in the BEP being uploaded to BES.
+        besClosedFuture.get(besOptions.besOomFinishUploadTimeout.toMillis(), MILLISECONDS);
+      } else {
+        Uninterruptibles.getUninterruptibly(besClosedFuture);
+      }
+    } catch (ExecutionException | TimeoutException | InterruptedException e) {
+      // TimeoutException and InterruptedException only thrown while crashing with OUT_OF_MEMORY.
       logger.atSevere().withCause(e).log("Failed to close a build event transport");
     } finally {
       cancelAndResetPendingUploads();
@@ -548,7 +561,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                 Futures.withTimeout(
                     enclosingFuture,
                     bepTransport.getTimeout().toMillis(),
-                    TimeUnit.MILLISECONDS,
+                    MILLISECONDS,
                     timeoutExecutor);
             timeoutFuture.addListener(timeoutExecutor::shutdown, MoreExecutors.directExecutor());
 

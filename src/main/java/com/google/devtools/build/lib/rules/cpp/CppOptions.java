@@ -1209,13 +1209,8 @@ public class CppOptions extends FragmentOptions {
 
     host.useStartEndLib = useStartEndLib;
     host.stripBinaries = StripMode.ALWAYS;
-    host.fdoOptimizeForBuild = fdoOptimizeForBuild;
-    host.fdoProfileLabel = fdoProfileLabel;
-    host.csFdoProfileLabel = csFdoProfileLabel;
-    host.xfdoProfileLabel = xfdoProfileLabel;
     host.inmemoryDotdFiles = inmemoryDotdFiles;
 
-    host.enableFdoProfileAbsolutePath = enableFdoProfileAbsolutePath;
     host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
     host.disableLegacyCcProvider = disableLegacyCcProvider;
     host.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;

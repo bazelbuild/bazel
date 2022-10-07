@@ -29,7 +29,7 @@ import java.util.function.Predicate;
  * Reports cycles between Actions and Artifacts. These indicates cycles within a rule.
  */
 public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
-  public static final Predicate<SkyKey> IS_ARTIFACT_OR_ACTION_SKY_KEY =
+  public static final Predicate<SkyKey> ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP =
       Predicates.or(
           SkyFunctions.isSkyFunction(Artifact.ARTIFACT),
           SkyFunctions.isSkyFunction(SkyFunctions.ARTIFACT_NESTED_SET),
@@ -97,8 +97,8 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
 
   @Override
   protected boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
-    return IS_ARTIFACT_OR_ACTION_SKY_KEY.test(topLevelKey)
-        && cycleInfo.getCycle().stream().allMatch(IS_ARTIFACT_OR_ACTION_SKY_KEY);
+    return ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP.test(topLevelKey)
+        && cycleInfo.getCycle().stream().allMatch(ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP);
   }
 
   @Override

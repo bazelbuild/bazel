@@ -49,13 +49,29 @@ public class RepositoryOptions extends OptionsBase {
       name = "registry",
       defaultValue = "null",
       allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
           "Specifies the registries to use to locate Bazel module dependencies. The order is"
               + " important: modules will be looked up in earlier registries first, and only fall"
               + " back to later registries when they're missing from the earlier ones.")
   public List<String> registries;
+
+  @Option(
+      name = "allow_yanked_versions",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Specified the module versions in the form of"
+              + " `<module1>@<version1>,<module2>@<version2>` that will be allowed in the resolved"
+              + " dependency graph even if they are declared yanked in the registry where they come"
+              + " from (if they are not coming from a NonRegistryOverride). Otherwise, yanked"
+              + " versions will cause the resolution to fail. You can also define allowed yanked"
+              + " version with the `BZLMOD_ALLOW_YANKED_VERSIONS` environment variable. You can"
+              + " disable this check by using the keyword 'all' (not recommended).")
+  public List<String> allowedYankedVersions;
 
   @Option(
       name = "experimental_repository_cache_hardlinks",
@@ -123,7 +139,7 @@ public class RepositoryOptions extends OptionsBase {
       defaultValue = "null",
       allowMultiple = true,
       converter = ModuleOverrideConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Overrides a module with a local directory.")
   public List<ModuleOverride> moduleOverrides;
@@ -190,7 +206,7 @@ public class RepositoryOptions extends OptionsBase {
   @Option(
       name = "ignore_dev_dependency",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "If true, Bazel ignores `bazel_dep` and `use_extension` declared as `dev_dependency` in "
@@ -203,7 +219,7 @@ public class RepositoryOptions extends OptionsBase {
       name = "check_direct_dependencies",
       defaultValue = "warning",
       converter = CheckDirectDepsMode.Converter.class,
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "Check if the direct `bazel_dep` dependencies declared in the root module are the same"

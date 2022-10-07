@@ -148,10 +148,6 @@ public final class FdoContext implements FdoContextApi<BranchFdoProfile> {
   }
 
   boolean hasArtifacts(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
-      // We don't want FDO for host configuration
-      return false;
-    }
     return getBranchFdoProfile() != null
         || getPrefetchHintsArtifact() != null
         || getPropellerOptimizeInputFile() != null;

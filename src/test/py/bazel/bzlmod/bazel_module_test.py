@@ -33,18 +33,24 @@ class BazelModuleTest(test_base.TestBase):
         .createCcModule('aaa', '1.1') \
         .createCcModule('bbb', '1.0', {'aaa': '1.0'}, {'aaa': 'com_foo_aaa'}) \
         .createCcModule('bbb', '1.1', {'aaa': '1.1'}) \
-        .createCcModule('ccc', '1.1', {'aaa': '1.1', 'bbb': '1.1'})
+        .createCcModule('ccc', '1.1', {'aaa': '1.1', 'bbb': '1.1'}) \
+        .createCcModule('ddd', '1.0', {'yanked1': '1.0', 'yanked2': '1.0'}) \
+        .createCcModule('eee', '1.0', {'yanked1': '1.0'}) \
+        .createCcModule('yanked1', '1.0') \
+        .createCcModule('yanked2', '1.0') \
+        .addMetadata('yanked1', yanked_versions={'1.0': 'dodgy'}) \
+        .addMetadata('yanked2', yanked_versions={'1.0': 'sketchy'})
     self.ScratchFile(
         '.bazelrc',
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'build --experimental_enable_bzlmod',
-            'build --registry=' + self.main_registry.getURL(),
+            'common --experimental_enable_bzlmod',
+            'common --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
-            'build --registry=https://bcr.bazel.build',
-            'build --verbose_failures',
+            'common --registry=https://bcr.bazel.build',
+            'common --verbose_failures',
         ])
     self.ScratchFile('WORKSPACE')
     # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
@@ -425,6 +431,106 @@ class BazelModuleTest(test_base.TestBase):
         'data_ext = module_extension(_data_ext_impl)',
     ])
     self.RunBazel(['build', '@no_op//:no_op'], allow_failure=False)
+
+  def testNonRegistryOverriddenModulesIgnoreYanked(self):
+    src_yanked1 = self.main_registry.projects.joinpath('yanked1', '1.0')
+    self.ScratchFile('MODULE.bazel', [
+        'bazel_dep(name = "yanked1", version = "1.0")', 'local_path_override(',
+        '  module_name = "yanked1",',
+        '  path = "%s",' % str(src_yanked1.resolve()).replace('\\', '/'), ')'
+    ])
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        '  deps = ["@yanked1//:lib_yanked1"],',
+        ')',
+    ])
+    self.RunBazel(['build', '--nobuild', '//:main'], allow_failure=False)
+
+  def testContainingYankedDepFails(self):
+    self.ScratchFile('MODULE.bazel', [
+        'bazel_dep(name = "yanked1", version = "1.0")',
+    ])
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        '  deps = ["@ddd//:lib_ddd"],',
+        ')',
+    ])
+    exit_code, _, stderr = self.RunBazel(['build', '--nobuild', '//:main'],
+                                         allow_failure=True)
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'Yanked version detected in your resolved dependency graph: ' +
+        'yanked1@1.0, for the reason: dodgy.', ''.join(stderr))
+
+  def testAllowedYankedDepsSuccessByFlag(self):
+    self.ScratchFile('MODULE.bazel', [
+        'bazel_dep(name = "ddd", version = "1.0")',
+    ])
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        '  deps = ["@ddd//:lib_ddd"],',
+        ')',
+    ])
+    self.RunBazel([
+        'build', '--nobuild', '--allow_yanked_versions=yanked1@1.0,yanked2@1.0',
+        '//:main'
+    ],
+                  allow_failure=False)
+
+  def testAllowedYankedDepsByEnvVar(self):
+    self.ScratchFile('MODULE.bazel', [
+        'bazel_dep(name = "ddd", version = "1.0")',
+    ])
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        '  deps = ["@ddd//:lib_ddd"],',
+        ')',
+    ])
+    self.RunBazel(
+        ['build', '--nobuild', '//:main'],
+        env_add={'BZLMOD_ALLOW_YANKED_VERSIONS': 'yanked1@1.0,yanked2@1.0'},
+        allow_failure=False)
+
+    # Test changing the env var, the build should fail again.
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '//:main'],
+        env_add={'BZLMOD_ALLOW_YANKED_VERSIONS': 'yanked2@1.0'},
+        allow_failure=True)
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'Yanked version detected in your resolved dependency graph: ' +
+        'yanked1@1.0, for the reason: dodgy.', ''.join(stderr))
+
+  def testAllowedYankedDepsSuccessMix(self):
+    self.ScratchFile('MODULE.bazel', [
+        'bazel_dep(name = "ddd", version = "1.0")',
+    ])
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        '  deps = ["@ddd//:lib_ddd"],',
+        ')',
+    ])
+    self.RunBazel([
+        'build', '--nobuild', '--allow_yanked_versions=yanked1@1.0', '//:main'
+    ],
+                  env_add={'BZLMOD_ALLOW_YANKED_VERSIONS': 'yanked2@1.0'},
+                  allow_failure=False)
+
 
 if __name__ == '__main__':
   unittest.main()

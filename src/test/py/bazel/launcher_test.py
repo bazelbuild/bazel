@@ -436,11 +436,14 @@ class LauncherTest(test_base.TestBase):
         '  srcs = ["Main.java"],',
         '  main_class = "Main",',
         '  jvm_flags = ["--flag1", "--flag2"],',
+        '  data = ["advice-1.jar", "advice-2.jar"],',
         ')',
     ])
+    self.ScratchFile('foo/advice-1.jar')
+    self.ScratchFile('foo/advice-2.jar')
     self.ScratchFile('foo/Main.java', [
         'public class Main {',
-        '  public static void main(String[] args) {'
+        '  public static void main(String[] args) {',
         '    System.out.println("helloworld");',
         '  }',
         '}',
@@ -490,12 +493,22 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('MyMain', stdout)
 
-    exit_code, stdout, stderr = self.RunProgram(
-        [binary, '--main_advice_classpath=foo/bar', print_cmd])
+    exit_code, stdout, stderr = self.RunProgram([
+        binary, '--main_advice_classpath=foo/advice-1.jar;foo/advice-2.jar',
+        print_cmd
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('-classpath', stdout)
     classpath = stdout[stdout.index('-classpath') + 1]
-    self.assertIn('foo/bar', classpath)
+    self.assertIn('foo/advice-1.jar', classpath)
+    self.assertIn('foo/advice-2.jar', classpath)
+
+    exit_code, stdout, stderr = self.RunProgram(
+        [binary, '--main_advice_classpath=C:\\foo\\bar', print_cmd])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('-classpath', stdout)
+    classpath = stdout[stdout.index('-classpath') + 1]
+    self.assertIn('C:\\foo\\bar', classpath)
 
     exit_code, stdout, stderr = self.RunProgram(
         [binary, '--jvm_flag="--some_path="./a b/c""', print_cmd])

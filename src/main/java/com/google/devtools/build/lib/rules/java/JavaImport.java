@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import java.util.LinkedHashSet;
@@ -59,6 +60,8 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     if (ruleContext.hasErrors()) {
       return null;
     }
+
+    checkJarsAttributeEmpty(ruleContext);
 
     if (exportError(ruleContext)) {
       ruleContext.ruleError(
@@ -207,6 +210,13 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     }
     return Allowlist.hasAllowlist(ruleContext, "java_import_exports")
         && !Allowlist.isAvailable(ruleContext, "java_import_exports");
+  }
+
+  private static void checkJarsAttributeEmpty(RuleContext ruleContext) {
+    if (ruleContext.getPrerequisites("jars").isEmpty()
+        && ruleContext.getFragment(JavaConfiguration.class).disallowJavaImportEmptyJars()) {
+      ruleContext.ruleError("empty java_import.jars is no longer supported");
+    }
   }
 
   private NestedSet<Artifact> collectTransitiveJavaSourceJars(

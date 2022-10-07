@@ -238,3 +238,32 @@ class BazelRegistry:
       module.set_patches(patches, patch_strip)
     self.addModule(module)
     return self
+
+  def addMetadata(self,
+                  name,
+                  homepage=None,
+                  maintainers=None,
+                  versions=None,
+                  yanked_versions=None):
+    """Generate a module metadata file and add it to the registry."""
+    if maintainers is None:
+      maintainers = []
+    if versions is None:
+      versions = []
+    if yanked_versions is None:
+      yanked_versions = {}
+
+    module_dir = self.root.joinpath('modules', name)
+    module_dir.mkdir(parents=True, exist_ok=True)
+
+    metadata = {
+        'homepage': homepage,
+        'maintainers': maintainers,
+        'versions': versions,
+        'yanked_versions': yanked_versions
+    }
+
+    with module_dir.joinpath('metadata.json').open('w') as f:
+      json.dump(metadata, f, indent=4, sort_keys=True)
+
+    return self

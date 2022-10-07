@@ -604,14 +604,23 @@ the same package as a target in the argument set.
 
 ```
 expr ::= some({{ '<var>' }}expr{{ '</var>' }})
+       | some({{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}count{{ '</var> '}})
 ```
 
-The `some({{ '<var>' }}x{{ '</var>' }})` operator selects one target
-arbitrarily from its argument set {{ '<var>' }}x{{ '</var>' }}, and evaluates to a
-singleton set containing only that target. For example, the
-expression `some(//foo:main union //bar:baz)`
-evaluates to a set containing either `//foo:main` or
-`//bar:baz`—though which one is not defined.
+The `some({{ '<var>' }}x{{ '</var>' }}, {{ '<var>' }}k{{ '</var>' }})` operator
+selects at most {{ '<var>' }}k{{ '</var>' }} targets arbitrarily from its
+argument set {{ '<var>' }}x{{ '</var>' }}, and evaluates to a set containing
+only those targets. Parameter {{ '<var>' }}k{{ '</var>' }} is optional; if
+missing, the result will be a singleton set containing only one target
+arbitrarily selected. If the size of argument set {{ '<var>' }}x{{ '</var>' }} is
+smaller than {{ '<var>' }}k{{ '</var>' }}, the whole argument set
+{{ '<var>' }}x{{ '</var>' }} will be returned.
+
+For example, the expression `some(//foo:main union //bar:baz)` evaluates to a
+singleton set containing either `//foo:main` or `//bar:baz`—though which
+one is not defined. The expression `some(//foo:main union //bar:baz, 2)` or
+`some(//foo:main union //bar:baz, 3)` returns both `//foo:main` and
+`//bar:baz`.
 
 If the argument is a singleton, then `some`
 computes the identity function: `some(//foo:main)` is

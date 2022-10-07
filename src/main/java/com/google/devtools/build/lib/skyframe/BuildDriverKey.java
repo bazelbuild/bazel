@@ -136,6 +136,14 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
     return String.format("ActionLookupKey: %s; TestType: %s", actionLookupKey, testType);
   }
 
+  @Override
+  public boolean valueIsShareable() {
+    // BuildDriverValue is just a wrapper value that signals that the building of a top level target
+    // was concluded. It's meant to be created anew each build, since BuildDriverFunction must be
+    // run every build.
+    return false;
+  }
+
   enum TestType {
     NOT_TEST,
     PARALLEL,

@@ -323,6 +323,7 @@ public class WorkspaceFileFunction implements SkyFunction {
               "WORKSPACE content",
               programLoads,
               keys.build(),
+              starlarkSemantics,
               bzlLoadFunctionForInlining);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);

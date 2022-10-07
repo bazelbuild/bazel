@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.BzlVisibility;
@@ -40,51 +41,58 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
 
   @Override
   public void visibility(Object value, StarlarkThread thread) throws EvalException {
-    // Manually check the experimental flag because enableOnlyWithFlag doesn't work for top-level
-    // builtins.
+    // Confirm .bzl visibility is enabled. We manually check the experimental flag here because
+    // StarlarkMethod.enableOnlyWithFlag doesn't work for top-level builtins.
     if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_BZL_VISIBILITY)) {
       throw Starlark.errorf("Use of `visibility()` requires --experimental_bzl_visibility");
     }
 
-    // Fail if we're not initializing a .bzl module, or if that .bzl module isn't on the
-    // experimental allowlist, or if visibility is already set.
+    // Fail if we're not initializing a .bzl module
     BzlInitThreadContext context = BzlInitThreadContext.fromOrFailFunction(thread, "visibility");
+    // Fail if we're not called from the top level. (We prohibit calling visibility() from within
+    // helper functions because it's more magical / less readable, and it makes it more difficult
+    // for static tooling to mechanically find and modify visibility() declarations.)
+    ImmutableList<StarlarkThread.CallStackEntry> callStack = thread.getCallStack();
+    if (!(callStack.size() == 2
+        && callStack.get(0).name.equals("<toplevel>")
+        && callStack.get(1).name.equals("visibility"))) {
+      throw Starlark.errorf(
+          ".bzl visibility may only be set at the top level, not inside a function");
+    }
+
+    // Fail if the .bzl module isn't on the experimental allowlist.
     PackageIdentifier pkgId = context.getBzlFile().getPackageIdentifier();
     List<String> allowlist =
         thread.getSemantics().get(BuildLanguageOptions.EXPERIMENTAL_BZL_VISIBILITY_ALLOWLIST);
     checkVisibilityAllowlist(pkgId, allowlist);
+
+    // Fail if the module's visibility is already set.
     if (context.getBzlVisibility() != null) {
       throw Starlark.errorf(".bzl visibility may not be set more than once");
     }
 
-    BzlVisibility bzlVisibility = null;
-    // `visibility("public")` and `visibility("private")`
+    RepositoryName repo = context.getBzlFile().getRepository();
+    ImmutableList<PackageSpecification> specs;
     if (value instanceof String) {
-      if (value.equals("public")) {
-        bzlVisibility = BzlVisibility.PUBLIC;
-      } else if (value.equals("private")) {
-        bzlVisibility = BzlVisibility.PRIVATE;
-      }
-      // `visibility(["//pkg1", "//pkg2", ...])`
+      // `visibility("public")`, `visibility("private")`, visibility("//pkg")
+      specs =
+          ImmutableList.of(PackageSpecification.fromStringForBzlVisibility(repo, (String) value));
     } else if (value instanceof StarlarkList) {
+      // `visibility(["//pkg1", "//pkg2", ...])`
       List<String> specStrings = Sequence.cast(value, String.class, "visibility list");
-      ImmutableList.Builder<PackageSpecification> specs =
+      ImmutableList.Builder<PackageSpecification> specsBuilder =
           ImmutableList.builderWithExpectedSize(specStrings.size());
       for (String specString : specStrings) {
         PackageSpecification spec =
-            PackageSpecification.fromStringForBzlVisibility(
-                context.getBzlFile().getRepository(), specString);
-        specs.add(spec);
+            PackageSpecification.fromStringForBzlVisibility(repo, specString);
+        specsBuilder.add(spec);
       }
-      bzlVisibility = new BzlVisibility.PackageListBzlVisibility(specs.build());
-    }
-    if (bzlVisibility == null) {
+      specs = specsBuilder.build();
+    } else {
       throw Starlark.errorf(
-          "Invalid bzl-visibility: got '%s', want \"public\", \"private\", or list of package"
-              + " specification strings",
-          Starlark.type(value));
+          "Invalid bzl-visibility: got '%s', want string or list of strings", Starlark.type(value));
     }
-    context.setBzlVisibility(bzlVisibility);
+    context.setBzlVisibility(BzlVisibility.of(specs));
   }
 
   private void checkVisibilityAllowlist(PackageIdentifier pkgId, List<String> allowlist)

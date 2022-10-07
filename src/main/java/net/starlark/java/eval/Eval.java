@@ -458,13 +458,13 @@ final class Eval {
       StarlarkList<?> list = (StarlarkList) x;
       list.extend(y);
       return list;
-    } else if (op == TokenKind.PIPE && x instanceof Dict && y instanceof Dict) {
-      // dict |= dict merges the contents of the second dict into the first.
+    } else if (op == TokenKind.PIPE && x instanceof Dict && y instanceof Map) {
+      // dict |= map merges the contents of the second operand (usually a dict) into the first.
       @SuppressWarnings("unchecked")
       Dict<Object, Object> xDict = (Dict<Object, Object>) x;
       @SuppressWarnings("unchecked")
-      Dict<Object, Object> yDict = (Dict<Object, Object>) y;
-      xDict.putEntries(yDict);
+      Map<Object, Object> yMap = (Map<Object, Object>) y;
+      xDict.putEntries(yMap);
       return xDict;
     }
     return EvalUtils.binaryOp(op, x, y, fr.thread);
@@ -657,11 +657,13 @@ final class Eval {
     // f(**kwargs)
     if (starstar != null) {
       Object value = eval(fr, starstar.getValue());
-      if (!(value instanceof Dict)) {
+      // Unlike *args, we don't have a Starlark-specific mapping interface to check for in **kwargs,
+      // so check for Java's Map instead.
+      if (!(value instanceof Map)) {
         fr.setErrorLocation(starstar.getStartLocation());
         throw Starlark.errorf("argument after ** must be a dict, not %s", Starlark.type(value));
       }
-      Dict<?, ?> kwargs = (Dict<?, ?>) value;
+      Map<?, ?> kwargs = (Map<?, ?>) value;
       int j = named.length;
       named = Arrays.copyOf(named, j + 2 * kwargs.size());
       for (Map.Entry<?, ?> e : kwargs.entrySet()) {

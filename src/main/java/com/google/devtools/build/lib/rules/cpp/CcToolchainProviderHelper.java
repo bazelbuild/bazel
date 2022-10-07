@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -61,20 +63,25 @@ public final class CcToolchainProviderHelper {
   private static final String PACKAGE_START = "%package(";
   private static final String PACKAGE_END = ")%";
 
-  private static final ImmutableList<CppConfiguration.Tool> NEEDED_TOOLS =
-      EnumSet.allOf(CppConfiguration.Tool.class).stream()
-          // TODO(hlopko): check dwp tool in analysis when per_object_debug_info is enabled.
-          .filter(tool -> tool != CppConfiguration.Tool.DWP)
+  private static final ImmutableSet<CppConfiguration.Tool> TOOL_PATH_ONLY_TOOLS =
+      ImmutableSet.of(
+          CppConfiguration.Tool.GCOVTOOL,
+          CppConfiguration.Tool.GCOV,
           // TODO(tmsriram): Fix this to check if this is a llvm crosstool
           // and return true.  This needs changes to crosstool_config.proto.
-          .filter(tool -> tool != CppConfiguration.Tool.LLVM_PROFDATA && tool != Tool.LLVM_COV)
-          // gcov-tool and objcopy are optional, don't check whether they're present
-          .filter(
-              tool ->
-                  tool != CppConfiguration.Tool.GCOVTOOL
-                      && tool != CppConfiguration.Tool.GCOV
-                      && tool != CppConfiguration.Tool.OBJCOPY)
-          .collect(toImmutableList());
+          CppConfiguration.Tool.LLVM_PROFDATA,
+          Tool.LLVM_COV);
+
+  private static final ImmutableSet<CppConfiguration.Tool> OPTIONAL_TOOLS =
+      ImmutableSet.of(
+          // TODO(hlopko): check dwp tool in analysis when per_object_debug_info is enabled.
+          CppConfiguration.Tool.DWP, CppConfiguration.Tool.OBJCOPY);
+
+  private static final ImmutableSet<CppConfiguration.Tool> REQUIRED_TOOLS =
+      EnumSet.allOf(CppConfiguration.Tool.class).stream()
+          .filter(Predicates.not(TOOL_PATH_ONLY_TOOLS::contains))
+          .filter(Predicates.not(OPTIONAL_TOOLS::contains))
+          .collect(toImmutableSet());
 
   @Nullable
   public static CcToolchainProvider getCcToolchainProvider(
@@ -405,17 +412,25 @@ public final class CcToolchainProviderHelper {
     if (toolPathsCollector.isEmpty()) {
       // If no paths are specified, then actions are most likely being used, so we just fill the
       // collector with the names of required tools so legacy checks pass.
-      for (CppConfiguration.Tool tool : NEEDED_TOOLS) {
+      for (CppConfiguration.Tool tool : REQUIRED_TOOLS) {
+        toolPathsCollector.put(
+            tool.getNamePart(), crosstoolTopPathFragment.getRelative(tool.getNamePart()));
+      }
+
+      // These tools can only be declared using tool paths. So action-only toolchains do not have to
+      // declare them, we fill them here for similar reasons as above.
+      for (CppConfiguration.Tool tool : TOOL_PATH_ONLY_TOOLS) {
         toolPathsCollector.put(
             tool.getNamePart(), crosstoolTopPathFragment.getRelative(tool.getNamePart()));
       }
     } else {
-      for (CppConfiguration.Tool tool : NEEDED_TOOLS) {
+      for (CppConfiguration.Tool tool : REQUIRED_TOOLS) {
         if (!toolPathsCollector.containsKey(tool.getNamePart())) {
           throw Starlark.errorf("Tool path for '%s' is missing", tool.getNamePart());
         }
       }
     }
+
     return ImmutableMap.copyOf(toolPathsCollector);
   }
 

@@ -39,6 +39,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Files;
+import java.util.Optional;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -234,5 +235,37 @@ public class IndexRegistryTest extends FoundationTestCase {
         () ->
             registry.getRepoSpec(
                 createModuleKey("foo", "1.0"), RepositoryName.create("foorepo"), reporter));
+  }
+
+  @Test
+  public void testGetYankedVersion() throws Exception {
+    server.serve(
+        "/modules/red-pill/metadata.json",
+        "{\n"
+            + "    'homepage': 'https://docs.matrix.org/red-pill',\n"
+            + "    'maintainers': [\n"
+            + "        {\n"
+            + "            'email': 'neo@matrix.org',\n"
+            + "            'github': 'neo',\n"
+            + "            'name': 'Neo'\n"
+            + "        }\n"
+            + "    ],\n"
+            + "    'versions': [\n"
+            + "        '1.0',\n"
+            + "        '2.0'\n"
+            + "    ],\n"
+            + "    'yanked_versions': {"
+            + "        '1.0': 'red-pill 1.0 is yanked due to CVE-2000-101, please upgrade to 2.0'\n"
+            + "    }\n"
+            + "}");
+    server.start();
+    Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
+    Optional<ImmutableMap<Version, String>> yankedVersion =
+        registry.getYankedVersions("red-pill", reporter);
+    assertThat(yankedVersion)
+        .hasValue(
+            ImmutableMap.of(
+                Version.parse("1.0"),
+                "red-pill 1.0 is yanked due to CVE-2000-101, please upgrade to 2.0"));
   }
 }

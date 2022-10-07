@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.rules.java.JavaStarlarkCommon.checkPrivateAccess;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Ascii;
 import com.google.common.base.Optional;
@@ -30,6 +32,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaConfigurationApi;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /** A java compiler configuration containing the flags required for compilation. */
 @Immutable
@@ -108,6 +112,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean requireJavaPluginInfo;
   private final boolean multiReleaseDeployJars;
   private final boolean disallowJavaImportExports;
+  private final boolean disallowJavaImportEmptyJars;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
@@ -150,6 +155,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.requireJavaPluginInfo = javaOptions.requireJavaPluginInfo;
     this.multiReleaseDeployJars = javaOptions.multiReleaseDeployJars;
     this.disallowJavaImportExports = javaOptions.disallowJavaImportExports;
+    this.disallowJavaImportEmptyJars = javaOptions.disallowJavaImportEmptyJars;
 
     Map<String, Label> optimizers = javaOptions.bytecodeOptimizers;
     if (optimizers.size() > 1) {
@@ -383,6 +389,19 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean disallowJavaImportExports() {
     return disallowJavaImportExports;
+  }
+
+  /** Returns true if empty java_import jars are not allowed. */
+  public boolean disallowJavaImportEmptyJars() {
+    return disallowJavaImportEmptyJars;
+  }
+
+  /** Returns true if empty java_import jars are not allowed. */
+  @Override
+  public boolean getDisallowJavaImportEmptyJarsInStarlark(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    return disallowJavaImportEmptyJars;
   }
 
   @Override

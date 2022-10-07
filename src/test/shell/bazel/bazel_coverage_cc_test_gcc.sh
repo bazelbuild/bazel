@@ -875,6 +875,32 @@ EOF
   assert_contains 'name: "test.lcov"' bep.txt
 }
 
+function test_coverage_with_experimental_split_coverage_postprocessing_only() {
+  local -r LCOV=$(which lcov)
+  if [[ ! -x ${LCOV:-/usr/bin/lcov} ]]; then
+    echo "lcov not installed. Skipping test."
+    return
+  fi
+
+  cat << EOF > BUILD
+cc_test(
+  name = "hello-test",
+  srcs = ["hello-test.cc"],
+)
+EOF
+
+
+  cat << EOF > hello-test.cc
+int main() {
+  return 0;
+}
+EOF
+  bazel coverage --test_output=all --experimental_split_coverage_postprocessing //:hello-test \
+                &>$TEST_log && fail "Expected test failure" || :
+
+  assert_contains '--experimental_split_coverage_postprocessing depends on --experimental_fetch_all_coverage_outputs being enabled' $TEST_log
+}
+
 function test_coverage_doesnt_fail_on_empty_output() {
     if is_gcov_missing_or_wrong_version; then
         echo "Skipping test." && return
