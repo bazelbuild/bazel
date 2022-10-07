@@ -1629,6 +1629,104 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//a:binary")).isNotNull();
     assertNoEvents();
   }
+
+  @Test
+  public void defaultPublicVisibility_aliasVisibilityIgnored_aliasVisibilityIsDefault()
+      throws Exception {
+    // Production builds default to private visibility, but BuildViewTestCase defaults to public.
+    setPackageOptions(
+        "--default_visibility=private",
+        "--incompatible_enforce_config_setting_visibility=true",
+        "--incompatible_config_setting_private_default_visibility=false");
+    scratch.file(
+        "c/BUILD",
+        "alias(",
+        "    name = 'foo_alias',",
+        "    actual = ':foo')",
+        "config_setting(",
+        "    name = 'foo',",
+        "    define_values = { 'foo': '1' },",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "rule_with_boolean_attr(",
+        "    name = 'binary',",
+        "    boolean_attr= select({",
+        "        '//c:foo_alias': 0,",
+        "        '//conditions:default': 1",
+        "    }))");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//a:binary")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void defaultPublicVisibility_aliasVisibilityIgnored_aliasVisibilityIsExplicit()
+      throws Exception {
+    // Production builds default to private visibility, but BuildViewTestCase defaults to public.
+    setPackageOptions(
+        "--default_visibility=private",
+        "--incompatible_enforce_config_setting_visibility=true",
+        "--incompatible_config_setting_private_default_visibility=false");
+    scratch.file(
+        "c/BUILD",
+        "alias(",
+        "    name = 'foo_alias',",
+        "    actual = ':foo',",
+        // Current flag combo skips this and directly checks the config_setting's visibility.
+        "    visibility = ['//visibility:private']",
+        ")",
+        "config_setting(",
+        "    name = 'foo',",
+        "    define_values = { 'foo': '1' },",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "rule_with_boolean_attr(",
+        "    name = 'binary',",
+        "    boolean_attr= select({",
+        "        '//c:foo_alias': 0,",
+        "        '//conditions:default': 1",
+        "    }))");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//a:binary")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void defaultPublicVisibility_aliasVisibilityIgnored_configSettingVisibilityIsExplicit()
+      throws Exception {
+    // Production builds default to private visibility, but BuildViewTestCase defaults to public.
+    setPackageOptions(
+        "--default_visibility=private",
+        "--incompatible_enforce_config_setting_visibility=true",
+        "--incompatible_config_setting_private_default_visibility=false");
+    scratch.file(
+        "c/BUILD",
+        "alias(",
+        "    name = 'foo_alias',",
+        "    actual = ':foo',",
+        // Current flag combo skips this and directly checks the config_setting's visibility.
+        "    visibility = ['//visibility:public']",
+        ")",
+        "config_setting(",
+        "    name = 'foo',",
+        "    define_values = { 'foo': '1' },",
+        "    visibility = ['//visibility:private']",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "rule_with_boolean_attr(",
+        "    name = 'binary',",
+        "    boolean_attr= select({",
+        "        '//c:foo_alias': 0,",
+        "        '//conditions:default': 1",
+        "    }))");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//a:binary")).isNull();
+    assertContainsEvent("'//c:foo' is not visible from target '//a:binary'");
+  }
+
   @Test
   public void defaultVisibilityConfigSetting_defaultIsPrivate() throws Exception {
     // Production builds default to private visibility, but BuildViewTestCase defaults to public.

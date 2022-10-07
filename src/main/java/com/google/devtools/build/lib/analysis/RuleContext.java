@@ -1728,11 +1728,36 @@ public final class RuleContext extends TargetContext
       // --config_setting_visibility_policy. This should be removed as soon as it's deemed safe
       // to unconditionally check visibility. See
       // https://github.com/bazelbuild/bazel/issues/12669.
-      if (target.getPackage().getConfigSettingVisibilityPolicy()
-          != ConfigSettingVisibilityPolicy.LEGACY_OFF) {
+      ConfigSettingVisibilityPolicy configSettingVisibilityPolicy =
+          target.getPackage().getConfigSettingVisibilityPolicy();
+      if (configSettingVisibilityPolicy != ConfigSettingVisibilityPolicy.LEGACY_OFF) {
         Attribute configSettingAttr = attributes.getAttributeDefinition("$config_dependencies");
         for (ConfiguredTargetAndData condition : configConditions.asConfiguredTargets().values()) {
-          validateDirectPrerequisite(configSettingAttr, condition);
+          validateDirectPrerequisite(
+              configSettingAttr,
+              // Another nuance: when both --incompatible_enforce_config_setting_visibility and
+              // --incompatible_config_setting_private_default_visibility are disabled, both of
+              // these are ignored:
+              //
+              //  - visibility settings on a select() -> config_setting dep
+              //  - visibility settings on a select() -> alias -> config_setting dep chain
+              //
+              // In that scenario, both are ignored because the logic here that checks the
+              // select() -> ??? edge is completely skipped.
+              //
+              // When just --incompatible_enforce_config_setting_visibility is on, that means
+              // "enforce config_setting visibility with public default". That's a temporary state
+              // to support depot migration. In that case, we continue to ignore the alias'
+              // visibility in preference for the config_setting. So skip select() -> alias as
+              // before, but now enforce select() -> config_setting_the_alias_refers_to.
+              //
+              // When we also turn on --incompatible_config_setting_private_default_visibility, we
+              // expect full standard visibility compliance. In that case we directly evaluate the
+              // alias visibility, as is usual semantics. So two the following two edges are
+              // checked: 1: select() -> alias and 2: alias -> config_setting.
+              configSettingVisibilityPolicy == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC
+                  ? condition.fromConfiguredTarget(condition.getConfiguredTarget().getActual())
+                  : condition);
         }
       }
 
