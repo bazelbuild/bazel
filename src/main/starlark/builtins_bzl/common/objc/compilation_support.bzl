@@ -51,6 +51,8 @@ def _build_variable_extensions(
         import_paths = []
         for import_lib in objc_provider.imported_library.to_list():
             import_paths.append(import_lib.path)
+        for static_framework_file in objc_provider.static_framework_file.to_list():
+            import_paths.append(static_framework_file.path)
 
         extensions["objc_library_exec_paths"] = exclusively_objc_libs
         extensions["cc_library_exec_paths"] = cc_libs.keys()
@@ -603,6 +605,7 @@ def _register_fully_link_action(common_variables, objc_provider, name):
     linker_inputs.extend(objc_provider.flattened_objc_libraries())
     linker_inputs.extend(objc_provider.flattened_cc_libraries())
     linker_inputs.extend(objc_provider.imported_library.to_list())
+    linker_inputs.extend(objc_provider.static_framework_file.to_list())
 
     return cc_common.link(
         name = name,
