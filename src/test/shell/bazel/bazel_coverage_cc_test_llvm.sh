@@ -109,17 +109,22 @@ function test_cc_test_llvm_coverage_doesnt_fail() {
 }
 
 function test_cc_test_llvm_coverage_produces_lcov_report() {
-  local -r llvm_profdata="/usr/bin/llvm-profdata-9"
+  local -r clang="/usr/bin/clang"
+  if [[ ! -x ${clang} ]]; then
+    return
+  fi
+  local -r clang_version=$(clang --version | grep -o "clang version [0-9]*" | cut -d " " -f 3)
+  if [ "$clang_version" -lt 9 ] || [ "$clang_version" -eq 10 ] || [ "$clang_version" -eq 11 ]; then
+    # No lcov produced with <9.0, no branch coverage with 10.0 and 11.0.
+    echo "clang versions <9.0 as well as 10.0 and 11.0 are not supported." && return
+  fi
+
+  local -r llvm_profdata="/usr/bin/llvm-profdata"
   if [[ ! -x ${llvm_profdata} ]]; then
     return
   fi
 
-  local -r clang="/usr/bin/clang-9"
-  if [[ ! -x ${clang} ]]; then
-    return
-  fi
-
-  local -r llvm_cov="/usr/bin/llvm-cov-9"
+  local -r llvm_cov="/usr/bin/llvm-cov"
   if [[ ! -x ${llvm_cov} ]]; then
     return
   fi
@@ -150,17 +155,22 @@ end_of_record"
 }
 
 function test_cc_test_with_runtime_objects_not_in_runfiles() {
-  local -r llvm_profdata="/usr/bin/llvm-profdata-9"
+  local -r clang="/usr/bin/clang"
+  if [[ ! -x ${clang} ]]; then
+    return
+  fi
+  local -r clang_version=$(clang --version | grep -o "clang version [0-9]*" | cut -d " " -f 3)
+  if [ "$clang_version" -lt 9 ] || [ "$clang_version" -eq 10 ] || [ "$clang_version" -eq 11 ]; then
+    # No lcov produced with <9.0, no branch coverage with 10.0 and 11.0.
+    echo "clang versions <9.0 as well as 10.0 and 11.0 are not supported." && return
+  fi
+
+  local -r llvm_profdata="/usr/bin/llvm-profdata"
   if [[ ! -x ${llvm_profdata} ]]; then
     return
   fi
 
-  local -r clang="/usr/bin/clang-9"
-  if [[ ! -x ${clang} ]]; then
-    return
-  fi
-
-  local -r llvm_cov="/usr/bin/llvm-cov-9"
+  local -r llvm_cov="/usr/bin/llvm-cov"
   if [[ ! -x ${llvm_cov} ]]; then
     return
   fi
@@ -296,17 +306,22 @@ EOF
 }
 
 function test_external_cc_target_can_collect_coverage() {
-  local -r llvm_profdata="/usr/bin/llvm-profdata-9"
+  local -r clang="/usr/bin/clang"
+  if [[ ! -x ${clang} ]]; then
+    return
+  fi
+  local -r clang_version=$(clang --version | grep -o "clang version [0-9]*" | cut -d " " -f 3)
+  if [ "$clang_version" -lt 9 ] || [ "$clang_version" -eq 10 ] || [ "$clang_version" -eq 11 ]; then
+    # No lcov produced with <9.0, no branch coverage with 10.0 and 11.0.
+    echo "clang versions <9.0 as well as 10.0 and 11.0 are not supported." && return
+  fi
+
+  local -r llvm_profdata="/usr/bin/llvm-profdata"
   if [[ ! -x ${llvm_profdata} ]]; then
     return
   fi
 
-  local -r clang="/usr/bin/clang-9"
-  if [[ ! -x ${clang} ]]; then
-    return
-  fi
-
-  local -r llvm_cov="/usr/bin/llvm-cov-9"
+  local -r llvm_cov="/usr/bin/llvm-cov"
   if [[ ! -x ${llvm_cov} ]]; then
     return
   fi
@@ -362,17 +377,22 @@ end_of_record'
 }
 
 function test_external_cc_target_coverage_not_collected_by_default() {
-  local -r llvm_profdata="/usr/bin/llvm-profdata-9"
+  local -r clang="/usr/bin/clang"
+  if [[ ! -x ${clang} ]]; then
+    return
+  fi
+  local -r clang_version=$(clang --version | grep -o "clang version [0-9]*" | cut -d " " -f 3)
+  if [ "$clang_version" -lt 9 ] || [ "$clang_version" -eq 10 ] || [ "$clang_version" -eq 11 ]; then
+    # No lcov produced with <9.0, no branch coverage with 10.0 and 11.0.
+    echo "clang versions <9.0 as well as 10.0 and 11.0 are not supported." && return
+  fi
+
+  local -r llvm_profdata="/usr/bin/llvm-profdata"
   if [[ ! -x ${llvm_profdata} ]]; then
     return
   fi
 
-  local -r clang="/usr/bin/clang-9"
-  if [[ ! -x ${clang} ]]; then
-    return
-  fi
-
-  local -r llvm_cov="/usr/bin/llvm-cov-9"
+  local -r llvm_cov="/usr/bin/llvm-cov"
   if [[ ! -x ${llvm_cov} ]]; then
     return
   fi
