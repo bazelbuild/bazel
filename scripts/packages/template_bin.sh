@@ -18,7 +18,7 @@ set -e
 
 # Bazel self-extractable installer
 
-# Installation and etc prefix can be overriden from command line
+# Installation and etc prefix can be overridden from command line
 install_prefix=${1:-"/usr/local"}
 
 progname="$0"

@@ -69,7 +69,7 @@ def _get_value(it):
         return "\"%s\"" % it
 
 def _find_tool(repository_ctx, tool, overriden_tools):
-    """Find a tool for repository, taking overriden tools into account."""
+    """Find a tool for repository, taking overridden tools into account."""
     if tool in overriden_tools:
         return overriden_tools[tool]
     return which(repository_ctx, tool, "/usr/bin/" + tool)
@@ -297,7 +297,7 @@ def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False,
             result = env_value
             env_value_with_paren = " (%s)" % env_value
     if result.startswith("/"):
-        # Absolute path, maybe we should make this suported by our which function.
+        # Absolute path, maybe we should make this supported by our which function.
         return result
     result = repository_ctx.which(result)
     if result == None:
