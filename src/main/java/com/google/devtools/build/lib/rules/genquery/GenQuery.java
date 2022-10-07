@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
@@ -75,7 +76,6 @@ import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
-import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
 import com.google.devtools.build.lib.query2.query.output.StreamedFormatter;
 import com.google.devtools.build.lib.rules.genquery.GenQueryOutputStream.GenQueryResult;

@@ -26,13 +26,6 @@ import java.util.Set;
 /** Command-line options for the Blaze query language, revision 2. */
 public class QueryOptions extends CommonQueryOptions {
 
-  /** An enum converter for {@code OrderOutput} . Should be used internally only. */
-  public static class OrderOutputConverter extends EnumConverter<OrderOutput> {
-    public OrderOutputConverter() {
-      super(OrderOutput.class, "Order output setting");
-    }
-  }
-
   @Option(
       name = "output",
       defaultValue = "label",
@@ -80,40 +73,6 @@ public class QueryOptions extends CommonQueryOptions {
             + "maxrank, or graph."
   )
   public Void noOrderResults;
-
-  /** Whether and how output should be ordered. */
-  public enum OrderOutput {
-    /** Make no effort to order output besides that required by output formatter. */
-    NO,
-
-    /** Output in dependency order when compatible with output formatter. */
-    DEPS,
-
-    /** Same as full unless formatter is proto, minrank, maxrank, or graph, then deps. */
-    AUTO,
-
-    /** Output in dependency order, breaking ties with alphabetical order when needed. */
-    FULL
-  }
-
-  @Option(
-      name = "order_output",
-      converter = OrderOutputConverter.class,
-      defaultValue = "auto",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help =
-          "Output the results unordered (no), dependency-ordered (deps), or fully ordered (full)."
-              + " The default is 'auto', meaning that results are output either dependency-ordered"
-              + " or fully ordered, depending on the output formatter (dependency-ordered for"
-              + " proto, minrank, maxrank, and graph, fully ordered for all others). When output"
-              + " is fully ordered, nodes are printed in a fully deterministic (total) order."
-              + " First, all nodes are sorted alphabetically. Then, each node in the list is used"
-              + " as the start of a post-order depth-first search in which outgoing edges to"
-              + " unvisited nodes are traversed in alphabetical order of the successor nodes."
-              + " Finally, nodes are printed in the reverse of the order in which they were"
-              + " visited.")
-  public OrderOutput orderOutput;
 
   @Option(
       name = "incompatible_lexicographical_output",

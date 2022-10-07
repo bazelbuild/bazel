@@ -18,10 +18,10 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.FormatUtils.TargetOrdering;
 import com.google.devtools.build.lib.query2.query.output.GraphOutputWriter.NodeReader;
-import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
 import java.io.OutputStream;
 import java.util.Comparator;
 
