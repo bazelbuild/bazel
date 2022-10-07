@@ -557,7 +557,8 @@ public final class SkyframeErrorProcessor {
     DetailedExitCode executionDetailedExitCode;
     executionDetailedExitCode = DetailedException.getDetailedExitCode(cause);
     if (executionDetailedExitCode == null) {
-      executionDetailedExitCode = createDetailedExitCodeForUndetailedExecutionCause(result, cause);
+      executionDetailedExitCode =
+          createDetailedExitCodeForUndetailedExecutionCauseKeepGoing(result, cause);
     }
     return executionDetailedExitCode;
   }
@@ -783,7 +784,7 @@ public final class SkyframeErrorProcessor {
         rethrow(result.getCatastrophe(), bugReporter, result);
       }
       if (keepGoing) {
-        return getDetailedExitCode(result);
+        return getDetailedExitCodeKeepGoing(result);
       }
       ErrorInfo errorInfo = Preconditions.checkNotNull(result.getError(), result);
       Exception exception = errorInfo.getException();
@@ -802,7 +803,7 @@ public final class SkyframeErrorProcessor {
     return null;
   }
 
-  private static DetailedExitCode getDetailedExitCode(EvaluationResult<?> result) {
+  private static DetailedExitCode getDetailedExitCodeKeepGoing(EvaluationResult<?> result) {
     // If build fails and keepGoing is true, an exit code is assigned using reported errors
     // in the following order:
     //   1. First infrastructure error with non-null exit code
@@ -834,7 +835,7 @@ public final class SkyframeErrorProcessor {
     if (detailedExitCode != null) {
       return detailedExitCode;
     }
-    return createDetailedExitCodeForUndetailedExecutionCause(result, undetailedCause);
+    return createDetailedExitCodeForUndetailedExecutionCauseKeepGoing(result, undetailedCause);
   }
 
   /**
@@ -895,7 +896,7 @@ public final class SkyframeErrorProcessor {
         message, createDetailedExecutionExitCode(message, UNKNOWN_EXECUTION));
   }
 
-  private static DetailedExitCode createDetailedExitCodeForUndetailedExecutionCause(
+  private static DetailedExitCode createDetailedExitCodeForUndetailedExecutionCauseKeepGoing(
       EvaluationResult<?> result, Throwable undetailedCause) {
     if (undetailedCause == null) {
       BugReport.sendBugReport("No exceptions found despite error in %s", result);
