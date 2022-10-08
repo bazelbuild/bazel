@@ -17,15 +17,18 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.RunEnvironmentInfoApi;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 
 /**
@@ -40,16 +43,19 @@ public final class RunEnvironmentInfo extends NativeInfo implements RunEnvironme
 
   private final ImmutableMap<String, String> environment;
   private final ImmutableList<String> inheritedEnvironment;
+  @Nullable private final CommandLine arguments;
   private final boolean shouldErrorOnNonExecutableRule;
 
   /** Constructs a new provider with the given fixed and inherited environment variables. */
   public RunEnvironmentInfo(
       Map<String, String> environment,
       List<String> inheritedEnvironment,
+      @Nullable CommandLine arguments,
       boolean shouldErrorOnNonExecutableRule) {
     this.environment = ImmutableMap.copyOf(Preconditions.checkNotNull(environment));
     this.inheritedEnvironment =
         ImmutableList.copyOf(Preconditions.checkNotNull(inheritedEnvironment));
+    this.arguments = arguments;
     this.shouldErrorOnNonExecutableRule = shouldErrorOnNonExecutableRule;
   }
 
@@ -76,6 +82,11 @@ public final class RunEnvironmentInfo extends NativeInfo implements RunEnvironme
     return inheritedEnvironment;
   }
 
+  @Nullable
+  public CommandLine getArguments() {
+    return arguments;
+  }
+
   /**
    * Returns whether advertising this provider on a non-executable (and thus non-test) rule should
    * result in an error or a warning. The latter is required to not break testing.TestEnvironment,
@@ -95,11 +106,12 @@ public final class RunEnvironmentInfo extends NativeInfo implements RunEnvironme
 
     @Override
     public RunEnvironmentInfoApi constructor(
-        Dict<?, ?> environment, Sequence<?> inheritedEnvironment) throws EvalException {
+        Dict<?, ?> environment, Sequence<?> inheritedEnvironment, Object arguments) throws EvalException {
       return new RunEnvironmentInfo(
           Dict.cast(environment, String.class, String.class, "environment"),
           StarlarkList.immutableCopyOf(
               Sequence.cast(inheritedEnvironment, String.class, "inherited_environment")),
+          arguments == Starlark.NONE ? null : CommandLine.of(Sequence.cast(arguments, String.class, "arguments")),
           /* shouldErrorOnNonExecutableRule= */ true);
     }
   }

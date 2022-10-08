@@ -593,12 +593,13 @@ EOF
   assert_contains "hello world" bazel-bin/pkg/hello_gen.txt
 }
 
-function test_starlark_test_with_test_environment() {
+function test_starlark_test_with_run_environment() {
   mkdir pkg
   cat >pkg/BUILD <<'EOF'
 load(":rules.bzl", "my_test")
 my_test(
   name = "my_test",
+  args = ["magic1", "magic2"],
 )
 EOF
 
@@ -608,22 +609,42 @@ EOF
     cat >pkg/rules.bzl <<'EOF'
 _SCRIPT_EXT = ".bat"
 _SCRIPT_CONTENT = """@ECHO OFF
+set
+echo "Arguments: %*"
 if not "%FIXED_ONLY%" == "fixed" exit /B 1
 if not "%FIXED_AND_INHERITED%" == "inherited" exit /B 1
 if not "%FIXED_AND_INHERITED_BUT_NOT_SET%" == "fixed" exit /B 1
 if not "%INHERITED_ONLY%" == "inherited" exit /B 1
+if not "%TEST_ENV_FIXED%" == "fixed" exit /B 1
+if not "%TEST_ENV_INHERITED%" == "inherited" exit /B 1
+if not "%TEST_ENV_OVERRIDDEN%" == "overridden" exit /B 1
 if defined INHERITED_BUT_UNSET exit /B 1
+if not "%1" == "starlark1" exit /B 1
+if not "%2" == "starlark2" exit /B 1
+if not "%3" == "test_arg1" exit /B 1
+if not "%4" == "test_arg2" exit /B 1
+if not "%~5" == "" exit /B 1
 """
 EOF
   else
     cat >pkg/rules.bzl <<'EOF'
 _SCRIPT_EXT = ".sh"
 _SCRIPT_CONTENT = """#!/bin/bash
+env
+echo "Arguments: $@"
 [[ "$FIXED_ONLY" == "fixed" \
   && "$FIXED_AND_INHERITED" == "inherited" \
   && "$FIXED_AND_INHERITED_BUT_NOT_SET" == "fixed" \
   && "$INHERITED_ONLY" == "inherited" \
-  && -z "${INHERITED_BUT_UNSET+default}" ]]
+  && "$TEST_ENV_FIXED" == "fixed" \
+  && "$TEST_ENV_INHERITED" == "inherited" \
+  && "$TEST_ENV_OVERRIDDEN" == "overridden" \
+  && -z "${INHERITED_BUT_UNSET+default}" \
+  && "$1" == "starlark1" \
+  && "$2" == "starlark2" \
+  && "$3" == "test_arg1" \
+  && "$4" == "test_arg2" \
+  && "$#" -eq 4 ]]
 """
 EOF
   fi
@@ -636,18 +657,20 @@ def _my_test_impl(ctx):
         content = _SCRIPT_CONTENT,
         is_executable = True,
     )
-    test_env = testing.TestEnvironment(
+    test_env = RunEnvironmentInfo(
       {
         "FIXED_AND_INHERITED": "fixed",
         "FIXED_AND_INHERITED_BUT_NOT_SET": "fixed",
         "FIXED_ONLY": "fixed",
+        "TEST_ENV_OVERRIDDEN": "not_overridden",
       },
       [
         "FIXED_AND_INHERITED",
         "FIXED_AND_INHERITED_BUT_NOT_SET",
         "INHERITED_ONLY",
         "INHERITED_BUT_UNSET",
-      ]
+      ],
+      arguments = ["starlark1", "starlark2"],
     )
     return [
         DefaultInfo(
@@ -663,8 +686,10 @@ my_test = rule(
 )
 EOF
 
-  FIXED_AND_INHERITED=inherited INHERITED_ONLY=inherited \
-    bazel test //pkg:my_test >$TEST_log 2>&1 || fail "Test should pass"
+  FIXED_AND_INHERITED=inherited INHERITED_ONLY=inherited TEST_ENV_INHERITED=inherited \
+    bazel test --test_env=TEST_ENV_FIXED=fixed --test_env=TEST_ENV_INHERITED --test_env=TEST_ENV_OVERRIDDEN=overridden \
+      --test_arg=test_arg1 --test_arg=test_arg2 \
+        //pkg:my_test --test_output=errors >$TEST_log 2>&1 || fail "Test should pass"
 }
 
 function test_starlark_rule_with_run_environment() {
@@ -673,6 +698,7 @@ function test_starlark_rule_with_run_environment() {
 load(":rules.bzl", "my_executable")
 my_executable(
   name = "my_executable",
+  args = ["magic1", "magic2"],
 )
 EOF
 
@@ -687,6 +713,9 @@ if not "%FIXED_AND_INHERITED%" == "inherited" exit /B 1
 if not "%FIXED_AND_INHERITED_BUT_NOT_SET%" == "fixed" exit /B 1
 if not "%INHERITED_ONLY%" == "inherited" exit /B 1
 if defined INHERITED_BUT_UNSET exit /B 1
+if not "%1" == "starlark1" exit /B 1
+if not "%2" == "starlark2" exit /B 1
+if not "%~3" == "" exit /B 1
 """
 EOF
   else
@@ -699,7 +728,10 @@ env
   && "$FIXED_AND_INHERITED" == "inherited" \
   && "$FIXED_AND_INHERITED_BUT_NOT_SET" == "fixed" \
   && "$INHERITED_ONLY" == "inherited" \
-  && -z "${INHERITED_BUT_UNSET+default}" ]]
+  && -z "${INHERITED_BUT_UNSET+default}" \
+  && "$1" == "starlark1" \
+  && "$2" == "starlark2" \
+  && "$#" -eq 2 ]]
 """
 EOF
   fi
@@ -723,7 +755,8 @@ def _my_executable_impl(ctx):
         "FIXED_AND_INHERITED_BUT_NOT_SET",
         "INHERITED_ONLY",
         "INHERITED_BUT_UNSET",
-      ]
+      ],
+      arguments = ["starlark1", "starlark2"],
     )
     return [
         DefaultInfo(

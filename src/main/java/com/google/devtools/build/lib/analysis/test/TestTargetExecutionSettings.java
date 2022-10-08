@@ -53,6 +53,7 @@ public final class TestTargetExecutionSettings {
       RuleContext ruleContext,
       RunfilesSupport runfilesSupport,
       Artifact executable,
+      @Nullable CommandLine starlarkTargetArgs,
       Artifact instrumentedFileManifest,
       int shards,
       int runs)
@@ -62,7 +63,8 @@ public final class TestTargetExecutionSettings {
     BuildConfigurationValue config = ruleContext.getConfiguration();
     TestConfiguration testConfig = config.getFragment(TestConfiguration.class);
 
-    CommandLine targetArgs = runfilesSupport.getArgs();
+    CommandLine targetArgs =
+        starlarkTargetArgs != null ? starlarkTargetArgs : runfilesSupport.getArgs();
     testArguments =
         CommandLine.concat(targetArgs, ImmutableList.copyOf(testConfig.getTestArguments()));
 

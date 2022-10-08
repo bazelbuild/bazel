@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -98,12 +99,14 @@ public final class TestActionBuilder {
   private int explicitShardCount;
   private final Map<String, String> extraEnv;
   private final Set<String> extraInheritedEnv;
+  @Nullable private CommandLine starlarkTargetArgs;
 
   public TestActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     this.extraEnv = new TreeMap<>();
     this.extraInheritedEnv = new TreeSet<>();
     this.additionalTools = new ImmutableList.Builder<>();
+    this.starlarkTargetArgs = null;
   }
 
   /**
@@ -177,6 +180,12 @@ public final class TestActionBuilder {
   @CanIgnoreReturnValue
   public TestActionBuilder addExtraInheritedEnv(List<String> extraInheritedEnv) {
     this.extraInheritedEnv.addAll(extraInheritedEnv);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public TestActionBuilder setStarlarkTargetArgs(@Nullable CommandLine starlarkTargetArgs) {
+    this.starlarkTargetArgs = starlarkTargetArgs;
     return this;
   }
 
@@ -340,6 +349,7 @@ public final class TestActionBuilder {
               ruleContext,
               runfilesSupport,
               executable,
+              starlarkTargetArgs,
               instrumentedFileManifest,
               shards,
               runsPerTest);
@@ -352,7 +362,13 @@ public final class TestActionBuilder {
     } else {
       executionSettings =
           new TestTargetExecutionSettings(
-              ruleContext, runfilesSupport, executable, null, shards, runsPerTest);
+              ruleContext,
+              runfilesSupport,
+              executable,
+              starlarkTargetArgs,
+              null,
+              shards,
+              runsPerTest);
     }
 
     extraTestEnv.putAll(extraEnv);

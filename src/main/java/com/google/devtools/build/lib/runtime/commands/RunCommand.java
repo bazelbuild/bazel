@@ -176,19 +176,28 @@ public class RunCommand implements BlazeCommand  {
   public void editOptions(OptionsParser optionsParser) { }
 
   /**
-   * Compute the arguments the binary should be run with by concatenating the arguments in its
-   * {@code args} attribute and the arguments on the Blaze command line.
+   * Compute the arguments the binary should be run with by concatenating the arguments provided by
+   * its {@link RunEnvironmentInfo} or, if not set, in its {@code args} attribute, and the arguments
+   * on the Blaze command line.
    */
-  @Nullable
   private List<String> computeArgs(ConfiguredTarget targetToRun, List<String> commandLineArgs)
       throws InterruptedException, CommandLineExpansionException {
     List<String> args = Lists.newArrayList();
 
-    FilesToRunProvider provider = targetToRun.getProvider(FilesToRunProvider.class);
-    RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
-    if (runfilesSupport != null && runfilesSupport.getArgs() != null) {
-      CommandLine targetArgs = runfilesSupport.getArgs();
-      Iterables.addAll(args, targetArgs.arguments());
+    // If a Starlark rule explicitly sets arguments on RunEnvironmentInfo, these arguments take
+    // precedence over those obtained from the implicit "args" attribute on all rules so that
+    // Starlark rules can implement their own logic for this attribute.
+    RunEnvironmentInfo runEnvironmentInfo =
+        (RunEnvironmentInfo) targetToRun.get(RunEnvironmentInfo.PROVIDER.getKey());
+    if (runEnvironmentInfo != null && runEnvironmentInfo.getArguments() != null) {
+      Iterables.addAll(args, runEnvironmentInfo.getArguments().arguments());
+    } else {
+      FilesToRunProvider provider = targetToRun.getProvider(FilesToRunProvider.class);
+      RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
+      if (runfilesSupport != null && runfilesSupport.getArgs() != null) {
+        CommandLine targetArgs = runfilesSupport.getArgs();
+        Iterables.addAll(args, targetArgs.arguments());
+      }
     }
     args.addAll(commandLineArgs);
     return args;

@@ -3602,6 +3602,43 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     assertThat(provider.getEnvironment()).containsExactly("FIXED", "fixed");
     assertThat(provider.getInheritedEnvironment()).containsExactly("INHERITED");
+    assertThat(provider.getArguments()).isNull();
+  }
+
+  @Test
+  public void testStarlarkRuleCanOverrideArgs() throws Exception {
+    scratch.file(
+        "examples/rules.bzl",
+        "def my_rule_impl(ctx):",
+        "  script = ctx.actions.declare_file(ctx.attr.name)",
+        "  ctx.actions.write(script, '', is_executable = True)",
+        "  run_env = RunEnvironmentInfo(",
+        "    arguments = ['from', '\\'star lark'],",
+        "  )",
+        "  return [",
+        "    DefaultInfo(executable = script),",
+        "    run_env,",
+        "  ]",
+        "my_rule = rule(",
+        " implementation = my_rule_impl,",
+        "  attrs = {},",
+        "  executable = True,",
+        ")");
+    scratch.file(
+        "examples/BUILD",
+        "load(':rules.bzl', 'my_rule')",
+        "my_rule(",
+        "    name = 'my_target',",
+        "    args = ['magic', '$(location //:invalid_should_not_be_evaluated)'],",
+        ")");
+
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples:my_target");
+    RunEnvironmentInfo provider = starlarkTarget.get(RunEnvironmentInfo.PROVIDER);
+
+    assertThat(provider.getEnvironment()).isEmpty();
+    assertThat(provider.getInheritedEnvironment()).isEmpty();
+    assertThat(provider.getArguments()).isNotNull();
+    assertThat(provider.getArguments().arguments()).containsExactly("from", "'star lark");
   }
 
   @Test
