@@ -967,7 +967,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
-    assertContainsEvent("at index 0 of visibility list, got element of type int, want string");
+    assertContainsEvent("at index 1 of visibility list, got element of type int, want string");
   }
 
   @Test
