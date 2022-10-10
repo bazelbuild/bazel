@@ -23,6 +23,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
@@ -198,7 +199,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       requestBuilder.addQualifiers(
           Qualifier.newBuilder()
               .setName(QUALIFIER_AUTH_HEADERS)
-              .setValue(authHeadersJson(authHeaders, includeAllHeaders))
+              .setValue(authHeadersJson(urls, authHeaders, includeAllHeaders))
               .build());
     }
 
@@ -225,9 +226,17 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   }
 
   private static String authHeadersJson(
-      Map<URI, Map<String, List<String>>> authHeaders, boolean includeAllHeaders) {
+      List<URL> urls, Map<URI, Map<String, List<String>>> authHeaders, boolean includeAllHeaders) {
+    ImmutableSet<String> hostSet =
+        urls.stream().map(URL::getHost).collect(ImmutableSet.toImmutableSet());
     Map<String, JsonObject> subObjects = new TreeMap<>();
     for (Map.Entry<URI, Map<String, List<String>>> entry : authHeaders.entrySet()) {
+      URI uri = entry.getKey();
+      // Only add headers that are relevant to the hosts.
+      if (!hostSet.contains(uri.getHost())) {
+        continue;
+      }
+
       JsonObject subObject = new JsonObject();
       Map<String, List<String>> orderedHeaders = new TreeMap<>(entry.getValue());
       for (Map.Entry<String, List<String>> subEntry : orderedHeaders.entrySet()) {
@@ -244,7 +253,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           }
         }
       }
-      subObjects.put(entry.getKey().toString(), subObject);
+      subObjects.put(uri.toString(), subObject);
     }
 
     JsonObject authHeadersJson = new JsonObject();
