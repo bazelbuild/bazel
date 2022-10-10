@@ -237,7 +237,7 @@ public class CollectLocalResourceUsage extends Thread {
           workersMemoryUsage.addRange(
               previousElapsed.toMillis(), nextElapsed.toMillis(), workerMemoryUsageMb);
         }
-        if (collectLoadAverage && loadAverage > 0) {
+        if (collectLoadAverage && (systemLoadAverage != null) && loadAverage > 0) {
           systemLoadAverage.addRange(
               previousElapsed.toMillis(), nextElapsed.toMillis(), loadAverage);
         }
