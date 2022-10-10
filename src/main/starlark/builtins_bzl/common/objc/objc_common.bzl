@@ -28,7 +28,7 @@ def _create_context_and_provider(
         extra_import_libraries,
         deps,
         runtime_deps,
-        linkopts):
+        attr_linkopts):
     objc_providers = []
     cc_compilation_contexts = []
     cc_linking_contexts = []
@@ -107,7 +107,7 @@ def _create_context_and_provider(
 
     non_sdk_linkopts = _add_linkopts(
         objc_provider_kwargs,
-        objc_internal.expand_toolchain_and_ctx_variables(ctx = ctx, flags = linkopts),
+        objc_internal.expand_toolchain_and_ctx_variables(ctx = ctx, flags = attr_linkopts),
     )
     all_non_sdk_linkopts.extend(non_sdk_linkopts)
 

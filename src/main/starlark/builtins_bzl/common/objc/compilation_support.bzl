@@ -75,7 +75,7 @@ def _build_common_variables(
         extra_disabled_features = [],
         extra_enabled_features = [],
         extra_import_libraries = [],
-        linkopts = [],
+        attr_linkopts = [],
         alwayslink = False,
         has_module_map = False):
     compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
@@ -99,7 +99,7 @@ def _build_common_variables(
         alwayslink = alwayslink,
         has_module_map = has_module_map,
         extra_import_libraries = extra_import_libraries,
-        linkopts = linkopts,
+        attr_linkopts = attr_linkopts,
     )
 
     return struct(
