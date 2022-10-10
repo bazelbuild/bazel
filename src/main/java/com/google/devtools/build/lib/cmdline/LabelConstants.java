@@ -45,6 +45,10 @@ public class LabelConstants {
       PathFragment.create("WORKSPACE.bazel");
   public static final PathFragment MODULE_DOT_BAZEL_FILE_NAME = PathFragment.create("MODULE.bazel");
   public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
+  // When Bzlmod is enabled, this suffix is applied to the module name to form the name of the main
+  // repository. Its purpose is to unambiguously mark this name as a canonical rather than an
+  // apparent name.
+  public static final String BZLMOD_MAIN_REPOSITORY_NAME_SUFFIX = "~root";
 
   // With this prefix, non-main repositories are symlinked under
   // $output_base/execution_root/__main__/external

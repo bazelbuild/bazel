@@ -34,7 +34,10 @@ import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.ModuleBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
@@ -50,12 +53,16 @@ import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -122,6 +129,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         .clearWorkspaceFileSuffixForTesting()
         .addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
     ConfiguredRuleClassProvider ruleClassProvider = builder.build();
+    PackageFactory packageFactory =
+        AnalysisMock.get()
+            .getPackageFactoryBuilderForTesting(directories)
+            .build(ruleClassProvider, fileSystem);
 
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
         ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
@@ -153,6 +164,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(
                         ruleClassProvider, directories, new BzlmodRepoRuleHelperImpl()))
+                .put(WorkspaceFileValue.WORKSPACE_FILE, new WorkspaceFileFunction(
+                    ruleClassProvider,
+                    packageFactory,
+                    directories,
+                    null))
                 .buildOrThrow(),
             differencer);
 
@@ -877,5 +893,38 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
 
     assertContainsEvent("The repo name 'bbb' is already being used as the module's own repo name");
+  }
+
+  @Test
+  public void mainRepositoryName_moduleNameSet() throws Exception {
+    scratch.file("MODULE.bazel", "module(name = 'my_module')");
+    Path workspacePath = scratch.overwriteFile("WORKSPACE", "workspace(name = 'my_workspace')");
+    RootedPath workspace = RootedPath.toRootedPath(
+        Root.fromPath(workspacePath.getParentDirectory()),
+        PathFragment.create(workspacePath.getBaseName()));
+
+    SkyKey key = WorkspaceFileValue.key(workspace, 1);
+    EvaluationResult<WorkspaceFileValue> result = evaluator.evaluate(ImmutableList.of(key),
+        evaluationContext);
+    assertThat(result.get(key).getPackage().getWorkspaceName()).isEqualTo(
+        "my_module" + LabelConstants.BZLMOD_MAIN_REPOSITORY_NAME_SUFFIX);
+    assertNoEvents();
+  }
+
+  @Test
+  public void mainRepositoryName_moduleNameNotSet() throws Exception {
+    scratch.file("MODULE.bazel", "module()");
+    Path workspacePath = scratch.overwriteFile("WORKSPACE", "workspace(name = 'my_workspace')");
+    RootedPath workspace = RootedPath.toRootedPath(
+        Root.fromPath(workspacePath.getParentDirectory()),
+        PathFragment.create(workspacePath.getBaseName()));
+
+    SkyKey key = WorkspaceFileValue.key(workspace, 1);
+    EvaluationResult<WorkspaceFileValue> result = evaluator.evaluate(ImmutableList.of(key),
+        evaluationContext);
+    assertThat(result.get(key).getPackage().getWorkspaceName()).isEqualTo(
+        LabelConstants.DEFAULT_REPOSITORY_DIRECTORY
+            + LabelConstants.BZLMOD_MAIN_REPOSITORY_NAME_SUFFIX);
+    assertNoEvents();
   }
 }

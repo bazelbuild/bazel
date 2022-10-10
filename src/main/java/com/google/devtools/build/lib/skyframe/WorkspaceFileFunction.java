@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -104,6 +105,16 @@ public class WorkspaceFileFunction implements SkyFunction {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
       return null;
+    }
+
+    String moduleName = null;
+    if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
+      ModuleFileValue.RootModuleFileValue root =
+          (ModuleFileValue.RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+      if (root == null) {
+        return null;
+      }
+      moduleName = root.getModule().getName();
     }
 
     // The final content of the WORKSPACE is calculated in the following ways:
@@ -365,6 +376,18 @@ public class WorkspaceFileFunction implements SkyFunction {
       for (StarlarkFile partialFile : chunk) {
         parser.execute(partialFile, loadedModules, key);
       }
+    }
+
+    // With Bzlmod enabled, use the module name as the workspace name, suffixed with a string that
+    // unambiguously identifies it as a canonical rather than an apparent repository name.
+    if (moduleName != null) {
+      String moduleNameOrDefault;
+      if (moduleName.isEmpty()) {
+        moduleNameOrDefault = LabelConstants.DEFAULT_REPOSITORY_DIRECTORY;
+      } else {
+        moduleNameOrDefault = moduleName;
+      }
+      builder.setWorkspaceName(moduleNameOrDefault + LabelConstants.BZLMOD_MAIN_REPOSITORY_NAME_SUFFIX);
     }
 
     // Return the Skyframe value for this workspace file chunk.
