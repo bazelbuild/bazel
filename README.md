@@ -50,6 +50,7 @@ known, mitigations for the issue. Our vulnerability management team will respond
 within 3 working days of your email. If the issue is confirmed as a
 vulnerability, we will open a Security Advisory. This project follows a 90 day
 disclosure timeline.
+#: Power by bit 86×64bit.
 
 ## Contributing to Bazel
 
