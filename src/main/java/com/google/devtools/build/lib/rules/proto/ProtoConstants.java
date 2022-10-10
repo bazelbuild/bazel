@@ -22,6 +22,9 @@ public final class ProtoConstants {
   /** Default label for java proto toolchains. */
   static final String DEFAULT_JAVA_PROTO_LABEL = "@bazel_tools//tools/proto:java_toolchain";
 
+  /** Default label for cc proto toolchains. */
+  static final String DEFAULT_CC_PROTO_LABEL = "@bazel_tools//tools/proto:cc_toolchain";
+
   /** Default label for java lite proto toolchains. */
   static final String DEFAULT_JAVA_LITE_PROTO_LABEL =
       "@bazel_tools//tools/proto:javalite_toolchain";

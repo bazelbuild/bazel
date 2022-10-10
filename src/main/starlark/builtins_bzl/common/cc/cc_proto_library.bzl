@@ -14,17 +14,18 @@
 
 """Starlark implementation of cc_proto_library"""
 
+load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
+
 ProtoInfo = _builtins.toplevel.ProtoInfo
 CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 
-load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
-
+ProtoCcFilesInfo = provider(fields = ["files"], doc = "Internal only. Provide cc proto files.")
 ProtoCcHeaderInfo = provider(fields = ["headers"], doc = "Internal only. Provide cc proto headers.")
 
 def _are_srcs_excluded(ctx, target):
-    not proto_common.proto_common_experimental_should_generate_code(ctx, target, ctx.attr._aspect_cc_proto_toolchain[ProtoLangToolchainInfo], "cc_proto_library")
+    return not proto_common.experimental_should_generate_code(target[ProtoInfo], ctx.attr._aspect_cc_proto_toolchain[ProtoLangToolchainInfo], "cc_proto_library", target.label)
 
 def _get_feature_configuration(ctx, target, cc_toolchain, proto_info):
     requested_features = list(ctx.features)
@@ -40,8 +41,6 @@ def _get_feature_configuration(ctx, target, cc_toolchain, proto_info):
         cc_toolchain = cc_toolchain,
         requested_features = requested_features,
         unsupported_features = unsupported_features,
-        strip_include_prefix = cc_helper.get_strip_include_prefix(ctx, proto_info, True),
-
     )
 
 def _check_proto_libraries_in_deps(ctx, deps):
@@ -68,10 +67,40 @@ def _create_proto_compile_action(ctx, outputs, proto_info):
             plugin_output = genfiles_path,
         )
 
+def _get_output_files(ctx, target, suffixes):
+    result = []
+    for suffix in suffixes:
+        result.extend(
+            proto_common.declare_generated_files(
+            actions = ctx.actions,
+            proto_info = target[ProtoInfo],
+            extension = suffix,
+            )
+        )
+    return result
+
+def _get_strip_include_prefix(ctx, proto_info):
+    proto_root = proto_info.proto_source_root
+    if proto_root == "." or proto_root == ctx.label.workspace_root:
+        return ""
+    
+    strip_include_prefix = ""
+    if proto_root.startswith(ctx.bin_dir.path):
+        proto_root = proto_root[len(ctx.bin_dir.path):]
+    elif proto_root.startswith(ctx.genfiles_dir.path):
+        proto_root = proto_root[len(ctx.genfiles_dir.path):]
+
+    if proto_root.startswith(ctx.label.workspace_root):
+        proto_root = proto_root[len(ctx.label.workspace_root):]
+
+    strip_include_prefix = "//" + proto_root
+    return strip_include_prefix
+
+
 def _aspect_impl(target, ctx):
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
     proto_info = target[ProtoInfo]
-	feature_configuration = _get_feature_configuration(ctx, target, cc_toolchain, proto_info)
+    feature_configuration = _get_feature_configuration(ctx, target, cc_toolchain, proto_info)
     proto_configuration = ctx.fragments.proto
 
     deps = []
@@ -94,7 +123,7 @@ def _aspect_impl(target, ctx):
     textual_hdrs = []
     additional_exported_hdrs = []
 
-    if _are_srcs_excluded():
+    if _are_srcs_excluded(ctx, target):
         header_provider = None
         # Hack: This is a proto_library for descriptor.proto or similar.
         #
@@ -115,11 +144,19 @@ def _aspect_impl(target, ctx):
                 #    to be layering-checked; we need to provide a module map for the layering check to work.
                 additional_exported_hdrs.append(source.short_path[:-len(source.extension)] + suffix)
     elif len(proto_info.direct_sources) != 0:
-        headers = _get_output_files(proto_configuration.cc_proto_library_header_suffixes())
-        sources = _get_output_files(proto_configuration.cc_proto_library_source_suffixes())
+        headers = _get_output_files(
+            ctx,
+            target,
+            proto_configuration.cc_proto_library_header_suffixes()
+            )
+        sources = _get_output_files(
+            ctx,
+            target,
+            proto_configuration.cc_proto_library_source_suffixes()
+            )
         outputs.extend(headers)
         outputs.extend(sources)
-        header_provider = ProtoCcHeaderInfo(depset(headers))
+        header_provider = ProtoCcHeaderInfo(headers = depset(headers))
     else:
         # If this proto_library doesn't have sources, it provides the combined headers of all its
         # direct dependencies. Thus, if a direct dependency does have sources, the generated files
@@ -139,21 +176,25 @@ def _aspect_impl(target, ctx):
     files_to_build = list(outputs)
     _create_proto_compile_action(ctx, outputs, proto_info)
 
+
+    fail(_get_strip_include_prefix(ctx, proto_info))
     (cc_compilation_context, cc_compilation_outputs) = cc_common.compile(
         name = ctx.label.name,
         actions = ctx.actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
-        compilation_contexts = cc_helper.get_compilation_context_from_deps(ctx, deps),
+        compilation_contexts = cc_helper.get_compilation_contexts_from_deps(deps),
         hdrs_checking_mode = "loose",
         # Don't instrument the generated C++ files even when --collect_code_coverage is set.
         code_coverage_enabled = False,
-        sources = sources,
-        public_headers = headers,
+        srcs = sources,
+        public_hdrs = headers,
         additional_exported_hdrs = additional_exported_hdrs,
         textual_hdrs = textual_hdrs,
+        strip_include_prefix = _get_strip_include_prefix(ctx, proto_info),
     )
 
+    library_to_link = []
     deps_linking_contexts = cc_helper.get_linking_contexts_from_deps(deps)
 
     if not cc_helper.is_compilation_outputs_empty(cc_compilation_outputs):
@@ -173,7 +214,7 @@ def _aspect_impl(target, ctx):
             name = ctx.label.name,
             linking_contexts = deps_linking_contexts,
             compilation_outputs = cc_compilation_outputs,
-            disallow_dynamic_library = disallow_dynamic_library,
+            # disallow_dynamic_library = disallow_dynamic_library,
             test_only_target = getattr(ctx.rule.attr, "testonly", False),
         )
 
@@ -214,12 +255,14 @@ def _aspect_impl(target, ctx):
             elif artifacts_to_build.interface_library != None:
                 files_to_build.append(artifacts_to_build.interface_library)
 
-    return [
+    providers = [
         cc_info,
         output_groups,
-        DefaultInfo(files = depset(files_to_build)),
-        header_provider,
+        ProtoCcFilesInfo(files = depset(files_to_build)),
     ]
+    if header_provider != None:
+        providers.append(header_provider)
+    return providers
 
 
 _cc_proto_aspect = aspect(
@@ -227,10 +270,12 @@ _cc_proto_aspect = aspect(
 	attr_aspects = ["deps"],
 	fragments = ["cpp", "proto"],
 	required_providers = [ProtoInfo],
+    attrs = {
 	"_aspect_cc_proto_toolchain": attr.label(
 		default = configuration_field(fragment = "proto", name = "proto_toolchain_for_cc"),
 	),
-	"_cc_toolchain": attr.label(default = "@//tools/cpp:current_cc_toolchain"),
+	"_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
+    },
 )
 
 def _impl(ctx):
@@ -243,15 +288,17 @@ def _impl(ctx):
               attr = "deps")
     dep = ctx.attr.deps[0]
     cc_info = dep[CcInfo]
-    default_info = dep[DefaultInfo]
+    proto_cc_files_info = dep[ProtoCcFilesInfo]
     output_groups = dep[OutputGroupInfo]
-    return [cc_info, default_info, output_groups]
+    return [cc_info, DefaultInfo(files = dep[ProtoCcFilesInfo].files), output_groups]
 
 cc_proto_library = rule(
 	implementation = _impl,
+    attrs = {
 	"deps": attr.label_list(
 		aspects = [_cc_proto_aspect],
 		allow_rules = ["proto_library"],
 		allow_files = False,
 	),
+    },
 )

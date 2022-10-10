@@ -94,7 +94,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
     @Option(
         name = "proto_toolchain_for_javalite",
-        defaultValue = "@bazel_tools//tools/proto:javalite_toolchain",
+        defaultValue = ProtoConstants.DEFAULT_JAVA_LITE_PROTO_LABEL,
         converter = CoreOptionConverters.LabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
@@ -103,7 +103,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
     @Option(
         name = "proto_toolchain_for_java",
-        defaultValue = "@bazel_tools//tools/proto:java_toolchain",
+        defaultValue = ProtoConstants.DEFAULT_JAVA_PROTO_LABEL,
         converter = CoreOptionConverters.EmptyToNullLabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
@@ -122,7 +122,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
     @Option(
         name = "proto_toolchain_for_cc",
-        defaultValue = "@bazel_tools//tools/proto:cc_toolchain",
+        defaultValue = ProtoConstants.DEFAULT_CC_PROTO_LABEL,
         converter = CoreOptionConverters.EmptyToNullLabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
@@ -276,6 +276,10 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return options.protoToolchainForJavaLite;
   }
 
+  @StarlarkConfigurationField(
+      name = "proto_toolchain_for_cc",
+      doc = "Label for the cc proto toolchains.",
+      defaultLabel = ProtoConstants.DEFAULT_CC_PROTO_LABEL)
   public Label protoToolchainForCc() {
     return options.protoToolchainForCc;
   }

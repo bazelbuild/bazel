@@ -38,6 +38,8 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.packages.StarlarkAspectClass;
+import com.google.devtools.build.lib.cmdline.Label;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -46,6 +48,11 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class CcProtoLibraryTest extends BuildViewTestCase {
+
+  private final StarlarkAspectClass starlarkCcProtoAspect =
+      new StarlarkAspectClass(
+          Label.parseAbsoluteUnchecked("@_builtins//:common/cc/cc_proto_library.bzl"),
+          "_cc_proto_aspect");
 
   @Before
   public void setUp() throws Exception {
@@ -245,7 +252,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
             targetConfig.getGenfilesDirectory(RepositoryName.create("bla")),
             getOwnerForAspect(
                 getConfiguredTarget("@bla//foo:bar_proto"),
-                ruleClassProvider.getNativeAspectClass(BazelCcProtoAspect.class.getSimpleName()),
+                starlarkCcProtoAspect,
                 AspectParameters.EMPTY));
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
