@@ -570,7 +570,7 @@ public final class SkyframeErrorProcessor {
       EvaluationResult<? extends SkyValue> result, Throwable cause, BugReporter bugReporter) {
     // An undetailed exception means we may incorrectly attribute responsibility for the failure:
     // we need to fix that.
-    bugReporter.sendBugReport(
+    bugReporter.sendNonFatalBugReport(
         new IllegalStateException(
             "action terminated with unexpected exception with result " + result, cause));
     String message =
