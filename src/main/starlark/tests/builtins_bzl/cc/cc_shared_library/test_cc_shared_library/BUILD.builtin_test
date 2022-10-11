@@ -90,7 +90,6 @@ cc_shared_library(
         "a_suffix",
     ],
     static_deps = [
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:implementation_dep",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux2",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:prebuilt",
@@ -112,12 +111,6 @@ cc_library(
 )
 
 cc_library(
-    name = "implementation_dep",
-    srcs = ["implementation_dep.cc"],
-    hdrs = ["implementation_dep.h"],
-)
-
-cc_library(
     name = "foo",
     srcs = [
         "foo.cc",
@@ -131,7 +124,6 @@ cc_library(
         "//src/conditions:linux": ["IS_LINUX"],
         "//conditions:default": [],
     }),
-    implementation_deps = ["implementation_dep"],
     deps = [
         "preloaded_dep",
         "bar",

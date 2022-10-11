@@ -73,7 +73,6 @@ EOF
     --experimental_link_static_libraries_once \
     --experimental_enable_target_export_check --experimental_cc_shared_library \
     --experimental_builtins_injection_override=+cc_binary \
-    --experimental_cc_implementation_deps \
     //src/main/starlark/tests/builtins_bzl/cc/... || fail "expected success"
 }
 

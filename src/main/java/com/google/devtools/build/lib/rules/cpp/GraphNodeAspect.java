@@ -50,8 +50,6 @@ public final class GraphNodeAspect extends NativeAspectClass implements Configur
               : null;
         }
       };
-  private static final ImmutableList<String> CC_DEPS_ATTRIBUTES =
-      ImmutableList.of("deps", "implementation_deps");
 
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
@@ -69,12 +67,9 @@ public final class GraphNodeAspect extends NativeAspectClass implements Configur
       RepositoryName toolsRepository)
       throws ActionConflictException, InterruptedException {
     ImmutableList.Builder<GraphNodeInfo> children = ImmutableList.builder();
-    for (String depsAttribute : CC_DEPS_ATTRIBUTES) {
-      if (ruleContext.attributes().has(depsAttribute)) {
-        children.addAll(
-            AnalysisUtils.getProviders(
-                ruleContext.getPrerequisites(depsAttribute), GraphNodeInfo.class));
-      }
+    if (ruleContext.attributes().has("deps")) {
+      children.addAll(
+          AnalysisUtils.getProviders(ruleContext.getPrerequisites("deps"), GraphNodeInfo.class));
     }
     return new ConfiguredAspect.Builder(ruleContext)
         .addProvider(
