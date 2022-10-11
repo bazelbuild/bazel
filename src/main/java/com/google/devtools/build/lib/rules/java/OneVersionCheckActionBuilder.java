@@ -85,7 +85,6 @@ public final class OneVersionCheckActionBuilder {
     FilesToRunProvider oneVersionTool = javaToolchain.getOneVersionBinary();
     Artifact oneVersionAllowlist = javaToolchain.getOneVersionAllowlist();
     if (oneVersionTool == null || oneVersionAllowlist == null) {
-      addRuleErrorForMissingArtifacts(ruleContext, javaToolchain);
       return outputArtifact;
     }
 
