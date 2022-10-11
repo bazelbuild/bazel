@@ -1756,7 +1756,8 @@ public final class RuleContext extends TargetContext
               // alias visibility, as is usual semantics. So two the following two edges are
               // checked: 1: select() -> alias and 2: alias -> config_setting.
               configSettingVisibilityPolicy == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC
-                  ? condition.fromConfiguredTarget(condition.getConfiguredTarget().getActual())
+                  ? condition.fromConfiguredTargetNoCheck(
+                      condition.getConfiguredTarget().getActual())
                   : condition);
         }
       }
