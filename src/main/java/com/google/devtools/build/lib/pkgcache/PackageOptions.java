@@ -122,7 +122,9 @@ public class PackageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_enforce_config_setting_visibility",
-      defaultValue = "false",
+      // TODO(b/179944632): set this and --incompatible_config_setting_private_default_visibility
+      // to true, then make these no-ops, then remove.
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
