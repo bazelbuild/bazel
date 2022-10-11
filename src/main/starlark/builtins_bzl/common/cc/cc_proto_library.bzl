@@ -83,15 +83,14 @@ def _get_strip_include_prefix(ctx, proto_info):
     proto_root = proto_info.proto_source_root
     if proto_root == "." or proto_root == ctx.label.workspace_root:
         return ""
-    
     strip_include_prefix = ""
     if proto_root.startswith(ctx.bin_dir.path):
-        proto_root = proto_root[len(ctx.bin_dir.path):]
+        proto_root = proto_root[len(ctx.bin_dir.path) + 1:]
     elif proto_root.startswith(ctx.genfiles_dir.path):
-        proto_root = proto_root[len(ctx.genfiles_dir.path):]
+        proto_root = proto_root[len(ctx.genfiles_dir.path) + 1:]
 
     if proto_root.startswith(ctx.label.workspace_root):
-        proto_root = proto_root[len(ctx.label.workspace_root):]
+        proto_root = proto_root[len(ctx.label.workspace_root) + 1:]
 
     strip_include_prefix = "//" + proto_root
     return strip_include_prefix
@@ -177,7 +176,6 @@ def _aspect_impl(target, ctx):
     _create_proto_compile_action(ctx, outputs, proto_info)
 
 
-    fail(_get_strip_include_prefix(ctx, proto_info))
     (cc_compilation_context, cc_compilation_outputs) = cc_common.compile(
         name = ctx.label.name,
         actions = ctx.actions,
@@ -205,17 +203,20 @@ def _aspect_impl(target, ctx):
             # once proto compile action is configurable from the crosstool.
             disallow_dynamic_library = True
 
-        # TODO(gnish): This should correctly set value of emitInterfaceSharedLibraries,
-        # but if it does not, consider extending API.
-        cc_linking_outputs = cc_common.link(
+        emit_interface_shared_libraries = False
+        if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "supports_interface_shared_libraries"):
+            emit_interface_shared_libraries = True
+
+        _, cc_linking_outputs = cc_common.create_linking_context_from_compilation_outputs(
             actions = ctx.actions,
             feature_configuration = feature_configuration,
             cc_toolchain = cc_toolchain,
             name = ctx.label.name,
             linking_contexts = deps_linking_contexts,
             compilation_outputs = cc_compilation_outputs,
-            # disallow_dynamic_library = disallow_dynamic_library,
+            disallow_dynamic_library = disallow_dynamic_library,
             test_only_target = getattr(ctx.rule.attr, "testonly", False),
+            emit_interface_shared_libraries = emit_interface_shared_libraries,
         )
 
         if cc_linking_outputs.library_to_link != None:
@@ -250,8 +251,8 @@ def _aspect_impl(target, ctx):
                 files_to_build.append(artifacts_to_build.resolved_symlink_dynamic_library)
             elif artifacts_to_build.dynamic_library != None:
                 files_to_build.append(artifacts_to_build.dynamic_library)
-            if artifacts_to_build.resolved_symlink_dynamic_library != None:
-                files_to_build.append(artifacts_to_build.resolved_symlink_dynamic_library)
+            if artifacts_to_build.resolved_symlink_interface_library != None:
+                files_to_build.append(artifacts_to_build.resolved_symlink_interface_library)
             elif artifacts_to_build.interface_library != None:
                 files_to_build.append(artifacts_to_build.interface_library)
 

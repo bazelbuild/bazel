@@ -1813,9 +1813,10 @@ public abstract class CcModule
       Object linkedDllNameSuffix,
       Object winDefFileObject,
       Object testOnlyTargetObject,
+      Object emitInterfaceSharedLibrariesObject,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
-    if (checkObjectsBound(stamp, linkedDllNameSuffix, winDefFileObject, testOnlyTargetObject)) {
+    if (checkObjectsBound(stamp, linkedDllNameSuffix, winDefFileObject, testOnlyTargetObject, emitInterfaceSharedLibrariesObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
     Language language = parseLanguage(languageString);
@@ -1879,7 +1880,7 @@ public abstract class CcModule
                         || winDefFile != null))
             .setStaticLinkType(staticLinkTargetType)
             .setDynamicLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
-            .emitInterfaceSharedLibraries(true)
+            .emitInterfaceSharedLibraries(convertFromNoneable(emitInterfaceSharedLibrariesObject, false))
             .setLinkedDLLNameSuffix(
                 convertFromNoneable(linkedDllNameSuffix, /* defaultValue= */ ""))
             .setDefFile(winDefFile)

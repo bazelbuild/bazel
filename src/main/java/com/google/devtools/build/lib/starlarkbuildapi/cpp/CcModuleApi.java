@@ -1267,6 +1267,13 @@ public interface CcModuleApi<
             documented = false,
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
+        @Param(
+            name = "emit_interface_shared_libraries",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
       })
   Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -1287,6 +1294,7 @@ public interface CcModuleApi<
       Object linkedDllNameSuffix,
       Object winDefFile,
       Object testOnlyTarget,
+      Object emitInterfaceSharedLibraries,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 

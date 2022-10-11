@@ -287,7 +287,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void generatedSourcesNotCoverageInstrumented() throws Exception {
-    useConfiguration("--collect_code_coverage", "--instrumentation_filter=.");
+    // useConfiguration("--collect_code_coverage", "--instrumentation_filter=.");
     scratch.file(
         "x/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
