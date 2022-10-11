@@ -13,10 +13,6 @@
 # limitations under the License.
 """Archive manipulation library for the Docker rules."""
 
-# pylint: disable=g-import-not-at-top
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 import os
 import tarfile
 

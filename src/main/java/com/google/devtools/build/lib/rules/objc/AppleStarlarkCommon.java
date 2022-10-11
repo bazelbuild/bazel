@@ -191,13 +191,6 @@ public class AppleStarlarkCommon
                 ObjcProviderStarlarkConverters.convertToJava(
                     ObjcProvider.CC_LIBRARY, entry.getValue()));
             break;
-          case "linkstamp":
-            CcModule.checkPrivateStarlarkificationAllowlist(thread);
-            resultBuilder.uncheckedAddTransitive(
-                ObjcProvider.LINKSTAMP,
-                ObjcProviderStarlarkConverters.convertToJava(
-                    ObjcProvider.LINKSTAMP, entry.getValue()));
-            break;
           case "flag":
             resultBuilder.add(ObjcProvider.FLAG, Flag.USES_CPP);
             break;

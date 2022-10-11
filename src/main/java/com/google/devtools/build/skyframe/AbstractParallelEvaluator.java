@@ -592,6 +592,15 @@ abstract class AbstractParallelEvaluator {
           // avoiding non-determinism. It's completely reasonable for SkyFunctions to throw eagerly
           // because they do not know if they are in keep-going mode.
           if (!evaluatorContext.keepGoing() || !env.valuesMissing()) {
+            if (maybeHandleRegisteringNewlyDiscoveredDepsForDoneEntry(
+                skyKey, nodeEntry, oldDeps, env, evaluatorContext.keepGoing())) {
+              // A newly requested dep transitioned from done to dirty before this node finished.
+              // It is not safe to set the error because the now-dirty dep has not signaled this
+              // node. We return (without preventing new evaluations) so that the dep can complete
+              // and signal this node.
+              return;
+            }
+
             boolean shouldFailFast =
                 !evaluatorContext.keepGoing() || builderException.isCatastrophic();
             if (shouldFailFast) {
@@ -605,18 +614,6 @@ abstract class AbstractParallelEvaluator {
               } else {
                 logger.atWarning().withCause(builderException).log(
                     "Aborting evaluation while evaluating %s", skyKey);
-              }
-            }
-
-            if (maybeHandleRegisteringNewlyDiscoveredDepsForDoneEntry(
-                skyKey, nodeEntry, oldDeps, env, evaluatorContext.keepGoing())) {
-              // A newly requested dep transitioned from done to dirty before this node finished.
-              // If shouldFailFast is true, this node won't be signalled by any such newly dirtied
-              // dep (because new evaluations have been prevented), and this node is responsible for
-              // throwing the SchedulerException below.
-              // Otherwise, this node will be signalled again, and so we should return.
-              if (!shouldFailFast) {
-                return;
               }
             }
             boolean isTransitivelyTransient =
@@ -1050,17 +1047,17 @@ abstract class AbstractParallelEvaluator {
       SkyFunctionEnvironment env,
       boolean keepGoing)
       throws InterruptedException {
-    if (env.getNewlyRequestedDeps().isEmpty()) {
-      return false;
-    }
-
     // We don't expect any unfinished deps in a keep-going build.
     if (!keepGoing) {
       env.removeUndoneNewlyRequestedDeps();
     }
 
-    env.addTemporaryDirectDepsTo(entry);
     Set<SkyKey> newDeps = env.getNewlyRequestedDeps();
+    if (newDeps.isEmpty()) {
+      return false;
+    }
+
+    env.addTemporaryDirectDepsTo(entry);
     Set<SkyKey> newlyAddedNewDeps;
     Set<SkyKey> previouslyRegisteredNewDeps;
     if (oldDeps.isEmpty()) {
@@ -1126,7 +1123,7 @@ abstract class AbstractParallelEvaluator {
     }
 
     checkState(
-        selfSignalled || dirtyDepFound || newDeps.isEmpty(),
+        selfSignalled || dirtyDepFound,
         "%s %s %s %s",
         skyKey,
         entry,

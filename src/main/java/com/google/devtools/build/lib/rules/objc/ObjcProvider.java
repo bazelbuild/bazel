@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.packages.BuiltinProvider.WithLegacyStarlark
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcProviderApi;
@@ -171,13 +170,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   /** Linking information from cc dependencies. */
   public static final Key<LibraryToLink> CC_LIBRARY =
       new Key<>(LINK_ORDER, "cc_library", LibraryToLink.class);
-
-  /** Linkstamps from cc dependencies. */
-  // This key exists only to facilitate passing linkstamp data from ObjcLibrary's input CcInfos to
-  // its output CcInfo. Other consumers should look at ObjcLibrary's output CcInfo rather than the
-  // data behind this key.
-  static final Key<CcLinkingContext.Linkstamp> LINKSTAMP =
-      new Key<>(STABLE_ORDER, "linkstamp", CcLinkingContext.Linkstamp.class);
 
   /**
    * Linking options from dependencies.
@@ -378,8 +370,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           FLAG,
           // cc_library is handled specially.
           CC_LIBRARY,
-          // linkstamp is handled specially.
-          LINKSTAMP,
           // Strict include is handled specially.
           STRICT_INCLUDE);
 
@@ -397,7 +387,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           DYNAMIC_FRAMEWORK_FILE,
           FLAG,
           LINKOPT,
-          LINKSTAMP,
           LINK_INPUTS,
           SDK_DYLIB,
           SDK_FRAMEWORK,
@@ -477,10 +466,8 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     return builder.build();
   }
 
-  /**
-   * Indicates whether {@code flag} is set on this provider.
-   */
-  public boolean is(Flag flag) {
+  /** Indicates whether {@code flag} is set on this provider. */
+  public boolean flagIs(Flag flag) {
     return get(FLAG).toList().contains(flag);
   }
 
@@ -727,11 +714,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   @Override
   public Depset /*<LibraryToLink>*/ ccLibrariesForStarlark() {
     return Depset.of(Artifact.TYPE, get(ObjcProvider.CC_LIBRARY));
-  }
-
-  @Override
-  public Depset /*<Linkstamp>*/ linkstampForstarlark() {
-    return Depset.of(Linkstamp.TYPE, get(ObjcProvider.LINKSTAMP));
   }
 
   @Override

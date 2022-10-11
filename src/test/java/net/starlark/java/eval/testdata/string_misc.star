@@ -95,7 +95,7 @@ assert_eq("a".endswith(()), False)
 assert_eq("".endswith(()), False)
 assert_fails(lambda: "a".endswith(["a"]), "got .* 'list', want 'string or tuple'")
 assert_fails(lambda: "1".endswith((1,)), "at index 0 of sub, got element of type int, want string")
-assert_fails(lambda: "a".endswith(("1", 1)), "at index 0 of sub, got element of type int, want string")
+assert_fails(lambda: "a".endswith(("1", 1)), "at index 1 of sub, got element of type int, want string")
 
 # startswith
 assert_eq("Apricot".startswith("Apr"), True)
@@ -119,7 +119,7 @@ assert_eq("a".startswith(()), False)
 assert_eq("".startswith(()), False)
 assert_fails(lambda: "a".startswith(["a"]), "got .* 'list', want 'string or tuple'")
 assert_fails(lambda: "1".startswith((1,)), "at index 0 of sub, got element of type int, want string")
-assert_fails(lambda: "a".startswith(("1", 1)), "at index 0 of sub, got element of type int, want string")
+assert_fails(lambda: "a".startswith(("1", 1)), "at index 1 of sub, got element of type int, want string")
 
 # substring
 assert_eq("012345678"[0:-1], "01234567")

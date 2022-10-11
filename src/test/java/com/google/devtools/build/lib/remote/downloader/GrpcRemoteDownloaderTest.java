@@ -371,9 +371,6 @@ public class GrpcRemoteDownloaderTest {
             + "\"http://example.com\":{"
             + "\"Another-Header\":\"another header content\","
             + "\"Some-Header\":\"some header content\""
-            + "},"
-            + "\"http://example.org\":{"
-            + "\"Org-Header\":\"org header content\""
             + "}"
             + "}";
 
@@ -427,9 +424,6 @@ public class GrpcRemoteDownloaderTest {
             + "\"http://example.com\":{"
             + "\"Another-Header\":[\"another header content\",\"even more header content\"],"
             + "\"Some-Header\":[\"some header content\"]"
-            + "},"
-            + "\"http://example.org\":{"
-            + "\"Org-Header\":[\"org header content\",\"and a second one\",\"and a third one\"]"
             + "}"
             + "}";
 

@@ -422,7 +422,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testLabelListWithAspectsError() throws Exception {
     ev.checkEvalErrorContains(
-        "at index 0 of aspects, got element of type int, want Aspect",
+        "at index 1 of aspects, got element of type int, want Aspect",
         "def _impl(target, ctx):",
         "   pass",
         "my_aspect = aspect(implementation = _impl)",

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FILENAME_LENGTH;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -2266,5 +2267,36 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             .getDynamicLibrary();
     CppLinkAction action = (CppLinkAction) getGeneratingAction(sharedObject);
     assertThat(action.getLinkstampObjects()).isEmpty();
+  }
+
+  @Test
+  public void testReallyLongSolibLink() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    String longpath =
+        "this/is/a/really/really/really/really/really/really/really/really/really/really/"
+            + "really/really/really/really/really/really/really/really/really/really/really/"
+            + "really/really/long/path/that/generates/really/long/solib/link/file";
+    scratch.file(
+        longpath + "/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.cc'],",
+        "    linkstatic = 0,",
+        ")");
+
+    ConfiguredTarget lib = getConfiguredTarget("//" + longpath + ":lib");
+    List<Artifact> libraries =
+        lib.get(CcInfo.PROVIDER)
+            .getCcLinkingContext()
+            .getDynamicLibrariesForRuntime(/* linkingStatically= */ false);
+    List<String> libraryBaseNames = ActionsTestUtil.baseArtifactNames(libraries);
+    for (String baseName : libraryBaseNames) {
+      assertThat(baseName.length()).isLessThan(MAX_FILENAME_LENGTH + 1);
+    }
   }
 }
