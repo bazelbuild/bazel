@@ -320,9 +320,6 @@ public class GrpcRemoteDownloaderTest {
             + "\"http://example.com\":{"
             + "\"Another-Header\":\"another header content\","
             + "\"Some-Header\":\"some header content\""
-            + "},"
-            + "\"http://example.org\":{"
-            + "\"Org-Header\":\"org header content\""
             + "}"
             + "}";
 
