@@ -1717,10 +1717,13 @@ public final class RuleContext extends TargetContext
           ConfiguredAttributeMapper.of(
               target.getAssociatedRule(), configConditions.asProviders(), configuration);
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
-      // These checks can fail in BuildViewForTesting.getRuleContextForTesting as it specifies
-      // ConfigConditions.EMPTY, resulting in noMatchError accessing attributes without a default
-      // condition.
-      if (attributeChecks) {
+      // These checks can fail when ConfigConditions.EMPTY are empty, resulting in noMatchError
+      // accessing attributes without a default condition.
+      // ConfigConditions.EMPTY is always true for non-rules:
+      // https://cs.opensource.google/bazel/bazel/+/master:src/main/java/com/google/devtools/build/lib/skyframe/ConfiguredTargetFunction.java;l=943;drc=720dc5fd640de692db129777c7c7c32924627c43
+      // This can happen in BuildViewForTesting.getRuleContextForTesting as it specifies
+      // ConfigConditions.EMPTY.
+      if (attributeChecks && target instanceof Rule) {
         checkAttributesNonEmpty(attributes);
         checkAttributesForDuplicateLabels(attributes);
       }
