@@ -23,6 +23,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
@@ -165,7 +166,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       requestBuilder.addQualifiers(
           Qualifier.newBuilder()
               .setName(QUALIFIER_AUTH_HEADERS)
-              .setValue(authHeadersJson(authHeaders))
+              .setValue(authHeadersJson(urls, authHeaders))
               .build());
     }
 
@@ -190,15 +191,24 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     return out;
   }
 
-  private static String authHeadersJson(Map<URI, Map<String, String>> authHeaders) {
+  private static String authHeadersJson(
+      List<URL> urls, Map<URI, Map<String, String>> authHeaders) {
+    ImmutableSet<String> hostSet =
+        urls.stream().map(URL::getHost).collect(ImmutableSet.toImmutableSet());
     Map<String, JsonObject> subObjects = new TreeMap<>();
     for (Map.Entry<URI, Map<String, String>> entry : authHeaders.entrySet()) {
+      URI uri = entry.getKey();
+      // Only add headers that are relevant to the hosts.
+      if (!hostSet.contains(uri.getHost())) {
+        continue;
+      }
+
       JsonObject subObject = new JsonObject();
       Map<String, String> orderedHeaders = new TreeMap<>(entry.getValue());
       for (Map.Entry<String, String> subEntry : orderedHeaders.entrySet()) {
         subObject.addProperty(subEntry.getKey(), subEntry.getValue());
       }
-      subObjects.put(entry.getKey().toString(), subObject);
+      subObjects.put(uri.toString(), subObject);
     }
 
     JsonObject authHeadersJson = new JsonObject();
