@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
+import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FILENAME_LENGTH;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -1525,6 +1526,35 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                             .toString())
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("libcustom.ifso");
+  }
+
+  @Test
+  public void testReallyLongSolibLink() throws Exception {
+    setUpCcLinkingContextTest(false);
+
+    String longpath =
+        "this/is/a/really/really/really/really/really/really/really/really/really/really/"
+            + "really/really/really/really/really/really/really/really/really/really/really/"
+            + "really/really/long/path/that/generates/really/long/solib/link/path";
+    scratch.file(
+        longpath + "/BUILD",
+        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
+        "crule(name='a',",
+        "   dynamic_library = 'a.so',",
+        ")");
+
+    ConfiguredTarget a = getConfiguredTarget("//" + longpath + ":a");
+    StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
+    Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
+    ImmutableList<String> dynamicLibraryParentDirectories =
+        librariesToLink.toList(LibraryToLink.class).stream()
+            .filter(x -> x.getDynamicLibrary() != null)
+            .map(
+                x -> x.getDynamicLibrary().getRootRelativePath().getParentDirectory().getBaseName())
+            .collect(ImmutableList.toImmutableList());
+    for (String dynamicLibraryParentDirectory : dynamicLibraryParentDirectories) {
+      assertThat(dynamicLibraryParentDirectory.length()).isLessThan(MAX_FILENAME_LENGTH + 1);
+    }
   }
 
   private void doTestCcLinkingContext(
