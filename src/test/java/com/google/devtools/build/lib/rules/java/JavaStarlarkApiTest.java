@@ -1615,14 +1615,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  deps = [':mya'], runtime_deps = [':myb'])");
     assertNoEvents();
 
-    setBuildLanguageOptions("--experimental_google_legacy_api");
     // Test that all bottom jars are on the runtime classpath.
     ConfiguredTarget binary = getConfiguredTarget("//foo:binary");
     assertThat(
             prettyArtifactNames(
                 binary
-                    .get(JavaInfo.PROVIDER)
-                    .getCompilationInfoProvider()
+                    .getProvider(JavaRuntimeClasspathProvider.class)
                     .getRuntimeClasspath()
                     .getSet(Artifact.class)))
         .containsAtLeast("foo/libjl_bottom_for_deps.jar", "foo/libjl_bottom_for_runtime_deps.jar");
@@ -1973,7 +1971,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "my_rule(name = 'r', dep = ':jl', cc_dep = ':ccl')",
         "java_binary(name = 'binary', main_class = 'C', srcs = ['java/C.java'], deps = [':r'])");
 
-    setBuildLanguageOptions("--experimental_google_legacy_api");
     ConfiguredTarget testTarget = getConfiguredTarget("//foo:binary");
 
     TemplateExpansionAction action =
@@ -2221,7 +2218,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  fragments = ['java']",
         ")");
 
-    setBuildLanguageOptions("--experimental_google_legacy_api");
     ConfiguredTarget target = getConfiguredTarget("//java/test:plugin");
     assertThat(
             actionsTestUtil()
