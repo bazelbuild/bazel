@@ -93,12 +93,12 @@ DIST_DEPS = {
     #
     #################################################
     "com_google_protobuf": {
-        "archive": "v3.19.2.tar.gz",
-        "sha256": "4dd35e788944b7686aac898f77df4e9a54da0ca694b8801bd6b2a9ffc1b3085e",
-        "strip_prefix": "protobuf-3.19.2",
+        "archive": "v3.19.6.tar.gz",
+        "sha256": "9a301cf94a8ddcb380b901e7aac852780b826595075577bb967004050c835056",
+        "strip_prefix": "protobuf-3.19.6",
         "urls": [
-            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.19.2.tar.gz",
-            "https://github.com/protocolbuffers/protobuf/archive/v3.19.2.tar.gz",
+            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.19.6.tar.gz",
+            "https://github.com/protocolbuffers/protobuf/archive/v3.19.6.tar.gz",
         ],
         "patch_args": ["-p1"],
         "patches": ["//third_party/protobuf:3.19.2.patch"],
