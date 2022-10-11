@@ -3362,7 +3362,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             () -> CcModule.flagSetFromStarlark(flagSetStruct, /* actionName= */ null));
     assertThat(e)
         .hasMessageThat()
-        .contains("at index 0 of actions, got element of type struct, want string");
+        .contains("at index 1 of actions, got element of type struct, want string");
   }
 
   @Test
