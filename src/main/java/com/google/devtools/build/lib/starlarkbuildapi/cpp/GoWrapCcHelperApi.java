@@ -75,23 +75,6 @@ public interface GoWrapCcHelperApi<
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
-      name = "create_go_compile_actions",
-      doc = "",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true),
-        @Param(name = "srcs", positional = false, named = true),
-        @Param(name = "deps", positional = false, named = true),
-      })
-  public Tuple /* of FileT */ createGoCompileActions(
-      StarlarkRuleContextT starlarkRuleContext,
-      CcToolchainProviderT ccToolchainProvider,
-      Sequence<?> srcs, // <FileT> expected
-      Sequence<?> deps /* <TransitiveInfoCollectionT> expected */)
-      throws EvalException, InterruptedException;
-
-  @StarlarkMethod(
       name = "create_go_compile_actions_gopkg",
       doc = "",
       documented = false,
