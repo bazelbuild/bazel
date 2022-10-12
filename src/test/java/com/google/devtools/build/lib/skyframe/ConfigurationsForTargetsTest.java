@@ -351,7 +351,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
         "java/a/BUILD",
         "cc_library(name = 'lib', srcs = ['lib.cc'])",
         "android_binary(name='a', manifest = 'AndroidManifest.xml', deps = [':lib'])");
-    useConfiguration("--fat_apk_cpu=k8,armeabi-v7a", "--experimental_google_legacy_api");
+    useConfiguration("--fat_apk_cpu=k8,armeabi-v7a");
     List<ConfiguredTarget> deps = getConfiguredDeps("//java/a:a", "deps");
     assertThat(deps).hasSize(2);
     ConfiguredTarget dep1 = deps.get(0);
