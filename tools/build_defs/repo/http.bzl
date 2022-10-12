@@ -32,7 +32,7 @@ replace the native rules.
 
 load(
     ":utils.bzl",
-    "full_module_patch",
+    "full_repo_patch",
     "patch",
     "read_netrc",
     "read_user_netrc",
@@ -142,9 +142,17 @@ def _http_archive_impl(ctx):
     )
     workspace_and_buildfile(ctx)
     patch(ctx, auth = auth)
-    finalize(ctx)
+    args = {
+        "sha256": ctx.attr.sha256,
+        "type": ctx.attr.type,
+        "strip_prefix": ctx.attr.strip_prefix,
+        "integrity": ctx.attr.integrity,
+    }
+    args.update(ctx.attr.repo_patcher_args)
+    full_repo_patch(ctx, args)
 
     return _update_sha256_attr(ctx, _http_archive_attrs, download_info)
+
 
 _HTTP_FILE_BUILD = """\
 package(default_visibility = ["//visibility:public"])
@@ -369,13 +377,16 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "Either `workspace_file` or `workspace_file_content` can be " +
             "specified, or neither, but not both.",
     ),
-    "finalize_cmd": attr.label(
+    "repo_patcher": attr.label(
         doc =
-            "A command to run in the repository after all patches are " +
-            "done, but before the repository is returned",
+            "Program to patch the downloaded repository in any way needed. " +
+            "It assumes that it is running at the top of the newly " +
+            "downloaded repo, and it gets a set of name/value pairs on the " +
+            "command line.",
     ),
-    "finalize_args": attr.string_list(
-        doc = "Args to pass to the finalize_cmd",
+    "repo_patcher_args": attr.string_dict(
+        doc = "Collection of name/value pairs containing things we know " +
+              "about the repository.",
     ),
 }
 

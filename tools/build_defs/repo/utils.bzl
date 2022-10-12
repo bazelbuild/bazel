@@ -413,3 +413,28 @@ def read_user_netrc(ctx):
     if not ctx.path(netrcfile).exists:
         return {}
     return read_netrc(ctx, netrcfile)
+
+def full_repo_patch(ctx, repo_metadata):
+    print("================ full_repo:", ctx.name, "=>", str(repo_metadata))
+    #patcher = native.existing_rule("bazel_module_patcher")
+    #if patcher:
+    if ctx.attr.repo_patcher:
+        print("========================= GOT THE COMPLIANCE")
+        # The Label for the tool is main repo relative. The path you get back is
+        # made absolute so it resolves even though we have cd'ed into the repo
+        # we are building.
+        # TODO(aiuto): I don't like having the name here, but we can not load it
+        # from here.  Perhaps.. toolchain?, @module_patcher:patcher is alias to
+        # the program?
+        # cmd = [ctx.path(Label("@bazel_module_patcher//:add_package_metadata.py"))]
+        cmd = [ctx.path(ctx.attr.repo_patcher)]
+        for k, v in repo_metadata.items():
+            # TODO(aiuto): Do we escape quote these better, or write to a file
+            # or disallow really broken values.
+            cmd.append("'%s'='%s'" % (k, v))
+        print("finalizing repo:", cmd)
+        st = ctx.execute(cmd)
+
+        if st.return_code:
+            fail("Error applying patch command %s:\n%s%s" %
+                 (cmd, st.stdout, st.stderr))
