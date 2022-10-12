@@ -13,7 +13,7 @@ Bazel is a tool that automates software builds and tests. Supported build tasks 
 
 Bazel was designed to fit the way software is developed at Google. It has the following features:
 
-*   Multi-language support: Bazel supports [many languages](/reference/build-encyclopedia), and can be extended to support arbitrary programming languages.
+*   Multi-language support: Bazel supports [many languages](/reference/be/overview), and can be extended to support arbitrary programming languages.
 *   High-level build language: Projects are described in the `BUILD` language, a concise text format that describes a project as sets of small interconnected libraries, binaries and tests. In contrast, with tools like Make, you have to describe individual files and compiler invocations.
 *   Multi-platform support: The same tool and the same `BUILD` files can be used to build software for different architectures, and even different platforms. At Google, we use Bazel to build everything from server applications running on systems in our data centers to client apps running on mobile phones.
 *   Reproducibility: In `BUILD` files, each library, test and binary must specify its direct dependencies completely. Bazel uses this dependency information to know what must be rebuilt when you make changes to a source file, and which tasks can run in parallel. This means that all builds are incremental and will always produce the same result.
@@ -162,7 +162,7 @@ See our [Roadmaps](/community/roadmaps).
 
 ## Can I use Bazel for my INSERT LANGUAGE HERE project?
 
-Bazel is extensible. Anyone can add support for new languages. Many languages are supported, see the [build encyclopedia](/reference/build-encyclopedia#additional-rules) for a list of recommendations and [awesomebazel.com](https://awesomebazel.com/){: .external} for a more comprehensive list.
+Bazel is extensible. Anyone can add support for new languages. Many languages are supported: see the [build encyclopedia](/reference/be/overview) for a list of recommendations and [awesomebazel.com](https://awesomebazel.com/){: .external} for a more comprehensive list.
 
 If you would like to develop extensions or learn how they work, see the documentation for [extending Bazel](/rules/concepts).
 
