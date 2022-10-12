@@ -258,14 +258,6 @@ def _impl(ctx):
                         ],
                     ),
                     flag_group(
-                        flags = ["-framework", "%{framework_names}"],
-                        iterate_over = "framework_names",
-                    ),
-                    flag_group(
-                        flags = ["-weak_framework", "%{weak_framework_names}"],
-                        iterate_over = "weak_framework_names",
-                    ),
-                    flag_group(
                         flags = ["-l%{library_names}"],
                         iterate_over = "library_names",
                     ),
@@ -526,14 +518,6 @@ def _impl(ctx):
             flag_set(
                 flag_groups = [
                     flag_group(flags = ["-target", target_system_name]),
-                    flag_group(
-                        flags = ["-framework", "%{framework_names}"],
-                        iterate_over = "framework_names",
-                    ),
-                    flag_group(
-                        flags = ["-weak_framework", "%{weak_framework_names}"],
-                        iterate_over = "weak_framework_names",
-                    ),
                     flag_group(
                         flags = ["-l%{library_names}"],
                         iterate_over = "library_names",
@@ -1247,6 +1231,14 @@ def _impl(ctx):
                     flag_group(
                         flags = ["-F%{framework_paths}"],
                         iterate_over = "framework_paths",
+                    ),
+                    flag_group(
+                        flags = ["-framework", "%{framework_names}"],
+                        iterate_over = "framework_names",
+                    ),
+                    flag_group(
+                        flags = ["-weak_framework", "%{weak_framework_names}"],
+                        iterate_over = "weak_framework_names",
                     ),
                 ],
             ),
