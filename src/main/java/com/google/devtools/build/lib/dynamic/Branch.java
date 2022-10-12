@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.concurrent.Callable;
@@ -140,10 +140,10 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
   private static void moveFileOutErr(FileOutErr from, FileOutErr to) {
     try {
       if (from.getOutputPath().exists()) {
-        Files.move(from.getOutputPath().getPathFile(), to.getOutputPath().getPathFile());
+        FileSystemUtils.moveFile(from.getOutputPath(), to.getOutputPath());
       }
       if (from.getErrorPath().exists()) {
-        Files.move(from.getErrorPath().getPathFile(), to.getErrorPath().getPathFile());
+        FileSystemUtils.moveFile(from.getErrorPath(), to.getErrorPath());
       }
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Could not move action logs from execution");
