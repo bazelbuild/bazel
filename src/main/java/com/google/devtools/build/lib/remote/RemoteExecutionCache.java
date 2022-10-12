@@ -28,6 +28,7 @@ import build.bazel.remote.execution.v2.Directory;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -82,13 +83,13 @@ public class RemoteExecutionCache extends RemoteCache {
       Map<Digest, Message> additionalInputs,
       boolean force)
       throws IOException, InterruptedException {
-    ImmutableSet<Digest> allDigests =
-        ImmutableSet.<Digest>builder()
-            .addAll(merkleTree.getAllDigests())
-            .addAll(additionalInputs.keySet())
-            .build();
+    Iterable<Digest> merkleTreeAllDigests;
+    try (SilentCloseable s = Profiler.instance().profile("merkleTree.getAllDigests()")) {
+      merkleTreeAllDigests = merkleTree.getAllDigests();
+    }
+    Iterable<Digest> allDigests = Iterables.concat(merkleTreeAllDigests, additionalInputs.keySet());
 
-    if (allDigests.isEmpty()) {
+    if (Iterables.isEmpty(allDigests)) {
       return;
     }
 
