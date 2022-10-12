@@ -181,4 +181,7 @@ public @interface Option {
    * that the old name is deprecated and the new name should be used.
    */
   String oldName() default "";
+
+  /** If the option is referred to by its {@link #oldName()}, emit a warning. */
+  boolean oldNameWarning() default true;
 }

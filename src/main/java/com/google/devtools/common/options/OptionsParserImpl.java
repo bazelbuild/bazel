@@ -320,9 +320,13 @@ class OptionsParserImpl {
     if (parsedOption.getPriority().getPriorityCategory().equals(INVOCATION_POLICY)) {
       return;
     }
+    OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
+    if (!optionDefinition.getOldNameWarning()) {
+      return;
+    }
     String commandLineForm = parsedOption.getCommandLineForm();
-    String oldOptionName = parsedOption.getOptionDefinition().getOldOptionName();
-    String optionName = parsedOption.getOptionDefinition().getOptionName();
+    String oldOptionName = optionDefinition.getOldOptionName();
+    String optionName = optionDefinition.getOptionName();
     if (commandLineForm.startsWith(String.format("--%s=", oldOptionName))) {
       addDeprecationWarning(oldOptionName, String.format("Use --%s instead", optionName));
     }
