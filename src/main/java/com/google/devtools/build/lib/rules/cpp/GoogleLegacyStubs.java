@@ -186,20 +186,12 @@ public final class GoogleLegacyStubs {
     }
 
     @Override
-    public Tuple createGoCompileActions(
-        StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-        CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchainProvider,
-        Sequence<?> srcs, // <FileApi>
-        Sequence<?> deps /* <TransitiveInfoCollectionApi> */) {
-      return null;
-    }
-
-    @Override
     public Tuple createGoCompileActionsGopkg(
         StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
         CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchainProvider,
         Sequence<?> srcs, // <FileApi>
-        Sequence<?> deps /* <TransitiveInfoCollectionApi> */) {
+        Sequence<?> deps, /* <TransitiveInfoCollectionApi> */
+        String execGroup) {
       return null;
     }
 

@@ -455,7 +455,8 @@ public class ResourceManager {
   }
 
   // Method will return true if all requested resources are considered to be available.
-  private boolean areResourcesAvailable(ResourceSet resources) {
+  @VisibleForTesting
+  boolean areResourcesAvailable(ResourceSet resources) {
     Preconditions.checkNotNull(availableResources);
     // Comparison below is robust, since any calculation errors will be fixed
     // by the release() method.
@@ -467,7 +468,9 @@ public class ResourceManager {
       availableWorkers = this.workerPool.getMaxTotalPerKey(workerKey);
       activeWorkers = this.workerPool.getNumActive(workerKey);
     }
-    boolean workerIsAvailable = workerKey == null || activeWorkers < availableWorkers;
+    boolean workerIsAvailable =
+        workerKey == null
+            || (activeWorkers < availableWorkers && workerPool.couldBeBorrowed(workerKey));
 
     if (usedCpu == 0.0 && usedRam == 0.0 && usedLocalTestCount == 0 && workerIsAvailable) {
       return true;
@@ -506,11 +509,6 @@ public class ResourceManager {
   @VisibleForTesting
   synchronized int getWaitCount() {
     return localRequests.size() + dynamicStandaloneRequests.size() + dynamicWorkerRequests.size();
-  }
-
-  @VisibleForTesting
-  synchronized boolean isAvailable(double ram, double cpu, int localTestCount) {
-    return areResourcesAvailable(ResourceSet.create(ram, cpu, localTestCount));
   }
 
   private static class LatchWithWorker {

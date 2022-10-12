@@ -214,8 +214,11 @@ public class JavaImport implements RuleConfiguredTargetFactory {
 
   private static void checkJarsAttributeEmpty(RuleContext ruleContext) {
     if (ruleContext.getPrerequisites("jars").isEmpty()
-        && ruleContext.getFragment(JavaConfiguration.class).disallowJavaImportEmptyJars()) {
-      ruleContext.ruleError("empty java_import.jars is no longer supported");
+        && ruleContext.getFragment(JavaConfiguration.class).disallowJavaImportEmptyJars()
+        && Allowlist.hasAllowlist(ruleContext, "java_import_empty_jars")
+        && !Allowlist.isAvailable(ruleContext, "java_import_empty_jars")) {
+      ruleContext.ruleError(
+          "empty java_import.jars is no longer supported " + ruleContext.getLabel());
     }
   }
 

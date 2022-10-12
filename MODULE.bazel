@@ -10,7 +10,7 @@ module(
 
 bazel_dep(name = "rules_license", version = "0.0.3")
 bazel_dep(name = "bazel_skylib", version = "1.2.0")
-bazel_dep(name = "protobuf", version = "3.19.2", repo_name = "com_google_protobuf")
+bazel_dep(name = "protobuf", version = "3.19.6", repo_name = "com_google_protobuf")
 bazel_dep(name = "grpc", version = "1.47.0", repo_name = "com_github_grpc_grpc")
 bazel_dep(name = "platforms", version = "0.0.5")
 bazel_dep(name = "rules_pkg", version = "0.7.0")
@@ -37,6 +37,6 @@ local_path_override(
 # TODO(pcloudy): Remove this when rules_jvm_external adopts Bzlmod.
 single_version_override(
     module_name = "protobuf",
-    patches = ["//third_party/protobuf:3.19.2.bzlmod.patch"],
+    patches = ["//third_party/protobuf:3.19.6.bzlmod.patch"],
     patch_strip = 1,
 )
