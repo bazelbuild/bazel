@@ -190,7 +190,8 @@ public final class GoogleLegacyStubs {
         StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
         CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchainProvider,
         Sequence<?> srcs, // <FileApi>
-        Sequence<?> deps /* <TransitiveInfoCollectionApi> */) {
+        Sequence<?> deps, /* <TransitiveInfoCollectionApi> */
+        String execGroup) {
       return null;
     }
 
