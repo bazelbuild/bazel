@@ -359,7 +359,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean desugarJava8;
 
     @Option(
-        name = "experimental_desugar_java8_libs",
+        name = "desugar_java8_libs",
+        oldName = "experimental_desugar_java8_libs",
+        oldNameWarning = false,
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
         effectTags = {
