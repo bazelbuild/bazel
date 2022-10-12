@@ -299,7 +299,6 @@ DIST_DEPS = {
         "license_kinds": [
             "@rules_license//licenses/spdx:Apache-2.0",
             "@rules_license//licenses/spdx:AND_ONE_MORE",
-            "@rules_license//licenses/spdx:TOAST1",
         ],
     },
     "rules_pkg": {

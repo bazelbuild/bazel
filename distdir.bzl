@@ -15,6 +15,7 @@
 
 load("//:distdir_deps.bzl", "DEPS_BY_NAME")
 load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
+load("//tools/compliance:module_patcher.bzl", "module_patcher")
 
 _BUILD = """
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
@@ -97,10 +98,19 @@ def dist_http_archive(name, **kwargs):
             license_args.append("--license_kind='%s'" % kind)
     if "package_version" in info:
         license_args.append("--package_version='%s'" % info["package_version"])
+
     if license_args:
-        kwargs["finalize_cmd"] = Label("//tools/compliance:add_license_attestation.py")
-        kwargs["finalize_args"] = license_args
-        print("repo", name, "=>", license_args)
+        patcher = native.existing_rule('bazel_module_patcher')
+        if patcher:
+            print("GOT THE COMPLIANCE")
+            if 'urls' in patcher:
+                fail('module_patcher not locally loaded')
+            print(patcher)
+            kwargs["finalize_cmd"] = Label("@module_patcher//:add_license_attestation.py")
+            kwargs["finalize_args"] = license_args
+            print("repo", name, "=>", license_args)
+        else:
+            print("no compliance COMPLIANCE")
 
     http_archive(
         name = name,
@@ -108,6 +118,9 @@ def dist_http_archive(name, **kwargs):
         urls = info["urls"],
         **kwargs
     )
+    maybe_patch_module(name,
+
+
 
 def dist_http_file(name, **kwargs):
     """Wraps http_file, providing attributes like sha and urls from the central list.
@@ -125,4 +138,5 @@ def dist_http_file(name, **kwargs):
         sha256 = info["sha256"],
         urls = info["urls"],
         **kwargs
+
     )

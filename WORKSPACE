@@ -63,6 +63,12 @@ dist_http_archive(
     name = "rules_license",
 )
 
+# Note to reviewer. The name is reserved. Repository rules look for it.
+local_repository(
+    name = "bazel_module_patcher",
+    path = "tools/compliance/module_patcher",
+)
+
 # For src/test/shell/bazel:test_srcs
 load("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
 

@@ -32,6 +32,7 @@ replace the native rules.
 
 load(
     ":utils.bzl",
+    "full_module_patch",
     "patch",
     "read_netrc",
     "read_user_netrc",
