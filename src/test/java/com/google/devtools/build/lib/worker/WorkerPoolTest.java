@@ -200,6 +200,9 @@ public class WorkerPoolTest {
     assertThat(worker1.getWorkerId()).isEqualTo(1);
     assertThat(worker1a.getWorkerId()).isEqualTo(2);
     WorkerKey workerKey2 = createWorkerKey(fileSystem, "loprio", false);
+    assertWithMessage("Could not borrow low priority worker")
+        .that(workerPool.couldBeBorrowed(workerKey2))
+        .isFalse();
     Thread t =
         new Thread(
             () -> {
@@ -220,6 +223,9 @@ public class WorkerPoolTest {
     }
     assertWithMessage("Expected low-priority worker to wait").that(waited).isTrue();
     workerPool.returnObject(workerKey1, worker1);
+    assertWithMessage("Could not borrow low priority worker")
+        .that(workerPool.couldBeBorrowed(workerKey2))
+        .isTrue();
     boolean continued = false;
     for (int tries = 0; tries < 1000; tries++) {
       if (t.getState() != State.WAITING) {

@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.worker.WorkerPool;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -306,7 +307,7 @@ public final class ResourceManagerTest {
         new TestThread(
             () -> {
               sync2.await();
-              assertThat(rm.isAvailable(2000, 2, 0)).isFalse();
+              assertThat(isAvailable(rm, 2000, 2, 0)).isFalse();
               acquire(2000, 2, 0); // Will be blocked by the thread1.
               validate(2);
               sync2.await();
@@ -700,6 +701,9 @@ public final class ResourceManagerTest {
     when(slowWorker2.getWorkerKey()).thenReturn(slowWorkerKey);
     when(fastWorker.getWorkerKey()).thenReturn(fastWorkerKey);
 
+    CountDownLatch slowLatch = new CountDownLatch(2);
+    CountDownLatch fastLatch = new CountDownLatch(1);
+
     WorkerPool workerPool =
         new WorkerPool(
             new WorkerPool.WorkerPoolConfig(
@@ -739,7 +743,8 @@ public final class ResourceManagerTest {
         new TestThread(
             () -> {
               ResourceHandle handle = acquire(100, 0.1, 0, slowMenmonic);
-              Thread.sleep(Duration.ofSeconds(3).toMillis());
+              slowLatch.countDown();
+              fastLatch.await();
               // release resources
               handle.close();
             });
@@ -748,7 +753,8 @@ public final class ResourceManagerTest {
         new TestThread(
             () -> {
               ResourceHandle handle = acquire(100, 0.1, 0, slowMenmonic);
-              Thread.sleep(Duration.ofSeconds(3).toMillis());
+              slowLatch.countDown();
+              fastLatch.await();
               // release resources
               handle.close();
             });
@@ -756,7 +762,9 @@ public final class ResourceManagerTest {
     TestThread fastThread =
         new TestThread(
             () -> {
-              Thread.sleep(Duration.ofSeconds(1).toMillis());
+              slowLatch.await();
+              assertThat(isAvailable(rm, 100, 0.1, 0, createWorkerKey(fastMenmonic))).isFalse();
+              fastLatch.countDown();
               ResourceHandle handle = acquire(100, 0.1, 0, fastMenmonic);
               // release resources
               handle.close();
@@ -769,6 +777,16 @@ public final class ResourceManagerTest {
     slowThread1.joinAndAssertState(Duration.ofSeconds(10).toMillis());
     slowThread2.joinAndAssertState(Duration.ofSeconds(10).toMillis());
     fastThread.joinAndAssertState(Duration.ofSeconds(10).toMillis());
+  }
+
+  synchronized boolean isAvailable(ResourceManager rm, double ram, double cpu, int localTestCount) {
+    return rm.areResourcesAvailable(ResourceSet.create(ram, cpu, localTestCount));
+  }
+
+  synchronized boolean isAvailable(
+      ResourceManager rm, double ram, double cpu, int localTestCount, WorkerKey workerKey) {
+    return rm.areResourcesAvailable(
+        ResourceSet.createWithWorkerKey(ram, cpu, localTestCount, workerKey));
   }
 
   private static class ResourceOwnerStub implements ActionExecutionMetadata {
