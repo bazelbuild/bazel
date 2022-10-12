@@ -673,8 +673,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     Artifact artProfileZip =
-        androidSemantics.getArtProfileForApk(
-            ruleContext, finalClassesDex, proguardOutputMap, hasProguardSpecs);
+        androidSemantics.getArtProfileForApk(ruleContext, finalClassesDex, finalProguardOutputMap);
     Artifact unsignedApk =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
     Artifact zipAlignedApk =
