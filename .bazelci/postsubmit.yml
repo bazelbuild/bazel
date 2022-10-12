@@ -1,6 +1,8 @@
 ---
 tasks:
   centos7_java11_devtoolset10:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
@@ -45,6 +47,8 @@ tasks:
       - build
       - test
   ubuntu1604:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
@@ -81,6 +85,8 @@ tasks:
       - build
       - test
   ubuntu1804:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
@@ -121,6 +127,7 @@ tasks:
   ubuntu1804_clang:
     platform: ubuntu1804
     environment:
+      USE_BAZEL_VERSION: 4.2.2
       CC: clang
       CC_CONFIGURE_DEBUG: 1
     name: "Clang"
@@ -148,6 +155,8 @@ tasks:
       - build
       - test
   ubuntu2004:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
@@ -194,6 +203,8 @@ tasks:
       - build
       - test
   macos:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
@@ -232,6 +243,8 @@ tasks:
       - build
       - test
   windows:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     batch_commands:
       - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
     build_flags:
@@ -256,6 +269,8 @@ tasks:
       - build
       - test
   rbe_ubuntu1604:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
         -e 's/^# android_ndk_repository/android_ndk_repository/'
@@ -268,6 +283,8 @@ tasks:
     include_json_profile:
       - build
   kythe_ubuntu2004:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
       -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE

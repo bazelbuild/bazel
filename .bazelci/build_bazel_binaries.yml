@@ -1,6 +1,8 @@
 ---
 platforms:
   centos7_java11_devtoolset10:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
@@ -8,6 +10,8 @@ platforms:
       - "-c"
       - "opt"
   ubuntu1604:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
@@ -15,6 +19,8 @@ platforms:
       - "-c"
       - "opt"
   ubuntu1804:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
@@ -22,6 +28,8 @@ platforms:
       - "-c"
       - "opt"
   ubuntu2004:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
@@ -29,6 +37,8 @@ platforms:
       - "-c"
       - "opt"
   macos:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
@@ -36,6 +46,8 @@ platforms:
       - "-c"
       - "opt"
   windows:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     build_flags:
       - "--copt=-w"
       - "--host_copt=-w"

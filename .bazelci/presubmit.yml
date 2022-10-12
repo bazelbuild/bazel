@@ -1,6 +1,8 @@
 ---
 tasks:
   centos7_java11_devtoolset10:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     shards: 4
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -43,6 +45,8 @@ tasks:
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
   ubuntu1604:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     shards: 4
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -77,6 +81,8 @@ tasks:
       - "-//src/java_tools/buildjar/..."
       - "-//src/java_tools/import_deps_checker/..."
   ubuntu1804:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     shards: 4
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -115,6 +121,7 @@ tasks:
   ubuntu1804_clang:
     platform: ubuntu1804
     environment:
+      USE_BAZEL_VERSION: 4.2.2
       CC: clang
       CC_CONFIGURE_DEBUG: 1
     name: "Clang"
@@ -139,6 +146,8 @@ tasks:
     test_targets:
       - "//src/test/shell/bazel:cc_integration_test"
   ubuntu2004:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     shards: 4
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -183,6 +192,8 @@ tasks:
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel/android:android_ndk_integration_test_with_head_android_tools"
   macos:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     shards: 5
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -222,6 +233,8 @@ tasks:
       # C++ coverage is not supported on macOS yet.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
   windows:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     shards: 4
     batch_commands:
       - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
@@ -244,6 +257,8 @@ tasks:
     test_targets:
       - "//src:all_windows_tests"
   rbe_ubuntu1604:
+    environment:
+      USE_BAZEL_VERSION: 4.2.2
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
