@@ -130,7 +130,6 @@ public class JavaTargetAttributes {
 
     @CanIgnoreReturnValue
     public Builder merge(JavaCompilationArgsProvider context, boolean pruneTransitiveDeps) {
-      addCompileTimeClassPathEntries(context.getTransitiveCompileTimeJars());
       addCompileTimeClassPathEntries(
           pruneTransitiveDeps ? context.getDirectCompileTimeJars()
               : context.getTransitiveCompileTimeJars());
