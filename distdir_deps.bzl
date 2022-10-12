@@ -101,7 +101,7 @@ DIST_DEPS = {
             "https://github.com/protocolbuffers/protobuf/archive/v3.19.6.tar.gz",
         ],
         "patch_args": ["-p1"],
-        "patches": ["//third_party/protobuf:3.19.2.patch"],
+        "patches": ["//third_party/protobuf:3.19.6.patch"],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
