@@ -888,7 +888,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public Sequence<String> getStarlarkArgv() throws EvalException, InterruptedException {
     try {
-      return StarlarkList.immutableCopyOf(getArguments());
+      if (cppConfiguration.ignoreParamFile()) {
+        return StarlarkList.immutableCopyOf(
+            compileCommandLine.getArguments(
+                /*parameterFilePath=*/ null, getOverwrittenVariables()));
+
+      } else {
+        return StarlarkList.immutableCopyOf(getArguments());
+      }
     } catch (CommandLineExpansionException ex) {
       throw new EvalException(ex);
     }

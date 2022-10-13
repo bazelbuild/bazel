@@ -1031,6 +1031,19 @@ public class CppOptions extends FragmentOptions {
   public boolean useArgsParamsFile;
 
   @Option(
+      name = "experimental_cpp_compile_argv_ignore_param_file",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {
+        OptionMetadataTag.EXPERIMENTAL,
+      },
+      help =
+          "If enabled, CppCompileAction action.argv returns the complete list of argv even if"
+              + " compiler_param_file is enabled.")
+  public boolean ignoreParamFile;
+
+  @Option(
       name = "experimental_unsupported_and_brittle_include_scanning",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
@@ -1226,6 +1239,7 @@ public class CppOptions extends FragmentOptions {
     host.parseHeadersSkippedIfCorrespondingSrcsFound = parseHeadersSkippedIfCorrespondingSrcsFound;
     host.strictSystemIncludes = strictSystemIncludes;
     host.useArgsParamsFile = useArgsParamsFile;
+    host.ignoreParamFile = ignoreParamFile;
     host.experimentalIncludeScanning = experimentalIncludeScanning;
 
     // Save host options for further use.
