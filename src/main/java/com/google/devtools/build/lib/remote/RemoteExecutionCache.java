@@ -229,11 +229,6 @@ public class RemoteExecutionCache extends RemoteCache {
 
                 @Override
                 public void onError(@NonNull Throwable e) {
-                  Disposable d = uploadTask.disposable.get();
-                  if (d != null && d.isDisposed()) {
-                    return;
-                  }
-
                   completion.onError(e);
                 }
               });
