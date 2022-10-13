@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -1689,7 +1690,7 @@ public class RemoteExecutionServiceTest {
                 service.uploadInputsIfNotPresent(action, /*force=*/ false);
               } catch (InterruptedException ignored) {
                 interrupted.countDown();
-              } catch (IOException ignored) {
+              } catch (ExecException | IOException ignored) {
                 // intentionally ignored
               }
             });

@@ -418,8 +418,8 @@ public class RemoteCacheTest {
     Runnable work =
         () -> {
           try {
-            remoteCache.ensureInputsPresent(context, merkleTree, ImmutableMap.of(), false);
-          } catch (IOException ignored) {
+            remoteCache.ensureInputsPresent(context, merkleTree, ImmutableMap.of(), "", false);
+          } catch (ExecException | IOException ignored) {
             // ignored
           } catch (InterruptedException e) {
             ensureInterrupted.countDown();
@@ -511,8 +511,8 @@ public class RemoteCacheTest {
         new Thread(
             () -> {
               try {
-                remoteCache.ensureInputsPresent(context, merkleTree1, ImmutableMap.of(), false);
-              } catch (IOException ignored) {
+                remoteCache.ensureInputsPresent(context, merkleTree1, ImmutableMap.of(), "", false);
+              } catch (ExecException | IOException ignored) {
                 // ignored
               } catch (InterruptedException e) {
                 ensureInterrupted.countDown();
@@ -524,8 +524,8 @@ public class RemoteCacheTest {
         new Thread(
             () -> {
               try {
-                remoteCache.ensureInputsPresent(context, merkleTree2, ImmutableMap.of(), false);
-              } catch (InterruptedException | IOException ignored) {
+                remoteCache.ensureInputsPresent(context, merkleTree2, ImmutableMap.of(), "", false);
+              } catch (ExecException | InterruptedException | IOException ignored) {
                 // ignored
               } finally {
                 ensureInputsPresentReturned.countDown();
