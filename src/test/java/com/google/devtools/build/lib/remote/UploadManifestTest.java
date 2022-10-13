@@ -41,6 +41,8 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -249,7 +251,10 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("link").setTreeDigest(treeDigest);
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("link")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -309,7 +314,10 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("link").setTreeDigest(treeDigest);
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("link")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -369,7 +377,10 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("link").setTreeDigest(treeDigest);
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("link")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -570,7 +581,10 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -615,7 +629,10 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -651,7 +668,10 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -696,7 +716,10 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -731,7 +754,10 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -776,7 +802,10 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -811,7 +840,10 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -848,7 +880,10 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -933,7 +968,10 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -968,7 +1006,10 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -1051,6 +1092,76 @@ public class UploadManifestTest {
         assertThrows(UserExecException.class, () -> um.addFiles(ImmutableList.of(dir)));
     assertThat(e).hasMessageThat().contains("special file");
     assertThat(e).hasMessageThat().contains("dir/link");
+  }
+
+  @Test
+  public void actionResult_topologicallySortedAndDeduplicatedTree()
+      throws Exception {
+    // Create 5^3 identical files named "dir/%d/%d/%d/file".
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    byte fileContents[] = new byte[] {1, 2, 3, 4, 5};
+    final int childrenPerDirectory = 5;
+    for (int a = 0; a < childrenPerDirectory; a++) {
+      Path pathA = dir.getRelative(Integer.toString(a));
+      pathA.createDirectory();
+      for (int b = 0; b < childrenPerDirectory; b++) {
+        Path pathB = pathA.getRelative(Integer.toString(b));
+        pathB.createDirectory();
+        for (int c = 0; c < childrenPerDirectory; c++) {
+          Path pathC = pathB.getRelative(Integer.toString(c));
+          pathC.createDirectory();
+          Path file = pathC.getRelative("file");
+          FileSystemUtils.writeContent(file, fileContents);
+        }
+      }
+    }
+
+    ActionResult.Builder result = ActionResult.newBuilder();
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
+    um.addFiles(ImmutableList.of(dir));
+
+    // Even though we constructed 1 + 5 + 5^2 + 5^3 directories, the resulting
+    // Tree message should only contain four unique instances. The directories
+    // should also be topologically sorted.
+    List<Directory> children = new ArrayList<>();
+    Directory root = Directory.newBuilder()
+        .addFiles(
+            FileNode.newBuilder().
+               setName("file").setDigest(digestUtil.compute(fileContents)))
+         .build();
+    for (int depth = 0; depth < 3; depth++) {
+      Directory.Builder b = Directory.newBuilder();
+      Digest parentDigest = digestUtil.compute(root.toByteArray());
+      for (int i = 0; i < childrenPerDirectory; i++) {
+        b.addDirectories(
+            DirectoryNode.newBuilder()
+                .setName(Integer.toString(i))
+                .setDigest(parentDigest));
+      }
+      children.add(0, root);
+      root = b.build();
+    }
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(root)
+            .addAllChildren(children)
+            .build();
+    Digest treeDigest = digestUtil.compute(tree);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
   private Path createSpecialFile(String execPath) throws IOException {

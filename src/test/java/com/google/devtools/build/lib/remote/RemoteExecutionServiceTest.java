@@ -1345,7 +1345,10 @@ public class RemoteExecutionServiceTest {
         .setPath("outputs/a/foo")
         .setDigest(fooDigest)
         .setIsExecutable(true);
-    expectedResult.addOutputDirectoriesBuilder().setPath("outputs/bar").setTreeDigest(barDigest);
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("outputs/bar")
+        .setTreeDigest(barDigest)
+        .setIsTopologicallySorted(true);
     assertThat(manifest.getActionResult()).isEqualTo(expectedResult.build());
 
     ImmutableList<Digest> toQuery = ImmutableList.of(fooDigest, quxDigest, barDigest);
@@ -1383,7 +1386,10 @@ public class RemoteExecutionServiceTest {
 
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("outputs/bar").setTreeDigest(barDigest);
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("outputs/bar")
+        .setTreeDigest(barDigest)
+        .setIsTopologicallySorted(true);
     assertThat(manifest.getActionResult()).isEqualTo(expectedResult.build());
     assertThat(
             getFromFuture(
@@ -1448,7 +1454,10 @@ public class RemoteExecutionServiceTest {
 
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("outputs/bar").setTreeDigest(barDigest);
+    expectedResult.addOutputDirectoriesBuilder()
+        .setPath("outputs/bar")
+        .setTreeDigest(barDigest)
+        .setIsTopologicallySorted(true);
     assertThat(manifest.getActionResult()).isEqualTo(expectedResult.build());
 
     ImmutableList<Digest> toQuery = ImmutableList.of(wobbleDigest, quxDigest, barDigest);
