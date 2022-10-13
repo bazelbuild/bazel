@@ -1944,6 +1944,28 @@ public final class OptionsParserTest {
         .containsExactly("--new_name=foo");
   }
 
+  public static class OldNameNoWarningExample extends OptionsBase {
+    @Option(
+        name = "new_name",
+        oldName = "old_name",
+        oldNameWarning = false,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defaultValue")
+    public String flag;
+  }
+
+  @Test
+  public void testOldName_noWarning() throws OptionsParsingException {
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(OldNameNoWarningExample.class).build();
+    parser.parse("--old_name=foo");
+    OldNameNoWarningExample result = parser.getOptions(OldNameNoWarningExample.class);
+    assertThat(result.flag).isEqualTo("foo");
+    // Using old option name should not cause a warning
+    assertThat(parser.getWarnings()).isEmpty();
+  }
+
   public static class ExampleBooleanFooOptions extends OptionsBase {
     @Option(
       name = "foo",

@@ -111,10 +111,7 @@ public interface AndroidSemantics {
 
   /** The artifact for ART profile information. */
   Artifact getArtProfileForApk(
-      RuleContext ruleContext,
-      Artifact finalClassesDex,
-      Artifact proguardOutputMap,
-      boolean hasProguardSpecs);
+      RuleContext ruleContext, Artifact finalClassesDex, Artifact proguardOutputMap);
 
   boolean postprocessClassesRewritesMap(RuleContext ruleContext);
 
