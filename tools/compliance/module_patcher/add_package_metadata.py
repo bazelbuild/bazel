@@ -159,7 +159,8 @@ class BuildRewriter(object):
                 target.append('        "%s",' % kind)
             target.append('    ],')
         else:
-            target.append('    license_kinds = []')
+            target.append('    license_kinds = [],')
+        # TODO(aiuto): These should be in package_info when that is ready.
         if self.package_name:
             target.append('    package_name = "%s",' % self.package_name)
         if self.package_version:
