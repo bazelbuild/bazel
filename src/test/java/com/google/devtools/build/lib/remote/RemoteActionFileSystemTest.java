@@ -20,6 +20,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -153,15 +154,23 @@ public final class RemoteActionFileSystemTest {
   }
 
   private RemoteActionFileSystem newRemoteActionFileSystem(ActionInputMap inputs) {
+    return newRemoteActionFileSystem(inputs, ImmutableList.of());
+  }
+
+  private RemoteActionFileSystem newRemoteActionFileSystem(ActionInputMap inputs,
+      Iterable<Artifact> outputs) {
     return new RemoteActionFileSystem(
         fs,
         execRoot.asFragment(),
         outputRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
         inputs,
+        outputs,
         inputFetcher);
   }
 
-  /** Returns a remote artifact and puts its metadata into the action input map. */
+  /**
+   * Returns a remote artifact and puts its metadata into the action input map.
+   */
   private Artifact createRemoteArtifact(
       String pathFragment, String contents, ActionInputMap inputs) {
     Path p = outputRoot.getRoot().asPath().getRelative(pathFragment);

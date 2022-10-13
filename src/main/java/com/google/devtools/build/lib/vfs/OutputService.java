@@ -192,14 +192,23 @@ public interface OutputService {
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector injector,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {}
+      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
+  }
 
   /**
    * Checks the filesystem returned by {@link #createActionFileSystem} for errors attributable to
    * lost inputs.
    */
   default void checkActionFileSystemForLostInputs(FileSystem actionFileSystem, Action action)
-      throws LostInputsActionExecutionException {}
+      throws LostInputsActionExecutionException {
+  }
+
+  /**
+   * Flush the internal state of filesystem returned by {@link #createActionFileSystem} after action
+   * execution, before skyframe checking the action outputs.
+   */
+  default void flushActionFileSystem(FileSystem actionFileSystem) {
+  }
 
   default boolean supportsPathResolverForArtifactValues() {
     return false;
