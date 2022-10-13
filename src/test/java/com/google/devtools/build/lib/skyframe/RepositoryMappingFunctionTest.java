@@ -146,7 +146,12 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMappingAllowingFallback(
                 ImmutableMap.of(
-                    "a", RepositoryName.create("b"), "good", RepositoryName.create(""))));
+                    "a",
+                    RepositoryName.create("b"),
+                    "good",
+                    RepositoryName.MAIN,
+                    "",
+                    RepositoryName.MAIN)));
   }
 
   @Test
@@ -388,15 +393,23 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMappingAllowingFallback(
                 ImmutableMap.of(
-                    "a", RepositoryName.create("b"),
-                    "good", RepositoryName.create(""))));
+                    "a",
+                    RepositoryName.create("b"),
+                    "good",
+                    RepositoryName.MAIN,
+                    "",
+                    RepositoryName.MAIN)));
     assertThatEvaluationResult(eval(skyKey2))
         .hasEntryThat(skyKey2)
         .isEqualTo(
             withMappingAllowingFallback(
                 ImmutableMap.of(
-                    "x", RepositoryName.create("y"),
-                    "good", RepositoryName.create(""))));
+                    "x",
+                    RepositoryName.create("y"),
+                    "good",
+                    RepositoryName.MAIN,
+                    "",
+                    RepositoryName.MAIN)));
   }
 
   @Test
@@ -416,9 +429,14 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMappingAllowingFallback(
                 ImmutableMap.of(
-                    "a", RepositoryName.create("b"),
-                    "x", RepositoryName.create("y"),
-                    "good", RepositoryName.create(""))));
+                    "a",
+                    RepositoryName.create("b"),
+                    "x",
+                    RepositoryName.create("y"),
+                    "good",
+                    RepositoryName.MAIN,
+                    "",
+                    RepositoryName.MAIN)));
   }
 
   @Test
@@ -440,16 +458,11 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         "module(name='aaa',version='0.1')",
         "bazel_dep(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='2.0')",
-        "multiple_version_override(module_name='ddd',versions=['1.0','2.0'])");
+        "ext=use_extension('@ccc//:ext.bzl', 'ext')",
+        "use_repo(ext, 'ddd')");
     registry
-        .addModule(
-            createModuleKey("bbb", "1.0"),
-            "module(name='bbb', version='1.0');bazel_dep(name='ddd', version='1.0')")
-        .addModule(
-            createModuleKey("ccc", "2.0"),
-            "module(name='ccc', version='2.0');bazel_dep(name='ddd', version='2.0')")
-        .addModule(createModuleKey("ddd", "1.0"), "module(name='ddd', version='1.0')")
-        .addModule(createModuleKey("ddd", "2.0"), "module(name='ddd', version='2.0')");
+        .addModule(createModuleKey("bbb", "1.0"), "module(name='bbb', version='1.0')")
+        .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
 
     RepositoryName name = RepositoryName.create("ws_repo");
     SkyKey skyKey = RepositoryMappingValue.key(name);
@@ -458,17 +471,20 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMappingAllowingFallback(
                 ImmutableMap.<String, RepositoryName>builder()
+                    .put("", RepositoryName.MAIN)
+                    .put("aaa", RepositoryName.MAIN)
                     .put("root", RepositoryName.MAIN)
-                    // mappings to @bbb get remapped to @bbb~1.0 because of module bbb@1.0
+                    // mappings to @bbb get remapped to @bbb~1.0 because of root dep on bbb@1.0
                     .put("bbb_alias", RepositoryName.create("bbb~1.0"))
                     .put("bbb_alias2", RepositoryName.create("bbb~1.0"))
                     // mapping from @bbb to @bbb~1.0 is also created
                     .put("bbb", RepositoryName.create("bbb~1.0"))
                     // mapping from @ccc to @ccc~2.0 is created despite not being mentioned
                     .put("ccc", RepositoryName.create("ccc~2.0"))
-                    // mapping to @ddd is untouched because ddd has a multiple-version override
-                    .put("ddd_alias", RepositoryName.create("ddd"))
-                    // mapping to @eee is untouched because eee is not a module
+                    // mapping to @ddd gets remapped to a module-extension-generated repo
+                    .put("ddd_alias", RepositoryName.create("ccc~2.0~ext~ddd"))
+                    .put("ddd", RepositoryName.create("ccc~2.0~ext~ddd"))
+                    // mapping to @eee is untouched because the root module doesn't know about it
                     .put("eee_alias", RepositoryName.create("eee"))
                     .buildOrThrow()));
   }
@@ -570,7 +586,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .hasEntryThat(skyKey)
         .isEqualTo(
             withMappingAllowingFallback(
-                ImmutableMap.of(TestConstants.WORKSPACE_NAME, RepositoryName.MAIN)));
+                ImmutableMap.of(
+                    TestConstants.WORKSPACE_NAME, RepositoryName.MAIN, "", RepositoryName.MAIN)));
   }
 
   @Test
@@ -587,7 +604,9 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
     assertThatEvaluationResult(eval(skyKey))
         .hasEntryThat(skyKey)
-        .isEqualTo(withMappingAllowingFallback(ImmutableMap.of("good", RepositoryName.MAIN)));
+        .isEqualTo(
+            withMappingAllowingFallback(
+                ImmutableMap.of("good", RepositoryName.MAIN, "", RepositoryName.MAIN)));
   }
 
   @Test
