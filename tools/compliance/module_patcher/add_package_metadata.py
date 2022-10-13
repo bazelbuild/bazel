@@ -11,6 +11,14 @@ The resulting structure will normally be
 The intended use is to modify a repository after downloading, but before
 returning from the repository rule defining it.
 
+This reference version implements the command line API for BazelRepoPatcher
+
+- Program starts with the working directory as the repository to be patched.
+- Command line args
+  --top: may specify a differnt root for the repo
+  --verbose: turns on verbose output
+  name=value ... A set of name/value pairs.
+
 """
 
 import argparse
@@ -53,13 +61,15 @@ class BuildRewriter(object):
                  license_kinds: Sequence[str] = [],
                  package_name: str = None,
                  package_url: str = None,
-                 package_version: str = None):
+                 package_version: str = None,
+                 verbose: bool = False):
         if package_url:
             p_name, p_version = guess_package_name_and_version(package_url)
         else:
             p_name = None
             p_version = None
         self.top = top
+        self.verbose = verbose
         self.copyright_notice = copyright_notice
         self.license_file = license_file
         self.license_kinds = license_kinds
@@ -82,6 +92,7 @@ class BuildRewriter(object):
         print('top_build:', self.top_build)
         print('other_builds:', self.other_builds)
 
+
     def read_source_tree(self):
         # Gather BUILD and license files
         for root, dirs, files in os.walk(self.top):
@@ -91,6 +102,8 @@ class BuildRewriter(object):
             found_license = False
             notices = []
             for f in files:
+                 # Normalized path (no leading ./) from top
+                rel_path = os.path.join(root, f)[len(self.top)+1:]
                 if f in ('BUILD', 'BUILD.bazel'):
                     build_path = os.path.join(root, f)
                     if root == self.top: 
@@ -99,9 +112,9 @@ class BuildRewriter(object):
                         self.other_builds.append(build_path)
                 if f.upper().startswith('LICENSE'):
                     found_license = True
-                    self.license_files.append(os.path.join(root, f))
+                    self.license_files.append(rel_path)
                 if f.upper().startswith('NOTICE'):
-                    notices.append(os.path.join(root, f))
+                    notices.append(rel_path)
 
                 # FUTURE: Make this extensible so that users can add their own
                 # scanning code. To modif
@@ -145,6 +158,8 @@ class BuildRewriter(object):
             for kind in self.license_kinds:
                 target.append('        "%s",' % kind)
             target.append('    ],')
+        else:
+            target.append('    license_kinds = []')
         if self.package_name:
             target.append('    package_name = "%s",' % self.package_name)
         if self.package_version:
@@ -209,6 +224,9 @@ def add_license(build_file: str, license_target: str):
     if '\nlicense(' in content:  # )
         return 
 
+    license_load = """load("@rules_license//rules:license.bzl", "license")"""
+    must_add_load = not license_load in content
+
     new_content = add_default_applicable_licenses(content, "//:license")
     # Now splice it into the correct place. That is always before
     # any existing rules.
@@ -217,7 +235,10 @@ def add_license(build_file: str, license_target: str):
     for line in new_content.split('\n'):
         if not license_added:
             t = line.strip()
-            if (t
+            if t and must_add_load and not t.startswith('#'):
+                ret.append(license_load)
+                must_add_load = False
+            elif (t
                 and not line.startswith(' ')
                 and not t.startswith('#')
                 and not t.startswith(')')
@@ -234,41 +255,53 @@ def add_license(build_file: str, license_target: str):
         with open(build_file, 'w') as out:
            out.write(new_content)
 
+def args_to_dict(args: Sequence[str]) -> dict:
+    ret = {}
+    for arg in args:
+        tmp = arg.split('=')
+        if len(tmp) != 2:
+            print('Unparsable arg. Must be in the form name=value:',
+                  arg,
+                  file=sys.stderr)
+            sys.exit(1)
+        ret[tmp[0]] = tmp[1]
+    return ret
+
 
 def main(argv: Sequence[str]) -> None:
     parser = argparse.ArgumentParser(description='Add license targets')
     parser.add_argument('--top', type=str, help='Top of source tree')
-    parser.add_argument(
-        '--copyright_notice', type=str,
-        help='One line copyright notice.')
-    parser.add_argument(
-        '--license_file', type=str,
-        help='Relative path from top of source tree to LICENSE file.' +
-             ' If not specified, try to auto-detect it.')
-    parser.add_argument(
-        '--license_kind', type=str, action="append",
-        help='The label of a license kind.')
-    parser.add_argument(
-        '--package_name', type=str, 
-        help='The package name. If not specified, try to extract from package_url.')
-    parser.add_argument('--package_url', type=str, help='The package URL')
-    parser.add_argument(
-        '--package_version', type=str, 
-        help='The package version. If not specified, try to extract from package_url.')
+    parser.add_argument('--verbose', action='store_true', help='Be verbose')
+    parser.add_argument('info', nargs='+', help='name=value pairs')
 
     args = parser.parse_args()
+    # XXX: Remove before submit.
+    args.verbose = True
+    info = args_to_dict(args.info)
+    if args.verbose:
+        print(info)
 
     rewriter = BuildRewriter(
         top=args.top or '.',
-        copyright_notice = args.copyright_notice,
-        license_file = args.license_file,
-        license_kinds = args.license_kind,
-        package_url = args.package_url,
-        package_name = args.package_name,
-        package_version = args.package_version)
+        copyright_notice = info.get('copyright_notice'),
+        license_file = info.get('license_file'),
+        license_kinds = info.get('license_kinds'),
+        package_url = info.get('package_url'),
+        package_name = info.get('package_name'),
+        package_version = info.get('package_version'),
+        verbose = args.verbose,
+    )
     rewriter.read_source_tree()
+    if not rewriter.top_build:
+      if args.verbose:
+          print('Missing top level build. Creating one')
+      rewriter.top_build = os.path.join(rewriter.top, 'BUILD')
+      with open(rewriter.top_build, 'w') as tmp:
+          tmp.write('')
+
     rewriter.select_license_file()
-    # rewriter.print()
+    if args.verbose:
+        rewriter.print()
     add_license(rewriter.top_build, rewriter.create_license_target())
     for build_file in rewriter.other_builds:
         rewriter.point_to_top_level_license(build_file)
