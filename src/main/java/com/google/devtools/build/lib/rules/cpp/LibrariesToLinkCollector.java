@@ -170,16 +170,18 @@ public class LibrariesToLinkCollector {
       ImmutableList.Builder<String> execRoots = ImmutableList.builder();
       // Handles cases 1, 3, 4, 5, and 7.
       execRoots.add("../".repeat(output.getRootRelativePath().segmentCount() - 1));
-      // Handle cases 2 and 6.
-      String solibRepositoryName;
-      if (isExternal && !usesLegacyRepositoryLayout) {
-        // Case 6b
-        solibRepositoryName = output.getRunfilesPath().getSegment(1);
-      } else {
-        // Cases 2 and 6a
-        solibRepositoryName = workspaceName;
+      if (cppConfiguration.incompatibleRunfilesDirectoryRpath()) {
+        // Handle cases 2 and 6.
+        String solibRepositoryName;
+        if (isExternal && !usesLegacyRepositoryLayout) {
+          // Case 6b
+          solibRepositoryName = output.getRunfilesPath().getSegment(1);
+        } else {
+          // Cases 2 and 6a
+          solibRepositoryName = workspaceName;
+        }
+        execRoots.add(output.getFilename() + ".runfiles/" + solibRepositoryName + "/");
       }
-      execRoots.add(output.getFilename() + ".runfiles/" + solibRepositoryName + "/");
       if (isExternal && usesLegacyRepositoryLayout) {
         // Handles case 8a. The runfiles path is of the form ../some_repo/pkg/file and we need to
         // walk up some_repo/pkg and then down into main_repo.

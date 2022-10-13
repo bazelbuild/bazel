@@ -831,6 +831,10 @@ public final class CppConfiguration extends Fragment
     return cppOptions.objcEnableBinaryStripping;
   }
 
+  public boolean incompatibleRunfilesDirectoryRpath() {
+    return cppOptions.incompatibleRunfilesDirectoryRpath;
+  }
+
   @StarlarkMethod(
       name = "experimental_cc_implementation_deps",
       documented = false,

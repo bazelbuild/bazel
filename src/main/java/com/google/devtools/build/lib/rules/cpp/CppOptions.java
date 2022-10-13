@@ -855,6 +855,18 @@ public class CppOptions extends FragmentOptions {
   public boolean disableExpandIfAllAvailableInFlagSet;
 
   @Option(
+      name = "incompatible_runfiles_directory_rpath",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, the main repository directory under the runfiles directory is added to the "
+              + "collection of RPATHs on cc_binary targets. This ensures that remotely executed "
+              + "cc_binary tools can find their dynamic dependencies.")
+  public boolean incompatibleRunfilesDirectoryRpath;
+
+  @Option(
       name = "experimental_includes_attribute_subpackage_traversal",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -1227,6 +1239,7 @@ public class CppOptions extends FragmentOptions {
     host.strictSystemIncludes = strictSystemIncludes;
     host.useArgsParamsFile = useArgsParamsFile;
     host.experimentalIncludeScanning = experimentalIncludeScanning;
+    host.incompatibleRunfilesDirectoryRpath = incompatibleRunfilesDirectoryRpath;
 
     // Save host options for further use.
     host.hostCoptList = hostCoptList;
