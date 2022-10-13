@@ -419,7 +419,6 @@ def full_repo_patch(ctx, repo_metadata):
     #patcher = native.existing_rule("bazel_module_patcher")
     #if patcher:
     if ctx.attr.repo_patcher:
-        print("========================= GOT THE COMPLIANCE")
         # The Label for the tool is main repo relative. The path you get back is
         # made absolute so it resolves even though we have cd'ed into the repo
         # we are building.
@@ -431,8 +430,9 @@ def full_repo_patch(ctx, repo_metadata):
         for k, v in repo_metadata.items():
             # TODO(aiuto): Do we escape quote these better, or write to a file
             # or disallow really broken values.
-            cmd.append("'%s'='%s'" % (k, v))
-        print("finalizing repo:", cmd)
+            if v:
+                cmd.append("'%s'='%s'" % (k, v))
+        print("=== patching repo:", cmd)
         st = ctx.execute(cmd)
 
         if st.return_code:

@@ -582,30 +582,3 @@ Examples:
   one belongs to the absolute path to the file.
 """,
 )
-
-def finalize(ctx):
-    """Implementation of patching an already extracted repository.
-
-    This rule is intended to be used in the implementation function of
-    a repository rule.
-
-    Args:
-      ctx: The repository context of the repository rule calling this utility
-        function.
-    """
-    if not ctx.attr.finalize_cmd:
-      return
-
-    print("FINALLY!!!!", ctx.attr.finalize_cmd)
-
-    # The Label for the tool is main repo relative. The path you get back is
-    # made absolute so it resolves even though we have cd'ed into the repo we
-    # are building.
-    cmd = [ctx.path(ctx.attr.finalize_cmd)]
-    cmd.extend(ctx.attr.finalize_args)
-    print("finalizing repo:", cmd)
-    st = ctx.execute(cmd)
-
-    if st.return_code:
-        fail("Error applying patch command %s:\n%s%s" %
-             (cmd, st.stdout, st.stderr))

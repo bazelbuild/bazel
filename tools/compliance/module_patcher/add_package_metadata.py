@@ -160,6 +160,7 @@ class BuildRewriter(object):
             target.append('    ],')
         else:
             target.append('    license_kinds = [],')
+
         # TODO(aiuto): These should be in package_info when that is ready.
         if self.package_name:
             target.append('    package_name = "%s",' % self.package_name)
@@ -239,7 +240,7 @@ def add_license(build_file: str, license_target: str):
             if t and must_add_load and not t.startswith('#'):
                 ret.append(license_load)
                 must_add_load = False
-            elif (t
+            if (t
                 and not line.startswith(' ')
                 and not t.startswith('#')
                 and not t.startswith(')')
@@ -293,6 +294,8 @@ def main(argv: Sequence[str]) -> None:
         verbose = args.verbose,
     )
     rewriter.read_source_tree()
+    # No BUILD file? We will create our own at the top just to hold the package
+    # data.
     if not rewriter.top_build:
       if args.verbose:
           print('Missing top level build. Creating one')
