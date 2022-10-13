@@ -107,7 +107,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   void flush() {
-    checkNotNull(metadataInjector, "metadataInject is null");
+    checkNotNull(metadataInjector, "metadataInjector is null");
 
     for (Map.Entry<PathFragment, Artifact> entry : outputMapping.entrySet()) {
       PathFragment execPath = entry.getKey();
