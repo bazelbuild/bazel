@@ -146,7 +146,9 @@ public class ActionInputUsageTracker {
             System.err.println("ActionInputUsageTracker: " + getKey(action) + " .jdeps file failed to load, ex=" + exception);
         }
 
-        trackerInfoMap.put(getKey(action), usageInfo);
+        if (usageInfo != null) {
+            trackerInfoMap.put(getKey(action), usageInfo);
+        }
     }
 
     /**
