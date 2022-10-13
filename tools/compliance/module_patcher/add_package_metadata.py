@@ -58,7 +58,7 @@ class BuildRewriter(object):
                  top: str,
                  copyright_notice: str = None,
                  license_file: str = None,
-                 license_kinds: Sequence[str] = [],
+                 license_kinds: str = None,
                  package_name: str = None,
                  package_url: str = None,
                  package_version: str = None,
@@ -72,7 +72,7 @@ class BuildRewriter(object):
         self.verbose = verbose
         self.copyright_notice = copyright_notice
         self.license_file = license_file
-        self.license_kinds = license_kinds
+        self.license_kinds = (license_kinds or '').split(',')
         self.package_name = package_name or p_name
         self.package_url = package_url
         self.package_version = package_version or p_version
@@ -304,9 +304,11 @@ def main(argv: Sequence[str]) -> None:
           tmp.write('')
 
     rewriter.select_license_file()
+    license = rewriter.create_license_target()
     if args.verbose:
         rewriter.print()
-    add_license(rewriter.top_build, rewriter.create_license_target())
+        print("Synthesized license:", license)
+    add_license(rewriter.top_build, license)
     for build_file in rewriter.other_builds:
         rewriter.point_to_top_level_license(build_file)
 

@@ -201,7 +201,7 @@ DIST_DEPS = {
             "test_WORKSPACE_files",
         ],
         "license_kinds": [
-            "@rules_license//licenses/generic:notice",
+            "@rules_license//licenses/spdx:Apache-2.0",
         ],
     },
     "c-ares": {
@@ -295,10 +295,6 @@ DIST_DEPS = {
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
-        ],
-        "license_kinds": [
-            "@rules_license//licenses/spdx:Apache-2.0",
-            "@rules_license//licenses/spdx:AND_ONE_MORE",
         ],
     },
     "rules_pkg": {

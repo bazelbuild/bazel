@@ -33,6 +33,7 @@ replace the native rules.
 load(
     ":utils.bzl",
     "full_repo_patch",
+    "get_repo_patcher",
     "patch",
     "read_netrc",
     "read_user_netrc",
@@ -390,11 +391,7 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
     ),
 }
 
-http_archive = repository_rule(
-    implementation = _http_archive_impl,
-    attrs = _http_archive_attrs,
-    doc =
-        """Downloads a Bazel repository as a compressed archive file, decompresses it,
+_http_archive_doc = """Downloads a Bazel repository as a compressed archive file, decompresses it,
 and makes its targets available for binding.
 
 It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`,
@@ -440,8 +437,21 @@ Examples:
   ```
 
   Then targets would specify `@my_ssl//:openssl-lib` as a dependency.
-""",
+"""
+
+_http_archive = repository_rule(
+    implementation = _http_archive_impl,
+    attrs = _http_archive_attrs,
+    doc = _http_archive_doc,
 )
+
+def http_archive(name, **kwargs):
+    # _http_archive_doc
+    _http_archive(
+        name = name,
+        repo_patcher = get_repo_patcher(),
+        **kwargs,
+    )
 
 _http_file_attrs = {
     "executable": attr.bool(

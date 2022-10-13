@@ -63,10 +63,6 @@ dist_http_archive(
     name = "rules_license",
 )
 
-dist_http_archive(
-    name = "platforms",
-)
-
 # Note to reviewer. The name is reserved. Repository rules look for it.
 local_repository(
     name = "bazel_module_patcher",
@@ -407,6 +403,10 @@ dist_http_archive(
 
 dist_http_archive(
     name = "build_bazel_rules_nodejs",
+)
+
+dist_http_archive(
+    name = "platforms",
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE

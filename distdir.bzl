@@ -92,14 +92,15 @@ def dist_http_archive(name, **kwargs):
     if "strip_prefix" not in kwargs:
         kwargs["strip_prefix"] = info.get("strip_prefix")
 
-    more_metadata = {}
+    patcher_info = {}
     if "package_name" in info:
-        more_metadata["package_name"] = info["package_name"]
+        patcher_info["package_name"] = info["package_name"]
     if "package_version" in info:
-        more_metadata["package_version"] = info["package_version"]
+        patcher_info["package_version"] = info["package_version"]
     if "license_kinds" in info:
-        more_metadata["license_kinds"] = ",".join(info["license_kinds"])
+        patcher_info["license_kinds"] = ",".join(info["license_kinds"])
 
+    # XXX DNS - we may not need this
     repo_patcher = None
     # TODO(aiuto): Move this lookup into a wrapper around http_archive
     patcher = native.existing_rule("bazel_module_patcher")
@@ -113,14 +114,14 @@ def dist_http_archive(name, **kwargs):
         # from here.  Perhaps.. toolchain?, @bazel_module_patcher:patcher is alias to
         # the program?
         repo_patcher = Label("@bazel_module_patcher//:add_package_metadata.py")
-
+    # XXX DNS - we may not need this
     http_archive(
         name = name,
         sha256 = info["sha256"],
         urls = info["urls"],
-        repo_patcher = repo_patcher,
+        # repo_patcher = repo_patcher,
         # TODO(aiuto): Why not just pass info here?
-        repo_patcher_args = more_metadata,
+        repo_patcher_args = patcher_info,
         **kwargs
     )
 
