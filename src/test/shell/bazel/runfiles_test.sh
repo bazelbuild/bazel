@@ -50,6 +50,34 @@ EOF
   [[ -x bazel-bin/foo/foo.runfiles/$name/foo/foo ]] || fail "No foo executable under $name"
 }
 
+function test_runfiles_bzlmod() {
+  create_workspace_with_default_repos WORKSPACE "blorp_malorp"
+  cat > MODULE.bazel <<EOF
+module(name="blep")
+EOF
+
+  mkdir foo
+  cat > foo/BUILD <<EOF
+java_test(
+    name = "foo",
+    srcs = ["Noise.java"],
+    test_class = "Noise",
+)
+EOF
+  cat > foo/Noise.java <<EOF
+public class Noise {
+  public static void main(String[] args) {
+    System.err.println(System.getenv("I'm a test."));
+  }
+}
+EOF
+
+  bazel build --enable_bzlmod //foo:foo >& $TEST_log || fail "Build failed"
+  [[ -d bazel-bin/foo/foo.runfiles/_main ]] || fail "_main runfiles directory not created"
+  [[ -d bazel-bin/foo/foo.runfiles/_main/foo ]] || fail "No foo subdirectory under _main"
+  [[ -x bazel-bin/foo/foo.runfiles/_main/foo/foo ]] || fail "No foo executable under _main"
+}
+
 function test_legacy_runfiles_change() {
   create_workspace_with_default_repos WORKSPACE foo
   cat >> WORKSPACE <<EOF
