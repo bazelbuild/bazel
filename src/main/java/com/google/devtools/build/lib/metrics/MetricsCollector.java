@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.worker.WorkerMetric;
 import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
@@ -59,6 +60,7 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAccumulator;
@@ -81,6 +83,10 @@ class MetricsCollector {
   private final ArtifactMetrics.Builder artifactMetrics = ArtifactMetrics.newBuilder();
   private final BuildGraphMetrics.Builder buildGraphMetrics = BuildGraphMetrics.newBuilder();
   private final SpawnStats spawnStats = new SpawnStats();
+  // Skymeld-specific: we don't have an ExecutionStartingEvent for skymeld, so we have to use
+  // TopLevelTargetExecutionStartedEvent. This AtomicBoolean is so that we only account for the
+  // build once.
+  private final AtomicBoolean buildAccountedFor;
 
   @CanIgnoreReturnValue
   private MetricsCollector(
@@ -92,6 +98,7 @@ class MetricsCollector {
     this.numBuilds = numBuilds;
     env.getEventBus().register(this);
     WorkerMetricsCollector.instance().setClock(env.getClock());
+    this.buildAccountedFor = new AtomicBoolean();
   }
 
   static void installInEnv(
@@ -139,6 +146,14 @@ class MetricsCollector {
   @Subscribe
   public synchronized void logExecutionStartingEvent(ExecutionStartingEvent event) {
     numBuilds.getAndIncrement();
+  }
+
+  @Subscribe
+  public synchronized void accountForBuild(
+      @SuppressWarnings("unused") TopLevelTargetPendingExecutionEvent event) {
+    if (buildAccountedFor.compareAndSet(/*expectedValue=*/ false, /*newValue=*/ true)) {
+      numBuilds.getAndIncrement();
+    }
   }
 
   @SuppressWarnings("unused")
