@@ -2095,6 +2095,92 @@ end_of_record"
   assert_equals "$expected_result" "$(cat bazel-testlogs/java/factorial/fact-test/coverage.dat)"
 }
 
+function test_java_rbe_coverage_produces_report_with_remote_download_minimal() {
+  mkdir -p java/factorial
+
+  JAVA_TOOLS_ZIP="released"
+  COVERAGE_GENERATOR_DIR="released"
+
+  cd java/factorial
+
+  cat > BUILD <<'EOF'
+java_library(
+    name = "fact",
+    srcs = ["Factorial.java"],
+)
+
+java_test(
+    name = "fact-test",
+    size = "small",
+    srcs = ["FactorialTest.java"],
+    test_class = "factorial.FactorialTest",
+    deps = [
+        ":fact",
+    ],
+)
+
+EOF
+
+  cat > Factorial.java <<'EOF'
+package factorial;
+
+public class Factorial {
+  public static int factorial(int x) {
+    return x <= 0 ? 1 : x * factorial(x-1);
+  }
+}
+EOF
+
+  cat > FactorialTest.java <<'EOF'
+package factorial;
+
+import static org.junit.Assert.*;
+
+import org.junit.Test;
+
+public class FactorialTest {
+  @Test
+  public void testFactorialOfZeroIsOne() throws Exception {
+    assertEquals(Factorial.factorial(3),6);
+  }
+}
+EOF
+  cd ../..
+
+  cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
+
+  bazel coverage \
+    --test_output=all \
+    --experimental_fetch_all_coverage_outputs \
+    --experimental_split_coverage_postprocessing \
+    --remote_download_minimal \
+    --combined_report=lcov \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --instrumentation_filter=//java/factorial \
+    //java/factorial:fact-test &> $TEST_log || fail "Shouldn't fail"
+
+  local expected_result="SF:java/factorial/Factorial.java
+FN:3,factorial/Factorial::<init> ()V
+FN:5,factorial/Factorial::factorial (I)I
+FNDA:0,factorial/Factorial::<init> ()V
+FNDA:1,factorial/Factorial::factorial (I)I
+FNF:2
+FNH:1
+BRDA:5,0,0,1
+BRDA:5,0,1,1
+BRF:2
+BRH:2
+DA:3,0
+DA:5,1
+LH:1
+LF:2
+end_of_record"
+
+  assert_equals "$expected_result" "$(cat bazel-testlogs/java/factorial/fact-test/coverage.dat)"
+  assert_equals "$expected_result" "$(cat bazel-out/_coverage/_coverage_report.dat)"
+}
+
 function generate_empty_tree_artifact_as_inputs() {
   touch WORKSPACE
   mkdir -p pkg
@@ -2365,6 +2451,133 @@ EOF
   # Simply check if this is empty or not.
   if [[ ! -s bazel-testlogs/a/cc/coverage_test/hello-test/coverage.dat ]]; then
     echo "Coverage is empty. Failing now."
+    return 1
+  fi
+}
+
+function test_cc_rbe_coverage_produces_report_with_remote_download_minimal() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  # Check to see if intermediate files are supported, otherwise skip.
+  gcov --help | grep "\-i," || return 0
+
+  local test_dir="a/cc/coverage_test"
+  mkdir -p $test_dir
+
+  cat > "$test_dir"/BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "hello-lib",
+    srcs = ["hello-lib.cc"],
+    hdrs = ["hello-lib.h"],
+)
+
+cc_binary(
+    name = "hello-world",
+    srcs = ["hello-world.cc"],
+    deps = [":hello-lib"],
+)
+
+cc_test(
+    name = "hello-test",
+    srcs = ["hello-world.cc"],
+    deps = [":hello-lib"],
+)
+
+EOF
+
+  cat > "$test_dir"/hello-lib.cc <<'EOF'
+#include "hello-lib.h"
+
+#include <iostream>
+
+using std::cout;
+using std::endl;
+using std::string;
+
+namespace hello {
+
+HelloLib::HelloLib(const string& greeting) : greeting_(new string(greeting)) {
+}
+
+void HelloLib::greet(const string& thing) {
+  cout << *greeting_ << " " << thing << endl;
+}
+
+}  // namespace hello
+
+EOF
+
+  cat > "$test_dir"/hello-lib.h <<'EOF'
+#ifndef HELLO_LIB_H_
+#define HELLO_LIB_H_
+
+#include <string>
+#include <memory>
+
+namespace hello {
+
+class HelloLib {
+ public:
+  explicit HelloLib(const std::string &greeting);
+
+  void greet(const std::string &thing);
+
+ private:
+  std::unique_ptr<const std::string> greeting_;
+};
+
+}  // namespace hello
+
+#endif  // HELLO_LIB_H_
+
+EOF
+
+  cat > "$test_dir"/hello-world.cc <<'EOF'
+#include "hello-lib.h"
+
+#include <string>
+
+using hello::HelloLib;
+using std::string;
+
+int main(int argc, char** argv) {
+  HelloLib lib("Hello");
+  string thing = "world";
+  if (argc > 1) {
+    thing = argv[1];
+  }
+  lib.greet(thing);
+  return 0;
+}
+
+EOF
+
+  bazel coverage \
+      --test_output=all \
+      --experimental_fetch_all_coverage_outputs \
+      --experimental_split_coverage_postprocessing \
+      --remote_download_minimal \
+      --combined_report=lcov \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //"$test_dir":hello-test >& $TEST_log \
+      || fail "Failed to run coverage for cc_test"
+
+  # Different gcov versions generate different outputs.
+  # Simply check if this is empty or not.
+  if [[ ! -s bazel-testlogs/a/cc/coverage_test/hello-test/coverage.dat ]]; then
+    echo "Individual coverage is empty. Failing now."
+    return 1
+  fi
+  if [[ ! -s bazel-out/_coverage/_coverage_report.dat ]]; then
+    echo "Combined coverage is empty. Failing now."
     return 1
   fi
 }

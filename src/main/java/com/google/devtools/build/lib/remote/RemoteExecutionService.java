@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
@@ -146,6 +147,7 @@ import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -181,6 +183,7 @@ public class RemoteExecutionService {
       Executor executor,
       Reporter reporter,
       boolean verboseFailures,
+      boolean collectCodeCoverage,
       Path execRoot,
       RemotePathResolver remotePathResolver,
       String buildRequestId,
@@ -225,6 +228,9 @@ public class RemoteExecutionService {
     ImmutableList.Builder<Pattern> builder = ImmutableList.builder();
     if (remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL
         || remoteOptions.remoteOutputsMode == RemoteOutputsMode.TOPLEVEL) {
+      if (collectCodeCoverage) {
+        builder.addAll(getCoverageRemoteDownloadPatterns());
+      }
       for (String regex : remoteOptions.remoteDownloadRegex) {
         builder.add(Pattern.compile(regex));
       }
@@ -292,6 +298,20 @@ public class RemoteExecutionService {
 
   private static boolean useDiskCache(RemoteOptions options) {
     return options.diskCache != null && !options.diskCache.isEmpty();
+  }
+
+  private static Iterable<Pattern> getCoverageRemoteDownloadPatterns() {
+    return Stream.of(
+            // Match the directories containing raw coverage data so that it is available for
+            // post-processing.
+            ".*/testlogs/.*/_coverage/.*",
+            // Match the individual coverage reports generated for each test.
+            ".*/coverage.dat$",
+            // Match the combined report generated with --combined_report=lcov.
+            ".*/_coverage/_coverage_report.dat$"
+        )
+        .map(Pattern::compile)
+        .collect(toImmutableList());
   }
 
   public CachePolicy getReadCachePolicy(Spawn spawn) {

@@ -300,6 +300,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             directExecutor(),
             reporter,
             /*verboseFailures=*/ true,
+            /*collectCodeCoverage=*/ false,
             execRoot,
             RemotePathResolver.createDefault(execRoot),
             "build-req-id",

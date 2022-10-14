@@ -1827,6 +1827,7 @@ public class RemoteExecutionServiceTest {
         directExecutor(),
         reporter,
         /*verboseFailures=*/ true,
+        /*collectCodeCoverage=*/ false,
         execRoot,
         remotePathResolver,
         "none",

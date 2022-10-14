@@ -232,6 +232,7 @@ public class RemoteSpawnCacheTest {
                 directExecutor(),
                 reporter,
                 /*verboseFailures=*/ true,
+                /*collectCodeCoverage=*/ false,
                 execRoot,
                 remotePathResolver,
                 BUILD_REQUEST_ID,
