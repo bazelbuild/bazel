@@ -438,9 +438,9 @@ def full_repo_patch(ctx, repo_metadata):
             # or disallow really broken values.
             if v:
                 cmd.append("'%s'='%s'" % (k, v))
-        print("=== patching repo:", cmd)  # DBG
+        #DBG print("=== patching repo:", cmd)
         st = ctx.execute(cmd)
         if st.return_code:
             fail("Error applying patch command %s:\n%s%s" %
                  (cmd, st.stdout, st.stderr))
-        print(std.stdout)  # DBG
+        #DBG print(st.stdout)
