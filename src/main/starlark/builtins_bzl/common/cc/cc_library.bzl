@@ -42,11 +42,9 @@ def _cc_library_impl(ctx):
     _check_no_repeated_srcs(ctx)
 
     semantics.check_can_use_implementation_deps(ctx)
-    interface_deps = cc_helper.get_compilation_contexts_from_deps(ctx.attr.deps)
-    implementation_deps = cc_helper.get_compilation_contexts_from_deps(ctx.attr.implementation_deps)
-
-    if not _is_stl(ctx.attr.tags) and ctx.attr._stl != None:
-        interface_deps.append(ctx.attr._stl[CcInfo].compilation_context)
+    interface_deps = ctx.attr.deps + semantics.get_cc_runtimes(ctx, True)
+    compilation_contexts = cc_helper.get_compilation_contexts_from_deps(interface_deps)
+    implementation_compilation_contexts = cc_helper.get_compilation_contexts_from_deps(ctx.attr.implementation_deps)
 
     additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
     additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, common, cc_toolchain))
@@ -67,8 +65,8 @@ def _cc_library_impl(ctx):
         private_hdrs = common.private_hdrs,
         public_hdrs = common.public_hdrs,
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx),
-        compilation_contexts = interface_deps,
-        implementation_compilation_contexts = implementation_deps,
+        compilation_contexts = compilation_contexts,
+        implementation_compilation_contexts = implementation_compilation_contexts,
         hdrs_checking_mode = semantics.determine_headers_checking_mode(ctx),
         grep_includes = ctx.executable._grep_includes,
         textual_hdrs = ctx.files.textual_hdrs,
@@ -560,9 +558,6 @@ DEPS_ALLOWED_RULES = [
     "cc_test",
 ]
 
-def _is_stl(tags):
-    return "__CC_STL__" in tags
-
 attrs = {
     "srcs": attr.label_list(
         allow_files = True,
@@ -619,7 +614,8 @@ attrs.update(semantics.get_implementation_deps_allowed_attr())
 cc_library = rule(
     implementation = _cc_library_impl,
     attrs = attrs,
-    toolchains = cc_helper.use_cpp_toolchain(),
+    toolchains = cc_helper.use_cpp_toolchain() +
+                 semantics.get_runtimes_toolchain(),
     fragments = ["cpp"] + semantics.additional_fragments(),
     incompatible_use_toolchain_transition = True,
     provides = [CcInfo],
