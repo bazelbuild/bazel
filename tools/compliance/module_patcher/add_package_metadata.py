@@ -23,7 +23,7 @@ This reference version implements the command line API for BazelRepoPatcher
 """
 
 import argparse
-from collections.abc import Sequence
+# from collections.abc import Sequence
 import os
 import re
 import sys
@@ -281,7 +281,8 @@ def add_license(build_file: str, license_target: str):
         with open(build_file, 'w') as out:
            out.write(new_content)
 
-def args_to_dict(args: Sequence[str]) -> dict:
+# def args_to_dict(args: Sequence[str]) -> dict:
+def args_to_dict(args) -> dict:
     ret = {}
     for arg in args:
         tmp = arg.split('=')
@@ -294,7 +295,8 @@ def args_to_dict(args: Sequence[str]) -> dict:
     return ret
 
 
-def main(argv: Sequence[str]) -> None:
+# def main(argv: Sequence[str]) -> None:
+def main(argv) -> None:
     parser = argparse.ArgumentParser(description='Add license targets')
     parser.add_argument('--top', type=str, help='Top of source tree')
     parser.add_argument('--verbose', action='store_true', help='Be verbose')
