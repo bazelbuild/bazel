@@ -130,13 +130,13 @@ class BuildRewriter(object):
         # create one and put the license there.
         if not self.top_build:
             self.top_build = os.path.join(self.top, 'BUILD')
-            with open(self.top_build, 'w') as tmp:
+            with open(self.top_build, 'w', encoding='utf-8') as tmp:
                 tmp.write('# This file was generated at WORKSPACE setup.\n')
                 print("Created", self.top_build)
 
     def point_to_top_level_license(self, build_file: str):
         # Points the BUILD file at a path to the top level liceense declaration
-        with open(build_file, 'r') as inp:
+        with open(build_file, 'r', encoding='utf-8') as inp:
             content = inp.read()
         new_content = add_default_applicable_licenses(content, "//:license")
         if content != new_content:
