@@ -72,7 +72,10 @@ class BuildRewriter(object):
         self.verbose = verbose
         self.copyright_notice = copyright_notice
         self.license_file = license_file
-        self.license_kinds = (license_kinds or '').split(',')
+        if license_kinds:
+          self.license_kinds = license_kinds.split(',')
+        else:
+          self.license_kinds = None
         self.package_name = package_name or p_name
         self.package_url = package_url
         self.package_version = package_version or p_version

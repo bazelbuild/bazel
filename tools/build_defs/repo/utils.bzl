@@ -415,7 +415,7 @@ def read_user_netrc(ctx):
     return read_netrc(ctx, netrcfile)
 
 def get_repo_patcher():
-    if not native.existing_rule("bazel_module_patcher"):
+    if native.existing_rule("bazel_module_patcher"):
         # The Label for the tool is main repo relative. The path you get back is
         # made absolute so it resolves even though we have cd'ed into the repo
         # we are building.
@@ -430,17 +430,17 @@ def full_repo_patch(ctx, repo_metadata):
     # functions to muck around with. Trust that they are set up correctly.
     if ctx.name in ("bazel_module_patcher", "platforms", "rules_license"):
         return
-    print("================ full_repo:", ctx.name, "=>", str(repo_metadata))
-    if ctx.attr.repo_patcher:
-        cmd = [ctx.path(ctx.attr.repo_patcher)]
-        for k, v in repo_metadata.items():
-            # TODO(aiuto): Do we escape quote these better, or write to a file
-            # or disallow really broken values.
-            if v:
-                cmd.append("'%s'='%s'" % (k, v))
-        #DBG print("=== patching repo:", cmd)
-        st = ctx.execute(cmd)
-        if st.return_code:
-            fail("Error applying patch command %s:\n%s%s" %
-                 (cmd, st.stdout, st.stderr))
-        #DBG print(st.stdout)
+    if not ctx.attr.repo_patcher:
+        return
+    cmd = [ctx.path(ctx.attr.repo_patcher)]
+    for k, v in repo_metadata.items():
+        # TODO(aiuto): Do we escape quote these better, or write to a file
+        # or disallow really broken values.
+        if v:
+            cmd.append("'%s'='%s'" % (k, v))
+    print("=== patching repo:", ctx.name, cmd)
+    st = ctx.execute(cmd)
+    if st.return_code:
+        fail("Error applying patch command %s:\n%s%s" %
+             (cmd, st.stdout, st.stderr))
+    #DBG print(st.stdout)
