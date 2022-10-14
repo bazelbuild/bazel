@@ -428,7 +428,7 @@ def get_repo_patcher():
 def full_repo_patch(ctx, repo_metadata):
     # Some special repositories are too intertwined with the way Bazel
     # functions to muck around with. Trust that they are set up correctly.
-    if ctx.name in ('bazel_module_patcher', 'platforms'):
+    if ctx.name in ("bazel_module_patcher", "platforms", "rules_license"):
         return
     print("================ full_repo:", ctx.name, "=>", str(repo_metadata))
     if ctx.attr.repo_patcher:
