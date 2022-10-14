@@ -425,10 +425,23 @@ def get_repo_patcher():
         return Label("@bazel_module_patcher//:add_package_metadata.py")
     return None
 
+
+# Some repositories do strange things and are essentially non-patachable.
+# For example, they might use a macro to call native.package() and not
+# pass along kwargs.
+# TODO(aiuto): This should be injectable from @bazel_module_patcher, but
+# we can not do conditional load.
+WELL_KNOWN_NON_PATACHABLE_REPOS = (
+    "com_github_grpc_grpc",
+    "com_envoyproxy_protoc_gen_validate",
+)
+
 def full_repo_patch(ctx, repo_metadata):
     # Some special repositories are too intertwined with the way Bazel
     # functions to muck around with. Trust that they are set up correctly.
     if ctx.name in ("bazel_module_patcher", "platforms", "rules_license"):
+        return
+    if ctx.name in WELL_KNOWN_NON_PATACHABLE_REPOS:
         return
     if not ctx.attr.repo_patcher:
         return
@@ -437,10 +450,11 @@ def full_repo_patch(ctx, repo_metadata):
         # TODO(aiuto): Do we escape quote these better, or write to a file
         # or disallow really broken values.
         if v:
-            cmd.append("'%s'='%s'" % (k, v))
+            cmd.append("%s=%s" % (k, v))
     print("=== patching repo:", ctx.name, cmd)
     st = ctx.execute(cmd)
     if st.return_code:
         fail("Error applying patch command %s:\n%s%s" %
              (cmd, st.stdout, st.stderr))
-    #DBG print(st.stdout)
+    print('patch output\n        ', '\n        '.join(st.stdout.split('\n')))  # DBG
+    print('^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^')  # DBG

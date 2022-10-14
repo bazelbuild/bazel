@@ -105,7 +105,7 @@ def dist_http_archive(name, **kwargs):
     # TODO(aiuto): Move this lookup into a wrapper around http_archive
     patcher = native.existing_rule("bazel_module_patcher")
     if patcher:
-        print("=== have bazel_model_patcher for ", name)
+        # print("=== have bazel_model_patcher for ", name)
         # This is a hacky way to detect if the repo is local or got downloaded
         # via a deps() style inclusion.
         if 'urls' in patcher:

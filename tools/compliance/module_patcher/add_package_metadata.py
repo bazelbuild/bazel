@@ -5,8 +5,8 @@
 This tool modifies the BUILD files in a source tree to add license targets.
 The resulting structure will normally be
 
-- A license target in the top level BUILD file
-- All other build files point to the top level license target via
+- A license target in the workspace root BUILD file
+- All other build files point to the root license target via
   package.default_applicable_licenses.
 
 The intended use is to modify a repository after downloading, but before
@@ -33,7 +33,7 @@ PACKAGE_RE = re.compile(r'^package\((?P<decls>[^)]*)\)', flags=re.MULTILINE)
 
 def trim_extension(name: str) -> str:
     """Trim the well known package extenstions."""
-    for ext in ('.deb', '.jar', '.tar', '.tar.bz2', '.tar.gz', '.tgz', '.zip'):
+    for ext in ('.deb', '.jar', '.tar', '.tar.bz2', '.tar.gz', '.gz', '.tgz', '.zip'):
         if name.endswith(ext):
             return name[:-len(ext)]
     return name
@@ -67,7 +67,7 @@ class BuildRewriter(object):
         if package_url:
             p_name, p_version = guess_package_name_and_version(package_url)
         else:
-            p_name = None
+            p_name = os.path.basename(os.getcwd())
             p_version = None
         self.top = top
         self.verbose = verbose
@@ -87,15 +87,14 @@ class BuildRewriter(object):
         self.license_files = []
 
     def print(self):
-        print('top:', self.top)
-        print('license_file:', self.license_file)
-        print('license_kinds:', self.license_kinds)
-        print('package_name:', self.package_name)
-        print('package_url:', self.package_url)
-        print('package_version:', self.package_version)
-        print('top_build:', self.top_build)
-        print('other_builds:', self.other_builds)
-
+        print('  top:', self.top)
+        print('  license_file:', self.license_file)
+        print('  license_kinds:', self.license_kinds)
+        print('  package_name:', self.package_name)
+        print('  package_url:', self.package_url)
+        print('  package_version:', self.package_version)
+        print('  top_build:', self.top_build)
+        print('  other_builds:', self.other_builds)
 
     def read_source_tree(self):
         # Gather BUILD and license files
@@ -126,6 +125,15 @@ class BuildRewriter(object):
             if not found_license and notices:
                 self.license_files.extend(notices)
 
+    def adjust_source_tree(self):
+        # If we did not find a root BUILD file, it should always be safe to
+        # create one and put the license there.
+        if not self.top_build:
+            self.top_build = os.path.join(self.top, 'BUILD')
+            with open(self.top_build, 'w') as tmp:
+                tmp.write('# This file was generated at WORKSPACE setup.\n')
+                print("Created", self.top_build)
+
     def point_to_top_level_license(self, build_file: str):
         # Points the BUILD file at a path to the top level liceense declaration
         with open(build_file, 'r') as inp:
@@ -139,12 +147,15 @@ class BuildRewriter(object):
     def select_license_file(self):
         if self.license_file:
             return
-        if len(self.license_files) == 1:
-            self.license_file = self.license_files[0]
+        if len(self.license_files) == 0:
+            print('Warning: package %s at %s contains no potential license files.' %
+                  (self.package_name, self.top))
             return
-        print('Warning: package %s at %s contains multiple potential license files.' %
-              (self.package_name, self.top))
-        print('  ', str(self.license_files))
+        self.license_file = self.license_files[0]
+        if len(self.license_files) > 1:
+            print('Warning: package', self.package_name, 'at', self.top,
+                  'contains multiple potential license files:',
+                  self.license_files)
 
     def create_license_target(self) -> str:
         """Creates the text of a license() target for this package."""
@@ -174,6 +185,9 @@ class BuildRewriter(object):
             target.append('    package_url = "%s",' % self.package_url)
         target.append(')')
         return '\n'.join(target)
+
+    def ensure_top_level_license(self, fallback_license):
+       add_license(self.top_build, fallback_license)
 
 
 def add_default_applicable_licenses(content: str, license_label: str) -> str:
@@ -254,6 +268,12 @@ def add_license(build_file: str, license_target: str):
                   ret.append(license_target)
                   license_added = True
         ret.append(line)
+    if not license_added:
+        if must_add_load:
+            ret.append(license_load)
+        ret.append('')
+        ret.append(license_target)
+
     new_content = '\n'.join(ret)
 
     if content != new_content:
@@ -265,12 +285,12 @@ def args_to_dict(args: Sequence[str]) -> dict:
     ret = {}
     for arg in args:
         tmp = arg.split('=')
-        if len(tmp) != 2:
+        if len(tmp) < 2:
             print('Unparsable arg. Must be in the form name=value:',
                   arg,
                   file=sys.stderr)
             sys.exit(1)
-        ret[tmp[0]] = tmp[1]
+        ret[tmp[0]] = '='.join(tmp[1:])
     return ret
 
 
@@ -309,21 +329,13 @@ def main(argv: Sequence[str]) -> None:
         verbose = args.verbose,
     )
     rewriter.read_source_tree()
-    # No BUILD file? We will create our own at the top just to hold the package
-    # data.
-    if not rewriter.top_build:
-      if args.verbose:
-          print('Missing top level build. Creating one')
-      rewriter.top_build = os.path.join(rewriter.top, 'BUILD')
-      with open(rewriter.top_build, 'w') as tmp:
-          tmp.write('')
-
+    rewriter.adjust_source_tree()
     rewriter.select_license_file()
     license = rewriter.create_license_target()
     if args.verbose:
         rewriter.print()
         print("Synthesized license:", license)
-    add_license(rewriter.top_build, license)
+    rewriter.ensure_top_level_license(fallback_license=license)
     for build_file in rewriter.other_builds:
         rewriter.point_to_top_level_license(build_file)
 

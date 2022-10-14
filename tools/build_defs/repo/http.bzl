@@ -143,14 +143,17 @@ def _http_archive_impl(ctx):
     )
     workspace_and_buildfile(ctx)
     patch(ctx, auth = auth)
-    args = {
-        "sha256": ctx.attr.sha256,
+
+    metadata = {
+        "sha256": download_info.sha256,
+        "integrity": download_info.integrity,
         "type": ctx.attr.type,
-        "strip_prefix": ctx.attr.strip_prefix,
-        "integrity": ctx.attr.integrity,
+        "package_name": ctx.name,
+        "package_url": all_urls[0],
+        "urls": ','.join(all_urls),
     }
-    args.update(ctx.attr.repo_patcher_args)
-    full_repo_patch(ctx, args)
+    metadata.update(ctx.attr.repo_patcher_args)
+    full_repo_patch(ctx, repo_metadata = metadata)
 
     return _update_sha256_attr(ctx, _http_archive_attrs, download_info)
 
