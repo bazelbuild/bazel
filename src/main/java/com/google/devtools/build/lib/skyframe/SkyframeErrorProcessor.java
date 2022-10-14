@@ -602,7 +602,7 @@ public final class SkyframeErrorProcessor {
     if (keepGoing
         && skyKey instanceof BuildDriverKey
         && !isExecutionException(errorInfo.getException())) {
-      eventBus.post(TopLevelEntityAnalysisConcludedEvent.create(skyKey));
+      eventBus.post(TopLevelEntityAnalysisConcludedEvent.failure(skyKey));
     }
   }
 

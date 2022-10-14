@@ -82,9 +82,16 @@ public final class TopLevelStatusEvents {
   public abstract static class TopLevelEntityAnalysisConcludedEvent implements Postable {
     public abstract SkyKey getAnalyzedTopLevelKey();
 
-    public static TopLevelEntityAnalysisConcludedEvent create(SkyKey analyzedTopLevelKey) {
+    public abstract boolean succeeded();
+
+    public static TopLevelEntityAnalysisConcludedEvent success(SkyKey analyzedTopLevelKey) {
       return new AutoValue_TopLevelStatusEvents_TopLevelEntityAnalysisConcludedEvent(
-          analyzedTopLevelKey);
+          analyzedTopLevelKey, /*succeeded=*/ true);
+    }
+
+    public static TopLevelEntityAnalysisConcludedEvent failure(SkyKey analyzedTopLevelKey) {
+      return new AutoValue_TopLevelStatusEvents_TopLevelEntityAnalysisConcludedEvent(
+          analyzedTopLevelKey, /*succeeded=*/ false);
     }
   }
 
