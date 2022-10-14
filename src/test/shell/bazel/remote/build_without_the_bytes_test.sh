@@ -1228,6 +1228,18 @@ EOF
   [[ ! -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar shouldn't exist"
   [[ ! -e "bazel-bin/a/liblib.jdeps" ]] || fail "bazel-bin/a/liblib.jdeps shouldn't exist"
 
+  # io_bazel is the name of the Bazel workspace and thus contained in the full
+  # path of any output artifact, but not in the exec root relative part that we
+  # want the regex to match against.
+  bazel clean && bazel test \
+        --remote_executor=grpc://localhost:${worker_port} \
+        --remote_download_minimal \
+        --experimental_remote_download_regex="/io_bazel/" \
+        //a:test >& $TEST_log || fail "Failed to build"
+
+  [[ ! -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar file shouldn't exist!"
+  [[ ! -e "bazel-bin/a/liblib.jdeps" ]] || fail "bazel-bin/a/liblib.jdeps file shouldn't exist!"
+
   bazel clean && bazel test \
         --remote_executor=grpc://localhost:${worker_port} \
         --remote_download_minimal \
