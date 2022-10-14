@@ -70,6 +70,7 @@ public class RemoteOutputService implements OutputService {
         execRootFragment,
         relativeOutputPath,
         inputArtifactData,
+        outputArtifacts,
         actionInputFetcher);
   }
 
@@ -96,6 +97,11 @@ public class RemoteOutputService implements OutputService {
   @Override
   public void finalizeBuild(boolean buildSuccessful) {
     // Intentionally left empty.
+  }
+
+  @Override
+  public void flushActionFileSystem(FileSystem actionFileSystem) {
+    ((RemoteActionFileSystem) actionFileSystem).flush();
   }
 
   @Override
@@ -142,7 +148,12 @@ public class RemoteOutputService implements OutputService {
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
     FileSystem remoteFileSystem =
         new RemoteActionFileSystem(
-            fileSystem, execRoot, relativeOutputPath, actionInputMap, actionInputFetcher);
+            fileSystem,
+            execRoot,
+            relativeOutputPath,
+            actionInputMap,
+            ImmutableList.of(),
+            actionInputFetcher);
     return ArtifactPathResolver.createPathResolver(remoteFileSystem, fileSystem.getPath(execRoot));
   }
 }

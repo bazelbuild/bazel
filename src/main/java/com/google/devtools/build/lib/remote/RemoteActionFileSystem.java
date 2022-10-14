@@ -16,7 +16,10 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Streams.stream;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -56,8 +59,10 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   private final PathFragment execRoot;
   private final PathFragment outputBase;
   private final ActionInputMap inputArtifactData;
+  private final ImmutableMap<PathFragment, Artifact> outputMapping;
   private final RemoteActionInputFetcher inputFetcher;
   private final Map<PathFragment, RemoteFileArtifactValue> injectedMetadata = new HashMap<>();
+  private final Map<PathFragment, TreeArtifactValue> injectedTreeMetadata = new HashMap<>();
 
   @Nullable private MetadataInjector metadataInjector = null;
 
@@ -66,11 +71,14 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       PathFragment execRootFragment,
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
+      Iterable<Artifact> outputArtifacts,
       RemoteActionInputFetcher inputFetcher) {
     super(localDelegate);
     this.execRoot = checkNotNull(execRootFragment, "execRootFragment");
     this.outputBase = execRoot.getRelative(checkNotNull(relativeOutputPath, "relativeOutputPath"));
     this.inputArtifactData = checkNotNull(inputArtifactData, "inputArtifactData");
+    this.outputMapping =
+        stream(outputArtifacts).collect(toImmutableMap(Artifact::getExecPath, a -> a));
     this.inputFetcher = checkNotNull(inputFetcher, "inputFetcher");
   }
 
@@ -84,8 +92,6 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   void injectTree(SpecialArtifact tree, TreeArtifactValue metadata) {
-    checkNotNull(metadataInjector, "metadataInject is null");
-
     for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry :
         metadata.getChildValues().entrySet()) {
       FileArtifactValue childMetadata = entry.getValue();
@@ -95,16 +101,30 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       }
     }
 
-    metadataInjector.injectTree(tree, metadata);
+    injectedTreeMetadata.put(tree.getExecPath(), metadata);
   }
 
   void injectFile(ActionInput file, RemoteFileArtifactValue metadata) {
-    checkNotNull(metadataInjector, "metadataInject is null");
-
     injectedMetadata.put(file.getExecPath(), metadata);
+  }
 
-    if (file instanceof Artifact) {
-      metadataInjector.injectFile((Artifact) file, metadata);
+  void flush() {
+    checkNotNull(metadataInjector, "metadataInjector is null");
+
+    for (Map.Entry<PathFragment, Artifact> entry : outputMapping.entrySet()) {
+      PathFragment execPath = entry.getKey();
+      Artifact output = entry.getValue();
+      if (output.isTreeArtifact()) {
+        TreeArtifactValue metadata = injectedTreeMetadata.get(execPath);
+        if (metadata != null) {
+          metadataInjector.injectTree((SpecialArtifact) output, metadata);
+        }
+      } else {
+        RemoteFileArtifactValue metadata = injectedMetadata.get(execPath);
+        if (metadata != null) {
+          metadataInjector.injectFile(output, metadata);
+        }
+      }
     }
   }
 

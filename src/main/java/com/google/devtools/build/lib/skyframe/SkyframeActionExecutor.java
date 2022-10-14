@@ -1200,6 +1200,8 @@ public final class SkyframeActionExecutor {
         Preconditions.checkState(action.inputsDiscovered(),
             "Action %s successfully executed, but inputs still not known", action);
 
+        flushActionFileSystem(actionExecutionContext.getActionFileSystem(), outputService);
+
         if (!checkOutputs(
             action,
             metadataHandler,
@@ -1509,6 +1511,13 @@ public final class SkyframeActionExecutor {
     return actionFileSystem == null
         ? LostInputsCheck.NONE
         : () -> outputService.checkActionFileSystemForLostInputs(actionFileSystem, action);
+  }
+
+  private static void flushActionFileSystem(
+      @Nullable FileSystem actionFileSystem, @Nullable OutputService outputService) {
+    if (outputService != null && actionFileSystem != null) {
+      outputService.flushActionFileSystem(actionFileSystem);
+    }
   }
 
   /**
