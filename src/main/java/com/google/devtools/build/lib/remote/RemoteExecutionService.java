@@ -1228,7 +1228,8 @@ public class RemoteExecutionService {
     ImmutableList.Builder<ListenableFuture<FileMetadata>> builder = new ImmutableList.Builder<>();
 
     for (FileMetadata file : metadata.files()) {
-      if (!realToTmpPath.containsKey(file.path) && predicate.test(file.path.toString())) {
+      if (!realToTmpPath.containsKey(file.path)
+          && predicate.test(file.path.relativeTo(execRoot).toString())) {
         Path tmpPath = tempPathGenerator.generateTempPath();
         realToTmpPath.put(file.path, tmpPath);
         builder.add(downloadFile(context, progressStatusListener, file, tmpPath));
@@ -1237,7 +1238,8 @@ public class RemoteExecutionService {
 
     for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
       for (FileMetadata file : entry.getValue().files()) {
-        if (!realToTmpPath.containsKey(file.path) && predicate.test(file.path.toString())) {
+        if (!realToTmpPath.containsKey(file.path)
+            && predicate.test(file.path.relativeTo(execRoot).toString())) {
           Path tmpPath = tempPathGenerator.generateTempPath();
           realToTmpPath.put(file.path, tmpPath);
           builder.add(downloadFile(context, progressStatusListener, file, tmpPath));
