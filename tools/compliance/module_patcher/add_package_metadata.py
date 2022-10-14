@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# vim: set sw=4 ts=4 :
 """Adds license() and package_info() rules to a repository.
 
 This tool modifies the BUILD files in a source tree to add license targets.
@@ -282,9 +283,20 @@ def main(argv: Sequence[str]) -> None:
     args = parser.parse_args()
     # XXX: Remove before submit.
     args.verbose = True
-    info = args_to_dict(args.info)
     if args.verbose:
-        print(info)
+        if args.top:
+            print(' '.join(argv))
+        else:
+            print(argv[0], '--top=%s' % os.getcwd(), ' '.join(argv[1:]))
+
+    try:
+        if not isinstance(args.info, list):
+            print("WTF?  Info not list", args.info)
+        info = args_to_dict(args.info)
+        if args.verbose:
+            print(info)
+    except Exception as e:
+        print("WHAT?", args.info)
 
     rewriter = BuildRewriter(
         top=args.top or '.',
@@ -317,5 +329,4 @@ def main(argv: Sequence[str]) -> None:
 
 
 if __name__ == '__main__':
-    os.system('date >>/tmp/finalize.txt')
     main(sys.argv)
