@@ -99,6 +99,9 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   void injectRemoteFile(PathFragment path, byte[] digest, long size, String actionId)
       throws IOException {
+    if (!path.startsWith(outputBase)) {
+      return;
+    }
     remoteOutputTree.injectRemoteFile(path, digest, size, actionId);
   }
 
