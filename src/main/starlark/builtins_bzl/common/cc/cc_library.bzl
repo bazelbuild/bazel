@@ -208,7 +208,7 @@ def _cc_library_impl(ctx):
     else:
         user_link_flags = common.linkopts
         linker_scripts = _filter_linker_scripts(ctx.files.deps)
-        if len(common.linkopts) > 0 or len(linker_scripts) > 0:
+        if len(common.linkopts) > 0 or len(linker_scripts) > 0 or not semantics.should_create_empty_archive():
             linker_input = cc_common.create_linker_input(
                 owner = ctx.label,
                 user_link_flags = common.linkopts,
