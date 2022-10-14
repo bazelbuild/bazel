@@ -481,6 +481,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If enabled, check testonly for prerequisite targets that are output files by"
               + " looking up the testonly of the generating rule. This matches visibility"
@@ -921,6 +922,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.cpu = hostCpu;
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
     host.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
+    host.checkTestonlyForOutputFiles = checkTestonlyForOutputFiles;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;

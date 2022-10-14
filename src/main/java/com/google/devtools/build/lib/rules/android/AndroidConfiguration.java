@@ -1032,6 +1032,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       host.persistentBusyboxTools = persistentBusyboxTools;
       host.experimentalPersistentMultiplexBusyboxTools =
           experimentalPersistentMultiplexBusyboxTools;
+      host.disableNativeAndroidRules = disableNativeAndroidRules;
 
       // Unless the build was started from an Android device, host means MAIN.
       host.configurationDistinguisher = ConfigurationDistinguisher.MAIN;

@@ -569,6 +569,7 @@ public class JavaOptions extends FragmentOptions {
       help = "The Java language version used to execute the tools that are needed during a build")
   public String hostJavaLanguageVersion;
 
+  @Deprecated
   @Option(
       name = "incompatible_dont_collect_native_libraries_in_data",
       defaultValue = "false",

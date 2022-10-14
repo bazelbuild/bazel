@@ -1241,6 +1241,10 @@ public class CppOptions extends FragmentOptions {
     host.useArgsParamsFile = useArgsParamsFile;
     host.ignoreParamFile = ignoreParamFile;
     host.experimentalIncludeScanning = experimentalIncludeScanning;
+    host.renameDLL = renameDLL;
+    host.enableCcTestFeature = enableCcTestFeature;
+    host.forceStrictHeaderCheckFromStarlark = forceStrictHeaderCheckFromStarlark;
+    host.useCppCompileHeaderMnemonic = useCppCompileHeaderMnemonic;
 
     // Save host options for further use.
     host.hostCoptList = hostCoptList;
