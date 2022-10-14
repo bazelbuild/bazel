@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics.GarbageMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.NetworkMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
@@ -47,10 +48,12 @@ import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochCon
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
+import com.google.devtools.build.lib.profiler.NetworkMetricsCollector;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.worker.WorkerMetric;
 import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
@@ -59,6 +62,7 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAccumulator;
@@ -81,6 +85,10 @@ class MetricsCollector {
   private final ArtifactMetrics.Builder artifactMetrics = ArtifactMetrics.newBuilder();
   private final BuildGraphMetrics.Builder buildGraphMetrics = BuildGraphMetrics.newBuilder();
   private final SpawnStats spawnStats = new SpawnStats();
+  // Skymeld-specific: we don't have an ExecutionStartingEvent for skymeld, so we have to use
+  // TopLevelTargetExecutionStartedEvent. This AtomicBoolean is so that we only account for the
+  // build once.
+  private final AtomicBoolean buildAccountedFor;
 
   @CanIgnoreReturnValue
   private MetricsCollector(
@@ -92,6 +100,7 @@ class MetricsCollector {
     this.numBuilds = numBuilds;
     env.getEventBus().register(this);
     WorkerMetricsCollector.instance().setClock(env.getClock());
+    this.buildAccountedFor = new AtomicBoolean();
   }
 
   static void installInEnv(
@@ -139,6 +148,14 @@ class MetricsCollector {
   @Subscribe
   public synchronized void logExecutionStartingEvent(ExecutionStartingEvent event) {
     numBuilds.getAndIncrement();
+  }
+
+  @Subscribe
+  public synchronized void accountForBuild(
+      @SuppressWarnings("unused") TopLevelTargetPendingExecutionEvent event) {
+    if (buildAccountedFor.compareAndSet(/*expectedValue=*/ false, /*newValue=*/ true)) {
+      numBuilds.getAndIncrement();
+    }
   }
 
   @SuppressWarnings("unused")
@@ -198,17 +215,24 @@ class MetricsCollector {
   }
 
   private BuildMetrics createBuildMetrics() {
-    return BuildMetrics.newBuilder()
-        .setActionSummary(finishActionSummary())
-        .setMemoryMetrics(createMemoryMetrics())
-        .setTargetMetrics(targetMetrics.build())
-        .setPackageMetrics(packageMetrics.build())
-        .setTimingMetrics(finishTimingMetrics())
-        .setCumulativeMetrics(createCumulativeMetrics())
-        .setArtifactMetrics(artifactMetrics.build())
-        .setBuildGraphMetrics(buildGraphMetrics.build())
-        .addAllWorkerMetrics(createWorkerMetrics())
-        .build();
+    BuildMetrics.Builder buildMetrics =
+        BuildMetrics.newBuilder()
+            .setActionSummary(finishActionSummary())
+            .setMemoryMetrics(createMemoryMetrics())
+            .setTargetMetrics(targetMetrics.build())
+            .setPackageMetrics(packageMetrics.build())
+            .setTimingMetrics(finishTimingMetrics())
+            .setCumulativeMetrics(createCumulativeMetrics())
+            .setArtifactMetrics(artifactMetrics.build())
+            .setBuildGraphMetrics(buildGraphMetrics.build())
+            .addAllWorkerMetrics(createWorkerMetrics());
+
+    NetworkMetrics networkMetrics = NetworkMetricsCollector.instance().collectMetrics();
+    if (networkMetrics != null) {
+      buildMetrics.setNetworkMetrics(networkMetrics);
+    }
+
+    return buildMetrics.build();
   }
 
   private static final int MAX_ACTION_DATA = 20;

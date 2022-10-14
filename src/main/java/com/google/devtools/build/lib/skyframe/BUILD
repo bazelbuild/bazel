@@ -2898,11 +2898,14 @@ java_library(
     srcs = ["WorkspaceNameFunction.java"],
     deps = [
         ":package_value",
+        ":precomputed_value",
         ":workspace_name_value",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:jsr305",
     ],
 )

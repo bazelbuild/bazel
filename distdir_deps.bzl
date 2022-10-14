@@ -235,15 +235,15 @@ DIST_DEPS = {
         "strip_prefix": "abseil-cpp-20211102.0",
     },
     "zstd-jni": {
-        "archive": "v1.5.0-4.zip",
+        "archive": "v1.5.2-3.zip",
         "patch_args": ["-p1"],
         "patches": [
             "//third_party:zstd-jni/Native.java.patch",
         ],
-        "sha256": "d320d59b89a163c5efccbe4915ae6a49883ce653cdc670643dfa21c6063108e4",
+        "sha256": "366009a43cfada35015e4cc40a7efc4b7f017c6b8df5cac3f87d2478027b2056",
         "urls": [
-            "https://mirror.bazel.build/github.com/luben/zstd-jni/archive/v1.5.0-4.zip",
-            "https://github.com/luben/zstd-jni/archive/v1.5.0-4.zip",
+            "https://mirror.bazel.build/github.com/luben/zstd-jni/archive/refs/tags/v1.5.2-3.zip",
+            "https://github.com/luben/zstd-jni/archive/refs/tags/v1.5.2-3.zip",
         ],
         "used_in": [
             "additional_distfiles",

@@ -69,11 +69,7 @@ package of the current repository.
 However, the use of `//my/app` to refer to a package is encouraged in the
 specification of a `package_group` or in `.bzl` files, because it clearly
 communicates that the package name is absolute and rooted in the top-level
-directory of the workspace.Strings like `//my/app` and `@some_repo//my/app` have
-two meanings depending on the context in which they are used: when Bazel expects
-a label, they mean `//my/app:app` and `@some_repo//my/app:app`,
-respectively. But, when Bazel expects a package (e.g. in `package_group`
-specifications), they reference the package that contains that label.
+directory of the workspace.
 
 Relative labels cannot be used to refer to targets in other packages; the
 repository identifier and package name must always be specified in this case.

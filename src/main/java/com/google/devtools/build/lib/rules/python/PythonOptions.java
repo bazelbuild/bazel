@@ -327,6 +327,12 @@ public class PythonOptions extends FragmentOptions {
     hostPythonOptions.incompatiblePy2OutputsAreSuffixed = incompatiblePy2OutputsAreSuffixed;
     hostPythonOptions.buildPythonZip = buildPythonZip;
     hostPythonOptions.incompatibleUsePythonToolchains = incompatibleUsePythonToolchains;
+    hostPythonOptions.buildTransitiveRunfilesTrees = buildTransitiveRunfilesTrees;
+    hostPythonOptions.incompatibleAllowPythonVersionTransitions =
+        incompatibleAllowPythonVersionTransitions;
+    hostPythonOptions.incompatibleDefaultToExplicitInitPy = incompatibleDefaultToExplicitInitPy;
+    hostPythonOptions.incompatibleDisallowLegacyPyProvider = incompatibleDisallowLegacyPyProvider;
+    hostPythonOptions.incompatibleRemoveOldPythonVersionApi = incompatibleRemoveOldPythonVersionApi;
 
     // Save host options in case of a further exec->host transition.
     hostPythonOptions.hostForcePython = hostForcePython;

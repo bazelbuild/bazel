@@ -832,7 +832,10 @@ sh_test(
     size = "medium",
     srcs = ["runfiles_test.sh"],
     data = [":test-deps"],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
@@ -1013,7 +1016,10 @@ sh_test(
     size = "medium",
     srcs = ["execroot_test.sh"],
     data = [":test-deps"],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(

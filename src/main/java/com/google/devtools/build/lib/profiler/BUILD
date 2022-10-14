@@ -26,7 +26,7 @@ java_library(
         "TimeSeries.java",
     ],
     deps = [
-        ":system_network_stats",
+        ":network_metrics_collector",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect:extrema",
@@ -39,6 +39,19 @@ java_library(
         "//third_party:error_prone_annotations",
         "//third_party:flogger",
         "//third_party:gson",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "network_metrics_collector",
+    srcs = ["NetworkMetricsCollector.java"],
+    deps = [
+        ":system_network_stats",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//third_party:auto_value",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

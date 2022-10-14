@@ -366,8 +366,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       oneVersionOutputArtifact =
           OneVersionCheckActionBuilder.newBuilder()
               .withEnforcementLevel(oneVersionEnforcementLevel)
-              .outputArtifact(
-                  ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_ONE_VERSION_ARTIFACT))
               .useToolchain(JavaToolchainProvider.from(ruleContext))
               .checkJars(transitiveDependencies)
               .build(ruleContext);

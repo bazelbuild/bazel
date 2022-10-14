@@ -333,13 +333,6 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
         depGraph.keySet().stream()
             .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
-    ImmutableMap<String, ModuleKey> moduleNameLookup =
-        depGraph.keySet().stream()
-            // The root module is not meaningfully used by this lookup so we skip it (it's
-            // guaranteed to be the first in iteration order).
-            .skip(1)
-            .filter(key -> !(overrides.get(key.getName()) instanceof MultipleVersionOverride))
-            .collect(toImmutableMap(ModuleKey::getName, key -> key));
 
     // For each extension usage, we resolve (i.e. canonicalize) its bzl file label. Then we can
     // group all usages by the label + name (the ModuleExtensionId).
@@ -388,7 +381,6 @@ public class BazelModuleResolutionFunction implements SkyFunction {
         depGraph,
         unprunedDepGraph,
         canonicalRepoNameLookup,
-        moduleNameLookup,
         depGraph.values().stream().map(AbridgedModule::from).collect(toImmutableList()),
         extensionUsagesById,
         ImmutableMap.copyOf(extensionUniqueNames.inverse()));

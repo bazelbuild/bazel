@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FILENAME_LENGTH;
 
 import com.google.common.base.Joiner;
@@ -2298,5 +2299,21 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     for (String baseName : libraryBaseNames) {
       assertThat(baseName.length()).isLessThan(MAX_FILENAME_LENGTH + 1);
     }
+  }
+
+  @Test
+  public void testLinkerInputAlwaysAddedEvenIfEmpty() throws Exception {
+    AnalysisMock.get().ccSupport().setupCcToolchainConfig(mockToolsConfig);
+    scratch.file("foo/BUILD", "cc_library(", "    name = 'lib',", ")");
+    assertThat(
+            getConfiguredTarget("//foo:lib")
+                .get(CcInfo.PROVIDER)
+                .getCcLinkingContext()
+                .getLinkerInputs()
+                .toList()
+                .stream()
+                .map(x -> x.getOwner().toString()))
+        .containsExactly("//foo:lib")
+        .inOrder();
   }
 }

@@ -30,7 +30,10 @@ py_library(
 
 filegroup(
     name = "archive_testdata",
-    srcs = glob(["testdata/**"]),
+    srcs = glob(
+        ["testdata/**"],
+        allow_empty = True,
+    ),
 )
 
 py_test(

@@ -68,6 +68,9 @@ def _get_def_parser():
 def _get_grep_includes():
     return attr.label()
 
+def _get_runtimes_toolchain():
+    return []
+
 def _get_test_toolchain_attr():
     return {}
 
@@ -118,6 +121,13 @@ def _get_coverage_env(ctx):
         ])
 
     return runfiles, test_env
+
+def _get_cc_runtimes(ctx, is_library):
+    if is_library:
+        return []
+    if ctx.fragments.cpp.custom_malloc != None:
+        return [ctx.attr._default_malloc]
+    return [ctx.attr.malloc]
 
 def _should_use_legacy_cc_test(_):
     return True
@@ -176,8 +186,10 @@ semantics = struct(
     check_can_use_implementation_deps = _check_can_use_implementation_deps,
     check_experimental_cc_shared_library = _check_experimental_cc_shared_library,
     get_linkstatic_default = _get_linkstatic_default,
+    get_runtimes_toolchain = _get_runtimes_toolchain,
     get_test_malloc_attr = _get_test_malloc_attr,
     get_test_toolchain_attr = _get_test_toolchain_attr,
+    get_cc_runtimes = _get_cc_runtimes,
     should_use_legacy_cc_test = _should_use_legacy_cc_test,
     get_coverage_attrs = _get_coverage_attrs,
     get_coverage_env = _get_coverage_env,

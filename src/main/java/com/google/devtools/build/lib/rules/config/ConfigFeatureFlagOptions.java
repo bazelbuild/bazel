@@ -36,7 +36,6 @@ public final class ConfigFeatureFlagOptions extends FragmentOptions {
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       defaultValue = "false")
   public boolean enforceTransitiveConfigsForConfigFeatureFlag = false;
 

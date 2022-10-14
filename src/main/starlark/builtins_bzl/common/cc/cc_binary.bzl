@@ -258,15 +258,14 @@ def _collect_runfiles(ctx, feature_configuration, cc_toolchain, libraries, cc_li
             builder_artifacts.append(cc_library_linking_outputs.library_to_link.dynamic_library)
             runtime_objects_for_coverage.append(cc_library_linking_outputs.library_to_link.dynamic_library)
 
-    # For cc_binary and cc_test rules, there is an implicit dependency on
-    # the malloc library package, which is specified by the "malloc" attribute.
-    # As the BUILD encyclopedia says, the "malloc" attribute should be ignored
-    # if linkshared=1.
-    link_shared = _is_link_shared(ctx)
-    if not link_shared:
-        malloc = _malloc_for_target(ctx, cpp_config)
-        builder = builder.merge(_default_runfiles_function(ctx, malloc))
-        builder = builder.merge(ctx.runfiles(transitive_files = _runfiles_function(ctx, malloc, linking_mode != _LINKING_DYNAMIC)))
+    builder = builder.merge_all([
+        _default_runfiles_function(ctx, runtime)
+        for runtime in semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
+    ] + [
+        ctx.runfiles(transitive_files = _runfiles_function(ctx, runtime, linking_mode != _LINKING_DYNAMIC))
+        for runtime in semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
+    ])
+
     return (builder.merge(ctx.runfiles(files = builder_artifacts, transitive_files = depset(builder_transitive_artifacts))), runtime_objects_for_coverage)
 
 def _get_target_sub_dir(target_name):
@@ -310,15 +309,9 @@ def _get_dynamic_libraries_for_runtime(link_statically, libraries):
             dynamic_libraries_for_runtime.append(artifact)
     return dynamic_libraries_for_runtime
 
-def _get_providers(ctx, cpp_config):
-    results = []
-    malloc = _malloc_for_target(ctx, cpp_config)
-    if CcInfo in malloc:
-        results.append(malloc[CcInfo])
-    for dep in ctx.attr.deps:
-        if CcInfo in dep:
-            results.append(dep[CcInfo])
-    return results
+def _get_providers(ctx):
+    all_deps = ctx.attr.deps + semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
+    return [dep[CcInfo] for dep in all_deps if CcInfo in dep]
 
 def _collect_transitive_dwo_artifacts(cc_compilation_outputs, cc_debug_context, linking_mode, use_pic, lto_backend_artifacts):
     dwo_files = []
@@ -385,14 +378,10 @@ def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_c
     link_once_static_libs_map = build_link_once_static_libs_map(merged_cc_shared_library_infos)
     exports_map = build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos)
     static_linker_inputs = []
-    graph_structure_aspect_nodes = []
     linker_inputs = cc_linking_context.linker_inputs.to_list()
-    for dep in ctx.attr.deps:
-        if GraphNodeInfo in dep:
-            graph_structure_aspect_nodes.append(dep[GraphNodeInfo])
-    malloc_for_target = _malloc_for_target(ctx, cpp_config)
-    if GraphNodeInfo in malloc_for_target:
-        graph_structure_aspect_nodes.append(malloc_for_target[GraphNodeInfo])
+
+    all_deps = ctx.attr.deps + semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
+    graph_structure_aspect_nodes = [dep[GraphNodeInfo] for dep in all_deps if GraphNodeInfo in dep]
 
     can_be_linked_dynamically = {}
     for linker_input in linker_inputs:
@@ -551,25 +540,8 @@ def _use_pic(ctx, cc_toolchain, cpp_config, feature_configuration):
     return cpp_config.force_pic() or (cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration) and ctx.var["COMPILATION_MODE"] != "opt")
 
 def _collect_linking_context(ctx, cpp_config):
-    cc_infos = []
-    for dep in ctx.attr.deps:
-        if CcInfo in dep:
-            cc_infos.append(dep[CcInfo])
-
-    if not _is_link_shared(ctx):
-        cc_info = None
-        malloc_for_target = _malloc_for_target(ctx, cpp_config)
-        if CcInfo in malloc_for_target:
-            cc_info = malloc_for_target[CcInfo]
-        if cc_info != None:
-            cc_infos.append(cc_info)
-
+    cc_infos = _get_providers(ctx)
     return cc_common.merge_cc_infos(direct_cc_infos = cc_infos, cc_infos = cc_infos).linking_context
-
-def _malloc_for_target(ctx, cpp_config):
-    if cpp_config.custom_malloc != None:
-        return ctx.attr._default_malloc
-    return ctx.attr.malloc
 
 def _get_link_staticness(ctx, cpp_config):
     linkstatic_attr = None
@@ -670,15 +642,8 @@ def cc_binary_impl(ctx, additional_linkopts):
         requested_features = features,
         unsupported_features = disabled_features,
     )
-    compilation_context_deps = [dep[CcInfo].compilation_context for dep in ctx.attr.deps if CcInfo in dep]
-    target_malloc = _malloc_for_target(ctx, cpp_config)
-    malloc_dep = None
-    if CcInfo in target_malloc:
-        malloc_dep = target_malloc[CcInfo].compilation_context
-    if malloc_dep != None:
-        compilation_context_deps.append(malloc_dep)
-    if ctx.attr._stl != None:
-        compilation_context_deps.append(ctx.attr._stl[CcInfo].compilation_context)
+    all_deps = ctx.attr.deps + semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
+    compilation_context_deps = [dep[CcInfo].compilation_context for dep in all_deps if CcInfo in dep]
 
     additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
     additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, common, cc_toolchain))
@@ -733,7 +698,7 @@ def cc_binary_impl(ctx, additional_linkopts):
             compilation_outputs = cc_compilation_outputs,
             name = ctx.label.name,
             grep_includes = cc_helper.grep_includes_executable(ctx.attr._grep_includes),
-            linking_contexts = cc_helper.get_linking_contexts_from_deps([_malloc_for_target(ctx, cpp_config)]) + cc_helper.get_linking_contexts_from_deps(ctx.attr.deps),
+            linking_contexts = cc_helper.get_linking_contexts_from_deps(all_deps),
             stamp = cc_helper.is_stamping_enabled(ctx),
             alwayslink = True,
         )
@@ -821,7 +786,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     cc_helper.create_strip_action(ctx, cc_toolchain, cpp_config, binary, stripped_file, feature_configuration)
     dwo_files = _collect_transitive_dwo_artifacts(
         cc_compilation_outputs,
-        cc_helper.merge_cc_debug_contexts(cc_compilation_outputs, _get_providers(ctx, cpp_config)),
+        cc_helper.merge_cc_debug_contexts(cc_compilation_outputs, _get_providers(ctx)),
         linking_mode,
         use_pic,
         cc_linking_outputs_binary.all_lto_artifacts(),
@@ -991,7 +956,8 @@ def make_cc_binary(cc_binary_attrs, **kwargs):
         exec_groups = {
             "cpp_link": exec_group(copy_from_rule = True),
         },
-        toolchains = cc_helper.use_cpp_toolchain(),
+        toolchains = cc_helper.use_cpp_toolchain() +
+                     semantics.get_runtimes_toolchain(),
         incompatible_use_toolchain_transition = True,
         executable = True,
         **kwargs

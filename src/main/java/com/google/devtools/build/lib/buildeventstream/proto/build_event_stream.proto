@@ -1065,6 +1065,33 @@ message BuildMetrics {
   }
 
   repeated WorkerMetrics worker_metrics = 9;
+
+  // Information about host network.
+  message NetworkMetrics {
+    // Information for all the network traffic going on on the host machine during the invocation.
+    message SystemNetworkStats {
+      // Total bytes sent during the invocation.
+      uint64 bytes_sent = 1;
+      // Total bytes received during the invocation.
+      uint64 bytes_recv = 2;
+      // Total packets sent during the invocation.
+      uint64 packets_sent = 3;
+      // Total packets received during the invocation.
+      uint64 packets_recv = 4;
+      // Peak bytes/sec sent during the invocation.
+      uint64 peak_bytes_sent_per_sec = 5;
+      // Peak bytes/sec received during the invocation.
+      uint64 peak_bytes_recv_per_sec  = 6;
+      // Peak packets/sec sent during the invocation.
+      uint64 peak_packets_sent_per_sec = 7;
+      // Peak packets/sec received during the invocation.
+      uint64 peak_packets_recv_per_sec = 8;
+    }
+
+    SystemNetworkStats system_network_stats = 1;
+  }
+
+  NetworkMetrics network_metrics = 10;
 }
 
 // Event providing additional statistics/logs after completion of the build.

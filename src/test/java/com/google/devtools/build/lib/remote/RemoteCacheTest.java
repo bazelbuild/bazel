@@ -28,6 +28,7 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -79,6 +80,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -563,6 +565,29 @@ public class RemoteCacheTest {
     ensureInputsPresentReturned.await();
     assertThat(remoteCache.casUploadCache.getInProgressTasks()).isEmpty();
     assertThat(remoteCache.casUploadCache.getFinishedTasks()).hasSize(3);
+  }
+
+  @Test
+  public void ensureInputsPresent_uploadFailed_propagateErrors() throws Exception {
+    RemoteCacheClient cacheProtocol = spy(new InMemoryCacheClient());
+    doAnswer(invocationOnMock -> Futures.immediateFailedFuture(new IOException("upload failed")))
+        .when(cacheProtocol)
+        .uploadBlob(any(), any(), any());
+    doAnswer(invocationOnMock -> Futures.immediateFailedFuture(new IOException("upload failed")))
+        .when(cacheProtocol)
+        .uploadFile(any(), any(), any());
+    RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
+    Path path = fs.getPath("/execroot/foo");
+    FileSystemUtils.writeContentAsLatin1(path, "bar");
+    SortedMap<PathFragment, Path> inputs = ImmutableSortedMap.of(PathFragment.create("foo"), path);
+    MerkleTree merkleTree = MerkleTree.build(inputs, digestUtil);
+
+    IOException e =
+        Assert.assertThrows(
+            IOException.class,
+            () -> remoteCache.ensureInputsPresent(context, merkleTree, ImmutableMap.of(), false));
+
+    assertThat(e).hasMessageThat().contains("upload failed");
   }
 
   @Test

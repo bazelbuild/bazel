@@ -204,10 +204,6 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
             createModuleKey("rules_cc", "1.0"),
             RepositoryName.create("rules_java~override"),
             createModuleKey("rules_java", ""));
-    assertThat(value.getModuleNameLookup())
-        .containsExactly(
-            "rules_cc", createModuleKey("rules_cc", "1.0"),
-            "rules_java", createModuleKey("rules_java", ""));
     assertThat(value.getAbridgedModules())
         .containsExactlyElementsIn(
             depGraph.values().stream().map(AbridgedModule::from).collect(toImmutableList()));
