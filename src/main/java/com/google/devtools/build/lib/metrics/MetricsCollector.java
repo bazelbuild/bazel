@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics.GarbageMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.NetworkMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochCon
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
+import com.google.devtools.build.lib.profiler.NetworkMetricsCollector;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SpawnStats;
@@ -213,17 +215,24 @@ class MetricsCollector {
   }
 
   private BuildMetrics createBuildMetrics() {
-    return BuildMetrics.newBuilder()
-        .setActionSummary(finishActionSummary())
-        .setMemoryMetrics(createMemoryMetrics())
-        .setTargetMetrics(targetMetrics.build())
-        .setPackageMetrics(packageMetrics.build())
-        .setTimingMetrics(finishTimingMetrics())
-        .setCumulativeMetrics(createCumulativeMetrics())
-        .setArtifactMetrics(artifactMetrics.build())
-        .setBuildGraphMetrics(buildGraphMetrics.build())
-        .addAllWorkerMetrics(createWorkerMetrics())
-        .build();
+    BuildMetrics.Builder buildMetrics =
+        BuildMetrics.newBuilder()
+            .setActionSummary(finishActionSummary())
+            .setMemoryMetrics(createMemoryMetrics())
+            .setTargetMetrics(targetMetrics.build())
+            .setPackageMetrics(packageMetrics.build())
+            .setTimingMetrics(finishTimingMetrics())
+            .setCumulativeMetrics(createCumulativeMetrics())
+            .setArtifactMetrics(artifactMetrics.build())
+            .setBuildGraphMetrics(buildGraphMetrics.build())
+            .addAllWorkerMetrics(createWorkerMetrics());
+
+    NetworkMetrics networkMetrics = NetworkMetricsCollector.instance().collectMetrics();
+    if (networkMetrics != null) {
+      buildMetrics.setNetworkMetrics(networkMetrics);
+    }
+
+    return buildMetrics.build();
   }
 
   private static final int MAX_ACTION_DATA = 20;
