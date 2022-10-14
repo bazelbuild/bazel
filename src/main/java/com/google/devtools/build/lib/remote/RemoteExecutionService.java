@@ -234,7 +234,7 @@ public class RemoteExecutionService {
     this.shouldForceDownloadPredicate =
         path -> {
           for (Pattern pattern : patterns) {
-            if (pattern.matcher(path).find()) {
+            if (pattern.matcher(path).matches()) {
               return true;
             }
           }
