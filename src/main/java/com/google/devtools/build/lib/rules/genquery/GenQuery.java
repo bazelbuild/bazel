@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.genquery;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
@@ -90,7 +89,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
@@ -217,12 +216,12 @@ public class GenQuery implements RuleConfiguredTargetFactory {
    * DO NOT USE! We should get rid of this method: errors reported directly to this object don't set
    * the error flag in {@link ConfiguredTarget}.
    */
-  private ExtendedEventHandler getEventHandler(RuleContext ruleContext) {
+  private static ExtendedEventHandler getEventHandler(RuleContext ruleContext) {
     return ruleContext.getAnalysisEnvironment().getEventHandler();
   }
 
   @Nullable
-  private GenQueryResult executeQuery(
+  private static GenQueryResult executeQuery(
       RuleContext ruleContext,
       QueryOptions queryOptions,
       ImmutableList<Label> scope,
@@ -256,7 +255,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
   }
 
   @Nullable
-  private GenQueryResult doQuery(
+  private static GenQueryResult doQuery(
       QueryOptions queryOptions,
       GenQueryPackageProvider packageProvider,
       TargetPatternPreloader preloader,
@@ -454,17 +453,16 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       Map<String, ResolvedTargets<Label>> resolvedLabelsMap =
           Maps.newHashMapWithExpectedSize(patterns.size());
       synchronized (this) {
-        ImmutableSet<TargetPatternKey> targetPatternKeys = patternKeys.keySet();
-        SkyframeIterableResult patternKeysResult =
-            env.getOrderedValuesAndExceptions(targetPatternKeys);
-        for (TargetPatternKey targetPatternKey : targetPatternKeys) {
+        SkyframeLookupResult patternKeysResult = env.getValuesAndExceptions(patternKeys.keySet());
+        for (Map.Entry<TargetPatternKey, String> entry : patternKeys.entrySet()) {
           TargetPatternValue patternValue =
-              (TargetPatternValue) patternKeysResult.nextOrThrow(TargetParsingException.class);
+              (TargetPatternValue)
+                  patternKeysResult.getOrThrow(entry.getKey(), TargetParsingException.class);
           if (patternValue == null) {
             ok = false;
           } else {
             ResolvedTargets<Label> resolvedLabels = patternValue.getTargets();
-            resolvedLabelsMap.put(patternKeys.get(targetPatternKey), resolvedLabels);
+            resolvedLabelsMap.put(entry.getValue(), resolvedLabels);
             for (Label label :
                 Iterables.concat(
                     resolvedLabels.getTargets(), resolvedLabels.getFilteredTargets())) {
@@ -479,14 +477,14 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       Map<PackageIdentifier, Package> packages =
           Maps.newHashMapWithExpectedSize(packageKeys.size());
       synchronized (this) {
-        SkyframeIterableResult packageKeysResult = env.getOrderedValuesAndExceptions(packageKeys);
+        SkyframeLookupResult packageKeysResult = env.getValuesAndExceptions(packageKeys);
         // packageKeys is not mutated, the iteration order is the same.
         for (SkyKey depKey : packageKeys) {
           PackageIdentifier pkgName = (PackageIdentifier) depKey.argument();
           Package pkg;
           try {
             PackageValue packageValue =
-                (PackageValue) packageKeysResult.nextOrThrow(NoSuchPackageException.class);
+                (PackageValue) packageKeysResult.getOrThrow(depKey, NoSuchPackageException.class);
             if (packageValue == null) {
               ok = false;
               continue;
@@ -514,7 +512,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       return preloadedPatterns;
     }
 
-    private void checkValidPatternType(String pattern, TargetPattern.Parser parser)
+    private static void checkValidPatternType(String pattern, TargetPattern.Parser parser)
         throws TargetParsingException {
       TargetPattern.Type type = parser.parse(pattern).getType();
       if (type == TargetPattern.Type.PATH_AS_TARGET) {
