@@ -8,4 +8,8 @@ exports_files(glob(["*"]))
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+    visibility = [
+        "//tools:__subpackages__",
+        "@bazel_tools//tools:__subpackages__",
+    ],
 )
