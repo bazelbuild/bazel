@@ -1200,7 +1200,17 @@ public final class SkyframeActionExecutor {
         Preconditions.checkState(action.inputsDiscovered(),
             "Action %s successfully executed, but inputs still not known", action);
 
-        flushActionFileSystem(actionExecutionContext.getActionFileSystem(), outputService);
+        try {
+          flushActionFileSystem(actionExecutionContext.getActionFileSystem(), outputService);
+        } catch (IOException e) {
+          logger.atWarning().withCause(e).log("unable to flush action filesystem: '%s'", action);
+          throw toActionExecutionException(
+              "unable to flush action filesystem",
+              e,
+              action,
+              fileOutErr,
+              Code.ACTION_FINALIZATION_FAILURE);
+        }
 
         if (!checkOutputs(
             action,
@@ -1514,7 +1524,8 @@ public final class SkyframeActionExecutor {
   }
 
   private static void flushActionFileSystem(
-      @Nullable FileSystem actionFileSystem, @Nullable OutputService outputService) {
+      @Nullable FileSystem actionFileSystem, @Nullable OutputService outputService)
+      throws IOException {
     if (outputService != null && actionFileSystem != null) {
       outputService.flushActionFileSystem(actionFileSystem);
     }
