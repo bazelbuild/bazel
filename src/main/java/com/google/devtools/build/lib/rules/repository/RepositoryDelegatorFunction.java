@@ -245,8 +245,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     if (!repositoryName.isVisible()) {
       return new NoRepositoryDirectoryValue(
           String.format(
-              "Repository '@%s' is not visible from repository '%s'",
-              repositoryName.getName(), repositoryName.getOwnerRepoIfNotVisible().getNameWithAt()));
+              "No repository visible as '@%s' from %s",
+              repositoryName.getName(), repositoryName.getOwnerRepoDisplayString()));
     }
 
     Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
