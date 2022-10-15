@@ -141,7 +141,7 @@ class BuildRewriter(object):
         new_content = add_default_applicable_licenses(content, "//:license")
         if content != new_content:
             os.remove(build_file)
-            with open(build_file, 'w') as out:
+            with open(build_file, 'w', encoding='utf-8') as out:
                out.write(new_content)
 
     def select_license_file(self):
@@ -236,7 +236,7 @@ def add_default_applicable_licenses(content: str, license_label: str) -> str:
 
 def add_license(build_file: str, license_target: str):
     # Points the BUILD file at a path to the top level liceense declaration
-    with open(build_file, 'r') as inp:
+    with open(build_file, 'r', encoding='utf-8') as inp:
         content = inp.read()
 
     # Do not overwrite an existing one
@@ -278,7 +278,7 @@ def add_license(build_file: str, license_target: str):
 
     if content != new_content:
         os.remove(build_file)
-        with open(build_file, 'w') as out:
+        with open(build_file, 'w', encoding='utf-8') as out:
            out.write(new_content)
 
 # def args_to_dict(args: Sequence[str]) -> dict:
