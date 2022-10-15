@@ -434,6 +434,7 @@ def get_repo_patcher():
 WELL_KNOWN_NON_PATACHABLE_REPOS = (
     "com_github_grpc_grpc",
     "com_envoyproxy_protoc_gen_validate",
+    "remote_java_tools",
 )
 
 def full_repo_patch(ctx, repo_metadata):

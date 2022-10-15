@@ -7,6 +7,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = [
+        # "//tools:__subpackages__",
         "//visibility:public",
     ],
 )

@@ -333,6 +333,8 @@ def main(argv) -> None:
     rewriter.read_source_tree()
     rewriter.adjust_source_tree()
     rewriter.select_license_file()
+    if not rewriter.license_file:
+        return
     license = rewriter.create_license_target()
     if args.verbose:
         rewriter.print()

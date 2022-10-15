@@ -64,9 +64,11 @@ dist_http_archive(
 )
 
 # Note to reviewer. The name is reserved. Repository rules look for it.
-local_repository(
+new_local_repository(
     name = "bazel_module_patcher",
     path = "tools/compliance/module_patcher",
+    build_file = "//tools/compliance:module_patcher.BUILD",
+    workspace_file = "//tools/compliance:module_patcher/module_patcher.WORKSPACE",
 )
 
 # For src/test/shell/bazel:test_srcs
