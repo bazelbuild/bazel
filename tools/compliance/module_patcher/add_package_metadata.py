@@ -335,10 +335,13 @@ def main(argv) -> None:
     rewriter.select_license_file()
     if not rewriter.license_file:
         return
+    if os.path.sep in rewriter.license_file:
+        print('Did not find license file at top level.')
+        return
     license = rewriter.create_license_target()
     if args.verbose:
         rewriter.print()
-        print("Synthesized license:", license)
+        print('Synthesized license:', license)
     rewriter.ensure_top_level_license(fallback_license=license)
     for build_file in rewriter.other_builds:
         rewriter.point_to_top_level_license(build_file)
