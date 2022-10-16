@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.DependencyFilter;
@@ -75,7 +76,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options));
+        createPostFactoStreamCallback(out, options, env.getMainRepoMapping()));
   }
 
   @Override
@@ -94,7 +95,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, QueryOptions options) {
+      OutputStream out, QueryOptions options, RepositoryMapping mainRepoMapping) {
     return new OutputFormatterCallback<Target>() {
 
       private Document doc;

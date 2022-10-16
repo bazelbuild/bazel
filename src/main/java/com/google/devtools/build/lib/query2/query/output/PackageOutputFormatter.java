@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -25,8 +26,8 @@ import java.io.OutputStream;
 import java.util.Set;
 
 /**
- * An output formatter that prints the names of the packages of the target
- * set, in lexicographical order without duplicates.
+ * An output formatter that prints the names of the packages of the target set, in lexicographical
+ * order without duplicates.
  */
 class PackageOutputFormatter extends AbstractUnorderedFormatter {
 
@@ -37,7 +38,7 @@ class PackageOutputFormatter extends AbstractUnorderedFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, final QueryOptions options) {
+      OutputStream out, final QueryOptions options, RepositoryMapping mainRepoMapping) {
     return new TextOutputFormatterCallback<Target>(out) {
       private final Set<String> packageNames = Sets.newTreeSet();
 
@@ -45,7 +46,8 @@ class PackageOutputFormatter extends AbstractUnorderedFormatter {
       public void processOutput(Iterable<Target> partialResult) {
 
         for (Target target : partialResult) {
-          packageNames.add(target.getLabel().getPackageIdentifier().toString());
+          packageNames.add(
+              target.getLabel().getPackageIdentifier().getDisplayForm(mainRepoMapping));
         }
       }
 
@@ -66,6 +68,6 @@ class PackageOutputFormatter extends AbstractUnorderedFormatter {
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options));
+        createPostFactoStreamCallback(out, options, env.getMainRepoMapping()));
   }
 }

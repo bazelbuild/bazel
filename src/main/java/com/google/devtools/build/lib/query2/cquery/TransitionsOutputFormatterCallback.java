@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
@@ -47,7 +48,9 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
   protected final BuildConfigurationValue hostConfiguration;
 
   private final HashMap<Label, Target> partialResultMap;
-  @Nullable private final TransitionFactory<RuleTransitionData> trimmingTransitionFactory;
+  @Nullable
+  private final TransitionFactory<RuleTransitionData> trimmingTransitionFactory;
+  private final RepositoryMapping mainRepoMapping;
 
   @Override
   public String getName() {
@@ -65,11 +68,13 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTarget> accessor,
       BuildConfigurationValue hostConfiguration,
-      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {
+      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
+      RepositoryMapping mainRepoMapping) {
     super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
     this.hostConfiguration = hostConfiguration;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.partialResultMap = Maps.newHashMap();
+    this.mainRepoMapping = mainRepoMapping;
   }
 
   @Override
@@ -91,8 +96,9 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       addResult(
           getRuleClassTransition(keyedConfiguredTarget.getConfiguredTarget(), target)
               + String.format(
-                  "%s (%s)",
-                  keyedConfiguredTarget.getConfiguredTarget().getOriginalLabel(), shortId(config)));
+              "%s (%s)",
+              keyedConfiguredTarget.getConfiguredTarget().getOriginalLabel()
+                  .getDisplayForm(mainRepoMapping), shortId(config)));
       KnownTargetsDependencyResolver knownTargetsDependencyResolver =
           new KnownTargetsDependencyResolver(partialResultMap);
       ImmutableSet<ResolvedTransition> dependencies;
@@ -117,7 +123,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
             "  "
                 .concat(dep.attributeName())
                 .concat("#")
-                .concat(dep.label().toString())
+                .concat(dep.label().getDisplayForm(mainRepoMapping))
                 .concat("#")
                 .concat(dep.transitionName())
                 .concat(" -> ")

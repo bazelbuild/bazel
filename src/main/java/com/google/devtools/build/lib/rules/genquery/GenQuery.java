@@ -268,6 +268,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     OutputFormatter formatter;
     AggregateAllOutputFormatterCallback<Target, ?> targets;
     boolean graphlessQuery;
+    AbstractBlazeQueryEnvironment<Target> queryEnvironment;
     try {
       Set<Setting> settings = queryOptions.toSettings();
 
@@ -303,7 +304,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                       RepositoryMappingResolutionException.class);
       Preconditions.checkNotNull(repositoryMappingValue);
 
-      AbstractBlazeQueryEnvironment<Target> queryEnvironment =
+      queryEnvironment =
           QUERY_ENVIRONMENT_FACTORY.create(
               /* queryTransitivePackagePreloader= */ null,
               /* graphFactory= */ null,
@@ -367,7 +368,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
           outputStream,
           queryOptions.aspectDeps.createResolver(packageProvider, getEventHandler(ruleContext)),
           getEventHandler(ruleContext),
-          hashFunction);
+          hashFunction,
+          queryEnvironment.getMainRepoMapping());
       outputStream.close();
     } catch (ClosedByInterruptException e) {
       throw new InterruptedException(e.getMessage());
