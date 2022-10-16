@@ -9,6 +9,10 @@ module(
 )
 
 bazel_dep(name = "rules_license", version = "0.0.3")
+local_path_override(
+  module_name = "bazel_module_patcher",
+  path = "./tools/compliance/bazel_module_patcher",
+)
 bazel_dep(name = "bazel_skylib", version = "1.2.0")
 bazel_dep(name = "protobuf", version = "3.19.6", repo_name = "com_google_protobuf")
 bazel_dep(name = "grpc", version = "1.47.0", repo_name = "com_github_grpc_grpc")
