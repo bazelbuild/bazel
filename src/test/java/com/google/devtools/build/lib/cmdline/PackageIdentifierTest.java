@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.cmdline;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -92,5 +93,31 @@ public class PackageIdentifierTest {
         .isEqualTo(PathFragment.create("../foo/bar/baz"));
     assertThat(PackageIdentifier.create("", PathFragment.create("bar/baz")).getRunfilesPath())
         .isEqualTo(PathFragment.create("bar/baz"));
+  }
+
+  @Test
+  public void testDisplayFormInMainRepository() throws Exception {
+    PackageIdentifier pkg = PackageIdentifier.create(RepositoryName.MAIN,
+        PathFragment.create("some/pkg"));
+
+    assertThat(pkg.getDisplayForm(RepositoryMapping.ALWAYS_FALLBACK)).isEqualTo("//some/pkg");
+    assertThat(pkg.getDisplayForm(
+        RepositoryMapping.create(Map.of("foo", RepositoryName.create("bar")),
+            RepositoryName.MAIN))).isEqualTo("//some/pkg");
+  }
+
+  @Test
+  public void testDisplayFormInExternalRepository() throws Exception {
+    RepositoryName repo = RepositoryName.create("canonical");
+    PackageIdentifier pkg = PackageIdentifier.create(repo, PathFragment.create("some/pkg"));
+
+    assertThat(pkg.getDisplayForm(RepositoryMapping.ALWAYS_FALLBACK)).isEqualTo(
+        "@canonical//some/pkg");
+    assertThat(pkg.getDisplayForm(
+        RepositoryMapping.create(Map.of("local", repo),
+            RepositoryName.MAIN))).isEqualTo("@local//some/pkg");
+    assertThat(pkg.getDisplayForm(
+        RepositoryMapping.create(Map.of("local", RepositoryName.create("other_repo")),
+            RepositoryName.MAIN))).isEqualTo("@@canonical//some/pkg");
   }
 }

@@ -19,6 +19,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -92,5 +94,15 @@ public abstract class RepositoryMapping {
     } else {
       return RepositoryName.createUnvalidated(preMappingName).toNonVisible(ownerRepo());
     }
+  }
+
+  /**
+   * Returns the first apparent name in this mapping that maps to the given canonical name, if any.
+   */
+  public Optional<String> getInverse(RepositoryName postMappingName) {
+    return repositoryMapping().entrySet().stream()
+        .filter(e -> e.getValue().equals(postMappingName))
+        .map(Entry::getKey)
+        .findFirst();
   }
 }
