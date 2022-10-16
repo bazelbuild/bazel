@@ -284,6 +284,81 @@ def _impl(ctx):
         ],
     )
 
+    cxx98_standard_feature = feature(
+        name = "c++98",
+        provides = ["cxx_standard"],
+        flag_sets = [
+            flag_set(
+                actions = all_cpp_compile_actions,
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=c++98"],
+                    ),
+                ]),
+            ),
+        ],
+    )
+
+    cxx11_standard_feature = feature(
+        name = "c++11",
+        provides = ["cxx_standard"],
+        flag_sets = [
+            flag_set(
+                actions = all_cpp_compile_actions,
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=c++0x"],
+                    ),
+                ]),
+            ),
+        ],
+    )
+
+    cxx14_standard_feature = feature(
+        name = "c++14",
+        provides = ["cxx_standard"],
+        flag_sets = [
+            flag_set(
+                actions = all_cpp_compile_actions,
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=c++14"],
+                    ),
+                ]),
+            ),
+        ],
+    )
+
+    cxx17_standard_feature = feature(
+        name = "c++17",
+        provides = ["cxx_standard"],
+        flag_sets = [
+            flag_set(
+                actions = all_cpp_compile_actions,
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=c++17"],
+                    ),
+                ]),
+            ),
+        ],
+    )
+
+    cxx20_standard_feature = feature(
+        name = "c++20",
+        provides = ["cxx_standard"],
+        flag_sets = [
+            flag_set(
+                actions = all_cpp_compile_actions,
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=c++20"],
+                    ),
+                ]),
+            ),
+        ],
+    )
+
     default_link_flags_feature = feature(
         name = "default_link_flags",
         enabled = True,
@@ -1393,6 +1468,11 @@ def _impl(ctx):
             ] if ctx.attr.supports_start_end_lib else []
         ) + [
             default_compile_flags_feature,
+            cxx98_standard_feature,
+            cxx11_standard_feature,
+            cxx14_standard_feature,
+            cxx17_standard_feature,
+            cxx20_standard_feature,
             default_link_flags_feature,
             libraries_to_link_feature,
             user_link_flags_feature,
@@ -1434,6 +1514,11 @@ def _impl(ctx):
         ) + [
             coverage_feature,
             default_compile_flags_feature,
+            cxx98_standard_feature,
+            cxx11_standard_feature,
+            cxx14_standard_feature,
+            cxx17_standard_feature,
+            cxx20_standard_feature,
             default_link_flags_feature,
             user_link_flags_feature,
             default_link_libs_feature,
