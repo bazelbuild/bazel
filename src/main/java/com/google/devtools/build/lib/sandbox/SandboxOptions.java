@@ -370,6 +370,17 @@ public class SandboxOptions extends OptionsBase {
               + "then the input files will be copied instead.")
   public boolean useHermetic;
 
+  @Option(
+      name = "incompatible_sandbox_hermetic_tmp",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If set to true, each Linux sandbox will have its own dedicated empty directory mounted"
+              + " as /tmp rather thansharing /tmp with the host filesystem. Use"
+              + " --sandbox_add_mount_pair=/tmp to keep seeing the host's /tmp in all sandboxes.")
+  public boolean sandboxHermeticTmp;
+
   /** Converter for the number of threads used for asynchronous tree deletion. */
   public static final class AsyncTreeDeletesConverter extends ResourceConverter {
     public AsyncTreeDeletesConverter() {

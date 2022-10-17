@@ -42,6 +42,7 @@
 #include <unistd.h>
 
 #include <string>
+#include <unordered_set>
 
 #ifndef MS_REC
 // Some systems do not define MS_REC in sys/mount.h. We might be able to grab it
@@ -288,8 +289,11 @@ static void MountFilesystems() {
         opt.working_dir.c_str());
   }
 
+  std::unordered_set<std::string> bind_mount_sources;
+
   for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
     const std::string &source = opt.bind_mount_sources.at(i);
+    bind_mount_sources.insert(source);
     const std::string &target = opt.bind_mount_targets.at(i);
     PRINT_DEBUG("bind mount: %s -> %s", source.c_str(), target.c_str());
     if (mount(source.c_str(), target.c_str(), nullptr, MS_BIND, nullptr) < 0) {
@@ -300,6 +304,12 @@ static void MountFilesystems() {
 
   for (const std::string &writable_file : opt.writable_files) {
     PRINT_DEBUG("writable: %s", writable_file.c_str());
+    if (bind_mount_sources.find(writable_file) != bind_mount_sources.end()) {
+      // Bind mount sources contained in writable_files will be kept writable in
+      // MakeFileSystemMostlyReadOnly, but have already been mounted at this
+      // point.
+      continue;
+    }
     if (mount(writable_file.c_str(), writable_file.c_str(), nullptr,
               MS_BIND | MS_REC, nullptr) < 0) {
       DIE("mount(%s, %s, nullptr, MS_BIND | MS_REC, nullptr)",
