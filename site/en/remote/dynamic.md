@@ -54,9 +54,8 @@ Dynamic execution can be used with local sandboxed strategy as well as with
 [persistent workers](/docs/persistent-workers). Persistent workers will
 automatically run with sandboxing when used with dynamic execution, and cannot
 use [multiplex workers](/docs/multiplex-worker). On Darwin and Windows systems,
-the sandboxed strategy can be slow, you can pass
-`--experimental_reuse_sandbox_directories` to try a new approach speeding up
-sandboxes on these systems.
+the sandboxed strategy can be slow; you can pass
+`--reuse_sandbox_directories` to reduce overhead of creating sandboxes on these systems.
 
 Dynamic execution can also run with the `standalone` strategy, though since the
 `standalone` strategy must take the output lock when it starts executing, it

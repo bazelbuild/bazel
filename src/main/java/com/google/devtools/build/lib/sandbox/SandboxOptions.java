@@ -348,7 +348,7 @@ public class SandboxOptions extends OptionsBase {
   public boolean legacyLocalFallback;
 
   @Option(
-      name = "experimental_reuse_sandbox_directories",
+      name = "reuse_sandbox_directories",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
