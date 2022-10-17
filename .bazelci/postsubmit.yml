@@ -35,9 +35,6 @@ tasks:
       - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
-      - "-//src/java_tools/buildjar/..."
-      - "-//src/java_tools/import_deps_checker/..."
       # These tests are not compatible with the gcov version of CentOS 7.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
