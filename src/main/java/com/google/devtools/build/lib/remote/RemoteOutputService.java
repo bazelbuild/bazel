@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -100,7 +101,7 @@ public class RemoteOutputService implements OutputService {
   }
 
   @Override
-  public void flushActionFileSystem(FileSystem actionFileSystem) {
+  public void flushActionFileSystem(FileSystem actionFileSystem) throws IOException {
     ((RemoteActionFileSystem) actionFileSystem).flush();
   }
 

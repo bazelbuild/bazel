@@ -486,13 +486,19 @@ def _impl(ctx):
                         flag_groups = [
                             flag_group(
                                 flags = [
-                                    "-Wl,-rpath,$EXEC_ORIGIN/%{runtime_library_search_directories}",
+                                    "-Xlinker",
+                                    "-rpath",
+                                    "-Xlinker",
+                                    "$EXEC_ORIGIN/%{runtime_library_search_directories}",
                                 ],
                                 expand_if_true = "is_cc_test",
                             ),
                             flag_group(
                                 flags = [
-                                    "-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}",
+                                    "-Xlinker",
+                                    "-rpath",
+                                    "-Xlinker",
+                                    "$ORIGIN/%{runtime_library_search_directories}",
                                 ],
                                 expand_if_false = "is_cc_test",
                             ),
@@ -513,7 +519,10 @@ def _impl(ctx):
                         flag_groups = [
                             flag_group(
                                 flags = [
-                                    "-Wl,-rpath,$ORIGIN/%{runtime_library_search_directories}",
+                                    "-Xlinker",
+                                    "-rpath",
+                                    "-Xlinker",
+                                    "$ORIGIN/%{runtime_library_search_directories}",
                                 ],
                             ),
                         ],

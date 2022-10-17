@@ -521,7 +521,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    if binary_type == 'dylib':",
         "        linkopts.append('-dynamiclib')",
         "    elif binary_type == 'loadable_bundle':",
-        "        linkopts.extend(['-bundle', '-Wl,-rpath,@loader_path/Frameworks'])",
+        "        linkopts.extend(['-bundle', '-Xlinker', '-rpath', '-Xlinker',"
+            + " '@loader_path/Frameworks'])",
         "    if ctx.attr.bundle_loader:",
         "        bundle_loader = ctx.attr.bundle_loader",
         "        bundle_loader_file = bundle_loader[apple_common.AppleExecutableBinary].binary",
@@ -782,7 +783,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(Joiner.on(" ").join(linkAction.getArguments()))
         .contains("-bundle_loader " + getBinArtifact("bin_lipobin", binTarget).getExecPath());
     assertThat(Joiner.on(" ").join(linkAction.getArguments()))
-        .contains("-Wl,-rpath,@loader_path/Frameworks");
+        .contains("-Xlinker -rpath -Xlinker @loader_path/Frameworks");
   }
 
   protected Action lipoLibAction(String libLabel) throws Exception {

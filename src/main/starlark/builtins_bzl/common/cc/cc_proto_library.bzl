@@ -90,7 +90,7 @@ def _get_strip_include_prefix(ctx, proto_info):
         proto_root = proto_root[len(ctx.genfiles_dir.path) + 1:]
 
     if proto_root.startswith(ctx.label.workspace_root):
-        proto_root = proto_root[len(ctx.label.workspace_root) + 1:]
+        proto_root = proto_root[len(ctx.label.workspace_root):]
 
     strip_include_prefix = "//" + proto_root
     return strip_include_prefix

@@ -205,7 +205,7 @@ public interface OutputService {
    * Flush the internal state of filesystem returned by {@link #createActionFileSystem} after action
    * execution, before skyframe checking the action outputs.
    */
-  default void flushActionFileSystem(FileSystem actionFileSystem) {}
+  default void flushActionFileSystem(FileSystem actionFileSystem) throws IOException {}
 
   default boolean supportsPathResolverForArtifactValues() {
     return false;

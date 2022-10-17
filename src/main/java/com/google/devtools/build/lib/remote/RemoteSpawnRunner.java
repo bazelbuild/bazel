@@ -424,8 +424,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
         cacheHit,
         cacheName,
         inMemoryOutput,
-        result.getExecutionMetadata().getWorkerStartTimestamp(),
-        result.getExecutionMetadata().getWorkerCompletedTimestamp(),
+        result.getExecutionMetadata().getExecutionStartTimestamp(),
+        result.getExecutionMetadata().getExecutionCompletedTimestamp(),
         spawnMetrics
             .setFetchTime(fetchTime.elapsed().minus(networkTimeEnd.minus(networkTimeStart)))
             .setTotalTime(totalTime.elapsed())

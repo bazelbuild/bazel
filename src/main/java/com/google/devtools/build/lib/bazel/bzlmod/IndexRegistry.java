@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -97,15 +98,18 @@ public class IndexRegistry implements Registry {
   /** Represents fields available in {@code bazel_registry.json} for the registry. */
   private static class BazelRegistryJson {
     String[] mirrors;
+    String moduleBasePath;
   }
 
   /** Represents fields available in {@code source.json} for each version of a module. */
   private static class SourceJson {
+    String type = "archive";
     URL url;
     String integrity;
     String stripPrefix;
     Map<String, String> patches;
     int patchStrip;
+    String path;
   }
 
   /**
@@ -147,6 +151,51 @@ public class IndexRegistry implements Registry {
       throw new FileNotFoundException(
           String.format("Module %s's source information not found in registry %s", key, getUrl()));
     }
+
+    String type = sourceJson.get().type;
+    switch (type) {
+      case "archive":
+        return createArchiveRepoSpec(sourceJson, bazelRegistryJson, key, repoName);
+      case "local_path":
+        return createLocalPathRepoSpec(sourceJson, bazelRegistryJson, key, repoName);
+      default:
+        throw new IOException(String.format("Invalid source type for module %s", key));
+    }
+  }
+
+  private RepoSpec createLocalPathRepoSpec(
+      Optional<SourceJson> sourceJson,
+      Optional<BazelRegistryJson> bazelRegistryJson,
+      ModuleKey key,
+      RepositoryName repoName)
+      throws IOException {
+    String path = sourceJson.get().path;
+    if (!PathFragment.isAbsolute(path)) {
+      String moduleBase = bazelRegistryJson.get().moduleBasePath;
+      path = moduleBase + "/" + path;
+      if (!PathFragment.isAbsolute(moduleBase)) {
+        if (uri.getScheme().equals("file")) {
+          path = uri.getPath() + "/" + path;
+        } else {
+          throw new IOException(String.format("Provided non local registry for module %s", key));
+        }
+      }
+    }
+
+    return RepoSpec.builder()
+        .setRuleClassName("local_repository")
+        .setAttributes(
+            ImmutableMap.of(
+                "name", repoName.getName(), "path", PathFragment.create(path).toString()))
+        .build();
+  }
+
+  private RepoSpec createArchiveRepoSpec(
+      Optional<SourceJson> sourceJson,
+      Optional<BazelRegistryJson> bazelRegistryJson,
+      ModuleKey key,
+      RepositoryName repoName)
+      throws IOException {
     URL sourceUrl = sourceJson.get().url;
     if (sourceUrl == null) {
       throw new IOException(String.format("Missing source URL for module %s", key));
