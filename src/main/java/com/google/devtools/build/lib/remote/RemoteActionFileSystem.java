@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
@@ -108,7 +109,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   void injectRemoteFile(PathFragment path, byte[] digest, long size, String actionId)
       throws IOException {
-    if (!path.startsWith(outputBase)) {
+    if (!isOutput(path)) {
       return;
     }
     remoteOutputTree.injectRemoteFile(path, digest, size, actionId);
@@ -418,7 +419,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Nullable
   private RemoteFileArtifactValue getRemoteInputMetadata(PathFragment path) {
-    if (!path.startsWith(outputBase)) {
+    if (!isOutput(path)) {
       return null;
     }
     PathFragment execPath = path.relativeTo(execRoot);
@@ -449,8 +450,15 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     }
   }
 
+  private boolean isOutput(PathFragment path) {
+    return path.startsWith(outputBase);
+  }
+
   @Override
   public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
+    checkArgument(isOutput(sourcePath), "sourcePath must be an output path");
+    checkArgument(isOutput(targetPath), "targetPath must be an output path");
+
     FileNotFoundException remoteException = null;
     try {
       remoteOutputTree.renameTo(sourcePath, targetPath);
