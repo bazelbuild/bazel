@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 
 /** Abstract common ancestor for sandbox spawn runners implementing the common parts. */
@@ -180,7 +181,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     if (useSubprocessTimeout) {
       subprocessBuilder.setTimeoutMillis(timeout.toMillis());
     }
-    long startTime = System.currentTimeMillis();
+    Instant startTime = Instant.now();
     TerminationStatus terminationStatus;
     try {
       Subprocess subprocess = subprocessBuilder.start();
@@ -209,7 +210,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     }
 
     // TODO(b/62588075): Calculate wall time inside Subprocess instead?
-    Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
+    Duration wallTime = Duration.between(startTime, Instant.now());
     boolean wasTimeout =
         (useSubprocessTimeout && terminationStatus.timedOut())
             || (!useSubprocessTimeout && wasTimeout(timeout, wallTime));
@@ -253,6 +254,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
             .setRunnerName(getName())
             .setStatus(status)
             .setExitCode(exitCode)
+            .setStartTime(startTime)
             .setWallTime(wallTime)
             .setFailureMessage(failureMessage);
 

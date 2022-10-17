@@ -65,11 +65,13 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -293,7 +295,7 @@ final class ExecutionServer extends ExecutionImplBase {
     // implementation instead of copying it.
     com.google.devtools.build.lib.shell.Command cmd =
         getCommand(command, workingDirectory.getPathString());
-    long startTime = System.currentTimeMillis();
+    Instant startTime = Instant.now();
     CommandResult cmdResult = null;
 
     String uuid = UUID.randomUUID().toString();
@@ -316,13 +318,14 @@ final class ExecutionServer extends ExecutionImplBase {
         }
       }
 
+      Duration wallTime = Duration.between(startTime, Instant.now());
       long timeoutMillis =
           action.hasTimeout()
               ? Durations.toMillis(action.getTimeout())
               : TimeUnit.MINUTES.toMillis(15);
       boolean wasTimeout =
           (cmdResult != null && cmdResult.getTerminationStatus().timedOut())
-              || wasTimeout(timeoutMillis, System.currentTimeMillis() - startTime);
+              || wasTimeout(timeoutMillis, wallTime.toMillis());
       final int exitCode;
       Status errStatus = null;
       ExecuteResponse.Builder resp = ExecuteResponse.newBuilder();
@@ -356,7 +359,9 @@ final class ExecutionServer extends ExecutionImplBase {
                 command,
                 outputs,
                 outErr,
-                exitCode);
+                exitCode,
+                Optional.of(startTime),
+                Optional.of(wallTime));
         result = manifest.upload(context, cache, NullEventHandler.INSTANCE);
       } catch (ExecException e) {
         if (errStatus == null) {

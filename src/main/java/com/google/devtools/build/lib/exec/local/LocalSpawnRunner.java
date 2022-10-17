@@ -63,6 +63,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -289,6 +290,9 @@ public class LocalSpawnRunner implements SpawnRunner {
         throws InterruptedException, IOException, ForbiddenActionInputException {
       logger.atInfo().log("starting local subprocess #%d, argv: %s", id, debugCmdString());
 
+      SpawnResult.Builder spawnResultBuilder =
+          new SpawnResult.Builder().setRunnerName(getName()).setExecutorHostname(hostName);
+
       FileOutErr outErr = context.getFileOutErr();
       String actionType = spawn.getResourceOwner().getMnemonic();
       if (localExecutionOptions.allowedLocalAction != null
@@ -307,11 +311,9 @@ public class LocalSpawnRunner implements SpawnRunner {
                         + localExecutionOptions.allowedLocalAction.regexPattern()
                         + "\n")
                     .getBytes(UTF_8));
-        return new SpawnResult.Builder()
-            .setRunnerName(getName())
+        return spawnResultBuilder
             .setStatus(Status.EXECUTION_DENIED)
             .setExitCode(LOCAL_EXEC_ERROR)
-            .setExecutorHostname(hostName)
             .setFailureDetail(
                 makeFailureDetail(LOCAL_EXEC_ERROR, Status.EXECUTION_DENIED, actionType))
             .build();
@@ -386,6 +388,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         }
         subprocessBuilder.setArgv(args);
 
+        spawnResultBuilder.setStartTime(Instant.now());
         long startTime = System.currentTimeMillis();
         TerminationStatus terminationStatus;
         try (SilentCloseable c =
@@ -416,11 +419,9 @@ public class LocalSpawnRunner implements SpawnRunner {
               .write(
                   ("Action failed to execute: java.io.IOException: " + msg + "\n").getBytes(UTF_8));
           outErr.getErrorStream().flush();
-          return new SpawnResult.Builder()
-              .setRunnerName(getName())
+          return spawnResultBuilder
               .setStatus(Status.EXECUTION_FAILED)
               .setExitCode(LOCAL_EXEC_ERROR)
-              .setExecutorHostname(hostName)
               .setFailureDetail(
                   makeFailureDetail(LOCAL_EXEC_ERROR, Status.EXECUTION_FAILED, actionType))
               .build();
@@ -435,13 +436,7 @@ public class LocalSpawnRunner implements SpawnRunner {
             wasTimeout ? SpawnResult.POSIX_TIMEOUT_EXIT_CODE : terminationStatus.getRawExitCode();
         Status status =
             wasTimeout ? Status.TIMEOUT : (exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT);
-        SpawnResult.Builder spawnResultBuilder =
-            new SpawnResult.Builder()
-                .setRunnerName(getName())
-                .setStatus(status)
-                .setExitCode(exitCode)
-                .setExecutorHostname(hostName)
-                .setWallTime(wallTime);
+        spawnResultBuilder.setStatus(status).setExitCode(exitCode).setWallTime(wallTime);
         if (status != Status.SUCCESS) {
           spawnResultBuilder.setFailureDetail(makeFailureDetail(exitCode, status, actionType));
         }
