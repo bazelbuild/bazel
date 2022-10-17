@@ -354,8 +354,9 @@ distrib_java_import(
     jars = ["gson/gson-2.8.6.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "caffeine",
+    enable_distributions = ["debian"],
     jars = ["caffeine/caffeine-2.9.2.jar"],
 )
 
