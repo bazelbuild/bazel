@@ -30,7 +30,7 @@ public class PyBootstrap implements Bootstrap {
       ImmutableSet.of(
           PackageIdentifier.createUnchecked("_builtins", ""),
           PackageIdentifier.createUnchecked("bazel_tools", ""),
-          PackageIdentifier.createUnchecked("rules_pyhton", ""),
+          PackageIdentifier.createUnchecked("rules_python", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/python"));
 
   private final PyInfoProviderApi pyInfoProviderApi;

@@ -452,7 +452,30 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
     assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
     assertThat(repositoryDirectoryValue.getErrorMsg())
-        .contains("Repository '@foo' is not visible from repository '@fake_owner_repo'");
+        .contains("No repository visible as '@foo' from repository '@fake_owner_repo'");
+  }
+
+  @Test
+  public void loadInvisibleRepositoryFromMain() throws Exception {
+
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    SkyKey key =
+        RepositoryDirectoryValue.key(
+            RepositoryName.createUnvalidated("foo").toNonVisible(RepositoryName.MAIN));
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(8)
+            .setEventHandler(eventHandler)
+            .build();
+    EvaluationResult<SkyValue> result =
+        evaluator.evaluate(ImmutableList.of(key), evaluationContext);
+
+    assertThat(result.hasError()).isFalse();
+    RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
+    assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
+    assertThat(repositoryDirectoryValue.getErrorMsg())
+        .contains("No repository visible as '@foo' from main repository");
   }
 
   private void loadRepo(String strippedRepoName) throws InterruptedException {

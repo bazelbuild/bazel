@@ -852,6 +852,159 @@ EOF
   bazel build //pkg:a &>$TEST_log || fail "expected build to succeed"
 }
 
+function test_read_non_hermetic_tmp {
+  temp_dir=$(mktemp -d /tmp/test.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+sh_test(
+  name = "tmp_test",
+  srcs = ["tmp_test.sh"],
+)
+EOF
+
+  cat > pkg/tmp_test.sh <<EOF
+[[ -f "${temp_dir}/file" ]]
+EOF
+  chmod +x pkg/tmp_test.sh
+
+  touch "${temp_dir}/file"
+  bazel test //pkg:tmp_test \
+    --test_output=errors &>$TEST_log || fail "Expected test to pass"
+}
+
+function test_read_hermetic_tmp {
+  if [[ "$(uname -s)" != Linux ]]; then
+    echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
+    return 0
+  fi
+
+  temp_dir=$(mktemp -d /tmp/test.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+sh_test(
+  name = "tmp_test",
+  srcs = ["tmp_test.sh"],
+)
+EOF
+
+  cat > pkg/tmp_test.sh <<EOF
+[[ ! -f "${temp_dir}/file" ]]
+EOF
+  chmod +x pkg/tmp_test.sh
+
+  touch "${temp_dir}/file"
+  bazel test //pkg:tmp_test --incompatible_sandbox_hermetic_tmp \
+    --test_output=errors &>$TEST_log || fail "Expected test to pass"
+}
+
+function test_read_hermetic_tmp_user_override {
+  if [[ "$(uname -s)" != Linux ]]; then
+    echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
+    return 0
+  fi
+
+  temp_dir=$(mktemp -d /tmp/test.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+sh_test(
+  name = "tmp_test",
+  srcs = ["tmp_test.sh"],
+)
+EOF
+
+  cat > pkg/tmp_test.sh <<EOF
+[[ -f "${temp_dir}/file" ]]
+EOF
+  chmod +x pkg/tmp_test.sh
+
+  touch "${temp_dir}/file"
+  bazel test //pkg:tmp_test --incompatible_sandbox_hermetic_tmp --sandbox_add_mount_pair=/tmp \
+    --test_output=errors &>$TEST_log || fail "Expected test to pass"
+}
+
+function test_write_non_hermetic_tmp {
+  temp_dir=$(mktemp -d /tmp/test.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+sh_test(
+  name = "tmp_test",
+  srcs = ["tmp_test.sh"],
+)
+EOF
+
+  cat > pkg/tmp_test.sh <<EOF
+touch "${temp_dir}/file"
+EOF
+  chmod +x pkg/tmp_test.sh
+
+  bazel test //pkg:tmp_test \
+    --test_output=errors &>$TEST_log || fail "Expected test to pass"
+  [[ -f "${temp_dir}/file" ]] || fail "Expected ${temp_dir}/file to exist"
+}
+
+function test_write_hermetic_tmp {
+  if [[ "$(uname -s)" != Linux ]]; then
+    echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
+    return 0
+  fi
+
+  temp_dir=$(mktemp -d /tmp/test.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+sh_test(
+  name = "tmp_test",
+  srcs = ["tmp_test.sh"],
+)
+EOF
+
+  cat > pkg/tmp_test.sh <<EOF
+mkdir -p "${temp_dir}"
+touch "${temp_dir}/file"
+EOF
+  chmod +x pkg/tmp_test.sh
+
+  bazel test //pkg:tmp_test --incompatible_sandbox_hermetic_tmp \
+    --test_output=errors &>$TEST_log || fail "Expected test to pass"
+  [[ ! -f "${temp_dir}" ]] || fail "Expected ${temp_dir} to not exit"
+}
+
+function test_write_hermetic_tmp_user_override {
+  if [[ "$(uname -s)" != Linux ]]; then
+    echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
+    return 0
+  fi
+
+  temp_dir=$(mktemp -d /tmp/test.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+sh_test(
+  name = "tmp_test",
+  srcs = ["tmp_test.sh"],
+)
+EOF
+
+  cat > pkg/tmp_test.sh <<EOF
+touch "${temp_dir}/file"
+EOF
+  chmod +x pkg/tmp_test.sh
+
+  bazel test //pkg:tmp_test --incompatible_sandbox_hermetic_tmp --sandbox_add_mount_pair=/tmp \
+    --test_output=errors &>$TEST_log || fail "Expected test to pass"
+  [[ -f "${temp_dir}/file" ]] || fail "Expected ${temp_dir}/file to exist"
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_sandbox_allowed || exit 0
 

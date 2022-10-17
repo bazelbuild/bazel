@@ -267,3 +267,25 @@ class BazelRegistry:
       json.dump(metadata, f, indent=4, sort_keys=True)
 
     return self
+
+  def createLocalPathModule(self, name, version, path):
+    """Add a local module into the registry."""
+    module_dir = self.root.joinpath('modules', name, version)
+    module_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create source.json & copy patch files to the registry
+    source = {
+        'type': 'local_path',
+        'path': path,
+    }
+
+    scratchFile(
+        module_dir.joinpath('MODULE.bazel'), [
+            'module(',
+            '  name = "%s",' % name,
+            '  version = "%s",' % version,
+            ')',
+        ])
+
+    with module_dir.joinpath('source.json').open('w') as f:
+      json.dump(source, f, indent=4, sort_keys=True)

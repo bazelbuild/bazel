@@ -1034,7 +1034,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().getException())
         .hasMessageThat()
-        .contains("Repository '@foo' is not visible from repository '@~ext~ext'");
+        .contains("No repository visible as '@foo' from repository '@~ext~ext'");
   }
 
   @Test

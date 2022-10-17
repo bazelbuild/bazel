@@ -115,7 +115,7 @@ public class IndexRegistryTest extends FoundationTestCase {
   }
 
   @Test
-  public void testGetRepoSpec() throws Exception {
+  public void testGetArchiveRepoSpec() throws Exception {
     server.serve(
         "/bazel_registry.json",
         "{",
@@ -180,6 +180,28 @@ public class IndexRegistryTest extends FoundationTestCase {
                         server.getUrl() + "/modules/bar/2.0/patches/2.fix-that.patch",
                             "sha256-kek"))
                 .setRemotePatchStrip(3)
+                .build());
+  }
+
+  @Test
+  public void testGetLocalPathRepoSpec() throws Exception {
+    server.serve("/bazel_registry.json", "{", "  \"module_base_path\": \"/hello/foo\"", "}");
+    server.serve(
+        "/modules/foo/1.0/source.json",
+        "{",
+        "  \"type\": \"local_path\",",
+        "  \"path\": \"../bar/project_x\"",
+        "}");
+    server.start();
+
+    Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
+    assertThat(
+            registry.getRepoSpec(
+                createModuleKey("foo", "1.0"), RepositoryName.create("foorepo"), reporter))
+        .isEqualTo(
+            RepoSpec.builder()
+                .setRuleClassName("local_repository")
+                .setAttributes(ImmutableMap.of("name", "foorepo", "path", "/hello/bar/project_x"))
                 .build());
   }
 

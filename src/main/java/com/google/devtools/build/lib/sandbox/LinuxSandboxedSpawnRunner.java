@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
@@ -52,7 +54,9 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.SortedMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /** Spawn runner that uses linux sandboxing APIs to execute a local subprocess. */
@@ -60,6 +64,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   // Since checking if sandbox is supported is expensive, we remember what we've checked.
   private static final Map<Path, Boolean> isSupportedMap = new HashMap<>();
+  private static final AtomicBoolean warnedAboutNonHermeticTmp = new AtomicBoolean();
 
   /**
    * Returns whether the linux sandbox is supported on the local machine by running a small command
@@ -119,6 +124,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   @Nullable private final SandboxfsProcess sandboxfsProcess;
   private final boolean sandboxfsMapSymlinkTargets;
   private final TreeDeleter treeDeleter;
+  private final Reporter reporter;
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
@@ -158,6 +164,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.sandboxfsMapSymlinkTargets = sandboxfsMapSymlinkTargets;
     this.localEnvProvider = new PosixLocalEnvProvider(cmdEnv.getClientEnv());
     this.treeDeleter = treeDeleter;
+    this.reporter = cmdEnv.getReporter();
   }
 
   @Override
@@ -178,6 +185,30 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     sandboxExecRoot.getParentDirectory().createDirectory();
     sandboxExecRoot.createDirectory();
 
+    Path sandboxTmp = null;
+    if (getSandboxOptions().sandboxHermeticTmp) {
+      PathFragment tmpRoot = PathFragment.create("/tmp");
+      // With a tmpfs on /tmp, mounting a disk-based hermetic /tmp isn't necessary.
+      if (!getSandboxOptions().sandboxTmpfsPath.contains(tmpRoot)) {
+        // Mounting a tmpfs strictly below the hermetic /tmp isn't supported. We fall back to
+        // non-hermetic /tmp in that case, but print a warning mentioning the problematic mount.
+        Optional<PathFragment> tmpfsPathUnderTmp =
+            getSandboxOptions().sandboxTmpfsPath.stream()
+                .filter(path -> path.startsWith(tmpRoot))
+                .findFirst();
+        if (tmpfsPathUnderTmp.isEmpty()) {
+          sandboxTmp = sandboxPath.getRelative("_tmp");
+          sandboxTmp.createDirectoryAndParents();
+        } else if (warnedAboutNonHermeticTmp.compareAndSet(false, true)) {
+          reporter.handle(
+              Event.warn(
+                  String.format(
+                      "Falling back to non-hermetic /tmp in sandbox due to '%s' being a tmpfs path",
+                      tmpfsPathUnderTmp.get())));
+        }
+      }
+    }
+
     ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
@@ -196,7 +227,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .addExecutionInfo(spawn.getExecutionInfo())
             .setWritableFilesAndDirectories(writableDirs)
             .setTmpfsDirectories(ImmutableSet.copyOf(getSandboxOptions().sandboxTmpfsPath))
-            .setBindMounts(getReadOnlyBindMounts(blazeDirs, sandboxExecRoot))
+            .setBindMounts(getBindMounts(blazeDirs, sandboxExecRoot, sandboxTmp))
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
             .setCreateNetworkNamespace(
                 !(allowNetwork
@@ -282,15 +313,34 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return writableDirs.build();
   }
 
-  private SortedMap<Path, Path> getReadOnlyBindMounts(
-      BlazeDirectories blazeDirs, Path sandboxExecRoot) throws UserExecException {
+  private SortedMap<Path, Path> getBindMounts(
+      BlazeDirectories blazeDirs, Path sandboxExecRoot, @Nullable Path sandboxTmp)
+      throws UserExecException {
     Path tmpPath = fileSystem.getPath("/tmp");
     final SortedMap<Path, Path> bindMounts = Maps.newTreeMap();
+    boolean buildUnderTmp = false;
     if (blazeDirs.getWorkspace().startsWith(tmpPath)) {
       bindMounts.put(blazeDirs.getWorkspace(), blazeDirs.getWorkspace());
+      buildUnderTmp = true;
     }
     if (blazeDirs.getOutputBase().startsWith(tmpPath)) {
       bindMounts.put(blazeDirs.getOutputBase(), blazeDirs.getOutputBase());
+      buildUnderTmp = true;
+    }
+    if (sandboxTmp != null) {
+      if (buildUnderTmp) {
+        if (warnedAboutNonHermeticTmp.compareAndSet(false, true)) {
+          reporter.handle(
+              Event.warn(
+                  "Falling back to non-hermetic /tmp in sandbox since workspace or output base "
+                      + "lie under /tmp"));
+        }
+      } else {
+        // Mount a fresh, empty temporary directory as /tmp for each sandbox rather than reusing the
+        // host filesystem's /tmp. User-specified bind mounts can override this and use the host's
+        // /tmp instead by mounting /tmp to /tmp, if desired.
+        bindMounts.put(tmpPath, sandboxTmp);
+      }
     }
     for (ImmutableMap.Entry<String, String> additionalMountPath :
         getSandboxOptions().sandboxAdditionalMounts) {
