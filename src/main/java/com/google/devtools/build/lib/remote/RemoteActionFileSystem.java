@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -84,6 +85,16 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
         stream(outputArtifacts).collect(toImmutableMap(Artifact::getExecPath, a -> a));
     this.inputFetcher = checkNotNull(inputFetcher, "inputFetcher");
     this.remoteOutputTree = new RemoteInMemoryFileSystem(getDigestFunction());
+  }
+
+  @VisibleForTesting
+  protected RemoteInMemoryFileSystem getRemoteOutputTree() {
+    return remoteOutputTree;
+  }
+
+  @VisibleForTesting
+  protected FileSystem getLocalFileSystem() {
+    return delegateFs;
   }
 
   /** Returns true if {@code path} is a file that's stored remotely. */
@@ -436,6 +447,47 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
             String.format("Received interrupt while fetching file '%s'", path), e);
       }
     }
+  }
+
+  @Override
+  public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
+    FileNotFoundException remoteException = null;
+    try {
+      remoteOutputTree.renameTo(sourcePath, targetPath);
+    } catch (FileNotFoundException e) {
+      remoteException = e;
+    }
+
+    FileNotFoundException localException = null;
+    try {
+      delegateFs.renameTo(sourcePath, targetPath);
+    } catch (FileNotFoundException e) {
+      localException = e;
+    }
+
+    if (remoteException == null || localException == null) {
+      return;
+    }
+
+    localException.addSuppressed(remoteException);
+    throw localException;
+  }
+
+  @Override
+  public void createDirectoryAndParents(PathFragment path) throws IOException {
+    super.createDirectoryAndParents(path);
+    if (path.startsWith(outputBase)) {
+      remoteOutputTree.createDirectoryAndParents(path);
+    }
+  }
+
+  @Override
+  public boolean createDirectory(PathFragment path) throws IOException {
+    boolean created = delegateFs.createDirectory(path);
+    if (path.startsWith(outputBase)) {
+      created = remoteOutputTree.createDirectory(path) || created;
+    }
+    return created;
   }
 
   /*
