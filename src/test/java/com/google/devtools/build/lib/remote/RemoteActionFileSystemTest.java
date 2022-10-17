@@ -127,15 +127,20 @@ public final class RemoteActionFileSystemTest {
   @Test
   public void testDeleteRemoteFile() throws Exception {
     // arrange
-    ActionInputMap inputs = new ActionInputMap(1);
-    Artifact remoteArtifact = createRemoteArtifact("remote-file", "remote contents", inputs);
+    ActionInputMap inputs = new ActionInputMap(0);
     RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
+    Path path = outputRoot.getRoot().asPath().getRelative("file");
+    byte[] contents = "remote contents".getBytes(StandardCharsets.UTF_8);
+    HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contents);
+    actionFs.injectRemoteFile(path.asFragment(), hashCode.asBytes(), contents.length, "action-id");
+    assertThat(actionFs.exists(path.asFragment())).isTrue();
 
     // act
-    boolean success = actionFs.delete(remoteArtifact.getPath().asFragment());
+    boolean success = actionFs.delete(path.asFragment());
 
     // assert
     assertThat(success).isTrue();
+    assertThat(actionFs.exists(path.asFragment())).isFalse();
   }
 
   @Test
@@ -143,14 +148,15 @@ public final class RemoteActionFileSystemTest {
     // arrange
     ActionInputMap inputs = new ActionInputMap(0);
     RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
-    Path filePath = actionFs.getPath(execRoot.getPathString()).getChild("local-file");
-    FileSystemUtils.writeContent(filePath, StandardCharsets.UTF_8, "local contents");
+    Path path = outputRoot.getRoot().asPath().getRelative("file");
+    FileSystemUtils.writeContent(path, StandardCharsets.UTF_8, "local contents");
 
     // act
-    boolean success = actionFs.delete(filePath.asFragment());
+    boolean success = actionFs.delete(path.asFragment());
 
     // assert
     assertThat(success).isTrue();
+    assertThat(actionFs.exists(path.asFragment())).isFalse();
   }
 
   private RemoteActionFileSystem newRemoteActionFileSystem(ActionInputMap inputs) {
