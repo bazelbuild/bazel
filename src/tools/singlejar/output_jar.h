@@ -97,12 +97,14 @@ class OutputJar {
   void ClasspathResource(const std::string& resource_name,
                          const std::string& resource_path);
   // Append file starting at page boundary.
-  off64_t PageAlignedAppendFile(const std::string &file_path);
+  off64_t PageAlignedAppendFile(const std::string &file_path,
+                                size_t *file_size);
   void AppendPageAlignedFile(const std::string &file,
-                             const std::string &manifest_attr_name,
+                             const std::string &offset_manifest_attr_name,
+                             const std::string &size_manifest_attr_name,
                              const std::string &property_name);
   // Append data from the file specified by file_path.
-  void AppendFile(Options *options, const char *const file_path);
+  size_t AppendFile(Options *options, const char *file_path);
   // Copy 'count' bytes starting at 'offset' from the given file.
   ssize_t CopyAppendData(int in_fd, off64_t offset, size_t count);
   // Write bytes to the output file, return true on success.
