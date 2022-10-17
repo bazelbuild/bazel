@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 import pathlib
 import tempfile
@@ -531,6 +532,46 @@ class BazelModuleTest(test_base.TestBase):
                   env_add={'BZLMOD_ALLOW_YANKED_VERSIONS': 'yanked2@1.0'},
                   allow_failure=False)
 
+  def setUpProjectWithLocalRegistryModule(self, dep_name, dep_version,
+                                          module_base_path):
+    bazel_registry = {
+        'module_base_path': module_base_path,
+    }
+    with self.main_registry.root.joinpath('bazel_registry.json').open('w') as f:
+      json.dump(bazel_registry, f, indent=4, sort_keys=True)
+
+    self.main_registry.generateCcSource(dep_name, dep_version)
+    self.main_registry.createLocalPathModule(dep_name, dep_version,
+                                             dep_name + '/' + dep_version)
+
+    self.ScratchFile('main.cc', [
+        '#include "%s.h"' % dep_name,
+        'int main() {',
+        '    hello_%s("main function");' % dep_name,
+        '}',
+    ])
+    self.ScratchFile('MODULE.bazel', [
+        'bazel_dep(name = "%s", version = "%s")' % (dep_name, dep_version),
+    ])
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        '  deps = ["@%s//:lib_%s"],' % (dep_name, dep_name),
+        ')',
+    ])
+    self.ScratchFile('WORKSPACE', [])
+
+  def testLocalRepoInSourceJsonAbsoluteBasePath(self):
+    self.setUpProjectWithLocalRegistryModule('sss', '1.3',
+                                             str(self.main_registry.projects))
+    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    self.assertIn('main function => sss@1.3', stdout)
+
+  def testLocalRepoInSourceJsonRelativeBasePath(self):
+    self.setUpProjectWithLocalRegistryModule('sss', '1.3', 'projects')
+    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    self.assertIn('main function => sss@1.3', stdout)
 
 if __name__ == '__main__':
   unittest.main()
