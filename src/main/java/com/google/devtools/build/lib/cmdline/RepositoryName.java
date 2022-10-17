@@ -194,9 +194,14 @@ public final class RepositoryName {
     return ownerRepoIfNotVisible == null;
   }
 
-  @Nullable
-  public RepositoryName getOwnerRepoIfNotVisible() {
-    return ownerRepoIfNotVisible;
+  // Must only be called if isVisible() returns true.
+  public String getOwnerRepoDisplayString() {
+    Preconditions.checkNotNull(ownerRepoIfNotVisible);
+    if (ownerRepoIfNotVisible.isMain()) {
+      return "main repository";
+    } else {
+      return String.format("repository '%s'", ownerRepoIfNotVisible.getNameWithAt());
+    }
   }
 
   /** Returns if this is the main repository. */
