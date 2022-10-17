@@ -712,17 +712,24 @@ class MethodLibrary {
               + "creates for users. For deprecations, prefer a hard error using <a href=\"#fail\">"
               + "<code>fail()</code></a> whenever possible.",
       parameters = {
-        @Param(
-            name = "sep",
-            defaultValue = "\" \"",
-            named = true,
-            positional = false,
-            doc = "The separator string between the objects, default is space (\" \").")
+          @Param(
+              name = "sep",
+              defaultValue = "\" \"",
+              named = true,
+              positional = false,
+              doc = "The separator string between the objects, default is space (\" \")."),
+          @Param(
+              name = "with_trace",
+              defaultValue = "False",
+              named = true,
+              positional = false,
+              doc = "If True, a full stack trace is printed similar to <code>fail()</code>.")
       },
       // NB: as compared to Python3, we're missing optional named-only arguments 'end' and 'file'
       extraPositionals = @Param(name = "args", doc = "The objects to print."),
       useStarlarkThread = true)
-  public void print(String sep, Sequence<?> args, StarlarkThread thread) throws EvalException {
+  public void print(String sep, boolean withTrace, Sequence<?> args, StarlarkThread thread)
+      throws EvalException {
     Printer p = new Printer();
     String separator = "";
     for (Object x : args) {
@@ -736,7 +743,14 @@ class MethodLibrary {
       p.append("<== Starlark flag test ==>");
     }
 
-    thread.getPrintHandler().print(thread, p.toString());
+    String toPrint;
+    if (withTrace) {
+      toPrint = EvalException.formatCallStack(
+          thread.getCallStack(), p.toString(), EvalException.newSourceReader(), /*isPrint=*/true);
+    } else {
+      toPrint = p.toString();
+    }
+    thread.getPrintHandler().print(thread, toPrint);
   }
 
   @StarlarkMethod(
