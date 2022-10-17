@@ -124,10 +124,14 @@ public class UploadManifest {
     }
 
     if (startTime.isPresent() && wallTime.isPresent()) {
+      Timestamp startTimestamp = instantToTimestamp(startTime.get());
+      Timestamp completedTimestamp = instantToTimestamp(startTime.get().plus(wallTime.get()));
       result
           .getExecutionMetadataBuilder()
-          .setWorkerStartTimestamp(instantToTimestamp(startTime.get()))
-          .setWorkerCompletedTimestamp(instantToTimestamp(startTime.get().plus(wallTime.get())));
+          .setWorkerStartTimestamp(startTimestamp)
+          .setExecutionStartTimestamp(startTimestamp)
+          .setExecutionCompletedTimestamp(completedTimestamp)
+          .setWorkerCompletedTimestamp(completedTimestamp);
     }
 
     return manifest;
