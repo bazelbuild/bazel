@@ -201,7 +201,7 @@ public class BuildDriverFunction implements SkyFunction {
             }
             // Only send the event now to include the compatibility check in the measurement for
             // time spent on analysis work.
-            env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
+            env.getListener().post(TopLevelEntityAnalysisConcludedEvent.success(buildDriverKey));
             // We consider the evaluation of this BuildDriverKey successful at this point, even when
             // the target is skipped.
             return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ true);
@@ -211,7 +211,7 @@ public class BuildDriverFunction implements SkyFunction {
         }
       }
 
-      env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
+      env.getListener().post(TopLevelEntityAnalysisConcludedEvent.success(buildDriverKey));
       env.getListener()
           .post(
               TopLevelTargetPendingExecutionEvent.create(
@@ -401,7 +401,7 @@ public class BuildDriverFunction implements SkyFunction {
     }
     // Send the AspectAnalyzedEvents first to make sure the BuildResultListener is up-to-date before
     // signaling that the analysis of this top level aspect has concluded.
-    env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
+    env.getListener().post(TopLevelEntityAnalysisConcludedEvent.success(buildDriverKey));
 
     declareDependenciesAndCheckValues(
         env, Iterables.concat(Artifact.keys(artifactsToBuild.build()), aspectCompletionKeys));

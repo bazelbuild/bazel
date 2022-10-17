@@ -55,7 +55,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.List;
@@ -196,8 +196,8 @@ public final class ArtifactFunction implements SkyFunction {
       return null; // The expanded actions are not yet available.
     }
 
-    SkyframeIterableResult expandedActionValues =
-        env.getOrderedValuesAndExceptions(expandedActionExecutionKeys);
+    SkyframeLookupResult expandedActionValues =
+        env.getValuesAndExceptions(expandedActionExecutionKeys);
     if (env.valuesMissing()) {
       return null; // The execution values of the expanded actions are not yet all available.
     }
@@ -211,7 +211,7 @@ public final class ArtifactFunction implements SkyFunction {
     for (ActionLookupData actionKey : expandedActionExecutionKeys) {
       boolean sawTreeChild = false;
       ActionExecutionValue actionExecutionValue =
-          (ActionExecutionValue) expandedActionValues.next();
+          (ActionExecutionValue) expandedActionValues.get(actionKey);
       if (actionExecutionValue == null) {
         return null;
       }
@@ -298,7 +298,7 @@ public final class ArtifactFunction implements SkyFunction {
     // We rely on the guarantees of RecursiveFilesystemTraversalFunction for correctness.
     //
     // This approach may have unexpected interactions with --package_path. In particular, the exec
-    // root is setup from the loading / analysis phase, and it is now too late to change it;
+    // root is set up from the loading / analysis phase, and it is now too late to change it;
     // therefore, this may traverse a different set of files depending on which targets are built
     // at the same time and what the package-path layout is (this may be moot if there is only one
     // entry). Or this may return a set of files that's inconsistent with those actually available
@@ -357,15 +357,13 @@ public final class ArtifactFunction implements SkyFunction {
         ImmutableList.builder();
     ImmutableList.Builder<Pair<Artifact, TreeArtifactValue>> directoryInputsBuilder =
         ImmutableList.builder();
-    // Avoid iterating over nested set twice.
     List<Artifact> inputs = action.getInputs().toList();
-    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(Artifact.keys(inputs));
+    SkyframeLookupResult values = env.getValuesAndExceptions(Artifact.keys(inputs));
     if (env.valuesMissing()) {
       return null;
     }
     for (Artifact input : inputs) {
-
-      SkyValue inputValue = values.next();
+      SkyValue inputValue = values.get(Artifact.key(input));
       if (inputValue == null) {
         return null;
       }
@@ -401,9 +399,9 @@ public final class ArtifactFunction implements SkyFunction {
   }
 
   /**
-   * Returns whether this value needs to contain the data of all its inputs. Currently only tests to
-   * see if the action is a runfiles middleman action. However, may include Fileset artifacts in the
-   * future.
+   * Returns whether this value needs to contain the data of all its inputs. Currently, only tests
+   * to see if the action is a runfiles middleman action. However, may include Fileset artifacts in
+   * the future.
    */
   private static boolean isAggregatingValue(ActionAnalysisMetadata action) {
     return action.getActionType() == RUNFILES_MIDDLEMAN;

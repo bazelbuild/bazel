@@ -56,7 +56,7 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -305,8 +305,7 @@ class IncludeParser {
             ContainingPackageLookupValue.key(PackageIdentifier.createInMainRepo(relativePath)));
         findFilters.add(rule.findFilter);
       }
-      SkyframeIterableResult containingPackageLookupValues =
-          env.getOrderedValuesAndExceptions(rulePaths);
+      SkyframeLookupResult containingPackageLookupValues = env.getValuesAndExceptions(rulePaths);
       if (env.valuesMissing()
           && !env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
         return null;
@@ -319,7 +318,8 @@ class IncludeParser {
         try {
           containingPackageLookupValue =
               (ContainingPackageLookupValue)
-                  containingPackageLookupValues.nextOrThrow(NoSuchPackageException.class);
+                  containingPackageLookupValues.getOrThrow(
+                      relativePathKey, NoSuchPackageException.class);
         } catch (NoSuchPackageException e) {
           if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
             throw e;
@@ -353,20 +353,19 @@ class IncludeParser {
       if (env.valuesMissing()) {
         return null;
       }
-      SkyframeIterableResult globResults = env.getOrderedValuesAndExceptions(globKeys);
+      SkyframeLookupResult globResults = env.getValuesAndExceptions(globKeys);
       if (env.valuesMissing()
           && !env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
         return null;
       }
-      int i = 0;
-      while (globResults.hasNext()) {
-        GlobDescriptor globKey = globKeys.get(i++);
+      for (GlobDescriptor globKey : globKeys) {
         PathFragment packageFragment = globKey.getPackageId().getPackageFragment();
         GlobValue globValue;
         try {
           globValue =
               (GlobValue)
-                  globResults.nextOrThrow(IOException.class, BuildFileNotFoundException.class);
+                  globResults.getOrThrow(
+                      globKey, IOException.class, BuildFileNotFoundException.class);
         } catch (IOException | BuildFileNotFoundException e) {
           if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
             throw e;
