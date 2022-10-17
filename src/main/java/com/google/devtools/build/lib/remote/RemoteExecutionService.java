@@ -747,7 +747,7 @@ public class RemoteExecutionService {
     }
   }
 
-  private void injectRemoteArtifact(RemoteAction action, ActionResultMetadata metadata)
+  private void injectRemoteArtifacts(RemoteAction action, ActionResultMetadata metadata)
       throws IOException {
     FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
     checkState(actionFileSystem instanceof RemoteActionFileSystem);
@@ -1130,7 +1130,7 @@ public class RemoteExecutionService {
         }
       }
 
-      injectRemoteArtifact(action, metadata);
+      injectRemoteArtifacts(action, metadata);
 
       try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {
         if (inMemoryOutput != null) {

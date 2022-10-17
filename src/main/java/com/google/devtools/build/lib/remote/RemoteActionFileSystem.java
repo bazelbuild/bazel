@@ -475,6 +475,13 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
 
     @Override
+    protected synchronized OutputStream getOutputStream(PathFragment path, boolean append)
+        throws IOException {
+      // To get an output stream from remote file, we need to first stage it.
+      throw new IllegalStateException("Shouldn't be called directly");
+    }
+
+    @Override
     protected FileInfo newFile(Clock clock, PathFragment path) {
       return new RemoteFileInfo(clock);
     }
@@ -483,6 +490,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
         throws IOException {
       createDirectoryAndParents(path.getParentDirectory());
       InMemoryContentInfo node = getOrCreateWritableInode(path);
+      // If a node was already existed and is not a remote file node (i.e. directory or symlink node
+      // ), throw an error.
       if (!(node instanceof RemoteFileInfo)) {
         throw new IOException("Could not inject into " + node);
       }
