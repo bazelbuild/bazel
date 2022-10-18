@@ -87,8 +87,6 @@ public final class UiEventHandler implements EventHandler {
   private static final long NO_CURSES_MINIMAL_PROGRESS_RATE_LIMIT = 1000L;
   /** Periodic update interval of a time-dependent progress bar if it can be updated in place */
   private static final long SHORT_REFRESH_MILLIS = 1000L;
-  /** Periodic update interval of a time-dependent progress bar if it cannot be updated in place */
-  private static final long LONG_REFRESH_MILLIS = 20000L;
 
   private static final DateTimeFormatter TIMESTAMP_FORMAT =
       DateTimeFormatter.ofPattern("(HH:mm:ss) ");
@@ -881,7 +879,7 @@ public final class UiEventHandler implements EventHandler {
     // a future update scheduled.
     long nowMillis = clock.currentTimeMillis();
     if (mustRefreshAfterMillis <= lastRefreshMillis) {
-      mustRefreshAfterMillis = Math.max(nowMillis + minimalUpdateInterval, lastRefreshMillis + 1);
+      mustRefreshAfterMillis = Math.max(nowMillis + 1, lastRefreshMillis + minimalUpdateInterval);
     }
     startUpdateThread();
   }
@@ -891,16 +889,19 @@ public final class UiEventHandler implements EventHandler {
     if (!stateTracker.progressBarTimeDependent()) {
       return false;
     }
+    // Don't do more updates than are requested through events when there is no cursor control.
+    if (!cursorControl){
+      return false;
+    }
     long nowMillis = clock.currentTimeMillis();
-    long intervalMillis = cursorControl ? SHORT_REFRESH_MILLIS : LONG_REFRESH_MILLIS;
     if (lastRefreshMillis < mustRefreshAfterMillis
         && mustRefreshAfterMillis < nowMillis + minimalDelayMillis) {
-      // Within the a smal interval from now, an update is scheduled anyway,
+      // Within a small interval from now, an update is scheduled anyway,
       // so don't do a time-based update of the progress bar now, to avoid
       // updates too close to each other.
       return false;
     }
-    return lastRefreshMillis + intervalMillis < nowMillis;
+    return lastRefreshMillis + SHORT_REFRESH_MILLIS < nowMillis;
   }
 
   private void ignoreRefreshLimitOnce() {
