@@ -452,7 +452,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_package_group_has_public_syntax",
-      defaultValue = "false",
+      defaultValue = FlagConstants.DEFAULT_INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX,
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -463,7 +463,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_fix_package_group_reporoot_syntax",
-      defaultValue = "false",
+      defaultValue = FlagConstants.DEFAULT_INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX,
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -803,9 +803,9 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX =
       "-incompatible_disallow_struct_provider_syntax";
   public static final String INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX =
-      "-incompatible_package_group_has_public_syntax";
+      FlagConstants.INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX;
   public static final String INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX =
-      "-incompatible_fix_package_group_reporoot_syntax";
+      FlagConstants.INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX;
   public static final String INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE =
       "+incompatible_do_not_split_linking_cmdline";
   public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =

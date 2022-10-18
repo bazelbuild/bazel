@@ -638,6 +638,9 @@ public abstract class AndroidDeviceTest extends AndroidBuildViewTestCase {
     String mockedAndroidToolsContent =
         scratch
             .readFile(mockedAndroidToolsBuildFileLocation)
+            .replaceAll(Pattern.quote("packages = ['public']"), "packages = ['//bar/...']")
+            // TODO(b/254084490): Migrate Google-internal usage of "//..." in test mock to be
+            // "public" instead.
             .replaceAll(Pattern.quote("packages = ['//...']"), "packages = ['//bar/...']");
     scratch.overwriteFile(mockedAndroidToolsBuildFileLocation, mockedAndroidToolsContent);
     invalidatePackages();
