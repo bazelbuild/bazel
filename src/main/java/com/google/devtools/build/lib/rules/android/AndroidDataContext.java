@@ -289,6 +289,23 @@ public class AndroidDataContext implements AndroidDataContextApi {
     return state == TriState.YES;
   }
 
+  /**
+   * Returns {@code true} if resource shrinking should be performed. This should be true when the
+   * resource cycle shrinking flag is enabled, resource shrinking itself is enabled, and the build
+   * is ProGuarded/optimized. The last condition is important because resource cycle shrinking
+   * generates non-final fields that are not inlined by javac. In non-optimized builds, these can
+   * noticeably increase Apk size.
+   */
+  boolean shouldShrinkResourceCycles(RuleErrorConsumer errorConsumer, boolean shrinkResources) {
+    boolean isProguarded =
+        ruleContext.attributes().has(ProguardHelper.PROGUARD_SPECS, BuildType.LABEL_LIST)
+            && !ruleContext
+                .getPrerequisiteArtifacts(ProguardHelper.PROGUARD_SPECS)
+                .list()
+                .isEmpty();
+    return isProguarded && getAndroidConfig().useAndroidResourceCycleShrinking() && shrinkResources;
+  }
+
   boolean useResourcePathShortening() {
     // Use resource path shortening iff:
     //   1) --experimental_android_resource_path_shortening
