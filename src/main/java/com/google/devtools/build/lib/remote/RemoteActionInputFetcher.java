@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
+import java.util.regex.Pattern;
 
 /**
  * Stages output files that are stored remotely to the local filesystem.
@@ -51,8 +53,9 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       String commandId,
       RemoteCache remoteCache,
       Path execRoot,
-      TempPathGenerator tempPathGenerator) {
-    super(execRoot, tempPathGenerator);
+      TempPathGenerator tempPathGenerator,
+      ImmutableList<Pattern> patternsToDownload) {
+    super(execRoot, tempPathGenerator, patternsToDownload);
     this.buildRequestId = Preconditions.checkNotNull(buildRequestId);
     this.commandId = Preconditions.checkNotNull(commandId);
     this.remoteCache = Preconditions.checkNotNull(remoteCache);
