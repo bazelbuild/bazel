@@ -15,10 +15,12 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -39,6 +41,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.FileInfo;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryContentInfo;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -86,6 +89,16 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     this.remoteOutputTree = new RemoteInMemoryFileSystem(getDigestFunction());
   }
 
+  @VisibleForTesting
+  protected RemoteInMemoryFileSystem getRemoteOutputTree() {
+    return remoteOutputTree;
+  }
+
+  @VisibleForTesting
+  protected FileSystem getLocalFileSystem() {
+    return delegateFs;
+  }
+
   /** Returns true if {@code path} is a file that's stored remotely. */
   boolean isRemote(Path path) {
     return getRemoteInputMetadata(path.asFragment()) != null;
@@ -97,7 +110,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   void injectRemoteFile(PathFragment path, byte[] digest, long size, String actionId)
       throws IOException {
-    if (!path.startsWith(outputBase)) {
+    if (!isOutput(path)) {
       return;
     }
     remoteOutputTree.injectRemoteFile(path, digest, size, actionId);
@@ -407,7 +420,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Nullable
   private RemoteFileArtifactValue getRemoteInputMetadata(PathFragment path) {
-    if (!path.startsWith(outputBase)) {
+    if (!isOutput(path)) {
       return null;
     }
     PathFragment execPath = path.relativeTo(execRoot);
@@ -436,6 +449,55 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
             String.format("Received interrupt while fetching file '%s'", path), e);
       }
     }
+  }
+
+  private boolean isOutput(PathFragment path) {
+    return path.startsWith(outputBase);
+  }
+
+  @Override
+  public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
+    checkArgument(isOutput(sourcePath), "sourcePath must be an output path");
+    checkArgument(isOutput(targetPath), "targetPath must be an output path");
+
+    FileNotFoundException remoteException = null;
+    try {
+      remoteOutputTree.renameTo(sourcePath, targetPath);
+    } catch (FileNotFoundException e) {
+      remoteException = e;
+    }
+
+    FileNotFoundException localException = null;
+    try {
+      delegateFs.renameTo(sourcePath, targetPath);
+    } catch (FileNotFoundException e) {
+      localException = e;
+    }
+
+    if (remoteException == null || localException == null) {
+      return;
+    }
+
+    localException.addSuppressed(remoteException);
+    throw localException;
+  }
+
+  @Override
+  public void createDirectoryAndParents(PathFragment path) throws IOException {
+    super.createDirectoryAndParents(path);
+    if (path.startsWith(outputBase)) {
+      remoteOutputTree.createDirectoryAndParents(path);
+    }
+  }
+
+  @CanIgnoreReturnValue
+  @Override
+  public boolean createDirectory(PathFragment path) throws IOException {
+    boolean created = delegateFs.createDirectory(path);
+    if (path.startsWith(outputBase)) {
+      created = remoteOutputTree.createDirectory(path) || created;
+    }
+    return created;
   }
 
   /*

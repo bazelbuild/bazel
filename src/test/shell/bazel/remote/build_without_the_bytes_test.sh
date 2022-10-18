@@ -572,6 +572,38 @@ EOF
   expect_log "test.outputs_manifest__MANIFEST"
 }
 
+function test_multiple_test_attempts() {
+  # Test that test logs of multiple test attempts can be renamed and reported by
+  # BEP.
+  mkdir -p a
+  cat > a/BUILD <<EOF
+sh_test(
+  name = "foo",
+  srcs = ["foo.sh"],
+)
+EOF
+  cat > a/foo.sh <<'EOF'
+exit 1
+EOF
+  chmod a+x a/foo.sh
+  rm -rf $TEST_TMPDIR/bep.json
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    --build_event_json_file=$TEST_TMPDIR/bep.json \
+    --flaky_test_attempts=2 \
+    //a:foo >& $TEST_log && fail "Test //a:foo should fail"
+
+  expect_log "FAILED in 2 out of 2"
+  expect_log "a/foo/test.log"
+  expect_log "a/foo/test_attempts/attempt_1.log"
+  cat $TEST_TMPDIR/bep.json > $TEST_log
+  rm -rf $TEST_TMPDIR/bep.json
+  expect_log "attempt\":1.*test.log.*bytestream.*test.xml.*bytestream"
+  expect_log "attempt\":2.*test.log.*bytestream.*test.xml.*bytestream"
+}
+
 # This test is derivative of test_bep_output_groups in
 # build_event_stream_test.sh, which verifies that successful output groups'
 # artifacts appear in BEP when a top-level target fails to build.
