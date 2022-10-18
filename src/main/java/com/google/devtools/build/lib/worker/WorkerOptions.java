@@ -100,7 +100,9 @@ public class WorkerOptions extends OptionsBase {
   public List<Map.Entry<String, Integer>> workerMaxInstances;
 
   @Option(
-      name = "experimental_worker_max_multiplex_instances",
+      name = "worker_max_multiplex_instances",
+      oldName = "experimental_worker_max_multiplex_instances",
+      oldNameWarning = false,
       converter = MultiResourceConverter.class,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,

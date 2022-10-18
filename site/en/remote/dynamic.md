@@ -39,7 +39,7 @@ the Javac mnemonic only. The remote version works the same way. Both flags can
 be specified multiple times. If an action cannot be executed locally, it is
 executed remotely as normal, and vice-versa.
 
-If your remote system has a cache, the `--experimental_local_execution_delay`
+If your remote system has a cache, the `--ocal_execution_delay`
 flag adds a delay in milliseconds to the local execution after the remote system
 has indicated a cache hit. This avoids running local execution when more cache
 hits are likely. The default value is 1000ms, but should be tuned to being just
@@ -122,9 +122,9 @@ mnemonics, which would often lead to these kinds of problems.
 
 Problems with dynamic execution can be subtle and hard to debug, as they can
 manifest only under some specific combinations of local and remote execution.
-The `--experimental_debug_spawn_scheduler` adds extra output from the dynamic
+The `--debug_spawn_scheduler` adds extra output from the dynamic
 execution system that can help debug these problems. You can also adjust the
-`--experimental_local_execution_delay` flag and number of remote vs. local jobs
+`--local_execution_delay` flag and number of remote vs. local jobs
 to make it easier to reproduce the problems.
 
 If you are experiencing problems with dynamic execution using the `standalone`
