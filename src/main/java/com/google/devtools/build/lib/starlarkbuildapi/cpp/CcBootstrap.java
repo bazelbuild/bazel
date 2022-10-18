@@ -71,7 +71,6 @@ public class CcBootstrap implements Bootstrap {
   private final DebugPackageInfoApi.Provider<? extends FileApi> debugPackageInfoProvider;
   private final CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider;
   private final PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper;
-  private final GoWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?> goWrapCcHelper;
   private final PyWrapCcInfoApi.Provider pyWrapCcInfoProvider;
   private final PyCcLinkParamsProviderApi.Provider pyCcLinkInfoParamsInfoProvider;
 
@@ -110,7 +109,6 @@ public class CcBootstrap implements Bootstrap {
       DebugPackageInfoApi.Provider<? extends FileApi> debugPackageInfoProvider,
       CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider,
       PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper,
-      GoWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?> goWrapCcHelper,
       PyWrapCcInfoApi.Provider pyWrapCcInfoProvider,
       PyCcLinkParamsProviderApi.Provider pyCcLinkInfoParamsInfoProvider) {
     this.ccModule = ccModule;
@@ -118,7 +116,6 @@ public class CcBootstrap implements Bootstrap {
     this.debugPackageInfoProvider = debugPackageInfoProvider;
     this.ccToolchainConfigInfoProvider = ccToolchainConfigInfoProvider;
     this.pyWrapCcHelper = pyWrapCcHelper;
-    this.goWrapCcHelper = goWrapCcHelper;
     this.pyWrapCcInfoProvider = pyWrapCcInfoProvider;
     this.pyCcLinkInfoParamsInfoProvider = pyCcLinkInfoParamsInfoProvider;
   }
@@ -153,10 +150,6 @@ public class CcBootstrap implements Bootstrap {
         "py_wrap_cc_helper_do_not_use",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
             BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, pyWrapCcHelper));
-    builder.put(
-        "go_wrap_cc_helper_do_not_use",
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, goWrapCcHelper));
     builder.put(
         "PyWrapCcInfo",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(

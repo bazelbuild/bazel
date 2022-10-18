@@ -18,25 +18,20 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
-import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.FeatureConfigurationApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.GoWrapCcHelperApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyCcLinkParamsProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcHelperApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.WrapCcHelperApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.WrapCcIncludeProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.go.GoConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.Tuple;
 
 /**
  * Fake stub implementations for C++-related Starlark API which are unsupported without use of
@@ -156,48 +151,6 @@ public final class GoogleLegacyStubs {
     public PyWrapCcInfoApi<FileApi> getPyWrapCcInfo(
         StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
         CcInfoApi<FileApi> ccInfo) {
-      return null;
-    }
-  }
-
-  /**
-   * Fake no-op implementation of {@link GoWrapCcHelperApi}. This implementation should be
-   * unreachable without (discouraged) use of --experimental_google_legacy_api.
-   */
-  public static class GoWrapCcHelper extends WrapCcHelper
-      implements GoWrapCcHelperApi<
-          FileApi,
-          ConstraintValueInfoApi,
-          StarlarkRuleContextApi<ConstraintValueInfoApi>,
-          CcInfoApi<FileApi>,
-          FeatureConfigurationApi,
-          CcToolchainProviderApi<FeatureConfigurationApi, ?, ?>,
-          CcLinkingContextApi<FileApi>,
-          GoConfigurationApi,
-          TransitiveInfoCollectionApi,
-          CompilationInfoApi<FileApi>,
-          CcCompilationContextApi<FileApi>,
-          WrapCcIncludeProviderApi> {
-
-    @Override
-    public RunfilesApi starlarkGetGoRunfiles(
-        StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext) {
-      return null;
-    }
-
-    @Override
-    public Tuple createGoCompileActionsGopkg(
-        StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-        CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchainProvider,
-        Sequence<?> srcs, // <FileApi>
-        Sequence<?> deps, /* <TransitiveInfoCollectionApi> */
-        String execGroup) {
-      return null;
-    }
-
-    @Override
-    public Depset /*<FileApi>*/ getGopackageFilesForStarlark(
-        StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext, FileApi starlarkGopkg) {
       return null;
     }
   }
