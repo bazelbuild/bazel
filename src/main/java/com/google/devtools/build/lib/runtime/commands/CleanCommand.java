@@ -181,18 +181,15 @@ public final class CleanCommand implements BlazeCommand {
 
   @VisibleForTesting
   public static boolean canUseAsync(boolean async, boolean expunge, OS os, Reporter reporter) {
-    // TODO(dmarting): Deactivate expunge_async on non-Linux platform until we completely fix it
-    // for non-Linux platforms (https://github.com/bazelbuild/bazel/issues/1906).
-    // MacOS and FreeBSD support setsid(2) but don't have /usr/bin/setsid, so if we wanted to
-    // support --expunge_async on these platforms, we'd have to write a wrapper that calls setsid(2)
-    // and exec(2).
-    boolean asyncSupport = os == OS.LINUX;
-    if (async && !asyncSupport) {
+    // TODO(dmarting): Deactivate expunge_async on Windows or Unknown platforms as support for
+    //  daemonizing is done in daemonize.c.
+    boolean asyncSupport = os == OS.WINDOWS || os == OS.UNKNOWN;
+    if (async && asyncSupport) {
       String fallbackName = expunge ? "--expunge" : "synchronous clean";
       reporter.handle(
           Event.info(
               null /*location*/,
-              "--async cannot be used on non-Linux platforms, falling back to " + fallbackName));
+              "--async cannot be used on Windows or Unknown platforms, falling back to " + fallbackName));
       async = false;
     }
 
