@@ -21,7 +21,7 @@
    An access point can be created at the start of any deflate block, by saving
    the starting file offset and bit of that block, and the 32K bytes of
    uncompressed data that precede that block.  Also the uncompressed offset of
-   that block is saved to provide a referece for locating a desired starting
+   that block is saved to provide a reference for locating a desired starting
    point in the uncompressed stream.  deflate_index_build() works by
    decompressing the input zlib or gzip stream a block at a time, and at the
    end of each block deciding if enough uncompressed data has gone by to
