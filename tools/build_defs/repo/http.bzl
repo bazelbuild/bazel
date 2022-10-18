@@ -110,6 +110,8 @@ def _get_auth(ctx, urls):
     """Given the list of URLs obtain the correct auth dict."""
     if ctx.attr.netrc:
         netrc = read_netrc(ctx, ctx.attr.netrc)
+    elif "NETRC" in ctx.os.environ:
+        netrc = read_netrc(ctx, ctx.os.environ["NETRC"])
     else:
         netrc = read_user_netrc(ctx)
     return use_netrc(netrc, urls, ctx.attr.auth_patterns)
