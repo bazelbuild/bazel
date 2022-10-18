@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -2333,5 +2334,45 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .map(x -> x.getOwner().toString()))
         .containsExactly("//foo:lib")
         .inOrder();
+  }
+
+  @Test
+  public void testDataDepRunfilesArePropagated() throws Exception {
+    AnalysisMock.get().ccSupport().setupCcToolchainConfig(mockToolsConfig);
+    scratch.file(
+        "foo/data_dep.bzl",
+        "def _my_data_dep_impl(ctx):",
+        "    return [",
+        "       DefaultInfo(",
+        "        runfiles = ctx.runfiles(",
+        "             root_symlinks = { ctx.attr.dst: ctx.files.src[0] },",
+        "       ),",
+        "     )",
+        "   ]",
+        "my_data_dep = rule(",
+        "   implementation = _my_data_dep_impl,",
+        "   attrs = {",
+        "     'src': attr.label(mandatory = True, allow_single_file = True),",
+        "     'dst': attr.string(mandatory = True),",
+        "   },",
+        " )");
+    scratch.file(
+        "foo/BUILD",
+        "load(':data_dep.bzl', 'my_data_dep')",
+        "my_data_dep(",
+        "    name = 'data_dep',",
+        "    src = ':file.txt',",
+        "    dst = 'data/file.txt',",
+        ")",
+        "cc_library(",
+        "    name = 'lib',",
+        "    data = [':data_dep'],",
+        ")");
+
+    ConfiguredTarget lib = getConfiguredTarget("//foo:lib");
+    assertThat(
+            artifactsToStrings(
+                lib.get(DefaultInfo.PROVIDER).getDefaultRunfiles().getAllArtifacts()))
+        .containsExactly("src foo/file.txt");
   }
 }
