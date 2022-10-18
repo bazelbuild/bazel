@@ -1,4 +1,4 @@
-Building instructions for the DLL versions of Zlib 1.2.12
+Building instructions for the DLL versions of Zlib 1.2.13
 ========================================================
 
 This directory contains projects that build zlib and minizip using
@@ -17,9 +17,6 @@ More information can be found at this site.
 Build instructions for Visual Studio 2008 (32 bits or 64 bits)
 --------------------------------------------------------------
 - Decompress current zlib, including all contrib/* files
-- Compile assembly code (with Visual Studio Command Prompt) by running:
-   bld_ml64.bat (in contrib\masmx64)
-   bld_ml32.bat (in contrib\masmx86)
 - Open contrib\vstudio\vc9\zlibvc.sln with Microsoft Visual C++ 2008
 - Or run: vcbuild /rebuild contrib\vstudio\vc9\zlibvc.sln "Release|Win32"
 
