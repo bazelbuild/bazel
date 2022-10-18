@@ -980,11 +980,11 @@ public class ExecutionTool {
   }
 
   private static AbruptExitException createExitException(
-      String message, Code detailedCode, IOException e) {
+      String messagePrefix, Code detailedCode, IOException e) {
     return new AbruptExitException(
         DetailedExitCode.of(
             FailureDetail.newBuilder()
-                .setMessage(message)
+                .setMessage(String.format("%s: %s", messagePrefix, e.getMessage()))
                 .setExecution(Execution.newBuilder().setCode(detailedCode))
                 .build()),
         e);
