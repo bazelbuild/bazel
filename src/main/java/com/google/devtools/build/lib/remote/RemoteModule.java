@@ -120,6 +120,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -143,6 +144,7 @@ public final class RemoteModule extends BlazeModule {
   @Nullable private RemoteOutputService remoteOutputService;
   @Nullable private TempPathGenerator tempPathGenerator;
   @Nullable private BlockWaitingModule blockWaitingModule;
+  @Nullable private ImmutableList<Pattern> patternsToDownload;
 
   private ChannelFactory channelFactory =
       new ChannelFactory() {
@@ -277,6 +279,7 @@ public final class RemoteModule extends BlazeModule {
     Preconditions.checkState(actionInputFetcher == null, "actionInputFetcher must be null");
     Preconditions.checkState(remoteOptions == null, "remoteOptions must be null");
     Preconditions.checkState(tempPathGenerator == null, "tempPathGenerator must be null");
+    Preconditions.checkState(patternsToDownload == null, "patternsToDownload must be null");
 
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     if (remoteOptions == null) {
@@ -324,6 +327,16 @@ public final class RemoteModule extends BlazeModule {
       throw createOptionsExitException(
           "Cannot combine gRPC based remote execution with HTTP-based caching",
           FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
+    }
+
+    // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
+    // used without Build without the Bytes.
+    if (!remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
+      ImmutableList.Builder<Pattern> patternsToDownloadBuilder = ImmutableList.builder();
+      for (String regex : remoteOptions.remoteDownloadRegex) {
+        patternsToDownloadBuilder.add(Pattern.compile(regex));
+      }
+      patternsToDownload = patternsToDownloadBuilder.build();
     }
 
     env.getEventBus().register(this);
@@ -914,6 +927,7 @@ public final class RemoteModule extends BlazeModule {
     remoteOutputService = null;
     tempPathGenerator = null;
     rpcLogFile = null;
+    patternsToDownload = null;
   }
 
   private static void afterCommandTask(
@@ -1017,13 +1031,16 @@ public final class RemoteModule extends BlazeModule {
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
 
     if (!remoteOutputsMode.downloadAllOutputs() && actionContextProvider.getRemoteCache() != null) {
+      Preconditions.checkNotNull(patternsToDownload, "patternsToDownload must not be null");
       actionInputFetcher =
           new RemoteActionInputFetcher(
               env.getBuildRequestId(),
               env.getCommandId().toString(),
               actionContextProvider.getRemoteCache(),
               env.getExecRoot(),
-              tempPathGenerator);
+              tempPathGenerator,
+              patternsToDownload);
+      env.getEventBus().register(actionInputFetcher);
       builder.setActionInputPrefetcher(actionInputFetcher);
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);

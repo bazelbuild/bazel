@@ -107,7 +107,9 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public void finalizeAction(Action action, MetadataHandler metadataHandler) {
-    // Intentionally left empty.
+    if (actionInputFetcher != null) {
+      actionInputFetcher.finalizeAction(action, metadataHandler);
+    }
   }
 
   @Nullable

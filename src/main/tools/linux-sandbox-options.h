@@ -52,6 +52,9 @@ struct Options {
   bool fake_root;
   // Set the username inside the sandbox to 'nobody' (-U)
   bool fake_username;
+  // Enable writing to /dev/pts and map the user's gid to tty to enable
+  // pseudoterminals (-P)
+  bool enable_pty;
   // Print debugging messages (-D)
   bool debug;
   // Improved hermetic build using whitelisting strategy (-h)

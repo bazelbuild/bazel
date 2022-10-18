@@ -447,9 +447,12 @@ The initial environment block shall be composed as follows:
   </tr>
   <tr>
     <td><code>XML_OUTPUT_FILE</code></td>
-    <td>Location of the test result XML output file. The XML schema is based on
-      the <a href="https://windyroad.com.au/dl/Open%20Source/JUnit.xsd"
-             class="external">JUnit test result schema</a>.</td>
+    <td>
+      Location to which test actions should write a test result XML output file.
+      Otherwise, Bazel generates a default XML output file wrapping the test log
+      as part of the test action. The XML schema is based on the
+      <a href="https://windyroad.com.au/dl/Open%20Source/JUnit.xsd"
+        class="external">JUnit test result schema</a>.</td>
     <td>optional</td>
   </tr>
   <tr>

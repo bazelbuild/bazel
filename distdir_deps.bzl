@@ -185,12 +185,12 @@ DIST_DEPS = {
         ],
     },
     "upb": {
-        "archive": "e5f26018368b11aab672e8e8bb76513f3620c579.tar.gz",
-        "sha256": "03b642a535656560cd95cab3b26e8c53ce37e472307dce5bb7e47c9953bbca0f",
-        "strip_prefix": "upb-e5f26018368b11aab672e8e8bb76513f3620c579",
+        "archive": "a5477045acaa34586420942098f5fecd3570f577.tar.gz",
+        "sha256": "cf7f71eaff90b24c1a28b49645a9ff03a9a6c1e7134291ce70901cb63e7364b5",
+        "strip_prefix": "upb-a5477045acaa34586420942098f5fecd3570f577",
         "urls": [
-            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/e5f26018368b11aab672e8e8bb76513f3620c579.tar.gz",
-            "https://github.com/protocolbuffers/upb/archive/e5f26018368b11aab672e8e8bb76513f3620c579.tar.gz",
+            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/a5477045acaa34586420942098f5fecd3570f577.tar.gz",
+            "https://github.com/protocolbuffers/upb/archive/a5477045acaa34586420942098f5fecd3570f577.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",

@@ -645,6 +645,26 @@ EOF
   bazel test --nocache_test_results --sandbox_fake_username --test_output=errors :test || fail "test did not pass"
 }
 
+# Tests that a pseudoterminal can be opened in linux when --sandbox_explicit_pseudoterminal is active
+function test_can_enable_pseudoterminals() {
+  if [[ "$(uname -s)" != Linux ]]; then
+    echo "Skipping test: flag intended for linux systems"
+    return 0
+  fi
+
+  cat > test.py <<'EOF'
+import pty
+pty.openpty()
+EOF
+  cat > BUILD <<'EOF'
+py_test(
+  name = "test",
+  srcs = ["test.py"],
+)
+EOF
+  bazel test --sandbox_explicit_pseudoterminal :test || fail "test did not pass"
+}
+
 # Tests that /proc/self == /proc/$$. This should always be true unless the PID namespace is active without /proc being remounted correctly.
 function test_sandbox_proc_self() {
   if [[ ! -d /proc/self ]]; then
