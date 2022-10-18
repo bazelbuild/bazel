@@ -54,7 +54,7 @@ public class CleanCommandRecommendsAsyncTest {
           // When --async is not provided, expect the suggestion on platforms that support it.
           {/* asyncOnCommandLine= */ false, OS.LINUX, true},
           {/* asyncOnCommandLine= */ false, OS.WINDOWS, false},
-          {/* asyncOnCommandLine= */ false, OS.DARWIN, false},
+          {/* asyncOnCommandLine= */ false, OS.DARWIN, true},
         });
   }
 
@@ -66,7 +66,7 @@ public class CleanCommandRecommendsAsyncTest {
 
     boolean async =
         CleanCommand.canUseAsync(this.asyncOnCommandLine, /* expunge= */ false, os, reporter);
-    if (os != OS.LINUX) {
+    if (os == OS.WINDOWS || os == OS.UNKNOWN) {
       assertThat(async).isFalse();
     }
 

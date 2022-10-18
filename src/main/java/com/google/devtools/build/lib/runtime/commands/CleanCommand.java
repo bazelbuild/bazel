@@ -194,7 +194,7 @@ public final class CleanCommand implements BlazeCommand {
     }
 
     String cleanBanner =
-        (async || !asyncSupport)
+        (async || asyncSupport)
             ? "Starting clean."
             : "Starting clean (this may take a while). "
                 + "Consider using --async if the clean takes more than several minutes.";
