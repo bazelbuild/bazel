@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.constraints;
 
+import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
@@ -142,8 +143,10 @@ public class IncompatibleTargetChecker {
     ImmutableList<ConstraintValueInfo> invalidConstraintValues =
         constraintKeys.stream()
             .map(key -> (ConfiguredTargetValue) constraintValues.get(key))
+            .filter(notNull())
             .map(ctv -> PlatformProviderUtils.constraintValue(ctv.getConfiguredTarget()))
-            .filter(cv -> cv != null && !platformInfo.constraints().hasConstraintValue(cv))
+            .filter(notNull())
+            .filter(cv -> !platformInfo.constraints().hasConstraintValue(cv))
             .collect(toImmutableList());
     if (invalidConstraintValues.isEmpty()) {
       return Optional.empty();
