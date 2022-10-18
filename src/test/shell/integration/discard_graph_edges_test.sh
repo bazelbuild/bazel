@@ -202,7 +202,6 @@ load(":bar.bzl", "bar")
 load(":baz.bzl", "baz")
 cc_library(name = 'cclib', srcs = ['cclib.cc'])
 genrule(name = 'histodump',
-        srcs = glob(["*.in"]),
         outs = ['histo.txt'],
         local = 1,
         tools = [':cclib'],
