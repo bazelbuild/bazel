@@ -45,6 +45,8 @@ public class WorkerPool {
   private static final int DEFAULT_MAX_WORKERS = 4;
   /** Unless otherwise specified, the max number of multiplex workers per WorkerKey. */
   private static final int DEFAULT_MAX_MULTIPLEX_WORKERS = 8;
+
+  private static final int MAX_NON_BLOCKING_HIGH_PRIORITY_WORKERS = 1;
   /**
    * How many high-priority workers are currently borrowed. If greater than one, low-priority
    * workers cannot be borrowed until the high-priority ones are done.
@@ -174,6 +176,22 @@ public class WorkerPool {
     return result;
   }
 
+  /**
+   * Checks if there is no blockers from high priority workers to take new worker with this worker
+   * key. Doesn't check occupancy of worker pool for this mnemonic.
+   */
+  public boolean couldBeBorrowed(WorkerKey key) {
+    if (highPriorityWorkerMnemonics.contains(key.getMnemonic())) {
+      return true;
+    }
+
+    if (highPriorityWorkersInUse.get() <= MAX_NON_BLOCKING_HIGH_PRIORITY_WORKERS) {
+      return true;
+    }
+
+    return false;
+  }
+
   public void returnObject(WorkerKey key, Worker obj) {
     if (highPriorityWorkerMnemonics.contains(key.getMnemonic())) {
       decrementHighPriorityWorkerCount();
@@ -195,7 +213,7 @@ public class WorkerPool {
 
   // Decrements the high-priority workers counts and pings waiting threads if appropriate.
   private void decrementHighPriorityWorkerCount() {
-    if (highPriorityWorkersInUse.decrementAndGet() <= 1) {
+    if (highPriorityWorkersInUse.decrementAndGet() <= MAX_NON_BLOCKING_HIGH_PRIORITY_WORKERS) {
       synchronized (highPriorityWorkersInUse) {
         highPriorityWorkersInUse.notifyAll();
       }
@@ -209,7 +227,7 @@ public class WorkerPool {
       return;
     }
 
-    while (highPriorityWorkersInUse.get() > 1) {
+    while (highPriorityWorkersInUse.get() > MAX_NON_BLOCKING_HIGH_PRIORITY_WORKERS) {
       synchronized (highPriorityWorkersInUse) {
         highPriorityWorkersInUse.wait();
       }

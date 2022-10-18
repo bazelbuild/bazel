@@ -418,7 +418,7 @@ function test_does_not_create_executable_when_not_asked_for() {
 
 }
 
-# Assert that the a deploy jar can be a dependency of another java_binary.
+# Assert that a deploy jar can be a dependency of another java_binary.
 function test_building_deploy_jar_dependent_on_deploy_jar() {
  local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/deploy || fail "mkdir"
@@ -817,36 +817,6 @@ EOF
     //$pkg/java/test:liba.jar >& "$TEST_log" && fail "Unexpected success"
   expect_log "symbol not found missing.NoSuch"
 }
-
-function test_java_import_with_empty_jars_attribute() {
-  local -r pkg="${FUNCNAME[0]}"
-  mkdir -p $pkg/java/hello/ || fail "Expected success"
-  cat > $pkg/java/hello/Hello.java <<EOF
-package hello;
-public class Hello {
-  public static void main(String[] args) {
-    System.out.println("Hello World!");
-  }
-}
-EOF
-  cat > $pkg/java/hello/BUILD <<EOF
-java_import(
-    name='empty_java_import',
-    jars=[]
-)
-java_binary(
-    name='hello',
-    srcs=['Hello.java'],
-    deps=[':empty_java_import'],
-    main_class = 'hello.Hello'
-)
-EOF
-  bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar >& "$TEST_log" \
-      || fail "Expected success"
-  bazel run //$pkg/java/hello:hello -- --singlejar >& "$TEST_log"
-  expect_log "Hello World!"
-}
-
 
 function test_arg_compile_action() {
   local package="${FUNCNAME[0]}"

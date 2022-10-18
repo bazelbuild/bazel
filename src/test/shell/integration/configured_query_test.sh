@@ -1183,6 +1183,20 @@ EOF
   assert_contains "^path=$pkg/foo$" output
 }
 
+function test_starlark_common_libs() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+exports_files(srcs = ["foo"])
+EOF
+
+  bazel cquery "//$pkg:foo" --output=starlark \
+    --starlark:expr="str(type(depset())) + ' ' + str(json.encode(struct(foo = 'bar')))" \
+    > output 2>"$TEST_log" || fail "Unexpected failure"
+
+  assert_contains "^depset {\"foo\":\"bar\"}$" output
+}
+
 function test_starlark_output_providers_function() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
@@ -1207,21 +1221,21 @@ def format(target):
         ret += '\n\tVisbilityProvider.label:' + str(vis_info.label)
     py_info = p.get('PyInfo')
     if py_info:
-        ret += '\n\tPyInfo:py3_only=' + str(py_info.has_py3_only_sources)
+        ret += '\n\tPyInfo found'
     return ret
 EOF
   bazel cquery "//$pkg:pylib" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
     2>"$TEST_log" || fail "Expected success"
 
   assert_contains "//$pkg:pylib:providers=.*PyInfo" output
-  assert_contains "PyInfo:py3_only=True" output
+  assert_contains "PyInfo found" output
 
   # A file
   bazel cquery "//$pkg:pylib.py" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
     2>"$TEST_log" || fail "Expected success"
   assert_contains "//$pkg:pylib.py:providers=.*FileProvider.*FilesToRunProvider.*LicensesProvider.*VisibilityProvider" \
     output
-  assert_contains "VisbilityProvider.label://$pkg:pylib.py" output
+  assert_contains "VisbilityProvider.label:@//$pkg:pylib.py" output
 }
 
 function test_starlark_output_providers_starlark_provider() {

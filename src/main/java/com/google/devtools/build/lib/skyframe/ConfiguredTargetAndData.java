@@ -50,10 +50,22 @@ public class ConfiguredTargetAndData {
       Target target,
       BuildConfigurationValue configuration,
       ImmutableList<String> transitionKeys) {
+    this(configuredTarget, target, configuration, transitionKeys, /*checkConsistency=*/ true);
+  }
+
+  private ConfiguredTargetAndData(
+      ConfiguredTarget configuredTarget,
+      Target target,
+      BuildConfigurationValue configuration,
+      ImmutableList<String> transitionKeys,
+      boolean checkConsistency) {
     this.configuredTarget = configuredTarget;
     this.target = target;
     this.configuration = configuration;
     this.transitionKeys = transitionKeys;
+    if (!checkConsistency) {
+      return;
+    }
     Preconditions.checkState(
         configuredTarget.getLabel().equals(target.getLabel()),
         "Unable to construct ConfiguredTargetAndData:"
@@ -122,6 +134,19 @@ public class ConfiguredTargetAndData {
       return this;
     }
     return new ConfiguredTargetAndData(maybeNew, target, configuration, transitionKeys);
+  }
+
+  /**
+   * Variation of {@link #fromConfiguredTarget} that doesn't check the new target has the same
+   * configuration as the original.
+   *
+   * <p>Intended for trimming (like {@code --trim_test_configuration}).
+   */
+  public ConfiguredTargetAndData fromConfiguredTargetNoCheck(ConfiguredTarget maybeNew) {
+    if (configuredTarget.equals(maybeNew)) {
+      return this;
+    }
+    return new ConfiguredTargetAndData(maybeNew, target, configuration, transitionKeys, false);
   }
 
   public Target getTarget() {

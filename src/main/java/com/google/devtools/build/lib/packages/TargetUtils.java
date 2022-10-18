@@ -340,7 +340,7 @@ public final class TargetUtils {
     try {
       mapper.visitLabels(
           DependencyFilter.NO_IMPLICIT_DEPS,
-          (attribute, depLabel) -> {
+          (Label depLabel, Attribute attribute) -> {
             if (label.equals(depLabel)) {
               throw StopIteration.INSTANCE;
             }

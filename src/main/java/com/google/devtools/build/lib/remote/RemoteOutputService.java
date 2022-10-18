@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -70,6 +71,7 @@ public class RemoteOutputService implements OutputService {
         execRootFragment,
         relativeOutputPath,
         inputArtifactData,
+        outputArtifacts,
         actionInputFetcher);
   }
 
@@ -99,8 +101,15 @@ public class RemoteOutputService implements OutputService {
   }
 
   @Override
+  public void flushActionFileSystem(FileSystem actionFileSystem) throws IOException {
+    ((RemoteActionFileSystem) actionFileSystem).flush();
+  }
+
+  @Override
   public void finalizeAction(Action action, MetadataHandler metadataHandler) {
-    // Intentionally left empty.
+    if (actionInputFetcher != null) {
+      actionInputFetcher.finalizeAction(action, metadataHandler);
+    }
   }
 
   @Nullable
@@ -142,7 +151,12 @@ public class RemoteOutputService implements OutputService {
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
     FileSystem remoteFileSystem =
         new RemoteActionFileSystem(
-            fileSystem, execRoot, relativeOutputPath, actionInputMap, actionInputFetcher);
+            fileSystem,
+            execRoot,
+            relativeOutputPath,
+            actionInputMap,
+            ImmutableList.of(),
+            actionInputFetcher);
     return ArtifactPathResolver.createPathResolver(remoteFileSystem, fileSystem.getPath(execRoot));
   }
 }

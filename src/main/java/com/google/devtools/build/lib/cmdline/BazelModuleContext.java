@@ -22,10 +22,11 @@ import net.starlark.java.eval.Module;
  * BazelModuleContext records Bazel-specific information associated with a .bzl {@link
  * net.starlark.java.eval.Module}.
  *
- * <p>Maintainer's note: This object is determined prior to the module's evaluation. It is saved in
- * the {@code Module} as {@link Module#getClientData client data}. For data that is computed after
- * the module's evaluation and which need not be exposed outside the module-loading machinery,
- * consider {@link BzlLoadValue}.
+ * <p>Maintainer's note: This object is determined prior to the module's evaluation in
+ * BzlLoadFunction. It is saved in the {@code Module} as {@link Module#getClientData client data}.
+ * The {@code Module} used during .bzl compilation is separate and uses {@link BazelCompileContext}
+ * as client data. For data that is computed after the module's evaluation and which need not be
+ * exposed outside the module-loading machinery, consider {@link BzlLoadValue}.
  */
 // Immutability is useful because this object is retrievable from a Module and therefore from a
 // BzlLoadValue.
@@ -58,8 +59,7 @@ public abstract class BazelModuleContext {
    * Returns a label for a {@link net.starlark.java.eval.Module}.
    *
    * <p>This is a user-facing value and we rely on this string to be a valid label for the {@link
-   * net.starlark.java.eval.Module} (and that only). Please see the documentation of {@link
-   * net.starlark.java.eval.Module#setClientData(Object)} for more details.
+   * net.starlark.java.eval.Module} (and that only).
    */
   @Override
   public final String toString() {

@@ -20,7 +20,8 @@ bazel modquery tree root
     - root: The current (root) module you are inside of.
     - <name>@<version>: A specific module version.
     - <name>@_: Specifies the empty version of a module (for non-registry overridden) modules).
-    - <name>: Can be used as a placeholder for all the present versions of the module <name>
+    - <name>: Can be used as a placeholder for all the present versions of the module <name>.
+    - <repo_name>: The repo_name of one of the root project’s direct dependencies, as it is defined in the MODULE.bazel file.
 
 <modules> means:
     - <module>,<module>,... : A list of comma separated modules, where each <module> has the form of one of the above.

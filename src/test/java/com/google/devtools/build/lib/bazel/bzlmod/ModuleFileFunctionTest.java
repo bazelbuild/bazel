@@ -152,9 +152,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(
-                        ruleClassProvider,
-                        directories,
-                        new BzlmodRepoRuleHelperImpl()))
+                        ruleClassProvider, directories, new BzlmodRepoRuleHelperImpl()))
                 .buildOrThrow(),
             differencer);
 
@@ -173,6 +171,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
+    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
   }
 
   @Test
@@ -183,13 +182,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "    name='aaa',",
         "    version='0.1',",
         "    compatibility_level=4,",
-        "    toolchains_to_register=['//my:toolchain', '//my:toolchain2'],",
-        "    execution_platforms_to_register=['//my:platform', '//my:platform2'],",
         ")",
         "bazel_dep(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='2.0',repo_name='see')",
-        "register_toolchains('//my:toolchain3', '//my:toolchain4')",
-        "register_execution_platforms('//my:platform3', '//my:platform4')",
+        "register_toolchains('//my:toolchain', '//my:toolchain2')",
+        "register_execution_platforms('//my:platform', '//my:platform2')",
         "single_version_override(module_name='ddd',version='18')",
         "local_path_override(module_name='eee',path='somewhere/else')",
         "multiple_version_override(module_name='fff',versions=['1.0','2.0'])",
@@ -209,17 +206,16 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             ModuleBuilder.create("aaa", "0.1", 4)
                 .setKey(ModuleKey.ROOT)
                 .addExecutionPlatformsToRegister(
-                    ImmutableList.of(
-                        "//my:platform", "//my:platform2", "//my:platform3", "//my:platform4"))
-                .addToolchainsToRegister(
-                    ImmutableList.of(
-                        "//my:toolchain", "//my:toolchain2", "//my:toolchain3", "//my:toolchain4"))
+                    ImmutableList.of("//my:platform", "//my:platform2"))
+                .addToolchainsToRegister(ImmutableList.of("//my:toolchain", "//my:toolchain2"))
                 .addDep("bbb", createModuleKey("bbb", "1.0"))
                 .addDep("see", createModuleKey("ccc", "2.0"))
                 .build());
     assertThat(rootModuleFileValue.getOverrides())
         .containsExactly(
-            "ddd", SingleVersionOverride.create(Version.parse("18"), "", ImmutableList.of(), 0),
+            "ddd",
+                SingleVersionOverride.create(
+                    Version.parse("18"), "", ImmutableList.of(), ImmutableList.of(), 0),
             "eee", LocalPathOverride.create("somewhere/else"),
             "fff",
                 MultipleVersionOverride.create(
@@ -227,6 +223,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             "ggg",
                 ArchiveOverride.create(
                     ImmutableList.of("https://hello.com/world.zip"),
+                    ImmutableList.of(),
                     ImmutableList.of(),
                     "",
                     "",
@@ -424,7 +421,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     SkyKey skyKey =
         ModuleFileValue.key(
             createModuleKey("bbb", "1.0"),
-            SingleVersionOverride.create(Version.EMPTY, registry2.getUrl(), ImmutableList.of(), 0));
+            SingleVersionOverride.create(
+                Version.EMPTY, registry2.getUrl(), ImmutableList.of(), ImmutableList.of(), 0));
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {

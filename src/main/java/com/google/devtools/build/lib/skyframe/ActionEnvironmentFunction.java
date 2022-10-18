@@ -24,7 +24,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -85,14 +85,14 @@ public final class ActionEnvironmentFunction implements SkyFunction {
       skyframeKeysBuilder.add(key(key));
     }
     ImmutableList<SkyKey> skyframeKeys = skyframeKeysBuilder.build();
-    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(skyframeKeys);
+    SkyframeLookupResult values = env.getValuesAndExceptions(skyframeKeys);
     if (env.valuesMissing()) {
       return null;
     }
     // To return the initial order and support null values, we use a LinkedHashMap.
     LinkedHashMap<String, String> result = new LinkedHashMap<>();
     for (SkyKey key : skyframeKeys) {
-      ClientEnvironmentValue value = (ClientEnvironmentValue) values.next();
+      ClientEnvironmentValue value = (ClientEnvironmentValue) values.get(key);
       if (value == null) {
         BugReport.sendBugReport(
             new IllegalStateException(

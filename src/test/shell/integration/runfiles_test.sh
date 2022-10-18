@@ -366,5 +366,35 @@ EOF
     || fail "Old foo still found"
 }
 
+# regression test for b/237547165
+function test_fail_on_middleman_in_transitive_runfiles_for_executable() {
+  cat > rule.bzl <<EOF
+def _impl(ctx):
+    exe = ctx.actions.declare_file(ctx.label.name + '.out')
+    ctx.actions.write(exe, "")
+    internal_outputs = ctx.attr.bin[OutputGroupInfo]._hidden_top_level_INTERNAL_
+    runfiles = ctx.runfiles(transitive_files = internal_outputs)
+    return DefaultInfo(runfiles = runfiles, executable = exe)
+bad_runfiles = rule(
+  implementation = _impl,
+  attrs = {"bin" : attr.label()},
+  executable = True,
+)
+EOF
+  cat > BUILD <<EOF
+load(":rule.bzl", "bad_runfiles");
+cc_binary(
+    name = "thing",
+    srcs = ["thing.cc"],
+)
+bad_runfiles(name = "test", bin = ":thing")
+EOF
+  cat > thing.cc <<EOF
+int main() { return 0; }
+EOF
+  bazel build //:test &> $TEST_log && fail "Expected build to fail but it succeeded"
+  expect_log_once "Runfiles must not contain middleman artifacts"
+}
+
 
 run_suite "runfiles"

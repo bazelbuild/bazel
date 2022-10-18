@@ -29,14 +29,15 @@ import java.util.function.Predicate;
  * Reports cycles between Actions and Artifacts. These indicates cycles within a rule.
  */
 public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
-  private static final Predicate<SkyKey> IS_ARTIFACT_OR_ACTION_SKY_KEY =
+  public static final Predicate<SkyKey> ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP =
       Predicates.or(
           SkyFunctions.isSkyFunction(Artifact.ARTIFACT),
           SkyFunctions.isSkyFunction(SkyFunctions.ARTIFACT_NESTED_SET),
           SkyFunctions.isSkyFunction(SkyFunctions.ACTION_EXECUTION),
           SkyFunctions.isSkyFunction(SkyFunctions.TARGET_COMPLETION),
           SkyFunctions.isSkyFunction(SkyFunctions.ASPECT_COMPLETION),
-          SkyFunctions.isSkyFunction(SkyFunctions.TEST_COMPLETION));
+          SkyFunctions.isSkyFunction(SkyFunctions.TEST_COMPLETION),
+          SkyFunctions.isSkyFunction(SkyFunctions.BUILD_DRIVER));
 
   ActionArtifactCycleReporter(PackageProvider packageProvider) {
     super(packageProvider);
@@ -72,6 +73,12 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
   }
 
   @Override
+  protected boolean shouldSkipOnPathToCycle(SkyKey key) {
+    // BuildDriverKeys don't provide any relevant info for the end user.
+    return SkyFunctions.BUILD_DRIVER.equals(key.functionName());
+  }
+
+  @Override
   protected Label getLabel(SkyKey key) {
     Object arg = key.argument();
     if (arg instanceof Artifact) {
@@ -90,8 +97,8 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
 
   @Override
   protected boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
-    return IS_ARTIFACT_OR_ACTION_SKY_KEY.test(topLevelKey)
-        && cycleInfo.getCycle().stream().allMatch(IS_ARTIFACT_OR_ACTION_SKY_KEY);
+    return ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP.test(topLevelKey)
+        && cycleInfo.getCycle().stream().allMatch(ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP);
   }
 
   @Override

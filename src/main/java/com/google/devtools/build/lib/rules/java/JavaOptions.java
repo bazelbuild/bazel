@@ -195,7 +195,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_inmemory_jdeps_files",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
@@ -452,16 +452,6 @@ public class JavaOptions extends FragmentOptions {
   public boolean enforceOneVersionOnJavaTests;
 
   @Option(
-      name = "experimental_one_version_enforcement_validation_action",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "When enabled, and with experimental_one_version_enforcement set to a non-NONE value,"
-              + " enforce one version using validation actions.")
-  public boolean enforceOneVersionValidationAction;
-
-  @Option(
       name = "experimental_allow_runtime_deps_on_neverlink",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -579,6 +569,7 @@ public class JavaOptions extends FragmentOptions {
       help = "The Java language version used to execute the tools that are needed during a build")
   public String hostJavaLanguageVersion;
 
+  @Deprecated
   @Option(
       name = "incompatible_dont_collect_native_libraries_in_data",
       defaultValue = "false",
@@ -614,6 +605,15 @@ public class JavaOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "When enabled, java_import.exports is not supported.")
   public boolean disallowJavaImportExports;
+
+  @Option(
+      name = "incompatible_disallow_java_import_empty_jars",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "When enabled, empty java_import.jars is not supported.")
+  public boolean disallowJavaImportEmptyJars;
 
   @Option(
       name = "experimental_enable_jspecify",
@@ -655,7 +655,6 @@ public class JavaOptions extends FragmentOptions {
     host.importDepsCheckingLevel = importDepsCheckingLevel;
     // java_test targets can be used as a host tool, Ex: as a validating tool on a genrule.
     host.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
-    host.enforceOneVersionValidationAction = enforceOneVersionValidationAction;
     host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
     host.addTestSupportToCompileTimeDeps = addTestSupportToCompileTimeDeps;
 
@@ -687,6 +686,8 @@ public class JavaOptions extends FragmentOptions {
     host.multiReleaseDeployJars = multiReleaseDeployJars;
 
     host.disallowJavaImportExports = disallowJavaImportExports;
+
+    host.disallowJavaImportEmptyJars = disallowJavaImportEmptyJars;
 
     return host;
   }

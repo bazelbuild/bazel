@@ -141,6 +141,9 @@ public class LocalSpawnRunner implements SpawnRunner {
         spawn.getEnvironment(),
         context.getFileOutErr(),
         xattrProvider);
+    if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
+      context.prefetchInputsAndWait();
+    }
     spawnMetrics.addSetupTime(setupTimeStopwatch.elapsed());
 
     try (SilentCloseable c =
@@ -349,12 +352,6 @@ public class LocalSpawnRunner implements SpawnRunner {
                 makeFailureDetail(LOCAL_EXEC_ERROR, Status.EXECUTION_DENIED, actionType))
             .setSpawnMetrics(spawnMetrics.build())
             .build();
-      }
-
-      if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
-        stepLog(INFO, "prefetching inputs for local execution");
-        setState(State.PREFETCHING_LOCAL_INPUTS);
-        context.prefetchInputsAndWait();
       }
 
       spawnMetrics.setInputFiles(spawn.getInputFiles().memoizedFlattenAndGetSize());

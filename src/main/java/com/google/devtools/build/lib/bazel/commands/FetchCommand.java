@@ -17,6 +17,10 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -38,6 +42,7 @@ import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.FetchCommand.Code;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -72,14 +77,26 @@ public final class FetchCommand implements BlazeCommand {
       return createFailedBlazeCommandResult(Code.EXPRESSION_MISSING, errorMessage);
     }
 
+    LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
+    boolean keepGoing = options.getOptions(KeepGoingOption.class).keepGoing;
+
+    TargetPattern.Parser mainRepoTargetParser;
+
     try {
       env.syncPackageLoading(options);
+      RepositoryMapping repoMapping =
+          env.getSkyframeExecutor()
+              .getMainRepoMapping(keepGoing, threadsOption.threads, env.getReporter());
+      mainRepoTargetParser =
+          new Parser(env.getRelativeWorkingDirectory(), RepositoryName.MAIN, repoMapping);
+    } catch (RepositoryMappingResolutionException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
     } catch (InterruptedException e) {
       String errorMessage = "Fetch interrupted: " + e.getMessage();
       env.getReporter().handle(Event.error(errorMessage));
       return BlazeCommandResult.detailedExitCode(
           InterruptedFailureDetails.detailedExitCode(errorMessage));
-
     } catch (AbruptExitException e) {
       env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
@@ -95,22 +112,22 @@ public final class FetchCommand implements BlazeCommand {
     // Querying for all of the dependencies of the targets has the side-effect of populating the
     // Skyframe graph for external targets, which requires downloading them. The JDK is required to
     // build everything but isn't counted as a dep in the build graph so we add it manually.
-    ImmutableList.Builder<String> labelsToLoad = new ImmutableList.Builder<String>()
-        .addAll(options.getResidue());
+    ImmutableList.Builder<String> labelsToLoad =
+        new ImmutableList.Builder<String>().addAll(options.getResidue());
 
     String query = Joiner.on(" union ").join(labelsToLoad.build());
     query = "deps(" + query + ")";
 
-    LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
     AbstractBlazeQueryEnvironment<Target> queryEnv =
         QueryCommand.newQueryEnvironment(
             env,
-            options.getOptions(KeepGoingOption.class).keepGoing,
+            keepGoing,
             false,
             UniverseScope.EMPTY,
             threadsOption.threads,
             EnumSet.noneOf(Setting.class),
-            /* useGraphlessQuery= */ true);
+            /* useGraphlessQuery= */ true,
+            mainRepoTargetParser);
 
     // 1. Parse query:
     QueryExpression expr;

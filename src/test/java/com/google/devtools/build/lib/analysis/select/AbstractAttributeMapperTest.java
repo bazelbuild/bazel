@@ -113,8 +113,7 @@ public class AbstractAttributeMapperTest extends BuildViewTestCase {
   protected static List<String> getLabelsForAttribute(
       AttributeMap attributeMap, String attributeName) throws InterruptedException {
     List<String> labels = new ArrayList<>();
-    attributeMap.visitLabels(
-        attributeMap.getAttributeDefinition(attributeName), label -> labels.add(label.toString()));
+    attributeMap.visitLabels(attributeName, label -> labels.add(label.toString()));
     return labels;
   }
 }

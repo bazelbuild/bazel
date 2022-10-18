@@ -258,14 +258,6 @@ def _impl(ctx):
                         ],
                     ),
                     flag_group(
-                        flags = ["-framework", "%{framework_names}"],
-                        iterate_over = "framework_names",
-                    ),
-                    flag_group(
-                        flags = ["-weak_framework", "%{weak_framework_names}"],
-                        iterate_over = "weak_framework_names",
-                    ),
-                    flag_group(
                         flags = ["-l%{library_names}"],
                         iterate_over = "library_names",
                     ),
@@ -527,14 +519,6 @@ def _impl(ctx):
                 flag_groups = [
                     flag_group(flags = ["-target", target_system_name]),
                     flag_group(
-                        flags = ["-framework", "%{framework_names}"],
-                        iterate_over = "framework_names",
-                    ),
-                    flag_group(
-                        flags = ["-weak_framework", "%{weak_framework_names}"],
-                        iterate_over = "weak_framework_names",
-                    ),
-                    flag_group(
                         flags = ["-l%{library_names}"],
                         iterate_over = "library_names",
                     ),
@@ -793,7 +777,10 @@ def _impl(ctx):
                 flag_groups = [
                     flag_group(
                         flags = [
-                            "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}",
+                            "-Xlinker",
+                            "-rpath",
+                            "-Xlinker",
+                            "@loader_path/%{runtime_library_search_directories}",
                         ],
                         iterate_over = "runtime_library_search_directories",
                         expand_if_available = "runtime_library_search_directories",
@@ -1161,6 +1148,28 @@ def _impl(ctx):
             ],
         )
 
+    no_deduplicate_feature = feature(
+        name = "no_deduplicate",
+        enabled = True,
+        flag_sets = [
+            flag_set(
+                actions = all_link_actions +
+                          ["objc-executable", "objc++-executable"],
+                flag_groups = [
+                    flag_group(
+                        flags = [
+                            "-Xlinker",
+                            "-no_deduplicate",
+                        ],
+                    ),
+                ],
+                with_features = [
+                    with_feature_set(not_features = ["opt"]),
+                ],
+            ),
+        ],
+    )
+
     output_execpath_flags_feature = feature(
         name = "output_execpath_flags",
         flag_sets = [
@@ -1225,6 +1234,14 @@ def _impl(ctx):
                     flag_group(
                         flags = ["-F%{framework_paths}"],
                         iterate_over = "framework_paths",
+                    ),
+                    flag_group(
+                        flags = ["-framework", "%{framework_names}"],
+                        iterate_over = "framework_names",
+                    ),
+                    flag_group(
+                        flags = ["-weak_framework", "%{weak_framework_names}"],
+                        iterate_over = "weak_framework_names",
                     ),
                 ],
             ),
@@ -2748,6 +2765,7 @@ def _impl(ctx):
             relative_ast_path_feature,
             user_link_flags_feature,
             default_link_flags_feature,
+            no_deduplicate_feature,
             dead_strip_feature,
             cpp_linker_flags_feature,
             apply_implicit_frameworks_feature,
@@ -2829,6 +2847,7 @@ def _impl(ctx):
             relative_ast_path_feature,
             user_link_flags_feature,
             default_link_flags_feature,
+            no_deduplicate_feature,
             dead_strip_feature,
             cpp_linker_flags_feature,
             apply_implicit_frameworks_feature,
@@ -2898,7 +2917,7 @@ def _impl(ctx):
             target_system_name = target_system_name,
             target_cpu = ctx.attr.cpu,
             target_libc = target_libc,
-            compiler = "compiler",
+            compiler = ctx.attr.compiler,
             abi_version = abi_version,
             abi_libc_version = abi_libc_version,
             tool_paths = [tool_path(name = name, path = path) for (name, path) in tool_paths.items()],

@@ -87,7 +87,7 @@ public abstract class ActionInputPrefetcherTestBase {
     byte[] contentsBytes = contents.getBytes(UTF_8);
     HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contentsBytes);
     FileArtifactValue f =
-        new RemoteFileArtifactValue(
+        RemoteFileArtifactValue.create(
             hashCode.asBytes(), contentsBytes.length, /* locationIndex= */ 1, "action-id");
     metadata.put(a, f);
     cas.put(hashCode, contentsBytes);
@@ -377,7 +377,7 @@ public abstract class ActionInputPrefetcherTestBase {
     doAnswer(
             invocation -> {
               Path path = invocation.getArgument(0);
-              FileArtifactValue metadata = invocation.getArgument(1);
+              FileArtifactValue metadata = invocation.getArgument(2);
               byte[] content = cas.get(HashCode.fromBytes(metadata.getDigest()));
               if (content == null) {
                 return Futures.immediateFailedFuture(new IOException("Not found"));
@@ -386,7 +386,7 @@ public abstract class ActionInputPrefetcherTestBase {
               return resultSupplier.get();
             })
         .when(prefetcher)
-        .doDownloadFile(any(), any());
+        .doDownloadFile(any(), any(), any(), any());
   }
 
   private void assertReadableNonWritableAndExecutable(Path path) throws IOException {

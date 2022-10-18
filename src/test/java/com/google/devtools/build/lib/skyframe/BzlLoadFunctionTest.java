@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
@@ -86,9 +87,9 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
             packageOptions,
             Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
-            ImmutableMap.<String, String>of(),
+            ImmutableMap.of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
-    skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
+    skyframeExecutor.setActionEnv(ImmutableMap.of());
   }
 
   @Override
@@ -105,7 +106,11 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(
-            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
+            BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR));
   }
 
   @Before
@@ -596,6 +601,75 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBzlVisibility_emptyListMeansPrivate() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl", //
+        "visibility([])",
+        "x = 1");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//a:foo.bzl", "module //a:foo.bzl contains .bzl load-visibility violations");
+    assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a.");
+  }
+
+  @Test
+  public void testBzlVisibility_publicListElement() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl", //
+        // Tests "public" as a list item, and alongside other list items.
+        "visibility([\"public\", \"//c\"])",
+        "x = 1");
+
+    checkSuccessfulLookup("//a:foo.bzl");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testBzlVisibility_privateListElement() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+
+    scratch.file("a1/BUILD");
+    scratch.file(
+        "a1/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("a2/BUILD");
+    scratch.file(
+        "a2/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl", //
+        // Tests "private" as a list item, and alongside other list items.
+        "visibility([\"private\", \"//a1\"])",
+        "x = 1");
+
+    checkSuccessfulLookup("//a1:foo.bzl");
+    assertNoEvents();
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//a2:foo.bzl", "module //a2:foo.bzl contains .bzl load-visibility violations");
+    assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a2.");
+  }
+
+  @Test
   public void testBzlVisibility_failureInDependency() throws Exception {
     setBuildLanguageOptions(
         "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
@@ -624,36 +698,20 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testBzlVisibility_setNonlocally() throws Exception {
+  public void testBzlVisibility_cannotBeSetInFunction() throws Exception {
     setBuildLanguageOptions(
         "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
 
-    // Checks a case where visibility() is called in a different package than the module that is
-    // actually being initialized. (This is bad style in practice, but it's semantically simpler to
-    // allow it than to go out of our way to ban it.)
     scratch.file("a/BUILD");
     scratch.file(
         "a/foo.bzl", //
-        "load(\"//b:bar.bzl\", \"x\")");
-    scratch.file("b/BUILD");
-    scratch.file(
-        "b/bar.bzl", //
-        "load(\"//c:helper.bzl\", \"helper\")",
-        "helper()",
-        "x = 1");
-    scratch.file("c/BUILD");
-    scratch.file(
-        "c/helper.bzl", //
-        // Should have a visibility("public") call here, but let's omit it and rely on the default
-        // being public. That way we can also test that c need not be in the allowlist just to call
-        // visibility() on behalf of b.
         "def helper():",
-        "    visibility(\"private\")");
+        "    visibility(\"public\")",
+        "helper()");
 
     reporter.removeHandler(failFastHandler);
-    checkFailingLookup(
-        "//a:foo.bzl", "module //a:foo.bzl contains .bzl load-visibility violations");
-    assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a.");
+    checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
+    assertContainsEvent(".bzl visibility may only be set at the top level");
   }
 
   @Test
@@ -701,6 +759,35 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBzlVisibility_singleEnumeratedPackageAsString() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+
+    scratch.file("a1/BUILD");
+    scratch.file(
+        "a1/foo1.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("a2/BUILD");
+    scratch.file(
+        "a2/foo2.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl", //
+        // Note: "//a1", not ["//a1"]
+        "visibility(\"//a1\")",
+        "x = 1");
+
+    checkSuccessfulLookup("//a1:foo1.bzl");
+    assertNoEvents();
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//a2:foo2.bzl", "module //a2:foo2.bzl contains .bzl load-visibility violations");
+    assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a2.");
+  }
+
+  @Test
   public void testBzlVisibility_enumeratedPackagesMultipleRepos() throws Exception {
     setBuildLanguageOptions(
         "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
@@ -736,6 +823,65 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "//pkg:foo2.bzl", "module //pkg:foo2.bzl contains .bzl load-visibility violations");
     assertContainsEvent(
         "Starlark file @repo//lib:bar.bzl is not visible for loading from package //pkg.");
+  }
+
+  // TODO(#16365): This test case can be deleted once --incompatible_package_group_has_public_syntax
+  // is deleted (not just flipped).
+  @Test
+  public void testBzlVisibility_canUsePublicPrivate_regardlessOfFlag() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true",
+        "--experimental_bzl_visibility_allowlist=everyone",
+        // Test that we can use "public" and "private" visibility for .bzl files even when the
+        // incompatible flag is disabled.
+        "--incompatible_package_group_has_public_syntax=false");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo1.bzl", //
+        "visibility(\"public\")");
+    scratch.file(
+        "a/foo2.bzl", //
+        "visibility(\"private\")");
+
+    checkSuccessfulLookup("//a:foo1.bzl");
+    checkSuccessfulLookup("//a:foo2.bzl");
+    assertNoEvents();
+  }
+
+  // TODO(#16324): Once --incompatible_fix_package_group_reporoot_syntax is deleted (not just
+  // flipped), this test case will be redundant with tests for //... in PackageGroupTest. At that
+  // point we'll just delete this test case.
+  @Test
+  public void testBzlVisibility_repoRootSubpackagesIsNotPublic_regardlessOfFlag() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true",
+        "--experimental_bzl_visibility_allowlist=everyone",
+        // Test that we get the fixed behavior even when the incompatible flag is disabled.
+        "--incompatible_fix_package_group_reporoot_syntax=false");
+
+    scratch.overwriteFile(
+        "WORKSPACE", //
+        "local_repository(",
+        "    name = 'repo',",
+        "    path = 'repo'",
+        ")");
+    scratch.file("repo/WORKSPACE");
+    scratch.file("repo/a/BUILD");
+    scratch.file(
+        "repo/a/foo.bzl", //
+        "load(\"@//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl", //
+        "visibility([\"//...\"])",
+        "x = 1");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "@repo//a:foo.bzl", "module @repo//a:foo.bzl contains .bzl load-visibility violations");
+    assertContainsEvent(
+        "Starlark file //b:bar.bzl is not visible for loading from package @repo//a.");
   }
 
   @Test
@@ -806,9 +952,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
-    assertContainsEvent(
-        "Invalid bzl-visibility: got 'int', want \"public\", \"private\", or list of package"
-            + " specification strings");
+    assertContainsEvent("Invalid bzl-visibility: got 'int', want string or list of strings");
   }
 
   @Test
@@ -823,7 +967,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
-    assertContainsEvent("at index 0 of visibility list, got element of type int, want string");
+    assertContainsEvent("at index 1 of visibility list, got element of type int, want string");
   }
 
   @Test
@@ -839,6 +983,43 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
     assertContainsEvent("invalid package name '@repo//b': must start with '//'");
+  }
+
+  @Test
+  public void testBzlVisibility_invalid_negationNotSupported() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "visibility([\"-//a\"])");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
+    assertContainsEvent("Cannot use negative package patterns here");
+  }
+
+  @Test
+  public void testBzlVisibility_errorsDemotedToWarningWhenBreakGlassFlagIsSet() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true",
+        "--experimental_bzl_visibility_allowlist=everyone",
+        "--check_bzl_visibility=false");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl", //
+        "visibility(\"private\")",
+        "x = 1");
+
+    checkSuccessfulLookup("//a:foo.bzl");
+    assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a.");
+    assertContainsEvent("Continuing because --nocheck_bzl_visibility is active");
   }
 
   @Test

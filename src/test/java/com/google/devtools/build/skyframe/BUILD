@@ -19,8 +19,11 @@ TESTUTIL_FILES = [
     "TrackingAwaiter.java",
     "GraphTester.java",
     "GenericFunctionException.java",
+    "SimpleSkyframeIterableResult.java",
+    "SimpleSkyframeLookupResult.java",
     "SomeErrorException.java",
     "TrackingProgressReceiver.java",
+    "ValueOrUntypedException.java",
     "WalkableGraphUtils.java",
     # Truth Subject, SubjectFactory, and Graph files.
 ] + glob(["*Subject.java"]) + glob(["*SubjectFactory.java"]) + glob(["*Graph.java"]) + glob(["*Helper.java"])

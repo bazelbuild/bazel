@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -114,6 +115,12 @@ import net.starlark.java.eval.Tuple;
  * (such attempts will result in {@link EvalException}s).
  */
 public final class StarlarkRuleContext implements StarlarkRuleContextApi<ConstraintValueInfo> {
+
+  private static final ImmutableSet<PackageIdentifier> PRIVATE_STARLARKIFICATION_ALLOWLIST =
+      ImmutableSet.of(
+          PackageIdentifier.createInMainRepo("test"), // for tests
+          PackageIdentifier.createInMainRepo("tools/build_defs/android/dev"),
+          PackageIdentifier.createInMainRepo("tools/build_defs/android/release/blaze"));
 
   public static final String EXECUTABLE_OUTPUT_NAME = "executable";
 
@@ -925,11 +932,11 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     }
   }
 
-  private static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
+  static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
     Label label =
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();
-    if (!"test".equals(label.getPackageName()) // for tests
+    if (!PRIVATE_STARLARKIFICATION_ALLOWLIST.contains(label.getPackageIdentifier())
         && !label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
       throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
@@ -957,8 +964,11 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     }
     if (!files.isEmpty()) {
       Sequence<Artifact> artifacts = Sequence.cast(files, Artifact.class, "files");
-      checkForMiddlemanArtifacts(artifacts);
-      builder.addArtifacts(artifacts);
+      try {
+        builder.addArtifacts(artifacts);
+      } catch (IllegalArgumentException e) {
+        throw Starlark.errorf("could not add all 'files': %s", e.getMessage());
+      }
     }
     if (transitiveFiles != Starlark.NONE) {
       NestedSet<Artifact> transitiveArtifacts =
@@ -970,7 +980,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
             "order '%s' is invalid for transitive_files",
             transitiveArtifacts.getOrder().getStarlarkName());
       }
-      checkForMiddlemanArtifacts(transitiveArtifacts.toList());
       builder.addTransitiveArtifacts(transitiveArtifacts);
     }
     if (isDepset(symlinks)) {
@@ -997,16 +1006,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       runfiles.setConflictPolicy(Runfiles.ConflictPolicy.ERROR);
     }
     return runfiles;
-  }
-
-  private void checkForMiddlemanArtifacts(Iterable<Artifact> artifacts) throws EvalException {
-    for (Artifact artifact : artifacts) {
-      if (artifact.isMiddlemanArtifact()) {
-        throw Starlark.errorf(
-            "Middleman artifacts are forbidden here. Artifact: %s, owner: %s",
-            artifact, artifact.getOwner());
-      }
-    }
   }
 
   private static boolean isNonEmptyDict(Object o) {

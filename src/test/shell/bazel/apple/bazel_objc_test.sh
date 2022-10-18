@@ -53,6 +53,7 @@ function test_build_app() {
   make_lib
 
   bazel build --verbose_failures --apple_platform_type=ios \
+      --noincompatible_enable_cc_toolchain_resolution \
       --ios_sdk_version=$IOS_SDK_VERSION \
       //ios:lib >$TEST_log 2>&1 || fail "should pass"
   ls bazel-out/*/bin/ios/liblib.a \
@@ -153,6 +154,7 @@ objc_library(name = 'main',
 EOF
 
   bazel build --verbose_failures \
+      --noincompatible_enable_cc_toolchain_resolution \
       --apple_platform_type=ios \
       --ios_sdk_version=$IOS_SDK_VERSION \
       --objc_enable_binary_stripping=true \

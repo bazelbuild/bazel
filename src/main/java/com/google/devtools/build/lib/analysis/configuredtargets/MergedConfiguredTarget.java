@@ -73,11 +73,17 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     AnalysisUtils.checkProvider(providerClass);
 
     P provider = nonBaseProviders.getProvider(providerClass);
-    if (provider == null) {
-      provider = base.getProvider(providerClass);
+    if (provider != null) {
+      return provider;
     }
-
-    return provider;
+    provider = base.getProvider(providerClass);
+    if (provider != null) {
+      return provider;
+    }
+    if (providerClass.isAssignableFrom(getClass())) {
+      return providerClass.cast(this);
+    }
+    return null;
   }
 
   @Override

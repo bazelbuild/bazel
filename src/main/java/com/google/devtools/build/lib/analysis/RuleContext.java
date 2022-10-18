@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -165,6 +166,7 @@ public final class RuleContext extends TargetContext
   @Nullable private final ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
   private final ExecGroupCollection execGroupCollection;
   @Nullable private final RequiredConfigFragmentsProvider requiredConfigFragments;
+  @Nullable private final NestedSet<Package> transitivePackagesForRunfileRepoMappingManifest;
   private final List<Expander> makeVariableExpanders = new ArrayList<>();
 
   /** Map of exec group names to ActionOwners. */
@@ -222,6 +224,8 @@ public final class RuleContext extends TargetContext
     this.toolchainContexts = builder.toolchainContexts;
     this.execGroupCollection = execGroupCollection;
     this.requiredConfigFragments = builder.requiredConfigFragments;
+    this.transitivePackagesForRunfileRepoMappingManifest =
+        builder.transitivePackagesForRunfileRepoMappingManifest;
     this.starlarkThread = createStarlarkThread(builder.mutability); // uses above state
   }
 
@@ -1285,6 +1289,17 @@ public final class RuleContext extends TargetContext
     return merged == null ? requiredConfigFragments : merged.build();
   }
 
+  /**
+   * Returns the set of transitive packages. This is only intended to be used to create the repo
+   * mapping manifest for the runfiles tree. Can be null if transitive packages are not tracked (see
+   * {@link
+   * com.google.devtools.build.lib.skyframe.SkyframeExecutor#shouldStoreTransitivePackagesInLoadingAndAnalysis}).
+   */
+  @Nullable
+  public NestedSet<Package> getTransitivePackagesForRunfileRepoMappingManifest() {
+    return transitivePackagesForRunfileRepoMappingManifest;
+  }
+
   private boolean isUserDefinedMakeVariable(String makeVariable) {
     // User-defined make values may be set either in "--define foo=bar" or in a vardef in the rule's
     // package. Both are equivalent for these purposes, since in both cases setting
@@ -1651,6 +1666,7 @@ public final class RuleContext extends TargetContext
     private ExecGroupCollection.Builder execGroupCollectionBuilder;
     private ImmutableMap<String, String> rawExecProperties;
     @Nullable private RequiredConfigFragmentsProvider requiredConfigFragments;
+    @Nullable private NestedSet<Package> transitivePackagesForRunfileRepoMappingManifest;
 
     @VisibleForTesting
     public Builder(
@@ -1701,10 +1717,13 @@ public final class RuleContext extends TargetContext
           ConfiguredAttributeMapper.of(
               target.getAssociatedRule(), configConditions.asProviders(), configuration);
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
-      // These checks can fail in BuildViewForTesting.getRuleContextForTesting as it specifies
-      // ConfigConditions.EMPTY, resulting in noMatchError accessing attributes without a default
-      // condition.
-      if (attributeChecks) {
+      // These checks can fail when ConfigConditions.EMPTY are empty, resulting in noMatchError
+      // accessing attributes without a default condition.
+      // ConfigConditions.EMPTY is always true for non-rules:
+      // https://cs.opensource.google/bazel/bazel/+/master:src/main/java/com/google/devtools/build/lib/skyframe/ConfiguredTargetFunction.java;l=943;drc=720dc5fd640de692db129777c7c7c32924627c43
+      // This can happen in BuildViewForTesting.getRuleContextForTesting as it specifies
+      // ConfigConditions.EMPTY.
+      if (attributeChecks && target instanceof Rule) {
         checkAttributesNonEmpty(attributes);
         checkAttributesForDuplicateLabels(attributes);
       }
@@ -1712,11 +1731,37 @@ public final class RuleContext extends TargetContext
       // --config_setting_visibility_policy. This should be removed as soon as it's deemed safe
       // to unconditionally check visibility. See
       // https://github.com/bazelbuild/bazel/issues/12669.
-      if (target.getPackage().getConfigSettingVisibilityPolicy()
-          != ConfigSettingVisibilityPolicy.LEGACY_OFF) {
+      ConfigSettingVisibilityPolicy configSettingVisibilityPolicy =
+          target.getPackage().getConfigSettingVisibilityPolicy();
+      if (configSettingVisibilityPolicy != ConfigSettingVisibilityPolicy.LEGACY_OFF) {
         Attribute configSettingAttr = attributes.getAttributeDefinition("$config_dependencies");
         for (ConfiguredTargetAndData condition : configConditions.asConfiguredTargets().values()) {
-          validateDirectPrerequisite(configSettingAttr, condition);
+          validateDirectPrerequisite(
+              configSettingAttr,
+              // Another nuance: when both --incompatible_enforce_config_setting_visibility and
+              // --incompatible_config_setting_private_default_visibility are disabled, both of
+              // these are ignored:
+              //
+              //  - visibility settings on a select() -> config_setting dep
+              //  - visibility settings on a select() -> alias -> config_setting dep chain
+              //
+              // In that scenario, both are ignored because the logic here that checks the
+              // select() -> ??? edge is completely skipped.
+              //
+              // When just --incompatible_enforce_config_setting_visibility is on, that means
+              // "enforce config_setting visibility with public default". That's a temporary state
+              // to support depot migration. In that case, we continue to ignore the alias'
+              // visibility in preference for the config_setting. So skip select() -> alias as
+              // before, but now enforce select() -> config_setting_the_alias_refers_to.
+              //
+              // When we also turn on --incompatible_config_setting_private_default_visibility, we
+              // expect full standard visibility compliance. In that case we directly evaluate the
+              // alias visibility, as is usual semantics. So two the following two edges are
+              // checked: 1: select() -> alias and 2: alias -> config_setting.
+              configSettingVisibilityPolicy == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC
+                  ? condition.fromConfiguredTargetNoCheck(
+                      condition.getConfiguredTarget().getActual())
+                  : condition);
         }
       }
 
@@ -1877,6 +1922,12 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setTransitivePackagesForRunfileRepoMappingManifest(
+        @Nullable NestedSet<Package> packages) {
+      this.transitivePackagesForRunfileRepoMappingManifest = packages;
+      return this;
+    }
 
     /** Determines and returns a map from attribute name to list of configured targets. */
     private ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> createTargetMap() {

@@ -24,6 +24,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:gson",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party/grpc-java:grpc-jar",
         "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_grpc",
         "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_proto",

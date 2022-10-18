@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.profiler.NetworkMetricsCollector.SystemNetworkUsages;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.worker.WorkerMetric;
@@ -33,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 
 /** Thread to collect local resource usage data and log into JSON profile. */
 public class CollectLocalResourceUsage extends Thread {
+
   // TODO(twerth): Make these configurable.
   private static final Duration BUCKET_DURATION = Duration.ofSeconds(1);
   private static final Duration LOCAL_RESOURCES_COLLECT_SLEEP_INTERVAL = Duration.ofMillis(200);
@@ -40,6 +42,7 @@ public class CollectLocalResourceUsage extends Thread {
   private final BugReporter bugReporter;
   private final boolean collectWorkerDataInProfiler;
   private final boolean collectLoadAverage;
+  private final boolean collectSystemNetworkUsage;
 
   private volatile boolean stopLocalUsageCollection;
   private volatile boolean profilingStarted;
@@ -62,6 +65,12 @@ public class CollectLocalResourceUsage extends Thread {
   @GuardedBy("this")
   private TimeSeries systemLoadAverage;
 
+  @GuardedBy("this")
+  private TimeSeries systemNetworkUpUsage;
+
+  @GuardedBy("this")
+  private TimeSeries systemNetworkDownUsage;
+
   private Stopwatch stopwatch;
 
   private final WorkerMetricsCollector workerMetricsCollector;
@@ -70,11 +79,13 @@ public class CollectLocalResourceUsage extends Thread {
       BugReporter bugReporter,
       WorkerMetricsCollector workerMetricsCollector,
       boolean collectWorkerDataInProfiler,
-      boolean collectLoadAverage) {
+      boolean collectLoadAverage,
+      boolean collectSystemNetworkUsage) {
     this.bugReporter = checkNotNull(bugReporter);
     this.collectWorkerDataInProfiler = collectWorkerDataInProfiler;
     this.workerMetricsCollector = workerMetricsCollector;
     this.collectLoadAverage = collectLoadAverage;
+    this.collectSystemNetworkUsage = collectSystemNetworkUsage;
   }
 
   @Override
@@ -101,6 +112,14 @@ public class CollectLocalResourceUsage extends Thread {
       }
       if (collectLoadAverage) {
         systemLoadAverage =
+            new TimeSeries(
+                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+      }
+      if (collectSystemNetworkUsage) {
+        systemNetworkUpUsage =
+            new TimeSeries(
+                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+        systemNetworkDownUsage =
             new TimeSeries(
                 /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
       }
@@ -171,6 +190,13 @@ public class CollectLocalResourceUsage extends Thread {
 
       double deltaNanos = nextElapsed.minus(previousElapsed).toNanos();
       double cpuLevel = (nextCpuTimeNanos - previousCpuTimeNanos) / deltaNanos;
+
+      SystemNetworkUsages systemNetworkUsages = null;
+      if (collectSystemNetworkUsage) {
+        systemNetworkUsages =
+            NetworkMetricsCollector.instance().collectSystemNetworkUsages(deltaNanos);
+      }
+
       synchronized (this) {
         if (localCpuUsage != null) {
           localCpuUsage.addRange(previousElapsed.toMillis(), nextElapsed.toMillis(), cpuLevel);
@@ -191,9 +217,19 @@ public class CollectLocalResourceUsage extends Thread {
           workersMemoryUsage.addRange(
               previousElapsed.toMillis(), nextElapsed.toMillis(), workerMemoryUsageMb);
         }
-        if (collectLoadAverage && loadAverage > 0) {
+        if (collectLoadAverage && (systemLoadAverage != null) && loadAverage > 0) {
           systemLoadAverage.addRange(
               previousElapsed.toMillis(), nextElapsed.toMillis(), loadAverage);
+        }
+        if (systemNetworkUsages != null) {
+          systemNetworkUpUsage.addRange(
+              previousElapsed.toMillis(),
+              nextElapsed.toMillis(),
+              systemNetworkUsages.megabitsSentPerSec());
+          systemNetworkDownUsage.addRange(
+              previousElapsed.toMillis(),
+              nextElapsed.toMillis(),
+              systemNetworkUsages.megabitsRecvPerSec());
         }
       }
       previousElapsed = nextElapsed;
@@ -243,6 +279,23 @@ public class CollectLocalResourceUsage extends Thread {
           profiler, systemLoadAverage, ProfilerTask.SYSTEM_LOAD_AVERAGE, startTimeNanos, len);
     }
     systemLoadAverage = null;
+
+    if (collectSystemNetworkUsage) {
+      logCollectedData(
+          profiler,
+          systemNetworkUpUsage,
+          ProfilerTask.SYSTEM_NETWORK_UP_USAGE,
+          startTimeNanos,
+          len);
+      logCollectedData(
+          profiler,
+          systemNetworkDownUsage,
+          ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE,
+          startTimeNanos,
+          len);
+    }
+    systemNetworkUpUsage = null;
+    systemNetworkDownUsage = null;
   }
 
   private static void logCollectedData(

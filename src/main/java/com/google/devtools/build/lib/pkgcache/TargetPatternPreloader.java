@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.Map;
 
@@ -49,7 +49,7 @@ public interface TargetPatternPreloader {
    */
   Map<String, Collection<Target>> preloadTargetPatterns(
       ExtendedEventHandler eventHandler,
-      PathFragment relativeWorkingDirectory,
+      TargetPattern.Parser mainRepoTargetParser,
       Collection<String> patterns,
       boolean keepGoing)
       throws TargetParsingException, InterruptedException;

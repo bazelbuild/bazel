@@ -665,8 +665,14 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = [
         "netty_tcnative/netty-tcnative-classes-2.0.51.Final.jar",
-        ":netty_tcnative/netty-tcnative-filtered.jar",
-    ],
+    ] + select({
+        "//src/conditions:darwin_arm64": [":netty_tcnative/netty-tcnative-filtered.jar"],
+        "//src/conditions:darwin_x86_64": [":netty_tcnative/netty-tcnative-filtered.jar"],
+        "//src/conditions:linux_aarch64": [":netty_tcnative/netty-tcnative-filtered.jar"],
+        "//src/conditions:linux_x86_64": [":netty_tcnative/netty-tcnative-filtered.jar"],
+        "//src/conditions:windows": [":netty_tcnative/netty-tcnative-filtered.jar"],
+        "//conditions:default": [],
+    }),
 )
 
 distrib_java_import(

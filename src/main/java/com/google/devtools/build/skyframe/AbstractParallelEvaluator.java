@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
-import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.NodeState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
@@ -356,7 +355,7 @@ abstract class AbstractParallelEvaluator {
         // its reverse dep on this node removed. Failing to do either one of these would result in
         // a graph inconsistency, where the child had a reverse dep on this node, but this node
         // had no kind of dependency on the child.
-        List<SkyKey> directDepsToCheck = nodeEntry.getNextDirtyDirectDeps();
+        ImmutableList<SkyKey> directDepsToCheck = nodeEntry.getNextDirtyDirectDeps();
 
         if (invalidatedByErrorTransience(directDepsToCheck, nodeEntry)) {
           // If this dep is the ErrorTransienceValue and the ErrorTransienceValue has been
@@ -389,7 +388,7 @@ abstract class AbstractParallelEvaluator {
             }
             // This child has an error. We add a dep from this node to it and throw an exception
             // coming from it.
-            nodeEntry.addTemporaryDirectDeps(GroupedListHelper.create(keyToCheck));
+            nodeEntry.addSingletonTemporaryDirectDep(keyToCheck);
             nodeEntryToCheck.checkIfDoneForDirtyReverseDep(skyKey);
             // Perform the necessary bookkeeping for any deps that are not being used.
             for (SkyKey depKey : directDepsToCheck) {
@@ -411,7 +410,7 @@ abstract class AbstractParallelEvaluator {
         // in #invalidatedByErrorTransience means that the error transience node is not newer
         // than this node, so we are going to mark it clean (since the error transience node is
         // always the last dep).
-        nodeEntry.addTemporaryDirectDepsGroupToDirtyEntry(directDepsToCheck);
+        nodeEntry.addTemporaryDirectDepGroup(directDepsToCheck);
         DepsReport depsReport = graph.analyzeDepsDoneness(skyKey, directDepsToCheck);
         Collection<SkyKey> unknownStatusDeps =
             depsReport.hasInformation() ? depsReport : directDepsToCheck;
@@ -593,6 +592,15 @@ abstract class AbstractParallelEvaluator {
           // avoiding non-determinism. It's completely reasonable for SkyFunctions to throw eagerly
           // because they do not know if they are in keep-going mode.
           if (!evaluatorContext.keepGoing() || !env.valuesMissing()) {
+            if (maybeHandleRegisteringNewlyDiscoveredDepsForDoneEntry(
+                skyKey, nodeEntry, oldDeps, env, evaluatorContext.keepGoing())) {
+              // A newly requested dep transitioned from done to dirty before this node finished.
+              // It is not safe to set the error because the now-dirty dep has not signaled this
+              // node. We return (without preventing new evaluations) so that the dep can complete
+              // and signal this node.
+              return;
+            }
+
             boolean shouldFailFast =
                 !evaluatorContext.keepGoing() || builderException.isCatastrophic();
             if (shouldFailFast) {
@@ -606,18 +614,6 @@ abstract class AbstractParallelEvaluator {
               } else {
                 logger.atWarning().withCause(builderException).log(
                     "Aborting evaluation while evaluating %s", skyKey);
-              }
-            }
-
-            if (maybeHandleRegisteringNewlyDiscoveredDepsForDoneEntry(
-                skyKey, nodeEntry, oldDeps, env, evaluatorContext.keepGoing())) {
-              // A newly requested dep transitioned from done to dirty before this node finished.
-              // If shouldFailFast is true, this node won't be signalled by any such newly dirtied
-              // dep (because new evaluations have been prevented), and this node is responsible for
-              // throwing the SchedulerException below.
-              // Otherwise, this node will be signalled again, and so we should return.
-              if (!shouldFailFast) {
-                return;
               }
             }
             boolean isTransitivelyTransient =
@@ -657,10 +653,7 @@ abstract class AbstractParallelEvaluator {
           return;
         }
 
-        // Helper objects for all the newly requested deps that weren't known to the environment,
-        // and may contain duplicate elements.
-        GroupedListHelper<SkyKey> newDirectDeps = env.getNewlyRequestedDeps();
-
+        Set<SkyKey> newDeps = env.getNewlyRequestedDeps();
         if (value != null) {
           stateCache.invalidate(skyKey);
 
@@ -669,7 +662,7 @@ abstract class AbstractParallelEvaluator {
               "Evaluation of %s returned non-null value but requested dependencies that weren't "
                   + "computed yet (one of %s), NodeEntry: %s",
               skyKey,
-              newDirectDeps,
+              newDeps,
               nodeEntry);
 
           try {
@@ -704,11 +697,11 @@ abstract class AbstractParallelEvaluator {
                   skyKey,
                   nodeEntry,
                   childErrorKey);
-          if (newDirectDeps.contains(childErrorKey)) {
+          if (newDeps.contains(childErrorKey)) {
             // Add this dep if it was just requested. In certain rare race conditions (see
             // MemoizingEvaluatorTest.cachedErrorCausesRestart) this dep may have already been
             // requested.
-            nodeEntry.addTemporaryDirectDeps(GroupedListHelper.create(childErrorKey));
+            nodeEntry.addSingletonTemporaryDirectDep(childErrorKey);
             DependencyState childErrorState;
             if (oldDeps.contains(childErrorKey)) {
               childErrorState = childErrorEntry.checkIfDoneForDirtyReverseDep(skyKey);
@@ -760,13 +753,13 @@ abstract class AbstractParallelEvaluator {
         // Add all the newly requested dependencies to the temporary direct deps. Note that
         // newDirectDeps does not contain any elements in common with the already existing temporary
         // direct deps. uniqueNewDeps will be the set of unique keys contained in newDirectDeps.
-        Set<SkyKey> uniqueNewDeps = nodeEntry.addTemporaryDirectDeps(newDirectDeps);
+        env.addTemporaryDirectDepsTo(nodeEntry);
 
         List<ListenableFuture<?>> externalDeps = env.externalDeps;
         // If there were no newly requested dependencies, at least one of them was in error or there
         // is a bug in the SkyFunction implementation. The environment has collected its errors, so
         // we just order it to be built.
-        if (uniqueNewDeps.isEmpty() && externalDeps == null) {
+        if (newDeps.isEmpty() && externalDeps == null) {
           // TODO(bazel-team): This means a bug in the SkyFunction. What to do?
           checkState(
               !env.getChildErrorInfos().isEmpty(),
@@ -804,11 +797,11 @@ abstract class AbstractParallelEvaluator {
         Set<SkyKey> newDepsThatWereInTheLastEvaluation;
         if (oldDeps.isEmpty()) {
           // When there are no old deps (clean evaluations), avoid set views which have O(n) size.
-          newDepsThatWerentInTheLastEvaluation = uniqueNewDeps;
+          newDepsThatWerentInTheLastEvaluation = newDeps;
           newDepsThatWereInTheLastEvaluation = ImmutableSet.of();
         } else {
-          newDepsThatWerentInTheLastEvaluation = Sets.difference(uniqueNewDeps, oldDeps);
-          newDepsThatWereInTheLastEvaluation = Sets.intersection(uniqueNewDeps, oldDeps);
+          newDepsThatWerentInTheLastEvaluation = Sets.difference(newDeps, oldDeps);
+          newDepsThatWereInTheLastEvaluation = Sets.intersection(newDeps, oldDeps);
         }
 
         int childEvaluationPriority = determineChildPriority();
@@ -1054,25 +1047,26 @@ abstract class AbstractParallelEvaluator {
       SkyFunctionEnvironment env,
       boolean keepGoing)
       throws InterruptedException {
-    if (env.getNewlyRequestedDeps().isEmpty()) {
-      return false;
-    }
-
     // We don't expect any unfinished deps in a keep-going build.
     if (!keepGoing) {
       env.removeUndoneNewlyRequestedDeps();
     }
 
-    Set<SkyKey> uniqueNewDeps = entry.addTemporaryDirectDeps(env.getNewlyRequestedDeps());
+    Set<SkyKey> newDeps = env.getNewlyRequestedDeps();
+    if (newDeps.isEmpty()) {
+      return false;
+    }
+
+    env.addTemporaryDirectDepsTo(entry);
     Set<SkyKey> newlyAddedNewDeps;
     Set<SkyKey> previouslyRegisteredNewDeps;
     if (oldDeps.isEmpty()) {
       // When there are no old deps (clean evaluations), avoid set views which have O(n) size.
-      newlyAddedNewDeps = uniqueNewDeps;
+      newlyAddedNewDeps = newDeps;
       previouslyRegisteredNewDeps = ImmutableSet.of();
     } else {
-      newlyAddedNewDeps = Sets.difference(uniqueNewDeps, oldDeps);
-      previouslyRegisteredNewDeps = Sets.intersection(uniqueNewDeps, oldDeps);
+      newlyAddedNewDeps = Sets.difference(newDeps, oldDeps);
+      previouslyRegisteredNewDeps = Sets.intersection(newDeps, oldDeps);
     }
 
     InterruptibleSupplier<NodeBatch> newlyAddedNewDepNodes =
@@ -1129,7 +1123,7 @@ abstract class AbstractParallelEvaluator {
     }
 
     checkState(
-        selfSignalled || dirtyDepFound || uniqueNewDeps.isEmpty(),
+        selfSignalled || dirtyDepFound,
         "%s %s %s %s",
         skyKey,
         entry,

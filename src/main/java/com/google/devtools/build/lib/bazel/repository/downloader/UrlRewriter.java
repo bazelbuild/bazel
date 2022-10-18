@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.authandtls.NetrcParser;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -126,9 +125,11 @@ public class UrlRewriter {
    * @param authHeaders A map of the URLs and their corresponding auth tokens.
    * @return A map of the updated authentication headers.
    */
-  public Map<URI, Map<String, String>> updateAuthHeaders(
-      List<RewrittenURL> urls, Map<URI, Map<String, String>> authHeaders, Credentials netrcCreds) {
-    Map<URI, Map<String, String>> updatedAuthHeaders = new HashMap<>(authHeaders);
+  public Map<URI, Map<String, List<String>>> updateAuthHeaders(
+      List<RewrittenURL> urls,
+      Map<URI, Map<String, List<String>>> authHeaders,
+      Credentials netrcCreds) {
+    Map<URI, Map<String, List<String>>> updatedAuthHeaders = new HashMap<>(authHeaders);
 
     for (RewrittenURL url : urls) {
       // if URL was not re-written by UrlRewriter in first place, we should not attach auth headers
@@ -142,7 +143,8 @@ public class UrlRewriter {
         try {
           String token =
               "Basic " + Base64.getEncoder().encodeToString(userInfo.getBytes(ISO_8859_1));
-          updatedAuthHeaders.put(url.url().toURI(), ImmutableMap.of("Authorization", token));
+          updatedAuthHeaders.put(
+              url.url().toURI(), ImmutableMap.of("Authorization", ImmutableList.of(token)));
         } catch (URISyntaxException e) {
           // If the credentials extraction failed, we're letting bazel try without credentials.
         }
@@ -159,7 +161,8 @@ public class UrlRewriter {
           if (firstAuthHeader.getValue() != null && !firstAuthHeader.getValue().isEmpty()) {
             updatedAuthHeaders.put(
                 url.url().toURI(),
-                ImmutableMap.of(firstAuthHeader.getKey(), firstAuthHeader.getValue().get(0)));
+                ImmutableMap.of(
+                    firstAuthHeader.getKey(), ImmutableList.of(firstAuthHeader.getValue().get(0))));
           }
         } catch (URISyntaxException | IOException e) {
           // If the credentials extraction failed, we're letting bazel try without credentials.
@@ -282,7 +285,7 @@ public class UrlRewriter {
   // TODO : consider re-using RemoteModule.newCredentialsFromNetrc
   @Nullable
   public static Credentials newCredentialsFromNetrc(
-      Map<String, String> clientEnv, FileSystem fileSystem) throws UrlRewriterParseException {
+      Map<String, String> clientEnv, Path workingDirectory) throws UrlRewriterParseException {
     final Optional<String> homeDir;
     if (OS.getCurrent() == OS.WINDOWS) {
       homeDir = Optional.ofNullable(clientEnv.get("USERPROFILE"));
@@ -296,8 +299,15 @@ public class UrlRewriter {
       return null;
     }
     Location location = Location.fromFileLineColumn(netrcFileString, 0, 0);
-
-    Path netrcFile = fileSystem.getPath(netrcFileString);
+    // In case Bazel is not started from a valid workspace.
+    if (workingDirectory == null) {
+      return null;
+    }
+    // Using the getRelative() method ensures:
+    //  - If netrcFileString is an absolute path, use as it is.
+    //  - If netrcFileString is a relative path, it's resolved to an absolute path with the current
+    //    working directory.
+    Path netrcFile = workingDirectory.getRelative(netrcFileString);
     if (netrcFile.exists()) {
       try {
         Netrc netrc = NetrcParser.parseAndClose(netrcFile.getInputStream());

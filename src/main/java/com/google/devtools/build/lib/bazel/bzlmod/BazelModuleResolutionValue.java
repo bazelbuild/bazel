@@ -40,7 +40,6 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
       ImmutableMap<ModuleKey, Module> depGraph,
       ImmutableMap<ModuleKey, Module> unprunedDepGraph,
       ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup,
-      ImmutableMap<String, ModuleKey> moduleNameLookup,
       ImmutableList<AbridgedModule> abridgedModules,
       ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesTable,
       ImmutableMap<ModuleExtensionId, String> extensionUniqueNames) {
@@ -48,7 +47,6 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
         depGraph,
         unprunedDepGraph,
         canonicalRepoNameLookup,
-        moduleNameLookup,
         abridgedModules,
         extensionUsagesTable,
         extensionUniqueNames);
@@ -70,12 +68,6 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
 
   /** A mapping from a canonical repo name to the key of the module backing it. */
   public abstract ImmutableMap<RepositoryName, ModuleKey> getCanonicalRepoNameLookup();
-
-  /**
-   * A mapping from a plain module name to the key of the module. Does not include the root module,
-   * or modules with multiple-version overrides.
-   */
-  public abstract ImmutableMap<String, ModuleKey> getModuleNameLookup();
 
   /** All modules in the same order as {@link #getDepGraph}, but with limited information. */
   public abstract ImmutableList<AbridgedModule> getAbridgedModules();

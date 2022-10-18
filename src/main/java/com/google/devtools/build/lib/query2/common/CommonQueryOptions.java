@@ -137,6 +137,17 @@ public class CommonQueryOptions extends OptionsBase {
               + "query: no-op (aspects are always followed).")
   public boolean useAspects;
 
+  @Option(
+      name = "incompatible_package_group_includes_double_slash",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, when outputting package_group's `packages` attribute, the leading `//`"
+              + " will not be omitted.")
+  public boolean incompatiblePackageGroupIncludesDoubleSlash;
+
   /** Return the current options as a set of QueryEnvironment settings. */
   public Set<Setting> toSettings() {
     Set<Setting> settings = EnumSet.noneOf(Setting.class);

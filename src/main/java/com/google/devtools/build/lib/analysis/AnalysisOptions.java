@@ -29,18 +29,6 @@ import com.google.devtools.common.options.OptionsBase;
  */
 public class AnalysisOptions extends OptionsBase {
   @Option(
-    name = "analysis_warnings_as_errors",
-    deprecationWarning =
-        "analysis_warnings_as_errors is now a no-op and will be removed in"
-            + " an upcoming Blaze release",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.NO_OP},
-    help = "Treat visible analysis warnings as errors."
-  )
-  public boolean analysisWarningsAsErrors;
-
-  @Option(
     name = "discard_analysis_cache",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

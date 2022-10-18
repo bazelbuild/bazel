@@ -52,11 +52,19 @@ public class AndroidStarlarkCommon implements AndroidStarlarkCommonApi<Artifact,
    * fixed.
    */
   @Override
-  public JavaInfo enableImplicitSourcelessDepsExportsCompatibility(JavaInfo javaInfo) {
+  public JavaInfo enableImplicitSourcelessDepsExportsCompatibility(
+      JavaInfo javaInfo, boolean neverlink) {
+    JavaCompilationArgsProvider.ClasspathType type =
+        neverlink
+            ? JavaCompilationArgsProvider.ClasspathType.COMPILE_ONLY
+            : JavaCompilationArgsProvider.ClasspathType.BOTH;
     return JavaInfo.Builder.create()
+        .setNeverlink(neverlink)
         .addProvider(
             JavaCompilationArgsProvider.class,
-            javaInfo.getProvider(JavaCompilationArgsProvider.class))
+            JavaCompilationArgsProvider.builder()
+                .addExports(javaInfo.getProvider(JavaCompilationArgsProvider.class), type)
+                .build())
         .build();
   }
 }

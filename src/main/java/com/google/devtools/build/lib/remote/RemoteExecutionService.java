@@ -66,12 +66,9 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -109,12 +106,12 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
-import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
@@ -144,7 +141,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -173,8 +169,6 @@ public class RemoteExecutionService {
 
   private final AtomicBoolean shutdown = new AtomicBoolean(false);
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
-  private final boolean shouldForceDownloads;
-  private final Predicate<String> shouldForceDownloadPredicate;
 
   public RemoteExecutionService(
       Executor executor,
@@ -218,27 +212,6 @@ public class RemoteExecutionService {
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
 
     this.scheduler = Schedulers.from(executor, /*interruptibleWorker=*/ true);
-
-    // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
-    // used without Build without the Bytes.
-    ImmutableList.Builder<Pattern> builder = ImmutableList.builder();
-    if (remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL
-        || remoteOptions.remoteOutputsMode == RemoteOutputsMode.TOPLEVEL) {
-      for (String regex : remoteOptions.remoteDownloadRegex) {
-        builder.add(Pattern.compile(regex));
-      }
-    }
-    ImmutableList<Pattern> patterns = builder.build();
-    this.shouldForceDownloads = !patterns.isEmpty();
-    this.shouldForceDownloadPredicate =
-        path -> {
-          for (Pattern pattern : patterns) {
-            if (pattern.matcher(path).find()) {
-              return true;
-            }
-          }
-          return false;
-        };
   }
 
   static Command buildCommand(
@@ -741,14 +714,6 @@ public class RemoteExecutionService {
 
   private void createSymlinks(Iterable<SymlinkMetadata> symlinks) throws IOException {
     for (SymlinkMetadata symlink : symlinks) {
-      if (symlink.target().isAbsolute()) {
-        // We do not support absolute symlinks as outputs.
-        throw new IOException(
-            String.format(
-                "Action output %s is a symbolic link to an absolute path %s. "
-                    + "Symlinks to absolute paths in action outputs are not supported.",
-                symlink.path(), symlink.target()));
-      }
       Preconditions.checkNotNull(
               symlink.path().getParentDirectory(),
               "Failed creating directory and parents for %s",
@@ -758,55 +723,37 @@ public class RemoteExecutionService {
     }
   }
 
-  private void injectRemoteArtifact(
-      RemoteAction action, ActionInput output, ActionResultMetadata metadata) throws IOException {
+  private void injectRemoteArtifacts(RemoteAction action, ActionResultMetadata metadata)
+      throws IOException {
     FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
     checkState(actionFileSystem instanceof RemoteActionFileSystem);
 
     RemoteActionExecutionContext context = action.getRemoteActionExecutionContext();
     RemoteActionFileSystem remoteActionFileSystem = (RemoteActionFileSystem) actionFileSystem;
 
-    Path path = remotePathResolver.outputPathToLocalPath(output);
-    if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
-      DirectoryMetadata directory = metadata.directory(path);
-      if (directory == null) {
-        // A declared output wasn't created. It might have been an optional output and if not
-        // SkyFrame will make sure to fail.
-        return;
-      }
+    for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+      DirectoryMetadata directory = entry.getValue();
       if (!directory.symlinks().isEmpty()) {
         throw new IOException(
             "Symlinks in action outputs are not yet supported by "
                 + "--experimental_remote_download_outputs=minimal");
       }
-      SpecialArtifact parent = (SpecialArtifact) output;
-      TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
+
       for (FileMetadata file : directory.files()) {
-        TreeFileArtifact child =
-            TreeFileArtifact.createTreeOutput(parent, file.path().relativeTo(parent.getPath()));
-        RemoteFileArtifactValue value =
-            new RemoteFileArtifactValue(
-                DigestUtil.toBinaryDigest(file.digest()),
-                file.digest().getSizeBytes(),
-                /*locationIndex=*/ 1,
-                context.getRequestMetadata().getActionId());
-        tree.putChild(child, value);
+        remoteActionFileSystem.injectRemoteFile(
+            file.path().asFragment(),
+            DigestUtil.toBinaryDigest(file.digest()),
+            file.digest().getSizeBytes(),
+            context.getRequestMetadata().getActionId());
       }
-      remoteActionFileSystem.injectTree(parent, tree.build());
-    } else {
-      FileMetadata outputMetadata = metadata.file(path);
-      if (outputMetadata == null) {
-        // A declared output wasn't created. It might have been an optional output and if not
-        // SkyFrame will make sure to fail.
-        return;
-      }
-      remoteActionFileSystem.injectFile(
-          output,
-          new RemoteFileArtifactValue(
-              DigestUtil.toBinaryDigest(outputMetadata.digest()),
-              outputMetadata.digest().getSizeBytes(),
-              /*locationIndex=*/ 1,
-              context.getRequestMetadata().getActionId()));
+    }
+
+    for (FileMetadata file : metadata.files()) {
+      remoteActionFileSystem.injectRemoteFile(
+          file.path().asFragment(),
+          DigestUtil.toBinaryDigest(file.digest()),
+          file.digest().getSizeBytes(),
+          context.getRequestMetadata().getActionId());
     }
   }
 
@@ -1033,8 +980,6 @@ public class RemoteExecutionService {
             /* exitCode = */ result.getExitCode(),
             hasFilesToDownload(action.getSpawn().getOutputFiles(), filesToDownload));
 
-    ImmutableList<ListenableFuture<FileMetadata>> forcedDownloads = ImmutableList.of();
-
     // Download into temporary paths, then move everything at the end.
     // This avoids holding the output lock while downloading, which would prevent the local branch
     // from completing sooner under the dynamic execution strategy.
@@ -1059,15 +1004,6 @@ public class RemoteExecutionService {
             "Symlinks in action outputs are not yet supported by "
                 + "--experimental_remote_download_outputs=minimal");
       }
-      if (shouldForceDownloads) {
-        forcedDownloads =
-            buildFilesToDownloadWithPredicate(
-                context,
-                progressStatusListener,
-                metadata,
-                shouldForceDownloadPredicate,
-                realToTmpPath);
-      }
     }
 
     FileOutErr tmpOutErr = outErr.childOutErr();
@@ -1080,17 +1016,6 @@ public class RemoteExecutionService {
     ImmutableList<ListenableFuture<FileMetadata>> downloads = downloadsBuilder.build();
     try (SilentCloseable c = Profiler.instance().profile("Remote.download")) {
       waitForBulkTransfer(downloads, /* cancelRemainingOnInterrupt= */ true);
-    } catch (Exception e) {
-      // TODO(bazel-team): Consider adding better case-by-case exception handling instead of just
-      // rethrowing
-      captureCorruptedOutputs(e);
-      deletePartialDownloadedOutputs(realToTmpPath, tmpOutErr, e);
-      throw e;
-    }
-
-    // TODO(bazel-team): Unify this block with the equivalent block above.
-    try (SilentCloseable c = Profiler.instance().profile("Remote.forcedDownload")) {
-      waitForBulkTransfer(forcedDownloads, /* cancelRemainingOnInterrupt= */ true);
     } catch (Exception e) {
       // TODO(bazel-team): Consider adding better case-by-case exception handling instead of just
       // rethrowing
@@ -1115,23 +1040,29 @@ public class RemoteExecutionService {
 
       List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
       for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-        symlinksInDirectories.addAll(entry.getValue().symlinks());
+        for (SymlinkMetadata symlink : entry.getValue().symlinks()) {
+          // Symlinks should not be allowed inside directories because their semantics are unclear:
+          // tree artifacts are defined as a collection of regular files, and resolving the symlinks
+          // locally is asking for trouble. Sadly, we did start permitting relative symlinks at some
+          // point, so we can only ban the absolute ones.
+          // See https://github.com/bazelbuild/bazel/issues/16361.
+          if (symlink.target().isAbsolute()) {
+            throw new IOException(
+                String.format(
+                    "Unsupported absolute symlink '%s' inside tree artifact '%s'",
+                    symlink.path(), entry.getKey()));
+          }
+          symlinksInDirectories.add(symlink);
+        }
       }
 
       Iterable<SymlinkMetadata> symlinks =
           Iterables.concat(metadata.symlinks(), symlinksInDirectories);
 
       // Create the symbolic links after all downloads are finished, because dangling symlinks
-      // might not be supported on all platforms
+      // might not be supported on all platforms.
       createSymlinks(symlinks);
     } else {
-      // TODO(bazel-team): We should unify this if-block to rely on downloadOutputs above but, as of
-      // 2022-07-05,  downloadOuputs' semantics isn't exactly the same as build-without-the-bytes
-      // which is necessary for using remoteDownloadRegex.
-      if (!forcedDownloads.isEmpty()) {
-        moveOutputsToFinalLocation(forcedDownloads, realToTmpPath);
-      }
-
       ActionInput inMemoryOutput = null;
       Digest inMemoryOutputDigest = null;
       PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
@@ -1148,8 +1079,9 @@ public class RemoteExecutionService {
           inMemoryOutputDigest = m.digest();
           inMemoryOutput = output;
         }
-        injectRemoteArtifact(action, output, metadata);
       }
+
+      injectRemoteArtifacts(action, metadata);
 
       try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {
         if (inMemoryOutput != null) {
@@ -1222,7 +1154,8 @@ public class RemoteExecutionService {
     ImmutableList.Builder<ListenableFuture<FileMetadata>> builder = new ImmutableList.Builder<>();
 
     for (FileMetadata file : metadata.files()) {
-      if (!realToTmpPath.containsKey(file.path) && predicate.test(file.path.toString())) {
+      if (!realToTmpPath.containsKey(file.path)
+          && predicate.test(file.path.relativeTo(execRoot).toString())) {
         Path tmpPath = tempPathGenerator.generateTempPath();
         realToTmpPath.put(file.path, tmpPath);
         builder.add(downloadFile(context, progressStatusListener, file, tmpPath));
@@ -1231,7 +1164,8 @@ public class RemoteExecutionService {
 
     for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
       for (FileMetadata file : entry.getValue().files()) {
-        if (!realToTmpPath.containsKey(file.path) && predicate.test(file.path.toString())) {
+        if (!realToTmpPath.containsKey(file.path)
+            && predicate.test(file.path.relativeTo(execRoot).toString())) {
           Path tmpPath = tempPathGenerator.generateTempPath();
           realToTmpPath.put(file.path, tmpPath);
           builder.add(downloadFile(context, progressStatusListener, file, tmpPath));
@@ -1257,8 +1191,10 @@ public class RemoteExecutionService {
           ImmutableList.Builder<Path> outputFiles = ImmutableList.builder();
           // Check that all mandatory outputs are created.
           for (ActionInput outputFile : action.getSpawn().getOutputFiles()) {
+            Symlinks followSymlinks = outputFile.isSymlink() ? Symlinks.NOFOLLOW : Symlinks.FOLLOW;
             Path localPath = execRoot.getRelative(outputFile.getExecPath());
-            if (action.getSpawn().isMandatoryOutput(outputFile) && !localPath.exists()) {
+            if (action.getSpawn().isMandatoryOutput(outputFile)
+                && !localPath.exists(followSymlinks)) {
               throw new IOException(
                   "Expected output " + prettyPrint(outputFile) + " was not created locally.");
             }
@@ -1267,6 +1203,7 @@ public class RemoteExecutionService {
 
           return UploadManifest.create(
               remoteOptions,
+              remoteCache.getCacheCapabilities(),
               digestUtil,
               remotePathResolver,
               action.getActionKey(),

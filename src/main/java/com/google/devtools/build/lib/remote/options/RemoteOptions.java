@@ -120,7 +120,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
           "A URI of a caching endpoint. The supported schemas are http, https, grpc, grpcs "
               + "(grpc with TLS enabled) and unix (local UNIX sockets). If no schema is provided "
               + "Bazel will default to grpcs. Specify grpc://, http:// or unix: schema to disable "
-              + "TLS. See https://dbaze.build/docs/remote-caching")
+              + "TLS. See https://bazel.build/remote/caching")
   public String remoteCache;
 
   @Option(
@@ -134,6 +134,14 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " no schema is provided Bazel will default to grpcs. See: "
               + "https://github.com/bazelbuild/remote-apis/blob/master/build/bazel/remote/asset/v1/remote_asset.proto")
   public String remoteDownloader;
+
+  @Option(
+      name = "experimental_remote_downloader_local_fallback",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether to fall back to the local downloader if remote downloader fails.")
+  public boolean remoteDownloaderLocalFallback;
 
   @Option(
       name = "remote_header",
@@ -268,19 +276,47 @@ public final class RemoteOptions extends CommonRemoteOptions {
       help = "Whether to upload locally executed action results to the remote cache.")
   public boolean remoteUploadLocalResults;
 
+  @Deprecated
   @Option(
       name = "incompatible_remote_build_event_upload_respect_no_cache",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
+      deprecationWarning =
+          "--incompatible_remote_build_event_upload_respect_no_cache has been deprecated in favor"
+              + " of --experimental_remote_build_event_upload=minimal.",
       help =
           "If set to true, outputs referenced by BEP are not uploaded to remote cache if the"
               + " generating action cannot be cached remotely.")
   public boolean incompatibleRemoteBuildEventUploadRespectNoCache;
 
   @Option(
+      name = "experimental_remote_build_event_upload",
+      defaultValue = "all",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = RemoteBuildEventUploadModeConverter.class,
+      help =
+          "If set to 'all', all local outputs referenced by BEP are uploaded to remote cache.\n"
+              + "If set to 'minimal', local outputs referenced by BEP are not uploaded to the"
+              + " remote cache, except for files that are important to the consumers of BEP (e.g."
+              + " test logs and timing profile).\n"
+              + "file:// scheme is used for the paths of local files and bytestream:// scheme is"
+              + " used for the paths of (already) uploaded files.\n"
+              + "Default to 'all'.")
+  public RemoteBuildEventUploadMode remoteBuildEventUploadMode;
+
+  /** Build event upload mode flag parser */
+  public static class RemoteBuildEventUploadModeConverter
+      extends EnumConverter<RemoteBuildEventUploadMode> {
+    public RemoteBuildEventUploadModeConverter() {
+      super(RemoteBuildEventUploadMode.class, "remote build event upload");
+    }
+  }
+
+  @Option(
       name = "incompatible_remote_results_ignore_disk",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "remote",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -371,11 +407,22 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "If set to true, Bazel will represent symlinks in action outputs "
-              + "in the remote caching/execution protocol as such. The "
-              + "current behavior is for remote caches/executors to follow "
-              + "symlinks and represent them as files. See #6631 for details.")
+          "If set to true, Bazel will represent symlinks in action outputs in the remote"
+              + " caching/execution protocol as such. Otherwise, symlinks will be followed and"
+              + " represented as files or directories. See #6631 for details.")
   public boolean incompatibleRemoteSymlinks;
+
+  @Option(
+      name = "incompatible_remote_dangling_symlinks",
+      defaultValue = "true",
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true and --incompatible_remote_symlinks is also true, symlinks in action"
+              + " outputs are allowed to dangle.")
+  public boolean incompatibleRemoteDanglingSymlinks;
 
   @Option(
       name = "experimental_remote_cache_compression",
@@ -392,19 +439,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The number of threads used to do build event uploads. Capped at 1000.")
   public int buildEventUploadMaxThreads;
-
-  @Deprecated
-  @Option(
-      name = "remote_allow_symlink_upload",
-      defaultValue = "true",
-      category = "remote",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "If true, upload action symlink outputs to the remote cache. "
-              + "If this option is not enabled, "
-              + "cachable actions that output symlinks will fail.")
-  public boolean allowSymlinkUpload;
 
   @Option(
       name = "remote_download_outputs",
@@ -585,6 +619,17 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "to print only on failures, `success` to print only on successes and "
               + "`all` to print always.")
   public ExecutionMessagePrintMode remotePrintExecutionMessages;
+
+  @Option(
+      name = "incompatible_remote_downloader_send_all_headers",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Whether to send all values of a multi-valued header to the remote downloader instead of"
+              + " just the first.")
+  public boolean remoteDownloaderSendAllHeaders;
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.

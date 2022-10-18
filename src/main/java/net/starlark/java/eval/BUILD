@@ -24,6 +24,7 @@ java_library(
         "EvalUtils.java",
         "FlagGuardedValue.java",
         "FormatParser.java",
+        "GuardedValue.java",
         "HasBinary.java",
         "JNI.java",
         "MethodDescriptor.java",

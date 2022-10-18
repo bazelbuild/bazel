@@ -52,13 +52,9 @@ DIST_DEPS = {
     # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_cc": {
-        "archive": "b1c40e1de81913a3c40e5948f78719c28152486d.zip",
-        "sha256": "d0c573b94a6ef20ef6ff20154a23d0efcb409fb0e1ff0979cec318dfe42f0cdd",
-        "strip_prefix": "rules_cc-b1c40e1de81913a3c40e5948f78719c28152486d",
-        "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/b1c40e1de81913a3c40e5948f78719c28152486d.zip",
-            "https://github.com/bazelbuild/rules_cc/archive/b1c40e1de81913a3c40e5948f78719c28152486d.zip",
-        ],
+        "archive": "rules_cc-0.0.2.tar.gz",
+        "sha256": "58bff40957ace85c2de21ebfc72e53ed3a0d33af8cc20abd0ceec55c63be7de2",
+        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.2/rules_cc-0.0.2.tar.gz"],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
@@ -97,15 +93,15 @@ DIST_DEPS = {
     #
     #################################################
     "com_google_protobuf": {
-        "archive": "v3.19.2.tar.gz",
-        "sha256": "4dd35e788944b7686aac898f77df4e9a54da0ca694b8801bd6b2a9ffc1b3085e",
-        "strip_prefix": "protobuf-3.19.2",
+        "archive": "v3.19.6.tar.gz",
+        "sha256": "9a301cf94a8ddcb380b901e7aac852780b826595075577bb967004050c835056",
+        "strip_prefix": "protobuf-3.19.6",
         "urls": [
-            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.19.2.tar.gz",
-            "https://github.com/protocolbuffers/protobuf/archive/v3.19.2.tar.gz",
+            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.19.6.tar.gz",
+            "https://github.com/protocolbuffers/protobuf/archive/v3.19.6.tar.gz",
         ],
         "patch_args": ["-p1"],
-        "patches": ["//third_party/protobuf:3.19.2.patch"],
+        "patches": ["//third_party/protobuf:3.19.6.patch"],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
@@ -239,15 +235,15 @@ DIST_DEPS = {
         "strip_prefix": "abseil-cpp-20211102.0",
     },
     "zstd-jni": {
-        "archive": "v1.5.0-4.zip",
+        "archive": "v1.5.2-3.zip",
         "patch_args": ["-p1"],
         "patches": [
             "//third_party:zstd-jni/Native.java.patch",
         ],
-        "sha256": "d320d59b89a163c5efccbe4915ae6a49883ce653cdc670643dfa21c6063108e4",
+        "sha256": "366009a43cfada35015e4cc40a7efc4b7f017c6b8df5cac3f87d2478027b2056",
         "urls": [
-            "https://mirror.bazel.build/github.com/luben/zstd-jni/archive/v1.5.0-4.zip",
-            "https://github.com/luben/zstd-jni/archive/v1.5.0-4.zip",
+            "https://mirror.bazel.build/github.com/luben/zstd-jni/archive/refs/tags/v1.5.2-3.zip",
+            "https://github.com/luben/zstd-jni/archive/refs/tags/v1.5.2-3.zip",
         ],
         "used_in": [
             "additional_distfiles",

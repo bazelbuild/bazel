@@ -216,14 +216,8 @@ public abstract class DependencyResolver {
       Rule rule = ((OutputFile) target).getGeneratingRule();
       outgoingLabels.put(OUTPUT_FILE_RULE_DEPENDENCY, rule.getLabel());
       if (Iterables.any(aspects, a -> a.getDefinition().applyToFiles())) {
-        attributeMap =
-            ConfiguredAttributeMapper.of(rule, configConditions, node.getConfiguration());
-        resolveAttributes(
-            getAspectAttributes(aspects),
-            outgoingLabels,
-            rule,
-            attributeMap,
-            node.getConfiguration());
+        attributeMap = ConfiguredAttributeMapper.of(rule, configConditions, config);
+        resolveAttributes(getAspectAttributes(aspects), outgoingLabels, rule, attributeMap, config);
       }
       addToolchainDeps(toolchainContexts, outgoingLabels);
     } else if (target instanceof InputFile) {
@@ -232,8 +226,7 @@ public abstract class DependencyResolver {
       visitTargetVisibility(node, outgoingLabels);
     } else if (target instanceof Rule) {
       fromRule = (Rule) target;
-      attributeMap =
-          ConfiguredAttributeMapper.of(fromRule, configConditions, node.getConfiguration());
+      attributeMap = ConfiguredAttributeMapper.of(fromRule, configConditions, config);
       visitRule(node, aspects, attributeMap, toolchainContexts, outgoingLabels);
     } else if (target instanceof PackageGroup) {
       outgoingLabels.putAll(VISIBILITY_DEPENDENCY, ((PackageGroup) target).getIncludes());
@@ -254,13 +247,10 @@ public abstract class DependencyResolver {
 
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         partiallyResolveDependencies(
-            config, outgoingLabels, fromRule, attributeMap, toolchainContexts, aspects);
+            outgoingLabels, fromRule, attributeMap, toolchainContexts, aspects);
 
-    OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges =
-        fullyResolveDependencies(
-            partiallyResolvedDeps, targetMap, node.getConfiguration(), trimmingTransitionFactory);
-
-    return outgoingEdges;
+    return fullyResolveDependencies(
+        partiallyResolvedDeps, targetMap, config, trimmingTransitionFactory);
   }
 
   /**
@@ -273,7 +263,6 @@ public abstract class DependencyResolver {
    */
   private OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency>
       partiallyResolveDependencies(
-          BuildConfigurationValue config,
           OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
           @Nullable Rule fromRule,
           @Nullable ConfiguredAttributeMapper attributeMap,
@@ -348,7 +337,6 @@ public abstract class DependencyResolver {
       collectPropagatingAspects(
           ImmutableList.copyOf(aspects),
           attribute.getName(),
-          config,
           entry.getKey().getOwningAspect(),
           propagatingAspects);
 
@@ -677,7 +665,6 @@ public abstract class DependencyResolver {
   private static void collectPropagatingAspects(
       ImmutableList<Aspect> aspectsPath,
       String attributeName,
-      BuildConfigurationValue config,
       @Nullable AspectClass aspectOwningAttribute,
       ImmutableList.Builder<Aspect> allFilteredAspects) {
     int aspectsNum = aspectsPath.size();
@@ -685,12 +672,6 @@ public abstract class DependencyResolver {
 
     for (int i = aspectsNum - 1; i >= 0; i--) {
       Aspect aspect = aspectsPath.get(i);
-      if (!aspect.getDefinition().propagateViaAttribute().test(config, attributeName)) {
-        // This condition is only included to support the migration to platform-based Android
-        // toolchain selection. See DexArchiveAspect for details. One that migration is complete,
-        // this logic should be removed on the principle of unnecessary complexity.
-        continue;
-      }
       if (aspect.getAspectClass().equals(aspectOwningAttribute)) {
         // Do not propagate over the aspect's own attributes.
         continue;

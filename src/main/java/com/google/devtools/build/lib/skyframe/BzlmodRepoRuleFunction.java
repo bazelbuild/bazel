@@ -154,7 +154,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
       }
       ruleClass = ruleClassProvider.getRuleClassMap().get(repoSpec.ruleClassName());
     } else {
-      ImmutableMap<String, Module> loadedModules = loadBzlModules(env, repoSpec.bzlFile().get());
+      ImmutableMap<String, Module> loadedModules =
+          loadBzlModules(env, repoSpec.bzlFile().get(), starlarkSemantics);
       if (env.valuesMissing()) {
         return null;
       }
@@ -182,7 +183,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
   }
 
   /** Loads modules from the given bzl file. */
-  private ImmutableMap<String, Module> loadBzlModules(Environment env, String bzlFile)
+  private ImmutableMap<String, Module> loadBzlModules(
+      Environment env, String bzlFile, StarlarkSemantics starlarkSemantics)
       throws InterruptedException, BzlmodRepoRuleFunctionException {
     ImmutableList<Pair<String, Location>> programLoads =
         ImmutableList.of(Pair.of(bzlFile, Location.BUILTIN));
@@ -213,7 +215,13 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
       // TODO(b/22193153, wyv): Determine whether bzl-visibility should apply at all to this type of
       // bzl load. As it stands, this call checks that bzlFile is visible to package @//.
       return PackageFunction.loadBzlModules(
-          env, PackageIdentifier.EMPTY_PACKAGE_ID, "Bzlmod system", programLoads, keys, null);
+          env,
+          PackageIdentifier.EMPTY_PACKAGE_ID,
+          "Bzlmod system",
+          programLoads,
+          keys,
+          starlarkSemantics,
+          null);
     } catch (NoSuchPackageException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
     }

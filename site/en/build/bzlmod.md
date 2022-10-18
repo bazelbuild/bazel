@@ -84,15 +84,22 @@ also prominent projects using different schemes such as
 [Abseil](https://github.com/abseil/abseil-cpp/releases){: .external}, whose
 versions are date-based, for example `20210324.2`).
 
-For this reason, Bzlmod adopts a more relaxed version of the SemVer spec, in
-particular allowing any number of sequences of digits in the "release" part of
-the version (instead of exactly 3 as SemVer prescribes: `MAJOR.MINOR.PATCH`).
-Additionally, the semantics of major, minor, and patch version increases are not
-enforced. (However, see [compatibility level](#compatibility-level) for details
-on how we denote backwards compatibility.) Other parts of the SemVer spec, such
-as a hyphen denoting a prerelease version, are not modified.
+For this reason, Bzlmod adopts a more relaxed version of the SemVer spec. The
+differences include:
 
-Note: This version format may change before the official launch of Bzlmod.
+*   SemVer prescribes that the "release" part of the version must consist of 3
+    segments: `MAJOR.MINOR.PATCH`. In Bazel, this requirement is loosened so
+    that any number of segments is allowed.
+*   In SemVer, each of the segments in the "release" part must be digits only.
+    In Bazel, this is loosened to allow letters too, and the comparison
+    semantics match the "identifiers" in the "prerelease" part.
+*   Additionally, the semantics of major, minor, and patch version increases are
+    not enforced. (However, see [compatibility level](#compatibility-level) for
+    details on how we denote backwards compatibility.)
+
+Any valid SemVer version is a valid Bazel module version. Additionally, two
+SemVer versions `a` and `b` compare `a < b` iff the same holds when they're
+compared as Bazel module versions.
 
 ### Version resolution {:#version-resolution}
 
@@ -152,10 +159,10 @@ mechanism in the new system. Here are two important concepts:
     <br>It's constructed as follows (**Warning**: the canonical name format is
     not an API you should depend on, it's subject to change at any time):
 
-    *   For Bazel module repos: `{{ "<var>" }}module_name{{ "</var>" }}.{{ "<var>" }}version{{ "</var>" }}`
-        <br> (<b>Example</b>. `@bazel_skylib.1.0.3`)
-    *   For module extension repos: `{{ "<var>" }}module_name{{ "</var>" }}.{{ "<var>" }}version{{ "</var>" }}.{{ "<var>" }}extension_name{{ "</var>" }}.{{ "<var>" }}repo_name{{ "</var>" }}`
-        <br>(<b>Example</b>. `@rules_cc.0.0.1.cc_configure.local_config_cc`)
+    *   For Bazel module repos: `{{ "<var>" }}module_name{{ "</var>" }}~{{ "<var>" }}version{{ "</var>" }}`
+        <br> (<b>Example</b>. `@bazel_skylib~1.0.3`)
+    *   For module extension repos: `{{ "<var>" }}module_name{{ "</var>" }}~{{ "<var>" }}version{{ "</var>" }}~{{ "<var>" }}extension_name{{ "</var>" }}~{{ "<var>" }}repo_name{{ "</var>" }}`
+        <br>(<b>Example</b>. `@rules_cc~0.0.1~cc_configure~local_config_cc`)
 
 *   **Local repository name**: The repository name to be used in the `BUILD` and
     `.bzl` files within a repo. The same dependency could have different local
@@ -214,9 +221,10 @@ version. Notably, it does *not* need to serve the source archives itself.
 
 An index registry must follow the format below:
 
-*   `/bazel_registry.json`: A JSON file containing metadata for the registry.
-    Currently, it only has one key, `mirrors`, specifying the list of mirrors to
-    use for source archives.
+*   `/bazel_registry.json`: A JSON file containing metadata for the registry like:
+    * `mirrors`, specifying the list of mirrors to use for source archives.
+    * `module_base_path`, specifying the base path for modules with
+      `local_repository` type in the `source.json` file.
 *   `/modules`: A directory containing a subdirectory for each module in this
     registry.
 *   `/modules/$MODULE`: A directory containing a subdirectory for each version
@@ -236,18 +244,29 @@ An index registry must follow the format below:
 *   `/modules/$MODULE/$VERSION`: A directory containing the following files:
     *   `MODULE.bazel`: The `MODULE.bazel` file of this module version.
     *   `source.json`: A JSON file containing information on how to fetch the
-        source of this module version, with the following fields:
-        *   `url`: The URL of the source archive.
-        *   `integrity`: The
-            [Subresource Integrity](https://w3c.github.io/webappsec-subresource-integrity/#integrity-metadata-description){: .external}
-            checksum of the archive.
-        *   `strip_prefix`: A directory prefix to strip when extracting the
-            source archive.
-        *   `patches`: A list of strings, each of which names a patch file to
-            apply to the extracted archive. The patch files are located under
-            the `/modules/$MODULE/$VERSION/patches` directory.
-        *   `patch_strip`: Same as the `--strip` argument of Unix patch.
-    *   `patches/`: An optional directory containing patch files.
+        source of this module version.
+      * The default type is "archive" with the following fields:
+          *   `url`: The URL of the source archive.
+          *   `integrity`: The
+              [Subresource Integrity](https://w3c.github.io/webappsec-subresource-integrity/#integrity-metadata-description){: .external}
+              checksum of the archive.
+          *   `strip_prefix`: A directory prefix to strip when extracting the
+              source archive.
+          *   `patches`: A list of strings, each of which names a patch file to
+              apply to the extracted archive. The patch files are located under
+              the `/modules/$MODULE/$VERSION/patches` directory.
+          *   `patch_strip`: Same as the `--strip` argument of Unix patch.
+      * The type can be changed to use a local path with these fields:
+          *   `type`: `local_path`
+          *   `path`: The local path to the repo, calculated as following:
+              * If path is an absolute path, will be used as it is.
+              * If path is a relative path and `module_base_path` is an absolute path,
+                path is resolved to `<module_base_path>/<path>`
+              * If path and `module_base_path` are both relative paths, path is
+                resolved to `<registry_path>/<module_base_path>/<path>`.
+                Registry must be hosted locally and used by `--registry=file://<registry_path>`.
+                Otherwise, Bazel will throw an error.
+    *   `patches/`: An optional directory containing patch files, only used when `source.json` has "archive" type.
 
 ### Bazel Central Registry {:#bazel-central-registry}
 

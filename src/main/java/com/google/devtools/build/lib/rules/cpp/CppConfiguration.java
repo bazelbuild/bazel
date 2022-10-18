@@ -52,6 +52,7 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * This class represents the C/C++ parts of the {@link BuildConfigurationValue}, including the host
@@ -131,7 +132,7 @@ public final class CppConfiguration extends Fragment
    * --dynamic_mode parses to DynamicModeFlag, but AUTO will be translated based on platform,
    * resulting in a DynamicMode value.
    */
-  public enum DynamicMode {
+  public enum DynamicMode implements StarlarkValue {
     OFF,
     DEFAULT,
     FULLY
@@ -367,6 +368,10 @@ public final class CppConfiguration extends Fragment
 
   public boolean isCSFdo() {
     return cppOptions.isCSFdo();
+  }
+
+  public boolean ignoreParamFile() {
+    return cppOptions.ignoreParamFile;
   }
 
   public boolean useArgsParamsFile() {
@@ -619,28 +624,14 @@ public final class CppConfiguration extends Fragment
 
   @Nullable
   String getFdoInstrument() {
-    if (isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
-      // We don't want FDO in the host configuration
-      return null;
-    }
     return cppOptions.fdoInstrumentForBuild;
   }
 
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  PathFragment getFdoPathUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  PathFragment getFdoPath() {
     return fdoPath;
   }
 
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  Label getFdoOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  Label getFdoOptimizeLabel() {
     return fdoOptimizeLabel;
   }
 
@@ -662,28 +653,10 @@ public final class CppConfiguration extends Fragment
 
   @Nullable
   Label getFdoPrefetchHintsLabel() {
-    if (isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
-      // We don't want FDO in the host configuration
-      return null;
-    }
-    return getFdoPrefetchHintsLabelUnsafeSinceItCanReturnValueFromWrongConfiguration();
-  }
-
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  Label getFdoPrefetchHintsLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
     return cppOptions.getFdoPrefetchHintsLabel();
   }
 
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  Label getFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  Label getFdoProfileLabel() {
     return cppOptions.fdoProfileLabel;
   }
 
@@ -691,30 +664,16 @@ public final class CppConfiguration extends Fragment
     return cppOptions.csFdoProfileLabel;
   }
 
-  public Label getPropellerOptimizeLabel() {
-    return cppOptions.propellerOptimizeLabel;
-  }
-
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
   @Nullable
-  @Deprecated
-  Label getPropellerOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  Label getPropellerOptimizeLabel() {
     if (cppOptions.fdoInstrumentForBuild != null || cppOptions.csFdoInstrumentForBuild != null) {
       return null;
     }
     return cppOptions.getPropellerOptimizeLabel();
   }
 
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
   @Nullable
-  @Deprecated
-  Label getXFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  Label getXFdoProfileLabel() {
     if (cppOptions.fdoOptimizeForBuild != null
         || cppOptions.fdoInstrumentForBuild != null
         || cppOptions.fdoProfileLabel != null
@@ -769,7 +728,7 @@ public final class CppConfiguration extends Fragment
    */
   @Nullable
   public Label getTargetLibcTopLabel() {
-    if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
+    if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294) {
       // This isn't for a platform-enabled C++ toolchain (legacy C++ toolchains evaluate in the
       // target configuration while platform-enabled toolchains evaluate in the host/exec
       // configuration). targetLibcTopLabel is only intended for platform-enabled toolchains and can
@@ -806,13 +765,6 @@ public final class CppConfiguration extends Fragment
     return collectCodeCoverage;
   }
 
-  /** @deprecated this is only a temporary workaround, will be removed by b/129045294. */
-  // TODO(b/129045294): Remove at first opportunity
-  @Deprecated
-  boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294() {
-    return isToolConfigurationDoNotUseWillBeRemovedFor129045294;
-  }
-
   public boolean enableCcToolchainResolution() {
     return cppOptions.enableCcToolchainResolution;
   }
@@ -841,6 +793,7 @@ public final class CppConfiguration extends Fragment
     return cppOptions.validateTopLevelHeaderInclusions;
   }
 
+  @Override
   public boolean appleGenerateDsym() {
     return appleGenerateDsym;
   }

@@ -280,7 +280,7 @@ collect them like so:
 ```python
 def _example_library_impl(ctx):
     ...
-    transitive_headers = [dep[ExampleInfo].headers for dep in ctx.attr.deps]
+    transitive_headers = [hdr[ExampleInfo].headers for hdr in ctx.attr.hdrs]
 ```
 
 For the legacy style in which a [`struct`](/rules/lib/struct) is returned from a
@@ -293,7 +293,7 @@ return struct(example_info = struct(headers = depset(...)))
 Providers can be retrieved from the corresponding field of the `Target` object:
 
 ```python
-transitive_headers = [dep.example_info.headers for dep in ctx.attr.deps]
+transitive_headers = [hdr.example_info.headers for hdr in ctx.attr.hdrs]
 ```
 
 This style is strongly discouraged and rules should be

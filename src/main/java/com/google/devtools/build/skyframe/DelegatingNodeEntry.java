@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.GroupedList;
-import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -100,7 +100,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
+  public ImmutableList<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     return getDelegate().getNextDirtyDirectDeps();
   }
 
@@ -145,8 +145,18 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Set<SkyKey> addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper) {
-    return getDelegate().addTemporaryDirectDeps(helper);
+  public void addSingletonTemporaryDirectDep(SkyKey dep) {
+    getDelegate().addSingletonTemporaryDirectDep(dep);
+  }
+
+  @Override
+  public void addTemporaryDirectDepGroup(ImmutableList<SkyKey> group) {
+    getDelegate().addTemporaryDirectDepGroup(group);
+  }
+
+  @Override
+  public void addTemporaryDirectDepsInGroups(Set<SkyKey> deps, List<Integer> groupSizes) {
+    getDelegate().addTemporaryDirectDepsInGroups(deps, groupSizes);
   }
 
   @Override
@@ -203,11 +213,6 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   @Nullable
   public MarkedDirtyResult markDirty(DirtyType dirtyType) throws InterruptedException {
     return getDelegate().markDirty(dirtyType);
-  }
-
-  @Override
-  public void addTemporaryDirectDepsGroupToDirtyEntry(List<SkyKey> group) {
-    getDelegate().addTemporaryDirectDepsGroupToDirtyEntry(group);
   }
 
   @Override

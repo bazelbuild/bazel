@@ -132,6 +132,18 @@ public class SandboxOptions extends OptionsBase {
   public boolean sandboxFakeUsername;
 
   @Option(
+      name = "sandbox_explicit_pseudoterminal",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Explicitly enable the creation of pseudoterminals for sandboxed actions."
+              + " Some linux distributions require setting the group id of the process to 'tty'"
+              + " inside the sandbox in order for pseudoterminals to function. If this is"
+              + " causing issues, this flag can be disabled to enable other groups to be used.")
+  public boolean sandboxExplicitPseudoterminal;
+
+  @Option(
       name = "sandbox_block_path",
       allowMultiple = true,
       defaultValue = "null",
@@ -348,7 +360,9 @@ public class SandboxOptions extends OptionsBase {
   public boolean legacyLocalFallback;
 
   @Option(
-      name = "experimental_reuse_sandbox_directories",
+      name = "reuse_sandbox_directories",
+      oldName = "experimental_reuse_sandbox_directories",
+      oldNameWarning = false,
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
@@ -369,6 +383,17 @@ public class SandboxOptions extends OptionsBase {
               + "If action input files are located on a filesystem different from the sandbox, "
               + "then the input files will be copied instead.")
   public boolean useHermetic;
+
+  @Option(
+      name = "incompatible_sandbox_hermetic_tmp",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If set to true, each Linux sandbox will have its own dedicated empty directory mounted"
+              + " as /tmp rather thansharing /tmp with the host filesystem. Use"
+              + " --sandbox_add_mount_pair=/tmp to keep seeing the host's /tmp in all sandboxes.")
+  public boolean sandboxHermeticTmp;
 
   /** Converter for the number of threads used for asynchronous tree deletion. */
   public static final class AsyncTreeDeletesConverter extends ResourceConverter {

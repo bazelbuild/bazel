@@ -15,13 +15,6 @@
 
 load(":path.bzl", "compute_data_path", "dest_path")
 
-def _remap(remap_paths, path):
-    """If path starts with a key in remap_paths, rewrite it."""
-    for prefix, replacement in remap_paths.items():
-        if path.startswith(prefix):
-            return replacement + path[len(prefix):]
-    return path
-
 def _quote(filename, protect = "="):
     """Quote the filename, by escaping = by \\= and \\ by \\\\"""
     return filename.replace("\\", "\\\\").replace(protect, "\\" + protect)
@@ -30,51 +23,19 @@ def _pkg_tar_impl(ctx):
     """Implementation of the pkg_tar rule."""
 
     # Compute the relative path
-    data_path = compute_data_path(ctx.outputs.out, ctx.attr.strip_prefix)
-
-    # Find a list of path remappings to apply.
-    remap_paths = ctx.attr.remap_paths
+    data_path = compute_data_path(ctx.outputs.out, ".")
 
     # Start building the arguments.
     args = [
         "--output=" + ctx.outputs.out.path,
         "--directory=" + ctx.attr.package_dir,
-        "--mode=" + ctx.attr.mode,
-        "--owner=" + ctx.attr.owner,
-        "--owner_name=" + ctx.attr.ownername,
     ]
 
-    # Add runfiles if requested
-    file_inputs = []
-    if ctx.attr.include_runfiles:
-        runfiles_depsets = []
-        for f in ctx.attr.srcs:
-            default_runfiles = f[DefaultInfo].default_runfiles
-            if default_runfiles != None:
-                runfiles_depsets.append(default_runfiles.files)
-
-        # deduplicates files in srcs attribute and their runfiles
-        file_inputs = depset(ctx.files.srcs, transitive = runfiles_depsets).to_list()
-    else:
-        file_inputs = ctx.files.srcs[:]
-
+    file_inputs = ctx.files.srcs[:]
     args += [
-        "--file=%s=%s" % (_quote(f.path), _remap(remap_paths, dest_path(f, data_path)))
+        "--file=%s=%s" % (_quote(f.path), dest_path(f, data_path))
         for f in file_inputs
     ]
-    for target, f_dest_path in ctx.attr.files.items():
-        target_files = target.files.to_list()
-        if len(target_files) != 1:
-            fail("Each input must describe exactly one file.", attr = "files")
-        file_inputs += target_files
-        args += ["--file=%s=%s" % (_quote(target_files[0].path), f_dest_path)]
-    if ctx.attr.extension:
-        dotPos = ctx.attr.extension.find(".")
-        if dotPos > 0:
-            dotPos += 1
-            args += ["--compression=%s" % ctx.attr.extension[dotPos:]]
-        elif ctx.attr.extension == "tgz":
-            args += ["--compression=gz"]
     arg_file = ctx.actions.declare_file(ctx.label.name + ".args")
     ctx.actions.write(arg_file, "\n".join(args))
 
@@ -91,17 +52,9 @@ def _pkg_tar_impl(ctx):
 _real_pkg_tar = rule(
     implementation = _pkg_tar_impl,
     attrs = {
-        "strip_prefix": attr.string(),
         "package_dir": attr.string(default = "/"),
         "srcs": attr.label_list(allow_files = True),
-        "files": attr.label_keyed_string_dict(allow_files = True),
-        "mode": attr.string(default = "0555"),
         "out": attr.output(),
-        "owner": attr.string(default = "0.0"),
-        "ownername": attr.string(default = "."),
-        "extension": attr.string(default = "tar"),
-        "include_runfiles": attr.bool(),
-        "remap_paths": attr.string_dict(),
         # Implicit dependencies.
         "build_tar": attr.label(
             default = Label("//tools/build_defs/pkg:build_tar"),
@@ -113,9 +66,8 @@ _real_pkg_tar = rule(
 )
 
 def pkg_tar(name, **kwargs):
-    extension = kwargs.get("extension") or "tar"
     _real_pkg_tar(
         name = name,
-        out = name + "." + extension,
+        out = name + ".tar",
         **kwargs
     )

@@ -69,7 +69,7 @@ def _get_value(it):
         return "\"%s\"" % it
 
 def _find_tool(repository_ctx, tool, overriden_tools):
-    """Find a tool for repository, taking overriden tools into account."""
+    """Find a tool for repository, taking overridden tools into account."""
     if tool in overriden_tools:
         return overriden_tools[tool]
     return which(repository_ctx, tool, "/usr/bin/" + tool)
@@ -203,20 +203,11 @@ def _find_linker_path(repository_ctx, cc, linker, is_clang):
     if not is_clang:
         return linker
 
-    for line in result.stderr.splitlines():
-        if line.find(linker) == -1:
-            continue
-        for flag in line.split(" "):
-            if flag.find(linker) == -1:
-                continue
-
-            # flag looks like "/usr/lib/ld.gold".
-            return flag.strip(" \"'")
-    auto_configure_warning(
-        "CC with -fuse-ld=" + linker + " returned 0, but its -v output " +
-        "didn't contain '" + linker + "', falling back to the default linker.",
-    )
-    return None
+    # Extract linker path from:
+    # /usr/bin/clang ...
+    # "/usr/bin/ld.lld" -pie -z ...
+    linker_command = result.stderr.splitlines()[-1]
+    return linker_command.strip().split(" ")[0].strip("\"'")
 
 def _add_compiler_option_if_supported(repository_ctx, cc, option):
     """Returns `[option]` if supported, `[]` otherwise. Doesn't %-escape the option."""
@@ -279,6 +270,18 @@ def _coverage_flags(repository_ctx, darwin):
 def _is_clang(repository_ctx, cc):
     return "clang" in repository_ctx.execute([cc, "-v"]).stderr
 
+def _is_gcc(repository_ctx, cc):
+    # GCC's version output uses the basename of argv[0] as the program name:
+    # https://gcc.gnu.org/git/?p=gcc.git;a=blob;f=gcc/gcc.cc;h=158461167951c1b9540322fb19be6a89d6da07fc;hb=HEAD#l8728
+    return repository_ctx.execute([cc, "--version"]).stdout.startswith("gcc ")
+
+def _get_compiler_name(repository_ctx, cc):
+    if _is_clang(repository_ctx, cc):
+        return "clang"
+    if _is_gcc(repository_ctx, cc):
+        return "gcc"
+    return "compiler"
+
 def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False, silent = False):
     """Find a generic C++ toolchain tool. Doesn't %-escape the result."""
 
@@ -294,7 +297,7 @@ def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False,
             result = env_value
             env_value_with_paren = " (%s)" % env_value
     if result.startswith("/"):
-        # Absolute path, maybe we should make this suported by our which function.
+        # Absolute path, maybe we should make this supported by our which function.
         return result
     result = repository_ctx.which(result)
     if result == None:
@@ -492,7 +495,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{compiler}": escape_string(get_env_var(
                 repository_ctx,
                 "BAZEL_COMPILER",
-                "clang" if is_clang else "compiler",
+                _get_compiler_name(repository_ctx, cc),
                 False,
             )),
             "%{abi_version}": escape_string(get_env_var(

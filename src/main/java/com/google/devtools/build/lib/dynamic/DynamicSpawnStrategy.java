@@ -577,11 +577,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       throws InterruptedException {
     DynamicMode cancellingStrategy = cancellingBranch.getMode();
     if (cancellingBranch.isCancelled()) {
-      // TODO(b/173020239): Determine why stopBranch() can be called when cancellingBranch is
-      // cancelled.
       throw new DynamicInterruptedException(
           String.format(
-              "Execution of %s strategy stopped because it was cancelled but not interrupted",
+              "Execution of %s strategy was cancelled just before it could get the lock.",
               cancellingStrategy));
     }
     // This multi-step, unlocked access to "strategyThatCancelled" is valid because, for a given

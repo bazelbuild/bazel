@@ -40,19 +40,6 @@ import javax.annotation.Nullable;
 /** Options common to all commands. */
 public class CommonCommandOptions extends OptionsBase {
 
-  /**
-   * To create a new incompatible change, see the javadoc for {@link
-   * AllIncompatibleChangesExpansion}.
-   */
-  @Option(
-      name = "all_incompatible_changes",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op, being removed. See https://github.com/bazelbuild/bazel/issues/13892")
-  public Void allIncompatibleChanges;
-
   // It's by design that this field is unused: this command line option takes effect by reading its
   // value during options parsing based on its (string) name.
   @Option(
@@ -318,11 +305,19 @@ public class CommonCommandOptions extends OptionsBase {
 
   @Option(
       name = "experimental_collect_load_average_in_profiler",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, the profiler collects the system's overall load average.")
   public boolean collectLoadAverageInProfiler;
+
+  @Option(
+      name = "experimental_collect_system_network_usage",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "If enabled, the profiler collects the system's network usage.")
+  public boolean collectSystemNetworkUsage;
 
   @Option(
       name = "memory_profile",

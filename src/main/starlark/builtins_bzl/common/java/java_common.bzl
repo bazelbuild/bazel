@@ -133,7 +133,7 @@ def basic_java_library(
         ctx.outputs.sourcejar,
         source_files,
         source_jars,
-        _collect_deps(deps + [coverage_config.runner]) if coverage_config else _collect_deps(deps),
+        _collect_deps(deps + [coverage_config.runner]) if coverage_config and coverage_config.runner else _collect_deps(deps),
         _collect_deps(runtime_deps),
         plugins_javaplugininfo,
         _collect_deps(exports),

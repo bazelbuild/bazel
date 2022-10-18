@@ -5198,7 +5198,7 @@ public abstract class MemoizingEvaluatorTest {
               .setNumThreads(numThreads)
               .setEventHandler(reporter)
               .build();
-      BugReport.maybePropagateUnprocessedThrowableIfInTest();
+      BugReport.maybePropagateLastCrashIfInTest();
       EvaluationResult<T> result = null;
       beforeEvaluation();
       try {

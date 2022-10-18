@@ -762,4 +762,15 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       doc = "Experimental: Returns a TemplateDict object for memory-efficient template expansion.",
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION)
   TemplateDictApi templateDict();
+
+  @StarlarkMethod(
+      name = "declare_shareable_artifact",
+      parameters = {
+        @Param(name = "path"),
+        @Param(name = "artifact_root", defaultValue = "unbound"),
+      },
+      documented = false,
+      useStarlarkThread = true)
+  FileApi createShareableArtifact(String path, Object root, StarlarkThread thread)
+      throws EvalException;
 }

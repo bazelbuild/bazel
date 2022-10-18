@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 
 /**
@@ -27,4 +28,11 @@ public interface NonRegistryOverride extends ModuleOverride {
 
   /** Returns the {@link RepoSpec} that defines this repository. */
   RepoSpec getRepoSpec(RepositoryName repoName);
+
+  /**
+   * Return the exact {@link
+   * com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason}
+   * of the override
+   */
+  ResolutionReason getResolutionReason();
 }

@@ -152,7 +152,7 @@ upper_tabs:
         path: /configure/memory
       - title: Using Bazel on Windows
         path: /configure/windows
-    - name: Remote distrubution
+    - name: Remote execution
       contents:
       - heading: Remote build execution (RBE)
       - title: Overview
@@ -167,7 +167,7 @@ upper_tabs:
         path: /remote/caching
       - heading: Troubleshooting
       - title: Docker Sandbox
-        path: /remote/sandbox
+        path: /remote/sandboxing
       - title: Non-hermetic WORKSPACE rules
         path: /remote/workspace
       - title: Remote cache hits
@@ -353,6 +353,7 @@ upper_tabs:
         path: /contribute/policy
 
 - name: Versions
+  path: /versions/
   menu:
   - column:
     - links:

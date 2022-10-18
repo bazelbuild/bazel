@@ -2554,6 +2554,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    linkopts = [",
         "        '-lxml2',",
         "        '-framework AVFoundation',",
+        "        '-Wl,-framework,Framework',",
         "    ],",
         "    sdk_dylibs = ['libz'],",
         "    sdk_frameworks = ['CoreData'],",
@@ -2563,6 +2564,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    name = 'bar',",
         "    linkopts = [",
         "        '-lsqlite3',",
+        "        '-Wl,-weak_framework,WeakFrameworkFromLinkOpt',",
         "    ],",
         "    sdk_frameworks = ['Foundation'],",
         ")",
@@ -2572,55 +2574,23 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "        '-framework UIKit',",
         "    ],",
         "    sdk_dylibs = ['libc++'],",
+        "    weak_sdk_frameworks = ['WeakFramework'],",
         ")");
 
     ImmutableList<String> userLinkFlags = getCcInfoUserLinkFlagsFromTarget("//x:foo");
     assertThat(userLinkFlags).isNotEmpty();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "AVFoundation").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "CoreData").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "Foundation").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "UIKit").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-lz", "-lc++", "-lxml2", "-lsqlite3");
-  }
-
-  @Test
-  public void testNoDuplicateSdkUserLinkFlagsFromMultipleDepsOnCcInfo() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "objc_library(",
-        "    name = 'foo',",
-        "    linkopts = [",
-        "        '-lsqlite3',",
-        "        '-framework UIKit',",
-        "    ],",
-        "    sdk_dylibs = ['libc++'],",
-        "    sdk_frameworks = ['Foundation'],",
-        "    deps = [':bar', ':car'],",
-        ")",
-        "objc_library(",
-        "    name = 'bar',",
-        "    linkopts = [",
-        "        '-lsqlite3',",
-        "        '-framework CoreData',",
-        "    ],",
-        "    sdk_frameworks = ['Foundation'],",
-        ")",
-        "objc_library(",
-        "    name = 'car',",
-        "    linkopts = [",
-        "        '-framework UIKit',",
-        "        '-framework CoreData',",
-        "    ],",
-        "    sdk_dylibs = ['libc++'],",
-        ")");
-    ImmutableList<String> userLinkFlags = getCcInfoUserLinkFlagsFromTarget("//x:foo");
-    assertThat(userLinkFlags).isNotEmpty();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "CoreData").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "Foundation").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "UIKit").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-lc++", "-lsqlite3");
-    ImmutableList<String> userLinkFlagsWithoutFrameworkFlags =
-        userLinkFlags.stream().filter(s -> !s.equals("-framework")).collect(toImmutableList());
-    assertThat(userLinkFlagsWithoutFrameworkFlags).containsNoDuplicates();
+    assertThat(userLinkFlags)
+        .containsAtLeast(
+            "-Wl,-framework,AVFoundation",
+            "-Wl,-framework,CoreData",
+            "-Wl,-framework,Foundation",
+            "-Wl,-framework,Framework",
+            "-Wl,-framework,UIKit",
+            "-Wl,-weak_framework,WeakFramework",
+            "-Wl,-weak_framework,WeakFrameworkFromLinkOpt",
+            "-lc++",
+            "-lsqlite3",
+            "-lxml2",
+            "-lz");
   }
 }

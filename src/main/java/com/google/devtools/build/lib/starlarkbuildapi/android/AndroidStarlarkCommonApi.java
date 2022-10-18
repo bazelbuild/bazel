@@ -91,7 +91,12 @@ public interface AndroidStarlarkCommonApi<
                 "A JavaInfo that will be used as an implicit export for sourceless deps exports"
                     + " compatibility.",
             positional = true,
-            named = false)
+            named = false),
+        @Param(
+            name = "neverlink",
+            doc = "Whether to only use this JavaInfo at compile time and not at runtime.",
+            positional = true,
+            defaultValue = "False")
       })
-  JavaInfoT enableImplicitSourcelessDepsExportsCompatibility(JavaInfoT javaInfo);
+  JavaInfoT enableImplicitSourcelessDepsExportsCompatibility(JavaInfoT javaInfo, boolean neverlink);
 }

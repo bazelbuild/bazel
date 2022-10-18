@@ -287,3 +287,16 @@ py_test(
     srcs = ["starlark_options_test.py"],
     deps = [":test_base"],
 )
+
+py_test(
+    name = "bzlmod_query_test",
+    size = "large",
+    srcs = ["bzlmod/bzlmod_query_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)

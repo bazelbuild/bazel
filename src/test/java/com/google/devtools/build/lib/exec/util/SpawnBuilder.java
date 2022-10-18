@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.DelegateSpawn;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -59,6 +60,28 @@ public final class SpawnBuilder {
 
   private RunfilesSupplier runfilesSupplier = EmptyRunfilesSupplier.INSTANCE;
   private ResourceSet resourceSet = ResourceSet.ZERO;
+  private boolean stripOutputPaths;
+
+  /**
+   * A {@link DelegateSpawn} that supports output path stripping as described in {@link
+   * com.google.devtools.build.lib.actions.PathStripper}.
+   *
+   * <p>By overriding {@link #stripOutputPaths} - and only in test code - instead of adding an extra
+   * boolean in {@link SimpleSpawn}, we avoid further pressuring memory on large build graphs.
+   */
+  private static class PathStrippableSpawn extends DelegateSpawn {
+    private final boolean stripOutputPaths;
+
+    public PathStrippableSpawn(Spawn spawn, boolean stripOutputPaths) {
+      super(spawn);
+      this.stripOutputPaths = stripOutputPaths;
+    }
+
+    @Override
+    public boolean stripOutputPaths() {
+      return stripOutputPaths;
+    }
+  }
 
   public SpawnBuilder(String... args) {
     this.args = ImmutableList.copyOf(args);
@@ -68,18 +91,20 @@ public final class SpawnBuilder {
     ActionExecutionMetadata owner =
         new FakeOwner(
             mnemonic, progressMessage, ownerLabel, ownerPrimaryOutput, platform, execProperties);
-    return new SimpleSpawn(
-        owner,
-        ImmutableList.copyOf(args),
-        ImmutableMap.copyOf(environment),
-        ImmutableMap.copyOf(executionInfo),
-        runfilesSupplier,
-        ImmutableMap.copyOf(filesetMappings),
-        inputs.build(),
-        tools.build(),
-        ImmutableSet.copyOf(outputs),
-        mandatoryOutputs,
-        resourceSet);
+    return new PathStrippableSpawn(
+        new SimpleSpawn(
+            owner,
+            ImmutableList.copyOf(args),
+            ImmutableMap.copyOf(environment),
+            ImmutableMap.copyOf(executionInfo),
+            runfilesSupplier,
+            ImmutableMap.copyOf(filesetMappings),
+            inputs.build(),
+            tools.build(),
+            ImmutableSet.copyOf(outputs),
+            mandatoryOutputs,
+            resourceSet),
+        stripOutputPaths);
   }
 
   @CanIgnoreReturnValue
@@ -205,6 +230,12 @@ public final class SpawnBuilder {
   @CanIgnoreReturnValue
   public SpawnBuilder withLocalResources(ResourceSet resourceSet) {
     this.resourceSet = resourceSet;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public SpawnBuilder stripOutputPaths(boolean strip) {
+    this.stripOutputPaths = strip;
     return this;
   }
 }

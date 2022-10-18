@@ -51,7 +51,7 @@ def split_escaped(string, delimiter):
       Basic usage:
         split_escaped("a:b:c", ":") -> [ "a", "b", "c" ]
 
-      Delimeter that is not supposed to be splitten on has to be %-escaped:
+      Delimiter that is not supposed to be splitten on has to be %-escaped:
         split_escaped("a%:b", ":") -> [ "a:b" ]
 
       Literal % can be represented by escaping it as %%:

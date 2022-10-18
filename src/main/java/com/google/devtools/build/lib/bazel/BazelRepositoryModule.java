@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.LocalPathOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.bazel.commands.SyncCommand;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
@@ -135,6 +137,8 @@ public class BazelRepositoryModule extends BlazeModule {
   private List<String> registries;
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
+  private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
+  private List<String> allowedYankedVersions = ImmutableList.of();
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
 
   public BazelRepositoryModule() {
@@ -222,11 +226,23 @@ public class BazelRepositoryModule extends BlazeModule {
             //   - The canonical name "local_config_platform" is hardcoded in Bazel code.
             //     See {@link PlatformOptions}
             "local_config_platform",
-            (RepositoryName repoName) ->
-                RepoSpec.builder()
+            new NonRegistryOverride() {
+              @Override
+              public RepoSpec getRepoSpec(RepositoryName repoName) {
+                return RepoSpec.builder()
                     .setRuleClassName("local_config_platform")
                     .setAttributes(ImmutableMap.of("name", repoName.getName()))
-                    .build());
+                    .build();
+              }
+
+              @Override
+              public ResolutionReason getResolutionReason() {
+                // NOTE: It is not exactly a LOCAL_PATH_OVERRIDE, but there is no inspection
+                // ResolutionReason for builtin modules
+                return ResolutionReason.LOCAL_PATH_OVERRIDE;
+              }
+            });
+
     builder
         .addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, repositoryDelegatorFunction)
         .addSkyFunction(
@@ -326,7 +342,7 @@ public class BazelRepositoryModule extends BlazeModule {
       try {
         downloadManager.setNetrcCreds(
             UrlRewriter.newCredentialsFromNetrc(
-                env.getClientEnv(), env.getRuntime().getFileSystem()));
+                env.getClientEnv(), env.getDirectories().getWorkingDirectory()));
       } catch (UrlRewriterParseException e) {
         // If the credentials extraction failed, we're letting bazel try without credentials.
         env.getReporter()
@@ -401,6 +417,8 @@ public class BazelRepositoryModule extends BlazeModule {
 
       ignoreDevDeps.set(repoOptions.ignoreDevDependency);
       checkDirectDepsMode = repoOptions.checkDirectDependencies;
+      bazelCompatibilityMode = repoOptions.bazelCompatibilityMode;
+      allowedYankedVersions = repoOptions.allowedYankedVersions;
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
         registries = repoOptions.registries;
@@ -473,7 +491,11 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, ignoreDevDeps.get()),
         PrecomputedValue.injected(
-            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, checkDirectDepsMode));
+            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, checkDirectDepsMode),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, bazelCompatibilityMode),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, allowedYankedVersions));
   }
 
   @Override

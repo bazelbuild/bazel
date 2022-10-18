@@ -1,5 +1,3 @@
-package(default_visibility = ["//visibility:public"])
-
 py_library(
     name = "lib",
     srcs = ["lib.py"],
@@ -14,4 +12,5 @@ py_binary(
 filegroup(
     name = "srcs",
     srcs = ["BUILD"] + glob(["**/*.py"]),
+    visibility = ["//examples:__pkg__"],
 )

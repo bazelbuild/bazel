@@ -767,6 +767,13 @@ public final class PyCommon {
     if (ruleContext.getConfiguration().getActionListeners().isEmpty()) {
       return;
     }
+    registerPyExtraActionPseudoAction(ruleContext, dependencyTransitivePythonSources);
+  }
+
+  // Public so that Starlark bindings can access it. Should only be called by PyStarlarkBuiltins.
+  // TODO(b/253059598): Remove support for this; https://github.com/bazelbuild/bazel/issues/16455
+  public static void registerPyExtraActionPseudoAction(
+      RuleContext ruleContext, NestedSet<Artifact> dependencyTransitivePythonSources) {
     ruleContext.registerAction(
         makePyExtraActionPseudoAction(
             ruleContext.getActionOwner(),

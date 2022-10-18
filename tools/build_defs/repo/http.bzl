@@ -312,7 +312,7 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
     ),
     "patch_tool": attr.string(
         default = "",
-        doc = "The patch(1) utility to use. If this is specified, Bazel will use the specifed " +
+        doc = "The patch(1) utility to use. If this is specified, Bazel will use the specified " +
               "patch tool instead of the Bazel-native patch implementation.",
     ),
     "patch_args": attr.string_list(

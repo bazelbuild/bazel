@@ -210,12 +210,25 @@ final class StarlarkDocumentationCollector {
       if (moduleClass == moduleDoc.getClassObject()) {
         for (Map.Entry<Method, StarlarkMethod> entry :
             Starlark.getMethodAnnotations(moduleClass).entrySet()) {
-          // Only collect methods not annotated with @StarlarkConstructor.
-          // Methods with @StarlarkConstructor are added later.
+          // Collect methods that aren't directly constructors (i.e. have the @StarlarkConstructor
+          // annotation).
+          // Struct fields that return a type that has @StarlarkConstructor are a bit special:
+          // they're visited here because they're seen as an attribute of the module, but act more
+          // like a reference to the type they construct
           if (!entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
+            Method javaMethod = entry.getKey();
+            StarlarkMethod starlarkMethod = entry.getValue();
+            // Handle struct fields that return a Starlark constructor so that
+            // documentation can link to the constructed type.
+            if (starlarkMethod.structField()) {
+              Method constructor = getSelfCallConstructorMethod(javaMethod.getReturnType());
+              if (constructor != null) {
+                javaMethod = constructor;
+              }
+            }
             moduleDoc.addMethod(
                 new StarlarkJavaMethodDoc(
-                    moduleDoc.getName(), entry.getKey(), entry.getValue(), expander));
+                    moduleDoc.getName(), javaMethod, starlarkMethod, expander));
           }
         }
       }
@@ -269,12 +282,15 @@ final class StarlarkDocumentationCollector {
   /**
    * Collect two types of constructor methods:
    *
-   * <p>1. Methods that are annotated with @StarlarkConstructor.
+   * <p>1. The single method with selfCall=true and @StarlarkConstructor (if present)
    *
-   * <p>2. Structfield methods that return an object which itself has a method with selfCall = true,
-   * and is annotated with @StarlarkConstructor. (For example, suppose Foo has a structfield method
-   * 'bar'. If Foo.bar is itself callable, and is a constructor, then Foo.bar() should be treated
-   * like a constructor method.)
+   * <p>2. Any methods annotated with @StarlarkConstructor
+   *
+   * <p>Structfield methods that return an object which itself has selfCall=true
+   * and @StarlarkConstructor are *not* collected here (collectModuleMethods does that). (For
+   * example, supposed Foo has a structfield method named 'Bar', which refers to the Bar type. In
+   * Foo's doc, we describe Foo.Bar as an attribute of type Bar and link to the canonical Bar type
+   * documentation)
    */
   private static void collectConstructorMethods(
       Class<?> moduleClass, Map<String, StarlarkBuiltinDoc> modules, StarlarkDocExpander expander) {
@@ -286,11 +302,6 @@ final class StarlarkDocumentationCollector {
     for (Method method : Starlark.getMethodAnnotations(moduleClass).keySet()) {
       if (method.isAnnotationPresent(StarlarkConstructor.class)) {
         collectConstructor(modules, method, expander);
-      }
-      Class<?> returnClass = method.getReturnType();
-      Method returnClassConstructor = getSelfCallConstructorMethod(returnClass);
-      if (returnClassConstructor != null) {
-        collectConstructor(modules, returnClassConstructor, expander);
       }
     }
   }

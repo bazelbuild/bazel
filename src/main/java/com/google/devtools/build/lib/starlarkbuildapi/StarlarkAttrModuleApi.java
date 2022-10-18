@@ -64,7 +64,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
           + "<p>At analysis time (within the rule's implementation function), when retrieving the "
           + "attribute value from <code>ctx.attr</code>, labels are replaced by the corresponding "
           + "<a href='Target.html'><code>Target</code></a>s. This allows you to access the "
-          + "providers of the currrent target's dependencies.";
+          + "providers of the current target's dependencies.";
 
   // attr.output, attr.output_list
   String OUTPUT_ATTR_TEXT =

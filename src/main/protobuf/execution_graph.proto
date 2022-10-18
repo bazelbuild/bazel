@@ -12,19 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Protos that represent a complete graph of all executed spawns, and their
-// performance metrics. Targets are composed of actions, and actions are
-// composed of 0 or more spawns.
+// Protos that represent a complete graph of all executed spawns, actions that
+// don't have spawns, and their performance metrics. Targets are composed of
+// actions, and actions are composed of 0 or more spawns.
 
 syntax = "proto3";
 
-package spawn_graph;
+package execution_graph;
 
 // option cc_api_version = 2;
 // option java_api_version = 2;
 option java_package = "com.google.devtools.build.lib.actions";
 
-// Node is one Spawn in the executed graph.
+// Node is one entry in the executed graph.
 message Node {
   // All nodes should have a description so human debuggers could see what was
   // going on in this step. This should be ActionAnalysisMetadata.prettyPrint().
@@ -35,13 +35,12 @@ message Node {
   // For performance reasons, the set of all indexes in a build should be dense.
   int32 index = 2;
 
-  // The target name for the spawn. The field is not set if the spawn is
-  // shared between multiple targets or if it doesn't belong to any target.
-  // Note that a target can trigger several spawns, that can run in parallel or
-  // in sequence.
+  // The target name. The field is not set if a spawn or action is shared
+  // between multiple targets or if it doesn't belong to any target. Note that a
+  // target can trigger several spawns, that can run in parallel or in sequence.
   string target_label = 3;
 
-  // The spawn mnemonic. For example, Javac, GoLink, TestRunner, etc.
+  // The spawn or action mnemonic. For example, Javac, GoLink, TestRunner, etc.
   string mnemonic = 4;
 
   Metrics metrics = 5;
@@ -64,11 +63,11 @@ message Node {
 
 // Metrics contains all the timing metrics about a Node.
 message Metrics {
-  // The time when the spawn started, as milliseconds from the Unix epoch.
+  // The time when the node started, as milliseconds from the Unix epoch.
   int64 start_timestamp_millis = 1
       ;
 
-  // How long did this spawn last. This should be the sum of all the parts
+  // How long did this node last. This should be the sum of all the parts
   // below, but is included separately to identify issues when that's not true.
   int32 duration_millis = 2;
 

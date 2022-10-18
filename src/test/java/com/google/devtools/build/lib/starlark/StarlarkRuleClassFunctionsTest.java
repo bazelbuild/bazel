@@ -422,7 +422,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testLabelListWithAspectsError() throws Exception {
     ev.checkEvalErrorContains(
-        "at index 0 of aspects, got element of type int, want Aspect",
+        "at index 1 of aspects, got element of type int, want Aspect",
         "def _impl(target, ctx):",
         "   pass",
         "my_aspect = aspect(implementation = _impl)",
@@ -947,6 +947,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testExportWithSpecifiedName() throws Exception {
+    setBuildLanguageOptions("--noincompatible_remove_rule_name_parameter");
     evalAndExport(
         ev, //
         "def _impl(ctx): pass",
@@ -961,6 +962,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testExportWithSpecifiedNameFailure() throws Exception {
+    setBuildLanguageOptions("--noincompatible_remove_rule_name_parameter");
     ev.setFailFast(false);
 
     evalAndExport(
@@ -973,6 +975,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testExportWithNonStringNameFailsCleanly() throws Exception {
+    setBuildLanguageOptions("--noincompatible_remove_rule_name_parameter");
     ev.setFailFast(false);
 
     evalAndExport(
@@ -985,6 +988,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testExportWithMultipleErrors() throws Exception {
+    setBuildLanguageOptions("--noincompatible_remove_rule_name_parameter");
     ev.setFailFast(false);
 
     evalAndExport(

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import java.util.LinkedHashSet;
@@ -59,6 +60,8 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     if (ruleContext.hasErrors()) {
       return null;
     }
+
+    checkJarsAttributeEmpty(ruleContext);
 
     if (exportError(ruleContext)) {
       ruleContext.ruleError(
@@ -109,11 +112,17 @@ public class JavaImport implements RuleConfiguredTargetFactory {
       jdepsArtifact =
           ruleContext.getUniqueDirectoryArtifact(
               "_java_import", "jdeps.proto", ruleContext.getBinOrGenfilesDirectory());
+      JavaCompilationArgsProvider provider = JavaCompilationArgsProvider.legacyFromTargets(targets);
+      JavaTargetAttributes attributes =
+          new JavaTargetAttributes.Builder(semantics)
+              .merge(provider)
+              .addDirectJars(provider.getDirectCompileTimeJars())
+              .build();
       ImportDepsCheckActionBuilder.newBuilder()
           .importDepsChecker(depsChecker)
           .bootclasspath(toolchain.getBootclasspath().bootclasspath())
-          .declareDeps(getCompileTimeJarsFromCollection(targets, /*isDirect=*/ true))
-          .transitiveDeps(getCompileTimeJarsFromCollection(targets, /*isDirect=*/ false))
+          .declareDeps(attributes.getDirectJars())
+          .transitiveDeps(attributes.getCompileTimeClassPath())
           .checkJars(NestedSetBuilder.wrap(Order.STABLE_ORDER, jars))
           .importDepsCheckingLevel(ImportDepsCheckingLevel.ERROR)
           .jdepsOutputArtifact(jdepsArtifact)
@@ -192,12 +201,6 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  private static NestedSet<Artifact> getCompileTimeJarsFromCollection(
-      ImmutableList<TransitiveInfoCollection> deps, boolean isDirect) {
-    JavaCompilationArgsProvider provider = JavaCompilationArgsProvider.legacyFromTargets(deps);
-    return isDirect ? provider.getDirectCompileTimeJars() : provider.getTransitiveCompileTimeJars();
-  }
-
   private static boolean exportError(RuleContext ruleContext) {
     if (!ruleContext.attributes().isAttributeValueExplicitlySpecified("exports")) {
       return false;
@@ -207,6 +210,16 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     }
     return Allowlist.hasAllowlist(ruleContext, "java_import_exports")
         && !Allowlist.isAvailable(ruleContext, "java_import_exports");
+  }
+
+  private static void checkJarsAttributeEmpty(RuleContext ruleContext) {
+    if (ruleContext.getPrerequisites("jars").isEmpty()
+        && ruleContext.getFragment(JavaConfiguration.class).disallowJavaImportEmptyJars()
+        && Allowlist.hasAllowlist(ruleContext, "java_import_empty_jars")
+        && !Allowlist.isAvailable(ruleContext, "java_import_empty_jars")) {
+      ruleContext.ruleError(
+          "empty java_import.jars is no longer supported " + ruleContext.getLabel());
+    }
   }
 
   private NestedSet<Artifact> collectTransitiveJavaSourceJars(

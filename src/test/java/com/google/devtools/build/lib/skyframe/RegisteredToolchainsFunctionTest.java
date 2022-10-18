@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -61,7 +62,11 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(
-            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
+            BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR));
   }
 
   @Test
@@ -298,7 +303,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     setBuildLanguageOptions("--enable_bzlmod");
     scratch.overwriteFile(
         "MODULE.bazel",
-        "module(toolchains_to_register=['//:tool'])",
+        "register_toolchains('//:tool')",
         "bazel_dep(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='1.1')",
         "bazel_dep(name='toolchain_def',version='1.0')");

@@ -23,18 +23,20 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/**
- * Integration tests for the 'genquery' rule.
- */
-@RunWith(JUnit4.class)
+/** Integration tests for the 'genquery' rule. */
+@RunWith(TestParameterInjector.class)
 public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
+
+  @TestParameter private boolean ttvFree;
 
   @Test
   public void testDoesNotFailHorribly() throws Exception {
@@ -442,6 +444,80 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     runNodepDepsTest(/*optsStringValue=*/ "['--nodep_deps=true']", /*expectVisibilityDep=*/ true);
   }
 
+  @Test
+  public void testLoadingPhaseCycle() throws Exception {
+    // This test uses a target in a self-cycle to demonstrate that a genquery rule having a cycle in
+    // its scope causes it to fail, unless --experimental_skip_ttvs_for_genquery is used.
+    write(
+        "cycle/BUILD",
+        "genquery(",
+        "  name = 'gen',",
+        "  expression = '//cycle',",
+        "  scope = [':cycle'],",
+        ")",
+        "sh_library(name = 'cycle', deps = [':cycle'])");
+    if (ttvFree) {
+      assertQueryResult("//cycle:gen", "//cycle:cycle");
+    } else {
+      runtimeWrapper.addOptions("--noexperimental_skip_ttvs_for_genquery");
+      assertThrows(ViewCreationFailedException.class, () -> buildTarget("//cycle:gen"));
+      assertContainsEvent(
+          events.collector(), "in sh_library rule //cycle:cycle: cycle in dependency graph");
+    }
+  }
+
+  protected void writeAspectDefinition(String aspectPackage, String extraDep) throws Exception {
+    write(aspectPackage + "/BUILD");
+    write(
+        aspectPackage + "/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspect = aspect(",
+        "   implementation=_aspect_impl,",
+        "   attr_aspects=['deps'],",
+        "   attrs = {'_extra_deps': attr.label(default = Label('" + extraDep + "'))})",
+        "aspect_rule = rule(",
+        "   implementation=_rule_impl,",
+        "   attrs = { 'attr' : ",
+        "             attr.label_list(mandatory=True, allow_files=True, aspects = [MyAspect]),",
+        "             'param' : attr.string(),",
+        "           },",
+        ")");
+  }
+
+  @Test
+  public void testAspectDepChain() throws Exception {
+    writeAspectDefinition("aspect1", "//middle");
+    writeAspectDefinition("aspect2", "//end");
+    write(
+        "start/BUILD",
+        "load('//aspect1:aspect.bzl', 'aspect_rule')",
+        "genquery(",
+        "  name = 'gen',",
+        "  expression = 'deps(//start)',",
+        "  scope = [':start'],",
+        ")",
+        "aspect_rule(name = 'start', attr = [':startdep'])",
+        "sh_library(name = 'startdep')");
+    write(
+        "middle/BUILD",
+        "load('//aspect2:aspect.bzl', 'aspect_rule')",
+        "aspect_rule(name = 'middle', attr = [':middledep'])",
+        "sh_library(name = 'middledep')");
+    write(
+        "end/BUILD", "sh_library(name = 'end', deps = [':enddep'])", "sh_library(name = 'enddep')");
+    assertQueryResult(
+        "//start:gen",
+        "//end:end",
+        "//end:enddep",
+        "//middle:middle",
+        "//middle:middledep",
+        "//start:start",
+        "//start:startdep");
+  }
+
   private void assertQueryResult(String queryTarget, String... expected) throws Exception {
     assertThat(getQueryResult(queryTarget).split("\n"))
         .asList()
@@ -457,8 +533,17 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   private String getQueryResult(String queryTarget) throws Exception {
+    if (ttvFree) {
+      runtimeWrapper.addOptions("--experimental_skip_ttvs_for_genquery");
+    } else {
+      runtimeWrapper.addOptions("--noexperimental_skip_ttvs_for_genquery");
+    }
     buildTarget(queryTarget);
     Artifact output = Iterables.getOnlyElement(getArtifacts(queryTarget));
+    assertThat(
+            getSkyframeExecutor().getEvaluator().getValues().keySet().stream()
+                .anyMatch(key -> key instanceof TransitiveTargetKey))
+        .isEqualTo(!ttvFree);
     return readContentAsLatin1String(output);
   }
 }

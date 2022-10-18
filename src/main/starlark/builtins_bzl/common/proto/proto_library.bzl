@@ -55,10 +55,8 @@ def _get_strip_import_prefix(ctx):
 
     if paths.is_absolute(strip_import_prefix):
         strip_import_prefix = strip_import_prefix[1:]
-    elif strip_import_prefix != "DO_NOT_STRIP":  # Relative to current package
+    else:  # Relative to current package
         strip_import_prefix = _join(ctx.label.package, strip_import_prefix)
-    else:
-        strip_import_prefix = ""
 
     return strip_import_prefix
 
@@ -284,7 +282,7 @@ proto_library = rule(
         "exports": attr.label_list(
             providers = [ProtoInfo],
         ),
-        "strip_import_prefix": attr.string(default = "DO_NOT_STRIP"),
+        "strip_import_prefix": attr.string(default = "/"),
         "data": attr.label_list(
             allow_files = True,
             flags = ["SKIP_CONSTRAINTS_OVERRIDE"],

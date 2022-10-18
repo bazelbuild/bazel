@@ -27,11 +27,13 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
@@ -122,14 +124,20 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
                     GET_REPO_SPEC_BY_NAME_FUNCTION,
                     new GetRepoSpecByNameFunction(new BzlmodRepoRuleHelperImpl()))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
+                .put(
+                    SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
+                    new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
                 .buildOrThrow(),
             differencer);
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
+    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.WARNING);
+    BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
+        differencer, BazelCompatibilityMode.ERROR);
   }
 
   @Test
@@ -205,7 +213,8 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
         "module(name='aaa',version='0.1')",
         "bazel_dep(name='bbb',version='1.0')",
         "single_version_override(",
-        "  module_name='ccc',version='3.0',patches=['//:foo.patch'],patch_strip=1)");
+        "  module_name='ccc',version='3.0',patches=['//:foo.patch'], patch_cmds=['echo hi'],"
+            + " patch_strip=1)");
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/usr/local/modules")
@@ -238,6 +247,8 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
                         "/usr/local/modules/ccc~3.0",
                         "patches",
                         ImmutableList.of("//:foo.patch"),
+                        "patch_cmds",
+                        ImmutableList.of("echo hi"),
                         "patch_args",
                         ImmutableList.of("-p1")))
                 .build());

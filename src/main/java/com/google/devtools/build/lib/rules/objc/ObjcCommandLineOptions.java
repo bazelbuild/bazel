@@ -181,4 +181,13 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "No-op. Kept here for backwards compatibility.")
   public boolean incompatibleDisableNativeAppleBinaryRule;
+
+  @Override
+  public FragmentOptions getHost() {
+    ObjcCommandLineOptions host = (ObjcCommandLineOptions) getDefault();
+    host.enableCcDeps = enableCcDeps;
+    host.incompatibleAvoidHardcodedObjcCompilationFlags =
+        incompatibleAvoidHardcodedObjcCompilationFlags;
+    return host;
+  }
 }

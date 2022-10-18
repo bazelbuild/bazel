@@ -305,8 +305,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       oneVersionOutputArtifact =
           OneVersionCheckActionBuilder.newBuilder()
               .withEnforcementLevel(oneVersionEnforcementLevel)
-              .outputArtifact(
-                  ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_ONE_VERSION_ARTIFACT))
               .useToolchain(javaToolchain)
               .checkJars(
                   NestedSetBuilder.fromNestedSet(attributes.getRuntimeClassPath())
@@ -374,11 +372,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext);
 
     if (oneVersionOutputArtifact != null) {
-      builder.addOutputGroup(
-          javaConfig.enforceOneVersionValidationAction()
-              ? OutputGroupInfo.VALIDATION
-              : OutputGroupInfo.HIDDEN_TOP_LEVEL,
-          oneVersionOutputArtifact);
+      builder.addOutputGroup(OutputGroupInfo.VALIDATION, oneVersionOutputArtifact);
     }
 
     NestedSet<Artifact> extraFilesToRun =

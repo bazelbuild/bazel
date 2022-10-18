@@ -101,6 +101,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   private AspectResolver aspectResolver;
   private DependencyFilter dependencyFilter;
+  private boolean packageGroupIncludesDoubleSlash;
   private boolean relativeLocations;
   private boolean displaySourceFileLocation;
   private boolean includeDefaultValues = true;
@@ -126,6 +127,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     super.setOptions(options, aspectResolver, hashFunction);
     this.aspectResolver = aspectResolver;
     this.dependencyFilter = FormatUtils.getDependencyFilter(options);
+    this.packageGroupIncludesDoubleSlash = options.incompatiblePackageGroupIncludesDoubleSlash;
     this.relativeLocations = options.relativeLocations;
     this.displaySourceFileLocation = options.displaySourceFileLocation;
     this.includeDefaultValues = options.protoIncludeDefaultValues;
@@ -344,7 +346,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       PackageGroup packageGroup = (PackageGroup) target;
       Build.PackageGroup.Builder packageGroupPb =
           Build.PackageGroup.newBuilder().setName(packageGroup.getLabel().toString());
-      for (String containedPackage : packageGroup.getContainedPackages()) {
+      for (String containedPackage :
+          packageGroup.getContainedPackages(packageGroupIncludesDoubleSlash)) {
         packageGroupPb.addContainedPackage(containedPackage);
       }
       for (Label include : packageGroup.getIncludes()) {

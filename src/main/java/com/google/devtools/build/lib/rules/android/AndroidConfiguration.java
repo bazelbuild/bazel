@@ -40,6 +40,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Configuration fragment for Android rules. */
 @Immutable
@@ -91,7 +92,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
    * --android_crosstool_top} point to different labels, they may end up being redirected to the
    * same thing, and this is exactly what happens on OSX X.
    */
-  public enum ConfigurationDistinguisher {
+  public enum ConfigurationDistinguisher implements StarlarkValue {
     MAIN(null),
     ANDROID("android");
 
@@ -358,7 +359,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean desugarJava8;
 
     @Option(
-        name = "experimental_desugar_java8_libs",
+        name = "desugar_java8_libs",
+        oldName = "experimental_desugar_java8_libs",
+        oldNameWarning = false,
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
         effectTags = {
@@ -1029,6 +1032,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       host.persistentBusyboxTools = persistentBusyboxTools;
       host.experimentalPersistentMultiplexBusyboxTools =
           experimentalPersistentMultiplexBusyboxTools;
+      host.disableNativeAndroidRules = disableNativeAndroidRules;
 
       // Unless the build was started from an Android device, host means MAIN.
       host.configurationDistinguisher = ConfigurationDistinguisher.MAIN;

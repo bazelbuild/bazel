@@ -44,8 +44,8 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 function expect_path_in_android_tools() {
   local path="$1"; shift
 
-  count=$(tar tf $(rlocation io_bazel/tools/android/runtime_deps/android_tools.tar.gz) | grep -c "$path")
-  [[ "$count" -gt 0 ]] || fail "Path $path not found in android_tools.tar.gz"
+  count=$(tar tf $(rlocation io_bazel/tools/android/runtime_deps/android_tools.tar) | grep -c "$path")
+  [[ "$count" -gt 0 ]] || fail "Path $path not found in android_tools.tar"
 }
 
 function test_android_tools_has_WORKSPACE() {

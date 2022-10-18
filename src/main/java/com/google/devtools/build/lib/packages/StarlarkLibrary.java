@@ -60,14 +60,14 @@ public final class StarlarkLibrary {
 
   /**
    * A library of Starlark values (keyed by name) that are not part of core Starlark but are common
-   * to all Bazel Starlark file environments (BUILD, .bzl, and WORKSPACE). Examples: depset, select,
+   * to all Bazel Starlark file environments (BUILD, .bzl, WORKSPACE, and cquery). Examples: depset,
    * json.
    */
   public static final ImmutableMap<String, Object> COMMON = initCommon();
 
   private static ImmutableMap<String, Object> initCommon() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    Starlark.addMethods(env, new CommonLibrary());
+    Starlark.addMethods(env, new DepsetLibrary());
     env.put("json", Json.INSTANCE);
     env.put("proto", Proto.INSTANCE);
     return env.buildOrThrow();
@@ -248,8 +248,7 @@ public final class StarlarkLibrary {
   }
 
   @DocumentMethods
-  private static final class CommonLibrary {
-
+  private static final class DepsetLibrary {
     @StarlarkMethod(
         name = "depset",
         doc =
@@ -318,7 +317,11 @@ public final class StarlarkLibrary {
         throws EvalException {
       return Depset.depset(orderString, direct, transitive, thread.getSemantics());
     }
+  }
 
+  /** A starlark library supporting Bazel's implementation of the `select()` Starlark function. */
+  @DocumentMethods
+  public static final class SelectLibrary {
     @StarlarkMethod(
         name = "select",
         doc =
@@ -357,6 +360,7 @@ public final class StarlarkLibrary {
   private static ImmutableMap<String, Object> initBUILD() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     Starlark.addMethods(env, new BuildLibrary());
+    Starlark.addMethods(env, new SelectLibrary());
     env.putAll(COMMON);
     return env.buildOrThrow();
   }

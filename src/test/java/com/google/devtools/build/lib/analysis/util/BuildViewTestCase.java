@@ -107,6 +107,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -281,6 +282,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                 PrecomputedValue.injected(
                     PrecomputedValue.STARLARK_SEMANTICS, StarlarkSemantics.DEFAULT))
             .add(PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()))
+            .add(PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()))
             .add(
                 PrecomputedValue.injected(
                     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()))
@@ -544,6 +546,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
+    parser.parse("--experimental_google_legacy_api"); // For starlark java_binary;
     parser.parse(options);
     return parser.getOptions(BuildLanguageOptions.class);
   }

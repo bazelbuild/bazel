@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,6 +32,11 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class AbstractConfiguredTargetTest extends BuildViewTestCase {
+
+  @Before
+  public void setupStarlarkJavaBinary() throws Exception {
+    setBuildLanguageOptions("--experimental_google_legacy_api");
+  }
 
   @Test
   public void testRunfilesProviderIsNotImportant() throws Exception {

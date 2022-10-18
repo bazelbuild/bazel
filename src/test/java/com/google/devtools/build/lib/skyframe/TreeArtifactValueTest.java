@@ -699,7 +699,7 @@ public final class TreeArtifactValueTest {
   }
 
   private static FileArtifactValue metadataWithId(int id) {
-    return new RemoteFileArtifactValue(new byte[] {(byte) id}, id, id);
+    return RemoteFileArtifactValue.create(new byte[] {(byte) id}, id, id);
   }
 
   private static FileArtifactValue metadataWithIdNoDigest(int id) {

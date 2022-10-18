@@ -59,7 +59,7 @@ public class ModqueryOptions extends OptionsBase {
   public boolean extra;
 
   @Option(
-      name = "unused",
+      name = "include_unused",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.MODQUERY,
       effectTags = {OptionEffectTag.EXECUTION},
@@ -69,18 +69,18 @@ public class ModqueryOptions extends OptionsBase {
               + " Minimal-Version Selection or override rules). This can have different effects for"
               + " each of the query types i.e. include new paths in the all_paths command, or extra"
               + " dependants in the explain command.\n")
-  public boolean unused;
+  public boolean includeUnused;
 
   @Option(
       name = "depth",
-      defaultValue = "2147483647",
+      defaultValue = "-1",
       documentationCategory = OptionDocumentationCategory.MODQUERY,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
           "Maximum display depth of the dependency tree. A depth of 1 displays the direct"
               + " dependencies, for example. For tree, path and all_paths it defaults to"
-              + " Integer.MAX_VALUE, while for explain it defaults to 1 (only displays direct deps"
-              + " of the root besides the leaves and their parents).\n")
+              + " Integer.MAX_VALUE, while for deps and explain it defaults to 1 (only displays"
+              + " direct deps of the root besides the target leaves and their parents).\n")
   public int depth;
 
   @Option(
@@ -103,17 +103,6 @@ public class ModqueryOptions extends OptionsBase {
           "Chooses the character set to use for the tree. Only affects text output. Valid values"
               + " are \"utf8\" or \"ascii\". Default is \"utf8\"")
   public Charset charset;
-
-  @Option(
-      name = "prefix",
-      defaultValue = "indent",
-      converter = PrefixConverter.class,
-      documentationCategory = OptionDocumentationCategory.MODQUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help =
-          "Sets how each line is displayed (only affects `text` output). The prefix value can be"
-              + " one of \"indent\", \"depth\" or \"none\". The default is \"indent\"")
-  public Prefix prefix;
 
   @Option(
       name = "output",
@@ -174,19 +163,6 @@ public class ModqueryOptions extends OptionsBase {
     }
   }
 
-  enum Prefix {
-    INDENT,
-    DEPTH,
-    NONE
-  }
-
-  /** Converts a prefix option string to a properly typed {@link Charset} */
-  public static class PrefixConverter extends EnumConverter<Prefix> {
-    public PrefixConverter() {
-      super(Prefix.class, "output tree prefix");
-    }
-  }
-
   enum OutputFormat {
     TEXT,
     JSON,
@@ -224,6 +200,8 @@ public class ModqueryOptions extends OptionsBase {
     public TargetModule convert(String input) throws OptionsParsingException {
       String errorMessage = String.format("Cannot parse the given module argument: %s.", input);
       Preconditions.checkArgument(input != null);
+      // The keyword root takes priority if any module is named the same it can only be referenced
+      // using the full key.
       if (Ascii.equalsIgnoreCase(input, "root")) {
         return TargetModule.create("", Version.EMPTY);
       } else {
@@ -281,5 +259,17 @@ public class ModqueryOptions extends OptionsBase {
     public String getTypeDescription() {
       return "a list of <module>s separated by comma";
     }
+  }
+
+  static ModqueryOptions getDefaultOptions() {
+    ModqueryOptions options = new ModqueryOptions();
+    options.depth = Integer.MAX_VALUE;
+    options.cycles = false;
+    options.includeUnused = false;
+    options.extra = false;
+    options.modulesFrom = ImmutableList.of(TargetModule.create("", Version.EMPTY));
+    options.charset = Charset.UTF8;
+    options.outputFormat = OutputFormat.TEXT;
+    return options;
   }
 }

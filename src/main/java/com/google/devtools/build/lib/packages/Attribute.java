@@ -95,9 +95,9 @@ public final class Attribute implements Comparable<Attribute> {
     STRICT_LABEL_CHECKING,
 
     /**
-     * Set for things that would cause the a compile or lint-like action to be executed when the
-     * input changes. Used by compile_one_dependency. Set for attributes like hdrs and srcs on cc_
-     * rules or srcs on java_ or py_rules. Generally not set on data/resource attributes.
+     * Set for things that would cause a compile or lint-like action to be executed when the input
+     * changes. Used by compile_one_dependency. Set for attributes like hdrs and srcs on cc_ rules
+     * or srcs on java_ or py_rules. Generally not set on data/resource attributes.
      */
     DIRECT_COMPILE_TIME_INPUT,
 

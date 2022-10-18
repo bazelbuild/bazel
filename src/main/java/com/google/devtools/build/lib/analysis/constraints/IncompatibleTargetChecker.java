@@ -104,7 +104,7 @@ public class IncompatibleTargetChecker {
       ConfigConditions configConditions,
       Environment env,
       @Nullable PlatformInfo platformInfo,
-      NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
+      NestedSetBuilder<Package> transitivePackages)
       throws InterruptedException {
     Target target = targetAndConfiguration.getTarget();
     Rule rule = target.getAssociatedRule();
@@ -157,7 +157,7 @@ public class IncompatibleTargetChecker {
             IncompatiblePlatformProvider.incompatibleDueToConstraints(
                 platformInfo.label(), invalidConstraintValues),
             rule.getRuleClass(),
-            transitivePackagesForPackageRootResolution));
+            transitivePackages));
   }
 
   /**
@@ -181,7 +181,7 @@ public class IncompatibleTargetChecker {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
       ConfigConditions configConditions,
       @Nullable PlatformInfo platformInfo,
-      NestedSetBuilder<Package> transitivePackagesForPackageRootResolution) {
+      NestedSetBuilder<Package> transitivePackages) {
     Target target = targetAndConfiguration.getTarget();
     Rule rule = target.getAssociatedRule();
 
@@ -209,7 +209,7 @@ public class IncompatibleTargetChecker {
             configConditions,
             IncompatiblePlatformProvider.incompatibleDueToTargets(platformLabel, incompatibleDeps),
             rule.getRuleClass(),
-            transitivePackagesForPackageRootResolution));
+            transitivePackages));
   }
 
   /** Creates an incompatible target. */
@@ -219,7 +219,7 @@ public class IncompatibleTargetChecker {
       ConfigConditions configConditions,
       IncompatiblePlatformProvider incompatiblePlatformProvider,
       String ruleClassString,
-      NestedSetBuilder<Package> transitivePackagesForPackageRootResolution) {
+      NestedSetBuilder<Package> transitivePackages) {
     // Create dummy instances of the necessary data for a configured target. None of this data will
     // actually be used because actions associated with incompatible targets must not be evaluated.
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -248,10 +248,7 @@ public class IncompatibleTargetChecker {
             configConditions.asProviders(),
             ruleClassString);
     return new RuleConfiguredTargetValue(
-        configuredTarget,
-        transitivePackagesForPackageRootResolution == null
-            ? null
-            : transitivePackagesForPackageRootResolution.build());
+        configuredTarget, transitivePackages == null ? null : transitivePackages.build());
   }
 
   /**

@@ -467,12 +467,13 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " '//package:target --options'.")
   public RunUnder runUnder;
 
+  // TODO(b/248763226): Consider moving this to a non-FragmentOptions.
   @Option(
       name = "check_visibility",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      help = "If disabled, visibility errors are demoted to warnings.")
+      help = "If disabled, visibility errors in target dependencies are demoted to warnings.")
   public boolean checkVisibility;
 
   @Option(
@@ -480,6 +481,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If enabled, check testonly for prerequisite targets that are output files by"
               + " looking up the testonly of the generating rule. This matches visibility"
@@ -649,7 +651,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "experimental_allow_unresolved_symlinks",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.LOSES_INCREMENTAL_STATE,
@@ -920,6 +922,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.cpu = hostCpu;
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
     host.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
+    host.checkTestonlyForOutputFiles = checkTestonlyForOutputFiles;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;
@@ -960,6 +963,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.enableAspectHints = enableAspectHints;
     host.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
 
+    host.usePlatformsRepoForConstraints = usePlatformsRepoForConstraints;
     return host;
   }
 

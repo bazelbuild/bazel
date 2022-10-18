@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.remote.util.IntegrationTestUtils.startWorker;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -394,7 +395,10 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
 
   private void assertOutputsDoNotExist(String target) throws Exception {
     for (Artifact output : getArtifacts(target)) {
-      assertThat(output.getPath().exists()).isFalse();
+      assertWithMessage(
+              "output %s for target %s should not exist", output.getExecPathString(), target)
+          .that(output.getPath().exists())
+          .isFalse();
     }
   }
 

@@ -35,32 +35,11 @@ import net.starlark.java.eval.StarlarkValue;
     doc = "Helper methods for Starlark to access testing infrastructure.")
 public interface TestingModuleApi extends StarlarkValue {
 
-  // TODO(bazel-team): Change this function to be the actual ExecutionInfo.PROVIDER.
   @StarlarkMethod(
       name = "ExecutionInfo",
-      doc =
-          "Creates a new execution info provider. Use this provider to specify special"
-              + "environments requirements needed to run tests.",
-      parameters = {
-        @Param(
-            name = "requirements",
-            named = false,
-            positional = true,
-            doc =
-                "A map of string keys and values to indicate special execution requirements,"
-                    + " such as hardware platforms, etc. These keys and values are passed to the"
-                    + " executor of the test action as parameters to configure the execution"
-                    + " environment."),
-        @Param(
-            name = "exec_group",
-            named = true,
-            positional = false,
-            defaultValue = "'test'",
-            doc = "The name of the execution group to use for executing the test."),
-      })
-  ExecutionInfoApi executionInfo(
-      /* <String, String> expected */ Dict<?, ?> requirements, String execGroup)
-      throws EvalException;
+      doc = "<a href='ExecutionInfo.html'>testing.ExecutionInfo</a> provider key/constructor",
+      structField = true)
+  ExecutionInfoApi.ExecutionInfoApiProvider executionInfo() throws EvalException;
 
   @StarlarkMethod(
       name = "TestEnvironment",

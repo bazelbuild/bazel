@@ -26,6 +26,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:profiler-output",
+        "//src/main/java/com/google/devtools/build/lib/profiler:system_network_stats",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_metric",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",

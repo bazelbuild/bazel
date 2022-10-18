@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.StarlarkLibrary.SelectLibrary;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.vfs.Path;
@@ -326,7 +327,8 @@ public class WorkspaceFactory {
 
   private ImmutableMap<String, Object> getDefaultEnvironment() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    env.putAll(StarlarkLibrary.COMMON); // e.g. select, depset
+    env.putAll(StarlarkLibrary.COMMON); // e.g. depset
+    Starlark.addMethods(env, new SelectLibrary());
     env.putAll(workspaceFunctions);
     if (installDir != null) {
       env.put("__embedded_dir__", installDir.getPathString());

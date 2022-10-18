@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.util.stream.Collectors.toList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
@@ -255,6 +256,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
     ObjcCommon common;
     CcCompilationContext ccCompilationContext = null;
+    CcLinkingContext ccLinkingContext = null;
 
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext);
@@ -292,10 +294,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                         intermediateArtifacts,
                         common.getCompilationArtifacts().get(),
                         common.getObjcCompilationContext(),
+                        StarlarkList.immutableCopyOf(common.getCcLinkingContexts()),
                         StarlarkList.immutableCopyOf(extraCompileArgs)),
                     new HashMap<>());
 
         ccCompilationContext = (CcCompilationContext) compilationResult.get(0);
+        ccLinkingContext = (CcLinkingContext) compilationResult.get(1);
       } catch (RuleErrorException e) {
         ruleContext.ruleError(e.getMessage());
       }
@@ -310,7 +314,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
               ImmutableList.<PathFragment>of(),
               depAttributes,
               otherDeps);
-      ccCompilationContext = common.getCcCompilationContext();
+      ccCompilationContext = common.createCcCompilationContext();
+      ccLinkingContext = common.createCcLinkingContext();
     }
 
     return builder
@@ -318,7 +323,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             exportedJ2ObjcMappingFileProvider(base, ruleContext, directJ2ObjcMappingFileProvider))
         .addNativeDeclaredProvider(common.getObjcProvider())
         .addNativeDeclaredProvider(
-            CcInfo.builder().setCcCompilationContext(ccCompilationContext).build())
+            CcInfo.builder()
+                .setCcCompilationContext(ccCompilationContext)
+                .setCcLinkingContext(ccLinkingContext)
+                .build())
         .build();
   }
 
@@ -873,28 +881,30 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       builder.setHasModuleMap();
     }
 
+    ImmutableList.Builder<CcInfo> ccInfos = new ImmutableList.Builder<>();
     for (String attrName : dependentAttributes) {
       if (ruleContext.attributes().has(attrName, BuildType.LABEL_LIST)
           || ruleContext.attributes().has(attrName, BuildType.LABEL)) {
-        ImmutableList.Builder<CcInfo> ccInfoList = new ImmutableList.Builder<>();
         for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attrName)) {
           CcInfo ccInfo = dep.get(CcInfo.PROVIDER);
           if (ccInfo != null) {
-            ccInfoList.add(ccInfo);
+            ccInfos.add(ccInfo);
           }
         }
-        builder.addCcCompilationContexts(ccInfoList.build());
         builder.addObjcProviders(
             ruleContext.getPrerequisites(attrName, ObjcProvider.STARLARK_CONSTRUCTOR));
       }
     }
+    builder.addCcInfos(ccInfos.build());
 
     // We can't just use addDeps since that now takes ConfiguredTargetAndData and we only have
     // TransitiveInfoCollections
     builder.addObjcProviders(
-        otherDeps.stream().map(d -> d.get(ObjcProvider.STARLARK_CONSTRUCTOR)).collect(toList()));
-    builder.addCcCompilationContexts(
-        otherDeps.stream().map(d -> d.get(CcInfo.PROVIDER)).collect(toList()));
+        otherDeps.stream()
+            .map(d -> d.get(ObjcProvider.STARLARK_CONSTRUCTOR))
+            .collect(toImmutableList()));
+    builder.addCcInfos(
+        otherDeps.stream().map(d -> d.get(CcInfo.PROVIDER)).collect(toImmutableList()));
 
     return builder
         .addIncludes(headerSearchPaths)

@@ -73,18 +73,17 @@ Bazel in the
 
 ## Minimizing Module Visibility
 
-Bazel and other build systems allow each target to specify a visibility: a
-property that specifies which other targets may depend on it. Targets can be
-public, in which case they can be referenced by any other target in the
-workspace; private, in which case they can be referenced only from within the
-same `BUILD` file; or visible to only an explicitly defined list of other
-targets. A visibility is essentially the opposite of a dependency: if target A
-wants to depend on target B, target B must make itself visible to target A. As
-with most programming languages, it is usually best to minimize visibility as
+Bazel and other build systems allow each target to specify a visibility — a
+property that determines which other targets may depend on it. A private target
+can only be referenced within its own `BUILD` file. A target may grant broader
+visibility to the targets of an explicitly defined list of `BUILD` files, or, in
+the case of public visibility, to every target in the workspace.
+
+As with most programming languages, it is usually best to minimize visibility as
 much as possible. Generally, teams at Google will make targets public only if
 those targets represent widely used libraries available to any team at Google.
 Teams that require others to coordinate with them before using their code will
-maintain an allow list of customer targets as their target’s visibility. Each
+maintain an allowlist of customer targets as their target’s visibility. Each
 team’s internal implementation targets will be restricted to only directories
 owned by the team, and most `BUILD` files will have only one target that isn’t
 private.

@@ -1615,12 +1615,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  deps = [':mya'], runtime_deps = [':myb'])");
     assertNoEvents();
 
+    setBuildLanguageOptions("--experimental_google_legacy_api");
     // Test that all bottom jars are on the runtime classpath.
     ConfiguredTarget binary = getConfiguredTarget("//foo:binary");
     assertThat(
             prettyArtifactNames(
                 binary
-                    .getProvider(JavaRuntimeClasspathProvider.class)
+                    .get(JavaInfo.PROVIDER)
+                    .getCompilationInfoProvider()
                     .getRuntimeClasspath()
                     .getSet(Artifact.class)))
         .containsAtLeast("foo/libjl_bottom_for_deps.jar", "foo/libjl_bottom_for_runtime_deps.jar");
@@ -1971,6 +1973,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "my_rule(name = 'r', dep = ':jl', cc_dep = ':ccl')",
         "java_binary(name = 'binary', main_class = 'C', srcs = ['java/C.java'], deps = [':r'])");
 
+    setBuildLanguageOptions("--experimental_google_legacy_api");
     ConfiguredTarget testTarget = getConfiguredTarget("//foo:binary");
 
     TemplateExpansionAction action =
@@ -2218,6 +2221,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  fragments = ['java']",
         ")");
 
+    setBuildLanguageOptions("--experimental_google_legacy_api");
     ConfiguredTarget target = getConfiguredTarget("//java/test:plugin");
     assertThat(
             actionsTestUtil()
@@ -3252,6 +3256,26 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void disallowJavaImportEmptyJars_fails() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  ctx.fragments.java.disallow_java_import_empty_jars()",
+        "  return []",
+        "myrule = rule(",
+        "  implementation=_impl,",
+        "  fragments = ['java']",
+        ")");
+    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:myrule");
 
     assertContainsEvent("Rule in 'foo' cannot use private API");
   }

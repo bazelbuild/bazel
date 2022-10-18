@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelperImpl;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
@@ -52,6 +53,7 @@ import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BzlCompileFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
+import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -226,6 +228,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(
                         ruleClassProvider, directories, new BzlmodRepoRuleHelperImpl()))
+                .put(
+                    SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
+                    new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
                 .build(),
             differencer);
     overrideDirectory = scratch.dir("/foo");
@@ -245,8 +250,11 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
+    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.WARNING);
+    BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
+        differencer, BazelCompatibilityMode.ERROR);
   }
 
   @Test
@@ -444,7 +452,30 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
     assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
     assertThat(repositoryDirectoryValue.getErrorMsg())
-        .contains("Repository '@foo' is not visible from repository '@fake_owner_repo'");
+        .contains("No repository visible as '@foo' from repository '@fake_owner_repo'");
+  }
+
+  @Test
+  public void loadInvisibleRepositoryFromMain() throws Exception {
+
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    SkyKey key =
+        RepositoryDirectoryValue.key(
+            RepositoryName.createUnvalidated("foo").toNonVisible(RepositoryName.MAIN));
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(8)
+            .setEventHandler(eventHandler)
+            .build();
+    EvaluationResult<SkyValue> result =
+        evaluator.evaluate(ImmutableList.of(key), evaluationContext);
+
+    assertThat(result.hasError()).isFalse();
+    RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
+    assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
+    assertThat(repositoryDirectoryValue.getErrorMsg())
+        .contains("No repository visible as '@foo' from main repository");
   }
 
   private void loadRepo(String strippedRepoName) throws InterruptedException {

@@ -54,18 +54,32 @@ import net.starlark.java.eval.StarlarkSemantics;
  *       entry to {@link BuildLanguageOptions}, then specify the identifier in {@link
  *       StarlarkMethod#enableOnlyWithFlag} or {@link StarlarkMethod#disableWithFlag}.
  * </ul>
- *
- * For both readability and correctness, the relative order of the options in all of these locations
- * must be kept consistent; to make it easy we use alphabetic order. The parts that need updating
- * are marked with the comment "<== Add new options here in alphabetic order ==>".
  */
 public final class BuildLanguageOptions extends OptionsBase {
 
-  // <== Add new options here in alphabetic order ==>
+  @Option(
+      name = "incompatible_stop_exporting_language_modules",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, certain language-specific modules (such as `cc_common`) are unavailable in"
+              + " user .bzl files and may only be called from their respective rules repositories.")
+  public boolean incompatibleStopExportingLanguageModules;
+
+  @Option(
+      name = "incompatible_remove_rule_name_parameter",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If set to true, `rule` can't be called with the `name` parameter.")
+  public boolean incompatibleRemoveRuleNameParameter;
 
   @Option(
       name = "incompatible_disallow_symlink_file_to_dir",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -161,6 +175,14 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " of repository remapping, which is used by bzlmod.) If the list includes the"
               + " special item \"everyone\", all packages are permitted.")
   public List<String> experimentalBzlVisibilityAllowlist;
+
+  @Option(
+      name = "check_bzl_visibility",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help = "If disabled, bzl-visibility errors in load() statements are demoted to warnings.")
+  public boolean checkBzlVisibility;
 
   @Option(
       name = "experimental_cc_skylark_api_enabled_packages",
@@ -429,6 +451,31 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleDisallowStructProviderSyntax;
 
   @Option(
+      name = "incompatible_package_group_has_public_syntax",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "In package_group's `packages` attribute, allows writing \"public\" or \"private\" to"
+              + " refer to all packages or no packages respectively.")
+  public boolean incompatiblePackageGroupHasPublicSyntax;
+
+  @Option(
+      name = "incompatible_fix_package_group_reporoot_syntax",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "In package_group's `packages` attribute, changes the meaning of the value \"//...\" to"
+              + " refer to all packages in the current repository instead of all packages in any"
+              + " repository. You can use the special value \"public\" in place of \"//...\" to"
+              + " obtain the old behavior. This flag requires"
+              + " that --incompatible_package_group_has_public_syntax also be enabled.")
+  public boolean incompatibleFixPackageGroupReporootSyntax;
+
+  @Option(
       name = "incompatible_visibility_private_attributes_at_definition",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -523,7 +570,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_unambiguous_label_stringification",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -623,7 +670,10 @@ public final class BuildLanguageOptions extends OptionsBase {
     // This function connects command-line flags to their corresponding StarlarkSemantics keys.
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
-            // <== Add new options here in alphabetic order ==>
+            .setBool(
+                INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+                incompatibleStopExportingLanguageModules)
+            .setBool(INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER, incompatibleRemoveRuleNameParameter)
             .setBool(
                 INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR, incompatibleDisallowSymlinkFileToDir)
             .setBool(EXPERIMENTAL_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
@@ -632,6 +682,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .set(EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE, experimentalBuiltinsInjectionOverride)
             .setBool(EXPERIMENTAL_BZL_VISIBILITY, experimentalBzlVisibility)
             .set(EXPERIMENTAL_BZL_VISIBILITY_ALLOWLIST, experimentalBzlVisibilityAllowlist)
+            .setBool(CHECK_BZL_VISIBILITY, checkBzlVisibility)
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
             .setBool(ENABLE_BZLMOD, enableBzlmod)
@@ -658,6 +709,12 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX,
                 incompatibleDisallowStructProviderSyntax)
+            .setBool(
+                INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX,
+                incompatiblePackageGroupHasPublicSyntax)
+            .setBool(
+                INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX,
+                incompatibleFixPackageGroupReporootSyntax)
             .setBool(INCOMPATIBLE_JAVA_COMMON_PARAMETERS, incompatibleJavaCommonParameters)
             .setBool(INCOMPATIBLE_NEW_ACTIONS_API, incompatibleNewActionsApi)
             .setBool(INCOMPATIBLE_NO_ATTR_LICENSE, incompatibleNoAttrLicense)
@@ -704,12 +761,17 @@ public final class BuildLanguageOptions extends OptionsBase {
   // (In principle, a key not associated with a command-line flag may be declared anywhere.)
 
   // booleans: the +/- prefix indicates the default value (true/false).
+  public static final String INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES =
+      "-incompatible_stop_exporting_language_modules";
+  public static final String INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER =
+      "+incompatible_remove_rule_name_parameter";
   public static final String INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR =
-      "-incompatible_disallow_symlink_file_to_dir";
+      "+incompatible_disallow_symlink_file_to_dir";
   public static final String EXPERIMENTAL_ALLOW_TAGS_PROPAGATION =
       "-experimental_allow_tags_propagation";
   public static final String EXPERIMENTAL_BUILTINS_DUMMY = "-experimental_builtins_dummy";
   public static final String EXPERIMENTAL_BZL_VISIBILITY = "-experimental_bzl_visibility";
+  public static final String CHECK_BZL_VISIBILITY = "+check_bzl_visibility";
   public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "-experimental_cc_shared_library";
   public static final String EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE =
       "-experimental_disable_external_package";
@@ -740,6 +802,10 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "-incompatible_disallow_empty_glob";
   public static final String INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX =
       "-incompatible_disallow_struct_provider_syntax";
+  public static final String INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX =
+      "-incompatible_package_group_has_public_syntax";
+  public static final String INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX =
+      "-incompatible_fix_package_group_reporoot_syntax";
   public static final String INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE =
       "+incompatible_do_not_split_linking_cmdline";
   public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =
@@ -759,7 +825,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC =
       "-incompatible_use_cc_configure_from_rules";
   public static final String INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION =
-      "-incompatible_unambiguous_label_stringification";
+      "+incompatible_unambiguous_label_stringification";
   public static final String INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION =
       "-incompatible_visibility_private_attributes_at_definition";
   public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =

@@ -31,21 +31,25 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
- * Represents a version in the module system. The version format we support is {@code
- * RELEASE[-PRERELEASE][+BUILD]}, where:
+ * Represents a version in the Bazel module system. The version format we support is {@code
+ * RELEASE[-PRERELEASE][+BUILD]}, where {@code RELEASE}, {@code PRERELEASE}, and {@code BUILD} are
+ * each a sequence of "identifiers" (defined as a non-empty sequence of ASCII alphanumerical
+ * characters and hyphens) separated by dots. The {@code RELEASE} part may not contain hyphens.
+ *
+ * <p>Otherwise, this format is identical to SemVer, especially in terms of the comparison algorithm
+ * (https://semver.org/#spec-item-11). In other words, this format is intentionally looser than
+ * SemVer; in particular:
  *
  * <ul>
- *   <li>{@code RELEASE} is a sequence of decimal numbers separated by dots;
- *   <li>{@code PRERELEASE} is a sequence of "identifiers" (defined as a non-empty sequence of
- *       alphanumerical characters, hyphens, and underscores) separated by dots;
- *   <li>and {@code BUILD} is also a sequence of "identifiers" (see above) separated by dots.
+ *   <li>the "release" part isn't limited to exactly 3 segments (major, minor, patch), but can be
+ *       fewer or more;
+ *   <li>each segment in the "release" part can be identifiers instead of just numbers (so letters
+ *       are also allowed -- although hyphens are not).
  * </ul>
  *
- * Otherwise, this format is identical to SemVer, especially in terms of the comparison algorithm
- * (https://semver.org/#spec-item-11). In other words, this format is intentionally looser than
- * SemVer; in particular, the "release" part isn't limited to exactly 3 numbers (major, minor,
- * patch), but can be fewer or more. Underscores are also allowed in prerelease and build for regex
- * brevity.
+ * <p>Any valid SemVer version is a valid Bazel module version. Additionally, two SemVer versions
+ * {@code a} and {@code b} compare {@code a < b} iff the same holds when they're compared as Bazel
+ * module versions.
  *
  * <p>The special "empty string" version can also be used, and compares higher than everything else.
  * It signifies that there is a {@link NonRegistryOverride} for a module.
@@ -55,7 +59,8 @@ public abstract class Version implements Comparable<Version> {
 
   // We don't care about the "build" part at all so don't capture it.
   private static final Pattern PATTERN =
-      Pattern.compile("(?<release>(?:\\d+\\.)*\\d+)(?:-(?<prerelease>[\\w.-]*))?(?:\\+[\\w.-]*)?");
+      Pattern.compile(
+          "(?<release>[a-zA-Z0-9.]+)(?:-(?<prerelease>[a-zA-Z0-9.-]+))?(?:\\+[a-zA-Z0-9.-]+)?");
 
   private static final Splitter DOT_SPLITTER = Splitter.on('.');
 
@@ -67,12 +72,11 @@ public abstract class Version implements Comparable<Version> {
       new AutoValue_Version(ImmutableList.of(), ImmutableList.of(), "");
 
   /**
-   * Represents a segment in the prerelease part of the version string. This is separated from other
-   * "Identifier"s by a dot. An identifier is compared differently based on whether it's digits-only
-   * or not.
+   * Represents an "identifier", a dot-separated segment in the version string. An identifier is
+   * compared differently based on whether it's digits-only or not.
    */
   @AutoValue
-  abstract static class Identifier {
+  abstract static class Identifier implements Comparable<Identifier> {
 
     abstract boolean isDigitsOnly();
 
@@ -90,10 +94,20 @@ public abstract class Version implements Comparable<Version> {
         return new AutoValue_Version_Identifier(false, 0, string);
       }
     }
+
+    private static final Comparator<Identifier> COMPARATOR =
+        comparing(Identifier::isDigitsOnly, trueFirst())
+            .thenComparingInt(Identifier::asNumber)
+            .thenComparing(Identifier::asString);
+
+    @Override
+    public final int compareTo(Identifier o) {
+      return Objects.compare(this, o, COMPARATOR);
+    }
   }
 
   /** Returns the "release" part of the version string as a list of integers. */
-  abstract ImmutableList<Integer> getRelease();
+  abstract ImmutableList<Identifier> getRelease();
 
   /** Returns the "prerelease" part of the version string as a list of {@link Identifier}s. */
   abstract ImmutableList<Identifier> getPrerelease();
@@ -130,11 +144,11 @@ public abstract class Version implements Comparable<Version> {
     String release = matcher.group("release");
     @Nullable String prerelease = matcher.group("prerelease");
 
-    ImmutableList.Builder<Integer> releaseSplit = new ImmutableList.Builder<>();
-    for (String number : DOT_SPLITTER.split(release)) {
+    ImmutableList.Builder<Identifier> releaseSplit = new ImmutableList.Builder<>();
+    for (String ident : DOT_SPLITTER.split(release)) {
       try {
-        releaseSplit.add(Integer.valueOf(number));
-      } catch (NumberFormatException e) {
+        releaseSplit.add(Identifier.from(ident));
+      } catch (ParseException e) {
         throw new ParseException("error parsing version: " + version, e);
       }
     }
@@ -155,14 +169,9 @@ public abstract class Version implements Comparable<Version> {
 
   private static final Comparator<Version> COMPARATOR =
       comparing(Version::isEmpty, falseFirst())
-          .thenComparing(Version::getRelease, lexicographical(Comparator.<Integer>naturalOrder()))
+          .thenComparing(Version::getRelease, lexicographical(Identifier.COMPARATOR))
           .thenComparing(Version::isPrerelease, trueFirst())
-          .thenComparing(
-              Version::getPrerelease,
-              lexicographical(
-                  comparing(Identifier::isDigitsOnly, trueFirst())
-                      .thenComparingInt(Identifier::asNumber)
-                      .thenComparing(Identifier::asString)));
+          .thenComparing(Version::getPrerelease, lexicographical(Identifier.COMPARATOR));
 
   @Override
   public int compareTo(Version o) {

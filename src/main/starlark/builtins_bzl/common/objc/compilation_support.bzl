@@ -51,6 +51,8 @@ def _build_variable_extensions(
         import_paths = []
         for import_lib in objc_provider.imported_library.to_list():
             import_paths.append(import_lib.path)
+        for static_framework_file in objc_provider.static_framework_file.to_list():
+            import_paths.append(static_framework_file.path)
 
         extensions["objc_library_exec_paths"] = exclusively_objc_libs
         extensions["cc_library_exec_paths"] = cc_libs.keys()
@@ -73,7 +75,7 @@ def _build_common_variables(
         extra_disabled_features = [],
         extra_enabled_features = [],
         extra_import_libraries = [],
-        linkopts = [],
+        attr_linkopts = [],
         alwayslink = False,
         has_module_map = False):
     compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
@@ -83,7 +85,11 @@ def _build_common_variables(
     else:
         compilation_artifacts = objc_internal.create_compilation_artifacts(ctx = ctx)
 
-    (objc_provider, objc_compilation_context) = objc_common.create_context_and_provider(
+    (
+        objc_provider,
+        objc_compilation_context,
+        objc_linking_context,
+    ) = objc_common.create_context_and_provider(
         ctx = ctx,
         compilation_attributes = compilation_attributes,
         compilation_artifacts = compilation_artifacts,
@@ -93,7 +99,7 @@ def _build_common_variables(
         alwayslink = alwayslink,
         has_module_map = has_module_map,
         extra_import_libraries = extra_import_libraries,
-        linkopts = linkopts,
+        attr_linkopts = attr_linkopts,
     )
 
     return struct(
@@ -104,7 +110,9 @@ def _build_common_variables(
         extra_disabled_features = extra_disabled_features,
         extra_enabled_features = extra_enabled_features,
         objc_compilation_context = objc_compilation_context,
+        objc_linking_context = objc_linking_context,
         toolchain = toolchain,
+        alwayslink = alwayslink,
         use_pch = use_pch,
         objc_config = ctx.fragments.objc,
         objc_provider = objc_provider,
@@ -261,8 +269,15 @@ def _register_compile_and_archive_actions_for_j2objc(
         intermediate_artifacts,
         compilation_artifacts,
         objc_compilation_context,
+        cc_linking_contexts,
         extra_compile_args):
     compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
+
+    objc_linking_context = struct(
+        cc_linking_contexts = cc_linking_contexts,
+        linkopts = [],
+    )
+
     common_variables = struct(
         ctx = ctx,
         intermediate_artifacts = intermediate_artifacts,
@@ -271,7 +286,9 @@ def _register_compile_and_archive_actions_for_j2objc(
         extra_enabled_features = ["j2objc_transpiled"],
         extra_disabled_features = ["layering_check", "parse_headers"],
         objc_compilation_context = objc_compilation_context,
+        objc_linking_context = objc_linking_context,
         toolchain = toolchain,
+        alwayslink = False,
         use_pch = False,
         objc_config = ctx.fragments.objc,
         objc_provider = None,
@@ -304,7 +321,7 @@ def _register_compile_and_archive_actions(
 
         _register_obj_file_list_action(
             common_variables,
-            compilation_result[1].objects,
+            compilation_result[2].objects,
             obj_list,
         )
     else:
@@ -438,7 +455,7 @@ def _cc_compile_and_link(
     if link_action_input != None:
         additional_inputs.append(link_action_input)
 
-    cc_compilation_context = cc_common.merge_compilation_contexts(
+    compilation_context = cc_common.merge_compilation_contexts(
         compilation_contexts = [arc_compilation_context, non_arc_compilation_context],
     )
 
@@ -455,23 +472,33 @@ def _cc_compile_and_link(
         ],
     )
 
-    linking_contexts = []
-    if hasattr(common_variables.ctx.attr, "deps"):
-        linking_contexts = cc_helper.get_linking_contexts_from_deps(common_variables.ctx.attr.deps)
-
+    objc_linking_context = common_variables.objc_linking_context
     if len(compilation_outputs.objects) != 0 or len(compilation_outputs.pic_objects) != 0:
-        cc_common.create_linking_context_from_compilation_outputs(
+        (linking_context, _) = cc_common.create_linking_context_from_compilation_outputs(
             actions = ctx.actions,
             feature_configuration = feature_configuration,
             cc_toolchain = common_variables.toolchain,
             compilation_outputs = compilation_outputs,
-            linking_contexts = linking_contexts,
+            user_link_flags = objc_linking_context.linkopts,
+            linking_contexts = objc_linking_context.cc_linking_contexts,
             name = common_variables.ctx.label.name + intermediate_artifacts.archive_file_name_suffix,
             language = language,
+            alwayslink = common_variables.alwayslink,
             disallow_dynamic_library = True,
             additional_inputs = additional_inputs,
             grep_includes = _get_grep_includes(ctx),
             variables_extension = non_arc_extensions,
+        )
+    else:
+        linker_input = cc_common.create_linker_input(
+            owner = ctx.label,
+            user_link_flags = objc_linking_context.linkopts,
+        )
+        cc_linking_context = cc_common.create_linking_context(
+            linker_inputs = depset(direct = [linker_input]),
+        )
+        linking_context = cc_common.merge_linking_contexts(
+            linking_contexts = [cc_linking_context] + objc_linking_context.cc_linking_contexts,
         )
 
     arc_output_groups = cc_helper.build_output_groups_for_emitting_compile_providers(
@@ -497,7 +524,7 @@ def _cc_compile_and_link(
         [arc_output_groups, non_arc_output_groups],
     )
 
-    return (cc_compilation_context, compilation_outputs, merged_output_groups)
+    return (compilation_context, linking_context, compilation_outputs, merged_output_groups)
 
 def _get_object_files(ctx):
     if not hasattr(ctx.attr, "srcs"):
@@ -578,6 +605,7 @@ def _register_fully_link_action(common_variables, objc_provider, name):
     linker_inputs.extend(objc_provider.flattened_objc_libraries())
     linker_inputs.extend(objc_provider.flattened_cc_libraries())
     linker_inputs.extend(objc_provider.imported_library.to_list())
+    linker_inputs.extend(objc_provider.static_framework_file.to_list())
 
     return cc_common.link(
         name = name,

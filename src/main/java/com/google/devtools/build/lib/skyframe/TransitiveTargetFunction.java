@@ -51,7 +51,8 @@ final class TransitiveTargetFunction
   }
 
   @Override
-  TransitiveTargetValueBuilder processTarget(TargetAndErrorIfAny targetAndErrorIfAny) {
+  TransitiveTargetValueBuilder processTarget(
+      TargetLoadingUtil.TargetAndErrorIfAny targetAndErrorIfAny) {
     Target target = targetAndErrorIfAny.getTarget();
     boolean packageLoadedSuccessfully = targetAndErrorIfAny.isPackageLoadedSuccessfully();
     return new TransitiveTargetValueBuilder(target, packageLoadedSuccessfully);
@@ -61,7 +62,7 @@ final class TransitiveTargetFunction
   void processDeps(
       TransitiveTargetValueBuilder builder,
       EventHandler eventHandler,
-      TargetAndErrorIfAny targetAndErrorIfAny,
+      TargetLoadingUtil.TargetAndErrorIfAny targetAndErrorIfAny,
       SkyframeLookupResult depEntries,
       Iterable<? extends SkyKey> depKeys) {
     boolean successfulTransitiveLoading = builder.isSuccessfulTransitiveLoading();
@@ -101,7 +102,8 @@ final class TransitiveTargetFunction
 
   @Override
   public SkyValue computeSkyValue(
-      TargetAndErrorIfAny targetAndErrorIfAny, TransitiveTargetValueBuilder builder) {
+      TargetLoadingUtil.TargetAndErrorIfAny targetAndErrorIfAny,
+      TransitiveTargetValueBuilder builder) {
     NoSuchTargetException errorLoadingTarget = targetAndErrorIfAny.getErrorLoadingTarget();
     return builder.build(errorLoadingTarget);
   }

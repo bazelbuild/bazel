@@ -32,6 +32,9 @@ import java.time.Instant;
 final class SkymeldUiStateTracker extends UiStateTracker {
 
   enum BuildStatus {
+    // We explicitly define a starting status, which can be used to determine what to display in
+    // cases before the build has started.
+    BUILD_NOT_STARTED,
     BUILD_STARTED,
     TARGET_PATTERN_PARSING,
     LOADING_COMPLETE,
@@ -44,7 +47,7 @@ final class SkymeldUiStateTracker extends UiStateTracker {
     BUILD_COMPLETED;
   }
 
-  @VisibleForTesting BuildStatus buildStatus;
+  @VisibleForTesting BuildStatus buildStatus = BuildStatus.BUILD_NOT_STARTED;
 
   SkymeldUiStateTracker(Clock clock, int targetWidth) {
     super(clock, targetWidth);
@@ -72,6 +75,8 @@ final class SkymeldUiStateTracker extends UiStateTracker {
       terminalWriter.append(timestamp);
     }
     switch (buildStatus) {
+      case BUILD_NOT_STARTED:
+        return;
       case BUILD_STARTED:
         writeBaseProgress("Loading", "", terminalWriter);
         break;
@@ -184,7 +189,7 @@ final class SkymeldUiStateTracker extends UiStateTracker {
     // This is where the path of the BuildStatus splits, the BuildStatus at this point could be
     // either CONFIGURATION or ANALYSIS_AND_EXECUTION.
     buildStatus =
-        buildStatus.equals(BuildStatus.CONFIGURATION)
+        BuildStatus.CONFIGURATION.equals(buildStatus)
             ? BuildStatus.ANALYSIS_COMPLETE
             : BuildStatus.EXECUTION;
     String workDone = "Analyzed " + additionalMessage;
@@ -208,7 +213,7 @@ final class SkymeldUiStateTracker extends UiStateTracker {
     // This is where the path of the BuildStatus splits, the BuildStatus at this point could be
     // either CONFIGURATION or ANALYSIS_COMPLETE.
     buildStatus =
-        buildStatus.equals(BuildStatus.CONFIGURATION)
+        BuildStatus.CONFIGURATION.equals(buildStatus)
             ? BuildStatus.ANALYSIS_AND_EXECUTION
             : BuildStatus.EXECUTION;
   }
@@ -242,6 +247,6 @@ final class SkymeldUiStateTracker extends UiStateTracker {
 
   @Override
   protected boolean buildCompleted() {
-    return buildStatus.equals(BuildStatus.BUILD_COMPLETED);
+    return BuildStatus.BUILD_COMPLETED.equals(buildStatus);
   }
 }

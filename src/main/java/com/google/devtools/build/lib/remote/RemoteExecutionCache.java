@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfe
 import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
 import static java.lang.String.format;
 
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import com.google.common.base.Throwables;
@@ -59,10 +60,11 @@ import java.util.concurrent.atomic.AtomicReference;
 public class RemoteExecutionCache extends RemoteCache {
 
   public RemoteExecutionCache(
+      CacheCapabilities cacheCapabilities,
       RemoteCacheClient protocolImpl,
       RemoteOptions options,
       DigestUtil digestUtil) {
-    super(protocolImpl, options, digestUtil);
+    super(cacheCapabilities, protocolImpl, options, digestUtil);
   }
 
   /**
@@ -227,11 +229,6 @@ public class RemoteExecutionCache extends RemoteCache {
 
                 @Override
                 public void onError(@NonNull Throwable e) {
-                  Disposable d = uploadTask.disposable.get();
-                  if (d != null && d.isDisposed()) {
-                    return;
-                  }
-
                   completion.onError(e);
                 }
               });

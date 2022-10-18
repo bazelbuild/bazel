@@ -22,9 +22,11 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
@@ -53,6 +55,7 @@ import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.MaybeFailOnce
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
+import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
@@ -361,6 +364,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
             execRoot.asFragment(),
             outputRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
             outputs,
+            ImmutableList.of(artifact),
             actionInputFetcher);
     Path remotePath = remoteFs.getPath(artifact.getPath().getPathString());
     assertThat(remotePath.getFileSystem()).isEqualTo(remoteFs);
@@ -438,7 +442,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     byte[] b = contents.getBytes(StandardCharsets.UTF_8);
     HashCode h = HashCode.fromString(DIGEST_UTIL.compute(b).getHash());
     FileArtifactValue f =
-        new RemoteFileArtifactValue(h.asBytes(), b.length, /* locationIndex= */ 1, "action-id");
+        RemoteFileArtifactValue.create(h.asBytes(), b.length, /* locationIndex= */ 1, "action-id");
     inputs.putWithNoDepOwner(a, f);
     return a;
   }
@@ -468,7 +472,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         .when(cacheClient)
         .findMissingDigests(any(), any());
 
-    return new RemoteCache(cacheClient, remoteOptions, DIGEST_UTIL);
+    return new RemoteCache(
+        CacheCapabilities.getDefaultInstance(), cacheClient, remoteOptions, DIGEST_UTIL);
   }
 
   private ByteStreamBuildEventArtifactUploader newArtifactUploader(RemoteCache remoteCache) {
@@ -481,7 +486,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         /*remoteServerInstanceName=*/ "localhost/instance",
         /*buildRequestId=*/ "none",
         /*commandId=*/ "none",
-        SyscallCache.NO_CACHE);
+        SyscallCache.NO_CACHE,
+        RemoteBuildEventUploadMode.ALL);
   }
 
   private static class StaticMissingDigestsFinder implements MissingDigestsFinder {

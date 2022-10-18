@@ -31,7 +31,11 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.util.OS;
 
-/** Rule definition for cc_test rules. */
+/**
+ * Rule definition for cc_test rules.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
+ */
 public final class BazelCcTestRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -59,7 +63,7 @@ public final class BazelCcTestRule implements RuleDefinition {
         .name("cc_test")
         .type(RuleClassType.TEST)
         .ancestors(CcBinaryBaseRule.class, BaseRuleClasses.TestBaseRule.class)
-        .factoryClass(BazelCcTest.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

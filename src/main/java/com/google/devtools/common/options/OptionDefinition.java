@@ -169,6 +169,11 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
     return optionAnnotation.oldName();
   }
 
+  /** {@link Option#oldNameWarning()} */
+  public boolean getOldNameWarning() {
+    return optionAnnotation.oldNameWarning();
+  }
+
   /** Returns whether an option --foo has a negative equivalent --nofoo. */
   public boolean hasNegativeOption() {
     return getType().equals(boolean.class) || getType().equals(TriState.class);

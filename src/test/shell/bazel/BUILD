@@ -286,7 +286,7 @@ sh_test(
     srcs = ["bazel_android_tools_test.sh"],
     data = [
         ":test-deps",
-        "//tools/android/runtime_deps:android_tools.tar.gz",
+        "//tools/android/runtime_deps:android_tools.tar",
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["no_windows"],
@@ -517,6 +517,15 @@ sh_test(
 sh_test(
     name = "bazel_coverage_py_test",
     srcs = ["bazel_coverage_py_test.sh"],
+    data = [":test-deps"],
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_coverage_hermetic_py_test",
+    srcs = ["bazel_coverage_hermetic_py_test.sh"],
     data = [":test-deps"],
     tags = [
         "no_windows",
@@ -823,7 +832,10 @@ sh_test(
     size = "medium",
     srcs = ["runfiles_test.sh"],
     data = [":test-deps"],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
@@ -1004,7 +1016,10 @@ sh_test(
     size = "medium",
     srcs = ["execroot_test.sh"],
     data = [":test-deps"],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(

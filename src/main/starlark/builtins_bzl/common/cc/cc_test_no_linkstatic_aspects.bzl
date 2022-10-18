@@ -1,4 +1,4 @@
-# Copyright 2015 The Bazel Authors. All rights reserved.
+# Copyright 2022 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,12 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Path to the test data."""
 
-import os
-import os.path
+"""cc_test Starlark implementation."""
 
-TESTDATA_PATH = os.path.join(
-    os.getcwd(),
-    "tools/build_defs/pkg/testdata",
-    )
+load(":common/cc/cc_test.bzl", "make_cc_test")
+
+cc_test = make_cc_test(with_aspects = True)

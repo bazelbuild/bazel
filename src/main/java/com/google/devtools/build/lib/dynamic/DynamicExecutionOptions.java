@@ -86,7 +86,9 @@ public class DynamicExecutionOptions extends OptionsBase {
   public List<Map.Entry<String, List<String>>> dynamicRemoteStrategy;
 
   @Option(
-      name = "experimental_local_execution_delay",
+      name = "dynamic_local_execution_delay",
+      oldName = "experimental_local_execution_delay",
+      oldNameWarning = false,
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       defaultValue = "1000",
@@ -96,7 +98,9 @@ public class DynamicExecutionOptions extends OptionsBase {
   public int localExecutionDelay;
 
   @Option(
-      name = "experimental_debug_spawn_scheduler",
+      name = "debug_spawn_scheduler",
+      oldName = "experimental_debug_spawn_scheduler",
+      oldNameWarning = false,
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "false")
@@ -158,7 +162,7 @@ public class DynamicExecutionOptions extends OptionsBase {
       name = "experimental_dynamic_exclude_tools",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      defaultValue = "false",
+      defaultValue = "true",
       help =
           "When set, targets that are build \"for tool\" are not subject to dynamic execution. Such"
               + " targets are extremely unlikely to be built incrementally and thus not worth"

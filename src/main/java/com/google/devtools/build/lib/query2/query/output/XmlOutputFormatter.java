@@ -61,6 +61,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
   private AspectResolver aspectResolver;
   private DependencyFilter dependencyFilter;
+  private boolean packageGroupIncludesDoubleSlash;
   private boolean relativeLocations;
   private boolean displaySourceFileLocation;
   private QueryOptions queryOptions;
@@ -83,6 +84,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     super.setOptions(options, aspectResolver, hashFunction);
     this.aspectResolver = aspectResolver;
     this.dependencyFilter = FormatUtils.getDependencyFilter(options);
+    this.packageGroupIncludesDoubleSlash = options.incompatiblePackageGroupIncludesDoubleSlash;
     this.relativeLocations = options.relativeLocations;
     this.displaySourceFileLocation = options.displaySourceFileLocation;
 
@@ -205,7 +207,10 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       includes.setAttribute("name", "includes");
       elem.appendChild(includes);
       Element packages =
-          createValueElement(doc, Type.STRING_LIST, packageGroup.getContainedPackages());
+          createValueElement(
+              doc,
+              Type.STRING_LIST,
+              packageGroup.getContainedPackages(packageGroupIncludesDoubleSlash));
       packages.setAttribute("name", "packages");
       elem.appendChild(packages);
     } else if (target instanceof OutputFile) {

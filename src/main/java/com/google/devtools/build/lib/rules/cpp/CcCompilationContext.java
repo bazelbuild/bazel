@@ -46,7 +46,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
@@ -392,25 +392,26 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         Map<PathFragment, Artifact> pathToLegalArtifact,
         ArrayList<Artifact> treeArtifacts)
         throws InterruptedException {
-      if (!treeArtifacts.isEmpty()) {
-        SkyframeIterableResult result = env.getOrderedValuesAndExceptions(treeArtifacts);
-        if (env.valuesMissing()) {
+      if (treeArtifacts.isEmpty()) {
+        return true;
+      }
+      SkyframeLookupResult result = env.getValuesAndExceptions(treeArtifacts);
+      if (env.valuesMissing()) {
+        return false;
+      }
+      for (Artifact treeArtifact : treeArtifacts) {
+        SkyValue value = result.get(treeArtifact);
+        if (value == null) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  "Some value from " + treeArtifacts + " was missing, this should never happen"));
           return false;
         }
-        while (result.hasNext()) {
-          SkyValue value = result.next();
-          if (value == null) {
-            BugReport.sendBugReport(
-                new IllegalStateException(
-                    "Some value from " + treeArtifacts + " was missing, this should never happen"));
-            return false;
-          }
-          checkState(
-              value instanceof TreeArtifactValue, "SkyValue %s is not TreeArtifactValue", value);
-          TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
-          for (TreeFileArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
-            pathToLegalArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);
-          }
+        checkState(
+            value instanceof TreeArtifactValue, "SkyValue %s is not TreeArtifactValue", value);
+        TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
+        for (TreeFileArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
+          pathToLegalArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);
         }
       }
       return true;
@@ -531,7 +532,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return modules;
   }
 
-  private void removeArtifactsFromSet(Set<Artifact> set, ImmutableList<Artifact> artifacts) {
+  private static void removeArtifactsFromSet(Set<Artifact> set, ImmutableList<Artifact> artifacts) {
     // Not using iterators here as the resulting overhead is significant in profiles. Do not use
     // Iterables.removeAll() or Set.removeAll() here as with the given container sizes, that
     // needlessly deteriorates to a quadratic algorithm.

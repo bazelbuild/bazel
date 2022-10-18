@@ -615,10 +615,10 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   public void remoteDirectoryInjection() throws Exception {
     SpecialArtifact out = createTreeArtifact("output");
     RemoteFileArtifactValue remoteFile1 =
-        new RemoteFileArtifactValue(
+        RemoteFileArtifactValue.create(
             Hashing.sha256().hashString("one", UTF_8).asBytes(), /*size=*/ 3, /*locationIndex=*/ 1);
     RemoteFileArtifactValue remoteFile2 =
-        new RemoteFileArtifactValue(
+        RemoteFileArtifactValue.create(
             Hashing.sha256().hashString("two", UTF_8).asBytes(), /*size=*/ 3, /*locationIndex=*/ 2);
 
     Action action =

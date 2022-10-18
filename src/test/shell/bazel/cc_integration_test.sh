@@ -296,9 +296,9 @@ EOF
   echo 'void cc1() {}' > ea/cc1.cc
 
   bazel build --experimental_builtins_injection_override=+cc_library --experimental_save_feature_state //ea:cc || fail "expected success"
-  ls bazel-bin/ea/cc_feature_state.txt || "cc_feature_state.txt not created"
+  ls bazel-bin/ea/cc_feature_state.txt || fail "cc_feature_state.txt not created"
   # This assumes "grep" is supported in any environment bazel is used.
-  grep "test_feature" bazel-bin/ea/cc_feature_state.txt || "test_feature should have been found in feature_state."
+  grep "test_feature" bazel-bin/ea/cc_feature_state.txt || fail "test_feature should have been found in feature_state."
 }
 
 # TODO: test include dirs and defines
@@ -1504,6 +1504,252 @@ EOF
       || fail "Build failed but should have succeeded"
 
   expect_log "\"PWD\": \"/proc/self/cwd\""
+}
+
+function external_cc_test_setup() {
+  cat >> WORKSPACE <<'EOF'
+local_repository(
+  name = "other_repo",
+  path = "other_repo",
+)
+EOF
+
+  mkdir -p other_repo
+  touch other_repo/WORKSPACE
+
+  mkdir -p other_repo/lib
+  cat > other_repo/lib/BUILD <<'EOF'
+cc_library(
+  name = "lib",
+  srcs = ["lib.cpp"],
+  hdrs = ["lib.h"],
+  visibility = ["//visibility:public"],
+)
+EOF
+  cat > other_repo/lib/lib.h <<'EOF'
+void print_greeting();
+EOF
+  cat > other_repo/lib/lib.cpp <<'EOF'
+#include <cstdio>
+void print_greeting() {
+  printf("Hello, world!\n");
+}
+EOF
+
+  mkdir -p other_repo/test
+  cat > other_repo/test/BUILD <<'EOF'
+cc_test(
+  name = "test",
+  srcs = ["test.cpp"],
+  deps = ["//lib"],
+)
+EOF
+  cat > other_repo/test/test.cpp <<'EOF'
+#include "lib/lib.h"
+int main() {
+  print_greeting();
+}
+EOF
+}
+
+function test_external_cc_test_sandboxed() {
+  [ "$PLATFORM" != "windows" ] || return 0
+
+  external_cc_test_setup
+
+  bazel test \
+      --test_output=errors \
+      --strategy=sandboxed \
+      @other_repo//test >& $TEST_log || fail "Test should pass"
+}
+
+function test_external_cc_test_sandboxed_sibling_repository_layout() {
+  [ "$PLATFORM" != "windows" ] || return 0
+
+  external_cc_test_setup
+
+  bazel test \
+      --test_output=errors \
+      --strategy=sandboxed \
+      --experimental_sibling_repository_layout \
+      @other_repo//test >& $TEST_log || fail "Test should pass"
+}
+
+function test_external_cc_test_local() {
+  external_cc_test_setup
+
+  bazel test \
+      --test_output=errors \
+      --strategy=local \
+      @other_repo//test >& $TEST_log || fail "Test should pass"
+}
+
+function test_external_cc_test_local_sibling_repository_layout() {
+  external_cc_test_setup
+
+  bazel test \
+      --test_output=errors \
+      --strategy=local \
+      --experimental_sibling_repository_layout \
+      @other_repo//test >& $TEST_log || fail "Test should pass"
+}
+
+function test_bazel_current_repository_define() {
+  cat >> WORKSPACE <<'EOF'
+local_repository(
+  name = "other_repo",
+  path = "other_repo",
+)
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+cc_library(
+  name = "library",
+  srcs = ["library.cpp"],
+  hdrs = ["library.h"],
+  visibility = ["//visibility:public"],
+)
+
+cc_binary(
+  name = "binary",
+  srcs = ["binary.cpp"],
+  deps = [":library"],
+)
+
+cc_test(
+  name = "test",
+  srcs = ["test.cpp"],
+  deps = [":library"],
+)
+EOF
+
+  cat > pkg/library.cpp <<'EOF'
+#include "library.h"
+#include <iostream>
+void print_repo_name() {
+  std::cout << "in " << __FILE__ << ": '" << BAZEL_CURRENT_REPOSITORY << "'" << std::endl;
+}
+EOF
+
+  cat > pkg/library.h <<'EOF'
+void print_repo_name();
+EOF
+
+  cat > pkg/binary.cpp <<'EOF'
+#include <iostream>
+#include "library.h"
+int main() {
+  std::cout << "in " << __FILE__ << ": '" << BAZEL_CURRENT_REPOSITORY << "'" << std::endl;
+  print_repo_name();
+}
+EOF
+
+  cat > pkg/test.cpp <<'EOF'
+#include <iostream>
+#include "library.h"
+int main() {
+  std::cout << "in " << __FILE__ << ": '" << BAZEL_CURRENT_REPOSITORY << "'" << std::endl;
+  print_repo_name();
+}
+EOF
+
+  mkdir -p other_repo
+  touch other_repo/WORKSPACE
+
+  mkdir -p other_repo/pkg
+  cat > other_repo/pkg/BUILD.bazel <<'EOF'
+cc_binary(
+  name = "binary",
+  srcs = ["binary.cpp"],
+  deps = ["@//pkg:library"],
+)
+
+cc_test(
+  name = "test",
+  srcs = ["test.cpp"],
+  deps = ["@//pkg:library"],
+)
+EOF
+
+  cat > other_repo/pkg/binary.cpp <<'EOF'
+#include <iostream>
+#include "pkg/library.h"
+int main() {
+  std::cout << "in " << __FILE__ << ": '" << BAZEL_CURRENT_REPOSITORY << "'" << std::endl;
+  print_repo_name();
+}
+EOF
+
+  cat > other_repo/pkg/test.cpp <<'EOF'
+#include <iostream>
+#include "pkg/library.h"
+int main() {
+  std::cout << "in " << __FILE__ << ": '" << BAZEL_CURRENT_REPOSITORY << "'" << std::endl;
+  print_repo_name();
+}
+EOF
+
+  bazel run //pkg:binary &>"$TEST_log" || fail "Run should succeed"
+  expect_log "in pkg/binary.cpp: ''"
+  expect_log "in pkg/library.cpp: ''"
+
+  bazel test --test_output=streamed //pkg:test &>"$TEST_log" || fail "Test should succeed"
+  expect_log "in pkg/test.cpp: ''"
+  expect_log "in pkg/library.cpp: ''"
+
+  bazel run @other_repo//pkg:binary &>"$TEST_log" || fail "Run should succeed"
+  expect_log "in external/other_repo/pkg/binary.cpp: 'other_repo'"
+  expect_log "in pkg/library.cpp: ''"
+
+  bazel test --test_output=streamed \
+    @other_repo//pkg:test &>"$TEST_log" || fail "Test should succeed"
+  expect_log "in external/other_repo/pkg/test.cpp: 'other_repo'"
+  expect_log "in pkg/library.cpp: ''"
+}
+
+function test_compiler_flag_gcc() {
+  # The default macOS toolchain always uses XCode's clang.
+  [ "$PLATFORM" != "darwin" ] || return 0
+  type -P gcc || return 0
+
+  cat > BUILD.bazel <<'EOF'
+config_setting(
+    name = "gcc_compiler",
+    flag_values = {"@bazel_tools//tools/cpp:compiler": "gcc"},
+)
+
+cc_binary(
+  name = "main",
+  srcs = select({":gcc_compiler": ["main.cc"]}),
+)
+EOF
+  cat > main.cc <<'EOF'
+int main() {}
+EOF
+
+  bazel build //:main --repo_env=CC=gcc || fail "Expected compiler flag to have value 'gcc'"
+}
+
+function test_compiler_flag_clang() {
+  type -P clang || return 0
+
+  cat > BUILD.bazel <<'EOF'
+config_setting(
+    name = "clang_compiler",
+    flag_values = {"@bazel_tools//tools/cpp:compiler": "clang"},
+)
+
+cc_binary(
+  name = "main",
+  srcs = select({":clang_compiler": ["main.cc"]}),
+)
+EOF
+  cat > main.cc <<'EOF'
+int main() {}
+EOF
+
+  bazel build //:main --repo_env=CC=clang || fail "Expected compiler flag to have value 'clang'"
 }
 
 run_suite "cc_integration_test"

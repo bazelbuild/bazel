@@ -2,7 +2,7 @@
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 load("//tools/python:private/defs.bzl", "py_binary", "py_library", "py_test")
 
-licenses(["notice"])  # Apache 2.0
+licenses(["notice"])
 
 filegroup(
     name = "srcs",
@@ -25,20 +25,21 @@ filegroup(
 py_library(
     name = "archive",
     srcs = ["archive.py"],
-    srcs_version = "PY2AND3",
-    visibility = ["//visibility:public"],
+    srcs_version = "PY3",
 )
 
 filegroup(
     name = "archive_testdata",
-    srcs = glob(["testdata/**"]),
+    srcs = glob(
+        ["testdata/**"],
+        allow_empty = True,
+    ),
 )
 
 py_test(
     name = "archive_test",
     srcs = [
         "archive_test.py",
-        "testenv.py",
     ],
     data = [":archive_testdata"],
     python_version = "PY3",
@@ -62,7 +63,7 @@ py_binary(
     name = "build_tar",
     srcs = ["build_tar.py"],
     python_version = "PY3",
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         ":archive",
@@ -81,65 +82,14 @@ genrule(
     cmd = "for i in $(OUTS); do echo 1 >$$i; done",
 )
 
-[pkg_tar(
-    name = "test-tar-%s" % ext[1:],
+pkg_tar(
+    name = "test-tar",
     srcs = [
         ":etc/nsswitch.conf",
         ":usr/titi",
     ],
     build_tar = ":build_tar",
-    extension = "tar%s" % ext,
-    mode = "0644",
-    owner = "42.24",
-    ownername = "titi.tata",
     package_dir = "/",
-    strip_prefix = ".",
-) for ext in [
-    "",
-    ".gz",
-]]
-
-pkg_tar(
-    name = "test-tar-strip_prefix-empty",
-    srcs = [
-        ":etc/nsswitch.conf",
-    ],
-    build_tar = ":build_tar",
-    strip_prefix = "",
-)
-
-pkg_tar(
-    name = "test-tar-strip_prefix-none",
-    srcs = [
-        ":etc/nsswitch.conf",
-    ],
-    build_tar = ":build_tar",
-)
-
-pkg_tar(
-    name = "test-tar-strip_prefix-etc",
-    srcs = [
-        ":etc/nsswitch.conf",
-    ],
-    build_tar = ":build_tar",
-    strip_prefix = "etc",
-)
-
-pkg_tar(
-    name = "test-tar-strip_prefix-dot",
-    srcs = [
-        ":etc/nsswitch.conf",
-    ],
-    build_tar = ":build_tar",
-    strip_prefix = ".",
-)
-
-pkg_tar(
-    name = "test-tar-files_dict",
-    build_tar = ":build_tar",
-    files = {
-        ":etc/nsswitch.conf": "not-etc/mapped-filename.conf",
-    },
 )
 
 sh_test(
@@ -150,13 +100,7 @@ sh_test(
     ],
     data = [
         "testenv.sh",
-        ":test-tar-.tar",
-        ":test-tar-files_dict.tar",
-        ":test-tar-gz.tar.gz",
-        ":test-tar-strip_prefix-dot.tar",
-        ":test-tar-strip_prefix-empty.tar",
-        ":test-tar-strip_prefix-etc.tar",
-        ":test-tar-strip_prefix-none.tar",
+        ":test-tar.tar",
     ],
     tags = [
         # TODO(laszlocsomor): fix on Windows or describe why it cannot pass.

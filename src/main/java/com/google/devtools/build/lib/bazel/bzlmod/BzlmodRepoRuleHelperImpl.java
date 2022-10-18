@@ -99,6 +99,7 @@ public final class BzlmodRepoRuleHelperImpl implements BzlmodRepoRuleHelper {
     ImmutableMap.Builder<String, Object> attrBuilder = ImmutableMap.builder();
     attrBuilder.putAll(repoSpec.attributes());
     attrBuilder.put("patches", singleVersion.getPatches());
+    attrBuilder.put("patch_cmds", singleVersion.getPatchCmds());
     attrBuilder.put("patch_args", ImmutableList.of("-p" + singleVersion.getPatchStrip()));
     return RepoSpec.builder()
         .setBzlFile(repoSpec.bzlFile())
