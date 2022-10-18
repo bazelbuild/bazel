@@ -132,6 +132,18 @@ public class SandboxOptions extends OptionsBase {
   public boolean sandboxFakeUsername;
 
   @Option(
+      name = "sandbox_explicit_pseudoterminal",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Explicitly enable the creation of pseudoterminals for sandboxed actions."
+              + " Some linux distributions require setting the group id of the process to 'tty'"
+              + " inside the sandbox in order for pseudoterminals to function. If this is"
+              + " causing issues, this flag can be disabled to enable other groups to be used.")
+  public boolean sandboxExplicitPseudoterminal;
+
+  @Option(
       name = "sandbox_block_path",
       allowMultiple = true,
       defaultValue = "null",

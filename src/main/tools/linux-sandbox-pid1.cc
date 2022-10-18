@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <grp.h>
 #include <libgen.h>
 #include <math.h>
 #include <mntent.h>
@@ -242,6 +243,19 @@ static void SetupUserNamespace() {
     inner_uid = global_outer_uid;
     inner_gid = global_outer_gid;
   }
+  if (opt.enable_pty) {
+    // Change the group to "tty" regardless of what was previously set
+    struct group grp;
+    char buf[256];
+    size_t buflen = sizeof(buf);
+    struct group *result;
+    getgrnam_r("tty", &grp, buf, buflen, &result);
+    if (result == nullptr) {
+      DIE("getgrnam_r");
+    }
+    inner_gid = grp.gr_gid;
+  }
+
   WriteFile("/proc/self/uid_map", "%u %u 1\n", inner_uid, global_outer_uid);
   WriteFile("/proc/self/gid_map", "%u %u 1\n", inner_gid, global_outer_gid);
 }
@@ -322,6 +336,10 @@ static void MountFilesystems() {
 // returns true.
 static bool ShouldBeWritable(const std::string &mnt_dir) {
   if (mnt_dir == opt.working_dir) {
+    return true;
+  }
+
+  if (opt.enable_pty && mnt_dir == "/dev/pts") {
     return true;
   }
 

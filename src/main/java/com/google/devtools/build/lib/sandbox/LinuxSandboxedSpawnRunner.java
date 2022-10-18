@@ -229,6 +229,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .setTmpfsDirectories(ImmutableSet.copyOf(getSandboxOptions().sandboxTmpfsPath))
             .setBindMounts(getBindMounts(blazeDirs, sandboxExecRoot, sandboxTmp))
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
+            .setEnablePseudoterminal(getSandboxOptions().sandboxExplicitPseudoterminal)
             .setCreateNetworkNamespace(
                 !(allowNetwork
                     || Spawns.requiresNetwork(
