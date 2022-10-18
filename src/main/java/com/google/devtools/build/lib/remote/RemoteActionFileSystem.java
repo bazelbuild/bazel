@@ -111,9 +111,11 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       PathFragment path = execRoot.getRelative(execPath);
       Artifact output = entry.getValue();
       if (output.isTreeArtifact()) {
-        SpecialArtifact parent = (SpecialArtifact) output;
-        TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
         if (remoteOutputTree.exists(path)) {
+          SpecialArtifact parent = (SpecialArtifact) output;
+          TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
+
+          // TODO: Check directory content on the local fs to support mixed tree.
           TreeArtifactValue.visitTree(
               remoteOutputTree.getPath(path),
               (parentRelativePath, type) -> {
@@ -129,11 +131,9 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
                   tree.putChild(child, createRemoteMetadata(remoteFile));
                 }
               });
+
+          metadataInjector.injectTree(parent, tree.build());
         }
-
-        // TODO: Check directory content on the local fs to support mixed tree.
-
-        metadataInjector.injectTree(parent, tree.build());
       } else {
         RemoteFileInfo remoteFile =
             remoteOutputTree.getRemoteFileInfo(path, /* followSymlinks= */ true);
