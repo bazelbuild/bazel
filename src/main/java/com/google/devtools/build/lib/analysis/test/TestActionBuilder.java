@@ -449,7 +449,8 @@ public final class TestActionBuilder {
                 ruleContext.getWorkspaceName(),
                 (!isUsingTestWrapperInsteadOfTestSetupScript
                         || executionSettings.needsShell(isExecutedOnWindows))
-                    ? ShToolchain.getPathOrError(ruleContext.getExecutionPlatform())
+                    ? ShToolchain.getPathForPlatform(
+                        ruleContext.getConfiguration(), ruleContext.getExecutionPlatform())
                     : null,
                 cancelConcurrentTests,
                 splitCoveragePostProcessing,
