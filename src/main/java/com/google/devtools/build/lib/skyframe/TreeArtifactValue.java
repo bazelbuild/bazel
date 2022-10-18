@@ -24,12 +24,14 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.cache.MetadataDigestUtils;
@@ -68,7 +70,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   private static final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> EMPTY_MAP =
       childDataBuilder().buildOrThrow();
 
-  @SuppressWarnings("unchecked")
   private static ImmutableSortedMap.Builder<TreeFileArtifact, FileArtifactValue>
       childDataBuilder() {
     return new ImmutableSortedMap.Builder<>(EXEC_PATH_COMPARATOR);
@@ -192,6 +193,83 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   private final boolean entirelyRemote;
 
+  /** A FileArtifactValue used to stand in for a TreeArtifactValue. */
+  private static final class TreeArtifactCompositeFileArtifactValue extends FileArtifactValue {
+    private final byte[] digest;
+    private final boolean isRemote;
+
+    TreeArtifactCompositeFileArtifactValue(byte[] digest, boolean isRemote) {
+      this.digest = digest;
+      this.isRemote = isRemote;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof TreeArtifactCompositeFileArtifactValue)) {
+        return false;
+      }
+      TreeArtifactCompositeFileArtifactValue that = (TreeArtifactCompositeFileArtifactValue) o;
+      return Arrays.equals(digest, that.digest);
+    }
+
+    @Override
+    public int hashCode() {
+      return Arrays.hashCode(digest);
+    }
+
+    @Override
+    public FileStateType getType() {
+      // TODO(tjgq): Try to make this a directory to match reality. I'm not sure what might break.
+      return FileStateType.REGULAR_FILE;
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return digest;
+    }
+
+    @Override
+    @Nullable
+    public FileContentsProxy getContentsProxy() {
+      return null;
+    }
+
+    @Override
+    public long getSize() {
+      return 0;
+    }
+
+    @Override
+    public boolean wasModifiedSinceDigest(Path path) {
+      return false;
+    }
+
+    @Override
+    public long getModifiedTime() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("digest", BaseEncoding.base16().lowerCase().encode(digest))
+          .toString();
+    }
+
+    @Override
+    protected boolean couldBeModifiedByMetadata(FileArtifactValue o) {
+      return false;
+    }
+
+    @Override
+    public boolean isRemote() {
+      return isRemote;
+    }
+  }
+
   private TreeArtifactValue(
       byte[] digest,
       ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData,
@@ -206,7 +284,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   }
 
   public FileArtifactValue getMetadata() {
-    return FileArtifactValue.createProxy(digest);
+    return new TreeArtifactCompositeFileArtifactValue(digest, entirelyRemote);
   }
 
   ImmutableSet<PathFragment> getChildPaths() {
@@ -294,6 +372,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     return MoreObjects.toStringHelper(this)
         .add("digest", digest)
         .add("childData", childData)
+        .add("archivedRepresentation", archivedRepresentation)
         .toString();
   }
 

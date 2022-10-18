@@ -1221,14 +1221,14 @@ def format(target):
         ret += '\n\tVisbilityProvider.label:' + str(vis_info.label)
     py_info = p.get('PyInfo')
     if py_info:
-        ret += '\n\tPyInfo:py3_only=' + str(py_info.has_py3_only_sources)
+        ret += '\n\tPyInfo found'
     return ret
 EOF
   bazel cquery "//$pkg:pylib" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
     2>"$TEST_log" || fail "Expected success"
 
   assert_contains "//$pkg:pylib:providers=.*PyInfo" output
-  assert_contains "PyInfo:py3_only=True" output
+  assert_contains "PyInfo found" output
 
   # A file
   bazel cquery "//$pkg:pylib.py" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \

@@ -141,7 +141,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -170,8 +169,6 @@ public class RemoteExecutionService {
 
   private final AtomicBoolean shutdown = new AtomicBoolean(false);
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
-  private final boolean shouldForceDownloads;
-  private final Predicate<String> shouldForceDownloadPredicate;
 
   public RemoteExecutionService(
       Executor executor,
@@ -215,27 +212,6 @@ public class RemoteExecutionService {
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
 
     this.scheduler = Schedulers.from(executor, /*interruptibleWorker=*/ true);
-
-    // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
-    // used without Build without the Bytes.
-    ImmutableList.Builder<Pattern> builder = ImmutableList.builder();
-    if (remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL
-        || remoteOptions.remoteOutputsMode == RemoteOutputsMode.TOPLEVEL) {
-      for (String regex : remoteOptions.remoteDownloadRegex) {
-        builder.add(Pattern.compile(regex));
-      }
-    }
-    ImmutableList<Pattern> patterns = builder.build();
-    this.shouldForceDownloads = !patterns.isEmpty();
-    this.shouldForceDownloadPredicate =
-        path -> {
-          for (Pattern pattern : patterns) {
-            if (pattern.matcher(path).matches()) {
-              return true;
-            }
-          }
-          return false;
-        };
   }
 
   static Command buildCommand(
@@ -1004,8 +980,6 @@ public class RemoteExecutionService {
             /* exitCode = */ result.getExitCode(),
             hasFilesToDownload(action.getSpawn().getOutputFiles(), filesToDownload));
 
-    ImmutableList<ListenableFuture<FileMetadata>> forcedDownloads = ImmutableList.of();
-
     // Download into temporary paths, then move everything at the end.
     // This avoids holding the output lock while downloading, which would prevent the local branch
     // from completing sooner under the dynamic execution strategy.
@@ -1030,15 +1004,6 @@ public class RemoteExecutionService {
             "Symlinks in action outputs are not yet supported by "
                 + "--experimental_remote_download_outputs=minimal");
       }
-      if (shouldForceDownloads) {
-        forcedDownloads =
-            buildFilesToDownloadWithPredicate(
-                context,
-                progressStatusListener,
-                metadata,
-                shouldForceDownloadPredicate,
-                realToTmpPath);
-      }
     }
 
     FileOutErr tmpOutErr = outErr.childOutErr();
@@ -1051,17 +1016,6 @@ public class RemoteExecutionService {
     ImmutableList<ListenableFuture<FileMetadata>> downloads = downloadsBuilder.build();
     try (SilentCloseable c = Profiler.instance().profile("Remote.download")) {
       waitForBulkTransfer(downloads, /* cancelRemainingOnInterrupt= */ true);
-    } catch (Exception e) {
-      // TODO(bazel-team): Consider adding better case-by-case exception handling instead of just
-      // rethrowing
-      captureCorruptedOutputs(e);
-      deletePartialDownloadedOutputs(realToTmpPath, tmpOutErr, e);
-      throw e;
-    }
-
-    // TODO(bazel-team): Unify this block with the equivalent block above.
-    try (SilentCloseable c = Profiler.instance().profile("Remote.forcedDownload")) {
-      waitForBulkTransfer(forcedDownloads, /* cancelRemainingOnInterrupt= */ true);
     } catch (Exception e) {
       // TODO(bazel-team): Consider adding better case-by-case exception handling instead of just
       // rethrowing
@@ -1109,13 +1063,6 @@ public class RemoteExecutionService {
       // might not be supported on all platforms.
       createSymlinks(symlinks);
     } else {
-      // TODO(bazel-team): We should unify this if-block to rely on downloadOutputs above but, as of
-      // 2022-07-05,  downloadOuputs' semantics isn't exactly the same as build-without-the-bytes
-      // which is necessary for using remoteDownloadRegex.
-      if (!forcedDownloads.isEmpty()) {
-        moveOutputsToFinalLocation(forcedDownloads, realToTmpPath);
-      }
-
       ActionInput inMemoryOutput = null;
       Digest inMemoryOutputDigest = null;
       PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());

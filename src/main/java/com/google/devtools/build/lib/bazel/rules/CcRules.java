@@ -99,7 +99,6 @@ public class CcRules implements RuleSet {
             DebugPackageProvider.PROVIDER,
             CcToolchainConfigInfo.PROVIDER,
             new GoogleLegacyStubs.PyWrapCcHelper(),
-            new GoogleLegacyStubs.GoWrapCcHelper(),
             new GoogleLegacyStubs.PyWrapCcInfoProvider(),
             new GoogleLegacyStubs.PyCcLinkParamsProvider()));
 

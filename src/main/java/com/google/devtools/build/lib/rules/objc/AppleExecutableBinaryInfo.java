@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleExecutableBinaryApi;
+import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleExecutableBinaryApi;
 
 /**
  * Provider containing the executable binary output that was built using an apple_binary target with

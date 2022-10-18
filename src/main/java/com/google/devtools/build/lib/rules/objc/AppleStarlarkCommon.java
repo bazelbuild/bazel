@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleCommonApi;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;

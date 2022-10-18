@@ -22,9 +22,12 @@ import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -32,12 +35,14 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
@@ -47,7 +52,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 /**
  * Abstract implementation of {@link ActionInputPrefetcher} which implements the orchestration of
@@ -58,8 +65,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   private final AsyncTaskCache.NoResult<Path> downloadCache = AsyncTaskCache.NoResult.create();
   private final TempPathGenerator tempPathGenerator;
+  protected final Set<Artifact> outputsAreInputs = Sets.newConcurrentHashSet();
 
   protected final Path execRoot;
+  protected final ImmutableList<Pattern> patternsToDownload;
 
   /** Priority for the staging task. */
   protected enum Priority {
@@ -85,9 +94,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     LOW,
   }
 
-  protected AbstractActionInputPrefetcher(Path execRoot, TempPathGenerator tempPathGenerator) {
+  protected AbstractActionInputPrefetcher(
+      Path execRoot,
+      TempPathGenerator tempPathGenerator,
+      ImmutableList<Pattern> patternsToDownload) {
     this.execRoot = execRoot;
     this.tempPathGenerator = tempPathGenerator;
+    this.patternsToDownload = patternsToDownload;
   }
 
   protected abstract boolean shouldDownloadFile(Path path, FileArtifactValue metadata);
@@ -98,7 +111,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * @param tempPath the temporary path which the input should be written to.
    */
   protected abstract ListenableFuture<Void> doDownloadFile(
-      Path tempPath, FileArtifactValue metadata, Priority priority) throws IOException;
+      Path tempPath, PathFragment execPath, FileArtifactValue metadata, Priority priority)
+      throws IOException;
 
   protected void prefetchVirtualActionInput(VirtualActionInput input) throws IOException {}
 
@@ -182,7 +196,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
                   return toTransferResult(
                       toCompletable(
-                          () -> doDownloadFile(tempPath, metadata, priority), directExecutor()));
+                          () ->
+                              doDownloadFile(
+                                  tempPath, path.relativeTo(execRoot), metadata, priority),
+                          directExecutor()));
                 });
 
     AtomicBoolean completed = new AtomicBoolean();
@@ -282,7 +299,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         Completable.using(
             tempPathGenerator::generateTempPath,
             tempPath ->
-                toCompletable(() -> doDownloadFile(tempPath, metadata, priority), directExecutor())
+                toCompletable(
+                        () ->
+                            doDownloadFile(
+                                tempPath, finalPath.relativeTo(execRoot), metadata, priority),
+                        directExecutor())
                     .doOnComplete(
                         () -> {
                           finalizeDownload(tempPath, finalPath);
@@ -349,6 +370,33 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       } catch (InterruptedException ignored) {
         downloadCache.shutdownNow();
       }
+    }
+  }
+
+  @SuppressWarnings({"CheckReturnValue", "FutureReturnValueIgnored"})
+  public void finalizeAction(Action action, MetadataHandler metadataHandler) {
+    List<Artifact> inputsToDownload = new ArrayList<>();
+    List<Artifact> outputsToDownload = new ArrayList<>();
+
+    for (Artifact output : action.getOutputs()) {
+      if (outputsAreInputs.remove(output)) {
+        inputsToDownload.add(output);
+      }
+
+      for (Pattern pattern : patternsToDownload) {
+        if (pattern.matcher(output.getExecPathString()).matches()) {
+          outputsToDownload.add(output);
+          break;
+        }
+      }
+    }
+
+    if (!inputsToDownload.isEmpty()) {
+      prefetchFiles(inputsToDownload, metadataHandler, Priority.HIGH);
+    }
+
+    if (!outputsToDownload.isEmpty()) {
+      prefetchFiles(outputsToDownload, metadataHandler, Priority.LOW);
     }
   }
 }
