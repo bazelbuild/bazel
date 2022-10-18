@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.junit.Assert.assertThrows;
@@ -112,7 +113,7 @@ public final class ActionInputMapTest {
     map.putTreeArtifact(tree, TreeArtifactValue.empty(), /*depOwner=*/ null);
 
     assertThat(map.sizeForDebugging()).isEqualTo(1);
-    assertContainsEqualMetadata(tree, TreeArtifactValue.empty().getMetadata());
+    assertContainsTree(tree, TreeArtifactValue.empty());
   }
 
   @Test
@@ -131,9 +132,9 @@ public final class ActionInputMapTest {
     map.putTreeArtifact(tree, treeValue, /*depOwner=*/ null);
 
     assertThat(map.sizeForDebugging()).isEqualTo(1);
-    assertContainsEqualMetadata(tree, treeValue.getMetadata());
-    assertContainsSameInstance(child1, child1Metadata);
-    assertContainsSameInstance(child2, child2Metadata);
+    assertContainsTree(tree, treeValue);
+    assertContainsFile(child1, child1Metadata);
+    assertContainsFile(child2, child2Metadata);
   }
 
   @Test
@@ -149,9 +150,9 @@ public final class ActionInputMapTest {
 
     map.putTreeArtifact(tree, treeValue, /*depOwner=*/ null);
 
-    assertContainsEqualMetadata(tree, treeValue.getMetadata());
-    assertContainsSameInstance(child, childMetadata);
-    assertContainsSameInstance(file, fileMetadata);
+    assertContainsTree(tree, treeValue);
+    assertContainsFile(child, childMetadata);
+    assertContainsFile(file, fileMetadata);
   }
 
   @Test
@@ -170,10 +171,10 @@ public final class ActionInputMapTest {
     map.putTreeArtifact(tree1, tree1Value, /*depOwner=*/ null);
     map.putTreeArtifact(tree2, tree2Value, /*depOwner=*/ null);
 
-    assertContainsEqualMetadata(tree1, tree1Value.getMetadata());
-    assertContainsSameInstance(tree1Child, tree1ChildMetadata);
-    assertContainsEqualMetadata(tree2, tree2Value.getMetadata());
-    assertContainsSameInstance(tree2Child, tree2ChildMetadata);
+    assertContainsTree(tree1, tree1Value);
+    assertContainsFile(tree1Child, tree1ChildMetadata);
+    assertContainsTree(tree2, tree2Value);
+    assertContainsFile(tree2Child, tree2ChildMetadata);
   }
 
   @Test
@@ -186,9 +187,9 @@ public final class ActionInputMapTest {
     map.putTreeArtifact(tree2, TreeArtifactValue.empty(), /*depOwner=*/ null);
     map.putTreeArtifact(tree3, TreeArtifactValue.empty(), /*depOwner=*/ null);
 
-    assertThat(map.getInput(tree1.getExecPathString())).isEqualTo(tree1);
-    assertThat(map.getInput(tree2.getExecPathString())).isEqualTo(tree2);
-    assertThat(map.getInput(tree3.getExecPathString())).isEqualTo(tree3);
+    assertContainsTree(tree1, TreeArtifactValue.empty());
+    assertContainsTree(tree2, TreeArtifactValue.empty());
+    assertContainsTree(tree3, TreeArtifactValue.empty());
   }
 
   @Test
@@ -196,14 +197,18 @@ public final class ActionInputMapTest {
     SpecialArtifact tree1 = createTreeArtifact("tree");
     SpecialArtifact tree2 = createTreeArtifact("tree");
     TreeFileArtifact tree2File = TreeFileArtifact.createTreeOutput(tree2, "file");
+    TreeArtifactValue tree1Value = TreeArtifactValue.empty();
     TreeArtifactValue tree2Value =
         TreeArtifactValue.newBuilder(tree2).putChild(tree2File, TestMetadata.create(1)).build();
-    map.putTreeArtifact(tree1, TreeArtifactValue.empty(), /*depOwner=*/ null);
+    map.putTreeArtifact(tree1, tree1Value, /*depOwner=*/ null);
 
     map.putTreeArtifact(tree2, tree2Value, /*depOwner=*/ null);
 
-    assertContainsEqualMetadata(tree1, TreeArtifactValue.empty().getMetadata());
-    assertThat(map.getMetadata(tree2)).isEqualTo(TreeArtifactValue.empty().getMetadata());
+    assertContainsTree(tree1, tree1Value);
+    // Cannot assertContainsTree since the execpath will point to tree1 instead.
+    assertThat(map.getMetadata(tree2)).isEqualTo(tree1Value.getMetadata());
+    assertThat(map.getTreeMetadata(tree2.getExecPath())).isSameInstanceAs(tree1Value);
+    assertThat(map.getInput(tree2.getExecPathString())).isSameInstanceAs(tree1);
     assertDoesNotContain(tree2File);
   }
 
@@ -279,13 +284,10 @@ public final class ActionInputMapTest {
         () -> map.putTreeArtifact(tree, treeValue, /*depOwner=*/ null),
         () -> map.putTreeArtifact(nestedTree, nestedTreeValue, /*depOwner=*/ null));
 
-    assertContainsEqualMetadata(tree, treeValue.getMetadata());
-    assertContainsEqualMetadata(nestedTree, nestedTreeValue.getMetadata());
-    assertThat(map.getMetadata(treeFile)).isSameInstanceAs(treeFileMetadata);
-    assertThat(map.getMetadata(nestedTreeFile)).isSameInstanceAs(nestedTreeFileMetadata);
-    assertThat(map.getMetadata(treeFile.getExecPath())).isSameInstanceAs(treeFileMetadata);
-    assertThat(map.getInput(treeFile.getExecPathString())).isSameInstanceAs(treeFile);
-    assertContainsSameInstance(onlyOuterTreeFile, onlyOuterTreeFileMetadata);
+    assertContainsTree(tree, treeValue);
+    assertContainsTree(nestedTree, nestedTreeValue);
+    assertContainsFile(treeFile, treeFileMetadata);
+    assertContainsFile(onlyOuterTreeFile, onlyOuterTreeFileMetadata);
   }
 
   @Test
@@ -294,7 +296,10 @@ public final class ActionInputMapTest {
 
     map.putTreeArtifact(tree, TreeArtifactValue.OMITTED_TREE_MARKER, /*depOwner=*/ null);
 
-    assertContainsSameInstance(tree, FileArtifactValue.OMITTED_FILE_MARKER);
+    // Cannot assertContainsTree since TreeArtifactValue#getMetadata throws for OMITTED_TREE_MARKER.
+    assertThat(map.getMetadata(tree)).isSameInstanceAs(FileArtifactValue.OMITTED_FILE_MARKER);
+    assertThat(map.getMetadata(tree.getExecPath()))
+        .isSameInstanceAs(FileArtifactValue.OMITTED_FILE_MARKER);
   }
 
   @Test
@@ -305,7 +310,7 @@ public final class ActionInputMapTest {
 
     map.put(treeFile, metadata, /*depOwner=*/ null);
 
-    assertContainsSameInstance(treeFile, metadata);
+    assertContainsFile(treeFile, metadata);
   }
 
   @Test
@@ -463,18 +468,23 @@ public final class ActionInputMapTest {
   private void assertDoesNotContain(ActionInput input) {
     assertThat(map.getMetadata(input)).isNull();
     assertThat(map.getMetadata(input.getExecPath())).isNull();
+    assertThat(map.getTreeMetadata(input.getExecPath())).isNull();
     assertThat(map.getInput(input.getExecPathString())).isNull();
   }
 
-  private void assertContainsEqualMetadata(ActionInput input, FileArtifactValue metadata) {
-    assertThat(map.getMetadata(input)).isEqualTo(metadata);
-    assertThat(map.getMetadata(input.getExecPath())).isEqualTo(metadata);
+  private void assertContainsFile(ActionInput input, FileArtifactValue fileValue) {
+    checkArgument(!(input instanceof SpecialArtifact), "use assertContainsTree for tree artifacts");
+    assertThat(map.getMetadata(input)).isSameInstanceAs(fileValue);
+    assertThat(map.getMetadata(input.getExecPath())).isSameInstanceAs(fileValue);
+    assertThat(map.getTreeMetadata(input.getExecPath())).isNull();
     assertThat(map.getInput(input.getExecPathString())).isSameInstanceAs(input);
   }
 
-  private void assertContainsSameInstance(ActionInput input, FileArtifactValue metadata) {
-    assertThat(map.getMetadata(input)).isSameInstanceAs(metadata);
-    assertThat(map.getMetadata(input.getExecPath())).isSameInstanceAs(metadata);
+  private void assertContainsTree(SpecialArtifact input, TreeArtifactValue treeValue) {
+    // TreeArtifactValue#getMetadata returns a freshly allocated instance.
+    assertThat(map.getMetadata(input)).isEqualTo(treeValue.getMetadata());
+    assertThat(map.getMetadata(input.getExecPath())).isEqualTo(treeValue.getMetadata());
+    assertThat(map.getTreeMetadata(input.getExecPath())).isSameInstanceAs(treeValue);
     assertThat(map.getInput(input.getExecPathString())).isSameInstanceAs(input);
   }
 
