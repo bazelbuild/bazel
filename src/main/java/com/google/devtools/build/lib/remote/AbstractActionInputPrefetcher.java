@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
@@ -98,7 +99,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * @param tempPath the temporary path which the input should be written to.
    */
   protected abstract ListenableFuture<Void> doDownloadFile(
-      Path tempPath, FileArtifactValue metadata, Priority priority) throws IOException;
+      Path tempPath, PathFragment execPath, FileArtifactValue metadata, Priority priority)
+      throws IOException;
 
   protected void prefetchVirtualActionInput(VirtualActionInput input) throws IOException {}
 
@@ -182,7 +184,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
                   return toTransferResult(
                       toCompletable(
-                          () -> doDownloadFile(tempPath, metadata, priority), directExecutor()));
+                          () ->
+                              doDownloadFile(
+                                  tempPath, path.relativeTo(execRoot), metadata, priority),
+                          directExecutor()));
                 });
 
     AtomicBoolean completed = new AtomicBoolean();
@@ -282,7 +287,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         Completable.using(
             tempPathGenerator::generateTempPath,
             tempPath ->
-                toCompletable(() -> doDownloadFile(tempPath, metadata, priority), directExecutor())
+                toCompletable(
+                        () ->
+                            doDownloadFile(
+                                tempPath, finalPath.relativeTo(execRoot), metadata, priority),
+                        directExecutor())
                     .doOnComplete(
                         () -> {
                           finalizeDownload(tempPath, finalPath);

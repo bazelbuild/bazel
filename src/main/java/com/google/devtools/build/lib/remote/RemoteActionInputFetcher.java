@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
 
@@ -72,7 +73,8 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   @Override
   protected ListenableFuture<Void> doDownloadFile(
-      Path tempPath, FileArtifactValue metadata, Priority priority) throws IOException {
+      Path tempPath, PathFragment execPath, FileArtifactValue metadata, Priority priority)
+      throws IOException {
     checkArgument(metadata.isRemote(), "Cannot download file that is not a remote file.");
     RequestMetadata requestMetadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, metadata.getActionId(), null);
