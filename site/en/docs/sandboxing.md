@@ -104,7 +104,7 @@ sandboxes [persistent workers](/persistent-workers.html).
 -   Sandboxing incurs extra setup and teardown cost. How big this cost is
     depends on many factors, including the shape of the build and the
     performance of the host OS. For Linux, sandboxed builds are rarely more than
-    a few percent slower. Setting `--experimental_reuse_sandbox_directories` can
+    a few percent slower. Setting `--reuse_sandbox_directories` can
     mitigate the setup and teardown cost.
 
 -   Sandboxing effectively disables any cache the tool may have. You can
