@@ -768,8 +768,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibilityViolation() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=b");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file(
         "a/BUILD", //
@@ -793,10 +792,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibilityViolationDemotedToWarningWhenBreakGlassFlagIsSet() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true",
-        "--experimental_bzl_visibility_allowlist=b",
-        "--check_bzl_visibility=false");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true", "--check_bzl_visibility=false");
 
     scratch.file(
         "a/BUILD", //
@@ -814,8 +810,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testVisibilityCallableNotAvailableInBUILD() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=a");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file(
         "a/BUILD", //
@@ -835,8 +830,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testVisibilityCallableErroneouslyInvokedInBUILD() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=a");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file(
         "a/BUILD", //

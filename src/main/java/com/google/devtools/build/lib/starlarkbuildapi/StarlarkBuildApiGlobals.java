@@ -28,10 +28,7 @@ public interface StarlarkBuildApiGlobals {
       name = "visibility",
       // TODO(b/22193153): Link to a concepts page for bzl-visibility.
       doc =
-          "<i>(Experimental; enabled by <code>--experimental_bzl_visibility</code>. This feature's"
-              + " API may change. Only packages that appear in"
-              + " <code>--experimental_bzl_visibility_allowlist</code> are permitted to call this"
-              + " function. Known issue: This feature currently may not work under bzlmod.)</i>"
+          "<i>(Experimental; enabled by <code>--experimental_bzl_visibility</code>.)</i>"
               + "<p>Sets the bzl-visibility of the .bzl module currently being initialized."
               + "<p>The bzl-visibility of a module governs whether or not other BUILD and .bzl"
               + " files may load it. (This is distinct from the target visibility of the underlying"

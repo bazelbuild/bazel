@@ -161,22 +161,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalBzlVisibility;
 
   @Option(
-      name = "experimental_bzl_visibility_allowlist",
-      converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "A comma-separated list of packages (sans \"//\") which, if --experimental_bzl_visibility"
-              + " is enabled, are permitted to contain .bzl files that set a bzl-visibility by"
-              + " calling the `visibility()` function. Subpackages may also be included by"
-              + " appending `/...`. (Known issue: This flag may not work correctly in the presence"
-              + " of repository remapping, which is used by bzlmod.) If the list includes the"
-              + " special item \"everyone\", all packages are permitted.")
-  public List<String> experimentalBzlVisibilityAllowlist;
-
-  @Option(
       name = "check_bzl_visibility",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
@@ -681,7 +665,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_BUILTINS_DUMMY, experimentalBuiltinsDummy)
             .set(EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE, experimentalBuiltinsInjectionOverride)
             .setBool(EXPERIMENTAL_BZL_VISIBILITY, experimentalBzlVisibility)
-            .set(EXPERIMENTAL_BZL_VISIBILITY_ALLOWLIST, experimentalBzlVisibilityAllowlist)
             .setBool(CHECK_BZL_VISIBILITY, checkBzlVisibility)
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
@@ -840,8 +823,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");
   public static final StarlarkSemantics.Key<List<String>> EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE =
       new StarlarkSemantics.Key<>("experimental_builtins_injection_override", ImmutableList.of());
-  public static final StarlarkSemantics.Key<List<String>> EXPERIMENTAL_BZL_VISIBILITY_ALLOWLIST =
-      new StarlarkSemantics.Key<>("experimental_bzl_visibility_allowlist", ImmutableList.of());
   public static final StarlarkSemantics.Key<Long> MAX_COMPUTATION_STEPS =
       new StarlarkSemantics.Key<>("max_computation_steps", 0L);
   public static final StarlarkSemantics.Key<Integer> NESTED_SET_DEPTH_LIMIT =
