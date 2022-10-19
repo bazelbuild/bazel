@@ -151,8 +151,8 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_bzl_visibility",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
@@ -753,7 +753,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_ALLOW_TAGS_PROPAGATION =
       "-experimental_allow_tags_propagation";
   public static final String EXPERIMENTAL_BUILTINS_DUMMY = "-experimental_builtins_dummy";
-  public static final String EXPERIMENTAL_BZL_VISIBILITY = "-experimental_bzl_visibility";
+  public static final String EXPERIMENTAL_BZL_VISIBILITY = "+experimental_bzl_visibility";
   public static final String CHECK_BZL_VISIBILITY = "+check_bzl_visibility";
   public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "-experimental_cc_shared_library";
   public static final String EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE =
