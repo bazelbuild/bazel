@@ -33,7 +33,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
+import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
@@ -383,7 +383,7 @@ public final class RemoteWorker {
     CommandResult cmdResult = null;
     Command cmd =
         new Command(
-            LinuxSandboxUtil.commandLineBuilder(sandboxPath, ImmutableList.of("true"))
+            LinuxSandboxCommandLineBuilder.commandLineBuilder(sandboxPath, ImmutableList.of("true"))
                 .build()
                 .toArray(new String[0]),
             ImmutableMap.of(),

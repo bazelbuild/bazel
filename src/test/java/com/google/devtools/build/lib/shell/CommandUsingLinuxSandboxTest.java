@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
+import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -76,7 +76,8 @@ public final class CommandUsingLinuxSandboxTest {
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "sleep furiously");
 
     List<String> fullCommandLine =
-        LinuxSandboxUtil.commandLineBuilder(getLinuxSandboxPath(), commandArguments).build();
+        LinuxSandboxCommandLineBuilder.commandLineBuilder(getLinuxSandboxPath(), commandArguments)
+            .build();
 
     Command command = new Command(fullCommandLine.toArray(new String[0]));
     CommandResult commandResult = command.execute();
@@ -97,7 +98,7 @@ public final class CommandUsingLinuxSandboxTest {
     Path statisticsFilePath = outputDir.getRelative("stats.out");
 
     List<String> fullCommandLine =
-        LinuxSandboxUtil.commandLineBuilder(getLinuxSandboxPath(), commandArguments)
+        LinuxSandboxCommandLineBuilder.commandLineBuilder(getLinuxSandboxPath(), commandArguments)
             .setStatisticsPath(statisticsFilePath)
             .build();
 
