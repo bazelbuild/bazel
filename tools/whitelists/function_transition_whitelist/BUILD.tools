@@ -7,3 +7,8 @@ filegroup(
     srcs = glob(["**"]),
     visibility = ["//tools/whitelists:__pkg__"],
 )
+
+package_group(
+    name = "function_transition_whitelist",
+    includes = ["//tools/allowlists/function_transition_allowlist"],
+)

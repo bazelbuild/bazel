@@ -403,130 +403,8 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testBzlVisibility_disabledWithoutAllowlist() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true",
-        // Put a in allowlist, but not b, to show that it's b we need and not a.
-        "--experimental_bzl_visibility_allowlist=a");
-
-    scratch.file("a/BUILD");
-    scratch.file(
-        "a/foo.bzl", //
-        "load(\"//b:bar.bzl\", \"x\")");
-    scratch.file("b/BUILD");
-    scratch.file(
-        "b/bar.bzl", //
-        "visibility(\"public\")",
-        "x = 1");
-
-    reporter.removeHandler(failFastHandler);
-    checkFailingLookup("//a:foo.bzl", "initialization of module 'b/bar.bzl' failed");
-    assertContainsEvent("`visibility() is not enabled for package //b");
-  }
-
-  @Test
-  public void testBzlVisibility_allowlistAcceptsLeadingDoubleSlash() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=//b");
-
-    scratch.file("a/BUILD");
-    scratch.file(
-        "a/foo.bzl", //
-        "load(\"//b:bar.bzl\", \"x\")");
-    scratch.file("b/BUILD");
-    scratch.file(
-        "b/bar.bzl", //
-        "visibility(\"public\")",
-        "x = 1");
-
-    checkSuccessfulLookup("//a:foo.bzl");
-    assertNoEvents();
-  }
-
-  @Test
-  public void testBzlVisibility_allowlistExcludesSubpackagesWithoutWildcard() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=b");
-
-    scratch.file("a/BUILD");
-    scratch.file(
-        "a/foo.bzl", //
-        "load(\"//b/subpkg:bar.bzl\", \"x\")");
-    scratch.file("b/BUILD");
-    scratch.file("b/subpkg/BUILD");
-    scratch.file(
-        "b/subpkg/bar.bzl", //
-        "visibility(\"public\")",
-        "x = 1");
-
-    reporter.removeHandler(failFastHandler);
-    checkFailingLookup("//a:foo.bzl", "initialization of module 'b/subpkg/bar.bzl' failed");
-    assertContainsEvent("`visibility() is not enabled for package //b/subpkg");
-  }
-
-  @Test
-  public void testBzlVisibility_allowlistIncludesSubpackagesWithWildcard() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=b/...");
-
-    scratch.file("a/BUILD");
-    scratch.file(
-        "a/foo.bzl", //
-        "load(\"//b/subpkg:bar.bzl\", \"x\")");
-    scratch.file("b/BUILD");
-    scratch.file("b/subpkg/BUILD");
-    scratch.file(
-        "b/subpkg/bar.bzl", //
-        "visibility(\"public\")",
-        "x = 1");
-
-    checkSuccessfulLookup("//a:foo.bzl");
-    assertNoEvents();
-  }
-
-  @Test
-  public void testBzlVisibility_enabledWhenAllowlistDisabled() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true",
-        // Put unrelated c in allowlist, but not b, to show that "everyone" disables checking when
-        // included as a list item
-        "--experimental_bzl_visibility_allowlist=c,everyone");
-
-    scratch.file("a/BUILD");
-    scratch.file(
-        "a/foo.bzl", //
-        "load(\"//b:bar.bzl\", \"x\")");
-    scratch.file("b/BUILD");
-    scratch.file(
-        "b/bar.bzl", //
-        "visibility(\"public\")",
-        "x = 1");
-
-    checkSuccessfulLookup("//a:foo.bzl");
-    assertNoEvents();
-  }
-
-  @Test
-  public void testBzlVisibility_malformedAllowlist() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true",
-        // Not a valid package name.
-        "--experimental_bzl_visibility_allowlist=:::");
-
-    scratch.file("a/BUILD");
-    scratch.file(
-        "a/foo.bzl", //
-        "visibility(\"public\")");
-
-    reporter.removeHandler(failFastHandler);
-    checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
-    assertContainsEvent("Invalid bzl-visibility allowlist");
-  }
-
-  @Test
   public void testBzlVisibility_publicExplicit() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a/BUILD");
     scratch.file(
@@ -544,8 +422,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_publicImplicit() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a/BUILD");
     scratch.file(
@@ -563,8 +440,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_privateSamePackage() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a/BUILD");
     scratch.file(
@@ -581,8 +457,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_privateDifferentPackage() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a/BUILD");
     scratch.file(
@@ -602,8 +477,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_emptyListMeansPrivate() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a/BUILD");
     scratch.file(
@@ -623,8 +497,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_publicListElement() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a/BUILD");
     scratch.file(
@@ -643,8 +516,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_privateListElement() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a1/BUILD");
     scratch.file(
@@ -671,8 +543,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_failureInDependency() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a/BUILD");
     scratch.file(
@@ -699,8 +570,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_cannotBeSetInFunction() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a/BUILD");
     scratch.file(
@@ -716,8 +586,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_cannotBeSetTwice() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a/BUILD");
     scratch.file(
@@ -732,8 +601,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_enumeratedPackages() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a1/BUILD");
     scratch.file(
@@ -760,8 +628,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_singleEnumeratedPackageAsString() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a1/BUILD");
     scratch.file(
@@ -789,8 +656,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_enumeratedPackagesMultipleRepos() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     // @repo//pkg:foo1.bzl and @//pkg:foo2.bzl both try to access @repo//lib:bar.bzl. Test that when
     // bar.bzl declares a visibility allowing "//pkg", it means @repo//pkg and *not* @//pkg.
@@ -831,7 +697,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   public void testBzlVisibility_canUsePublicPrivate_regardlessOfFlag() throws Exception {
     setBuildLanguageOptions(
         "--experimental_bzl_visibility=true",
-        "--experimental_bzl_visibility_allowlist=everyone",
         // Test that we can use "public" and "private" visibility for .bzl files even when the
         // incompatible flag is disabled.
         "--incompatible_package_group_has_public_syntax=false");
@@ -856,7 +721,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   public void testBzlVisibility_repoRootSubpackagesIsNotPublic_regardlessOfFlag() throws Exception {
     setBuildLanguageOptions(
         "--experimental_bzl_visibility=true",
-        "--experimental_bzl_visibility_allowlist=everyone",
         // Test that we get the fixed behavior even when the incompatible flag is disabled.
         "--incompatible_fix_package_group_reporoot_syntax=false");
 
@@ -886,8 +750,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_disallowsSubpackagesWithoutWildcard() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a/BUILD");
     scratch.file(
@@ -916,8 +779,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_allowsSubpackagesWithWildcard() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a/BUILD");
     scratch.file(
@@ -942,8 +804,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_invalid_badType() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a/BUILD");
     scratch.file(
@@ -957,8 +818,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_invalid_badElementType() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a/BUILD");
     scratch.file(
@@ -972,8 +832,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_invalid_packageOutsideRepo() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a/BUILD");
     scratch.file(
@@ -987,8 +846,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_invalid_negationNotSupported() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=everyone");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file("a/BUILD");
     scratch.file(
@@ -1002,10 +860,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility_errorsDemotedToWarningWhenBreakGlassFlagIsSet() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true",
-        "--experimental_bzl_visibility_allowlist=everyone",
-        "--check_bzl_visibility=false");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true", "--check_bzl_visibility=false");
 
     scratch.file("a/BUILD");
     scratch.file(

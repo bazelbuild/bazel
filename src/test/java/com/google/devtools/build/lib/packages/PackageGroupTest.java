@@ -255,7 +255,11 @@ public class PackageGroupTest extends PackageLoadingTestCase {
 
   @Test
   public void testPublicPrivateAreNotAccessibleWithoutFlag() throws Exception {
-    setBuildLanguageOptions("--incompatible_package_group_has_public_syntax=false");
+    setBuildLanguageOptions(
+        // Flag being tested
+        "--incompatible_package_group_has_public_syntax=false",
+        // Must also be disabled in order to disable the above
+        "--incompatible_fix_package_group_reporoot_syntax=false");
 
     scratch.file(
         "foo/BUILD", //

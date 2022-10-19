@@ -480,8 +480,7 @@ public abstract class AndroidStarlarkData
                   ctx,
                   errorReporter,
                   stampedManifest,
-                  AndroidBinary.shouldShrinkResourceCycles(
-                      ctx.getAndroidConfig(), errorReporter, settings.shrinkResources),
+                  ctx.shouldShrinkResourceCycles(errorReporter, settings.shrinkResources),
                   manifestValueMap,
                   AndroidResources.from(
                       errorReporter,

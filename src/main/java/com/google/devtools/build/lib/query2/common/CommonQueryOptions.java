@@ -139,7 +139,7 @@ public class CommonQueryOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_package_group_includes_double_slash",
-      defaultValue = "false",
+      defaultValue = FlagConstants.DEFAULT_INCOMPATIBLE_PACKAGE_GROUP_INCLUDES_DOUBLE_SLASH,
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},

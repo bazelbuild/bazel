@@ -5,5 +5,10 @@
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//tools/whitelists:__pkg__"],
+    visibility = ["//tools/allowlists:__pkg__"],
+)
+
+package_group(
+    name = "function_transition_allowlist",
+    packages = ["public"],
 )

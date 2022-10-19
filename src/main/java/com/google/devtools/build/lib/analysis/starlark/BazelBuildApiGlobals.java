@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
@@ -60,12 +58,6 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
           ".bzl visibility may only be set at the top level, not inside a function");
     }
 
-    // Fail if the .bzl module isn't on the experimental allowlist.
-    PackageIdentifier pkgId = context.getBzlFile().getPackageIdentifier();
-    List<String> allowlist =
-        thread.getSemantics().get(BuildLanguageOptions.EXPERIMENTAL_BZL_VISIBILITY_ALLOWLIST);
-    checkVisibilityAllowlist(pkgId, allowlist);
-
     // Fail if the module's visibility is already set.
     if (context.getBzlVisibility() != null) {
       throw Starlark.errorf(".bzl visibility may not be set more than once");
@@ -93,55 +85,6 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
           "Invalid bzl-visibility: got '%s', want string or list of strings", Starlark.type(value));
     }
     context.setBzlVisibility(BzlVisibility.of(specs));
-  }
-
-  private void checkVisibilityAllowlist(PackageIdentifier pkgId, List<String> allowlist)
-      throws EvalException {
-    // The allowlist is represented as a list of strings because BuildLanguageOptions isn't allowed
-    // to depend on Label, PackageIdentifier, etc. For simplicity we just convert the strings to
-    // PackageIdentifiers here, at linear cost and redundantly for each call to `visibility()`. This
-    // is ok because the allowlist is not intended to stay permanent, it is expected to remain
-    // small, and calls to visibility() are relatively infrequent.
-    boolean foundMatch = false;
-    for (String allowedPkgString : allowlist) {
-      // Special constant to disable allowlisting. For migration to enable the feature globally.
-      if (allowedPkgString.equals("everyone")) {
-        foundMatch = true;
-        break;
-      }
-      // The wildcard syntax /... is not valid for PackageIdentifiers, so we extract it first.
-      boolean allBeneath = allowedPkgString.endsWith("/...");
-      if (allBeneath) {
-        allowedPkgString = allowedPkgString.substring(0, allowedPkgString.length() - 4);
-        if (allowedPkgString.equals("/")) {
-          // was "//..."
-          allowedPkgString = "//";
-        }
-      }
-      PackageIdentifier allowedPkgId;
-      try {
-        // TODO(b/22193153): This seems incorrect since parse doesn't take into account any
-        // repository map. (This shouldn't matter within Google's monorepo, which doesn't use a repo
-        // map.)
-        allowedPkgId = PackageIdentifier.parse(allowedPkgString);
-      } catch (LabelSyntaxException ex) {
-        throw Starlark.errorf("Invalid bzl-visibility allowlist: %s", ex.getMessage());
-      }
-
-      if (pkgId.equals(allowedPkgId)
-          || (allBeneath
-              // Again, we're erroneously ignoring repo.
-              && pkgId.getPackageFragment().startsWith(allowedPkgId.getPackageFragment()))) {
-        foundMatch = true;
-        break;
-      }
-    }
-    if (!foundMatch) {
-      throw Starlark.errorf(
-          "`visibility() is not enabled for package %s; consider adding it to "
-              + "--experimental_bzl_visibility_allowlist",
-          pkgId.getCanonicalForm());
-    }
   }
 
   @Override

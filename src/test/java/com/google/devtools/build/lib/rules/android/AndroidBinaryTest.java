@@ -4120,6 +4120,45 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(packageArgs).doesNotContain("--conditionalKeepRules");
   }
 
+  @Test
+  public void testAapt2ResourceCycleShrinkingDisabledNoProguardSpecs() throws Exception {
+    useConfiguration("--experimental_android_resource_cycle_shrinking=true");
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'hello',",
+        "               srcs = ['Foo.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               resource_files = ['res/values/strings.xml'],",
+        "               shrink_resources = 1)");
+
+    ConfiguredTargetAndData targetAndData =
+        getConfiguredTargetAndData("//java/com/google/android/hello:hello");
+
+    Artifact jar = getResourceClassJar(targetAndData);
+    assertThat(getGeneratingAction(jar).getMnemonic()).isEqualTo("RClassGenerator");
+    // Final fields should still be generated for non-ProGuarded builds.
+    assertThat(getGeneratingSpawnActionArgs(jar)).contains("--finalFields");
+  }
+
+  @Test
+  public void testAapt2ResourceCycleShrinkingDisabledNoProguardSpecsApplicationResources()
+      throws Exception {
+    useConfiguration("--experimental_android_resource_cycle_shrinking=true");
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'hello',",
+        "               srcs = ['Foo.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               shrink_resources = 1)");
+
+    ConfiguredTargetAndData targetAndData =
+        getConfiguredTargetAndData("//java/com/google/android/hello:hello");
+
+    Artifact jar = getResourceClassJar(targetAndData);
+    assertThat(getGeneratingAction(jar).getMnemonic()).isEqualTo("RClassGenerator");
+    // Final fields should still be generated for non-ProGuarded builds.
+    assertThat(getGeneratingSpawnActionArgs(jar)).contains("--finalFields");
+  }
 
   @Test
   public void testOnlyProguardSpecs() throws Exception {
