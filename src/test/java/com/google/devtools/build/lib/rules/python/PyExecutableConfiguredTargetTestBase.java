@@ -171,7 +171,8 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void py3IsDefaultFlag_SetsDefaultPythonVersion() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     scratch.file(
         "pkg/BUILD", //
         ruleName + "(",
@@ -192,7 +193,8 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void py3IsDefaultFlag_DoesntOverrideExplicitVersion() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY2"));
     assertPythonVersionIs_UnderNewConfig(
         "//pkg:foo",
@@ -206,7 +208,8 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void versionAttrWorks_WhenNotDefaultValue() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY2"));
 
     assertPythonVersionIs("//pkg:foo", PythonVersion.PY2);
@@ -237,7 +240,8 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void canBuildWithDifferentVersionAttrs() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     scratch.file(
         "pkg/BUILD",
         ruleDeclWithPyVersionAttr("foo_v2", "PY2"),
