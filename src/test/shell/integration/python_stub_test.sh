@@ -115,8 +115,11 @@ py_library(
 EOF
   touch test/lib2.py test/lib3.py
 
-  bazel build --python_version=PY2 //test:* \
-      &> $TEST_log || fail "bazel build failed"
+  # Python 2 support dropped in Google builds
+  if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+    bazel build --python_version=PY2 //test:* \
+        &> $TEST_log || fail "bazel build failed"
+  fi
   bazel build --python_version=PY3 //test:* \
       &> $TEST_log || fail "bazel build failed"
 }
