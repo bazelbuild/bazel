@@ -401,15 +401,6 @@ of all affected classes. Also note that javacopts parameters listed in
 specific java_library or java_binary build rules will be placed on the javac
 command line _after_ these options.
 
-##### `-extra_checks[:(off|on)]` {:#extra-checks}
-
-This javac option enables extra correctness checks. Any problems found will
-be presented as errors.
-Either `-extra_checks` or `-extra_checks:on` may be used
-to force the checks to be turned on. `-extra_checks:off` completely
-disables the analysis.
-When this option is not specified, the default behavior is used.
-
 #### `--strict_java_deps (default|strict|off|warn|error)` {:#strict-java-deps}
 
 This option controls whether javac checks for missing direct dependencies.
