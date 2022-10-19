@@ -128,38 +128,102 @@ public final class RemoteActionFileSystemTest {
   }
 
   @Test
-  public void testDeleteRemoteFile() throws Exception {
-    // arrange
+  public void exists_fileDoesNotExist_returnsFalse() throws Exception {
     ActionInputMap inputs = new ActionInputMap(0);
     RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
-    Path path = outputRoot.getRoot().asPath().getRelative("file");
-    byte[] contents = "remote contents".getBytes(StandardCharsets.UTF_8);
-    HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contents);
-    actionFs.injectRemoteFile(path.asFragment(), hashCode.asBytes(), contents.length, "action-id");
-    assertThat(actionFs.exists(path.asFragment())).isTrue();
+    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
 
-    // act
-    boolean success = actionFs.delete(path.asFragment());
-
-    // assert
-    assertThat(success).isTrue();
-    assertThat(actionFs.exists(path.asFragment())).isFalse();
+    assertThat(actionFs.exists(path)).isFalse();
   }
 
   @Test
-  public void testDeleteLocalFile() throws Exception {
-    // arrange
+  public void exists_localFile_returnsTrue() throws Exception {
     ActionInputMap inputs = new ActionInputMap(0);
     RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
-    Path path = outputRoot.getRoot().asPath().getRelative("file");
-    FileSystemUtils.writeContent(path, StandardCharsets.UTF_8, "local contents");
+    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
 
-    // act
-    boolean success = actionFs.delete(path.asFragment());
+    writeLocalFile(actionFs, path, "local contents");
 
-    // assert
+    assertThat(actionFs.exists(path)).isTrue();
+  }
+
+  @Test
+  public void exists_remoteFile_returnsTrue() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(0);
+    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
+    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
+
+    injectRemoteFile(actionFs, path, "remote contents");
+
+    assertThat(actionFs.exists(path)).isTrue();
+  }
+
+  @Test
+  public void exists_localAndRemoteFile_returnsTrue() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(0);
+    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
+    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
+
+    writeLocalFile(actionFs, path, "local contents");
+    injectRemoteFile(actionFs, path, "remote contents");
+
+    assertThat(actionFs.exists(path)).isTrue();
+  }
+
+  @Test
+  public void delete_fileDoesNotExist_returnsFalse() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(0);
+    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
+    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
+
+    assertThat(actionFs.delete(path)).isFalse();
+  }
+
+  @Test
+  public void delete_localFile_succeeds() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(0);
+    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
+    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
+    writeLocalFile(actionFs, path, "local contents");
+    assertThat(actionFs.getLocalFileSystem().exists(path)).isTrue();
+
+    boolean success = actionFs.delete(path);
+
     assertThat(success).isTrue();
-    assertThat(actionFs.exists(path.asFragment())).isFalse();
+    assertThat(actionFs.getLocalFileSystem().exists(path)).isFalse();
+  }
+
+  @Test
+  public void delete_remoteFile_succeeds() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(0);
+    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
+    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
+    injectRemoteFile(actionFs, path, "remote contents");
+    assertThat(actionFs.getRemoteOutputTree().exists(path)).isTrue();
+
+    boolean success = actionFs.delete(path);
+
+    assertThat(success).isTrue();
+    assertThat(actionFs.exists(path)).isFalse();
+    assertThat(actionFs.getRemoteOutputTree().exists(path)).isFalse();
+  }
+
+  @Test
+  public void delete_localAndRemoteFile_succeeds() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(0);
+    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
+    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
+    writeLocalFile(actionFs, path, "local contents");
+    injectRemoteFile(actionFs, path, "remote contents");
+    assertThat(actionFs.getLocalFileSystem().exists(path)).isTrue();
+    assertThat(actionFs.getRemoteOutputTree().exists(path)).isTrue();
+
+    boolean success = actionFs.delete(path);
+
+    assertThat(success).isTrue();
+    assertThat(actionFs.exists(path)).isFalse();
+    assertThat(actionFs.getLocalFileSystem().exists(path)).isFalse();
+    assertThat(actionFs.getRemoteOutputTree().exists(path)).isFalse();
   }
 
   @Test

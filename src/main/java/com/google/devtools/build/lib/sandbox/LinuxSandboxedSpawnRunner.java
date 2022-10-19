@@ -93,7 +93,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private static boolean computeIsSupported(CommandEnvironment cmdEnv, Path linuxSandbox)
       throws InterruptedException {
     ImmutableList<String> linuxSandboxArgv =
-        LinuxSandboxUtil.commandLineBuilder(linuxSandbox, ImmutableList.of("/bin/true"))
+        LinuxSandboxCommandLineBuilder.commandLineBuilder(
+                linuxSandbox, ImmutableList.of("/bin/true"))
             .setTimeout(Duration.ofSeconds(1))
             .build();
     ImmutableMap<String, String> env = ImmutableMap.of();
@@ -222,8 +223,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     Duration timeout = context.getTimeout();
 
-    LinuxSandboxUtil.CommandLineBuilder commandLineBuilder =
-        LinuxSandboxUtil.commandLineBuilder(linuxSandbox, spawn.getArguments())
+    LinuxSandboxCommandLineBuilder commandLineBuilder =
+        LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandbox, spawn.getArguments())
             .addExecutionInfo(spawn.getExecutionInfo())
             .setWritableFilesAndDirectories(writableDirs)
             .setTmpfsDirectories(ImmutableSet.copyOf(getSandboxOptions().sandboxTmpfsPath))

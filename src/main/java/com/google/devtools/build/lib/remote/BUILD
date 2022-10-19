@@ -33,6 +33,7 @@ java_library(
             "RemoteRetrierUtils.java",
             "Retrier.java",
             "AbstractActionInputPrefetcher.java",
+            "ToplevelArtifactsDownloader.java",
         ],
     ),
     exports = [
@@ -183,5 +184,18 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:rxjava3",
+    ],
+)
+
+java_library(
+    name = "toplevel_artifacts_downloader",
+    srcs = ["ToplevelArtifactsDownloader.java"],
+    deps = [
+        ":abstract_action_input_prefetcher",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//third_party:flogger",
+        "//third_party:guava",
     ],
 )

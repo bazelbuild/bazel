@@ -16,6 +16,7 @@ bazel_dep(name = "platforms", version = "0.0.5")
 bazel_dep(name = "rules_pkg", version = "0.7.0")
 bazel_dep(name = "stardoc", version = "0.5.0", repo_name = "io_bazel_skydoc")
 bazel_dep(name = "zstd-jni", version = "1.5.2-3")
+bazel_dep(name = "zlib", version = "1.2.13")
 
 # The following are required when building without WORKSPACE SUFFIX
 bazel_dep(name = "rules_cc", version = "0.0.2")
