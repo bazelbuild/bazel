@@ -183,7 +183,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
           "    proguard_specs = [],",
           "    deps = ['lib', 'native-lib'],",
           "    manifest = 'AndroidManifest.xml',",
-          "    resource_files = glob(['res/**']))");
+          ")");
       useConfiguration(
           "--android_platforms=//java/android/platforms:x86,//java/android/platforms:armeabi-v7a",
           "--dynamic_mode=off");
@@ -1077,7 +1077,6 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "android_library(",
         "  name = 'dep',",
         "  srcs = ['dep.java'],",
-        "  resource_files = glob(['res/**']),",
         "  manifest = 'AndroidManifest.xml',",
         ")",
         "alias(",
@@ -1632,7 +1631,6 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "java/com/google/devtools/build/jkrunchy/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "java_binary(name = 'jkrunchy',",
-        "            srcs = glob(['*.java']),",
         "            main_class = 'com.google.devtools.build.jkrunchy.JKrunchyMain')");
 
     useConfiguration("--proguard_top=//java/com/google/devtools/build/jkrunchy:jkrunchy");
@@ -1903,7 +1901,6 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "android_binary(",
             "  name = 'myapp',",
             "  manifest = 'AndroidManifest.xml',",
-            "  resource_files = glob(['res/**/*']),",
             ")");
 
     assertThat(binary.get(AndroidResourcesInfo.PROVIDER)).isNull();
@@ -1919,7 +1916,6 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "android_binary(",
             "  name = 'myapp',",
             "  manifest = 'AndroidManifest.xml',",
-            "  resource_files = glob(['res/**/*']),",
             ")");
 
     assertThat(binary.get(AndroidResourcesInfo.PROVIDER)).isNotNull();
@@ -1979,7 +1975,6 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
             dir,
             "bin",
             "android_binary(name = 'bin',",
-            "  resource_files = glob(['res/**']),",
             "  resource_configuration_filters = ['en', 'en-rXA', 'ar-rXB'],",
             "  manifest = 'AndroidManifest.xml')");
 
@@ -2045,18 +2040,15 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         dir + "BUILD",
         "android_library(name = 'sublib',",
         "                manifest = 'AndroidManifest.xml',",
-        "                resource_files = glob(['res3/**']),",
         "                srcs =['sublib.java'],",
         "                )",
         "android_library(name = 'lib',",
         "                manifest = 'AndroidManifest.xml',",
-        "                resource_files = glob(['res2/**']),",
         "                deps = [':sublib'],",
         "                srcs =['lib.java'],",
         "                )",
         "android_binary(name = 'bin',",
         "               manifest = 'AndroidManifest.xml',",
-        "               resource_files = glob(['res/**']),",
         "               deps = [':lib'],",
         "               srcs =['bin.java'],",
         "               )");
@@ -2160,15 +2152,12 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "java/r/android/BUILD",
         "android_library(name = 'lib1',",
         "                manifest = 'AndroidManifest.xml',",
-        "                resource_files = glob(['res1/**']),",
         "                )",
         "android_library(name = 'lib2',",
         "                manifest = 'AndroidManifest.xml',",
-        "                resource_files = glob(['res2/**']),",
         "                )",
         "android_binary(name = 'r',",
         "               manifest = 'AndroidManifest.xml',",
-        "               resource_files = glob(['res/**']),",
         "               deps = [':lib1', ':lib2'],",
         "               )");
     ConfiguredTargetAndData binary = getConfiguredTargetAndData("//java/r/android:r");
