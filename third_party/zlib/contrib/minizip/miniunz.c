@@ -564,7 +564,7 @@ int main(argc,argv)
 
                 while ((*p)!='\0')
                 {
-                    char c=*(p++);;
+                    char c=*(p++);
                     if ((c=='l') || (c=='L'))
                         opt_do_list = 1;
                     if ((c=='v') || (c=='V'))

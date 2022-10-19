@@ -32,9 +32,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for {@link LinuxSandboxUtil}. */
+/** Unit tests for {@link LinuxSandboxCommandLineBuilderTest}. */
 @RunWith(JUnit4.class)
-public final class LinuxSandboxUtilTest {
+public final class LinuxSandboxCommandLineBuilderTest {
   private FileSystem testFS;
 
   @Before
@@ -51,7 +51,8 @@ public final class LinuxSandboxUtilTest {
         assertThrows(
             IllegalStateException.class,
             () ->
-                LinuxSandboxUtil.commandLineBuilder(linuxSandboxPath, commandArguments)
+                LinuxSandboxCommandLineBuilder.commandLineBuilder(
+                        linuxSandboxPath, commandArguments)
                     .setUseFakeRoot(true)
                     .setUseFakeUsername(true)
                     .build());
@@ -72,7 +73,8 @@ public final class LinuxSandboxUtilTest {
             .build();
 
     List<String> commandLine =
-        LinuxSandboxUtil.commandLineBuilder(linuxSandboxPath, commandArguments).build();
+        LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandboxPath, commandArguments)
+            .build();
 
     assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine).inOrder();
   }
@@ -155,7 +157,7 @@ public final class LinuxSandboxUtilTest {
             .build();
 
     List<String> commandLine =
-        LinuxSandboxUtil.commandLineBuilder(linuxSandboxPath, commandArguments)
+        LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandboxPath, commandArguments)
             .setWorkingDirectory(workingDirectory)
             .setStdoutPath(stdoutPath)
             .setStderrPath(stderrPath)

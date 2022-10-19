@@ -29,7 +29,7 @@ final class SandboxedWorker extends SingleplexWorker {
 
   SandboxedWorker(WorkerKey workerKey, int workerId, Path workDir, Path logFile) {
     super(workerKey, workerId, workDir, logFile);
-    workerExecRoot = new WorkerExecRoot(workDir);
+    this.workerExecRoot = new WorkerExecRoot(workDir);
   }
 
   @Override
