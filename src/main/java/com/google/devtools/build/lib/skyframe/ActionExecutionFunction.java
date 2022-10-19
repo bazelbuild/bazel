@@ -92,7 +92,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -254,9 +253,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     CheckInputResults checkedInputs = null;
     NestedSet<Artifact> allInputs =
         state.allInputs.getAllInputs(
-            !skyframeActionExecutor
-                .actionFileSystemType()
-                .equals(ActionFileSystemType.STAGE_REMOTE_FILES));
+            skyframeActionExecutor.actionFileSystemType().supportsInputDiscovery());
 
     if (!state.actionInputCollectedEventSent) {
       env.getListener()
