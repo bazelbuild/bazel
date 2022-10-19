@@ -447,7 +447,7 @@ def full_repo_patch(ctx, repo_metadata):
         return
     print(dir(ctx.attr.repo_patcher))
     print(ctx.attr.repo_patcher.name)
-    cmd = [ctx.path(ctx.attr.repo_patcher)]
+    cmd = [ctx.path(ctx.attr.repo_patcher), "--top=%s" % ctx.path('.')]
     for k, v in repo_metadata.items():
         # TODO(aiuto): Do we escape quote these better, or write to a file
         # or disallow really broken values.
