@@ -5,5 +5,10 @@
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//tools/allowlists:__pkg__"],
+    visibility = ["//tools/whitelists:__pkg__"],
+)
+
+package_group(
+    name = "config_feature_flag",
+    includes = ["//tools/allowlists/config_feature_flag"],
 )

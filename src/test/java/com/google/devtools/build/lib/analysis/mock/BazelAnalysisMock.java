@@ -362,8 +362,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
     config.create(
         "tools/allowlists/config_feature_flag/BUILD",
-        "package_group(name='config_feature_flag', packages=['//...'])",
-        "package_group(name='config_feature_flag_Setter', packages=['//...'])");
+        "package_group(name='config_feature_flag', packages=['public'])",
+        "package_group(name='config_feature_flag_Setter', packages=['public'])");
 
     config.create(
         "embedded_tools/tools/proto/BUILD",
@@ -541,10 +541,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("    generates_api = 1,")
         .add("    processor_class = 'android.databinding.annotationprocessor.ProcessDataBinding')")
         .add("sh_binary(name = 'instrumentation_test_check', srcs = ['empty.sh'])")
-        .add("package_group(name = 'android_device_allowlist', packages = ['//...'])")
-        .add("package_group(name = 'export_deps_allowlist', packages = ['//...'])")
+        .add("package_group(name = 'android_device_allowlist', packages = ['public'])")
+        .add("package_group(name = 'export_deps_allowlist', packages = ['public'])")
         .add("package_group(name = 'allow_android_library_deps_without_srcs_allowlist',")
-        .add("    packages=['//...'])")
+        .add("    packages=['public'])")
         .add("android_tools_defaults_jar(name = 'android_jar')")
         .add("sh_binary(name = 'dex_list_obfuscator', srcs = ['empty.sh'])");
 

@@ -1,3 +1,737 @@
+## Release 4.2.3 (2022-10-18)
+
+```
+Baseline: 37a429ad12b4c9e6a62dbae4881a1ff03b81ab40
+
+Cherry picks:
+
+   + a689d673abadf80f1efaf8ddaeee92d56fc2847b:
+     Use getRunfilesPath for run_under executable path generation.
+     getRootRelativePath doesn't return a valid runfiles path for
+     external source files anymore after the recent external source
+     root change. Also, it won't work for external labels either once
+     the --nolegacy_external_runfiles becomes default. This fixes
+     issue #12545.
+   + d90ec67fdab9710f649a3c1d374fb6b938b9271a:
+     Fix NPE when coveragerunner is not set on the toolchain.
+   + 8555789dd239a5ac229c1d9cee80b2a9f30b3bf7:
+     Fix the classic query package-loading cutoff optimization with
+     external workspaces.
+   + 3f2e8c8220a1cf07fda0a08fb21734df79364248:
+     Update turbine
+   + 0577fa5623732e9d182d273597b9be6c66574d05:
+     Update turbine
+   + 268bedd5b8f4fc0aa4158248a8cf2d0d8ad79e52:
+     Update turbine
+   + 613c9fe7d6ad265d80be569485e599394fff310e:
+     Update turbine
+   + f28f6978b118868a7faec5ad3818ea0582ffb8f5:
+     Update turbine
+   + 69b43621a16d7ede62a3b876772e8b297d4ea09e:
+     Update turbine
+   + 4d4ab50501d5f493cea35885bd89b2a56b0027f7:
+     Revert "Update turbine"
+   + 89b9a048eec8f108795bebdada5b6c9d33dacff2:
+     Update turbine
+   + d31f6dfc85b73750139d287acdcd29a596e1884a:
+     Update turbine version
+   + 57672aca01b3be895382c952b550c9f8edf6c9f2:
+     Update turbine
+   + bef4bbbb47d47befe3711d06f358782ee12554f9:
+     Update turbine
+   + d113d7454127bba78aa618dac81e5d164920b662:
+     Update turbine
+   + 1489f0f4cae3e9247a70e4003ab76bef45c5b986:
+     Support Scala3 .tasty files
+   + 0d2d95cd7e34b4061c8e5fdfd21ba0ab8818c685:
+     Update to java_tools javac11 release 10.5 (#12647)
+   + a9419f38d5f29af31a6c8ebda09a6e0303a6ba54:
+     Fix common prefix for instrumentation filter
+   + 84fadcf81f81b2d7343ca4151a5639be7f2263ee:
+     Fix builds for filegroup targets with incompatible dependencies
+   + e43825d0bef359f645e1cabf2164fd2db6ee4a35:
+     Revert "Remove
+     --incompatible_blacklisted_protos_requires_proto_info"
+   + 082d58de852ebaa640bcf13cf419cbb94eec2b26:
+     Transform roots along with paths during output deletion.
+   + e8835c1c221d76a2d5532d18083eaa04401619b3:
+     AttributeContainer.Large now handles more than 127 attributes.
+   + e1e87349335ac59f9b3df47cee8b999faeaa6d11:
+     Add an env attribute to all test and binary rule classes
+   + a87d7ed2411d5382bac58a20b79e09c464ad13b9:
+     Take no action to prefetch empty artifacts.
+   + 3e969ff24a6a0e03139b9f288c88451a7dfa97cd:
+     Fix a couple of bugs with Incompatible Target Skipping
+   + e6670825b1e183f81f5c864aafd425d512fa9ff5:
+     Pass --host_action_env to host options hostActionEnvironment
+     attribute
+   + 07400c0392e7be163f8a3396fa5cf89ce6705412:
+     Add --{no,}autodetect_server_javabase.
+   + c83366064621d5a265eba14d93a03deff58fe6d8:
+     Only treat "env" and "env_inherit" attrs specially for native
+     rules
+   + 6a60b30cd0f22d0ab84b2ddd658d5ccb899a8a76:
+     Fix coverage support when using default_java_toolchain. (#12801)
+   + 4158a6f512e52516437e00f8d9609a91be7fc195:
+     Revert JacocoCoverage target to remote_java_tools_java_import
+     and add a new target for remore_java_tools_filegroup. (#12813)
+   + f6d30cf5ef9a8a39fea7072317f89a872387b790:
+     Add windows_msvc back to conditions in bazel_tools.
+   + 6b33bdb1e22514304c0e35ce8e067f2175685245:
+     Release 4.0.0 (2021-01-21)
+   + 8811e27353c2c10980faf7e4c5e44b431d2d4f1c:
+     Fix error message from getPrerequisites to not print internal
+     details.
+   + 27e15ad11410eb1014f5247fd0eeb31a46733c07:
+     Clean up ConfiguredTargetValueAccessor and
+     ConfiguredTargetAccessor
+   + e87feb8ac9573cef993824f82370d0389570521d:
+     Move getConfigConditions into ConfiguredTarget.
+   + 34d98234324da83e93ba0d5ef5702880d5ac7c5c:
+     Change ConfiguredTargetQuery to use KeyedConfiguredTarget as a
+     value.
+   + 079bb7d69931705bb2b092c9017090e224ef3043:
+     Clean up old dependencies that are unused since
+     https://github.com/bazelbuild/bazel/commit/34d98234324da83e93ba0d
+     5ef5702880d5ac7c5c.
+   + e03cb63e059420847d6578d7cbfe93f05615c95e:
+     Update bazelbuild/platforms to a current release. - Roll forward
+     https://github.com/bazelbuild/bazel/commit/0a4533420a3de467fd211d
+     7f925cf88e0cd5b76a  with kythe fix.
+   + 2eb1bf53d5fef13b89ee440af4f83003d1d0b50a:
+     Update docs and tests to use the @platforms//:incompatible
+     constraint
+   + c71697cf33b0fbbb42fc2910bac83960edc7e855:
+     Clarify test_suite behaviour in the Platforms docs
+   + dfb70ea4cae2ffffb76e9741d86c96505a6d05ad:
+     Enable toolchain resolution for filegroup targets.
+   + 24d086446f74606819dc53c3a436caa056ff05b7:
+     PlatformProviderUtils should ignore targets that don't have the
+     needed
+   + ba60c0b3f9bbd00975c984244839b155e84b4c5d:
+     ijar: fix manifest sections handling
+   + 58bb42ad7ca263a75c6eeef51482f805726663a5:
+     Revert "Switch to -fdebug-compilation-dir"
+   + 3f2e8c8220a1cf07fda0a08fb21734df79364248:
+     Update turbine
+   + 0577fa5623732e9d182d273597b9be6c66574d05:
+     Update turbine
+   + 268bedd5b8f4fc0aa4158248a8cf2d0d8ad79e52:
+     Update turbine
+   + 613c9fe7d6ad265d80be569485e599394fff310e:
+     Update turbine
+   + f28f6978b118868a7faec5ad3818ea0582ffb8f5:
+     Update turbine
+   + 69b43621a16d7ede62a3b876772e8b297d4ea09e:
+     Update turbine
+   + 4d4ab50501d5f493cea35885bd89b2a56b0027f7:
+     Revert "Update turbine"
+   + 89b9a048eec8f108795bebdada5b6c9d33dacff2:
+     Update turbine
+   + d31f6dfc85b73750139d287acdcd29a596e1884a:
+     Update turbine version
+   + 57672aca01b3be895382c952b550c9f8edf6c9f2:
+     Update turbine
+   + bef4bbbb47d47befe3711d06f358782ee12554f9:
+     Update turbine
+   + d113d7454127bba78aa618dac81e5d164920b662:
+     Update turbine
+   + ad241fbebd90a9f0ad65ccd0658838f57030db68:
+     Allow cquery to filter out incompatible targets
+   + 1782f0ae751569607ef88930c822ac460a1f8bb3:
+     Patch grpc to fix cares selecting the wrong source when building
+     for darwin_arm64 cpu.
+   + 8f7bc2f67fafcaa8d25cfc77eaaedbf8eed2984a:
+     [1/3] Bump grpc to 1.33.1 to fix corruption when downloading CAS
+     blobs
+   + 848a51747a460ab4c5185e4c61ab522a9981cbea:
+     [2/3] Bump grpc to 1.33.1 to fix corruption when downloading CAS
+     blobs
+   + 9b30172547f2093acb56aedf159a77d5dceffda2:
+     [3/3] Bump grpc to 1.33.1 to fix corruption when downloading CAS
+     blobs
+   + 1e258d2a7a5221613047e5cee0aaec5b56045d2b:
+     Allow exec groups to inherit from the rule or other exec groups.
+   + d0676693310215407224c1b8e8aea9e3eddc183d:
+     Support execution constraints per exec group
+   + f1e0d346c8235c855e61afc2adb870e4b895e002:
+     Clean up RuleContext to use a Table instead of a Map of Maps.
+   + 8186fbb47ab964a9affa9a0fc6315fcdbde2b5aa:
+     Documentation for #13110
+   + 321fe3b6b4e892821ee7dbf2d17dd8ae6a541913:
+     Prevent --repo_env from triggering unnecessary fetches
+   + 3ebf658cba43bbab1efc36518f0795a7d65e2d46:
+     Prevent a crash when using --repo_env=VAR without a value
+   + 913a985a5c2fc3842b12c6e5f29af0fa1bccfd6a:
+     Report digest of failed uploads
+   + 5122617b8a22fee7acd86c9c48f2c2737709ca3f:
+     Status error presentation with details
+   + 9a70805db543e2fb910e1c55ef3b3567362adf30:
+     Fix double shutdown of BuildEventArtifactUploader when BES+File
+     output enabled.
+   + 325eb956c92530bdfda54a36a186cae4245a4f7b:
+     Add rxjava3 to third_party
+   + ceaac966a7b977461b69ce9501df6a467f4a93b2:
+     remote: set executable bit of an input file based on its real
+     value
+   + 5b786da75837c5e29714e1d708c3cdf9a67ed32d:
+     Remote: correctly implement equals and hashCode.
+   + 48648503729d53fdee1322fde2c8e6c05e99cff9:
+     Fixed an error that bazel binary is not executable when testing
+     with remote execution.
+   + bc54c648aa1f99509c7c36d5e6b570d066689209:
+     Remote: Use parameters instead of thread-local storage to
+     provide tracing metadata.
+   + 92955e617b5c41713a5163dc0437c2a024b31815:
+     Remote: Use parameters instead of thread-local storage to
+     provide tracing metadata. (Part 2)
+   + 75bd1ff8ab56d241916bde36291301fa026b2bab:
+     Remote: Use parameters instead of thread-local storage to
+     provide tracing metadata. (Part 3)
+   + 37ee252f3744abc4511f55b5089cc52abd3ba09d:
+     Remote: Use parameters instead of thread-local storage to
+     provide tracing metadata. (Part 4)
+   + 71e35b165f924e2649a078fcf6007645d58039af:
+     Remote: Use parameters instead of thread-local storage to
+     provide tracing metadata. (Part 5)
+   + 32fc451600b6e94a015263eb1c8a63e974f6f4cc:
+     Write/QueryWriteStatus logging refinement/addition
+   + 97963c5bb24ac79eb3646dd61bfcf2f8a648af54:
+     Remote: gRPC load balancing. (Part 1)
+   + e2b9a42a61596b0d24f0cadd6b7157b7f1efb221:
+     Remote: gRPC load balancing. (Part 2)
+   + 6667ad7dd77f8d97952133052c17e7779c1430ec:
+     Remote: gRPC load balancing. (Part 3)
+   + 7c081eb020186bfb16d4ef1c3832a8e946e99da1:
+     Remote: gRPC load balancing. (Part 4)
+   + 17afbe4e224b359fee6415a5bd71bbedaa7843eb:
+     Implement getMessage for BulkTransferException
+   + a6293b3df521aea9075b2ebbcdb675a7d02d3c32:
+     Remote: gRPC load balancing. (Part 5)
+   + 7a62c2d4e27e398f440910c81eacc384f38ca8be:
+     Remote: Add interoperability between Rx and ListenableFuture.
+   + 1fcb18a0b455bfcb8e9940778f37d8c82c5ed5a0:
+     Update to latest remote-execution proto
+   + dad96301d12aa77eb67399e08265a5f30f5ffd6a:
+     Set Platform on Action not just Command
+   + 6c5a3ee0dcbb4b804f4aa85c038a378fb70eb1f9:
+     Remote: Add AsyncTaskCache which is used to deduplicate task
+     executions and cache the results.
+   + 9d0c7325ac810febe565a62fdd875ae0c240b274:
+     Remote: Use AsyncTaskCache inside RemoteActionInputFetcher.
+   + f54fe07209acc25340df8d2e02993b1add2deafa:
+     Add --experimental_repository_disable_download to allow users
+     disable download for external repos
+   + b243584a479eb4481a9bf4f69acc899610a3b630:
+     Report errors parsing rewriter config file
+   + 63bc1c7d0853dc187e4b96a490d733fb29f79664:
+     Downloader rewriter config has all_blocked_message
+   + 495ac923f398443be45c20ab29d183fe47e08911:
+     Allow UrlRewriter to change protocol, i.e. https->http, and
+     http->https
+   + 8dbbde0037264c1db4b229a09f98a61ab4ca06b0:
+     Allow overriding the hostname and instance name in bytestream://
+     URIs
+   + 0881c80d29acecdfbb58c49156f805e8c50db117:
+     Don't set requestId on non-multiplex requests.
+   + e3b7e17b05f13ff183a4d7efec8ec797f3f5eaa3:
+     When generating a symlink in _virtual_includes, add the original
+     header to the 'allowed to use' set too
+   + f8f66f36ad299a0ea019c94100d5a8e2018f5ab5:
+     Make SimpleLogHandler not swallow interrupts.
+   + f8606e5e76579442a1c6563e718ea54c673f1a04:
+     linux-sandbox: don't assume -lrt, -D__STDC_FORMAT_MACROS
+   + dac0d40d0eb903f5cb70341398d1a333c19adf3a:
+     Improve "Common Attributes" section
+   + a607d9dc70ac67f1aa2c32ca954177f9c77860be:
+     Never create more than one process per WorkerMultiplexer.
+   + 80c03ef14a1842d1e3475b1adf98adeb05df33f9:
+     Move sending requests and reading responses for multiplex
+     workers into separate subthreads.
+   + 003cfcde3fd3901c1279ba1db3db3a14536248b4:
+     Allow use of JSON protocol in multiplex workers.
+   + 308bce36cba46095fe41866e703710035ddddada:
+     Actively kill off still-active workers when stopping work on
+     interrupt.
+   + 8959dff512fe4505af786bcf2ef981ec7082a913:
+     Add sanitizer support to Apple platforms
+   + 32f16e9360f3e1856db1775eb5014b930da2a303:
+     Fix a Google-internal broken link.
+   + c9e2be52a067dd9abf5efa4f5f55bb5b98cf5d3b:
+     Add SHA-1 to subresource integrity format for download()
+     checksums
+   + 3b3e6424c6fbd51d4c4ebb6aa25f1d1f4720221c:
+     Remove fallback strategy support for workers, add flag for it in
+     sandbox.
+   + 3457f2ae11e4543de0a5e6e8e37c3aff067891fd:
+     Update to java_tools javac11 10.6 (#13245)
+   + 4928295b236ec8f590a7e9d863502bc2f50a77d9:
+     Allow .S files in C++ Starlark cc_common.compile.
+   + 1b18d65227c127fe946d3fcde4586158bc7e5fcb:
+     Automatic code cleanup.
+   + b5d6c38535c7f6f1eab3fd4c8d3d2da91d0b0f8a:
+     Change short output of worker type to have the same logic as the
+     worker creation for sandboxing vs. multiplex.
+   + e7a0a71f50b69df5d38a8a85fefd36d211e12e8d:
+     More properly destroy workers on interrupt.
+   + 7056711eb11b672133274eb29fc93b01dcf088d5:
+     Make WorkRequestHandler do a GC after some amount of CPU time
+     has been used on requests. For Bazel and Blaze, defaults to 10s
+     based on benchmarking.
+   + 596653d3cf76e7b208da343e1fde5fe20273a5ff:
+     Allow tree artifacts to be source or header inputs to
+     cc_common.compile()
+   + 055c93d11ab20cc4479539b24bbdfa5cab78a342:
+     Switch to path autocompletion after -- for bazel run commands.
+   + 807f2a1929e23b60b237c63fadb25af81de2e3c3:
+     Fix Incompatible Target Skipping for test args
+   + 9a5cd854e0613f91d52075973e2454b1e009e1ef:
+     Fix order of build request id and command id
+   + 706f5acd02363e48076dc97e37613fd968932d03:
+     Fix bazel crash when passing config_setting to
+     target_compatible_with
+   + 61da1d2bf10eabba4c75de959b0374f302d89d70:
+     Support multiple --bazelrc on command line
+   + 5593358a58b66f06c4e421bb48856de94c3fd625:
+     Update ConfiguredTargetFunction.computeUnloadedToolchainContexts
+     to
+   + 662cf54de7a103db30e04ebae2d2b919437c4846:
+     Remote: Fix an issue that a failed action could lead to
+     RuntimeException caused by InterruptedException thrown when
+     acquiring gRPC connections.
+     https://github.com/bazelbuild/bazel/issues/13239
+   + a3a1763212f29932618b9b9b2f929976ae0e3b6e:
+     Pass more `--add-exports=` flags
+   + d2b942879471786e82f1c96eea8722bbe7919fc1:
+     Remote: Fixed a bug that remote cache is missed due to
+     executable bit is changed
+   + 616dc264f02907d7b7887285d22307dfe6d097b6:
+     Fix Bazel Coverage with C++ to work with Remote Execution
+   + 5f40d12e741aa30d506eaa15673fb2ae76d29468:
+     Fix external_path_test with newer Xcode versions.
+   + b416193075642017e13c774422b49cb07fb65c23:
+     Allow using embedded tools in sandboxed spawn runners.
+   + eb762d4e7431637e607146b1c191485795047ef9:
+     Fix racy write of temporary files while staging virtual inputs
+     for the sandbox.
+   + f31e86768579ad7ec57ba13f4c3c1348f5c2702e:
+     Update platforms_test to not rely on filegroup not using
+     toolchain
+   + 13031e5b3bd7c8f29b96b2fee1b380160e0e27fc:
+     Update SkyframeTests to not rely on filegroup not using toolchain
+   + 11651824a9d0ffb9adb9611dcd39f4c95a59d750:
+     Update ConfigurableAttributesTest to not rely on filegroup not
+     using …
+   + 4b68532e7ea5eb80c926b7b8e2ec2be300004628:
+     Make WorkerExecRoot not be a subclass of SandboxedSpawn.
+   + 31db460a45767de0bcd664a6efbe9d163b85b802:
+     Make WorkerExecRoot not be re-created on each createFileSystem()
+     call. Preparation for holding a map of existing links, but also
+     just nicer.
+   + a2cc0460dc84ad2dc88019af2fe2a65ce80c61e5:
+     Start the file existence check traversal from the execroot base
+     instead of execroot so that external repo files at
+     "<execroot>/../<path>" are correctly handled when the sibling
+     repository layout is enabled.
+   + b048282c7893231d3a7191b251804973917b07a4:
+     Use readdir for cleanExisting in WorkerExecRoot.
+   + 270f00dd01fa06cf3e813da5a406be3446de7377:
+     Add native support for Apple Silicon
+   + 8e56b9423e8ad2f7323fb90b19b73858def81e39:
+     Explicitly state that embedding macOS OpenJDK is for x86_64
+   + 09c621e4cf5b968f4c6cdf905ab142d5961f9ddc:
+     Remote: Fix a race that AsyncTaskCache#Execution could be reused
+     after disposed which results in
+     CancellationException("disposed") propagated to downstream.
+   + 0299cd7e17203a4ce0ea947b62a7c55f1afb8225:
+     Remove wrapped_clang params files after use
+   + 47edc57806056f3c8764241ed41b8acc72bd2ebf:
+     Silence swiftmodule timestamp warnings
+   + f6e1074b09ebefba185c0531e9cea26b9596c8a9:
+     Remote: Use shutdownNow() instead of shutdown() in
+     ChannelConnection#close() as a workaround to a gRPC bug.
+   + 71be4ea9e3d20bf90129e34a6a2899fe8401be36:
+     And mnemonic and label to remote metadata
+   + 615e1b16a81b0defc15699ec8027d6ddd70366d1:
+     Change `set -x` in coverage to be set by var
+   + fe4daea99c8cd163793eca84bfb12c8fc437616b:
+     Bump minimal JDK install base maximum size from 290 to 295 MB.
+   + 4840a68cd273a429e46d4114a3973fd11d0e3583:
+     Remote: Check the return value of ActionOwner.getLabel() since
+     it could be `null`.
+   + 14abe4fd7c3967686a3536939fdc3882e691bca2:
+     Allow `DiffAwareness` to share precomputed information about the
+     workspace and propagate it to the `WorkspaceStatusAction`.
+   + 082d98772690946ed29c157e60640c97a6e1195b:
+     Implement available() method for Windows subprocesses.
+   + c2bdd034014f66ce14529cc353cda18a32320f6c:
+     Move --repo_env to common options
+   + e09f2743738044095b9d784ea62df16b7f5750e6:
+     Revert "Documentation for #13110"
+   + a165baa250652fdc865ae0df39160be1f7f74c47:
+     Revert "Clean up RuleContext to use a Table instead of a Map of
+     Maps."
+   + 51fb9e13a864f4f704ae378ea632433bae7ddc31:
+     Revert "Support execution constraints per exec group"
+   + cb6e5c24b82e0e20a243145fb6ea32b09e3d1de3:
+     Revert "Allow exec groups to inherit from the rule or other exec
+     groups."
+   + 2ac6581aeaab33ba506fce96dfa6a75eaa819233:
+     Release 4.1.0 (2021-05-21)
+   + 7a0f36e3f0a21fed8857efbaa51ded2dbdeefab6:
+     Change gceMachineType of highcpu platform from n1-highcpu-32 to
+     e2-highcpu-32
+   + 19491a91143f0c6132aca62c5ae40ab72e9dc0e2:
+     Fix #10127: Remove Python 2 dependency from tools/android.
+   + 80c59dea59d4dce39d4b5d21665c3d7313197358:
+     fix main repo starlark options parsing - now flags passed on the
+     command line as --@main_workspace//flag and --//flag will both
+     parse to --//flag. Before this CL, the former maintained its
+     workspace prefix and we would get different entries for these
+     two formats.
+   + 451b296c3aceb127ebb4a313b6e9608854fa68fa:
+     Update threshold for long path shortening to be MAX_PATH - 4
+   + 671e0489a5bd6d5abb4dcd9bcfc85134cee38385:
+     Force source files to be readable before copying them from
+     sandbox.
+   + 6080c1e07f4229ea72eacd04faa9302e44955a84:
+     Let workers finish lost races without delaying dynamic execution.
+   + ee738dacb5d0089d3f57b15305057cb9ba675e74:
+     Fix label_flag and label_setting to not have a dependency on the
+     default
+   + 74de0ba4e79341c77b8b85ff4485f92287b6854c:
+     Java coverage: fix handling of external files
+   + 48eee8b4b447a2ad11df28dd81a2ccb65562b5f5:
+     [Bazel] Fix mobile-install for python2
+   + 763dd0ce6e1644bf895231432f616427a11d385a:
+     Add `stub_shebang` to `py_runtime`
+   + b2231c56d78c6d37bcb6f11e1e50fe68ee336b4a:
+     Move use of legacy sandbox -> local fallback to only be used
+     after all strategies have been tried, and improve messages
+     around it.
+   + 6dc941e58dfc1d4a9714a76b921fbe11fce658ed:
+     Remove restriction on generate_pdb_file to be only used in dbg
+     and fastbuild mode
+   + 5b95d9162b56b51c8e8f66258981ddf3c5d96765:
+     Check the result of Future.cancel() when cancelling the other
+     branch of dynamic execution.
+   + aaae8ce2881c8c1a5d4ad64f20d6e71aa372cf2e:
+     Update DEFAULT_MACOS_CPU to match host
+   + 2f0927a4fd9342f4dcfd43475d3f1c90c523584f:
+     Fix symlink creation on older Windows versions
+   + fd9cffdcaf05551126e66f1cd62815eaa1af6bd9:
+     Suppress interrupted status during pool closure
+   + 33903d28bcea0005adf9b2a8cc4659c5e2999bbe:
+     Fix Windows developer mode symlinks
+   + 0cd1666721bdbe988dc361c085bb43cbd41a27f3:
+     Respect Starlark options with values in `removeStarlarkOptions()`
+   + 7920ffef472b25db3f4e564e5a3a28a4664c666e:
+     cquery inherits from `test` not `build`
+   + 1e258d2a7a5221613047e5cee0aaec5b56045d2b:
+     Allow exec groups to inherit from the rule or other exec groups.
+   + d0676693310215407224c1b8e8aea9e3eddc183d:
+     Support execution constraints per exec group
+   + f1e0d346c8235c855e61afc2adb870e4b895e002:
+     Clean up RuleContext to use a Table instead of a Map of Maps.
+   + 8186fbb47ab964a9affa9a0fc6315fcdbde2b5aa:
+     Documentation for #13110
+   + e376580ae4e9ad5bddc196bfb6ad3127e3ff561b:
+     Split ExecGroup into a new target.
+   + 0cbb8a863522d2f77ab6b67a01e39b19a9a81807:
+     Create a new interface to allow Starlark objects to get a thread
+     when getIndex is called.
+   + d2e21cec31f09b27ef3589f47b0779f34077ca7e:
+     Renamed ExecGroupCollection to clarify that it is only for
+     Starlark usage.
+   + b9519f92f8ce096107164ca5075feced0e989de7:
+     Make StarlarkExecGroupContext use AutoValue.
+   + 52b1b748b2368820bac2ca94323fb82c39c00e51:
+     Use a dummy toolchain context for rules that don't have one.
+   + 41877d0fefe3f021f3ff6d4ce398d0deb27157e6:
+     Extract a separate StarlarkToolchainContext for starlark-only
+     operations.
+   + b120d4febc571f17e12501ad87fbff32ef94e9bb:
+     Fix toolchains to support type lookup.
+   + dc140d0b6119950dd4a7d71b125b15a78bacc8ce:
+     Move DEFAULT_EXEC_GROUP_NAME from ToolchainCollection to
+     ExecGroup.
+   + 9b18d951a52819f1998ddfdc1739fa1b5bf0353d:
+     Rename ToolchainCollection.getExecGroups to getExecGroupNames.
+   + 10d4473bf476a587e3d9f9b2214581ec420c1919:
+     BuildViewForTesting should directly call into
+     ConfiguredTargetFunction.
+   + 58a6fb1f8739e39125cc8c647f28cff2e79fe9aa:
+     Move exec group tests out of platforms_test and into integration.
+   + 7d5493d922761c3ce0037f0025912cc532c55ad7:
+     Update creating exec groups that explicitly copy from defaults.
+   + 8c6382a81237e72dbec24b3850df9481461e0015:
+     Create a new ExecGroupCollection container to manage exec group
+     inheritance and exec property parsing.
+   + b4b0c321910bc968736ef48e8140528ea7d323cd:
+     Fix unix toolchain for macos arm64 platform
+   + f64f071f44394a33a1be40cb7642e2c881d1e9bb:
+     Add `required_providers` attribute to Starlark defined aspects.
+   + f2cbdcf67ac1990f05a8241ba8dae65795edac82:
+     Don't ever claim /dev/null is an execpath.
+   + ceec93c35ead1bd487e96a5fee46e8d080f88858:
+     Don't ever claim /dev/null is an execpath.
+   + 1f3f9f4c4b2eded90518aacd1b0b80c1b0dfd1c5:
+     Use the parent directory of the exec root as the input root on
+     RBE.
+   + 4efeac9cb5f85325ed73f64e133a078c483cac01:
+     Make the Merkle tree computation work in the wake of
+     https://github.com/bazelbuild/bazel/commit/7149f578006a4ad0d51df6
+     9830a6986749b34df5 .
+   + b56a2aa709dcb681cfc3faa148a702015ec631d5:
+     Remote: Use execRoot as input root and do NOT set working
+     directory by default.
+   + ae53991f2e207edacd1352ba94261e2473b79f14:
+     Remote: Add RemoteExecutionService as a layer between spawn
+     execution and remote execution.
+   + 0c07c2e6571dd4806552213b2237ecb7a908afa4:
+     Remote: Add remoteCacheable key to execution log
+   + 5e617d83f3aab1fd36b07be4b58aba58604cc46e:
+     Remote: Register "remote" strategy even if remote execution is
+     not available.
+   + 4ca8946a8e1c4c2fd48d8fb8ce38adb8b282fef0:
+     Remote: Add --experimental_capture_corrupted_outputs flag.
+   + 97d7b4c277814d73b50450b03f4bb160ce7e99b4:
+     Remote: Report checking cache status before the action is
+     scheduled to run remotely.
+   + ba5b2a7c9448a3681a0d86d80670447e338a06dc:
+     when writing to local disk cache, open files later in order to
+     avoid "too many open files"
+   + 3551898849a93306ad9b4dfdd7d4667913098efe:
+     Propagate test envs to xml generation action
+   + 9f8c678d7054548865f56f3464f778c751657074:
+     Remote: Fix a bug that the XML generation is executed even if
+     test.xml is generated when build with --remote_download_minimal.
+   + af42653e6f6bd229142f4678bb256a8c397b4d8d:
+     Automatic code cleanup.
+   + 07a84ce31d9b09853c63c7e373418696dd285dc5:
+     Remote: Another attempt to fix the CancellationException error
+     in AsyncTaskCache caused by a race condition.
+   + 0f812eb5e561cc5415d0c9931675e58dc37a5850:
+     Remote: Display download progress when actions are downloading
+     outputs from remote cache.
+   + 18c82168433719b400a705a4a0222969a7a026ba:
+     Remote: Do not upload empty output to remote cache.
+   + 6a138a60e562beeef36003c4814a6b8ce9f253f6:
+     Fix compiling errors
+   + bcce6dd026e90336e80616a8c1004a79a2f8640c:
+     Add the TEMP_FAILURE_RETRY macro to linux-sandbox-pid1.cc.
+   + c8c0d94a49e1b865d95c6d245c2d152c7c7c9722:
+     Export proguard specs from aar_import
+   + 1a0285c3b64b121268ced3eb9ad9d5ba396b4905:
+     Fix stripping of macOS loadable bundles
+   + 0d3c231f5a08861d28e987703e9196890e6164bf:
+     Roll forward config_setting visibility enforcement behind a flag.
+   + bb7a01027242390da1c18fbf87c274cc34c11b79:
+     Fix merge conflicts.
+   + 8b8e77ea226aaa12e79580422bc5984e80ce048b:
+     Remove redundant declaration.
+   + 7c92cfcf9a88933c29334f6271ad3f086f7f36f4:
+     Ignore empty virtual artifacts when spawn-logging inputs.
+   + 4158b61211e099db780565d064a1c1a80c91bd2a:
+     Use correct exit code on invalid aquery --output
+   + b51b31dbe75a5bc73227fccb4484f3454df81b42:
+     Remote: Fix a race when reporting action progresses.
+   + 0e652737988e3c115e98e1552f6fada52bc2b9a2:
+     Change MIN_BUILD_TOOLS_REVISION to 30.0.0
+   + 6f9909c04b1e00faa510b38ccabac78821046cf9:
+     Update Android remote tools to ensure Bazel uses the latest
+     Android tooling that has been updated to support AndroidX
+     databinding generation.
+   + 31d88c629dff2c5f8e8a4baf8c89fd3349c9783e:
+     Automated rollback of commit
+     9a1d428e33bfae1ec5b68250d4732b72346b8b39.
+   + 951a3023fbcdbe025e350590e6fa86097da3fe05:
+     Increase allowed size of the install_base.
+   + a7845f65befbeb65a28ec53e62458211a7bc3f8e:
+     Increase allowed size for install base again.
+   + affc27f9d18f9781437e91a3f36c73962a56f261:
+     Bump version of java allocation instrumenter.
+   + 7efabba19cf6400bf9e707f53b40a6dd7110fafb:
+     Reference the correct version of the java allocation
+     instrumenter.
+   + 9055c67b17abf5fed487ae44d0e22f1c6ea1e50c:
+     Support extracting aar files.
+   + 861c3caa85e47da35a8a4f1512e57d43b9263c37:
+     Revert "Remote: Fix a race when reporting action progresses."
+   + 92ec798ddc1f38fb4868af08c1d818639283f501:
+     Revert "Remote: Display download progress when actions are
+     downloading outputs from remote cache."
+   + ce091abb290d1d753f480cdee0e69748eb20db52:
+     Revert "Fix compiling errors"
+   + 1b19cd310418b850e8e0ca2086ffe50755c9ed7e:
+     Revert "Remote: Fix a bug that the XML generation is executed
+     even if test.xml is generated when build with
+     --remote_download_minimal."
+   + 988b56f5916e024d10695797a7f963b30fc998c7:
+     Revert "Remote: Report checking cache status before the action
+     is scheduled to run remotely."
+   + 35c98d07b21785efae57a7c4230cc1e452f74fd2:
+     Revert "Let workers finish lost races without delaying dynamic
+     execution."
+   + c4e22b9ace07f5d360c5327a38f9ae4ab24b7109:
+     Migrate ExampleWorker to use WorkRequestHandler.
+   + 230be161176bd6f1251077af7674f80d38ff1e25:
+     Do not interleave readdir() calls with deletion of directory
+     entries.
+   + 3cc8ce6ba0934b1a4d9db184daf055c1207ef105:
+     Propagate OOME if NewByteArray allocation failed
+   + 19fc15ebbf6c63fcce90a038e91c5ec726852848:
+     Create helper method for sandbox tests, transform existing tests
+     into using it.
+   + deb1006c0778692f7eaef4cbcf7eeb8112b55e91:
+     Cleanup: Replace NULL with nullptr
+   + f4b5e0233341977aaa76593ca032d9ac4eba7444:
+     Let workers finish lost races without delaying dynamic execution.
+   + 186decab01ee247c7453baf19dac778545ec4937:
+     Interface and flag specification for worker cancellation.
+   + 5894a8544d51c99f1356130b8b487bc93299fedd:
+     Create BUILD file in worker tests directory instead of running
+     tests from the parent directory.
+   + e9e6978809b0214e336fee05047d5befe4f4e0c3:
+     Server-side implementation of worker cancellation.
+   + 5103662238f2df2038c7dff079e9c655e08ba654:
+     Add builder for WorkRequestHandler.
+   + 1a519bb66c3fa3e4ef3b9a9a556597920751fbcd:
+     Makes singleplex requests be handled in separate threads in
+     WorkRequestHandler.
+   + 779d66019210f54e10a1343ee004df72a8dec812:
+     Only allow worker async finishing when sandboxed.
+   + a698bef6146a807fd82ee4402d89c23c83802e33:
+     Support for cancellation in WorkRequestHandler.
+   + 9dc95af4c7ef10979f21173260f5433006116096:
+     Make workers restart on flags that affect their
+     creation/behaviour.
+   + 7e5cd529e9f8c9cb67900af36182f00ef7316654:
+     Remote: Report checking cache status before the action is
+     scheduled to run remotely.
+   + 6e134a1b68418fba9992692901efa77a80c346f7:
+     Remote: Fix a bug that the XML generation is executed even if
+     test.xml is generated when build with --remote_download_minimal.
+   + d4d071401acadb0d8977850a9439474e60fd7bb9:
+     Fix compiling errors
+   + 2579c9a18360955699d028426b45d381ff53783c:
+     Eagerly initialize JNI copies of Java classes: doing lazy
+     initialization on a per-method basis doesn't save anything and
+     adds a tiny bit of overhead to every one of these calls.
+   + 0f812eb5e561cc5415d0c9931675e58dc37a5850:
+     Remote: Display download progress when actions are downloading
+     outputs from remote cache.
+   + 3835d9b21ad524d06873dfbf465ffd2dfb635ba8:
+     Update the WorkRequestHandler to use callbacks of type:
+     BiFunction<WorkRequest, PrintWriter, Integer>:  - Mark
+     constructors that use BiFunction<List<String>, PrintWriter,
+     Integer> callback as deprecated.  - Use a wrapper class for the
+     BiFunction<WorkRequest, PrintWriter, Integer>. Suggesting this
+     to avoid having two constructors that takes a BiFunction, as it
+     creates a confusion between the deprecated and new constructor
+     when given a lambda expressions.
+   + 5e352afe2b35487ea2ced85ca79bd9f79858e648:
+     Fix bug in WorkRequestHandler's handling of singleplex requests
+     that would cause occasional hangs.
+   + b51b31dbe75a5bc73227fccb4484f3454df81b42:
+     Remote: Fix a race when reporting action progresses.
+   + c9d823e42796962eed039b8122528c2a1541190f:
+     Disable flaky test.
+   + e6809c90ecc0ef5783faa39e63188fc33a79b80e:
+     Revert "Check the result of Future.cancel() when cancelling the
+     other branch of dynamic execution."
+   + be4cbc7a67196414e3d3f323be8ab55fb5e530f7:
+     Revert "Move use of legacy sandbox -> local fallback to only be
+     used after all strategies have been tried, and improve messages
+     around it."
+   + b32349f50ff3d958613aef9275751ad9d50d344c:
+     Set a fallback dynamic local strategy even when the
+     dynamic_local_strategy flag is passed.
+   + f395157c95692565bc220c7ccf788974fe0885fd:
+     Allow running an extra spawn for local branch of dynamic
+     execution.
+   + 039461c76113ab3f165132dd26d0c58eb3e45cae:
+     Adding debugging information for case when two branches
+     apparently cancel each other.
+   + b2231c56d78c6d37bcb6f11e1e50fe68ee336b4a:
+     Move use of legacy sandbox -> local fallback to only be used
+     after all strategies have been tried, and improve messages
+     around it.
+   + 5b95d9162b56b51c8e8f66258981ddf3c5d96765:
+     Check the result of Future.cancel() when cancelling the other
+     branch of dynamic execution.
+   + 1962a59a5478f5ad374700b0abf0a718b1b3a7d3:
+     Fix the case where if all strategies for one branch of `dynamic`
+     execution fail to accept (that is, refuse to even take) the
+     action given, the whole action fails. Instead of seeing whether
+     the other branch can run and the action that that it succeeded.
+   + b7c1ad2aff91105659299723a712b72eea943040:
+     Fix rare crash in dynamic execution where both branches got
+     cancelled.
+   + 2c3cff5422b115d7bb86ed28a056f3d368ebceeb:
+     Check if `treeDeleter` is actually async before casting it.
+     Fixes #13240.
+   + 1a89ce1757e75f8ba9bda76d7373a7e8527bcfc5:
+     Make worker JSON protocol properly ignore unknown fields.
+   + 4b12fc80abf4152815f09e473a972e52a1fe8b51:
+     Fix test_source_file_does_not_override_standard_library to work
+     with Python 3.9.
+   + f4e10367df2d881f05e3ddd5bd0531b390a845fe:
+     Removing line ending matches in tests to be compatible on Windows
+   + ba74df07ced96226d78851e11d1df03147f1cc1f:
+     Refactors CompilationSupport for objc to use existing API
+   + a04cb1bfad4734f801c48bae3070a799067bda4e:
+     Release 4.2.0 (2021-08-18)
+   + ba8678077024e1b4e5d7419c758a97e8dc9fceea:
+     Revert "fix main repo starlark options parsing.
+   + 9f67cdf3d51c05bc2209786aa24b72658b61362c:
+     cquery: disable `--build_tests_only`.
+   + 02ad3e3bc6970db11fe80f966da5707a6c389fdd:
+     Release 4.2.1 (2021-08-30)
+   + ae0a6c98d4f94abedbedb2d51c27de5febd7df67:
+     Enable user_link_flags_feature for macosx cc_toolchain_config
+   + af74287f125b93119415ba35429b8638d7a986ea:
+     Remote: Limit max number of gRPC connections by
+     --remote_max_connections. (#14318)
+   + 639f89d7682cadff723ac210fa37101f37762a9d:
+     Fix [Prepa] actions stuck in active state
+   + 3069ac4e33dcca6f3d1abf55940cdd764d03bdbf:
+     Delete marker file before fetching an external repository
+   + e6c8e8d1ba89df5cf624e7147cee6b8246a9a490:
+     CI configs: switch centos to centos7_java11_devtoolset10
+   + 15371720ae0c40ffc97b74c871d1b38851ef6410:
+     Release 4.2.2 (2021-12-02)
+   + f64b7553607e1d3572611cc5011c498e3cd4505c:
+     [4.2.3] Update GrpcRemoteDownloader to only include relevant
+     headers. (#16450) (#16459)
+```
+
+Incompatible changes:
+
+  - GrpcRemoteDownloader only includes relevant headers instead of
+    sending all credentials.
+    
+    Closes #16439.
+
+Important changes:
+
+  - Multiplex persistent workers can now use the JSON protocol.
+  - enforce config_setting visibility. See
+    https://github.com/bazelbuild/bazel/issues/12932 for details.
+  - The minimum Android build tools version for the Android rules is
+    now 30.0.0
+  - Updates worker protocol with cancellation fields, and adds
+    experimental_worker_cancellation flag to control cancellation.
+  - If all strategies of one branch (the local or remote execution
+    branch) of the `dynamic` strategy fail to even accept (via the
+    response they give from `canExec`) the action, `dynamic` will now
+    try to see if the other branch can accept it. (Trying to run it
+    and it failing will still cause a failure if it was the first
+    result, this is about strategies claiming they can't even try the
+    action)
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Austin Schuh, Benjamin Peterson, bjacklyn, bromano, Christopher Peterson Sauer, Christopher Sauer, Cristian Hancila, Daniel Wagner-Hall, Denys Kurylenko, Ed Schouten, Fabian Meumertzheim, Finn Ball, George Gensure, Greg Estren, Johannes Abt, Keith Smiley, Kevin Hogeland, Lauri Peltonen, Noa Resare, Philipp Schrader, Ryan Beasley, Thi Doan, ThomasCJY, Timothy Klim, Trustin Lee, Ulf Adams, Vaidas Pilkauskas, Vertexwahn, wisechengyi, Xavier Bonaventura, Yannic Bonenberger, Yuval Kaplan, Yuval.
+
 ## Release 6.0.0-pre.20220922.1 (2022-09-30)
 
 ```

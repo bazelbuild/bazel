@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -252,8 +251,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     boolean shrinkResourceCycles =
-        shouldShrinkResourceCycles(
-            dataContext.getAndroidConfig(), ruleContext, dataContext.isResourceShrinkingEnabled());
+        dataContext.shouldShrinkResourceCycles(
+            ruleContext, dataContext.isResourceShrinkingEnabled());
     ProcessedAndroidData processedAndroidData =
         ProcessedAndroidData.processBinaryDataFrom(
             dataContext,
@@ -1128,15 +1127,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     return proguardSpecs;
-  }
-
-  /** Returns {@code true} if resource shrinking should be performed. */
-  static boolean shouldShrinkResourceCycles(
-      AndroidConfiguration androidConfig,
-      RuleErrorConsumer errorConsumer,
-      boolean shrinkResources) {
-    boolean global = androidConfig.useAndroidResourceCycleShrinking();
-    return global && shrinkResources;
   }
 
   private static ResourceApk shrinkResources(

@@ -270,7 +270,10 @@ def _cc_library_impl(ctx):
         if data_dep[DefaultInfo].data_runfiles.files:
             runfiles_list.append(data_dep[DefaultInfo].data_runfiles)
         else:
+            # This branch ensures interop with custom Starlark rules following
+            # https://bazel.build/extending/rules#runfiles_features_to_avoid
             runfiles_list.append(ctx.runfiles(transitive_files = data_dep[DefaultInfo].files))
+            runfiles_list.append(data_dep[DefaultInfo].default_runfiles)
 
     for src in ctx.attr.srcs:
         runfiles_list.append(src[DefaultInfo].default_runfiles)
