@@ -93,12 +93,6 @@ import javax.annotation.concurrent.GuardedBy;
 public final class BuildEventServiceUploader implements Runnable {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  /** Configuration knobs related to RPC retries. Values chosen by good judgement. */
-  private static final int MAX_NUM_RETRIES =
-      Integer.parseInt(System.getProperty("BAZEL_BES_NUM_RETRIES_ON_RPC_FAILURE", "4"));
-
-  private static final int DELAY_MILLIS = 1000;
-
   private final BuildEventServiceClient besClient;
   private final BuildEventArtifactUploader buildEventUploader;
   private final BuildEventServiceProtoUtil besProtoUtil;
@@ -544,7 +538,7 @@ public final class BuildEventServiceUploader implements Runnable {
                     BuildProgress.Code.BES_STREAM_NOT_RETRYING_FAILURE,
                     message);
               }
-              if (retryAttempt == MAX_NUM_RETRIES) {
+              if (retryAttempt == buildEventProtocolOptions.besUploadMaxRetries) {
                 String message =
                     String.format(
                         "Not retrying publishBuildEvents, no more attempts left: status='%s'",
@@ -629,7 +623,7 @@ public final class BuildEventServiceUploader implements Runnable {
       throws DetailedStatusException, InterruptedException {
     int retryAttempt = 0;
     StatusException cause = null;
-    while (retryAttempt <= MAX_NUM_RETRIES) {
+    while (retryAttempt <= this.buildEventProtocolOptions.besUploadMaxRetries) {
       try {
         besClient.publish(request);
         return;
@@ -656,7 +650,7 @@ public final class BuildEventServiceUploader implements Runnable {
     throw withFailureDetail(
         cause,
         BuildProgress.Code.BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE,
-        "All retry attempts failed.");
+        String.format("All %d retry attempts failed.", retryAttempt - 1));
   }
 
   private void ensureUploadThreadStarted() {
@@ -723,9 +717,12 @@ public final class BuildEventServiceUploader implements Runnable {
         && !status.getCode().equals(Code.FAILED_PRECONDITION);
   }
 
-  private static long retrySleepMillis(int attempt) {
+  private long retrySleepMillis(int attempt) {
+    Preconditions.checkArgument(attempt >= 0, "attempt must be nonnegative: %s", attempt);
     // This somewhat matches the backoff used for gRPC connection backoffs.
-    return (long) (DELAY_MILLIS * Math.pow(1.6, attempt));
+    return (long)
+        (this.buildEventProtocolOptions.besUploadRetryInitialDelay.toMillis()
+            * Math.pow(1.6, attempt));
   }
 
   private DetailedStatusException withFailureDetail(

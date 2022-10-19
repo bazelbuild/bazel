@@ -233,6 +233,16 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   }
 
   @Test
+  public void testRetryCount() throws Exception {
+    runBuildWithOptions(
+        "--bes_backend=does.not.exist:1234", "--experimental_build_event_upload_max_retries=3");
+    afterBuildCommand();
+
+    events.assertContainsError(
+        "The Build Event Protocol upload failed: All 3 retry attempts failed");
+  }
+
+  @Test
   public void testConnectivityFailureDisablesBesStreaming() throws Exception {
     class FailingConnectivityStatusProvider extends BlazeModule
         implements ConnectivityStatusProvider {
