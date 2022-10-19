@@ -14,27 +14,21 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.base.Splitter;
-import com.google.common.io.Files;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
-import java.io.File;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import javax.annotation.Nullable;
 
 /**
  * This class estimates the local host's resource capacity for Linux.
  */
 public class LocalHostResourceManagerLinux {
-  private static String cpuInfoContent = null;
 
-  private static final Splitter NEWLINE_SPLITTER = Splitter.on('\n').omitEmptyStrings();
-  private static final String CPU_INFO_FILE = "/proc/cpuinfo";
   private static final String MEM_INFO_FILE = "/proc/meminfo";
 
   private static int getLogicalCpuCount() throws IOException {
-    String content = getCpuInfoContent();
-    return getLogicalCpuCountHelper(content);
+    // As of JDK 11, availableProcessors is aware of cgroups as commonly used by containers.
+    // https://hg.openjdk.java.net/jdk/hs/rev/7f22774a5f42#l6.178
+    return Runtime.getRuntime().availableProcessors();
   }
 
   private static double getMemoryInMb() throws IOException {
@@ -54,34 +48,6 @@ public class LocalHostResourceManagerLinux {
     } catch (IOException e) {
       return null;
     }
-  }
-
-  private static String getCpuInfoContent() throws IOException {
-    if (cpuInfoContent == null) {
-      cpuInfoContent = readContent(CPU_INFO_FILE);
-    }
-    return cpuInfoContent;
-  }
-
-  private static String readContent(String filename) throws IOException {
-    return Files.asCharSource(new File(filename), Charset.defaultCharset()).read();
-  }
-
-  /**
-   * For testing purposes only. Do not use it.
-   */
-  public static int getLogicalCpuCountHelper(String content) throws IOException {
-    int count = 0;
-    Iterable<String> lines = NEWLINE_SPLITTER.split(content);
-    for (String line : lines) {
-      if (line.startsWith("processor")) {
-        count++;
-      }
-    }
-    if (count == 0) {
-      throw new IllegalArgumentException("Can't get logical CPU count");
-    }
-    return count;
   }
 
   public static double getMemoryInMbHelper(String memInfoFileName) throws IOException {
