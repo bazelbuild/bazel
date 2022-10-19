@@ -179,8 +179,8 @@ public final class CleanCommand implements BlazeCommand {
   public static boolean canUseAsync(boolean async, boolean expunge, OS os, Reporter reporter) {
     // TODO(bazel-team): Deactivate expunge_async on Windows or Unknown platforms as support for
     // daemonizing is done in daemonize.c and does not support those platforms.
-    boolean asyncSupportUnsupported = os == OS.WINDOWS || os == OS.UNKNOWN;
-    if (async && asyncSupportUnsupported) {
+    boolean asyncSupportMissing = os == OS.WINDOWS || os == OS.UNKNOWN;
+    if (async && asyncSupportMissing) {
       String fallbackName = expunge ? "--expunge" : "synchronous clean";
       reporter.handle(
           Event.info(
@@ -190,7 +190,7 @@ public final class CleanCommand implements BlazeCommand {
     }
 
     String cleanBanner =
-        (async || asyncSupportUnsupported)
+        (async || asyncSupportMissing)
             ? "Starting clean."
             : "Starting clean (this may take a while). "
                 + "Consider using --async if the clean takes more than several minutes.";
