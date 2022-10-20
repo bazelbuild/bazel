@@ -17,18 +17,25 @@ import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.Priority;
+import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
+import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import javax.annotation.Nullable;
 
 /**
  * Class that uses {@link AbstractActionInputPrefetcher} to download artifacts of toplevel targets
@@ -37,9 +44,12 @@ import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.Priori
 public class ToplevelArtifactsDownloader {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  private final MemoizingEvaluator memoizingEvaluator;
   private final AbstractActionInputPrefetcher actionInputPrefetcher;
 
-  public ToplevelArtifactsDownloader(AbstractActionInputPrefetcher actionInputPrefetcher) {
+  public ToplevelArtifactsDownloader(
+      MemoizingEvaluator memoizingEvaluator, AbstractActionInputPrefetcher actionInputPrefetcher) {
+    this.memoizingEvaluator = memoizingEvaluator;
     this.actionInputPrefetcher = actionInputPrefetcher;
   }
 
@@ -50,7 +60,8 @@ public class ToplevelArtifactsDownloader {
       return;
     }
 
-    downloadTargetOutputs(event.getCompletionContext(), event.getOutputGroups());
+    downloadTargetOutputs(
+        event.getCompletionContext(), event.getOutputGroups(), /* runfiles = */ null);
   }
 
   @Subscribe
@@ -60,29 +71,43 @@ public class ToplevelArtifactsDownloader {
       return;
     }
 
-    downloadTargetOutputs(event.getCompletionContext(), event.getOutputs());
+    downloadTargetOutputs(
+        event.getCompletionContext(),
+        event.getOutputs(),
+        event.getExecutableTargetData().getRunfiles());
   }
 
   private void downloadTargetOutputs(
       CompletionContext completionContext,
-      ImmutableMap<String, ArtifactsInOutputGroup> outputGroups) {
+      ImmutableMap<String, ArtifactsInOutputGroup> outputGroups,
+      @Nullable Runfiles runfiles) {
 
-    ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
+    var builder = ImmutableMap.<ActionInput, FileArtifactValue>builder();
     for (ArtifactsInOutputGroup outputs : outputGroups.values()) {
       if (!outputs.areImportant()) {
         continue;
       }
       for (Artifact output : outputs.getArtifacts().toList()) {
-        if (completionContext.getFileArtifactValue(output) == null) {
-          continue;
+        var metadata = completionContext.getFileArtifactValue(output);
+        if (metadata != null) {
+          builder.put(output, metadata);
         }
-        builder.add(output);
       }
     }
 
+    try {
+      appendRunfiles(runfiles, builder);
+    } catch (InterruptedException ignored) {
+      Thread.currentThread().interrupt();
+      return;
+    }
+
+    var outputsAndMetadata = builder.buildKeepingLast();
     ListenableFuture<Void> future =
         actionInputPrefetcher.prefetchFiles(
-            builder.build(), completionContext.getImportantInputMap(), Priority.LOW);
+            outputsAndMetadata.keySet(),
+            new StaticMetadataProvider(outputsAndMetadata),
+            Priority.LOW);
 
     addCallback(
         future,
@@ -96,5 +121,31 @@ public class ToplevelArtifactsDownloader {
           }
         },
         directExecutor());
+  }
+
+  private void appendRunfiles(
+      @Nullable Runfiles runfiles, ImmutableMap.Builder<ActionInput, FileArtifactValue> builder)
+      throws InterruptedException {
+    if (runfiles == null) {
+      return;
+    }
+
+    for (Artifact runfile : runfiles.getArtifacts().toList()) {
+      var actionExecutionValue =
+          (ActionExecutionValue) memoizingEvaluator.getExistingValue(Artifact.key(runfile));
+      if (actionExecutionValue != null) {
+        if (runfile.isTreeArtifact()) {
+          TreeArtifactValue metadata = actionExecutionValue.getAllTreeArtifactValues().get(runfile);
+          if (metadata != null) {
+            builder.putAll(metadata.getChildValues());
+          }
+        } else {
+          FileArtifactValue metadata = actionExecutionValue.getAllFileValues().get(runfile);
+          if (metadata != null) {
+            builder.put(runfile, metadata);
+          }
+        }
+      }
+    }
   }
 }
