@@ -525,7 +525,7 @@ public class WorkerSpawnRunnerTest {
   @Test
   public void testExecInWorker_showsLogFileInException() throws Exception {
     assertRecordedResponsethrowsException(
-        "Some text", "unparsable WorkResponse!\n", workerAsResource);
+        "Some text", "unparseable WorkResponse!\n", workerAsResource);
   }
 
   @Test
