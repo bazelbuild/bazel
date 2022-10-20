@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# pylint: disable=g-long-ternary
 
 import json
 import os
@@ -41,6 +42,13 @@ class BazelModuleTest(test_base.TestBase):
         .createCcModule('yanked2', '1.0') \
         .addMetadata('yanked1', yanked_versions={'1.0': 'dodgy'}) \
         .addMetadata('yanked2', yanked_versions={'1.0': 'sketchy'})
+    self.writeBazelrcFile()
+    self.ScratchFile('WORKSPACE')
+    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
+    # from being used; this allows us to test built-in modules actually work
+    self.ScratchFile('WORKSPACE.bzlmod')
+
+  def writeBazelrcFile(self, allow_yanked_versions=True):
     self.ScratchFile(
         '.bazelrc',
         [
@@ -52,11 +60,10 @@ class BazelModuleTest(test_base.TestBase):
             # bazel_tools can work.
             'common --registry=https://bcr.bazel.build',
             'common --verbose_failures',
-        ])
-    self.ScratchFile('WORKSPACE')
-    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
-    # from being used; this allows us to test built-in modules actually work
-    self.ScratchFile('WORKSPACE.bzlmod')
+        ] + ([
+            # Disable yanked version check so we are not affected BCR changes.
+            'common --allow_yanked_versions=all',
+        ] if allow_yanked_versions else []))
 
   def writeMainProjectFiles(self):
     self.ScratchFile('aaa.patch', [
@@ -434,6 +441,7 @@ class BazelModuleTest(test_base.TestBase):
     self.RunBazel(['build', '@no_op//:no_op'], allow_failure=False)
 
   def testNonRegistryOverriddenModulesIgnoreYanked(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
     src_yanked1 = self.main_registry.projects.joinpath('yanked1', '1.0')
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "yanked1", version = "1.0")', 'local_path_override(',
@@ -451,6 +459,7 @@ class BazelModuleTest(test_base.TestBase):
     self.RunBazel(['build', '--nobuild', '//:main'], allow_failure=False)
 
   def testContainingYankedDepFails(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "yanked1", version = "1.0")',
     ])
@@ -470,6 +479,7 @@ class BazelModuleTest(test_base.TestBase):
         'yanked1@1.0, for the reason: dodgy.', ''.join(stderr))
 
   def testAllowedYankedDepsSuccessByFlag(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "ddd", version = "1.0")',
     ])
@@ -488,6 +498,7 @@ class BazelModuleTest(test_base.TestBase):
                   allow_failure=False)
 
   def testAllowedYankedDepsByEnvVar(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "ddd", version = "1.0")',
     ])
@@ -515,6 +526,7 @@ class BazelModuleTest(test_base.TestBase):
         'yanked1@1.0, for the reason: dodgy.', ''.join(stderr))
 
   def testAllowedYankedDepsSuccessMix(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "ddd", version = "1.0")',
     ])
