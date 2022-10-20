@@ -31,9 +31,9 @@ public class AppleBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("rules_apple", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/apple"));
 
-  private final AppleCommonApi<?, ?, ?, ?, ?, ?> appleCommon;
+  private final AppleCommonApi<?, ?, ?, ?, ?, ?, ?> appleCommon;
 
-  public AppleBootstrap(AppleCommonApi<?, ?, ?, ?, ?, ?> appleCommon) {
+  public AppleBootstrap(AppleCommonApi<?, ?, ?, ?, ?, ?, ?> appleCommon) {
     this.appleCommon = appleCommon;
   }
 

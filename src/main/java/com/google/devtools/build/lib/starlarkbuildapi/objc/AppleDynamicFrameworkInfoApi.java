@@ -18,6 +18,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -68,6 +69,18 @@ public interface AppleDynamicFrameworkInfoApi<FileApiT extends FileApi> extends 
           "The multi-architecture dylib binary of the dynamic framework. May be None if "
               + "the rule providing the framework only specified framework imports.")
   FileApi getAppleDylibBinary();
+
+  /**
+   * Returns the {@link CcInfoApi} which contains information about the transitive dependencies
+   * linked into the dylib.
+   */
+  @StarlarkMethod(
+      name = "cc_info",
+      structField = true,
+      doc =
+          "A provider which contains information about the transitive dependencies linked into "
+              + "the dynamic framework.")
+  CcInfoApi<FileApiT> getDepsCcInfo();
 
   /**
    * Returns the {@link ObjcProviderApi} which contains information about the transitive

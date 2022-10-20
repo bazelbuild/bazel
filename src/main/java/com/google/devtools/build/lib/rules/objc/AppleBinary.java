@@ -108,11 +108,14 @@ public class AppleBinary {
 
     ObjcProvider.Builder objcProviderBuilder =
         new ObjcProvider.Builder(ruleContext.getAnalysisEnvironment().getStarlarkSemantics());
+    ImmutableList.Builder<CcInfo> ccInfos = new ImmutableList.Builder<>();
     for (DependencySpecificConfiguration dependencySpecificConfiguration :
         dependencySpecificConfigurations.values()) {
       objcProviderBuilder.addTransitiveAndPropagate(
           dependencySpecificConfiguration.objcProviderWithAvoidDepsSymbols());
+      ccInfos.add(dependencySpecificConfiguration.ccInfoWithAvoidDepsSymbols());
     }
+    CcInfo ccInfo = CcInfo.merge(ccInfos.build());
 
     AppleDebugOutputsInfo.Builder legacyDebugOutputsBuilder =
         AppleDebugOutputsInfo.Builder.create();
@@ -173,6 +176,7 @@ public class AppleBinary {
 
     return builder
         .setDepsObjcProvider(objcProviderBuilder.build())
+        .setDepsCcInfo(ccInfo)
         .setLegacyDebugOutputsProvider(legacyDebugOutputsBuilder.build())
         .build();
   }
