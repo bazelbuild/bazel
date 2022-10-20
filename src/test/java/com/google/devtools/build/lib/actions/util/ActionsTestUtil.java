@@ -100,6 +100,7 @@ import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -220,6 +221,26 @@ public final class ActionsTestUtil {
       MetadataHandler metadataHandler,
       MemoizingEvaluator evaluator,
       DiscoveredModulesPruner discoveredModulesPruner) {
+    return createContextForInputDiscovery(
+        executor,
+        eventHandler,
+        actionKeyContext,
+        fileOutErr,
+        execRoot,
+        metadataHandler,
+        new BlockingSkyFunctionEnvironment(evaluator, eventHandler),
+        discoveredModulesPruner);
+  }
+
+  public static ActionExecutionContext createContextForInputDiscovery(
+      Executor executor,
+      ExtendedEventHandler eventHandler,
+      ActionKeyContext actionKeyContext,
+      FileOutErr fileOutErr,
+      Path execRoot,
+      MetadataHandler metadataHandler,
+      Environment environment,
+      DiscoveredModulesPruner discoveredModulesPruner) {
     return ActionExecutionContext.forInputDiscovery(
         executor,
         new SingleBuildFileCache(
@@ -232,7 +253,7 @@ public final class ActionsTestUtil {
         fileOutErr,
         eventHandler,
         ImmutableMap.of(),
-        new BlockingSkyFunctionEnvironment(evaluator, eventHandler),
+        environment,
         /*actionFileSystem=*/ null,
         discoveredModulesPruner,
         SyscallCache.NO_CACHE,
