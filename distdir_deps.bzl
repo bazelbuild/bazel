@@ -201,7 +201,7 @@ DIST_DEPS = {
             "test_WORKSPACE_files",
         ],
         "license_kinds": [
-            "@rules_license//licenses/generic:none",
+            "@rules_license//licenses/generic:notice",
         ],
     },
     "c-ares": {
