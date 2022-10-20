@@ -526,8 +526,7 @@ public abstract class AndroidStarlarkData
       Artifact proguardMapping,
       Object maybeSettings,
       Sequence<?> deps, // <ConfiguredTarget>
-      Sequence<?> localProguardSpecs, // <ConfiguredTarget>
-      Sequence<?> extraProguardSpecs) // <ConfiguredTarget>
+      Sequence<?> localProguardSpecs) // <ConfiguredTarget>
       throws EvalException, InterruptedException {
     BinaryDataSettings settings =
         fromNoneableOrDefault(
@@ -546,8 +545,6 @@ public abstract class AndroidStarlarkData
             binaryDataInfo.getManifestInfo().getManifest(),
             filesFromConfiguredTargets(
                 Sequence.cast(localProguardSpecs, ConfiguredTarget.class, "proguard_specs")),
-            filesFromConfiguredTargets(
-                Sequence.cast(extraProguardSpecs, ConfiguredTarget.class, "extra_proguard_specs")),
             getProviders(depsTargets, ProguardSpecProvider.PROVIDER));
 
     // TODO(asteinb): There should never be more than one direct resource exposed in the provider.

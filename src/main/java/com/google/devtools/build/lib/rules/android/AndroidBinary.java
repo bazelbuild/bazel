@@ -493,7 +493,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             ruleContext.attributes().has(ProguardHelper.PROGUARD_SPECS, BuildType.LABEL_LIST)
                 ? ruleContext.getPrerequisiteArtifacts(ProguardHelper.PROGUARD_SPECS).list()
                 : ImmutableList.of(),
-            ruleContext.getPrerequisiteArtifacts(":extra_proguard_specs").list(),
             proguardDeps);
     boolean hasProguardSpecs = !proguardSpecs.isEmpty();
 
@@ -1104,14 +1103,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact resourceProguardConfig,
       Artifact mergedManifest,
       ImmutableList<Artifact> localProguardSpecs,
-      ImmutableList<Artifact> extraProguardSpecs,
       Iterable<ProguardSpecProvider> proguardDeps) {
 
     ImmutableList<Artifact> proguardSpecs =
         ProguardHelper.collectTransitiveProguardSpecs(
             dataContext.getLabel(),
             dataContext.getActionConstructionContext(),
-            Iterables.concat(ImmutableList.of(resourceProguardConfig), extraProguardSpecs),
+            ImmutableList.of(resourceProguardConfig),
             localProguardSpecs,
             proguardDeps);
 

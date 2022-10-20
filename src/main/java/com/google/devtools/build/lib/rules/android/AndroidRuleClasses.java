@@ -796,7 +796,6 @@ public final class AndroidRuleClasses {
           obfuscation.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("proguard_apply_dictionary", LABEL).legacyAllowAnyFileType())
-          .add(attr(":extra_proguard_specs", LABEL_LIST).value(JavaSemantics.EXTRA_PROGUARD_SPECS))
           .add(
               attr("$dex_list_obfuscator", LABEL)
                   .cfg(ExecutionTransitionFactory.create())
