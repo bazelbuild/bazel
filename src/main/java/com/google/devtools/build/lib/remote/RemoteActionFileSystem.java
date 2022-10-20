@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
 
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.FileInfo;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryContentInfo;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -53,7 +55,7 @@ import javax.annotation.Nullable;
 
 /**
  * This is a basic implementation and incomplete implementation of an action file system that's been
- * tuned to what native (non-spawn) actions in Bazel currently use.
+ * tuned to what internal (non-spawn) actions in Bazel currently use.
  *
  * <p>The implementation mostly delegates to the local file system except for the case where an
  * action input is a remotely stored action output. Most notably {@link
@@ -101,7 +103,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   /** Returns true if {@code path} is a file that's stored remotely. */
   boolean isRemote(Path path) {
-    return getRemoteInputMetadata(path.asFragment()) != null;
+    return getRemoteMetadata(path.asFragment()) != null;
   }
 
   public void updateContext(MetadataInjector metadataInjector) {
@@ -120,9 +122,13 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     checkNotNull(metadataInjector, "metadataInjector is null");
 
     for (Map.Entry<PathFragment, Artifact> entry : outputMapping.entrySet()) {
-      PathFragment execPath = entry.getKey();
-      PathFragment path = execRoot.getRelative(execPath);
+      PathFragment path = execRoot.getRelative(entry.getKey());
       Artifact output = entry.getValue();
+
+      if (maybeInjectMetadataForSymlink(path, output)) {
+        continue;
+      }
+
       if (output.isTreeArtifact()) {
         if (remoteOutputTree.exists(path)) {
           SpecialArtifact parent = (SpecialArtifact) output;
@@ -155,6 +161,91 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
         }
       }
     }
+  }
+
+  /**
+   * Inject metadata for non-symlink outputs that were materialized as a symlink to a remote
+   * artifact.
+   *
+   * <p>If a non-symlink output is materialized as a symlink, the symlink has "copy" semantics,
+   * i.e., the output metadata is identical to that of the symlink target. For these artifacts, we
+   * inject their metadata instead of collecting it from the filesystem. This is done for two
+   * reasons:
+   *
+   * <ul>
+   *   <li>It avoids implementing filesystem operations for resolving symlinks and (in the case of a
+   *       tree artifact) listing directories, which are especially tricky since the symlink and its
+   *       target may reside on different filesystems;
+   *   <li>It lets us add a special field to the output metadata to tell the input prefetcher that
+   *       the output should be materialized as a symlink to the original location, which avoids
+   *       fetching multiple copies when multiple symlinks to the same artifact are created in the
+   *       same build.
+   *
+   * @return Whether the metadata was injected.
+   */
+  private boolean maybeInjectMetadataForSymlink(PathFragment linkPath, Artifact output)
+      throws IOException {
+    if (output.isSymlink()) {
+      return false;
+    }
+
+    Path outputTreePath = remoteOutputTree.getPath(linkPath);
+
+    if (!outputTreePath.exists(Symlinks.NOFOLLOW)) {
+      return false;
+    }
+
+    PathFragment targetPath;
+    try {
+      targetPath = outputTreePath.readSymbolicLink();
+    } catch (NotASymlinkException e) {
+      return false;
+    }
+
+    checkState(
+        targetPath.isAbsolute(),
+        "non-symlink artifact materialized as symlink must point to absolute path");
+
+    if (output.isTreeArtifact()) {
+      TreeArtifactValue metadata = getRemoteTreeMetadata(targetPath);
+      if (metadata == null) {
+        return false;
+      }
+
+      SpecialArtifact parent = (SpecialArtifact) output;
+      TreeArtifactValue.Builder injectedTree = TreeArtifactValue.newBuilder(parent);
+      // Avoid a double indirection when the target is already materialized as a symlink.
+      injectedTree.setMaterializationExecPath(
+          metadata.getMaterializationExecPath().orElse(targetPath.relativeTo(execRoot)));
+      // TODO: Check directory content on the local fs to support mixed tree.
+      for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry :
+          metadata.getChildValues().entrySet()) {
+        TreeFileArtifact child =
+            TreeFileArtifact.createTreeOutput(parent, entry.getKey().getParentRelativePath());
+        RemoteFileArtifactValue childMetadata = (RemoteFileArtifactValue) entry.getValue();
+        injectedTree.putChild(child, childMetadata);
+      }
+
+      metadataInjector.injectTree(parent, injectedTree.build());
+    } else {
+      RemoteFileArtifactValue metadata = getRemoteMetadata(targetPath);
+      if (metadata == null) {
+        return false;
+      }
+
+      RemoteFileArtifactValue injectedMetadata =
+          RemoteFileArtifactValue.create(
+              metadata.getDigest(),
+              metadata.getSize(),
+              metadata.getLocationIndex(),
+              metadata.getActionId(),
+              // Avoid a double indirection when the target is already materialized as a symlink.
+              metadata.getMaterializationExecPath().orElse(targetPath.relativeTo(execRoot)));
+
+      metadataInjector.injectFile(output, injectedMetadata);
+    }
+
+    return true;
   }
 
   private RemoteFileArtifactValue createRemoteMetadata(RemoteFileInfo remoteFile) {
@@ -193,7 +284,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    RemoteFileArtifactValue m = getRemoteInputMetadata(path);
+    RemoteFileArtifactValue m = getRemoteMetadata(path);
     if (m == null) {
       super.setLastModifiedTime(path, newTime);
     }
@@ -202,7 +293,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   protected byte[] getFastDigest(PathFragment path) throws IOException {
-    RemoteFileArtifactValue m = getRemoteInputMetadata(path);
+    RemoteFileArtifactValue m = getRemoteMetadata(path);
     if (m != null) {
       return m.getDigest();
     }
@@ -211,7 +302,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   protected byte[] getDigest(PathFragment path) throws IOException {
-    RemoteFileArtifactValue m = getRemoteInputMetadata(path);
+    RemoteFileArtifactValue m = getRemoteMetadata(path);
     if (m != null) {
       return m.getDigest();
     }
@@ -222,25 +313,25 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   protected boolean isReadable(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteInputMetadata(path);
+    FileArtifactValue m = getRemoteMetadata(path);
     return m != null || super.isReadable(path);
   }
 
   @Override
   protected boolean isWritable(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteInputMetadata(path);
+    FileArtifactValue m = getRemoteMetadata(path);
     return m != null || super.isWritable(path);
   }
 
   @Override
   protected boolean isExecutable(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteInputMetadata(path);
+    FileArtifactValue m = getRemoteMetadata(path);
     return m != null || super.isExecutable(path);
   }
 
   @Override
   protected void setReadable(PathFragment path, boolean readable) throws IOException {
-    RemoteFileArtifactValue m = getRemoteInputMetadata(path);
+    RemoteFileArtifactValue m = getRemoteMetadata(path);
     if (m == null) {
       super.setReadable(path, readable);
     }
@@ -248,7 +339,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   public void setWritable(PathFragment path, boolean writable) throws IOException {
-    RemoteFileArtifactValue m = getRemoteInputMetadata(path);
+    RemoteFileArtifactValue m = getRemoteMetadata(path);
     if (m == null) {
       super.setWritable(path, writable);
     }
@@ -256,7 +347,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   protected void setExecutable(PathFragment path, boolean executable) throws IOException {
-    RemoteFileArtifactValue m = getRemoteInputMetadata(path);
+    RemoteFileArtifactValue m = getRemoteMetadata(path);
     if (m == null) {
       super.setExecutable(path, executable);
     }
@@ -264,7 +355,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   protected void chmod(PathFragment path, int mode) throws IOException {
-    RemoteFileArtifactValue m = getRemoteInputMetadata(path);
+    RemoteFileArtifactValue m = getRemoteMetadata(path);
     if (m == null) {
       super.chmod(path, mode);
     }
@@ -274,7 +365,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteInputMetadata(path);
+    RemoteFileArtifactValue m = getRemoteMetadata(path);
     if (m != null) {
       // We don't support symlinks as remote action outputs.
       throw new IOException(path + " is not a symbolic link");
@@ -285,12 +376,10 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException {
-    /*
-     * TODO(buchgr): Optimize the case where we are creating a symlink to a remote output. This does
-     * add a non-trivial amount of complications though (as symlinks tend to do).
-     */
-    downloadFileIfRemote(execRoot.getRelative(targetFragment));
     super.createSymbolicLink(linkPath, targetFragment);
+    if (linkPath.startsWith(outputBase)) {
+      remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment);
+    }
   }
 
   // -------------------- Implementations based on stat() --------------------
@@ -367,7 +456,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    RemoteFileArtifactValue m = getRemoteInputMetadata(path);
+    RemoteFileArtifactValue m = getRemoteMetadata(path);
     if (m != null) {
       return statFromRemoteMetadata(m);
     }
@@ -419,7 +508,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   @Nullable
-  private RemoteFileArtifactValue getRemoteInputMetadata(PathFragment path) {
+  private RemoteFileArtifactValue getRemoteMetadata(PathFragment path) {
     if (!isOutput(path)) {
       return null;
     }
@@ -438,8 +527,23 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     return null;
   }
 
+  @Nullable
+  private TreeArtifactValue getRemoteTreeMetadata(PathFragment path) {
+    if (!path.startsWith(outputBase)) {
+      return null;
+    }
+    PathFragment execPath = path.relativeTo(execRoot);
+    TreeArtifactValue m = inputArtifactData.getTreeMetadata(execPath);
+    // TODO: Handle partially remote tree artifacts.
+    if (m != null && m.isEntirelyRemote()) {
+      return m;
+    }
+    // TODO(tjgq): Synthesize TreeArtifactValue from remoteOutputTree.
+    return null;
+  }
+
   private void downloadFileIfRemote(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteInputMetadata(path);
+    FileArtifactValue m = getRemoteMetadata(path);
     if (m != null) {
       try {
         inputFetcher.downloadFile(delegateFs.getPath(path), m);
@@ -504,7 +608,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
    * -------------------- TODO(buchgr): Not yet implemented --------------------
    *
    * The below methods have not (yet) been properly implemented due to time constraints mostly and
-   * with little risk as they currently don't seem to be used by native actions in Bazel. However,
+   * with little risk as they currently don't seem to be used by internal actions in Bazel. However,
    * before making the --experimental_remote_download_outputs flag non-experimental we should make
    * sure to fully implement this file system.
    */

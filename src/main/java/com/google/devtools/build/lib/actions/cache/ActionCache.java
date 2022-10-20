@@ -109,9 +109,10 @@ public interface ActionCache {
     public abstract static class SerializableTreeArtifactValue {
       public static SerializableTreeArtifactValue create(
           ImmutableMap<String, RemoteFileArtifactValue> childValues,
-          Optional<RemoteFileArtifactValue> archivedFileValue) {
+          Optional<RemoteFileArtifactValue> archivedFileValue,
+          Optional<PathFragment> materializationExecPath) {
         return new AutoValue_ActionCache_Entry_SerializableTreeArtifactValue(
-            childValues, archivedFileValue);
+            childValues, archivedFileValue, materializationExecPath);
       }
 
       /**
@@ -138,17 +139,25 @@ public interface ActionCache {
                 .filter(ar -> ar.archivedFileValue().isRemote())
                 .map(ar -> (RemoteFileArtifactValue) ar.archivedFileValue());
 
-        if (childValues.isEmpty() && archivedFileValue.isEmpty()) {
+        Optional<PathFragment> materializationExecPath = treeMetadata.getMaterializationExecPath();
+
+        if (childValues.isEmpty()
+            && archivedFileValue.isEmpty()
+            && materializationExecPath.isEmpty()) {
           return Optional.empty();
         }
 
-        return Optional.of(SerializableTreeArtifactValue.create(childValues, archivedFileValue));
+        return Optional.of(
+            SerializableTreeArtifactValue.create(
+                childValues, archivedFileValue, materializationExecPath));
       }
 
       // A map from parentRelativePath to the file metadata
       public abstract ImmutableMap<String, RemoteFileArtifactValue> childValues();
 
       public abstract Optional<RemoteFileArtifactValue> archivedFileValue();
+
+      public abstract Optional<PathFragment> materializationExecPath();
     }
 
     public Entry(String key, Map<String, String> usedClientEnv, boolean discoversInputs) {

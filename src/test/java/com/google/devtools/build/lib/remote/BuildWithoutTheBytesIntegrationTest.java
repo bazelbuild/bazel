@@ -361,6 +361,277 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
     }
   }
 
+  @Test
+  public void symlinkToSourceFile() throws Exception {
+    addRemoteModeOptions();
+    addOutputModeOptions();
+
+    write(
+        "a/defs.bzl",
+        "def _impl(ctx):",
+        "  if ctx.attr.chain_length < 1:",
+        "    fail('chain_length must be > 0')",
+        "",
+        "  file = ctx.file.target",
+        "",
+        "  for i in range(ctx.attr.chain_length):",
+        "    sym = ctx.actions.declare_file(ctx.label.name + '.sym' + str(i))",
+        "    ctx.actions.symlink(output = sym, target_file = file)",
+        "    file = sym",
+        "",
+        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  ctx.actions.run_shell(",
+        "    inputs = [sym],",
+        "    outputs = [out],",
+        "    command = '[[ hello == $(cat $1) ]] && touch $2',",
+        "    arguments = [sym.path, out.path],",
+        "    execution_requirements = {'no-remote': ''} if ctx.attr.local else {},",
+        "  )",
+        "",
+        "  return DefaultInfo(files = depset([out]))",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'target': attr.label(allow_single_file = True),",
+        "    'chain_length': attr.int(),",
+        "    'local': attr.bool(),",
+        "  },",
+        ")");
+
+    write(
+        "a/BUILD",
+        "load(':defs.bzl', 'my_rule')",
+        "",
+        "my_rule(name = 'one_local', target = 'src.txt', local = True, chain_length = 1)",
+        "my_rule(name = 'two_local', target = 'src.txt', local = True, chain_length = 2)",
+        "my_rule(name = 'one_remote', target = 'src.txt', local = False, chain_length = 1)",
+        "my_rule(name = 'two_remote', target = 'src.txt', local = False, chain_length = 2)");
+
+    write("a/src.txt", "hello");
+
+    buildTarget("//a:one_local", "//a:two_local", "//a:one_remote", "//a:two_remote");
+  }
+
+  @Test
+  public void symlinkToGeneratedFile() throws Exception {
+    addRemoteModeOptions();
+    addOutputModeOptions();
+
+    write(
+        "a/defs.bzl",
+        "def _impl(ctx):",
+        "  if ctx.attr.chain_length < 1:",
+        "    fail('chain_length must be > 0')",
+        "",
+        "  file = ctx.actions.declare_file(ctx.label.name + '.file')",
+        // Use ctx.actions.run_shell instead of ctx.actions.write, so that it runs remotely.
+        "  ctx.actions.run_shell(",
+        "    outputs = [file],",
+        "    command = 'echo hello > $1',",
+        "    arguments = [file.path],",
+        "  )",
+        "",
+        "  for i in range(ctx.attr.chain_length):",
+        "    sym = ctx.actions.declare_file(ctx.label.name + '.sym' + str(i))",
+        "    ctx.actions.symlink(output = sym, target_file = file)",
+        "    file = sym",
+        "",
+        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  ctx.actions.run_shell(",
+        "    inputs = [sym],",
+        "    outputs = [out],",
+        "    command = '[[ hello == $(cat $1) ]] && touch $2',",
+        "    arguments = [sym.path, out.path],",
+        "    execution_requirements = {'no-remote': ''} if ctx.attr.local else {},",
+        "  )",
+        "",
+        "  return DefaultInfo(files = depset([out]))",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'chain_length': attr.int(),",
+        "    'local': attr.bool(),",
+        "  },",
+        ")");
+
+    write(
+        "a/BUILD",
+        "load(':defs.bzl', 'my_rule')",
+        "",
+        "my_rule(name = 'one_local', local = True, chain_length = 1)",
+        "my_rule(name = 'two_local', local = True, chain_length = 2)",
+        "my_rule(name = 'one_remote', local = False, chain_length = 1)",
+        "my_rule(name = 'two_remote', local = False, chain_length = 2)");
+
+    buildTarget("//a:one_local", "//a:two_local", "//a:one_remote", "//a:two_remote");
+  }
+
+  @Test
+  public void symlinkToDirectory() throws Exception {
+    addRemoteModeOptions();
+    addOutputModeOptions();
+
+    write(
+        "a/defs.bzl",
+        "def _impl(ctx):",
+        "  if ctx.attr.chain_length < 1:",
+        "    fail('chain_length must be > 0')",
+        "",
+        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [dir],",
+        "    command = 'mkdir -p $1/some/path && echo hello > $1/some/path/inside.txt',",
+        "    arguments = [dir.path],",
+        "  )",
+        "",
+        "  for i in range(ctx.attr.chain_length):",
+        "    sym = ctx.actions.declare_directory(ctx.label.name + '.sym' + str(i))",
+        "    ctx.actions.symlink(output = sym, target_file = dir)",
+        "    dir = sym",
+        "",
+        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  ctx.actions.run_shell(",
+        "    inputs = [sym],",
+        "    outputs = [out],",
+        "    command = '[[ hello == $(cat $1/some/path/inside.txt) ]] && touch $2',",
+        "    arguments = [sym.path, out.path],",
+        "    execution_requirements = {'no-remote': ''} if ctx.attr.local else {},",
+        "  )",
+        "",
+        "  return DefaultInfo(files = depset([out]))",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'chain_length': attr.int(),",
+        "    'local': attr.bool()",
+        "  },",
+        ")");
+
+    write(
+        "a/BUILD",
+        "load(':defs.bzl', 'my_rule')",
+        "",
+        "my_rule(name = 'one_local', local = True, chain_length = 1)",
+        "my_rule(name = 'two_local', local = True, chain_length = 2)",
+        "my_rule(name = 'one_remote', local = False, chain_length = 1)",
+        "my_rule(name = 'two_remote', local = False, chain_length = 2)");
+
+    buildTarget("//a:one_local", "//a:two_local", "//a:one_remote", "//a:two_remote");
+  }
+
+  @Test
+  public void symlinkToNestedFile() throws Exception {
+    addRemoteModeOptions();
+    addOutputModeOptions();
+
+    write(
+        "a/defs.bzl",
+        "def _impl(ctx):",
+        "  if ctx.attr.chain_length < 1:",
+        "    fail('chain_length must be > 0')",
+        "",
+        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
+        "  file = ctx.actions.declare_file(ctx.label.name + '.dir/some/path/inside.txt')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [dir, file],",
+        "    command = 'mkdir -p $1/some/path && echo hello > $1/some/path/inside.txt',",
+        "    arguments = [dir.path],",
+        "  )",
+        "",
+        "  for i in range(ctx.attr.chain_length):",
+        "    sym = ctx.actions.declare_file(ctx.label.name + '.sym' + str(i))",
+        "    ctx.actions.symlink(output = sym, target_file = file)",
+        "    file = sym",
+        "",
+        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  ctx.actions.run_shell(",
+        "    inputs = [sym],",
+        "    outputs = [out],",
+        "    command = '[[ hello == $(cat $1) ]] && touch $2',",
+        "    arguments = [sym.path, out.path],",
+        "    execution_requirements = {'no-remote': ''} if ctx.attr.local else {},",
+        "  )",
+        "",
+        "  return DefaultInfo(files = depset([out]))",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'chain_length': attr.int(),",
+        "    'local': attr.bool(),",
+        "  },",
+        ")");
+
+    write(
+        "a/BUILD",
+        "load(':defs.bzl', 'my_rule')",
+        "",
+        "my_rule(name = 'one_local', local = True, chain_length = 1)",
+        "my_rule(name = 'two_local', local = True, chain_length = 2)",
+        "my_rule(name = 'one_remote', local = False, chain_length = 1)",
+        "my_rule(name = 'two_remote', local = False, chain_length = 2)");
+
+    buildTarget("//a:one_local", "//a:two_local", "//a:one_remote", "//a:two_remote");
+  }
+
+  @Test
+  public void symlinkToNestedDirectory() throws Exception {
+    addRemoteModeOptions();
+    addOutputModeOptions();
+
+    write(
+        "a/defs.bzl",
+        "def _impl(ctx):",
+        "  if ctx.attr.chain_length < 1:",
+        "    fail('chain_length must be > 0')",
+        "",
+        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
+        "  subdir = ctx.actions.declare_directory(ctx.label.name + '.dir/some/path')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [dir, subdir],",
+        "    command = 'mkdir -p $1/some/path && echo hello > $1/some/path/inside.txt',",
+        "    arguments = [dir.path],",
+        "  )",
+        "",
+        "  for i in range(ctx.attr.chain_length):",
+        "    sym = ctx.actions.declare_directory(ctx.label.name + '.sym' + str(i))",
+        "    ctx.actions.symlink(output = sym, target_file = subdir)",
+        "    subdir = sym",
+        "",
+        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  ctx.actions.run_shell(",
+        "    inputs = [sym],",
+        "    outputs = [out],",
+        "    command = '[[ hello == $(cat $1/inside.txt) ]] && touch $2',",
+        "    arguments = [sym.path, out.path],",
+        "    execution_requirements = {'no-remote': ''} if ctx.attr.local else {},",
+        "  )",
+        "",
+        "  return DefaultInfo(files = depset([out]))",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'chain_length': attr.int(),",
+        "    'local': attr.bool(),",
+        "  },",
+        ")");
+
+    write(
+        "a/BUILD",
+        "load(':defs.bzl', 'my_rule')",
+        "",
+        "my_rule(name = 'one_local', local = True, chain_length = 1)",
+        "my_rule(name = 'two_local', local = True, chain_length = 2)",
+        "my_rule(name = 'one_remote', local = False, chain_length = 1)",
+        "my_rule(name = 'two_remote', local = False, chain_length = 2)");
+
+    buildTarget("//a:one_local", "//a:two_local", "//a:one_remote", "//a:two_remote");
+  }
+
   private static class ActionEventCollector {
     private final List<ActionExecutedEvent> actionExecutedEvents = new ArrayList<>();
     private final List<CachedActionEvent> cachedActionEvents = new ArrayList<>();
