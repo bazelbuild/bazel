@@ -14,6 +14,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.actions.ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.toBinaryDigest;
@@ -39,6 +40,8 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.NodeProperties;
+import build.bazel.remote.execution.v2.NodeProperty;
 import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.OutputSymlink;
@@ -1740,6 +1743,84 @@ public class RemoteExecutionServiceTest {
     // assert second time
     // Called again for: manifests, runfiles, nodeRoot2 and nodeFoo2 but not nodeBar (cached).
     verify(service, times(5 + 4)).uncachedBuildMerkleTreeVisitor(any(), any());
+  }
+
+  @Test
+  public void buildRemoteActionForRemotePersistentWorkers() throws Exception {
+    var input = ActionsTestUtil.createArtifact(artifactRoot, "input");
+    fakeFileCache.createScratchInput(input, "value");
+    var toolInput = ActionsTestUtil.createArtifact(artifactRoot, "worker_input");
+    fakeFileCache.createScratchInput(toolInput, "worker value");
+    Spawn spawn =
+        new SpawnBuilder("@flagfile")
+            .withExecutionInfo(ExecutionRequirements.SUPPORTS_WORKERS, "1")
+            .withInputs(input, toolInput)
+            .withTool(toolInput)
+            .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.markToolInputs = true;
+    RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
+
+    // Check that worker files are properly marked in the merkle tree.
+    var remoteAction = service.buildRemoteAction(spawn, context);
+    assertThat(remoteAction.getAction().getPlatform())
+        .isEqualTo(
+            Platform.newBuilder()
+                .addProperties(
+                    Platform.Property.newBuilder()
+                        .setName("persistentWorkerKey")
+                        .setValue(
+                            "b22d48cd55755474eae27e63a79306a64146bd5947d5bd3423d78f001cf7b3de"))
+                .build());
+    var merkleTree = remoteAction.getMerkleTree();
+    var outputDirectory =
+        merkleTree.getDirectoryByDigest(merkleTree.getRootProto().getDirectories(0).getDigest());
+    var inputFile =
+        FileNode.newBuilder()
+            .setName("input")
+            .setDigest(
+                Digest.newBuilder()
+                    .setHash("cd42404d52ad55ccfa9aca4adc828aa5800ad9d385a0671fbcbf724118320619")
+                    .setSizeBytes(5))
+            .setIsExecutable(true);
+    var toolFile =
+        FileNode.newBuilder()
+            .setName("worker_input")
+            .setDigest(
+                Digest.newBuilder()
+                    .setHash("bbd21d9e9b2bbadb2bb67202833df0edc8d14baf38be49388ffc71831eb88ac4")
+                    .setSizeBytes(12))
+            .setIsExecutable(true)
+            .setNodeProperties(
+                NodeProperties.newBuilder()
+                    .addProperties(NodeProperty.newBuilder().setName("bazel_tool_input")));
+    assertThat(outputDirectory)
+        .isEqualTo(Directory.newBuilder().addFiles(inputFile).addFiles(toolFile).build());
+
+    // Check that if an non-tool input changes, the persistent worker key does not change.
+    fakeFileCache.createScratchInput(input, "value2");
+    assertThat(service.buildRemoteAction(spawn, context).getAction().getPlatform())
+        .isEqualTo(
+            Platform.newBuilder()
+                .addProperties(
+                    Platform.Property.newBuilder()
+                        .setName("persistentWorkerKey")
+                        .setValue(
+                            "b22d48cd55755474eae27e63a79306a64146bd5947d5bd3423d78f001cf7b3de"))
+                .build());
+
+    // Check that if a tool input changes, the persistent worker key changes.
+    fakeFileCache.createScratchInput(toolInput, "worker value2");
+    assertThat(service.buildRemoteAction(spawn, context).getAction().getPlatform())
+        .isEqualTo(
+            Platform.newBuilder()
+                .addProperties(
+                    Platform.Property.newBuilder()
+                        .setName("persistentWorkerKey")
+                        .setValue(
+                            "997337de8dc20123cd7c8fcaed2c9c79cd8138831f9fbbf119f37d0859c9e83a"))
+                .build());
   }
 
   private Spawn newSpawnFromResult(RemoteActionResult result) {
