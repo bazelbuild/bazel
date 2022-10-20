@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
@@ -64,6 +65,7 @@ public class AppleStarlarkCommon
         Artifact,
         ConstraintValueInfo,
         StarlarkRuleContext,
+        CcInfo,
         ObjcProvider,
         XcodeConfigInfo,
         ApplePlatform> {
@@ -211,6 +213,7 @@ public class AppleStarlarkCommon
   @Override
   public AppleDynamicFrameworkInfo newDynamicFrameworkProvider(
       Object dylibBinary,
+      Object depsCcInfo,
       ObjcProvider depsObjcProvider,
       Object dynamicFrameworkDirs,
       Object dynamicFrameworkFiles)
@@ -220,15 +223,21 @@ public class AppleStarlarkCommon
     NestedSet<Artifact> frameworkFiles =
         Depset.noneableCast(dynamicFrameworkFiles, Artifact.class, "framework_files");
     Artifact binary = (dylibBinary != Starlark.NONE) ? (Artifact) dylibBinary : null;
+    // TODO(b/252909384): Disallow Starlark.NONE once rules have been migrated to supply CcInfo.
+    CcInfo ccInfo = (depsCcInfo != Starlark.NONE) ? (CcInfo) depsCcInfo : CcInfo.EMPTY;
 
-    return new AppleDynamicFrameworkInfo(binary, depsObjcProvider, frameworkDirs, frameworkFiles);
+    return new AppleDynamicFrameworkInfo(
+        binary, ccInfo, depsObjcProvider, frameworkDirs, frameworkFiles);
   }
 
   @Override
   public AppleExecutableBinaryInfo newExecutableBinaryProvider(
-      Object executableBinary, ObjcProvider depsObjcProvider) throws EvalException {
+      Object executableBinary, Object depsCcInfo, ObjcProvider depsObjcProvider)
+      throws EvalException {
     Artifact binary = (executableBinary != Starlark.NONE) ? (Artifact) executableBinary : null;
-    return new AppleExecutableBinaryInfo(binary, depsObjcProvider);
+    // TODO(b/252909384): Disallow Starlark.NONE once rules have been migrated to supply CcInfo.
+    CcInfo ccInfo = (depsCcInfo != Starlark.NONE) ? (CcInfo) depsCcInfo : CcInfo.EMPTY;
+    return new AppleExecutableBinaryInfo(binary, ccInfo, depsObjcProvider);
   }
 
   @Override
@@ -345,6 +354,7 @@ public class AppleStarlarkCommon
 
     ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
     fields.put("objc", linkingOutputs.getDepsObjcProvider());
+    fields.put("cc_info", linkingOutputs.getDepsCcInfo());
     fields.put("output_groups", Dict.copyOf(thread.mutability(), outputGroups));
     fields.put("outputs", StarlarkList.copyOf(thread.mutability(), outputStructs.build()));
 

@@ -123,9 +123,11 @@ public @interface Option {
    * an object or a simple type. The default is to use the builtin converters ({@link
    * Converters#DEFAULT_CONVERTERS}). Custom converters must implement the {@link Converter}
    * interface.
+   *
+   * <p>This class will be instantiated reflectively using a nullary constructor. Provided class
+   * does not have to be visible in the {@linkplain com.google.devtools.common.options options}
+   * package, e.g. private classes are allowed.
    */
-  @SuppressWarnings({"unchecked", "rawtypes"})
-  // Can't figure out how to coerce Converter.class into Class<? extends Converter<?>>
   Class<? extends Converter> converter() default Converter.class;
 
   /**

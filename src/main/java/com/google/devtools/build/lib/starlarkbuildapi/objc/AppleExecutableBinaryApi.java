@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.objc;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 
@@ -37,6 +38,14 @@ public interface AppleExecutableBinaryApi extends StructApi {
       structField = true,
       doc = "The executable binary file output by apple_binary.")
   FileApi getAppleExecutableBinary();
+
+  @StarlarkMethod(
+      name = "cc_info",
+      structField = true,
+      doc =
+          "A provider which contains information about the transitive dependencies linked into "
+              + "the binary.")
+  CcInfoApi<?> getDepsCcInfo();
 
   @StarlarkMethod(
       name = "objc",

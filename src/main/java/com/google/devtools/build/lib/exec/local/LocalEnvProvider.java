@@ -24,6 +24,7 @@ import java.util.Map;
  * probably should not exist, but is currently necessary for our local MacOS support.
  */
 public interface LocalEnvProvider {
+  LocalEnvProvider NOOP = (env, binTools, fallbackTmpDir) -> ImmutableMap.copyOf(env);
 
   /**
    * Creates a local environment provider for the current OS.

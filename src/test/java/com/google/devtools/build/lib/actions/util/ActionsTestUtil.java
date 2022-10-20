@@ -267,6 +267,18 @@ public final class ActionsTestUtil {
     return treeArtifact;
   }
 
+  public static SpecialArtifact createTreeArtifactWithGeneratingAction(
+      ArtifactRoot root, String path) {
+    return createTreeArtifactWithGeneratingAction(
+        root, root.getExecPath().getRelative(PathFragment.create(path)));
+  }
+
+  public static SpecialArtifact createUnresolvedSymlinkArtifact(
+      ArtifactRoot root, String execPath) {
+    return createUnresolvedSymlinkArtifactWithExecPath(
+        root, root.getExecPath().getRelative(execPath));
+  }
+
   public static SpecialArtifact createUnresolvedSymlinkArtifactWithExecPath(
       ArtifactRoot root, PathFragment execPath) {
     return SpecialArtifact.create(

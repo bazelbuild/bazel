@@ -67,9 +67,14 @@ public class MultiArchBinarySupport {
         BuildConfigurationValue config,
         CcToolchainProvider toolchain,
         ObjcProvider objcLinkProvider,
-        ObjcProvider objcProviderWithAvoidDepsSymbols) {
+        ObjcProvider objcProviderWithAvoidDepsSymbols,
+        CcInfo ccInfoWithAvoidDepsSymbols) {
       return new AutoValue_MultiArchBinarySupport_DependencySpecificConfiguration(
-          config, toolchain, objcLinkProvider, objcProviderWithAvoidDepsSymbols);
+          config,
+          toolchain,
+          objcLinkProvider,
+          objcProviderWithAvoidDepsSymbols,
+          ccInfoWithAvoidDepsSymbols);
     }
 
     /** Returns the child configuration for this tuple. */
@@ -89,6 +94,12 @@ public class MultiArchBinarySupport {
      * symbols subtracted, thus signaling that this target is still responsible for those symbols.
      */
     abstract ObjcProvider objcProviderWithAvoidDepsSymbols();
+
+    /**
+     * Returns the {@link CcInfo} to propagate up to dependers; this will not have avoid deps
+     * symbols subtracted, thus signaling that this target is still responsible for those symbols.
+     */
+    abstract CcInfo ccInfoWithAvoidDepsSymbols();
   }
 
   /** @param ruleContext the current rule context */
@@ -211,6 +222,8 @@ public class MultiArchBinarySupport {
           objcProviderWithAvoidDepsSymbols.subtractSubtrees(
               avoidDepsObjcProviders, avoidDepsCcLinkingContexts);
 
+      CcInfo ccInfoWithAvoidDepsSymbols = common.createCcInfo();
+
       CcToolchainProvider toolchainProvider =
           ctad.getConfiguredTarget().get(CcToolchainProvider.PROVIDER);
 
@@ -220,7 +233,8 @@ public class MultiArchBinarySupport {
               childToolchainConfig,
               toolchainProvider,
               objcProvider,
-              objcProviderWithAvoidDepsSymbols));
+              objcProviderWithAvoidDepsSymbols,
+              ccInfoWithAvoidDepsSymbols));
     }
 
     return childInfoBuilder.buildOrThrow();

@@ -77,6 +77,7 @@ final class DirectoryTree {
     private final ByteString data;
     private final Digest digest;
     private final boolean isExecutable;
+    private final boolean toolInput;
 
     /**
      * Create a FileNode with its executable bit set.
@@ -87,27 +88,41 @@ final class DirectoryTree {
      * https://github.com/bazelbuild/bazel/issues/13262 for more details.
      */
     static FileNode createExecutable(String pathSegment, Path path, Digest digest) {
-      return new FileNode(pathSegment, path, digest, /* isExecutable= */ true);
+      return new FileNode(pathSegment, path, digest, /* isExecutable= */ true, false);
     }
 
-    static FileNode createExecutable(String pathSegment, ByteString data, Digest digest) {
-      return new FileNode(pathSegment, data, digest, /* isExecutable= */ true);
+    static FileNode createExecutable(
+        String pathSegment, Path path, Digest digest, boolean toolInput) {
+      return new FileNode(pathSegment, path, digest, /* isExecutable= */ true, toolInput);
     }
 
-    private FileNode(String pathSegment, Path path, Digest digest, boolean isExecutable) {
+    static FileNode createExecutable(
+        String pathSegment, ByteString data, Digest digest, boolean toolInput) {
+      return new FileNode(pathSegment, data, digest, /* isExecutable= */ true, toolInput);
+    }
+
+    private FileNode(
+        String pathSegment, Path path, Digest digest, boolean isExecutable, boolean toolInput) {
       super(pathSegment);
       this.path = Preconditions.checkNotNull(path, "path");
       this.data = null;
       this.digest = Preconditions.checkNotNull(digest, "digest");
       this.isExecutable = isExecutable;
+      this.toolInput = toolInput;
     }
 
-    private FileNode(String pathSegment, ByteString data, Digest digest, boolean isExecutable) {
+    private FileNode(
+        String pathSegment,
+        ByteString data,
+        Digest digest,
+        boolean isExecutable,
+        boolean toolInput) {
       super(pathSegment);
       this.path = null;
       this.data = Preconditions.checkNotNull(data, "data");
       this.digest = Preconditions.checkNotNull(digest, "digest");
       this.isExecutable = isExecutable;
+      this.toolInput = toolInput;
     }
 
     Digest getDigest() {
@@ -126,9 +141,13 @@ final class DirectoryTree {
       return isExecutable;
     }
 
+    boolean isToolInput() {
+      return toolInput;
+    }
+
     @Override
     public int hashCode() {
-      return Objects.hash(super.hashCode(), path, data, digest, isExecutable);
+      return Objects.hash(super.hashCode(), path, data, digest, toolInput, isExecutable);
     }
 
     @Override
@@ -139,6 +158,7 @@ final class DirectoryTree {
             && Objects.equals(path, other.path)
             && Objects.equals(data, other.data)
             && Objects.equals(digest, other.digest)
+            && toolInput == other.toolInput
             && isExecutable == other.isExecutable;
       }
       return false;

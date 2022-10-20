@@ -34,6 +34,7 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/apple",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
         "//third_party:jsr305",
     ],
 )
