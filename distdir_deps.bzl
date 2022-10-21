@@ -86,6 +86,10 @@ DIST_DEPS = {
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+        "license_kinds": [
+            "@rules_license//licenses/spdx:Apache-2.0",
+        ],
+        "package_version": "2020-10-27",
     },
     #################################################
     #
@@ -195,6 +199,9 @@ DIST_DEPS = {
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
+        ],
+        "license_kinds": [
+            "@rules_license//licenses/generic:notice",
         ],
     },
     "c-ares": {
