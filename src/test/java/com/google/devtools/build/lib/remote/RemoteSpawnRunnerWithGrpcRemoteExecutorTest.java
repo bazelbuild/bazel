@@ -318,7 +318,6 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             remoteOptions,
             remoteCache,
             executor,
-            ImmutableSet.of(),
             tempPathGenerator,
             /* captureCorruptedOutputsDir= */ null);
     client =

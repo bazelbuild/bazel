@@ -46,6 +46,7 @@ java_library(
         ":ReferenceCountedChannel",
         ":Retrier",
         ":abstract_action_input_prefetcher",
+        ":toplevel_artifacts_downloader",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_line_path_factory",

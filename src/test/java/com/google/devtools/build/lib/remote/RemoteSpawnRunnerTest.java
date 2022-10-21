@@ -1050,7 +1050,6 @@ public class RemoteSpawnRunnerTest {
             remoteOptions,
             cache,
             executor,
-            ImmutableSet.of(),
             tempPathGenerator,
             /* captureCorruptedOutputsDir= */ null);
     RemoteSpawnRunner runner =
@@ -1182,37 +1181,6 @@ public class RemoteSpawnRunnerTest {
     // act
     SpawnResult result = runner.exec(spawn, policy);
     assertThat(result.getFailureMessage()).isEqualTo(downloadFailure.getMessage());
-
-    // assert
-    verify(service).downloadOutputs(any(), eq(cachedActionResult));
-  }
-
-  @Test
-  public void testDownloadTopLevel() throws Exception {
-    // arrange
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.remoteOutputsMode = RemoteOutputsMode.TOPLEVEL;
-
-    ArtifactRoot outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outs");
-    Artifact topLevelOutput =
-        ActionsTestUtil.createArtifact(outputRoot, outputRoot.getRoot().getRelative("foo.bin"));
-
-    RemoteActionResult cachedActionResult =
-        RemoteActionResult.createFromCache(
-            CachedActionResult.remote(ActionResult.newBuilder().setExitCode(0).build()));
-
-    RemoteSpawnRunner runner = newSpawnRunner(ImmutableSet.of(topLevelOutput));
-    RemoteExecutionService service = runner.getRemoteExecutionService();
-    doReturn(cachedActionResult).when(service).lookupCache(any());
-    doReturn(null).when(service).downloadOutputs(any(), any());
-
-    Spawn spawn = newSimpleSpawn(topLevelOutput);
-    FakeSpawnExecutionContext policy = getSpawnContext(spawn);
-
-    // act
-    SpawnResult result = runner.exec(spawn, policy);
-    assertThat(result.exitCode()).isEqualTo(0);
-    assertThat(result.status()).isEqualTo(Status.SUCCESS);
 
     // assert
     verify(service).downloadOutputs(any(), eq(cachedActionResult));
@@ -1595,21 +1563,15 @@ public class RemoteSpawnRunnerTest {
   private RemoteSpawnRunner newSpawnRunner() {
     return newSpawnRunner(
         executor,
-        /*topLevelOutputs=*/ ImmutableSet.of(),
         RemotePathResolver.createDefault(execRoot));
   }
 
-  private RemoteSpawnRunner newSpawnRunner(ImmutableSet<ActionInput> topLevelOutputs) {
-    return newSpawnRunner(executor, topLevelOutputs, RemotePathResolver.createDefault(execRoot));
-  }
-
   private RemoteSpawnRunner newSpawnRunner(RemotePathResolver remotePathResolver) {
-    return newSpawnRunner(executor, /*topLevelOutputs=*/ ImmutableSet.of(), remotePathResolver);
+    return newSpawnRunner(executor, remotePathResolver);
   }
 
   private RemoteSpawnRunner newSpawnRunner(
       @Nullable RemoteExecutionClient executor,
-      ImmutableSet<ActionInput> topLevelOutputs,
       RemotePathResolver remotePathResolver) {
     RemoteExecutionService service =
         spy(
@@ -1625,7 +1587,6 @@ public class RemoteSpawnRunnerTest {
                 remoteOptions,
                 cache,
                 executor,
-                topLevelOutputs,
                 tempPathGenerator,
                 /*captureCorruptedOutputsDir=*/ null));
 

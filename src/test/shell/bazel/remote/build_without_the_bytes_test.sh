@@ -212,7 +212,7 @@ EOF
   || fail "Expected toplevel output bazel-bin/a/foobar.txt to be downloaded"
 
 
-  # Delete the file to test that the action is re-run
+  # Delete the file to test that the toplevel output can be re-downloaded
   rm -f bazel-bin/a/foobar.txt
 
   bazel build \
@@ -221,7 +221,7 @@ EOF
     --remote_download_toplevel \
     //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
 
-  expect_log "2 processes: 1 remote cache hit, 1 internal"
+  expect_log "1 process: 1 internal"
 
   [[ -f bazel-bin/a/foobar.txt ]] \
   || fail "Expected toplevel output bazel-bin/a/foobar.txt to be re-downloaded"
@@ -426,9 +426,9 @@ EOF
 }
 
 function test_download_toplevel_test_rule() {
-  # Test that when using --remote_download_toplevel with bazel test only
-  # the test.log and test.xml file are downloaded but not the test binary.
-  # However when building a test then the test binary should be downloaded.
+  # Test that when using --remote_download_toplevel with bazel test, the
+  # test.log, test.xml and the test binary are downloaded. When building a test
+  # the test binary should also be downloaded.
 
   if [[ "$PLATFORM" == "darwin" ]]; then
     # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
@@ -456,8 +456,8 @@ EOF
     --remote_download_toplevel \
     //a:test >& $TEST_log || fail "Failed to test //a:test with remote execution"
 
-  (! [[ -f bazel-bin/a/test ]]) \
-  || fail "Expected test binary bazel-bin/a/test to not be downloaded"
+  [[ -f bazel-bin/a/test ]] \
+  || fail "Expected test binary bazel-bin/a/test to be downloaded"
 
   [[ -f bazel-testlogs/a/test/test.log ]] \
   || fail "Expected toplevel output bazel-testlogs/a/test/test.log to be downloaded"

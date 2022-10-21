@@ -190,35 +190,16 @@ public final class Utils {
     return Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos());
   }
 
-  /** Returns {@code true} if all spawn outputs should be downloaded to disk. */
-  public static boolean shouldDownloadAllSpawnOutputs(
-      RemoteOutputsMode remoteOutputsMode, int exitCode, boolean hasTopLevelOutputs) {
+  /**
+   * Returns {@code true} if all spawn outputs should be downloaded to disk.
+   */
+  public static boolean shouldDownloadAllSpawnOutputs(RemoteOutputsMode remoteOutputsMode,
+      int exitCode) {
     return remoteOutputsMode.downloadAllOutputs()
         ||
         // In case the action failed, download all outputs. It might be helpful for debugging
         // and there is no point in injecting output metadata of a failed action.
-        exitCode != 0
-        ||
-        // If one output of a spawn is a top level output then download all outputs. Spawns
-        // are typically structured in a way that either all or no outputs are top level and
-        // it's much simpler to implement under this assumption.
-        (remoteOutputsMode.downloadToplevelOutputsOnly() && hasTopLevelOutputs);
-  }
-
-  /** Returns {@code true} if outputs contains one or more top level outputs. */
-  public static boolean hasFilesToDownload(
-      Collection<? extends ActionInput> outputs, ImmutableSet<PathFragment> filesToDownload) {
-    if (filesToDownload.isEmpty()) {
-      return false;
-    }
-
-    for (ActionInput output : outputs) {
-      if (filesToDownload.contains(output.getExecPath())) {
-        return true;
-      }
-    }
-
-    return false;
+        exitCode != 0;
   }
 
   private static String statusName(int code) {
