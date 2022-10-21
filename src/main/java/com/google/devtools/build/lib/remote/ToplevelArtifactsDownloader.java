@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsIn
 import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
+import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.Pair;
@@ -47,16 +48,46 @@ import javax.annotation.Nullable;
  * in the background.
  */
 public class ToplevelArtifactsDownloader {
+  private enum CommandMode {
+    UNKNOWN,
+    BUILD,
+    TEST,
+    RUN;
+
+    boolean shouldDownloadTestOutputs() {
+      return this == TEST;
+    }
+
+    boolean shouldDownloadToplevelOutputs() {
+      return this == BUILD || this == RUN;
+    }
+  }
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  private final CommandMode commandMode;
   private final MemoizingEvaluator memoizingEvaluator;
   private final AbstractActionInputPrefetcher actionInputPrefetcher;
   private final PathToMetadataConverter pathToMetadataConverter;
 
   public ToplevelArtifactsDownloader(
+      Command command,
       MemoizingEvaluator memoizingEvaluator,
       AbstractActionInputPrefetcher actionInputPrefetcher,
       PathToMetadataConverter pathToMetadataConverter) {
+    switch (command.name()) {
+      case "build":
+        this.commandMode = CommandMode.BUILD;
+        break;
+      case "test":
+        this.commandMode = CommandMode.TEST;
+        break;
+      case "run":
+        this.commandMode = CommandMode.RUN;
+        break;
+      default:
+        this.commandMode = CommandMode.UNKNOWN;
+    }
     this.memoizingEvaluator = memoizingEvaluator;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.pathToMetadataConverter = pathToMetadataConverter;
@@ -77,6 +108,10 @@ public class ToplevelArtifactsDownloader {
   @Subscribe
   @AllowConcurrentEvents
   public void onTestAttempt(TestAttempt event) {
+    if (!commandMode.shouldDownloadTestOutputs()) {
+      return;
+    }
+
     for (Pair<String, Path> pair : event.getFiles()) {
       Path path = checkNotNull(pair.getSecond());
       // Since the event is fired within action execution, the skyframe doesn't know the outputs of
@@ -106,6 +141,10 @@ public class ToplevelArtifactsDownloader {
   @Subscribe
   @AllowConcurrentEvents
   public void onAspectComplete(AspectCompleteEvent event) {
+    if (!commandMode.shouldDownloadToplevelOutputs()) {
+      return;
+    }
+
     if (event.failed()) {
       return;
     }
@@ -116,6 +155,10 @@ public class ToplevelArtifactsDownloader {
   @Subscribe
   @AllowConcurrentEvents
   public void onTargetComplete(TargetCompleteEvent event) {
+    if (!commandMode.shouldDownloadToplevelOutputs()) {
+      return;
+    }
+
     if (event.failed()) {
       return;
     }

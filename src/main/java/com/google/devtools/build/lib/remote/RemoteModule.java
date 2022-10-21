@@ -930,7 +930,9 @@ public final class RemoteModule extends BlazeModule {
       actionContextProvider.setActionInputFetcher(actionInputFetcher);
 
       if (remoteOutputsMode.downloadToplevelOutputsOnly()) {
-        toplevelArtifactsDownloader = new ToplevelArtifactsDownloader(env.getSkyframeExecutor()
+        toplevelArtifactsDownloader = new ToplevelArtifactsDownloader(
+            env.getCommand(),
+            env.getSkyframeExecutor()
             .getEvaluator(), actionInputFetcher, (path) -> {
           FileSystem fileSystem = path.getFileSystem();
           Preconditions.checkState(fileSystem instanceof RemoteActionFileSystem,
