@@ -180,6 +180,86 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void buildRemoteAction_withRegularFileAsOutput() throws Exception {
+    PathFragment execPath = execRoot.getRelative("path/to/tree").asFragment();
+    Spawn spawn =
+        new SpawnBuilder("dummy")
+            .withOutput(ActionsTestUtil.createArtifactWithExecPath(artifactRoot, execPath))
+            .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
+
+    assertThat(remoteAction.getCommand().getOutputFilesList()).containsExactly(execPath.toString());
+    assertThat(remoteAction.getCommand().getOutputDirectoriesList()).isEmpty();
+  }
+
+  @Test
+  public void buildRemoteAction_withTreeArtifactAsOutput() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("dummy")
+            .withOutput(
+                ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+                    artifactRoot, PathFragment.create("path/to/dir")))
+            .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
+
+    assertThat(remoteAction.getCommand().getOutputFilesList()).isEmpty();
+    assertThat(remoteAction.getCommand().getOutputDirectoriesList()).containsExactly("path/to/dir");
+  }
+
+  @Test
+  public void buildRemoteAction_withUnresolvedSymlinkAsOutput() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("dummy")
+            .withOutput(
+                ActionsTestUtil.createUnresolvedSymlinkArtifactWithExecPath(
+                    artifactRoot, PathFragment.create("path/to/link")))
+            .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
+
+    assertThat(remoteAction.getCommand().getOutputFilesList()).containsExactly("path/to/link");
+    assertThat(remoteAction.getCommand().getOutputDirectoriesList()).isEmpty();
+  }
+
+  @Test
+  public void buildRemoteAction_withActionInputFileAsOutput() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("dummy")
+            .withOutput(ActionInputHelper.fromPath(PathFragment.create("path/to/file")))
+            .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
+
+    assertThat(remoteAction.getCommand().getOutputFilesList()).containsExactly("path/to/file");
+    assertThat(remoteAction.getCommand().getOutputDirectoriesList()).isEmpty();
+  }
+
+  @Test
+  public void buildRemoteAction_withActionInputDirectoryAsOutput() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("dummy")
+            .withOutput(ActionInputHelper.fromPathToDirectory(PathFragment.create("path/to/dir")))
+            .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
+
+    assertThat(remoteAction.getCommand().getOutputFilesList()).isEmpty();
+    assertThat(remoteAction.getCommand().getOutputDirectoriesList()).containsExactly("path/to/dir");
+  }
+
+  @Test
   public void buildRemoteAction_differentiateWorkspace_generateActionSalt() throws Exception {
     Spawn spawn =
         new SpawnBuilder("dummy")

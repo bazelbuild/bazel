@@ -347,6 +347,11 @@ public final class ActionsTestUtil {
       }
 
       @Override
+      public boolean isDirectory() {
+        return false;
+      }
+
+      @Override
       public boolean isSymlink() {
         return false;
       }

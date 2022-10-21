@@ -230,7 +230,7 @@ public class RemoteExecutionService {
     ArrayList<String> outputDirectories = new ArrayList<>();
     for (ActionInput output : outputs) {
       String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
-      if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
+      if (output.isDirectory()) {
         outputDirectories.add(pathString);
       } else {
         outputFiles.add(pathString);

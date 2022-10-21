@@ -506,6 +506,11 @@ public final class ActionInputMapTest {
     }
 
     @Override
+    public boolean isDirectory() {
+      return false;
+    }
+
+    @Override
     public boolean isSymlink() {
       return false;
     }
