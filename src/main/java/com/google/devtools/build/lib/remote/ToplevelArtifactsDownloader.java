@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -30,10 +31,13 @@ import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
+import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
@@ -47,11 +51,56 @@ public class ToplevelArtifactsDownloader {
 
   private final MemoizingEvaluator memoizingEvaluator;
   private final AbstractActionInputPrefetcher actionInputPrefetcher;
+  private final PathToMetadataConverter pathToMetadataConverter;
 
   public ToplevelArtifactsDownloader(
-      MemoizingEvaluator memoizingEvaluator, AbstractActionInputPrefetcher actionInputPrefetcher) {
+      MemoizingEvaluator memoizingEvaluator,
+      AbstractActionInputPrefetcher actionInputPrefetcher,
+      PathToMetadataConverter pathToMetadataConverter) {
     this.memoizingEvaluator = memoizingEvaluator;
     this.actionInputPrefetcher = actionInputPrefetcher;
+    this.pathToMetadataConverter = pathToMetadataConverter;
+  }
+
+  /**
+   * Interface that converts {@link Path} to metadata {@link FileArtifactValue}.
+   *
+   * <p>{@link ToplevelArtifactsDownloader} is only used with {@code ActionFileSystem} together. If
+   * we see a {@link Path}, its underlying file system must be {@code ActionFileSystem}. We use this
+   * interface to avoid passing in the actionFs implementation.
+   */
+  public interface PathToMetadataConverter {
+    @Nullable
+    FileArtifactValue getMetadata(Path path);
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void onTestAttempt(TestAttempt event) {
+    for (Pair<String, Path> pair : event.getFiles()) {
+      Path path = checkNotNull(pair.getSecond());
+      // Since the event is fired within action execution, the skyframe doesn't know the outputs of
+      // test actions yet, so we can't get their metadata through skyframe. However, the fileSystem
+      // of the path is an ActionFileSystem, we use it to get the metadata for this file.
+      FileArtifactValue metadata = pathToMetadataConverter.getMetadata(path);
+      if (metadata != null) {
+        ListenableFuture<Void> future =
+            actionInputPrefetcher.downloadFileAsync(path.asFragment(), metadata, Priority.LOW);
+        addCallback(
+            future,
+            new FutureCallback<Void>() {
+              @Override
+              public void onSuccess(Void unused) {}
+
+              @Override
+              public void onFailure(Throwable throwable) {
+                logger.atWarning().withCause(throwable).log(
+                    "Failed to download test output %s.", path);
+              }
+            },
+            directExecutor());
+      }
+    }
   }
 
   @Subscribe
