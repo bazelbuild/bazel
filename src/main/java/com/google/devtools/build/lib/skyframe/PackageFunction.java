@@ -602,7 +602,7 @@ public class PackageFunction implements SkyFunction {
    * Loads the .bzl modules whose names and load-locations are {@code programLoads}, and whose
    * corresponding Skyframe keys are {@code keys}.
    *
-   * <p>Validates bzl-visibility of loaded modules.
+   * <p>Validates load visibility for loaded modules.
    *
    * <p>Returns a map from module name to module, or null for a Skyframe restart.
    *
@@ -655,7 +655,7 @@ public class PackageFunction implements SkyFunction {
         return null; // Skyframe deps unavailable
       }
       // Validate that the current BUILD/WORKSPACE file satisfies each loaded dependency's
-      // bzl-visibility.
+      // load visibility.
       BzlLoadFunction.checkLoadVisibilities(
           packageId,
           requestingFileDescription,

@@ -26,23 +26,23 @@ public interface StarlarkBuildApiGlobals {
 
   @StarlarkMethod(
       name = "visibility",
-      // TODO(b/22193153): Link to a concepts page for bzl-visibility.
+      // TODO(b/22193153): Link to a concepts page for bzl-visibility. May require updating
+      // RuleLinkExpander to correctly link to within the /concepts directory.
       doc =
-          "<i>(Experimental; enabled by <code>--experimental_bzl_visibility</code>.)</i>"
-              + "<p>Sets the bzl-visibility of the .bzl module currently being initialized."
-              + "<p>The bzl-visibility of a module governs whether or not other BUILD and .bzl"
+          "<p>Sets the load visibility of the .bzl module currently being initialized."
+              + "<p>The load visibility of a module governs whether or not other BUILD and .bzl"
               + " files may load it. (This is distinct from the target visibility of the underlying"
               + " .bzl source file, which governs whether the file may appear as a dependency of"
-              + " other targets.) Bzl-visibility works at the level of packages: To load a"
-              + " module, the file doing the loading must live in a package that has been granted"
+              + " other targets.) Load visibility works at the level of packages: To load a module"
+              + " the file doing the loading must live in a package that has been granted"
               + " visibility to the module. A module can always be loaded within its own package,"
               + " regardless of its visibility."
               + "<p><code>visibility()</code> may only be called once per .bzl file, and only at"
               + " the top level, not inside a function. The preferred style is to put this call"
               + " immediately below the <code>load()</code> statements and any brief logic needed"
               + " to determine the argument."
-              + "<p>If the flag <code>--check_bzl_visibility</code> is set to false, bzl-visibility"
-              + " violations will emit warnings but not fail the build.",
+              + "<p>If the flag <code>--check_bzl_visibility</code> is set to false, load"
+              + " visibility violations will emit warnings but not fail the build.",
       parameters = {
         @Param(
             name = "value",

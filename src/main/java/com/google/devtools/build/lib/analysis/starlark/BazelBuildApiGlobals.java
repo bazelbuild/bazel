@@ -39,7 +39,7 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
 
   @Override
   public void visibility(Object value, StarlarkThread thread) throws EvalException {
-    // Confirm .bzl visibility is enabled. We manually check the experimental flag here because
+    // Confirm load visibility is enabled. We manually check the experimental flag here because
     // StarlarkMethod.enableOnlyWithFlag doesn't work for top-level builtins.
     if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_BZL_VISIBILITY)) {
       throw Starlark.errorf("Use of `visibility()` requires --experimental_bzl_visibility");
@@ -55,12 +55,12 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
         && callStack.get(0).name.equals("<toplevel>")
         && callStack.get(1).name.equals("visibility"))) {
       throw Starlark.errorf(
-          ".bzl visibility may only be set at the top level, not inside a function");
+          "load visibility may only be set at the top level, not inside a function");
     }
 
     // Fail if the module's visibility is already set.
     if (context.getBzlVisibility() != null) {
-      throw Starlark.errorf(".bzl visibility may not be set more than once");
+      throw Starlark.errorf("load visibility may not be set more than once");
     }
 
     RepositoryName repo = context.getBzlFile().getRepository();
@@ -82,7 +82,7 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
       specs = specsBuilder.build();
     } else {
       throw Starlark.errorf(
-          "Invalid bzl-visibility: got '%s', want string or list of strings", Starlark.type(value));
+          "Invalid visibility: got '%s', want string or list of strings", Starlark.type(value));
     }
     context.setBzlVisibility(BzlVisibility.of(specs));
   }
