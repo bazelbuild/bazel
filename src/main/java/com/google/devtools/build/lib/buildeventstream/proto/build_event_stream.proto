@@ -401,7 +401,8 @@ message WorkspaceStatus {
 // build.
 message BuildMetadata {
   // Custom metadata for the build.
-  map<string, string> metadata = 1;
+  map<string, string> metadata = 1
+      ;
 }
 
 // Payload of an event reporting details of a given configuration.
@@ -409,7 +410,8 @@ message Configuration {
   string mnemonic = 1;
   string platform_name = 2;
   string cpu = 3;
-  map<string, string> make_variable = 4;
+  map<string, string> make_variable = 4
+      ;
   // Whether this configuration is used for building tools.
   bool is_tool = 5;
 }
@@ -1068,7 +1070,8 @@ message BuildMetrics {
 
   // Information about host network.
   message NetworkMetrics {
-    // Information for all the network traffic going on on the host machine during the invocation.
+    // Information for all the network traffic going on on the host machine
+    // during the invocation.
     message SystemNetworkStats {
       // Total bytes sent during the invocation.
       uint64 bytes_sent = 1;
@@ -1081,7 +1084,7 @@ message BuildMetrics {
       // Peak bytes/sec sent during the invocation.
       uint64 peak_bytes_sent_per_sec = 5;
       // Peak bytes/sec received during the invocation.
-      uint64 peak_bytes_recv_per_sec  = 6;
+      uint64 peak_bytes_recv_per_sec = 6;
       // Peak packets/sec sent during the invocation.
       uint64 peak_packets_sent_per_sec = 7;
       // Peak packets/sec received during the invocation.
