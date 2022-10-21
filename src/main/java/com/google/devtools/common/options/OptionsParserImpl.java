@@ -784,7 +784,7 @@ class OptionsParserImpl {
         OptionsData.getAllOptionDefinitionsForClass(optionsClass)) {
       Object value;
       OptionValueDescription optionValue = optionValues.get(optionDefinition);
-      if (optionValue == null) {
+      if (optionValue == null || optionValue.containsErrors()) {
         value = optionDefinition.getDefaultValue(conversionContext);
       } else {
         value = optionValue.getValue();

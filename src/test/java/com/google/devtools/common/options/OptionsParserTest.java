@@ -68,6 +68,47 @@ public final class OptionsParserTest {
     assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
   }
 
+  public enum TestEnum {
+    DEFAULT,
+    EXPLICIT;
+  }
+
+  public static class TestEnumConverter extends EnumConverter<TestEnum> {
+    public TestEnumConverter() {
+      super(TestEnum.class, "test enum");
+    }
+  }
+
+  public static class ChoosyConverter implements Converter<String> {
+    @Override
+    public String convert(String input, @Nullable Object conversionContext)
+        throws OptionsParsingException {
+      switch (input) {
+        case "default":
+          return "default";
+        case " explicit":
+          return "explicit";
+        default:
+          throw new OptionsParsingException("illegal");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "choosy";
+    }
+  }
+
+  public static class ChoosyOptions extends OptionsBase {
+    @Option(
+        name = "choosy",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "default",
+        converter = ChoosyConverter.class)
+    public String choosy;
+  }
+
   public static class ExampleFoo extends OptionsBase {
 
     @Option(
@@ -199,8 +240,15 @@ public final class OptionsParserTest {
   }
 
   @Test
-  public void parseWithMultipleOptionsInterfaces()
-      throws OptionsParsingException {
+  public void defaultValueOfBadOptionRemains() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ChoosyOptions.class).build();
+
+    assertThrows(OptionsParsingException.class, () -> parser.parse("--choosy=wat"));
+    assertThat(parser.getOptions(ChoosyOptions.class).choosy).isEqualTo("default");
+  }
+
+  @Test
+  public void parseWithMultipleOptionsInterfaces() throws OptionsParsingException {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(ExampleFoo.class, ExampleBaz.class).build();
     parser.parse("--baz=oops", "--bar", "17");
