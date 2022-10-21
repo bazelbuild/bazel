@@ -505,12 +505,11 @@ public final class RemoteModule extends BlazeModule {
     //
     // If they point to different endpoints, we check the endpoint with execution or cache
     // capabilities respectively.
-    ServerCapabilities execCapabilities = null;
     ServerCapabilities cacheCapabilities = null;
     try {
       if (execChannel != null) {
         if (cacheChannel != execChannel) {
-          execCapabilities =
+          var unused =
               getAndVerifyServerCapabilities(
                   remoteOptions,
                   execChannel,
@@ -529,16 +528,15 @@ public final class RemoteModule extends BlazeModule {
                   digestUtil,
                   ServerCapabilitiesRequirement.CACHE);
         } else {
-          execCapabilities =
-              cacheCapabilities =
-                  getAndVerifyServerCapabilities(
-                      remoteOptions,
-                      execChannel,
-                      credentials,
-                      retrier,
-                      env,
-                      digestUtil,
-                      ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
+          cacheCapabilities =
+              getAndVerifyServerCapabilities(
+                  remoteOptions,
+                  execChannel,
+                  credentials,
+                  retrier,
+                  env,
+                  digestUtil,
+                  ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
         }
       } else {
         cacheCapabilities =
