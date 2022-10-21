@@ -3,28 +3,43 @@ Book: /_book.yaml
 
 # Visibility
 
-This page covers visibility specifications, best practices, and examples.
+This page covers Bazel's two visibility systems:
+[target visibility](#target-visibility) and [load visibility](#load-visibility).
 
-Visibility controls whether a target can be used (depended on) by targets in
-other packages. This helps other people distinguish between your library's
-public API and its implementation details, and is an important tool to help
-enforce structure as your workspace grows.
+Both types of visibility help other developers distinguish between your
+library's public API and its implementation details, and help enforce structure
+as your workspace grows. You can also use visibility when deprecating a public
+API to allow current users while denying new ones.
 
-If you need to disable the visibility check (for example when experimenting),
-use `--check_visibility=false`.
+## Target visibility {:#target-visibility}
 
-For more details on package and subpackages, see
+**Target visibility** controls who may depend on your target — that is, who may
+use your target's label inside an attribute such as `deps`.
+
+A target `A` is visible to a target `B` if they are in the same package, or if
+`A` grants visibility to `B`'s package. Thus, packages are the unit of
+granularity for deciding whether or not to allow access. If `B` depends on `A`
+but `A` is not visible to `B`, then any attempt to build `B` fails during
+[analysis](/reference/glossary#analysis-phase).
+
+Note that granting visibility to a package does not by itself grant visibility
+to its subpackages. For more details on package and subpackages, see
 [Concepts and terminology](/concepts/build-ref).
 
-## Visibility specifications {:#visibility-specifications}
+For prototyping, you can disable target visibility enforcement by setting the
+flag `--check_visibility=false`. This should not be done for production usage in
+submitted code.
 
-All rule targets have a `visibility` attribute that takes a list of labels. One
-target is visible to another if they are in the same package, or if visibility
-is granted to the depending target's package.
+The primary way to control visibility is with the
+[`visibility`](/reference/be/common-definitions#common.visibility) attribute on
+rule targets. This section describes the format of this attribute, and how to
+determine a target's visibility.
 
-Each label has one of the following forms. With the exception of the last form,
-these are just syntactic placeholders that do not correspond to any actual
-target.
+### Visibility specifications {:#visibility-specifications}
+
+All rule targets have a `visibility` attribute that takes a list of labels. Each
+label has one of the following forms. With the exception of the last form, these
+are just syntactic placeholders that do not correspond to any actual target.
 
 *   `"//visibility:public"`: Grants access to all packages. (May not be combined
     with any other specification.)
@@ -53,41 +68,34 @@ For example, if `//some/package:mytarget` has its `visibility` set to
 that is part of the `//some/package/...` source tree, as well as targets defined
 in `//tests/BUILD`, but not by targets defined in `//tests/integration/BUILD`.
 
-As a special case, `package_group` targets themselves do not have a `visibility`
-attribute; they are always publicly visible.
+**Best practice:** To make several targets visible to the same set
+of packages, use a `package_group` instead of repeating the list in each
+target's `visibility` attribute. This increases readability and prevents the
+lists from getting out of sync.
 
-Visibility cannot be set to specific non-package_group targets. That triggers a
-"Label does not refer to a package group" or "Cycle in dependency graph" error.
+Note: The `visibility` attribute may not specify non-`package_group` targets.
+Doing so triggers a "Label does not refer to a package group" or "Cycle in
+dependency graph" error.
 
-## Visibility of a rule target {:#rule-target-visibility}
+### Rule target visibility {:#rule-target-visibility}
 
-If a rule target does not set the `visibility` attribute, its visibility is
-given by the
-[`default_visibility`](/reference/be/functions#package.default_visibility) that was
-specified in the [`package`](/reference/be/functions#package) statement of the
-target's BUILD file. If there is no such `default_visibility` declaration, the
-visibility is `//visibility:private`.
+A rule target's visibility is:
 
-`config_setting` visibility has historically not been enforced.
-`--incompatible_enforce_config_setting_visibility` and
-`--incompatible_config_setting_private_default_visibility` provide migration
-logic for converging with other rules.
+1. The value of its `visibility` attribute, if set; or else
 
-If `--incompatible_enforce_config_setting_visibility=false`, every
-`config_setting` is unconditionally visible to all targets.
+2. The value of the
+[`default_visibility`](/reference/be/functions#package.default_visibility)
+argument of the [`package`](/reference/be/functions#package) statement in the
+target's `BUILD` file, if such a declaration exists; or else
 
-Else if `--incompatible_config_setting_private_default_visibility=false`, any
-`config_setting` that doesn't explicitly set visibility is `//visibility:public`
-(ignoring package [`default_visibility`](/reference/be/functions#package.default_visibility)).
+3. `//visibility:private`.
 
-Else if `--incompatible_config_setting_private_default_visibility=true`,
-`config_setting` uses the same visibility logic as all other rules.
+**Best practice:** Avoid setting `default_visibility` to public. It may be
+convenient for prototyping or in small codebases, but the risk of inadvertently
+creating public targets increases as the codebase grows. It's better to be
+explicit about which targets are part of a package's public interface.
 
-Best practice is to treat all `config_setting` targets like other rules:
-explicitly set `visibility` on any `config_setting` used anywhere outside its
-package.
-
-### Example {:#rule-target-visibility-example}
+#### Example {:#rule-target-visibility-example}
 
 File `//frobber/bin/BUILD`:
 
@@ -140,27 +148,37 @@ package_group(
 )
 ```
 
-## Visibility of a generated file target {:#generated-file-visibility}
+### Generated file target visibility {:#generated-file-target-visibility}
 
 A generated file target has the same visibility as the rule target that
 generates it.
 
-## Visibility of a source file target {:#source-file-visibility}
+### Source file target visibility {:#source-file-target-visibility}
 
-By default, source file targets are visible only from the same package. To make
-a source file accessible from another package, use
-[`exports_files`](/reference/be/functions#exports_files).
+You can explicitly set the visibility of a source file target by calling
+[`exports_files`](/reference/be/functions#exports_files). When no `visibility`
+argument is passed to `exports_files`, it makes the visibility public.
+`exports_files` may not be used to override the visibility of a generated file.
 
-If the call to `exports_files` specifies the visibility attribute, that
-visibility applies. Otherwise, the file is public (the `default_visibility`
-is ignored).
+For source file targets that do not appear in a call to `exports_files`, the
+visibility depends on the value of the flag
+[`--incompatible_no_implicit_file_export`](https://github.com/bazelbuild/bazel/issues/10225){: .external}:
 
-When possible, prefer exposing a library or another type of rule instead of a
-source file. For example, declare a `java_library` instead of exporting a
-`.java` file. It's good form for a rule target to only directly include sources
-in its own package.
+*   If the flag is set, the visibility is private.
 
-### Example {:#source-file-visibility-example}
+*   Else, the legacy behavior applies: The visibility is the same as the
+    `BUILD` file's `default_visibility`, or private if a default visibility is
+    not specified.
+
+Avoid relying on the legacy behavior. Always write an `exports_files`
+declaration whenever a source file target needs non-private visibility.
+
+**Best practice:** When possible, prefer to expose a rule target rather than a
+source file. For example, instead of calling `exports_files` on a `.java` file,
+wrap the file in a non-private `java_library` target. Generally, rule targets
+should only directly reference source files that live in the same package.
+
+#### Example {:#source-file-visibility-example}
 
 File `//frobber/data/BUILD`:
 
@@ -177,45 +195,64 @@ cc_binary(
 )
 ```
 
-### Legacy behavior {:#legacy-behavior}
+### Config setting visibility {:#config-setting-visibility}
 
-If the flag [`--incompatible_no_implicit_file_export`](https://github.com/bazelbuild/bazel/issues/10225){: .external}
-is not set, a legacy behavior applies instead.
+Historically, Bazel has not enforced visibility for
+[`config_setting`](/reference/be/general#config_setting) targets that are
+referenced in the keys of a [`select()`](/reference/be/functions#select). There
+are two flags to remove this legacy behavior:
 
-With the legacy behavior, files used by at least one rule target in the package
-are implicitly exported using the `default_visibility` specification. See the
-[design proposal](https://github.com/bazelbuild/proposals/blob/master/designs/2019-10-24-file-visibility.md#example-and-description-of-the-problem){: .external}
-for more details.
+*   [`--incompatible_enforce_config_setting_visibility`](https://github.com/bazelbuild/bazel/issues/12932){: .external}
+    enables visibility checking for these targets. To assist with migration, it
+    also causes any `config_setting` that does not specify a `visibility` to be
+    considered public (regardless of package-level `default_visibility`).
 
-## Visibility of bzl files {:#visibility-bzl-files}
+*   [`--incompatible_config_setting_private_default_visibility`](https://github.com/bazelbuild/bazel/issues/12933){: .external}
+    causes `config_setting`s that do not specify a `visibility` to respect the
+    package's `default_visibility` and to fallback on private visibility, just
+    like any other rule target. It is a no-op if
+    `--incompatible_enforce_config_setting_visibility` is not set.
+
+Avoid relying on the legacy behavior. Any `config_setting` that is intended to
+be used outside the current package should have an explicit `visibility`, if the
+package does not already specify a suitable `default_visibility`.
+
+### Package group target visibility {:#package-group-target-visibility}
+
+`package_group` targets do not have a `visibility` attribute. They are always
+publicly visible.
+
+### Visibility of implicit dependencies {:#visibility-implicit-dependencies}
+
+Some rules have [implicit dependencies](/extending/rules#private_attributes_and_implicit_dependencies) —
+dependencies that are not spelled out in a `BUILD` file but are inherent to
+every instance of that rule. For example, a `cc_library` rule might create an
+implicit dependency from each of its rule targets to an executable target
+representing a C++ compiler.
+
+Currently, for visibility purposes these implicit dependencies are treated like
+any other dependency. This means that the target being depended on (such as our
+C++ compiler) must be visible to every instance of the rule. In practice this
+usually means the target must have public visibility.
+
+You can change this behavior by setting
+[`--incompatible_visibility_private_attributes_at_definition`](https://github.com/bazelbuild/proposals/blob/master/designs/2019-10-15-tool-visibility.md){: .external}. When enabled, the
+target in question need only be visible to the rule declaring it an implicit
+dependency. That is, it must be visible to the package containing the `.bzl`
+file in which the rule is defined. In our example, the C++ compiler could be
+private so long as it lives in the same package as the definition of the
+`cc_library` rule.
+
+## Load visibility {:#load-visibility}
+
+**Load visibility** controls whether a `.bzl` file may be loaded from other
+`BUILD` or `.bzl` files.
 
 `BUILD` and `.bzl` files, as processed by Bazel during loading, are not
 considered to be targets and therefore are not subject to visibility. It is
-therefore possible to load a `.bzl` file from anywhere in the workspace.
+possible to load a `.bzl` file from anywhere in the workspace.
 
 However, users may choose to run the Buildifier linter.
 The [bzl-visibility](https://github.com/bazelbuild/buildtools/blob/master/WARNINGS.md#bzl-visibility)
 check provides a warning if users `load` from beneath a subdirectory named
 `internal` or `private`.
-
-## Visibility of implicit dependencies {:#visibility-implicit-dependencies}
-
-Some rules have implicit dependencies. For example, a C++ rule might implicitly
-depend on a C++ compiler.
-
-Currently, implicit dependencies are treated like normal dependencies. They need
-to be visible by all instances of the rule. This behavior can be changed using
-[`--incompatible_visibility_private_attributes_at_definition`](https://github.com/bazelbuild/proposals/blob/master/designs/2019-10-15-tool-visibility.md){: .external}.
-
-## Best practices {:#best-practices}
-
-* Avoid setting the default visibility to public. It may be convenient for
-prototyping or in small codebases, but it is discouraged in large codebases: try
-to be explicit about which targets are part of the public interface.
-
-* Use `package_group` to share the visibility specifications among multiple
-  targets. This is especially useful when targets in many BUILD files should be
-  exposed to the same set of packages.
-
-* Use fine-grained visibility specifications when deprecating a target. Restrict
-  the visibility to the current users to avoid new dependencies.

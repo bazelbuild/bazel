@@ -536,7 +536,8 @@ dependencies form the basis of the [target graph](#target-graph).
 
 Aside from rule targets, there are also file targets and [package group](#package-group)
 targets. File targets correspond to [artifacts](#artifact) that are referenced
-within a `BUILD` file.
+within a `BUILD` file. As a special case, the `BUILD` file of any package is
+always considered a source file target in that package.
 
 Targets are discovered during the [loading phase](#loading-phase). During the
 [analysis phase](#analysis-phase), targets are associated with [build
