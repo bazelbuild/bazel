@@ -97,7 +97,7 @@ java_library(
     srcs = [":mixed_srcjar_gen"],
 )
 
-android_library(
+java_library(
     name = "innerclasses_testinput",
     srcs = glob(["testdata/innerclasses/*.java"]),
 )

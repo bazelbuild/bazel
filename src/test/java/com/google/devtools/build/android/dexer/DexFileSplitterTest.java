@@ -233,35 +233,52 @@ public class DexFileSplitterTest {
   }
 
   @Test
-  public void testInnerClasses_keptTogether() throws Exception {
+  public void testLambdaClasses_keptTogether() throws Exception {
     Path desugaredJar = desugarJar(INNER_JAR, "inner_together.jar");
 
-    System.out.println(desugaredJar.toString());
     Path innerArchive = buildDexArchive(desugaredJar, "inner_together.jar.dex.zip");
-    // Pick a number such that OuterClass is packed with its inner classes 
+    // Pick a number such that OuterClass is packed with its generated lambda classes 
     // and other classes as well (total number of methods = 34 with OuterClass = 21)
     ImmutableList<Path> outputArchives =
         runDexSplitter(24, "inner_input", innerArchive);
 
     String basepath = "com/google/devtools/build/android/dexer/testdata/innerclasses/";
     String outerClass = basepath + "OuterClass.class.dex";
-    String outerClassLambdaName = "OuterClass$$ExternalSyntheticLambda";
-    String shouldBeTogether[] = new String[6];
-    for (int i = 0; i < shouldBeTogether.length; i++) {
-        shouldBeTogether[i] = basepath + outerClassLambdaName + i + ".class.dex";
+    String lambdaClassName = "OuterClass$$ExternalSyntheticLambda";
+    String lambdaClasses[] = new String[6];
+    for (int i = 0; i < lambdaClasses.length; i++) {
+        lambdaClasses[i] = basepath + lambdaClassName + i + ".class.dex";
+    }
+
+    String innerClassName = "OuterClass$InnerClass";
+    String innerClasses[]  = new String[6];
+    for (int i = 0; i < innerClasses.length; i++) {
+        innerClasses[i] = basepath + innerClassName + i + ".class.dex";
     }
 
     // Assert that all inner classes are in the same archive
     ImmutableSet<String> entries = ImmutableSet.of();
+    int idx = 0;
     for (Path out : outputArchives) {
         entries = dexEntries(out);
         if (entries.contains(outerClass)) {
-            break;
+          break;
         }
+        idx++;
     }
 
-    for (int i = 0; i < shouldBeTogether.length; i++) {
-        assertThat(entries).contains(shouldBeTogether[i]);
+    // assert all lambdas are together
+    for (int i = 0; i < lambdaClasses.length; i++) {
+        assertThat(entries).contains(lambdaClasses[i]);
+    }
+
+    // Assert that the other inner classes appear in lambdas shard or the next shard
+    ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+    builder.addAll(entries);
+    builder.addAll(dexEntries(outputArchives.get(idx+1)));
+    ImmutableSet<String> combinedEntries = builder.build();
+    for (int i = 0; i < innerClasses.length; i++) {
+        assertThat(combinedEntries).contains(innerClasses[i]);
     }
 
     assertThat(outputArchives).hasSize(3);
@@ -269,36 +286,32 @@ public class DexFileSplitterTest {
 
   @Test
   public void testInnerClasses_oneShard() throws Exception {
-    Path desugaredJar = desugarJar(INNER_JAR, "inner_one.jar");
+    Path desugaredJar = desugarJar(INNER_JAR, "lambdas_one.jar");
 
-    System.out.println(desugaredJar.toString());
-    Path innerArchive = buildDexArchive(desugaredJar, "inner_one.jar.dex.zip");
+    Path innerArchive = buildDexArchive(desugaredJar, "lambdas_one.jar.dex.zip");
 
     // Pick a sufficiently high number to guarantee all classes fit
     ImmutableList<Path> outputArchives =
-        runDexSplitter(256, "inner_input_one", innerArchive);
+        runDexSplitter(256, "lambdas_input_one", innerArchive);
 
     assertThat(outputArchives).hasSize(1);
   }
 
   @Test
-  public void testInnerClasses_doNotFit() throws Exception {
-    Path desugaredJar = desugarJar(INNER_JAR, "inner_fail.jar");
-    Path innerArchive = buildDexArchive(desugaredJar, "inner_fail.jar.dex.zip");
+  public void testLambdaClasses_doNotFit() throws Exception {
+    Path desugaredJar = desugarJar(INNER_JAR, "lambdas_fail.jar");
+    Path innerArchive = buildDexArchive(desugaredJar, "lambdas_fail.jar.dex.zip");
 
     try {
       ImmutableList<Path> outputArchives =
       // Pick a sufficiently small number to guarantee fields wont fit
       // (OuterClass has 21 methods)
-      runDexSplitter(20, "inner_input_fail", innerArchive);
+      runDexSplitter(20, "lambdas_input_fail", innerArchive);
       fail("IllegalStateException expected");
     } catch (IllegalStateException e) {
       assertThat(e).hasMessageThat().contains("Impossible to fit");
     }
   }
-
-
-
 
   private static Iterable<String> expectedMainDexEntries() throws IOException {
     return Iterables.transform(

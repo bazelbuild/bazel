@@ -20,6 +20,7 @@ interface Inner {
 public class OuterClass {
   public void foo() {
 
+    // Syntethic lambdas should be packed together.
     Inner in1 = () -> {
     };
     Inner in2 = () -> {
@@ -32,5 +33,19 @@ public class OuterClass {
     };
     Inner in6 = () -> {
     };
+  }
+
+  // Plain inner classes may be packed in a different shard.
+  private static class InnerClass0 {
+  }
+  private static class InnerClass1 {
+  }
+  private static class InnerClass2 {
+  }
+  private static class InnerClass3 {
+  }
+  private static class InnerClass4 {
+  }
+  private static class InnerClass5 {
   }
 }

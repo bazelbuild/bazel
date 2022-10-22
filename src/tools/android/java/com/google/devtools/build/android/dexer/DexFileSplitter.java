@@ -271,9 +271,9 @@ class DexFileSplitter implements Closeable {
     closer.close();
   }
 
-  private boolean isOuterClass(String classFile) {
+  private boolean isLambda(String classFile) {
     String components[] = classFile.split("/");
-    return !components[components.length-1].contains("$");
+    return components[components.length-1].contains("ExternalSyntheticLambda");
   }
 
   private void processDexFiles(
@@ -288,10 +288,10 @@ class DexFileSplitter implements Closeable {
     for (Map.Entry<String, ZipFile> entry : filesToProcess) {
       String filename = entry.getKey();
       if (filter.test(filename)) {
-        boolean isOuter = isOuterClass(filename);
+        boolean isLambda = isLambda(filename);
 
-	    // TODO: optimize- this currently creates a list of size one for most cases
-	 if (isOuter) {
+	 // TODO: optimize- this currently creates a list of size one for most cases
+	 if (!isLambda) {
 	    if (!zipEntries.isEmpty()) {
 		processDexEntries(zipEntries);
 	    }
