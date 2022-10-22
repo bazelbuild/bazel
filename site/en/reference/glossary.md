@@ -536,7 +536,8 @@ dependencies form the basis of the [target graph](#target-graph).
 
 Aside from rule targets, there are also file targets and [package group](#package-group)
 targets. File targets correspond to [artifacts](#artifact) that are referenced
-within a `BUILD` file.
+within a `BUILD` file. As a special case, the `BUILD` file of any package is
+always considered a source file target in that package.
 
 Targets are discovered during the [loading phase](#loading-phase). During the
 [analysis phase](#analysis-phase), targets are associated with [build
@@ -605,12 +606,13 @@ instead register the tree artifact as its input or output.
 
 ### Visibility {:#visibility}
 
-Defines whether a [target](#target) can be depended upon by other targets. By
-default, target visibility is private. That is, the target can only be depended
-upon by other targets in the same [package](#package). Can be made visible to
-specific packages or be completely public.
+One of two mechanisms for preventing unwanted dependencies in the build system:
+*target visibility* for controlling whether a [target](#target) can be depended
+upon by other targets; and *load visibility* for controlling whether a `BUILD`
+or `.bzl` file may load a given `.bzl` file. Without context, usually
+"visibility" refers to target visibility.
 
-**See also:** [Visibility documentation](/reference/be/common-definitions#common-attributes)
+**See also:** [Visibility documentation](/concepts/visibility)
 
 ### Workspace {:#workspace}
 

@@ -93,7 +93,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final StrictDepsMode strictJavaDeps;
   private final String fixDepsTool;
   private final Label proguardBinary;
-  private final ImmutableList<Label> extraProguardSpecs;
   private final NamedLabel bytecodeOptimizer;
   private final boolean runLocalJavaOptimizations;
   private final ImmutableList<Label> localJavaOptimizationConfiguration;
@@ -132,7 +131,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.strictJavaDeps = javaOptions.strictJavaDeps;
     this.fixDepsTool = javaOptions.fixDepsTool;
     this.proguardBinary = javaOptions.proguard;
-    this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
     this.runLocalJavaOptimizations = javaOptions.runLocalJavaOptimizations;
     this.localJavaOptimizationConfiguration =
         ImmutableList.copyOf(javaOptions.localJavaOptimizationConfiguration);
@@ -298,11 +296,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   @Nullable
   public Label getProguardBinary() {
     return proguardBinary;
-  }
-
-  /** Returns all labels provided with --extra_proguard_specs. */
-  public ImmutableList<Label> getExtraProguardSpecs() {
-    return extraProguardSpecs;
   }
 
   /**

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
@@ -24,17 +26,20 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
+import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
 
 /**
@@ -46,11 +51,56 @@ public class ToplevelArtifactsDownloader {
 
   private final MemoizingEvaluator memoizingEvaluator;
   private final AbstractActionInputPrefetcher actionInputPrefetcher;
+  private final PathToMetadataConverter pathToMetadataConverter;
 
   public ToplevelArtifactsDownloader(
-      MemoizingEvaluator memoizingEvaluator, AbstractActionInputPrefetcher actionInputPrefetcher) {
+      MemoizingEvaluator memoizingEvaluator,
+      AbstractActionInputPrefetcher actionInputPrefetcher,
+      PathToMetadataConverter pathToMetadataConverter) {
     this.memoizingEvaluator = memoizingEvaluator;
     this.actionInputPrefetcher = actionInputPrefetcher;
+    this.pathToMetadataConverter = pathToMetadataConverter;
+  }
+
+  /**
+   * Interface that converts {@link Path} to metadata {@link FileArtifactValue}.
+   *
+   * <p>{@link ToplevelArtifactsDownloader} is only used with {@code ActionFileSystem} together. If
+   * we see a {@link Path}, its underlying file system must be {@code ActionFileSystem}. We use this
+   * interface to avoid passing in the actionFs implementation.
+   */
+  public interface PathToMetadataConverter {
+    @Nullable
+    FileArtifactValue getMetadata(Path path);
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void onTestAttempt(TestAttempt event) {
+    for (Pair<String, Path> pair : event.getFiles()) {
+      Path path = checkNotNull(pair.getSecond());
+      // Since the event is fired within action execution, the skyframe doesn't know the outputs of
+      // test actions yet, so we can't get their metadata through skyframe. However, the fileSystem
+      // of the path is an ActionFileSystem, we use it to get the metadata for this file.
+      FileArtifactValue metadata = pathToMetadataConverter.getMetadata(path);
+      if (metadata != null) {
+        ListenableFuture<Void> future =
+            actionInputPrefetcher.downloadFileAsync(path.asFragment(), metadata, Priority.LOW);
+        addCallback(
+            future,
+            new FutureCallback<Void>() {
+              @Override
+              public void onSuccess(Void unused) {}
+
+              @Override
+              public void onFailure(Throwable throwable) {
+                logger.atWarning().withCause(throwable).log(
+                    "Failed to download test output %s.", path);
+              }
+            },
+            directExecutor());
+      }
+    }
   }
 
   @Subscribe
@@ -60,8 +110,7 @@ public class ToplevelArtifactsDownloader {
       return;
     }
 
-    downloadTargetOutputs(
-        event.getCompletionContext(), event.getOutputGroups(), /* runfiles = */ null);
+    downloadTargetOutputs(event.getOutputGroups(), /* runfiles = */ null);
   }
 
   @Subscribe
@@ -72,30 +121,24 @@ public class ToplevelArtifactsDownloader {
     }
 
     downloadTargetOutputs(
-        event.getCompletionContext(),
         event.getOutputs(),
         event.getExecutableTargetData().getRunfiles());
   }
 
   private void downloadTargetOutputs(
-      CompletionContext completionContext,
-      ImmutableMap<String, ArtifactsInOutputGroup> outputGroups,
-      @Nullable Runfiles runfiles) {
+      ImmutableMap<String, ArtifactsInOutputGroup> outputGroups, @Nullable Runfiles runfiles) {
 
     var builder = ImmutableMap.<ActionInput, FileArtifactValue>builder();
-    for (ArtifactsInOutputGroup outputs : outputGroups.values()) {
-      if (!outputs.areImportant()) {
-        continue;
-      }
-      for (Artifact output : outputs.getArtifacts().toList()) {
-        var metadata = completionContext.getFileArtifactValue(output);
-        if (metadata != null) {
-          builder.put(output, metadata);
+    try {
+      for (ArtifactsInOutputGroup outputs : outputGroups.values()) {
+        if (!outputs.areImportant()) {
+          continue;
+        }
+        for (Artifact output : outputs.getArtifacts().toList()) {
+          appendArtifact(output, builder);
         }
       }
-    }
 
-    try {
       appendRunfiles(runfiles, builder);
     } catch (InterruptedException ignored) {
       Thread.currentThread().interrupt();
@@ -105,7 +148,9 @@ public class ToplevelArtifactsDownloader {
     var outputsAndMetadata = builder.buildKeepingLast();
     ListenableFuture<Void> future =
         actionInputPrefetcher.prefetchFiles(
-            outputsAndMetadata.keySet(),
+            outputsAndMetadata.keySet().stream()
+                .filter(ToplevelArtifactsDownloader::isNonTreeArtifact)
+                .collect(toImmutableSet()),
             new StaticMetadataProvider(outputsAndMetadata),
             Priority.LOW);
 
@@ -123,6 +168,10 @@ public class ToplevelArtifactsDownloader {
         directExecutor());
   }
 
+  private static boolean isNonTreeArtifact(ActionInput actionInput) {
+    return !(actionInput instanceof Artifact && ((Artifact) actionInput).isTreeArtifact());
+  }
+
   private void appendRunfiles(
       @Nullable Runfiles runfiles, ImmutableMap.Builder<ActionInput, FileArtifactValue> builder)
       throws InterruptedException {
@@ -131,21 +180,22 @@ public class ToplevelArtifactsDownloader {
     }
 
     for (Artifact runfile : runfiles.getArtifacts().toList()) {
-      var actionExecutionValue =
-          (ActionExecutionValue) memoizingEvaluator.getExistingValue(Artifact.key(runfile));
-      if (actionExecutionValue != null) {
-        if (runfile.isTreeArtifact()) {
-          TreeArtifactValue metadata = actionExecutionValue.getAllTreeArtifactValues().get(runfile);
-          if (metadata != null) {
-            builder.putAll(metadata.getChildValues());
-          }
-        } else {
-          FileArtifactValue metadata = actionExecutionValue.getAllFileValues().get(runfile);
-          if (metadata != null) {
-            builder.put(runfile, metadata);
-          }
-        }
+      appendArtifact(runfile, builder);
+    }
+  }
+
+  private void appendArtifact(
+      Artifact artifact, ImmutableMap.Builder<ActionInput, FileArtifactValue> builder)
+      throws InterruptedException {
+    SkyValue value = memoizingEvaluator.getExistingValue(Artifact.key(artifact));
+    if (value instanceof ActionExecutionValue) {
+      FileArtifactValue metadata = ((ActionExecutionValue) value).getAllFileValues().get(artifact);
+      if (metadata != null) {
+        builder.put(artifact, metadata);
       }
+    } else if (value instanceof TreeArtifactValue) {
+      builder.put(artifact, ((TreeArtifactValue) value).getMetadata());
+      builder.putAll(((TreeArtifactValue) value).getChildValues());
     }
   }
 }

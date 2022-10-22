@@ -471,7 +471,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
-        "//a:foo.bzl", "module //a:foo.bzl contains .bzl load-visibility violations");
+        "//a:foo.bzl", "module //a:foo.bzl contains .bzl load visibility violations");
     assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a.");
   }
 
@@ -491,7 +491,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
-        "//a:foo.bzl", "module //a:foo.bzl contains .bzl load-visibility violations");
+        "//a:foo.bzl", "module //a:foo.bzl contains .bzl load visibility violations");
     assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a.");
   }
 
@@ -537,7 +537,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     assertNoEvents();
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
-        "//a2:foo.bzl", "module //a2:foo.bzl contains .bzl load-visibility violations");
+        "//a2:foo.bzl", "module //a2:foo.bzl contains .bzl load visibility violations");
     assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a2.");
   }
 
@@ -564,7 +564,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
         "//a:foo.bzl",
-        "at /workspace/a/foo.bzl:1:6: module //b:bar.bzl contains .bzl load-visibility violations");
+        "at /workspace/a/foo.bzl:1:6: module //b:bar.bzl contains .bzl load visibility violations");
     assertContainsEvent("Starlark file //c:baz.bzl is not visible for loading from package //b.");
   }
 
@@ -581,7 +581,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
-    assertContainsEvent(".bzl visibility may only be set at the top level");
+    assertContainsEvent("load visibility may only be set at the top level");
   }
 
   @Test
@@ -596,7 +596,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
-    assertContainsEvent(".bzl visibility may not be set more than once");
+    assertContainsEvent("load visibility may not be set more than once");
   }
 
   @Test
@@ -622,7 +622,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
-        "//a2:foo2.bzl", "module //a2:foo2.bzl contains .bzl load-visibility violations");
+        "//a2:foo2.bzl", "module //a2:foo2.bzl contains .bzl load visibility violations");
     assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a2.");
   }
 
@@ -650,7 +650,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
-        "//a2:foo2.bzl", "module //a2:foo2.bzl contains .bzl load-visibility violations");
+        "//a2:foo2.bzl", "module //a2:foo2.bzl contains .bzl load visibility violations");
     assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a2.");
   }
 
@@ -686,7 +686,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
-        "//pkg:foo2.bzl", "module //pkg:foo2.bzl contains .bzl load-visibility violations");
+        "//pkg:foo2.bzl", "module //pkg:foo2.bzl contains .bzl load visibility violations");
     assertContainsEvent(
         "Starlark file @repo//lib:bar.bzl is not visible for loading from package //pkg.");
   }
@@ -743,7 +743,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
-        "@repo//a:foo.bzl", "module @repo//a:foo.bzl contains .bzl load-visibility violations");
+        "@repo//a:foo.bzl", "module @repo//a:foo.bzl contains .bzl load visibility violations");
     assertContainsEvent(
         "Starlark file //b:bar.bzl is not visible for loading from package @repo//a.");
   }
@@ -772,7 +772,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
         "//a/subpkg:foo2.bzl",
-        "module //a/subpkg:foo2.bzl contains .bzl load-visibility violations");
+        "module //a/subpkg:foo2.bzl contains .bzl load visibility violations");
     assertContainsEvent(
         "Starlark file //b:bar.bzl is not visible for loading from package //a/subpkg.");
   }
@@ -813,7 +813,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
-    assertContainsEvent("Invalid bzl-visibility: got 'int', want string or list of strings");
+    assertContainsEvent("Invalid visibility: got 'int', want string or list of strings");
   }
 
   @Test

@@ -350,7 +350,7 @@ public class TestRunnerAction extends AbstractAction
     if (testConfiguration.getZipUndeclaredTestOutputs()) {
       outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsZipPath()));
     } else {
-      outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsDir()));
+      outputs.add(ActionInputHelper.fromPathToDirectory(getUndeclaredOutputsDir()));
     }
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsManifestPath()));
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsAnnotationsPath()));

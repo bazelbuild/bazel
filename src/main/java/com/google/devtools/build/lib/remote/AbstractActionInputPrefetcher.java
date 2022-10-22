@@ -385,7 +385,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   public void downloadFile(Path path, FileArtifactValue metadata)
       throws IOException, InterruptedException {
-    getFromFuture(toListenableFuture(downloadFileRx(path, metadata, Priority.CRITICAL)));
+    getFromFuture(downloadFileAsync(path.asFragment(), metadata, Priority.CRITICAL));
+  }
+
+  protected ListenableFuture<Void> downloadFileAsync(
+      PathFragment path, FileArtifactValue metadata, Priority priority) {
+    return toListenableFuture(
+        downloadFileRx(execRoot.getFileSystem().getPath(path), metadata, priority));
   }
 
   private void finalizeDownload(Path tmpPath, Path path) throws IOException {

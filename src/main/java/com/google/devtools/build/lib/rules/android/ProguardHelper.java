@@ -22,7 +22,6 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -171,8 +170,7 @@ public final class ProguardHelper {
       RuleContext ruleContext, Iterable<Artifact> specsToInclude) {
     return collectTransitiveProguardSpecs(
         ruleContext,
-        Iterables.concat(
-            specsToInclude, ruleContext.getPrerequisiteArtifacts(":extra_proguard_specs").list()),
+        specsToInclude,
         ruleContext.attributes().has(PROGUARD_SPECS, BuildType.LABEL_LIST)
             ? ruleContext.getPrerequisiteArtifacts(PROGUARD_SPECS).list()
             : ImmutableList.<Artifact>of(),

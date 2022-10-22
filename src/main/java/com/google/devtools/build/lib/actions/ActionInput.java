@@ -41,6 +41,9 @@ public interface ActionInput {
    */
   PathFragment getExecPath();
 
+  /** The input is a directory. */
+  boolean isDirectory();
+
   /** The input is a symlink that is supposed to stay un-dereferenced. */
   boolean isSymlink();
 

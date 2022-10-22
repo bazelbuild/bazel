@@ -28,7 +28,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -4369,78 +4368,6 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
     output = getConfiguredTarget("//java/com/google/android/hello:b2");
     assertProguardUsed(output);
     assertThat(output.get(ProguardMappingProvider.PROVIDER)).isNull();
-  }
-
-  @Test
-  public void testLegacyOptimizationModeUsesExtraProguardSpecs() throws Exception {
-    useConfiguration(
-        "--extra_proguard_specs=java/com/google/android/hello:extra.pro",
-        "--experimental_use_dex_splitter_for_incremental_dexing=false",
-        "--experimental_incremental_dexing_after_proguard_by_default=false",
-        "--experimental_incremental_dexing_after_proguard=1");
-    scratch.file(
-        "java/com/google/android/hello/BUILD",
-        "exports_files(['extra.pro'])",
-        "android_binary(name = 'b',",
-        "               srcs = ['HelloApp.java'],",
-        "               manifest = 'AndroidManifest.xml',",
-        "               proguard_specs = ['proguard-spec.pro'])");
-    checkProguardUse(
-        getConfiguredTarget("//java/com/google/android/hello:b"),
-        "b_proguard.jar",
-        false,
-        /*passes=*/ null,
-        // no-op since passes is null.
-        /*bytecodeOptimizationPassActions=*/ 0,
-        getAndroidJarPath());
-
-    SpawnAction action =
-        (SpawnAction)
-            actionsTestUtil()
-                .getActionForArtifactEndingWith(
-                    getFilesToBuild(getConfiguredTarget("//java/com/google/android/hello:b")),
-                    "_proguard.jar");
-    assertThat(prettyArtifactNames(action.getInputs())).containsNoDuplicates();
-    assertThat(Collections2.filter(action.getArguments(), arg -> arg.startsWith("@")))
-        .containsExactly(
-            "@" + execPathEndingWith(action.getInputs(), "/proguard-spec.pro"),
-            "@" + execPathEndingWith(action.getInputs(), "/_b_proguard.cfg"),
-            "@java/com/google/android/hello/extra.pro");
-  }
-
-  @Test
-  public void testExtraProguardSpecsDontDuplicateProguardInputFiles() throws Exception {
-    useConfiguration(
-        "--extra_proguard_specs=java/com/google/android/hello:proguard-spec.pro",
-        "--experimental_use_dex_splitter_for_incremental_dexing=false",
-        "--experimental_incremental_dexing_after_proguard_by_default=false",
-        "--experimental_incremental_dexing_after_proguard=1");
-    scratch.file(
-        "java/com/google/android/hello/BUILD",
-        "android_binary(name = 'b',",
-        "               srcs = ['HelloApp.java'],",
-        "               manifest = 'AndroidManifest.xml',",
-        "               proguard_specs = ['proguard-spec.pro'])");
-    checkProguardUse(
-        getConfiguredTarget("//java/com/google/android/hello:b"),
-        "b_proguard.jar",
-        false,
-        /*passes=*/ null,
-        // no-op since passes is null.
-        /*bytecodeOptimizationPassActions=*/ 0,
-        getAndroidJarPath());
-
-    SpawnAction action =
-        (SpawnAction)
-            actionsTestUtil()
-                .getActionForArtifactEndingWith(
-                    getFilesToBuild(getConfiguredTarget("//java/com/google/android/hello:b")),
-                    "_proguard.jar");
-    assertThat(prettyArtifactNames(action.getInputs())).containsNoDuplicates();
-    assertThat(Collections2.filter(action.getArguments(), arg -> arg.startsWith("@")))
-        .containsExactly(
-            "@java/com/google/android/hello/proguard-spec.pro",
-            "@" + execPathEndingWith(action.getInputs(), "/_b_proguard.cfg"));
   }
 
   @Test

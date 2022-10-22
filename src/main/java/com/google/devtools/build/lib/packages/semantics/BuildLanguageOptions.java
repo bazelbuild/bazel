@@ -165,7 +165,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      help = "If disabled, bzl-visibility errors in load() statements are demoted to warnings.")
+      help = "If disabled, .bzl load visibility errors are demoted to warnings.")
   public boolean checkBzlVisibility;
 
   @Option(

@@ -205,17 +205,19 @@ not themselves have any visibility protection.</p>
         empty list, which is also the same as setting it to a list containing
         only <code>private</code>.
 
-        <p><i>Note:</i> The specification <code>//...</code> has a legacy behavior
-        of being the same as <code>public</code>. This behavior is disabled when
+        <p><i>Note:</i> Prior to Bazel 6.0, the specification <code>//...</code>
+        had a legacy behavior of being the same as <code>public</code>. This
+        behavior is fixed when
         <code>--incompatible_fix_package_group_reporoot_syntax</code> is
-        enabled.</p>
+        enabled, which is the default after Bazel 6.0.</p>
 
-        <p><i>Note:</i> As a legacy behavior, when this attribute is serialized as
+        <p><i>Note:</i> Prior to Bazel 6.0, when this attribute is serialized as
         part of <code>bazel query --output=proto</code> (or
-        <code>--output=xml</code>), the leading slashes are omitted if
-        <code>--incompatible_package_group_includes_double_slash</code> is not
-        enabled. For instance, <code>//pkg/foo/...</code> will output as
-        <code>\"pkg/foo/...\"</code>.</p>
+        <code>--output=xml</code>), the leading slashes are omitted. For
+        instance, <code>//pkg/foo/...</code> will output as
+        <code>\"pkg/foo/...\"</code>. This behavior is fixed when
+        <code>--incompatible_package_group_includes_double_slash</code> is
+        enabled, which is the default after Bazel 6.0.</p>
       </td>
     </tr>
     <tr>

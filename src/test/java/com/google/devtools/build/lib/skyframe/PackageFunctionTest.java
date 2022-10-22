@@ -784,7 +784,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(ex)
         .hasMessageThat()
         .contains(
-            "error loading package 'a': file //a:BUILD contains .bzl load-visibility violations");
+            "error loading package 'a': file //a:BUILD contains .bzl load visibility violations");
     assertDetailedExitCode(
         ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
     assertContainsEvent("Starlark file //b:foo.bzl is not visible for loading from package //a.");

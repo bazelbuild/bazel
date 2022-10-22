@@ -212,8 +212,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
 
     // Load the .bzl module.
     try {
-      // TODO(b/22193153, wyv): Determine whether bzl-visibility should apply at all to this type of
-      // bzl load. As it stands, this call checks that bzlFile is visible to package @//.
+      // TODO(b/22193153, wyv): Determine whether .bzl load visibility should apply at all to this
+      // type of .bzl load. As it stands, this call checks that bzlFile is visible to package @//.
       return PackageFunction.loadBzlModules(
           env,
           PackageIdentifier.EMPTY_PACKAGE_ID,

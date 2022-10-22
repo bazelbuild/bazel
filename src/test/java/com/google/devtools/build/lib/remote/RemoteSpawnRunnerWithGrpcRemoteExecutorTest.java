@@ -212,6 +212,11 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                   }
 
                   @Override
+                  public boolean isDirectory() {
+                    return false;
+                  }
+
+                  @Override
                   public boolean isSymlink() {
                     return false;
                   }
@@ -225,6 +230,11 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                   @Override
                   public String getExecPathString() {
                     return "bar";
+                  }
+
+                  @Override
+                  public boolean isDirectory() {
+                    return false;
                   }
 
                   @Override

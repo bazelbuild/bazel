@@ -157,13 +157,6 @@ public interface JavaSemantics {
           (rule, attributes, javaConfig) -> javaConfig.getProguardBinary());
 
   @SerializationConstant
-  LabelListLateBoundDefault<JavaConfiguration> EXTRA_PROGUARD_SPECS =
-      LabelListLateBoundDefault.fromTargetConfiguration(
-          JavaConfiguration.class,
-          (rule, attributes, javaConfig) ->
-              ImmutableList.copyOf(javaConfig.getExtraProguardSpecs()));
-
-  @SerializationConstant
   LabelLateBoundDefault<JavaConfiguration> BYTECODE_OPTIMIZER =
       LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
