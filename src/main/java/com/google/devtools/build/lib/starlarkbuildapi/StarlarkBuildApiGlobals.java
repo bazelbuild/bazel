@@ -67,9 +67,12 @@ public interface StarlarkBuildApiGlobals {
                     + " specification. (An empty list has the same effect as <code>private</code>.)"
                     + " If <code>value</code> is a single string, it is treated as if it were the"
                     + " singleton list <code>[value]</code>."
-                    + "<p>Note that the specification <code>\"//...\"</code> is always interpreted"
-                    + " as \"all packages in the current repository\", regardless of the value of"
-                    + " the <code>--incompatible_fix_package_group_reporoot_syntax</code> flag.")
+                    + "<p>Note that the flags"
+                    + " <code>--incompatible_package_group_has_public_syntax</code> and"
+                    + " <code>--incompatible_fix_package_group_reporoot_syntax</code> have no"
+                    + " effect on this argument. The <code>\"public\"</code> and <code>\"private\""
+                    + "</code> values are always available, and <code>\"//...\"</code> is always"
+                    + " interpreted as \"all packages in the current repository\".")
       },
       // Ordinarily we'd use enableOnlyWithFlag here to gate access on
       // --experimental_bzl_visibility. However, the StarlarkSemantics isn't available at the point

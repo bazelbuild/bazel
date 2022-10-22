@@ -606,12 +606,13 @@ instead register the tree artifact as its input or output.
 
 ### Visibility {:#visibility}
 
-Defines whether a [target](#target) can be depended upon by other targets. By
-default, target visibility is private. That is, the target can only be depended
-upon by other targets in the same [package](#package). Can be made visible to
-specific packages or be completely public.
+One of two mechanisms for preventing unwanted dependencies in the build system:
+*target visibility* for controlling whether a [target](#target) can be depended
+upon by other targets; and *load visibility* for controlling whether a `BUILD`
+or `.bzl` file may load a given `.bzl` file. Without context, usually
+"visibility" refers to target visibility.
 
-**See also:** [Visibility documentation](/reference/be/common-definitions#common-attributes)
+**See also:** [Visibility documentation](/concepts/visibility)
 
 ### Workspace {:#workspace}
 

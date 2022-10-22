@@ -57,11 +57,13 @@ are just syntactic placeholders that do not correspond to any actual target.
 *   `"//some_pkg:my_package_group"`: Grants access to all of the packages that
     are part of the given [`package_group`](/reference/be/functions#package_group).
 
-    *   Package groups use a different syntax for specifying packages. Within a
-        package group, the forms `"//foo/bar:__pkg__"` and
-        `"//foo/bar:__subpackages__"` are respectively replaced by `"//foo/bar"`
-        and `"//foo/bar/..."`. Likewise, `"//visibility:public"` and
-        `"//visibility:private"` are just `"public"` and `"private"`.
+    *   Package groups use a
+        [different syntax](/reference/be/functions#package_group.packages) for
+        specifying packages. Within a package group, the forms
+        `"//foo/bar:__pkg__"` and `"//foo/bar:__subpackages__"` are respectively
+        replaced by `"//foo/bar"` and `"//foo/bar/..."`. Likewise,
+        `"//visibility:public"` and `"//visibility:private"` are just `"public"`
+        and `"private"`.
 
 For example, if `//some/package:mytarget` has its `visibility` set to
 `[":__subpackages__", "//tests:__pkg__"]`, then it could be used by any target
@@ -248,11 +250,208 @@ private so long as it lives in the same package as the definition of the
 **Load visibility** controls whether a `.bzl` file may be loaded from other
 `BUILD` or `.bzl` files.
 
-`BUILD` and `.bzl` files, as processed by Bazel during loading, are not
-considered to be targets and therefore are not subject to visibility. It is
-possible to load a `.bzl` file from anywhere in the workspace.
+In the same way that target visibility protects source code that is encapsulated
+by targets, load visibility protects build logic that is encapsulated by `.bzl`
+files. For instance, a `BUILD` file author might wish to factor some repetitive
+target definitions into a macro in a `.bzl` file. Without the protection of load
+visibility, they might find their macro reused by other collaborators in the
+same workspace, so that modifying the macro breaks other teams' builds.
 
-However, users may choose to run the Buildifier linter.
-The [bzl-visibility](https://github.com/bazelbuild/buildtools/blob/master/WARNINGS.md#bzl-visibility)
-check provides a warning if users `load` from beneath a subdirectory named
-`internal` or `private`.
+Note that a `.bzl` file may or may not have a corresponding source file target.
+If it does, there is no guarantee that the load visibility and the target
+visibility coincide. That is, the same `BUILD` file might be able to load the
+`.bzl` file but not list it in the `srcs` of a [`filegroup`](/reference/be/general#filegroup),
+or vice versa. This can sometimes cause problems for rules that wish to consume
+`.bzl` files as source code, such as for documentation generation or testing.
+
+For prototyping, you may disable load visibility enforcement by setting
+`--check_bzl_visibility=false`. As with `--check_visibility=false`, this should
+not be done for submitted code.
+
+Load visibility is available as of Bazel 6.0.
+
+### Declaring load visibility {:#declaring-load-visibility}
+
+To set the load visibility of a `.bzl` file, call the
+[`visibility()`](/rules/lib/globals#visibility) function from within the file.
+The argument to `visibility()` is a list of package specifications, just like
+the [`packages`](/reference/be/functions#package_group.packages) attribute of
+`package_group`. However, `visibility()` does not accept negative package
+specifications.
+
+The call to `visibility()` must only occur once per file, at the top level (not
+inside a function), and ideally immediately following the `load()` statements.
+
+Unlike target visibility, the default load visibility is always public. Files
+that do not call `visibility()` are always loadable from anywhere in the
+workspace. It is a good idea to add `visibility("private")` to the top of any
+new `.bzl` file that is not specifically intended for use outside the package.
+
+### Example {:#load-visibility-example}
+
+```python
+# //mylib/internal_defs.bzl
+
+# Available to subpackages and to mylib's tests.
+visibility(["//mylib/...", "//tests/mylib/..."])
+
+def helper(...):
+    ...
+```
+
+```python
+# //mylib/rules.bzl
+
+load(":internal_defs.bzl", "helper")
+# Set visibility explicitly, even though public is the default.
+# Note the [] can be omitted when there's only one entry.
+visibility("public")
+
+myrule = rule(
+    ...
+)
+```
+
+```python
+# //someclient/BUILD
+
+load("//mylib:rules.bzl", "myrule")          # ok
+load("//mylib:internal_defs.bzl", "helper")  # error
+
+...
+```
+
+### Load visibility practices {:#load-visibility-practices}
+
+This section describes tips for managing load visibility declarations.
+
+#### Factoring visibilities {:#factoring-visibilities}
+
+When multiple `.bzl` files should have the same visibility, it can be helpful to
+factor their package specifications into a common list. For example:
+
+```python
+# //mylib/internal_defs.bzl
+
+visibility("private")
+
+clients = [
+    "//foo",
+    "//bar/baz/...",
+    ...
+]
+```
+
+```python
+# //mylib/feature_A.bzl
+
+load(":internal_defs.bzl", "clients")
+visibility(clients)
+
+...
+```
+
+```python
+# //mylib/feature_B.bzl
+
+load(":internal_defs.bzl", "clients")
+visibility(clients)
+
+...
+```
+
+This helps prevent accidental skew between the various `.bzl` files'
+visibilities. It also is more readable when the `clients` list is large.
+
+#### Composing visibilities {:#composing-visibilities}
+
+Sometimes a `.bzl` file might need to be visible to an allowlist that is
+composed of multiple smaller allowlists. This is analogous to how a
+`package_group` can incorporate other `package_group`s via its
+[`includes`](/reference/be/functions#package_group.includes) attribute.
+
+Suppose you are deprecating a widely used macro. You want it to be visible only
+to existing users and to the packages owned by your own team. You might write:
+
+```python
+# //mylib/macros.bzl
+
+load(":internal_defs.bzl", "our_packages")
+load("//some_big_client:defs.bzl", "their_remaining_uses)
+
+# List concatenation. Duplicates are fine.
+visibility(our_packages + their_remaining_uses)
+```
+
+#### Deduplicating with package groups {:#deduplicating-with-package-groups}
+
+Unlike target visibility, you cannot define a load visibility in terms of a
+`package_group`. If you want to reuse the same allowlist for both target
+visibility and load visibility, it's best to move the list of package
+specifications into a .bzl file, where both kinds of declarations may refer to
+it. Building off the example in [Factoring visibilities](#factoring-visibilities)
+above, you might write:
+
+```python
+# //mylib/BUILD
+
+load(":internal_defs", "clients")
+
+package_group(
+    name = "my_pkg_grp",
+    packages = clients,
+)
+```
+
+This only works if the list does not contain any negative package
+specifications.
+
+#### Protecting individual symbols {:#protecting-individual-symbols}
+
+Any Starlark symbol whose name begins with an underscore cannot be loaded from
+another file. This makes it easy to create private symbols, but does not allow
+you to share these symbols with a limited set of trusted files. On the other
+hand, load visibility gives you control over what other packages may see your
+`.bzl file`, but does not allow you to prevent any non-underscored symbol from
+being loaded.
+
+Luckily, you can combine these two features to get fine-grained control.
+
+```python
+# //mylib/internal_defs.bzl
+
+# Can't be public, because internal_helper shouldn't be exposed to the world.
+visibility("private")
+
+# Can't be underscore-prefixed, because this is
+# needed by other .bzl files in mylib.
+def internal_helper(...):
+    ...
+
+def public_util(...):
+    ...
+```
+
+```python
+# //mylib/defs.bzl
+
+load(":internal_defs", "internal_helper", _public_util="public_util")
+visibility("public")
+
+# internal_helper, as a loaded symbol, is available for use in this file but
+# can't be imported by clients who load this file.
+...
+
+# Re-export public_util from this file by assigning it to a global variable.
+# We needed to import it under a different name ("_public_util") in order for
+# this assignment to be legal.
+public_util = _public_util
+```
+
+#### bzl-visibility Buildifier lint {:#bzl-visibility-buildifier-lint}
+
+There is a [Buildifier lint](https://github.com/bazelbuild/buildtools/blob/master/WARNINGS.md#bzl-visibility)
+that provides a warning if users load a file from a directory named `internal`
+or `private`, when the user's file is not itself underneath the parent of that
+directory. This lint predates the load visibility feature and is unnecessary in
+workspaces where `.bzl` files declare visibilities.
