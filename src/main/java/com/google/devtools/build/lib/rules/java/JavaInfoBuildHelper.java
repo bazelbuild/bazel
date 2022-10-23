@@ -301,6 +301,10 @@ final class JavaInfoBuildHelper {
                     .addAll(
                         javaSemantics.getCompatibleJavacOptions(
                             starlarkRuleContext.getRuleContext(), toolchainProvider))
+                    // Consumed by com.google.devtools.build.runfiles.AutoBazelRepositoryProcessor.
+                    .add(
+                        "-Abazel.repository=" + starlarkRuleContext.getRuleContext().getRepository()
+                            .getName())
                     .addAll(
                         JavaCommon.computePerPackageJavacOpts(
                             starlarkRuleContext.getRuleContext(), toolchainProvider))

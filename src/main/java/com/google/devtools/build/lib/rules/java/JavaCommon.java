@@ -374,6 +374,8 @@ public class JavaCommon {
     return ImmutableList.<String>builder()
         .addAll(javaToolchain.getJavacOptions(ruleContext))
         .addAll(extraRuleJavacOpts)
+        // Consumed by com.google.devtools.build.runfiles.AutoBazelRepositoryProcessor.
+        .add("-Abazel.repository=" + ruleContext.getRepository().getName())
         .addAll(computePerPackageJavacOpts(ruleContext, javaToolchain))
         .addAll(addModuleJavacopts(ruleContext))
         .addAll(ruleContext.getExpander().withDataLocations().tokenized("javacopts"))

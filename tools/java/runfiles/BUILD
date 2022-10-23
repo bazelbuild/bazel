@@ -26,6 +26,8 @@ filegroup(
 filegroup(
     name = "java-srcs",
     srcs = [
+        "AutoBazelRepository.java",
+        "AutoBazelRepositoryProcessor.java",
         "Runfiles.java",
         "Util.java",
     ],
@@ -33,6 +35,22 @@ filegroup(
 
 java_library(
     name = "runfiles",
-    srcs = [":java-srcs"],
+    srcs = [
+        "Runfiles.java",
+        "Util.java",
+    ],
+    exported_plugins = [":auto_bazel_repository_processor"],
     visibility = ["//tools/java/runfiles/testing:__pkg__"],
+    exports = [":auto_bazel_repository"],
+)
+
+java_library(
+    name = "auto_bazel_repository",
+    srcs = ["AutoBazelRepository.java"],
+)
+
+java_plugin(
+    name = "auto_bazel_repository_processor",
+    srcs = ["AutoBazelRepositoryProcessor.java"],
+    processor_class = "com.google.devtools.build.runfiles.AutoBazelRepositoryProcessor",
 )

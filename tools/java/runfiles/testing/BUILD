@@ -15,6 +15,15 @@ filegroup(
 )
 
 java_test(
+    name = "AutoBazelRepositoryTest",
+    srcs = ["AutoBazelRepositoryTest.java"],
+    test_class = "com.google.devtools.build.runfiles.AutoBazelRepositoryTest",
+    deps = [
+        ":test_deps",
+    ],
+)
+
+java_test(
     name = "RunfilesTest",
     srcs = ["RunfilesTest.java"],
     test_class = "com.google.devtools.build.runfiles.RunfilesTest",
