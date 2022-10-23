@@ -41,6 +41,7 @@ public final class TestTargetExecutionSettings {
   private final int totalRuns;
   private final RunUnder runUnder;
   private final Artifact runUnderExecutable;
+  private final @Nullable String runUnderEnv;
   private final Artifact executable;
   private final boolean runfilesSymlinksCreated;
   @Nullable private final Path runfilesDir;
@@ -53,6 +54,7 @@ public final class TestTargetExecutionSettings {
       RuleContext ruleContext,
       RunfilesSupport runfilesSupport,
       Artifact executable,
+      @Nullable String runUnderEnv,
       Artifact instrumentedFileManifest,
       int shards,
       int runs)
@@ -74,6 +76,7 @@ public final class TestTargetExecutionSettings {
     this.testFilter = testConfig.getTestFilter();
     this.testRunnerFailFast = testConfig.getTestRunnerFailFast();
     this.executable = executable;
+    this.runUnderEnv = runUnderEnv;
     this.runfilesSymlinksCreated = runfilesSupport.isBuildRunfileLinks();
     this.runfilesDir = runfilesSupport.getRunfilesDirectory();
     this.runfiles = runfilesSupport.getRunfiles();
@@ -115,6 +118,10 @@ public final class TestTargetExecutionSettings {
 
   public RunUnder getRunUnder() {
     return runUnder;
+  }
+
+  public @Nullable String getRunUnderEnv() {
+    return runUnderEnv;
   }
 
   public Artifact getExecutable() {

@@ -174,6 +174,90 @@ public class RunCommand implements BlazeCommand {
     return args;
   }
 
+  private String computeRunUnderArgs(
+      RunUnder runUnder, ConfiguredTarget targetToRun, ConfiguredTarget runUnderTarget) {
+    String runUnderValue = runUnder.getValue();
+    if (runUnderTarget != null) {
+      // --run_under specifies a target. Get the corresponding executable.
+      // This must be an absolute path, because the run_under target is only
+      // in the runfiles of test targets.
+      runUnderValue =
+          runUnderTarget
+              .getProvider(FilesToRunProvider.class)
+              .getExecutable()
+              .getPath()
+              .getPathString();
+      // If the run_under command contains any options, make sure to add them
+      // to the command line as well.
+      List<String> opts = runUnder.getOptions();
+      if (!opts.isEmpty()) {
+        runUnderValue += " " + ShellEscaper.escapeJoinAll(opts);
+      }
+    }
+
+    return runUnderValue;
+  }
+
+  private void constructCommandLine(
+      List<String> cmdLine,
+      List<String> prettyCmdLine,
+      CommandEnvironment env,
+      BuildConfigurationValue configuration,
+      ConfiguredTarget targetToRun,
+      ConfiguredTarget runUnderTarget,
+      List<String> args)
+      throws NoShellFoundException {
+    BlazeRuntime runtime = env.getRuntime();
+    String productName = runtime.getProductName();
+    Artifact executable = targetToRun.getProvider(FilesToRunProvider.class).getExecutable();
+
+    BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
+
+    PathFragment executablePath = executable.getPath().asFragment();
+    PathPrettyPrinter prettyPrinter =
+        OutputDirectoryLinksUtils.getPathPrettyPrinter(
+            runtime.getRuleClassProvider().getSymlinkDefinitions(),
+            requestOptions.getSymlinkPrefix(productName),
+            productName,
+            env.getWorkspace(),
+            requestOptions.printWorkspaceInOutputPathsIfNeeded
+                ? env.getWorkingDirectory()
+                : env.getWorkspace());
+    PathFragment prettyExecutablePath =
+        prettyPrinter.getPrettyPath(executable.getPath().asFragment());
+
+    RunEnvironmentInfo runEnvironmentInfo =
+        (RunEnvironmentInfo) targetToRun.get(RunEnvironmentInfo.PROVIDER.getKey());
+    boolean runUnderEnvDefined =
+        (runEnvironmentInfo != null && runEnvironmentInfo.getRunUnderEnv() != null);
+
+    RunUnder runUnder = env.getOptions().getOptions(CoreOptions.class).runUnder;
+    // Insert the command prefix specified by the "--run_under=<command-prefix>" option at
+    // the start of the command line whenever RunEnvironmentInfo.run_under_env is not used.
+    if (runUnder != null && !runUnderEnvDefined) {
+      String runUnderValue = computeRunUnderArgs(runUnder, targetToRun, runUnderTarget);
+
+      PathFragment shellExecutable = ShToolchain.getPathForHost(configuration);
+      if (shellExecutable.isEmpty()) {
+        throw new NoShellFoundException();
+      }
+
+      cmdLine.add(shellExecutable.getPathString());
+      cmdLine.add("-c");
+      cmdLine.add(runUnderValue + " " + executablePath.getPathString() + " "
+          + ShellEscaper.escapeJoinAll(args));
+      prettyCmdLine.add(shellExecutable.getPathString());
+      prettyCmdLine.add("-c");
+      prettyCmdLine.add(runUnderValue + " " + prettyExecutablePath.getPathString() + " "
+          + ShellEscaper.escapeJoinAll(args));
+    } else {
+      cmdLine.add(executablePath.getPathString());
+      cmdLine.addAll(args);
+      prettyCmdLine.add(prettyExecutablePath.getPathString());
+      prettyCmdLine.addAll(args);
+    }
+  }
+
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     RunOptions runOptions = options.getOptions(RunOptions.class);
@@ -555,6 +639,14 @@ public class RunCommand implements BlazeCommand {
             actionEnvironment.withAdditionalVariables(
                 environmentProvider.getEnvironment(),
                 ImmutableSet.copyOf(environmentProvider.getInheritedEnvironment()));
+        if (environmentProvider.getRunUnderEnv() != null) {
+          actionEnvironment =
+              actionEnvironment.withAdditionalVariables(
+                  ImmutableMap.of(
+                      environmentProvider.getRunUnderEnv(),
+                      computeRunUnderArgs(runUnder, targetToRun, runUnderTarget)),
+                  /* inheritedVars= */ ImmutableSet.of());
+        }
       }
       actionEnvironment.resolve(runEnvironment, env.getClientEnv());
       try {

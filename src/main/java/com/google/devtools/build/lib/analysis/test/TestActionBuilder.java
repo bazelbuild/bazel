@@ -98,12 +98,14 @@ public final class TestActionBuilder {
   private int explicitShardCount;
   private final Map<String, String> extraEnv;
   private final Set<String> extraInheritedEnv;
+  private @Nullable String runUnderEnv;
 
   public TestActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     this.extraEnv = new TreeMap<>();
     this.extraInheritedEnv = new TreeSet<>();
     this.additionalTools = new ImmutableList.Builder<>();
+    this.runUnderEnv = null;
   }
 
   /**
@@ -177,6 +179,12 @@ public final class TestActionBuilder {
   @CanIgnoreReturnValue
   public TestActionBuilder addExtraInheritedEnv(List<String> extraInheritedEnv) {
     this.extraInheritedEnv.addAll(extraInheritedEnv);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public TestActionBuilder setRunUnderEnv(@Nullable String runUnderEnv) {
+    this.runUnderEnv = runUnderEnv;
     return this;
   }
 
@@ -339,6 +347,7 @@ public final class TestActionBuilder {
               ruleContext,
               runfilesSupport,
               executable,
+              runUnderEnv,
               instrumentedFileManifest,
               shards,
               runsPerTest);
@@ -351,7 +360,7 @@ public final class TestActionBuilder {
     } else {
       executionSettings =
           new TestTargetExecutionSettings(
-              ruleContext, runfilesSupport, executable, null, shards, runsPerTest);
+              ruleContext, runfilesSupport, executable, runUnderEnv, null, shards, runsPerTest);
     }
 
     extraTestEnv.putAll(extraEnv);

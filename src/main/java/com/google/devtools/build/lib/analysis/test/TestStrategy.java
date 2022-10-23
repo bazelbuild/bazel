@@ -220,9 +220,10 @@ public abstract class TestStrategy implements TestActionContext {
     }
 
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
+    boolean includeRunUnderArgs = execSettings.getRunUnderEnv() == null;
 
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option, if any.
-    if (execSettings.getRunUnder() != null) {
+    if (includeRunUnderArgs && execSettings.getRunUnder() != null) {
       addRunUnderArgs(testAction, args, executedOnWindows);
     }
 
@@ -232,25 +233,42 @@ public abstract class TestStrategy implements TestActionContext {
     return ImmutableList.copyOf(args);
   }
 
-  private static void addRunUnderArgs(
-      TestRunnerAction testAction, List<String> args, boolean executedOnWindows) {
+  /**
+   * Get {@code --run_under} command line values.
+   *
+   * @param testAction The test action.
+   * @return the {@code --run_under} arguments as string list.
+   * @throws CommandLineExpansionException
+   */
+  public static List<String> computeRunUnderArgs(TestRunnerAction testAction) {
+    List<String> args = Lists.newArrayList();
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
     if (execSettings.getRunUnderExecutable() != null) {
       args.add(execSettings.getRunUnderExecutable().getRunfilesPath().getCallablePathString());
     } else {
-      if (execSettings.needsShell(executedOnWindows)) {
-        // TestActionBuilder constructs TestRunnerAction with a 'null' shell only when none is
-        // required. Something clearly went wrong.
-        Preconditions.checkNotNull(testAction.getShExecutableMaybe(), "%s", testAction);
-        String shellExecutable = testAction.getShExecutableMaybe().getPathString();
-        args.add(shellExecutable);
-        args.add("-c");
-        args.add("\"$@\"");
-        args.add(shellExecutable); // Sets $0.
-      }
       args.add(execSettings.getRunUnder().getCommand());
     }
     args.addAll(testAction.getExecutionSettings().getRunUnder().getOptions());
+
+    return args;
+  }
+
+  private static void addRunUnderArgs(
+      TestRunnerAction testAction, List<String> args, boolean executedOnWindows) {
+    TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
+    if (execSettings.getRunUnderExecutable() == null
+        && execSettings.needsShell(executedOnWindows)) {
+      // TestActionBuilder constructs TestRunnerAction with a 'null' shell only when none is
+      // required. Something clearly went wrong.
+      Preconditions.checkNotNull(testAction.getShExecutableMaybe(), "%s", testAction);
+      String shellExecutable = testAction.getShExecutableMaybe().getPathString();
+      args.add(shellExecutable);
+      args.add("-c");
+      args.add("\"$@\"");
+      args.add(shellExecutable); // Sets $0.
+    }
+
+    args.addAll(computeRunUnderArgs(testAction));
   }
 
   /**

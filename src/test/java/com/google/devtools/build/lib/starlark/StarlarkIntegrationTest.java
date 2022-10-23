@@ -3824,6 +3824,41 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testStarlarkRuleWithRunUnderEnv() throws Exception {
+    scratch.file(
+        "examples/rules.bzl",
+        "def my_rule_impl(ctx):",
+        "  script = ctx.actions.declare_file(ctx.attr.name)",
+        "  ctx.actions.write(script, '', is_executable = True)",
+        "  run_env = RunEnvironmentInfo(",
+        "    run_under_env = \"CUSTOM_RUN_UNDER_ENV_VALUE\",",
+        "  )",
+        "  return [",
+        "    DefaultInfo(executable = script),",
+        "    run_env,",
+        "  ]",
+        "my_rule = rule(",
+        " implementation = my_rule_impl,",
+        "  attrs = {},",
+        "  executable = True,",
+        ")");
+    scratch.file(
+        "examples/BUILD",
+        "load(':rules.bzl', 'my_rule')",
+        "my_rule(",
+        "    name = 'my_target',",
+        ")");
+
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples:my_target");
+    RunEnvironmentInfo provider = starlarkTarget.get(RunEnvironmentInfo.PROVIDER);
+
+    assertThat(provider.getEnvironment()).isEmpty();
+    assertThat(provider.getInheritedEnvironment()).isEmpty();
+    assertThat(provider.getRunUnderEnv()).isNotNull();
+    assertThat(provider.getRunUnderEnv()).isEqualTo("CUSTOM_RUN_UNDER_ENV_VALUE");
+  }
+
+  @Test
   public void nonExecutableStarlarkRuleReturningRunEnvironmentInfoErrors() throws Exception {
     scratch.file(
         "examples/rules.bzl",

@@ -1247,4 +1247,179 @@ EOF
   expect_log "in copy of external/other_repo/pkg/binary.sh: 'other_repo'"
 }
 
+function test_starlark_rule_with_run_under_env() {
+  mkdir pkg
+  cat >pkg/BUILD <<'EOF'
+load(":rules.bzl", "my_executable", "my_test", "my_wrapper")
+my_executable(
+  name = "my_executable",
+)
+my_test(
+  name = "my_test",
+)
+my_wrapper(
+  name = "my_wrapper",
+)
+EOF
+
+  # On Windows this file needs to be acceptable by CreateProcessW(), rather
+  # than a Bourne script.
+  if "$is_windows"; then
+    local run_under_script="pkg/run_under.bat"
+    echo 'exports_files(["run_under.bat"])' >> pkg/BUILD
+    cat >pkg/run_under.bat <<'EOF'
+@ECHO OFF
+if not defined RUN_UNDER_VALUE (
+  echo --run_under script was unexpectedly executed
+)
+if "%1%"=="--exit_code" (
+  exit /B %2%
+)
+exit /B 101
+EOF
+    cat >pkg/rules.bzl <<'EOF'
+_SCRIPT_EXT = ".bat"
+_SCRIPT_CONTENT = """
+@ECHO OFF
+if not defined RUN_UNDER_VALUE (
+  echo run_under_env value is not set
+  exit /B 1
+)
+set _EXPECTED_EXIT_CODE=101
+if not "%RUN_UNDER_VALUE:--exit_code=%"=="%RUN_UNDER_VALUE%" (
+  set _EXPECTED_EXIT_CODE=202
+)
+start /b /wait bash.exe -c "%RUN_UNDER_VALUE%"
+if %ERRORLEVEL% NEQ %_EXPECTED_EXIT_CODE% (
+  echo Failed to execute run_under_env value
+  exit /B 1
+)
+exit /B 0
+"""
+EOF
+  else
+  local run_under_script="pkg/run_under.sh"
+  echo 'exports_files(["run_under.sh"])' >> pkg/BUILD
+    cat >pkg/run_under.sh <<'EOF'
+#!/bin/bash
+if [[ -z "${RUN_UNDER_VALUE}" ]]; then
+  echo --run_under script was unexpectedly executed
+fi
+if [[ "${1:-}" == "--exit_code" ]]; then
+  exit $2
+fi
+exit 101
+EOF
+    chmod +x pkg/run_under.sh
+    cat >pkg/rules.bzl <<'EOF'
+_SCRIPT_EXT = ".sh"
+_SCRIPT_CONTENT = """#!/bin/bash
+if [[ -z "${RUN_UNDER_VALUE:-}" ]]; then
+  echo "run_under_env value is not set"
+  exit 1
+fi
+export _EXPECTED_EXIT_CODE=101
+if [[ "${RUN_UNDER_VALUE}" == *"--exit_code"* ]]; then
+  export _EXPECTED_EXIT_CODE=202
+fi
+bash -c "${RUN_UNDER_VALUE}"
+if [[ $? != ${_EXPECTED_EXIT_CODE} ]]; then
+  echo "Failed to execute run_under_env value"
+  exit 1
+fi
+exit 0
+"""
+EOF
+  fi
+
+  cat >>pkg/rules.bzl <<'EOF'
+def _my_executable_impl(ctx):
+    executable_sh = ctx.actions.declare_file(ctx.attr.name + _SCRIPT_EXT)
+    ctx.actions.write(
+        output = executable_sh,
+        content = _SCRIPT_CONTENT,
+        is_executable = True,
+    )
+    return [
+        DefaultInfo(
+            executable = executable_sh,
+        ),
+        RunEnvironmentInfo(
+            run_under_env = "RUN_UNDER_VALUE",
+        ),
+    ]
+
+my_executable = rule(
+    implementation = _my_executable_impl,
+    attrs = {},
+    executable = True,
+)
+
+my_test = rule(
+    implementation = _my_executable_impl,
+    attrs = {},
+    test = True,
+)
+
+def _my_wrapper_impl(ctx):
+    executable_sh = ctx.actions.declare_file(ctx.attr.name + _SCRIPT_EXT)
+    ctx.actions.symlink(
+        output = executable_sh,
+        target_file = ctx.file._script,
+        is_executable = True,
+    )
+    return [DefaultInfo(
+        executable = executable_sh,
+    )]
+
+my_wrapper = rule(
+    implementation = _my_wrapper_impl,
+    attrs = {
+        "_script": attr.label(
+            allow_single_file = True,
+            default = "//pkg:run_under" + _SCRIPT_EXT,
+        ),
+    },
+    executable = True,
+)
+EOF
+
+  # https://docs.bazel.build/versions/main/windows.html
+  add_to_bazelrc "startup --windows_enable_symlinks"
+  add_to_bazelrc "build --enable_runfiles"
+  add_to_bazelrc "test --test_output=errors"
+
+  # Test --run_under as a custom command
+  bazel test //pkg:my_test --run_under="$(pwd)/${run_under_script}" >$TEST_log 2>&1 \
+    || fail "Test binary with command should have exit code 0"
+
+  # Test --run_under as a custom command with args
+  bazel test //pkg:my_test --run_under="$(pwd)/${run_under_script} --exit_code 202" >$TEST_log 2>&1 \
+    || fail "Test binary with command should have exit code 0"
+
+  # Test --run_under as a target
+  bazel test //pkg:my_test --run_under=//pkg:my_wrapper >$TEST_log 2>&1 \
+    || fail "Test binary with target should have exit code 0"
+
+  # Test --run_under as a target with args
+  bazel test //pkg:my_test --run_under='//pkg:my_wrapper --exit_code 202' >$TEST_log 2>&1 \
+    || fail "Test binary with target should have exit code 0"
+
+  # Test --run_under as a custom command
+  bazel run //pkg:my_executable --run_under="$(pwd)/${run_under_script}" >$TEST_log 2>&1 \
+    || fail "Run binary with command should have exit code 0"
+
+  # Test --run_under as a custom command with args
+  bazel run //pkg:my_executable --run_under="$(pwd)/${run_under_script} --exit_code 202" >$TEST_log 2>&1 \
+    || fail "Run binary with command should have exit code 0"
+
+  # Test --run_under as a target
+  bazel run //pkg:my_executable --run_under=//pkg:my_wrapper >$TEST_log 2>&1 \
+    || fail "Run binary with target should have exit code 0"
+
+  # Test --run_under as a target with args
+  bazel run //pkg:my_executable --run_under='//pkg:my_wrapper --exit_code 202' >$TEST_log 2>&1 \
+    || fail "Run binary with target should have exit code 0"
+}
+
 run_suite "rules test"

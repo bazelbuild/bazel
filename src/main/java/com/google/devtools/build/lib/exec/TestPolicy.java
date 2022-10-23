@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
+import com.google.devtools.build.lib.analysis.test.TestStrategy;
+import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.UserUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
@@ -89,6 +91,13 @@ public class TestPolicy {
 
     // Rule-specified test env.
     testAction.getExtraTestEnv().resolve(env, clientEnv);
+
+    // Add the --run_under environment variable if set.
+    String runUnderEnv = testAction.getExecutionSettings().getRunUnderEnv();
+    if (runUnderEnv != null) {
+      env.put(
+          runUnderEnv, ShellEscaper.escapeJoinAll(TestStrategy.computeRunUnderArgs(testAction)));
+    }
 
     // Overwrite with the environment common to all actions, see --action_env.
     testAction.getConfiguration().getActionEnvironment().resolve(env, clientEnv);

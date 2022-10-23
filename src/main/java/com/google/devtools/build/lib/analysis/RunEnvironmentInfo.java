@@ -23,9 +23,11 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.RunEnvironmentInfoApi;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 
 /**
@@ -40,16 +42,19 @@ public final class RunEnvironmentInfo extends NativeInfo implements RunEnvironme
 
   private final ImmutableMap<String, String> environment;
   private final ImmutableList<String> inheritedEnvironment;
+  private final @Nullable String runUnderEnv;
   private final boolean shouldErrorOnNonExecutableRule;
 
   /** Constructs a new provider with the given fixed and inherited environment variables. */
   public RunEnvironmentInfo(
       Map<String, String> environment,
       List<String> inheritedEnvironment,
+      @Nullable String runUnderEnv,
       boolean shouldErrorOnNonExecutableRule) {
     this.environment = ImmutableMap.copyOf(Preconditions.checkNotNull(environment));
     this.inheritedEnvironment =
         ImmutableList.copyOf(Preconditions.checkNotNull(inheritedEnvironment));
+    this.runUnderEnv = runUnderEnv;
     this.shouldErrorOnNonExecutableRule = shouldErrorOnNonExecutableRule;
   }
 
@@ -76,6 +81,12 @@ public final class RunEnvironmentInfo extends NativeInfo implements RunEnvironme
     return inheritedEnvironment;
   }
 
+  /** Returns the name of the environment variable to pass the "run_under" value to. */
+  @Nullable
+  public String getRunUnderEnv() {
+    return runUnderEnv;
+  }
+
   /**
    * Returns whether advertising this provider on a non-executable (and thus non-test) rule should
    * result in an error or a warning. The latter is required to not break testing.TestEnvironment,
@@ -95,11 +106,13 @@ public final class RunEnvironmentInfo extends NativeInfo implements RunEnvironme
 
     @Override
     public RunEnvironmentInfoApi constructor(
-        Dict<?, ?> environment, Sequence<?> inheritedEnvironment) throws EvalException {
+        Dict<?, ?> environment, Sequence<?> inheritedEnvironment, Object runUnderEnv)
+        throws EvalException {
       return new RunEnvironmentInfo(
           Dict.cast(environment, String.class, String.class, "environment"),
           StarlarkList.immutableCopyOf(
               Sequence.cast(inheritedEnvironment, String.class, "inherited_environment")),
+          runUnderEnv == Starlark.NONE ? null : (String) runUnderEnv,
           /* shouldErrorOnNonExecutableRule= */ true);
     }
   }

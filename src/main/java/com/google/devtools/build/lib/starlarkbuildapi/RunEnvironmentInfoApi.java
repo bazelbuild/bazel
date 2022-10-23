@@ -20,12 +20,14 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 
 /**
@@ -91,13 +93,25 @@ public interface RunEnvironmentInfoApi extends StructApi {
                       + " when the target that returns this provider is executed, either as a"
                       + " test or via the run command. If a variable is contained in both <code>"
                       + "environment</code> and <code>inherited_environment</code>, the value"
-                      + " inherited from the shell environment will take precedence if set.")
+                      + " inherited from the shell environment will take precedence if set."),
+          @Param(
+              name = "run_under_env",
+              allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+              defaultValue = "None",
+              named = true,
+              positional = false,
+              doc =
+                  "The name of an environment variable to represent the value of the"
+                      + " <code>--run_under<code> command line argument. By setting this, the \"run"
+                      + " under\" functionality will not be executed. Instead, it will be up to the"
+                      + " built executable to handle this functionality.")
         },
         selfCall = true)
     @StarlarkConstructor
     RunEnvironmentInfoApi constructor(
         Dict<?, ?> environment, // <String, String> expected
-        Sequence<?> inheritedEnvironment /* <String> expected */)
+        Sequence<?> inheritedEnvironment, /* <String> expected */
+        Object run_under_env /* String or NoneType expected */)
         throws EvalException;
   }
 }
