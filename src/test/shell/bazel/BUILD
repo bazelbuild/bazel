@@ -1063,12 +1063,12 @@ sh_test(
     srcs = ["bazel_bootstrap_distfile_test.sh"],
     args = [
         "$(location //:bazel-distfile)",
-        "$(location //src:embedded_jdk_allmodules_cached)",
+        "$(location //src:embedded_jdk_allmodules)",
     ],
     data = [
         ":test-deps",
         "//:bazel-distfile",
-        "//src:embedded_jdk_allmodules_cached",
+        "//src:embedded_jdk_allmodules",
         "@bazel_tools//tools/bash/runfiles",
     ],
     exec_compatible_with = ["//:highcpu_machine"],
@@ -1081,12 +1081,12 @@ sh_test(
     srcs = ["bazel_bootstrap_distfile_test.sh"],
     args = [
         "$(location //:bazel-distfile-tar)",
-        "$(location //src:embedded_jdk_allmodules_cached)",
+        "$(location //src:embedded_jdk_allmodules)",
     ],
     data = [
         ":test-deps",
         "//:bazel-distfile-tar",
-        "//src:embedded_jdk_allmodules_cached",
+        "//src:embedded_jdk_allmodules",
         "@bazel_tools//tools/bash/runfiles",
     ],
     exec_compatible_with = ["//:highcpu_machine"],

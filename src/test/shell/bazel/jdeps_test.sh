@@ -59,8 +59,8 @@ function test_jdeps() {
   else
     platform="linux"
   fi
-  cp $(rlocation io_bazel/src/allmodules_jdk.tar.gz) .
-  tar xf allmodules_jdk.tar.gz || fail "Failed to extract JDK."
+  cp $(rlocation io_bazel/src/allmodules_jdk.zip) .
+  unzip allmodules_jdk.zip || fail "Failed to extract JDK."
   denylist=$(rlocation io_bazel/src/test/shell/bazel/jdeps_class_denylist.txt)
   deploy_jar=$(rlocation io_bazel/src/main/java/com/google/devtools/build/lib/bazel/BazelServer_deploy.jar)
   cd ../bazeljar
