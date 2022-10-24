@@ -2234,6 +2234,113 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         .isEqualTo("plugin.jar libsomedep.jar");
   }
 
+  @Test
+  public void javaInfoConstructorWithNeverlink() throws Exception {
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(name = 'somedep')");
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  ctx.actions.write(output_jar, '')",
+        "  java_info = JavaInfo(",
+        "    output_jar = output_jar,",
+        "    compile_jar = None,",
+        "    neverlink = True,",
+        "  )",
+        "  return [",
+        "      java_info",
+        "  ]",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  fragments = ['java'],",
+        "  provides = [JavaInfo],",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//java/test:somedep");
+
+    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    assertThat(javaInfo.isNeverlink()).isTrue();
+  }
+
+  @Test
+  public void javaCommonMergeWithNeverlink() throws Exception {
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(name = 'somedep')");
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  ctx.actions.write(output_jar, '')",
+        "  java_info_with_neverlink = JavaInfo(",
+        "    output_jar = output_jar,",
+        "    compile_jar = None,",
+        "    neverlink = True,",
+        "  )",
+        "  java_info_without_neverlink = JavaInfo(",
+        "    output_jar = output_jar,",
+        "    compile_jar = None,",
+        "  )",
+        "  java_info = java_common.merge([java_info_with_neverlink, java_info_without_neverlink])",
+        "  return [",
+        "      java_info",
+        "  ]",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  fragments = ['java'],",
+        "  provides = [JavaInfo],",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//java/test:somedep");
+
+    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    assertThat(javaInfo.isNeverlink()).isTrue();
+  }
+
+  @Test
+  public void javaCommonCompileWithNeverlink() throws Exception {
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(name = 'somedep',",
+        "    srcs = ['Dependency.java'])");
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  java_info = java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    neverlink = True,",
+        "  )",
+        "  return [",
+        "      java_info",
+        "  ]",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  },",
+        "  fragments = ['java'],",
+        "  provides = [JavaInfo],",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//java/test:somedep");
+
+    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    assertThat(javaInfo.isNeverlink()).isTrue();
+  }
+
   /**
    * Tests that java_common.compile propagates native libraries from deps, runtime_deps, and
    * exports.
