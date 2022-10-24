@@ -144,7 +144,7 @@ _REDIRECTS = {
     "ide":
         "contribute/guide",
     "guide":
-        "contribute/guide",
+        "run/build",
     "skylark/depsets":
         "rules/depsets",
     "bazel-container":
