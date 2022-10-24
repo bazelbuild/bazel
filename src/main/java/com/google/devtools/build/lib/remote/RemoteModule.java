@@ -931,7 +931,7 @@ public final class RemoteModule extends BlazeModule {
 
       if (remoteOutputsMode.downloadToplevelOutputsOnly()) {
         toplevelArtifactsDownloader = new ToplevelArtifactsDownloader(
-            env.getCommand(),
+            env.getCommandName(),
             env.getSkyframeExecutor()
             .getEvaluator(), actionInputFetcher, (path) -> {
           FileSystem fileSystem = path.getFileSystem();

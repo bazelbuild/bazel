@@ -190,18 +190,6 @@ public final class Utils {
     return Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos());
   }
 
-  /**
-   * Returns {@code true} if all spawn outputs should be downloaded to disk.
-   */
-  public static boolean shouldDownloadAllSpawnOutputs(RemoteOutputsMode remoteOutputsMode,
-      int exitCode) {
-    return remoteOutputsMode.downloadAllOutputs()
-        ||
-        // In case the action failed, download all outputs. It might be helpful for debugging
-        // and there is no point in injecting output metadata of a failed action.
-        exitCode != 0;
-  }
-
   private static String statusName(int code) {
     // 'convert_underscores' to 'Convert Underscores'
     String name = Code.forNumber(code).getValueDescriptor().getName();

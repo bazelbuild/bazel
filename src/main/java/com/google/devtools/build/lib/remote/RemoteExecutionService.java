@@ -25,7 +25,6 @@ import static com.google.devtools.build.lib.remote.RemoteCache.createFailureDeta
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
-import static com.google.devtools.build.lib.remote.util.Utils.shouldDownloadAllSpawnOutputs;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
@@ -1010,8 +1009,11 @@ public class RemoteExecutionService {
     ImmutableList.Builder<ListenableFuture<FileMetadata>> downloadsBuilder =
         ImmutableList.builder();
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
-    boolean downloadOutputs = shouldDownloadAllSpawnOutputs(remoteOutputsMode,
-        result.getExitCode());
+    boolean downloadOutputs = remoteOutputsMode.downloadAllOutputs()
+        ||
+        // In case the action failed, download all outputs. It might be helpful for debugging
+        // and there is no point in injecting output metadata of a failed action.
+        result.getExitCode() != 0;
 
     // Download into temporary paths, then move everything at the end.
     // This avoids holding the output lock while downloading, which would prevent the local branch

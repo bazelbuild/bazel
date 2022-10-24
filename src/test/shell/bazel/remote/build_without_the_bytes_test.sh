@@ -253,10 +253,10 @@ EOF
     //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
 
   (! [[ -f bazel-bin/a/foo.txt ]]) \
-  || fail "Expected intermediate output bazel-bin/a/foo.txt to not be downloaded"
+    || fail "Expected intermediate output bazel-bin/a/foo.txt to not be downloaded"
 
   [[ -f bazel-bin/a/foobar.txt ]] \
-  || fail "Expected toplevel output bazel-bin/a/foobar.txt to be downloaded"
+    || fail "Expected toplevel output bazel-bin/a/foobar.txt to be downloaded"
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
@@ -266,7 +266,7 @@ EOF
   expect_log "1 process: 1 internal"
 
   [[ -f bazel-bin/a/foo.txt ]] \
-  || fail "Expected toplevel output bazel-bin/a/foo.txt to be downloaded"
+    || fail "Expected toplevel output bazel-bin/a/foo.txt to be downloaded"
 }
 
 function test_downloads_toplevel_runfiles() {
