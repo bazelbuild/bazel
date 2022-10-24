@@ -221,8 +221,7 @@ function:4,10,1,_Z1ab
 lcount:4,1,0
 lcount:5,1,0
 lcount:6,1,0
-lcount:8,0,1
-version:8.4.0"
+lcount:8,0,1"
     assert_coverage_entry_in_file "$expected_gcov_result_a_cc" "$output_file"
 }
 
@@ -240,8 +239,7 @@ function:5,8,1,main
 lcount:5,1,0
 lcount:6,1,0
 lcount:7,1,0
-lcount:8,1,0
-version:8.4.0"
+lcount:8,1,0"
     assert_coverage_entry_in_file "$expected_gcov_result_t_cc" "$output_file"
 }
 
@@ -254,8 +252,7 @@ function:1,7,1,_Z1bi
 lcount:1,1,0
 lcount:2,1,0
 lcount:3,1,0
-lcount:5,0,1
-version:8.4.0"
+lcount:5,0,1"
     assert_coverage_entry_in_file "$expected_gcov_result" "$output_file"
 }
 
