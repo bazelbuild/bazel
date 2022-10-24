@@ -68,7 +68,7 @@ _REDIRECTS = {
     "dynamic-execution":
         "docs/dynamic-execution",
     "install":
-        "docs/mobile-install",
+        "install",
     "hermeticity":
         "concepts/hermeticity",
     "bazel-and-apple":
