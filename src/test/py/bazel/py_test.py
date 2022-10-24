@@ -124,7 +124,7 @@ class TestInitPyFiles(test_base.TestBase):
         '  main = "bin.py",',
         ')',
     ])
-    self.ScratchFile('bin.py', 'print("Hello, world")')
+    self.ScratchFile('bin.py', ['print("Hello, world")'])
     exit_code, _, stderr = self.RunBazel(
         ['build', '--build_python_zip', '//:bin.v1'])
     self.AssertExitCode(exit_code, 0, stderr)
