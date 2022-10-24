@@ -19,8 +19,11 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createT
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -155,6 +158,40 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   protected abstract AbstractActionInputPrefetcher createPrefetcher(Map<HashCode, byte[]> cas);
+
+  @Test
+  public void prefetchFiles_fileExists_doNotDownload() throws IOException, InterruptedException {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact a = createRemoteArtifact("file", "hello world", metadata, cas);
+    FileSystemUtils.writeContent(a.getPath(), "hello world".getBytes(UTF_8));
+    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
+    AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
+
+    wait(prefetcher.prefetchFiles(metadata.keySet(), metadataProvider));
+
+    verify(prefetcher, never()).doDownloadFile(any(), any(), any(), any());
+    assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
+    assertThat(prefetcher.downloadsInProgress()).isEmpty();
+  }
+
+  @Test
+  public void prefetchFiles_fileExistsButContentMismatches_download()
+      throws IOException, InterruptedException {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact a = createRemoteArtifact("file", "hello world remote", metadata, cas);
+    FileSystemUtils.writeContent(a.getPath(), "hello world local".getBytes(UTF_8));
+    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
+    AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
+
+    wait(prefetcher.prefetchFiles(metadata.keySet(), metadataProvider));
+
+    verify(prefetcher).doDownloadFile(any(), eq(a.getExecPath()), any(), any());
+    assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
+    assertThat(prefetcher.downloadsInProgress()).isEmpty();
+    assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world remote");
+  }
 
   @Test
   public void prefetchFiles_downloadRemoteFiles() throws Exception {

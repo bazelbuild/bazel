@@ -47,6 +47,7 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -102,7 +103,26 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     this.patternsToDownload = patternsToDownload;
   }
 
-  protected abstract boolean shouldDownloadFile(Path path, FileArtifactValue metadata);
+  private boolean shouldDownloadFile(Path path, FileArtifactValue metadata) {
+    if (!path.exists()) {
+      return true;
+    }
+
+    // In the most cases, skyframe should be able to detect source files modifications and delete
+    // staled outputs before action execution. However, there are some cases where outputs are not
+    // tracked by skyframe. We compare the digest here to make sure we don't use staled files.
+    try {
+      byte[] digest = path.getFastDigest();
+      if (digest == null) {
+        digest = path.getDigest();
+      }
+      return !Arrays.equals(digest, metadata.getDigest());
+    } catch (IOException ignored) {
+      return true;
+    }
+  }
+
+  protected abstract boolean canDownloadFile(Path path, FileArtifactValue metadata);
 
   /**
    * Downloads file to the given path via its metadata.
@@ -189,13 +209,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // TODO(tjgq): Only download individual files that were requested within the tree.
     // This isn't straightforward because multiple tree artifacts may share the same output tree
     // when a ctx.actions.symlink is involved.
-    if (treeMetadata == null || !shouldDownloadAnyTreeFiles(treeFiles, treeMetadata)) {
+    if (treeMetadata == null || !canDownloadAnyTreeFiles(treeFiles, treeMetadata)) {
       return Completable.complete();
     }
 
     PathFragment prefetchExecPath = treeMetadata.getMaterializationExecPath().orElse(execPath);
 
-    Completable prefetch = prefetchInputTree(provider, prefetchExecPath, treeFiles, priority);
+    Completable prefetch =
+        prefetchInputTree(provider, prefetchExecPath, treeFiles, treeMetadata, priority);
 
     // If prefetching to a different path, plant a symlink into it.
     if (!prefetchExecPath.equals(execPath)) {
@@ -205,6 +226,16 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     return prefetch;
+  }
+
+  private boolean canDownloadAnyTreeFiles(
+      Iterable<TreeFileArtifact> treeFiles, FileArtifactValue metadata) {
+    for (TreeFileArtifact treeFile : treeFiles) {
+      if (canDownloadFile(treeFile.getPath(), metadata)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private boolean shouldDownloadAnyTreeFiles(
@@ -221,6 +252,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       MetadataProvider provider,
       PathFragment execPath,
       List<TreeFileArtifact> treeFiles,
+      FileArtifactValue treeMetadata,
       Priority priority) {
     Path treeRoot = execRoot.getRelative(execPath);
     HashMap<TreeFileArtifact, Path> treeFileTmpPathMap = new HashMap<>();
@@ -293,7 +325,15 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                     }
                   }
                 });
-    return downloadCache.executeIfNot(treeRoot, download);
+    return downloadCache.executeIfNot(
+        treeRoot,
+        Completable.defer(
+            () -> {
+              if (shouldDownloadAnyTreeFiles(treeFiles, treeMetadata)) {
+                return download;
+              }
+              return Completable.complete();
+            }));
   }
 
   private Completable prefetchInputFileOrSymlink(
@@ -306,7 +346,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     PathFragment execPath = input.getExecPath();
 
     FileArtifactValue metadata = metadataProvider.getMetadata(input);
-    if (metadata == null || !shouldDownloadFile(execRoot.getRelative(execPath), metadata)) {
+    if (metadata == null || !canDownloadFile(execRoot.getRelative(execPath), metadata)) {
       return Completable.complete();
     }
 
@@ -332,7 +372,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * download finished.
    */
   private Completable downloadFileRx(Path path, FileArtifactValue metadata, Priority priority) {
-    if (!shouldDownloadFile(path, metadata)) {
+    if (!canDownloadFile(path, metadata)) {
       return Completable.complete();
     }
     return downloadFileNoCheckRx(path, metadata, priority);
@@ -373,7 +413,16 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
             // Set eager=false here because we want cleanup the download *after* upstream is
             // disposed.
             /* eager= */ false);
-    return downloadCache.executeIfNot(path, download);
+
+    return downloadCache.executeIfNot(
+        finalPath,
+        Completable.defer(
+            () -> {
+              if (shouldDownloadFile(finalPath, metadata)) {
+                return download;
+              }
+              return Completable.complete();
+            }));
   }
 
   /**
