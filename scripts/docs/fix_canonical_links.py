@@ -253,8 +253,19 @@ def transform(src, dest):
 
 
 def repl(m):
-  return "{}{}{}{}".format(
-      m.group(1), _ROOT, get_new_page(m.group(3)), m.group(4))
+  new_url = _ROOT + get_new_page(m.group(3))
+  replacement = "{}{}{}".format(
+      m.group(1), new_url, m.group(4))
+
+  # Hack: forward 'main' docs to the new site. Keep versioned docs as-is
+  if "main" in m.group(2):
+    replacement += """
+    <meta http-equiv="refresh" content="0; url={0}">
+    <script type="text/javascript">
+        window.location.replace("{0}" + window.location.hash);
+    </script>""".format(new_url)
+
+  return replacement
 
 
 def get_new_page(old):
