@@ -257,8 +257,9 @@ def repl(m):
   replacement = "{}{}{}".format(
       m.group(1), new_url, m.group(4))
 
-  # Hack: forward 'main' docs to the new site. Keep versioned docs as-is
-  if "main" in m.group(2):
+  # Hack: forward 'main' docs to the new site (except for the index).
+  # Keep versioned docs as-is.
+  if "main" in m.group(2) and m.group(3):
     replacement += """
     <meta http-equiv="refresh" content="0; url={0}">
     <script type="text/javascript">
