@@ -465,13 +465,15 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       String workspaceName,
       StarlarkSemantics starlarkSemantics,
-      RepositoryMapping repositoryMapping) {
+      RepositoryMapping repositoryMapping,
+      RepositoryMapping mainRepositoryMapping) {
     return new Package.Builder(
         packageSettings,
         packageId,
         workspaceName,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
-        repositoryMapping);
+        repositoryMapping,
+        mainRepositoryMapping);
   }
 
   /** Returns a new {@link NonSkyframeGlobber}. */

@@ -164,6 +164,7 @@ public class PackageTest {
             PackageIdentifier.createInMainRepo(name),
             "workspace",
             /*noImplicitFileExport=*/ true,
+            RepositoryMapping.ALWAYS_FALLBACK,
             RepositoryMapping.ALWAYS_FALLBACK);
     result.setFilename(
         RootedPath.toRootedPath(

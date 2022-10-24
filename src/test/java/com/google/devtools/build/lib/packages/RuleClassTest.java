@@ -265,6 +265,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
             "TESTING",
             StarlarkSemantics.DEFAULT,
+            RepositoryMapping.ALWAYS_FALLBACK,
             RepositoryMapping.ALWAYS_FALLBACK)
         .setFilename(RootedPath.toRootedPath(root, testBuildfilePath));
   }
