@@ -280,7 +280,7 @@ class DexFileSplitter implements Closeable {
       ImmutableList<Map.Entry<String, ZipFile>> filesToProcess, Predicate<String> filter)
       throws IOException {
 
-    // Collect a class and its inner classes as a unit so that they can be placed in
+    // Collect a class and its inner synthetic lambda classes as a unit so that they can be placed in
     // in a single shard in the next step.
     // Here we assume filesToProcess is sorted in lexicographical order and outer classes
     // appear before than the inner classes. 
@@ -346,13 +346,13 @@ class DexFileSplitter implements Closeable {
           .map(e -> e.getDexFile())
           .collect(ImmutableList.toImmutableList());
 
-      // Track all dex files for a class and its inner classes as a unit.
-      // Placing inner classes in a different shard than its outer class
+      // Track all dex files for a class and its lambda classes as a unit.
+      // Placing lambda classes in a different shard than its outer class
       // can lead to D8 failing during dex merge.
       if (tracker.track(dexFiles)) {
           nextShard();
           checkState(!tracker.track(dexFiles),
-                  "Impossible to fit %s and all of its inner classes in a single shard",
+                  "Impossible to fit %s and all of its synthetic lambda classes in a single shard",
                   dexEntries.get(0).getEntry().getName());
       }
 
