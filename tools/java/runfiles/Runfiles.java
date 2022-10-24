@@ -17,12 +17,15 @@ package com.google.devtools.build.runfiles;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Runfiles lookup library for Bazel-built Java binaries and tests.
@@ -39,17 +42,27 @@ import java.util.Map;
  *   )
  * </pre>
  *
- * <p>2. Import the runfiles library.
+ * <p>2. Import the runfiles library and the {@code AutoBazelRepository} annotation.
  *
  * <pre>
+ *   import com.google.devtools.build.runfiles.AutoBazelRepository;
  *   import com.google.devtools.build.runfiles.Runfiles;
  * </pre>
  *
- * <p>3. Create a Runfiles object and use rlocation to look up runfile paths:
+ * <p>3. Annotate the class in which a {@code Runfiles} object is created with
+ * {@link AutoBazelRepository}:
+ *
+ * <pre>
+ *   &#64;AutoBazelRepository
+ *   public class MyClass {
+ *     ...
+ * </pre>
+ *
+ * <p>4. Create a Runfiles object and use rlocation to look up runfile paths:
  *
  * <pre>
  *   public void myFunction() {
- *     Runfiles runfiles = Runfiles.create();
+ *     Runfiles runfiles = Runfiles.create(AutoBazelRepository_MyClass.BAZEL_REPOSITORY);
  *     String path = runfiles.rlocation("my_workspace/path/to/my/data.txt");
  *     ...
  * </pre>
@@ -67,16 +80,104 @@ import java.util.Map;
  */
 public abstract class Runfiles {
 
+  private static final String MAIN_REPOSITORY_NAME = "";
+
+  private static class RepoMappingKey {
+
+    public final String sourceCanonical;
+    public final String targetApparent;
+
+    public RepoMappingKey(String sourceCanonical, String targetApparent) {
+      this.sourceCanonical = sourceCanonical;
+      this.targetApparent = targetApparent;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      RepoMappingKey that = (RepoMappingKey) o;
+      return sourceCanonical.equals(that.sourceCanonical) && targetApparent.equals(
+          that.targetApparent);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(sourceCanonical, targetApparent);
+    }
+  }
+
+  private final Map<RepoMappingKey, String> repoMapping;
+  private final String sourceCanonical;
+
   // Package-private constructor, so only package-private classes may extend it.
-  private Runfiles() {}
+  private Runfiles(String repoMappingPath, String sourceRepository) throws IOException {
+    this.repoMapping = loadRepositoryMapping(repoMappingPath);
+    this.sourceCanonical = sourceRepository;
+  }
+
+  /**
+   * Returns a new {@link Runfiles} instance.
+   *
+   * <p><strong>Deprecated: With {@code --enable_bzlmod}, this function can only resolve runfiles
+   * correctly if called from the main repository. Use {@link #create(String)} instead. </strong>
+   *
+   * <p>This method passes the JVM's environment variable map to {@link #create(Map)}.
+   */
+  @Deprecated
+  public static Runfiles create() throws IOException {
+    return create(System.getenv());
+  }
 
   /**
    * Returns a new {@link Runfiles} instance.
    *
    * <p>This method passes the JVM's environment variable map to {@link #create(Map)}.
+   *
+   * @param sourceRepository the canonical name of the Bazel repository relative to which runfiles
+   *                         lookups should be performed. This can be obtained using
+   *                         {@link AutoBazelRepository} (see class documentation).
    */
-  public static Runfiles create() throws IOException {
-    return create(System.getenv());
+  public static Runfiles create(String sourceRepository) throws IOException {
+    return create(System.getenv(), sourceRepository);
+  }
+
+  /**
+   * Returns a new {@link Runfiles} instance.
+   *
+   * <p><strong>Deprecated: With {@code --enable_bzlmod}, this function can only resolve runfiles
+   * correctly if called from the main repository. Use {@link #create(Map, String)} instead.
+   * </strong>
+   *
+   * <p>The returned object is either:
+   *
+   * <ul>
+   *   <li>manifest-based, meaning it looks up runfile paths from a manifest file, or
+   *   <li>directory-based, meaning it looks up runfile paths under a given directory path
+   * </ul>
+   *
+   * <p>If {@code env} contains "RUNFILES_MANIFEST_ONLY" with value "1", this method returns a
+   * manifest-based implementation. The manifest's path is defined by the "RUNFILES_MANIFEST_FILE"
+   * key's value in {@code env}.
+   *
+   * <p>Otherwise this method returns a directory-based implementation. The directory's path is
+   * defined by the value in {@code env} under the "RUNFILES_DIR" key, or if absent, then under the
+   * "JAVA_RUNFILES" key.
+   *
+   * <p>Note about performance: the manifest-based implementation eagerly reads and caches the whole
+   * manifest file upon instantiation.
+   *
+   * @throws IOException if RUNFILES_MANIFEST_ONLY=1 is in {@code env} but there's no
+   *                     "RUNFILES_MANIFEST_FILE", "RUNFILES_DIR", or "JAVA_RUNFILES" key in
+   *                     {@code env} or their values are empty, or some IO error occurs
+   */
+  @Deprecated
+  public static Runfiles create(Map<String, String> env) throws IOException {
+    return create(env, MAIN_REPOSITORY_NAME);
   }
 
   /**
@@ -100,35 +201,60 @@ public abstract class Runfiles {
    * <p>Note about performance: the manifest-based implementation eagerly reads and caches the whole
    * manifest file upon instantiation.
    *
+   * @param sourceRepository the canonical name of the Bazel repository relative to which apparent
+   *                         repository names in runfiles paths should be resolved. This can be
+   *                         obtained using {@link AutoBazelRepository} (see class documentation).
+   *
    * @throws IOException if RUNFILES_MANIFEST_ONLY=1 is in {@code env} but there's no
-   *     "RUNFILES_MANIFEST_FILE", "RUNFILES_DIR", or "JAVA_RUNFILES" key in {@code env} or their
-   *     values are empty, or some IO error occurs
+   *                     "RUNFILES_MANIFEST_FILE", "RUNFILES_DIR", or "JAVA_RUNFILES" key in
+   *                     {@code env} or their values are empty, or some IO error occurs
    */
-  public static Runfiles create(Map<String, String> env) throws IOException {
+  public static Runfiles create(Map<String, String> env, String sourceRepository)
+      throws IOException {
     if (isManifestOnly(env)) {
       // On Windows, Bazel sets RUNFILES_MANIFEST_ONLY=1.
       // On every platform, Bazel also sets RUNFILES_MANIFEST_FILE, but on Linux and macOS it's
       // faster to use RUNFILES_DIR.
-      return new ManifestBased(getManifestPath(env));
+      return new ManifestBased(getManifestPath(env), sourceRepository);
     } else {
-      return new DirectoryBased(getRunfilesDir(env));
+      return new DirectoryBased(getRunfilesDir(env), sourceRepository);
     }
   }
 
   /**
    * Returns the runtime path of a runfile (a Bazel-built binary's/test's data-dependency).
    *
-   * <p>The returned path may not be valid. The caller should check the path's validity and that the
-   * path exists.
+   * <p>The returned path may not be valid. The caller should check the path's validity and that
+   * the path exists.
    *
    * <p>The function may return null. In that case the caller can be sure that the rule does not
    * know about this data-dependency.
    *
    * @param path runfiles-root-relative path of the runfile
    * @throws IllegalArgumentException if {@code path} fails validation, for example if it's null or
-   *     empty, or not normalized (contains "./", "../", or "//")
+   *                                  empty, or not normalized (contains "./", "../", or "//")
    */
   public final String rlocation(String path) {
+    return rlocation(path, this.sourceCanonical);
+  }
+
+  /**
+   * Returns the runtime path of a runfile (a Bazel-built binary's/test's data-dependency).
+   *
+   * <p>The returned path may not be valid. The caller should check the path's validity and that
+   * the path exists.
+   *
+   * <p>The function may return null. In that case the caller can be sure that the rule does not
+   * know about this data-dependency.
+   *
+   * @param path             runfiles-root-relative path of the runfile
+   * @param sourceRepository the canonical name of the Bazel repository relative to which apparent
+   *                         repository names in runfiles paths should be resolved. Overrides the
+   *                         repository set when creating this {@link Runfiles} instance.
+   * @throws IllegalArgumentException if {@code path} fails validation, for example if it's null or
+   *                                  empty, or not normalized (contains "./", "../", or "//")
+   */
+  public final String rlocation(String path, String sourceRepository) {
     Util.checkArgument(path != null);
     Util.checkArgument(!path.isEmpty());
     Util.checkArgument(
@@ -145,7 +271,15 @@ public abstract class Runfiles {
     if (new File(path).isAbsolute()) {
       return path;
     }
-    return rlocationChecked(path);
+
+    String[] apparentTargetAndRemainder = path.split("/", 2);
+    if (apparentTargetAndRemainder.length < 2) {
+      return rlocationChecked(path);
+    }
+    String targetCanonical = repoMapping.getOrDefault(
+        new RepoMappingKey(sourceRepository, apparentTargetAndRemainder[0]),
+        apparentTargetAndRemainder[0]);
+    return rlocationChecked(targetCanonical + "/" + apparentTargetAndRemainder[1]);
   }
 
   /**
@@ -156,7 +290,9 @@ public abstract class Runfiles {
    */
   public abstract Map<String, String> getEnvVars();
 
-  /** Returns true if the platform supports runfiles only via manifests. */
+  /**
+   * Returns true if the platform supports runfiles only via manifests.
+   */
   private static boolean isManifestOnly(Map<String, String> env) {
     return "1".equals(env.get("RUNFILES_MANIFEST_ONLY"));
   }
@@ -183,14 +319,41 @@ public abstract class Runfiles {
     return value;
   }
 
+  private static Map<RepoMappingKey, String> loadRepositoryMapping(String path)
+      throws IOException {
+    if (path == null) {
+      return Collections.emptyMap();
+    }
+
+    try (BufferedReader r = new BufferedReader(new FileReader(path, StandardCharsets.UTF_8))) {
+      return Collections.unmodifiableMap(r.lines()
+          .filter(line -> !line.isEmpty())
+          .map(line -> {
+            String[] split = line.split(",");
+            if (split.length != 3) {
+              throw new IllegalArgumentException(
+                  "Invalid line in repository mapping: '" + line + "'");
+            }
+            return split;
+          })
+          .collect(Collectors.toMap(
+              split -> new RepoMappingKey(split[0], split[1]),
+              split -> split[2])));
+    }
+  }
+
   abstract String rlocationChecked(String path);
 
-  /** {@link Runfiles} implementation that parses a runfiles-manifest file to look up runfiles. */
+  /**
+   * {@link Runfiles} implementation that parses a runfiles-manifest file to look up runfiles.
+   */
   private static final class ManifestBased extends Runfiles {
+
     private final Map<String, String> runfiles;
     private final String manifestPath;
 
-    ManifestBased(String manifestPath) throws IOException {
+    ManifestBased(String manifestPath, String sourceRepository) throws IOException {
+      super(findRepositoryMapping(manifestPath), sourceRepository);
       Util.checkArgument(manifestPath != null);
       Util.checkArgument(!manifestPath.isEmpty());
       this.manifestPath = manifestPath;
@@ -225,6 +388,18 @@ public abstract class Runfiles {
       return "";
     }
 
+    private static String findRepositoryMapping(String manifestPath) {
+      if (manifestPath != null && (manifestPath.endsWith(".runfiles/MANIFEST")
+          || manifestPath.endsWith(".runfiles\\MANIFEST")
+          || manifestPath.endsWith(".runfiles_manifest"))) {
+        String path = manifestPath.substring(0, manifestPath.length() - 18) + ".repo_mapping";
+        if (new File(path).isFile()) {
+          return path;
+        }
+      }
+      return null;
+    }
+
     @Override
     public String rlocationChecked(String path) {
       String exactMatch = runfiles.get(path);
@@ -257,14 +432,28 @@ public abstract class Runfiles {
     }
   }
 
-  /** {@link Runfiles} implementation that appends runfiles paths to the runfiles root. */
+  /**
+   * {@link Runfiles} implementation that appends runfiles paths to the runfiles root.
+   */
   private static final class DirectoryBased extends Runfiles {
+
     private final String runfilesRoot;
 
-    DirectoryBased(String runfilesDir) {
+    DirectoryBased(String runfilesDir, String sourceRepository) throws IOException {
+      super(findRepositoryMapping(runfilesDir), sourceRepository);
       Util.checkArgument(!Util.isNullOrEmpty(runfilesDir));
       Util.checkArgument(new File(runfilesDir).isDirectory());
       this.runfilesRoot = runfilesDir;
+    }
+
+    private static String findRepositoryMapping(String runfilesRoot) {
+      if (runfilesRoot != null && runfilesRoot.endsWith(".runfiles")) {
+        String path = runfilesRoot.substring(0, runfilesRoot.length() - 9) + ".repo_mapping";
+        if (new File(path).isFile()) {
+          return path;
+        }
+      }
+      return null;
     }
 
     @Override
@@ -282,11 +471,13 @@ public abstract class Runfiles {
     }
   }
 
-  static Runfiles createManifestBasedForTesting(String manifestPath) throws IOException {
-    return new ManifestBased(manifestPath);
+  static Runfiles createManifestBasedForTesting(String manifestPath, String sourceRepository)
+      throws IOException {
+    return new ManifestBased(manifestPath, sourceRepository);
   }
 
-  static Runfiles createDirectoryBasedForTesting(String runfilesDir) {
-    return new DirectoryBased(runfilesDir);
+  static Runfiles createDirectoryBasedForTesting(String runfilesDir, String sourceRepository)
+      throws IOException {
+    return new DirectoryBased(runfilesDir, sourceRepository);
   }
 }

@@ -227,13 +227,13 @@ public final class RunfilesTest {
   }
 
   @Test
-  public void testDirectoryBasedRlocation() {
+  public void testDirectoryBasedRlocation() throws IOException {
     // The DirectoryBased implementation simply joins the runfiles directory and the runfile's path
     // on a "/". DirectoryBased does not perform any normalization, nor does it check that the path
     // exists.
     File dir = new File(System.getenv("TEST_TMPDIR"), "mock/runfiles");
     assertThat(dir.mkdirs()).isTrue();
-    Runfiles r = Runfiles.createDirectoryBasedForTesting(dir.toString());
+    Runfiles r = Runfiles.createDirectoryBasedForTesting(dir.toString(), "");
     // Escaping for "\": once for string and once for regex.
     assertThat(r.rlocation("arg")).matches(".*[/\\\\]mock[/\\\\]runfiles[/\\\\]arg");
   }
@@ -244,7 +244,7 @@ public final class RunfilesTest {
         "Foo/runfile1 C:/Actual Path\\runfile1",
         "Foo/Bar/runfile2 D:\\the path\\run file 2.txt",
         "Foo/Bar/Dir E:\\Actual Path\\Directory"));
-    Runfiles r = Runfiles.createManifestBasedForTesting(mf.toString());
+    Runfiles r = Runfiles.createManifestBasedForTesting(mf.toString(), "");
     assertThat(r.rlocation("Foo/runfile1")).isEqualTo("C:/Actual Path\\runfile1");
     assertThat(r.rlocation("Foo/Bar/runfile2")).isEqualTo("D:\\the path\\run file 2.txt");
     assertThat(r.rlocation("Foo/Bar/Dir")).isEqualTo("E:\\Actual Path\\Directory");
@@ -255,31 +255,205 @@ public final class RunfilesTest {
   }
 
   @Test
-  public void testDirectoryBasedCtorArgumentValidation() {
-    assertThrows(
-        IllegalArgumentException.class, () -> Runfiles.createDirectoryBasedForTesting(null));
+  public void testManifestBasedRlocationWithRepoMapping_fromMain() throws Exception {
+    Path mf = tempFile("foo.runfiles_manifest", ImmutableList.of(
+        "config.json /etc/config.json",
+        "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
+        "_main/bar/runfile /the/path/./to/other//other runfile.txt",
+        "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"));
+    tempFile("foo.repo_mapping", ImmutableList.of(
+        ",my_module,_main",
+        ",my_protobuf,protobuf~3.19.2",
+        ",my_workspace,_main",
+        "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
+    Runfiles r = Runfiles.createManifestBasedForTesting(mf.toString(), "");
 
-    assertThrows(IllegalArgumentException.class, () -> Runfiles.createDirectoryBasedForTesting(""));
+    assertThat(r.rlocation("my_module/bar/runfile")).isEqualTo(
+        "/the/path/./to/other//other runfile.txt");
+    assertThat(r.rlocation("my_workspace/bar/runfile")).isEqualTo(
+        "/the/path/./to/other//other runfile.txt");
+    assertThat(r.rlocation("my_protobuf/foo/runfile")).isEqualTo(
+        "C:/Actual Path\\protobuf\\runfile");
+    assertThat(r.rlocation("my_protobuf/bar/dir")).isEqualTo("E:\\Actual Path\\Directory");
+    assertThat(r.rlocation("my_protobuf/bar/dir/file")).isEqualTo(
+        "E:\\Actual Path\\Directory/file");
+    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes ted/fi~le")).isEqualTo(
+        "E:\\Actual Path\\Directory/de eply/nes ted/fi~le");
+
+    assertThat(r.rlocation("protobuf/foo/runfile")).isNull();
+    assertThat(r.rlocation("protobuf/bar/dir")).isNull();
+    assertThat(r.rlocation("protobuf/bar/dir/file")).isNull();
+    assertThat(r.rlocation("protobuf/bar/dir/dir/de eply/nes ted/fi~le")).isNull();
+
+    assertThat(r.rlocation("_main/bar/runfile")).isEqualTo(
+        "/the/path/./to/other//other runfile.txt");
+    assertThat(r.rlocation("protobuf~3.19.2/foo/runfile")).isEqualTo(
+        "C:/Actual Path\\protobuf\\runfile");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir")).isEqualTo("E:\\Actual Path\\Directory");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/file")).isEqualTo(
+        "E:\\Actual Path\\Directory/file");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le")).isEqualTo(
+        "E:\\Actual Path\\Directory/de eply/nes  ted/fi~le");
+
+    assertThat(r.rlocation("config.json")).isEqualTo("/etc/config.json");
+    assertThat(r.rlocation("_main")).isNull();
+    assertThat(r.rlocation("my_module")).isNull();
+    assertThat(r.rlocation("protobuf")).isNull();
+  }
+
+  @Test
+  public void testManifestBasedRlocationWithRepoMapping_fromOtherRepo() throws Exception {
+    Path mf = tempFile("foo.runfiles/MANIFEST", ImmutableList.of(
+        "config.json /etc/config.json",
+        "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
+        "_main/bar/runfile /the/path/./to/other//other runfile.txt",
+        "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"));
+    tempFile("foo.repo_mapping", ImmutableList.of(
+        ",my_module,_main",
+        ",my_protobuf,protobuf~3.19.2",
+        ",my_workspace,_main",
+        "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
+    Runfiles r = Runfiles.createManifestBasedForTesting(mf.toString(), "protobuf~3.19.2");
+
+    assertThat(r.rlocation("protobuf/foo/runfile")).isEqualTo("C:/Actual Path\\protobuf\\runfile");
+    assertThat(r.rlocation("protobuf/bar/dir")).isEqualTo("E:\\Actual Path\\Directory");
+    assertThat(r.rlocation("protobuf/bar/dir/file")).isEqualTo("E:\\Actual Path\\Directory/file");
+    assertThat(r.rlocation("protobuf/bar/dir/de eply/nes  ted/fi~le")).isEqualTo(
+        "E:\\Actual Path\\Directory/de eply/nes  ted/fi~le");
+
+    assertThat(r.rlocation("my_module/bar/runfile")).isNull();
+    assertThat(r.rlocation("my_protobuf/foo/runfile")).isNull();
+    assertThat(r.rlocation("my_protobuf/bar/dir")).isNull();
+    assertThat(r.rlocation("my_protobuf/bar/dir/file")).isNull();
+    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi~le")).isNull();
+
+    assertThat(r.rlocation("_main/bar/runfile")).isEqualTo(
+        "/the/path/./to/other//other runfile.txt");
+    assertThat(r.rlocation("protobuf~3.19.2/foo/runfile")).isEqualTo(
+        "C:/Actual Path\\protobuf\\runfile");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir")).isEqualTo("E:\\Actual Path\\Directory");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/file")).isEqualTo(
+        "E:\\Actual Path\\Directory/file");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le")).isEqualTo(
+        "E:\\Actual Path\\Directory/de eply/nes  ted/fi~le");
+
+    assertThat(r.rlocation("config.json")).isEqualTo("/etc/config.json");
+    assertThat(r.rlocation("_main")).isNull();
+    assertThat(r.rlocation("my_module")).isNull();
+    assertThat(r.rlocation("protobuf")).isNull();
+  }
+
+  @Test
+  public void testDirectoryBasedRlocationWithRepoMapping_fromMain() throws Exception {
+    Path dir = tempDir.newFolder("foo.runfiles").toPath();
+    tempFile(dir.getParent().resolve("foo.repo_mapping").toString(), ImmutableList.of(
+        ",my_module,_main",
+        ",my_protobuf,protobuf~3.19.2",
+        ",my_workspace,_main",
+        "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
+    Runfiles r = Runfiles.createDirectoryBasedForTesting(dir.toString(), "");
+
+    assertThat(r.rlocation("my_module/bar/runfile")).isEqualTo(
+        dir + "/_main/bar/runfile");
+    assertThat(r.rlocation("my_workspace/bar/runfile")).isEqualTo(
+        dir + "/_main/bar/runfile");
+    assertThat(r.rlocation("my_protobuf/foo/runfile")).isEqualTo(
+        dir + "/protobuf~3.19.2/foo/runfile");
+    assertThat(r.rlocation("my_protobuf/bar/dir")).isEqualTo(dir + "/protobuf~3.19.2/bar/dir");
+    assertThat(r.rlocation("my_protobuf/bar/dir/file")).isEqualTo(
+        dir + "/protobuf~3.19.2/bar/dir/file");
+    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes ted/fi~le")).isEqualTo(
+        dir + "/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le");
+
+    assertThat(r.rlocation("protobuf/foo/runfile")).isEqualTo(dir + "/protobuf/foo/runfile");
+    assertThat(r.rlocation("protobuf/bar/dir/dir/de eply/nes ted/fi~le")).isEqualTo(
+        dir + "/protobuf/bar/dir/dir/de eply/nes ted/fi~le");
+
+    assertThat(r.rlocation("_main/bar/runfile")).isEqualTo(
+        dir + "/_main/bar/runfile");
+    assertThat(r.rlocation("protobuf~3.19.2/foo/runfile")).isEqualTo(
+        dir + "/protobuf~3.19.2/foo/runfile");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir")).isEqualTo(dir + "/protobuf~3.19.2/bar/dir");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/file")).isEqualTo(
+        dir + "/protobuf~3.19.2/bar/dir/file");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le")).isEqualTo(
+        dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+
+    assertThat(r.rlocation("config.json")).isEqualTo(dir + "/config.json");
+  }
+
+  @Test
+  public void testDirectoryBasedRlocationWithRepoMapping_fromOtherRepo() throws Exception {
+    Path dir = tempDir.newFolder("foo.runfiles").toPath();
+    Path rm = tempFile(dir.getParent().resolve("foo.repo_mapping").toString(), ImmutableList.of(
+        ",my_module,_main",
+        ",my_protobuf,protobuf~3.19.2",
+        ",my_workspace,_main",
+        "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
+    Runfiles r = Runfiles.createDirectoryBasedForTesting(dir.toString(), "protobuf~3.19.2");
+
+    assertThat(r.rlocation("protobuf/foo/runfile")).isEqualTo(dir + "/protobuf~3.19.2/foo/runfile");
+    assertThat(r.rlocation("protobuf/bar/dir")).isEqualTo(dir + "/protobuf~3.19.2/bar/dir");
+    assertThat(r.rlocation("protobuf/bar/dir/file")).isEqualTo(
+        dir + "/protobuf~3.19.2/bar/dir/file");
+    assertThat(r.rlocation("protobuf/bar/dir/de eply/nes  ted/fi~le")).isEqualTo(
+        dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+
+    assertThat(r.rlocation("my_module/bar/runfile")).isEqualTo(dir + "/my_module/bar/runfile");
+    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi~le")).isEqualTo(
+        dir + "/my_protobuf/bar/dir/de eply/nes  ted/fi~le");
+
+    assertThat(r.rlocation("_main/bar/runfile")).isEqualTo(
+        dir + "/_main/bar/runfile");
+    assertThat(r.rlocation("protobuf~3.19.2/foo/runfile")).isEqualTo(
+        dir + "/protobuf~3.19.2/foo/runfile");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir")).isEqualTo(dir + "/protobuf~3.19.2/bar/dir");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/file")).isEqualTo(
+        dir + "/protobuf~3.19.2/bar/dir/file");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le")).isEqualTo(
+        dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+
+    assertThat(r.rlocation("config.json")).isEqualTo(dir + "/config.json");
+  }
+
+  @Test
+  public void testDirectoryBasedCtorArgumentValidation() throws IOException {
+    assertThrows(
+        IllegalArgumentException.class, () -> Runfiles.createDirectoryBasedForTesting(null, ""));
+
+    assertThrows(IllegalArgumentException.class, () -> Runfiles.createDirectoryBasedForTesting("",
+        ""));
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> Runfiles.createDirectoryBasedForTesting("non-existent directory is bad"));
+        () -> Runfiles.createDirectoryBasedForTesting("non-existent directory is bad", ""));
 
-    Runfiles.createDirectoryBasedForTesting(System.getenv("TEST_TMPDIR"));
+    Runfiles.createDirectoryBasedForTesting(System.getenv("TEST_TMPDIR"), "");
   }
 
   @Test
   public void testManifestBasedCtorArgumentValidation() throws Exception {
     assertThrows(
-        IllegalArgumentException.class, () -> Runfiles.createManifestBasedForTesting(null));
+        IllegalArgumentException.class, () -> Runfiles.createManifestBasedForTesting(null, ""));
 
-    assertThrows(IllegalArgumentException.class, () -> Runfiles.createManifestBasedForTesting(""));
+    assertThrows(IllegalArgumentException.class, () -> Runfiles.createManifestBasedForTesting("",
+        ""));
 
     Path mf = tempFile("foobar", ImmutableList.of("a b"));
-    Runfiles.createManifestBasedForTesting(mf.toString());
+    Runfiles.createManifestBasedForTesting(mf.toString(), "");
   }
 
-  private Path tempFile(String name, ImmutableList<String> lines) throws IOException {
-    return Files.write(tempDir.getRoot().toPath().resolve(name), lines, StandardCharsets.UTF_8);
+  @Test
+  public void testInvalidRepoMapping() throws Exception {
+    Path mf = tempFile("foo.runfiles/MANIFEST", ImmutableList.of());
+    tempFile("foo.repo_mapping", ImmutableList.of("a,b,c,d"));
+    assertThrows(IllegalArgumentException.class,
+        () -> Runfiles.createManifestBasedForTesting(mf.toString(), ""));
+  }
+
+  private Path tempFile(String path, ImmutableList<String> lines) throws IOException {
+    Path file = tempDir.getRoot().toPath().resolve(path.replace('/', File.separatorChar));
+    Files.createDirectories(file.getParent());
+    return Files.write(file, lines, StandardCharsets.UTF_8);
   }
 }
