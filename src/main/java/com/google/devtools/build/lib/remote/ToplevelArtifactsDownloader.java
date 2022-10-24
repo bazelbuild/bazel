@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
@@ -170,7 +171,7 @@ public class ToplevelArtifactsDownloader {
       ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
       if (configuredTarget instanceof RuleConfiguredTarget) {
         var ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
-        var isTestRule = ruleConfiguredTarget.getRuleClassString().endsWith("_test");
+        var isTestRule = isTestRuleName(ruleConfiguredTarget.getRuleClassString());
         return !isTestRule;
       }
       return true;
