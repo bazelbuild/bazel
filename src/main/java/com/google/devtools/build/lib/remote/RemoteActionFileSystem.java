@@ -508,7 +508,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   @Nullable
-  private RemoteFileArtifactValue getRemoteMetadata(PathFragment path) {
+  protected RemoteFileArtifactValue getRemoteMetadata(PathFragment path) {
     if (!isOutput(path)) {
       return null;
     }

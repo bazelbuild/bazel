@@ -25,8 +25,6 @@ import static com.google.devtools.build.lib.remote.RemoteCache.createFailureDeta
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
-import static com.google.devtools.build.lib.remote.util.Utils.hasFilesToDownload;
-import static com.google.devtools.build.lib.remote.util.Utils.shouldDownloadAllSpawnOutputs;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
@@ -163,7 +161,6 @@ public class RemoteExecutionService {
   private final RemoteOptions remoteOptions;
   @Nullable private final RemoteCache remoteCache;
   @Nullable private final RemoteExecutionClient remoteExecutor;
-  private final ImmutableSet<PathFragment> filesToDownload;
   private final TempPathGenerator tempPathGenerator;
   @Nullable private final Path captureCorruptedOutputsDir;
   private final Cache<Object, MerkleTree> merkleTreeCache;
@@ -187,7 +184,6 @@ public class RemoteExecutionService {
       RemoteOptions remoteOptions,
       @Nullable RemoteCache remoteCache,
       @Nullable RemoteExecutionClient remoteExecutor,
-      ImmutableSet<ActionInput> filesToDownload,
       TempPathGenerator tempPathGenerator,
       @Nullable Path captureCorruptedOutputsDir) {
     this.reporter = reporter;
@@ -208,11 +204,6 @@ public class RemoteExecutionService {
     }
     this.merkleTreeCache = merkleTreeCacheBuilder.build();
 
-    ImmutableSet.Builder<PathFragment> filesToDownloadBuilder = ImmutableSet.builder();
-    for (ActionInput actionInput : filesToDownload) {
-      filesToDownloadBuilder.add(actionInput.getExecPath());
-    }
-    this.filesToDownload = filesToDownloadBuilder.build();
     this.tempPathGenerator = tempPathGenerator;
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
 
@@ -1019,10 +1010,11 @@ public class RemoteExecutionService {
         ImmutableList.builder();
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
     boolean downloadOutputs =
-        shouldDownloadAllSpawnOutputs(
-            remoteOutputsMode,
-            /* exitCode = */ result.getExitCode(),
-            hasFilesToDownload(action.getSpawn().getOutputFiles(), filesToDownload));
+        remoteOutputsMode.downloadAllOutputs()
+            ||
+            // In case the action failed, download all outputs. It might be helpful for debugging
+            // and there is no point in injecting output metadata of a failed action.
+            result.getExitCode() != 0;
 
     // Download into temporary paths, then move everything at the end.
     // This avoids holding the output lock while downloading, which would prevent the local branch

@@ -23,7 +23,6 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -111,7 +110,6 @@ import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Collection;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -921,35 +919,6 @@ public class RemoteExecutionServiceTest {
         .isEqualTo("content1");
     assertThat(readContent(execRoot.getRelative("outputs/foo"), StandardCharsets.UTF_8))
         .isEqualTo("content2");
-    assertThat(context.isLockOutputFilesCalled()).isTrue();
-  }
-
-  @Test
-  public void downloadOutputs_outputFilesWithTopLevel_download() throws Exception {
-    // arrange
-    Digest d1 = cache.addContents(remoteActionExecutionContext, "content1");
-    ActionResult r =
-        ActionResult.newBuilder()
-            .setExitCode(0)
-            .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file1").setDigest(d1))
-            .build();
-
-    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
-    Spawn spawn = newSpawnFromResult(result);
-    RemoteActionFileSystem actionFileSystem = mock(RemoteActionFileSystem.class);
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, actionFileSystem);
-    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.remoteOutputsMode = RemoteOutputsMode.TOPLEVEL;
-    RemoteExecutionService service =
-        newRemoteExecutionService(remoteOptions, spawn.getOutputFiles());
-    RemoteAction action = service.buildRemoteAction(spawn, context);
-
-    // act
-    service.downloadOutputs(action, result);
-
-    // assert
-    verify(actionFileSystem, never()).injectRemoteFile(any(), any(), anyLong(), any());
-    assertThat(digestUtil.compute(execRoot.getRelative("outputs/file1"))).isEqualTo(d1);
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
 
@@ -1985,11 +1954,6 @@ public class RemoteExecutionServiceTest {
   }
 
   private RemoteExecutionService newRemoteExecutionService(RemoteOptions remoteOptions) {
-    return newRemoteExecutionService(remoteOptions, ImmutableList.of());
-  }
-
-  private RemoteExecutionService newRemoteExecutionService(
-      RemoteOptions remoteOptions, Collection<? extends ActionInput> topLevelOutputs) {
     return new RemoteExecutionService(
         directExecutor(),
         reporter,
@@ -2002,7 +1966,6 @@ public class RemoteExecutionServiceTest {
         remoteOptions,
         cache,
         executor,
-        ImmutableSet.copyOf(topLevelOutputs),
         tempPathGenerator,
         null);
   }

@@ -27,26 +27,17 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
-import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
@@ -57,14 +48,12 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
@@ -111,10 +100,8 @@ import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -140,6 +127,7 @@ public final class RemoteModule extends BlazeModule {
   @Nullable private ExecutorService executorService;
   @Nullable private RemoteActionContextProvider actionContextProvider;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
+  @Nullable private ToplevelArtifactsDownloader toplevelArtifactsDownloader;
   @Nullable private RemoteOptions remoteOptions;
   @Nullable private RemoteOutputService remoteOutputService;
   @Nullable private TempPathGenerator tempPathGenerator;
@@ -715,77 +703,12 @@ public final class RemoteModule extends BlazeModule {
                 remoteExecutionCode));
   }
 
-  private static ImmutableList<Artifact> getRunfiles(ConfiguredTarget buildTarget) {
-    FilesToRunProvider runfilesProvider = buildTarget.getProvider(FilesToRunProvider.class);
-    if (runfilesProvider == null) {
-      return ImmutableList.of();
-    }
-    RunfilesSupport runfilesSupport = runfilesProvider.getRunfilesSupport();
-    if (runfilesSupport == null) {
-      return ImmutableList.of();
-    }
-    ImmutableList.Builder<Artifact> runfilesBuilder = ImmutableList.builder();
-    for (Artifact runfile : runfilesSupport.getRunfiles().getArtifacts().toList()) {
-      if (runfile.isSourceArtifact()) {
-        continue;
-      }
-      runfilesBuilder.add(runfile);
-    }
-    return runfilesBuilder.build();
-  }
-
-  private static ImmutableList<ActionInput> getTestOutputs(ConfiguredTarget testTarget) {
-    TestProvider testProvider = testTarget.getProvider(TestProvider.class);
-    if (testProvider == null) {
-      return ImmutableList.of();
-    }
-    return testProvider.getTestParams().getOutputs();
-  }
-
-  private static NestedSet<Artifact> getArtifactsToBuild(
-      ConfiguredTarget buildTarget, TopLevelArtifactContext topLevelArtifactContext) {
-    return TopLevelArtifactHelper.getAllArtifactsToBuild(buildTarget, topLevelArtifactContext)
-        .getImportantArtifacts();
-  }
-
-  private static boolean isTestRule(ConfiguredTarget configuredTarget) {
-    if (configuredTarget instanceof RuleConfiguredTarget) {
-      RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
-      return TargetUtils.isTestRuleName(ruleConfiguredTarget.getRuleClassString());
-    }
-    return false;
-  }
-
   @Override
   public void afterAnalysis(
       CommandEnvironment env,
       BuildRequest request,
       BuildOptions buildOptions,
       AnalysisResult analysisResult) {
-    // The actionContextProvider may be null if remote execution is disabled or if there was an
-    // error during initialization.
-    if (remoteOptions != null
-        && remoteOptions.remoteOutputsMode.downloadToplevelOutputsOnly()
-        && actionContextProvider != null) {
-      boolean isTestCommand = env.getCommandName().equals("test");
-      TopLevelArtifactContext artifactContext = request.getTopLevelArtifactContext();
-      Set<ActionInput> filesToDownload = new HashSet<>();
-      for (ConfiguredTarget configuredTarget : analysisResult.getTargetsToBuild()) {
-        if (isTestCommand && isTestRule(configuredTarget)) {
-          // When running a test download the test.log and test.xml. These are never symlinks.
-          filesToDownload.addAll(getTestOutputs(configuredTarget));
-        } else {
-          fetchSymlinkDependenciesRecursively(
-              analysisResult.getActionGraph(),
-              filesToDownload,
-              getArtifactsToBuild(configuredTarget, artifactContext).toList());
-          fetchSymlinkDependenciesRecursively(
-              analysisResult.getActionGraph(), filesToDownload, getRunfiles(configuredTarget));
-        }
-      }
-      actionContextProvider.setFilesToDownload(ImmutableSet.copyOf(filesToDownload));
-    }
-
     if (remoteOptions != null
         && remoteOptions.remoteBuildEventUploadMode == RemoteBuildEventUploadMode.ALL
         && remoteOptions.incompatibleRemoteBuildEventUploadRespectNoCache) {
@@ -823,44 +746,6 @@ public final class RemoteModule extends BlazeModule {
           }
         }
       }
-    }
-  }
-
-  // This is a short-term fix for top-level outputs that are symlinks. Unfortunately, we cannot
-  // reliably tell after analysis whether actions will create symlinks (the RE protocol allows any
-  // action to generate and return symlinks), but at least we can handle basic C++ rules with this
-  // change.
-  // TODO(ulfjack): I think we should separate downloading files from action execution. That would
-  // also resolve issues around action invalidation - we currently invalidate actions to trigger
-  // downloads of top-level outputs when the top-level targets change.
-  private static void fetchSymlinkDependenciesRecursively(
-      ActionGraph actionGraph, Set<ActionInput> builder, List<Artifact> inputs) {
-    for (Artifact input : inputs) {
-      // Only fetch recursively if we don't have the file to avoid visiting nodes multiple times.
-      if (builder.add(input)) {
-        fetchSymlinkDependenciesRecursively(actionGraph, builder, input);
-      }
-    }
-  }
-
-  private static void fetchSymlinkDependenciesRecursively(
-      ActionGraph actionGraph, Set<ActionInput> builder, Artifact artifact) {
-    if (!(actionGraph.getGeneratingAction(artifact) instanceof ActionExecutionMetadata)) {
-      // The top-level artifact could be a tree artifact, in which case the generating action may
-      // be an ActionTemplate, which does not implement ActionExecutionMetadata. We don't handle
-      // this case right now, so exit.
-      return;
-    }
-    ActionExecutionMetadata action =
-        (ActionExecutionMetadata) actionGraph.getGeneratingAction(artifact);
-    if (action.mayInsensitivelyPropagateInputs()) {
-      List<Artifact> inputs = action.getInputs().toList();
-      if (inputs.size() > 5) {
-        logger.atWarning().log(
-            "Action with a lot of inputs insensitively propagates them; this could be performance"
-                + " problem");
-      }
-      fetchSymlinkDependenciesRecursively(actionGraph, builder, inputs);
     }
   }
 
@@ -921,6 +806,7 @@ public final class RemoteModule extends BlazeModule {
     remoteDownloaderSupplier.set(null);
     actionContextProvider = null;
     actionInputFetcher = null;
+    toplevelArtifactsDownloader = null;
     remoteOptions = null;
     remoteOutputService = null;
     tempPathGenerator = null;
@@ -1042,6 +928,23 @@ public final class RemoteModule extends BlazeModule {
       builder.setActionInputPrefetcher(actionInputFetcher);
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);
+
+      if (remoteOutputsMode.downloadToplevelOutputsOnly()) {
+        toplevelArtifactsDownloader =
+            new ToplevelArtifactsDownloader(
+                env.getCommandName(),
+                env.getSkyframeExecutor().getEvaluator(),
+                actionInputFetcher,
+                (path) -> {
+                  FileSystem fileSystem = path.getFileSystem();
+                  Preconditions.checkState(
+                      fileSystem instanceof RemoteActionFileSystem,
+                      "fileSystem must be an instance of RemoteActionFileSystem");
+                  return ((RemoteActionFileSystem) path.getFileSystem())
+                      .getRemoteMetadata(path.asFragment());
+                });
+        env.getEventBus().register(toplevelArtifactsDownloader);
+      }
     }
   }
 

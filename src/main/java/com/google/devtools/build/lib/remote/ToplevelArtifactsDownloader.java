@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
@@ -28,13 +29,17 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -47,16 +52,38 @@ import javax.annotation.Nullable;
  * in the background.
  */
 public class ToplevelArtifactsDownloader {
+  private enum CommandMode {
+    UNKNOWN,
+    BUILD,
+    TEST,
+    RUN;
+  }
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  private final CommandMode commandMode;
   private final MemoizingEvaluator memoizingEvaluator;
   private final AbstractActionInputPrefetcher actionInputPrefetcher;
   private final PathToMetadataConverter pathToMetadataConverter;
 
   public ToplevelArtifactsDownloader(
+      String commandName,
       MemoizingEvaluator memoizingEvaluator,
       AbstractActionInputPrefetcher actionInputPrefetcher,
       PathToMetadataConverter pathToMetadataConverter) {
+    switch (commandName) {
+      case "build":
+        this.commandMode = CommandMode.BUILD;
+        break;
+      case "test":
+        this.commandMode = CommandMode.TEST;
+        break;
+      case "run":
+        this.commandMode = CommandMode.RUN;
+        break;
+      default:
+        this.commandMode = CommandMode.UNKNOWN;
+    }
     this.memoizingEvaluator = memoizingEvaluator;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.pathToMetadataConverter = pathToMetadataConverter;
@@ -116,6 +143,10 @@ public class ToplevelArtifactsDownloader {
   @Subscribe
   @AllowConcurrentEvents
   public void onTargetComplete(TargetCompleteEvent event) {
+    if (!shouldDownloadToplevelOutputsForTarget(event.getConfiguredTargetKey())) {
+      return;
+    }
+
     if (event.failed()) {
       return;
     }
@@ -123,6 +154,31 @@ public class ToplevelArtifactsDownloader {
     downloadTargetOutputs(
         event.getOutputs(),
         event.getExecutableTargetData().getRunfiles());
+  }
+
+  private boolean shouldDownloadToplevelOutputsForTarget(ConfiguredTargetKey configuredTargetKey) {
+    if (commandMode != CommandMode.TEST) {
+      return true;
+    }
+
+    // Do not download test binary in test mode.
+    try {
+      var configuredTargetValue =
+          (ConfiguredTargetValue) memoizingEvaluator.getExistingValue(configuredTargetKey);
+      if (configuredTargetValue == null) {
+        return false;
+      }
+      ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
+      if (configuredTarget instanceof RuleConfiguredTarget) {
+        var ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+        var isTestRule = isTestRuleName(ruleConfiguredTarget.getRuleClassString());
+        return !isTestRule;
+      }
+      return true;
+    } catch (InterruptedException ignored) {
+      Thread.currentThread().interrupt();
+      return false;
+    }
   }
 
   private void downloadTargetOutputs(
