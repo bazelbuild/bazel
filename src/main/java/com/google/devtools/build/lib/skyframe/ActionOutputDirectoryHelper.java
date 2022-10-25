@@ -60,9 +60,9 @@ public final class ActionOutputDirectoryHelper {
   }
 
   /**
-   * Creates output directories for an {@link
-   * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType#IN_MEMORY_FILE_SYSTEM}.
-   * The action-local filesystem starts empty, so we expect the output directory creation to always
+   * Creates output directories for an in-memory action file system ({@link
+   * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType#inMemoryFileSystem}). The
+   * action-local filesystem starts empty, so we expect the output directory creation to always
    * succeed. There can be no interference from state left behind by prior builds or other actions
    * intra-build.
    */
@@ -96,8 +96,8 @@ public final class ActionOutputDirectoryHelper {
    * rewinding, actions that output tree artifacts need to recreate the directories because they are
    * deleted as part of the {@link com.google.devtools.build.lib.actions.Action#prepare} step.
    *
-   * <p>Note that this does not need to be called if using {@link
-   * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType#IN_MEMORY_FILE_SYSTEM}.
+   * <p>Note that this does not need to be called if using an in-memory action file system ({@link
+   * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType#inMemoryFileSystem}).
    */
   void invalidateTreeArtifactDirectoryCreation(ImmutableSet<Artifact> actionOutputs) {
     for (Artifact output : actionOutputs) {

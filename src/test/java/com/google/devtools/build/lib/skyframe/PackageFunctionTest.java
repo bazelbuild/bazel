@@ -768,8 +768,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibilityViolation() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=b");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file(
         "a/BUILD", //
@@ -785,7 +784,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(ex)
         .hasMessageThat()
         .contains(
-            "error loading package 'a': file //a:BUILD contains .bzl load-visibility violations");
+            "error loading package 'a': file //a:BUILD contains .bzl load visibility violations");
     assertDetailedExitCode(
         ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
     assertContainsEvent("Starlark file //b:foo.bzl is not visible for loading from package //a.");
@@ -793,10 +792,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibilityViolationDemotedToWarningWhenBreakGlassFlagIsSet() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true",
-        "--experimental_bzl_visibility_allowlist=b",
-        "--check_bzl_visibility=false");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true", "--check_bzl_visibility=false");
 
     scratch.file(
         "a/BUILD", //
@@ -814,8 +810,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testVisibilityCallableNotAvailableInBUILD() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=a");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file(
         "a/BUILD", //
@@ -835,8 +830,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testVisibilityCallableErroneouslyInvokedInBUILD() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=a");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file(
         "a/BUILD", //

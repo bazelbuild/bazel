@@ -222,12 +222,12 @@ public abstract class PackageSpecification {
   }
 
   /**
-   * Parses a string to a {@code PackageSpecification} for use with .bzl visibility.
+   * Parses a string to a {@code PackageSpecification} for use with .bzl load visibility.
    *
    * <p>This rejects negative package patterns, and translates the exception type into {@code
    * EvalException}.
    *
-   * <p>Note that .bzl visibility package specifications always behave as if {@code
+   * <p>Note that load visibility package specifications always behave as if {@code
    * --incompatible_package_group_has_public_syntax} and {@code
    * --incompatible_fix_package_group_reporoot_syntax} are enabled.
    */

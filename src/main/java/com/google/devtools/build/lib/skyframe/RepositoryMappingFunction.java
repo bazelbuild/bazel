@@ -30,7 +30,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -50,9 +49,9 @@ public class RepositoryMappingFunction implements SkyFunction {
       return null;
     }
     RepositoryName repositoryName = ((RepositoryMappingValue.Key) skyKey).repoName();
+    boolean enableBzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
 
-    BazelModuleResolutionValue bazelModuleResolutionValue = null;
-    if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
+    if (enableBzlmod) {
       if (StarlarkBuiltinsValue.isBuiltinsRepo(repositoryName)) {
         // Builtins .bzl files should use the repo mapping of @bazel_tools, to get access to repos
         // such as @platforms.
@@ -78,7 +77,7 @@ public class RepositoryMappingFunction implements SkyFunction {
                 .withAdditionalMappings(bazelToolsMapping.getRepositoryMapping()));
       }
 
-      bazelModuleResolutionValue =
+      BazelModuleResolutionValue bazelModuleResolutionValue =
           (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
       if (bazelModuleResolutionValue == null) {
         return null;
@@ -106,9 +105,7 @@ public class RepositoryMappingFunction implements SkyFunction {
         return RepositoryMappingValue.withMapping(
             computeForBazelModuleRepo(repositoryName, bazelModuleResolutionValue)
                 .get()
-                // We need to map the workspace name to the main repo (without this, it would map to
-                // itself, which is a local_repository with path="." -- this is very problematic).
-                // See https://github.com/bazelbuild/bazel/issues/15657 for more info.
+                // For the transitional period, we need to map the workspace name to the main repo.
                 .withAdditionalMappings(
                     ImmutableMap.of(
                         externalPackageValue.getPackage().getWorkspaceName(), RepositoryName.MAIN))
@@ -144,11 +141,20 @@ public class RepositoryMappingFunction implements SkyFunction {
 
     SkyKey externalPackageKey = PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
     PackageValue externalPackageValue = (PackageValue) env.getValue(externalPackageKey);
+    RepositoryMappingValue rootModuleRepoMappingValue =
+        enableBzlmod
+            ? (RepositoryMappingValue)
+                env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS)
+            : null;
     if (env.valuesMissing()) {
       return null;
     }
 
-    return computeFromWorkspace(repositoryName, externalPackageValue, bazelModuleResolutionValue);
+    RepositoryMapping rootModuleRepoMapping =
+        rootModuleRepoMappingValue == null
+            ? null
+            : rootModuleRepoMappingValue.getRepositoryMapping();
+    return computeFromWorkspace(repositoryName, externalPackageValue, rootModuleRepoMapping);
   }
 
   /**
@@ -201,39 +207,32 @@ public class RepositoryMappingFunction implements SkyFunction {
   private SkyValue computeFromWorkspace(
       RepositoryName repositoryName,
       PackageValue externalPackageValue,
-      @Nullable BazelModuleResolutionValue bazelModuleResolutionValue)
+      @Nullable RepositoryMapping rootModuleRepoMapping)
       throws RepositoryMappingFunctionException {
     Package externalPackage = externalPackageValue.getPackage();
     if (externalPackage.containsErrors()) {
       throw new RepositoryMappingFunctionException();
     }
-    if (bazelModuleResolutionValue == null) {
+    if (rootModuleRepoMapping == null) {
+      // This means Bzlmod is disabled.
       return RepositoryMappingValue.withMapping(
           RepositoryMapping.createAllowingFallback(
               externalPackage.getRepositoryMapping(repositoryName)));
     }
-    // If bzlmod is in play, we need to transform mappings to "foo" into mappings for "foo~1.3" (if
-    // there is a module called "foo" in the dep graph and its version is 1.3, that is).
-    ImmutableMap<String, ModuleKey> moduleNameLookup =
-        bazelModuleResolutionValue.getModuleNameLookup();
-    HashMap<String, RepositoryName> mapping = new HashMap<>();
-    mapping.putAll(
-        Maps.transformValues(
-            externalPackage.getRepositoryMapping(repositoryName),
-            toRepo -> {
-              if (toRepo.isMain()) {
-                return toRepo;
-              }
-              ModuleKey moduleKey = moduleNameLookup.get(toRepo.getName());
-              return moduleKey == null ? toRepo : moduleKey.getCanonicalRepoName();
-            }));
-    // If there's no existing mapping to "foo", we should add a mapping from "foo" to "foo~1.3"
-    // anyways.
-    for (Map.Entry<String, ModuleKey> entry : moduleNameLookup.entrySet()) {
-      mapping.putIfAbsent(entry.getKey(), entry.getValue().getCanonicalRepoName());
-    }
+    // If Bzlmod is in play, we need to make sure that WORKSPACE repos see all repos that root
+    // module can see, taking care to compose the existing WORKSPACE mapping with the main repo
+    // mapping from Bzlmod.
     return RepositoryMappingValue.withMapping(
-        RepositoryMapping.createAllowingFallback(ImmutableMap.copyOf(mapping)));
+        RepositoryMapping.createAllowingFallback(
+                Maps.transformValues(
+                    externalPackage.getRepositoryMapping(repositoryName),
+                    toRepo -> {
+                      RepositoryName mappedName = rootModuleRepoMapping.get(toRepo.getName());
+                      // If the Bzlmod-only main repo mapping doesn't contain this repo, don't touch
+                      // it.
+                      return mappedName.isVisible() ? mappedName : toRepo;
+                    }))
+            .withAdditionalMappings(rootModuleRepoMapping));
   }
 
   private static Optional<ModuleExtensionId> maybeGetModuleExtensionForRepo(

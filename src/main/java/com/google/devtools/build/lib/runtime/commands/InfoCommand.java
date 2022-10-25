@@ -230,7 +230,7 @@ public class InfoCommand implements BlazeCommand {
               FailureDetails.InfoCommand.Code.KEY_NOT_RECOGNIZED);
         }
       } else { // print them all
-        configurationSupplier.get();  // We'll need this later anyway
+        var unused = configurationSupplier.get(); // We'll need this later anyway
         for (InfoItem infoItem : items.values()) {
           if (infoItem.isHidden()) {
             continue;

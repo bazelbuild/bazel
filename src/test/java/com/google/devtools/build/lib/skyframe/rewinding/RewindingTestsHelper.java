@@ -2515,6 +2515,73 @@ public class RewindingTestsHelper {
     assertThat(dirtiedArtifactOwnerLabels(dirtiedKeys)).containsExactly("//genheader:gen_header");
   }
 
+  /**
+   * Regression test for b/242179728.
+   *
+   * <p>Exercises a scenario where a failing action depends on another action which is rewound
+   * between the time that the action fails and the dep is looked up for signaling. The order of
+   * events in this scenario (synchronized so that they execute sequentially) is:
+   *
+   * <ol>
+   *   <li>{@code //foo:dep} executes successfully and produces two outputs, {@code dep.out1} and
+   *       {@code dep.out2}.
+   *   <li>{@code //foo:fail}, which depends on {@code dep.out1}, executes and fails due to a
+   *       regular action execution failure (not a lost input).
+   *   <li>{@code //foo:other}, which depends on {@code dep.out2}, executes and observes a lost
+   *       input. {@code //foo:dep} is rewound.
+   *   <li>{@code //foo:fail} looks up {@code //foo:dep} for {@link Reason#RDEP_ADDITION} and
+   *       observes it to be dirty.
+   * </ol>
+   */
+  public final void runDoneToDirtyDepForNodeInError() throws Exception {
+    testCase.write(
+        "foo/BUILD",
+        "genrule(name = 'other', srcs = [':dep.out2'], outs = ['other.out'], cmd = 'cp $< $@')",
+        "genrule(name = 'fail', srcs = [':dep.out1'], outs = ['fail.out'], cmd = 'false')",
+        "genrule(name = 'dep', outs = ['dep.out1', 'dep.out2'], cmd = 'touch $(OUTS)')");
+    CountDownLatch depDone = new CountDownLatch(1);
+    CountDownLatch failExecuting = new CountDownLatch(1);
+    CountDownLatch depRewound = new CountDownLatch(1);
+    Label fail = Label.parseAbsoluteUnchecked("//foo:fail");
+    Label dep = Label.parseAbsoluteUnchecked("//foo:dep");
+    addSpawnShim(
+        "Executing genrule //foo:fail",
+        (spawn, context) -> {
+          failExecuting.countDown();
+          return ExecResult.delegate();
+        });
+    addSpawnShim(
+        "Executing genrule //foo:other",
+        (spawn, context) -> {
+          ImmutableList<ActionInput> lostInputs =
+              ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "dep.out2"));
+          return createLostInputsExecException(
+              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+        });
+    injectListenerAtStartOfNextBuild(
+        (key, type, order, context) -> {
+          if (isActionExecutionKey(key, fail) && type == EventType.CREATE_IF_ABSENT) {
+            awaitUninterruptibly(depDone);
+          } else if (isActionExecutionKey(key, dep)
+              && type == EventType.SET_VALUE
+              && order == Order.AFTER) {
+            depDone.countDown();
+          } else if (isActionExecutionKey(key, dep)
+              && type == EventType.ADD_REVERSE_DEP
+              && order == Order.BEFORE
+              && isActionExecutionKey(context, fail)) {
+            awaitUninterruptibly(depRewound);
+          } else if (isActionExecutionKey(key, dep)
+              && type == EventType.MARK_DIRTY
+              && order == Order.AFTER) {
+            depRewound.countDown();
+          }
+        });
+
+    assertThrows(BuildFailedException.class, () -> testCase.buildTarget("//foo:all"));
+    testCase.assertContainsError("Executing genrule //foo:fail failed");
+  }
+
   private static boolean isActionExecutionKey(Object key, Label label) {
     return key instanceof ActionLookupData && label.equals(((ActionLookupData) key).getLabel());
   }

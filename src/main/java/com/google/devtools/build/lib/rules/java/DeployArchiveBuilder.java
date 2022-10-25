@@ -321,11 +321,9 @@ public class DeployArchiveBuilder {
       args.addAll(
           "--sources", OneVersionCheckActionBuilder.jarAndTargetVectorArg(runtimeClasspath));
     }
-    if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF) {
+    if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF
+        && oneVersionAllowlistArtifact != null) {
       args.add("--enforce_one_version");
-      // RuleErrors should have been added in Builder.build() before this command
-      // line is invoked.
-      Preconditions.checkNotNull(oneVersionAllowlistArtifact);
       args.addExecPath("--one_version_whitelist", oneVersionAllowlistArtifact);
       if (oneVersionEnforcementLevel == OneVersionEnforcementLevel.WARNING) {
         args.add("--succeed_on_found_violations");
@@ -410,12 +408,8 @@ public class DeployArchiveBuilder {
       inputs.add(launcher);
     }
 
-    if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF) {
-      if (oneVersionAllowlistArtifact == null) {
-        OneVersionCheckActionBuilder.addRuleErrorForMissingArtifacts(
-            ruleContext, JavaToolchainProvider.from(ruleContext));
-        return;
-      }
+    if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF
+        && oneVersionAllowlistArtifact != null) {
       inputs.add(oneVersionAllowlistArtifact);
     }
     if (sharedArchive != null) {

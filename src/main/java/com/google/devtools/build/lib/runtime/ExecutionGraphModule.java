@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory.I
 import com.google.devtools.build.lib.server.FailureDetails.BuildReport;
 import com.google.devtools.build.lib.server.FailureDetails.BuildReport.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
@@ -77,6 +78,7 @@ import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -167,6 +169,8 @@ public class ExecutionGraphModule extends BlazeModule {
   private ExecutionGraphOptions options;
   private NanosToMillisSinceEpochConverter nanosToMillis =
       BlazeClock.createNanosToMillisSinceEpochConverter();
+  // Only relevant for Skymeld: there may be multiple events and we only count the first one.
+  private final AtomicBoolean executionStarted = new AtomicBoolean();
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
@@ -207,7 +211,18 @@ public class ExecutionGraphModule extends BlazeModule {
   }
 
   @Subscribe
-  public void executionPhaseStarting(ExecutionStartingEvent event) {
+  public void executionPhaseStarting(@SuppressWarnings("unused") ExecutionStartingEvent event) {
+    handleExecutionBegin();
+  }
+
+  @Subscribe
+  public void someExecutionStarted(@SuppressWarnings("unused") SomeExecutionStartedEvent event) {
+    if (executionStarted.compareAndSet(/*expectedValue=*/ false, /*newValue=*/ true)) {
+      handleExecutionBegin();
+    }
+  }
+
+  private void handleExecutionBegin() {
     try {
       // Defer creation of writer until the start of the execution phase. This is done for two
       // reasons:
@@ -326,6 +341,7 @@ public class ExecutionGraphModule extends BlazeModule {
     } finally {
       writer = null;
       env = null;
+      executionStarted.set(false);
     }
   }
 

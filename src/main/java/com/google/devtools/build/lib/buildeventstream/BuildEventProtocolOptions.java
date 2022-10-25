@@ -18,6 +18,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.time.Duration;
 
 /** Options used to configure the build event protocol. */
 public class BuildEventProtocolOptions extends OptionsBase {
@@ -34,13 +35,30 @@ public class BuildEventProtocolOptions extends OptionsBase {
   public boolean legacyImportantOutputs;
 
   @Option(
-    name = "experimental_build_event_upload_strategy",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Selects how to upload artifacts referenced in the build event protocol."
-  )
+      name = "experimental_build_event_upload_strategy",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Selects how to upload artifacts referenced in the build event protocol.")
   public String buildEventUploadStrategy;
+
+  @Option(
+      name = "experimental_build_event_upload_max_retries",
+      defaultValue = "4",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "The maximum number of times Bazel should retry uploading a build event.")
+  public int besUploadMaxRetries;
+
+  @Option(
+      name = "experimental_build_event_upload_retry_minimum_delay",
+      defaultValue = "1s",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "Initial, minimum delay for exponential backoff retries when BEP upload fails. (exponent:"
+              + " 1.6)")
+  public Duration besUploadRetryInitialDelay;
 
   @Option(
       name = "experimental_stream_log_file_uploads",

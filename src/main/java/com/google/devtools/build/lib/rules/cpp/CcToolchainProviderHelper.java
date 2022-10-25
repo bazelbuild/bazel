@@ -83,6 +83,9 @@ public final class CcToolchainProviderHelper {
           .filter(Predicates.not(OPTIONAL_TOOLS::contains))
           .collect(toImmutableSet());
 
+  private static final ImmutableSet<String> TOOL_PATH_ONLY_TOOL_NAMES =
+      TOOL_PATH_ONLY_TOOLS.stream().map(Tool::getNamePart).collect(toImmutableSet());
+
   @Nullable
   public static CcToolchainProvider getCcToolchainProvider(
       RuleContext ruleContext, CcToolchainAttributesProvider attributes)
@@ -409,17 +412,14 @@ public final class CcToolchainProviderHelper {
       toolPathsCollector.put(tool.getFirst(), crosstoolTopPathFragment.getRelative(path));
     }
 
-    if (toolPathsCollector.isEmpty()) {
-      // If no paths are specified, then actions are most likely being used, so we just fill the
-      // collector with the names of required tools so legacy checks pass.
+    // These tools can only be declared using tool paths, so action-only toolchains should still
+    // be allowed to declared them while still being treated as an action-only toolchain. If a tool
+    // that can be specified with actions is declared using paths, the toolchain will be treated as
+    // a tool-path toolchain to enforce users to migrate their toolchain fully.
+    if (TOOL_PATH_ONLY_TOOL_NAMES.containsAll(toolPathsCollector.keySet())) {
+      // If no required paths are specified, then actions are most likely being used, so we just
+      // fill the collector with the names of required tools so legacy checks pass.
       for (CppConfiguration.Tool tool : REQUIRED_TOOLS) {
-        toolPathsCollector.put(
-            tool.getNamePart(), crosstoolTopPathFragment.getRelative(tool.getNamePart()));
-      }
-
-      // These tools can only be declared using tool paths. So action-only toolchains do not have to
-      // declare them, we fill them here for similar reasons as above.
-      for (CppConfiguration.Tool tool : TOOL_PATH_ONLY_TOOLS) {
         toolPathsCollector.put(
             tool.getNamePart(), crosstoolTopPathFragment.getRelative(tool.getNamePart()));
       }

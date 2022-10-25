@@ -305,6 +305,11 @@ public class CommandLines {
     }
 
     @Override
+    public boolean isDirectory() {
+      return false;
+    }
+
+    @Override
     public boolean isSymlink() {
       return false;
     }

@@ -345,18 +345,18 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       // disabled with a second flag (to avoid the incremental build performance cost at the expense
       // of safety.)
       if (javaConfig.enforceOneVersionOnJavaTests() || !isJavaTestRule(ruleContext)) {
-        builder.addOutputGroup(
-            OutputGroupInfo.VALIDATION,
+        Artifact oneVersionOutputArtifact =
             OneVersionCheckActionBuilder.newBuilder()
                 .withEnforcementLevel(javaConfig.oneVersionEnforcementLevel())
-                .outputArtifact(
-                    ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_ONE_VERSION_ARTIFACT))
                 .useToolchain(JavaToolchainProvider.from(ruleContext))
                 .checkJars(
                     NestedSetBuilder.fromNestedSet(attributes.getRuntimeClassPath())
                         .add(classJar)
                         .build())
-                .build(ruleContext));
+                .build(ruleContext);
+        if (oneVersionOutputArtifact != null) {
+          builder.addOutputGroup(OutputGroupInfo.VALIDATION, oneVersionOutputArtifact);
+        }
       }
     }
     NestedSet<Artifact> filesToBuild = filesBuilder.build();

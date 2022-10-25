@@ -86,6 +86,10 @@ DIST_DEPS = {
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+        "license_kinds": [
+            "@rules_license//licenses/spdx:Apache-2.0",
+        ],
+        "package_version": "2020-10-27",
     },
     #################################################
     #
@@ -93,15 +97,15 @@ DIST_DEPS = {
     #
     #################################################
     "com_google_protobuf": {
-        "archive": "v3.19.2.tar.gz",
-        "sha256": "4dd35e788944b7686aac898f77df4e9a54da0ca694b8801bd6b2a9ffc1b3085e",
-        "strip_prefix": "protobuf-3.19.2",
+        "archive": "v3.19.6.tar.gz",
+        "sha256": "9a301cf94a8ddcb380b901e7aac852780b826595075577bb967004050c835056",
+        "strip_prefix": "protobuf-3.19.6",
         "urls": [
-            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.19.2.tar.gz",
-            "https://github.com/protocolbuffers/protobuf/archive/v3.19.2.tar.gz",
+            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.19.6.tar.gz",
+            "https://github.com/protocolbuffers/protobuf/archive/v3.19.6.tar.gz",
         ],
         "patch_args": ["-p1"],
-        "patches": ["//third_party/protobuf:3.19.2.patch"],
+        "patches": ["//third_party/protobuf:3.19.6.patch"],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
@@ -185,16 +189,19 @@ DIST_DEPS = {
         ],
     },
     "upb": {
-        "archive": "e5f26018368b11aab672e8e8bb76513f3620c579.tar.gz",
-        "sha256": "03b642a535656560cd95cab3b26e8c53ce37e472307dce5bb7e47c9953bbca0f",
-        "strip_prefix": "upb-e5f26018368b11aab672e8e8bb76513f3620c579",
+        "archive": "a5477045acaa34586420942098f5fecd3570f577.tar.gz",
+        "sha256": "cf7f71eaff90b24c1a28b49645a9ff03a9a6c1e7134291ce70901cb63e7364b5",
+        "strip_prefix": "upb-a5477045acaa34586420942098f5fecd3570f577",
         "urls": [
-            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/e5f26018368b11aab672e8e8bb76513f3620c579.tar.gz",
-            "https://github.com/protocolbuffers/upb/archive/e5f26018368b11aab672e8e8bb76513f3620c579.tar.gz",
+            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/a5477045acaa34586420942098f5fecd3570f577.tar.gz",
+            "https://github.com/protocolbuffers/upb/archive/a5477045acaa34586420942098f5fecd3570f577.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
+        ],
+        "license_kinds": [
+            "@rules_license//licenses/generic:notice",
         ],
     },
     "c-ares": {
@@ -235,15 +242,15 @@ DIST_DEPS = {
         "strip_prefix": "abseil-cpp-20211102.0",
     },
     "zstd-jni": {
-        "archive": "v1.5.0-4.zip",
+        "archive": "v1.5.2-3.zip",
         "patch_args": ["-p1"],
         "patches": [
             "//third_party:zstd-jni/Native.java.patch",
         ],
-        "sha256": "d320d59b89a163c5efccbe4915ae6a49883ce653cdc670643dfa21c6063108e4",
+        "sha256": "366009a43cfada35015e4cc40a7efc4b7f017c6b8df5cac3f87d2478027b2056",
         "urls": [
-            "https://mirror.bazel.build/github.com/luben/zstd-jni/archive/v1.5.0-4.zip",
-            "https://github.com/luben/zstd-jni/archive/v1.5.0-4.zip",
+            "https://mirror.bazel.build/github.com/luben/zstd-jni/archive/refs/tags/v1.5.2-3.zip",
+            "https://github.com/luben/zstd-jni/archive/refs/tags/v1.5.2-3.zip",
         ],
         "used_in": [
             "additional_distfiles",

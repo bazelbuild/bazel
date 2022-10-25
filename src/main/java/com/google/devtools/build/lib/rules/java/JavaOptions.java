@@ -294,18 +294,6 @@ public class JavaOptions extends FragmentOptions {
               + "binary.")
   public Label proguard;
 
-  @Option(
-      name = "extra_proguard_specs",
-      allowMultiple = true,
-      defaultValue = "null",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Additional Proguard specs that will be used for all Proguard invocations.  Note that "
-              + "using this option only has an effect when Proguard is used anyway.")
-  public List<Label> extraProguardSpecs;
-
   /**
    * Comma-separated list of Mnemonic=label pairs of optimizers to run in the given order, treating
    * {@code Proguard} specially by substituting in the relevant Proguard binary automatically. All
@@ -569,6 +557,7 @@ public class JavaOptions extends FragmentOptions {
       help = "The Java language version used to execute the tools that are needed during a build")
   public String hostJavaLanguageVersion;
 
+  @Deprecated
   @Option(
       name = "incompatible_dont_collect_native_libraries_in_data",
       defaultValue = "false",
@@ -669,7 +658,6 @@ public class JavaOptions extends FragmentOptions {
     host.bytecodeOptimizationPassActions = bytecodeOptimizationPassActions;
 
     host.enforceProguardFileExtension = enforceProguardFileExtension;
-    host.extraProguardSpecs = extraProguardSpecs;
     host.proguard = proguard;
 
     // Save host options for further use.

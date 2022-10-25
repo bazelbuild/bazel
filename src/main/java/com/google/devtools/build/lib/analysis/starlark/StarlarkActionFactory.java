@@ -500,7 +500,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       String helperScriptSuffix = String.format(".run_shell_%d.sh", runShellOutputCounter++);
       String command = (String) commandUnchecked;
       PathFragment shExecutable =
-          ShToolchain.getPathOrError(getExecutionPlatform(execGroupUnchecked, ruleContext));
+          ShToolchain.getPathForPlatform(
+              ruleContext.getConfiguration(),
+              getExecutionPlatform(execGroupUnchecked, ruleContext));
       BashCommandConstructor constructor =
           CommandHelper.buildBashCommandConstructor(
               executionInfo, shExecutable, helperScriptSuffix);

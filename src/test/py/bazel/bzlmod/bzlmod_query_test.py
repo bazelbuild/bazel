@@ -43,6 +43,8 @@ class BzlmodQueryTest(test_base.TestBase):
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
             'common --registry=https://bcr.bazel.build',
+            # Disable yanked version check so we are not affected BCR changes.
+            'common --allow_yanked_versions=all',
         ])
     self.ScratchFile('WORKSPACE')
     # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes

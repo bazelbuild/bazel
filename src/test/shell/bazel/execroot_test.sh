@@ -44,6 +44,32 @@ EOF
   assert_contains "$(dirname $execroot)/${ws_name}/bazel-out" out
 }
 
+function test_execroot_structure_with_bzlmod() {
+  cat > WORKSPACE <<EOF
+workspace(name = "whatever_doesnt_matter")
+EOF
+  cat > MODULE.bazel <<EOF
+module(name="this_also_doesnt_matter")
+EOF
+
+  mkdir dir
+  cat > dir/BUILD <<'EOF'
+genrule(
+  name = "use-srcs",
+  srcs = ["BUILD"],
+  cmd = "cp $< $@",
+  outs = ["used-srcs"],
+)
+EOF
+
+  bazel build --enable_bzlmod -s //dir:use-srcs &> $TEST_log \
+      || fail "expected success"
+  execroot="$(bazel info --enable_bzlmod execution_root)"
+  test -e "$execroot/../_main"
+  ls -l bazel-out | tee out
+  assert_contains "$(dirname $execroot)/_main/bazel-out" out
+}
+
 function test_sibling_repository_layout() {
     touch WORKSPACE
 

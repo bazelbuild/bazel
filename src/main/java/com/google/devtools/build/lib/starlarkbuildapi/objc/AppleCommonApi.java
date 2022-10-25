@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.starlarkbuildapi.apple;
+package com.google.devtools.build.lib.starlarkbuildapi.objc;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -21,8 +21,13 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleToolchainApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.DottedVersionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodeConfigInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -44,6 +49,7 @@ public interface AppleCommonApi<
         FileApiT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
+        CcInfoApiT extends CcInfoApi<?>,
         ObjcProviderApiT extends ObjcProviderApi<?>,
         XcodeConfigInfoApiT extends XcodeConfigInfoApi<?, ?>,
         ApplePlatformApiT extends ApplePlatformApi>
@@ -251,6 +257,14 @@ public interface AppleCommonApi<
             defaultValue = "None",
             doc = "The dylib binary artifact of the dynamic framework."),
         @Param(
+            name = "cc_info",
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            doc =
+                "A CcInfo which contains information about the transitive dependencies "
+                    + "linked into the binary."),
+        @Param(
             name = "objc",
             named = true,
             positional = false,
@@ -284,6 +298,7 @@ public interface AppleCommonApi<
       })
   AppleDynamicFrameworkInfoApi<?> newDynamicFrameworkProvider(
       Object dylibBinary,
+      Object depsCcInfo,
       ObjcProviderApiT depsObjcProvider,
       Object dynamicFrameworkDirs,
       Object dynamicFrameworkFiles)
@@ -304,6 +319,14 @@ public interface AppleCommonApi<
             defaultValue = "None",
             doc = "The binary artifact of the executable."),
         @Param(
+            name = "cc_info",
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            doc =
+                "A CcInfo which contains information about the transitive dependencies "
+                    + "linked into the binary."),
+        @Param(
             name = "objc",
             named = true,
             positional = false,
@@ -312,7 +335,8 @@ public interface AppleCommonApi<
                     + "dependencies linked into the binary.")
       })
   AppleExecutableBinaryApi newExecutableBinaryProvider(
-      Object executableBinary, ObjcProviderApiT depsObjcProvider) throws EvalException;
+      Object executableBinary, Object depsCcInfo, ObjcProviderApiT depsObjcProvider)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "link_multi_arch_binary",

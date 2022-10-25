@@ -45,7 +45,7 @@ def _objc_library_impl(ctx):
         use_pch = True,
         deps = ctx.attr.deps,
         runtime_deps = ctx.attr.runtime_deps,
-        linkopts = ctx.attr.linkopts,
+        attr_linkopts = ctx.attr.linkopts,
         alwayslink = ctx.attr.alwayslink,
     )
     files = []

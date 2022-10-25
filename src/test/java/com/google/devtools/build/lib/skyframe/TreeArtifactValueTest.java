@@ -110,6 +110,18 @@ public final class TreeArtifactValueTest {
   }
 
   @Test
+  public void createsCorrectValueWithmaterializationExecPath() {
+    PathFragment targetPath = PathFragment.create("some/target/path");
+    SpecialArtifact parent = createTreeArtifact("bin/tree");
+
+    TreeArtifactValue tree =
+        TreeArtifactValue.newBuilder(parent).setMaterializationExecPath(targetPath).build();
+
+    assertThat(tree.getMaterializationExecPath()).hasValue(targetPath);
+    assertThat(tree.getMetadata().getMaterializationExecPath()).hasValue(targetPath);
+  }
+
+  @Test
   public void empty() {
     TreeArtifactValue emptyTree = TreeArtifactValue.empty();
 

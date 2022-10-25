@@ -37,8 +37,10 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -502,10 +504,21 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
         @Param(name = "relName", doc = "The label that will be resolved relative to this one.")
       },
       useStarlarkThread = true)
-  public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {
-    return getRelativeWithRemapping(
-        relName,
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).repoMapping());
+  public Label getRelative(String relName, StarlarkThread thread)
+      throws LabelSyntaxException, EvalException {
+    Label label =
+        getRelativeWithRemapping(
+            relName,
+            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
+                .repoMapping());
+    if (!label.getRepository().isVisible()) {
+      throw Starlark.errorf(
+          "Invalid label string '%s': no repository visible as '@%s' from %s",
+          relName,
+          label.getRepository().getName(),
+          label.getRepository().getOwnerRepoDisplayString());
+    }
+    return label;
   }
 
   /**

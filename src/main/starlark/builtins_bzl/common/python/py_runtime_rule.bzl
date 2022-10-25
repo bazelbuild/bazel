@@ -1,4 +1,4 @@
-# Copyright 2015 The Bazel Authors. All rights reserved.
+# Copyright 2022 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,12 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Path to the test data."""
+"""Implementation of py_runtime rule."""
 
-import os
-import os.path
-
-TESTDATA_PATH = os.path.join(
-    os.getcwd(),
-    "tools/build_defs/pkg/testdata",
-    )
+# Bind to the name "py_runtime" to preserve the kind/rule_class it shows up
+# as elsewhere.
+py_runtime = _builtins.native.py_runtime

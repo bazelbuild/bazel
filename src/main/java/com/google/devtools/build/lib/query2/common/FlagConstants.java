@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2022 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,9 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef EXAMPLES_TEST_CC_SHARED_LIBRARY_IMPLEMENTATION_DEP_H_
-#define EXAMPLES_TEST_CC_SHARED_LIBRARY_IMPLEMENTATION_DEP_H_
 
-int implementation_dep();
+package com.google.devtools.build.lib.query2.common;
 
-#endif  // EXAMPLES_TEST_CC_SHARED_LIBRARY_IMPLEMENTATION_DEP_H_
+/** This file holds hardcoded flag defaults that vary between Bazel and Blaze. */
+// TODO(b/254084490): This file is a temporary hack. Eliminate once we've flipped the incompatible
+// flag in Blaze.
+class FlagConstants {
+
+  private FlagConstants() {}
+
+  static final String DEFAULT_INCOMPATIBLE_PACKAGE_GROUP_INCLUDES_DOUBLE_SLASH = "true";
+}

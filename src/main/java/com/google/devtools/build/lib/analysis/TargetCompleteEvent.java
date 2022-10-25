@@ -82,7 +82,7 @@ public final class TargetCompleteEvent
 
   /** Lightweight data needed about the configured target in this event. */
   public static class ExecutableTargetData {
-    @Nullable private final Path runfilesDirectory;
+    @Nullable private final RunfilesSupport runfilesSupport;
     @Nullable private final Artifact executable;
 
     private ExecutableTargetData(ConfiguredTargetAndData targetAndData) {
@@ -90,20 +90,27 @@ public final class TargetCompleteEvent
           targetAndData.getConfiguredTarget().getProvider(FilesToRunProvider.class);
       if (provider != null) {
         this.executable = provider.getExecutable();
-        if (null != provider.getRunfilesSupport()) {
-          this.runfilesDirectory = provider.getRunfilesSupport().getRunfilesDirectory();
-        } else {
-          this.runfilesDirectory = null;
-        }
+        this.runfilesSupport = provider.getRunfilesSupport();
       } else {
         this.executable = null;
-        this.runfilesDirectory = null;
+        this.runfilesSupport = null;
       }
     }
 
     @Nullable
     public Path getRunfilesDirectory() {
-      return runfilesDirectory;
+      if (runfilesSupport != null) {
+        return runfilesSupport.getRunfilesDirectory();
+      }
+      return null;
+    }
+
+    @Nullable
+    public Runfiles getRunfiles() {
+      if (runfilesSupport != null) {
+        return runfilesSupport.getRunfiles();
+      }
+      return null;
     }
 
     @Nullable

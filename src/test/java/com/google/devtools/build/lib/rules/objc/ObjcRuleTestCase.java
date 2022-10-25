@@ -521,7 +521,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    if binary_type == 'dylib':",
         "        linkopts.append('-dynamiclib')",
         "    elif binary_type == 'loadable_bundle':",
-        "        linkopts.extend(['-bundle', '-Wl,-rpath,@loader_path/Frameworks'])",
+        "        linkopts.extend(['-bundle', '-Xlinker', '-rpath', '-Xlinker',"
+            + " '@loader_path/Frameworks'])",
         "    if ctx.attr.bundle_loader:",
         "        bundle_loader = ctx.attr.bundle_loader",
         "        bundle_loader_file = bundle_loader[apple_common.AppleExecutableBinary].binary",
@@ -569,6 +570,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    if binary_type == 'executable':",
         "        providers.append(apple_common.new_executable_binary_provider(",
         "            binary = processed_binary,",
+        "            cc_info = link_result.cc_info,",
         "            objc = link_result.objc,",
         "        ))",
         "    return providers",
@@ -782,7 +784,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(Joiner.on(" ").join(linkAction.getArguments()))
         .contains("-bundle_loader " + getBinArtifact("bin_lipobin", binTarget).getExecPath());
     assertThat(Joiner.on(" ").join(linkAction.getArguments()))
-        .contains("-Wl,-rpath,@loader_path/Frameworks");
+        .contains("-Xlinker -rpath -Xlinker @loader_path/Frameworks");
   }
 
   protected Action lipoLibAction(String libLabel) throws Exception {
@@ -1562,6 +1564,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "def framework_stub_impl(ctx):",
         "  bin_provider = ctx.attr.binary[apple_common.AppleExecutableBinary]",
         "  my_provider = apple_common.new_dynamic_framework_provider(",
+        "      cc_info = bin_provider.cc_info,",
         "      objc = bin_provider.objc,",
         "      binary = bin_provider.binary,",
         "      framework_files = depset([bin_provider.binary]),",

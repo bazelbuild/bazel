@@ -97,6 +97,8 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "    deps = [':pylib'],",
         "    imports = ['upperuserlib_path'],",
         ")");
+    // TODO(bazel-team): Implement support for `imports` attribute
+    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_library");
     ConfiguredTarget target = getConfiguredTarget("//pkg:upperuserlib");
 
     PyInfo info = target.get(PyInfo.PROVIDER);

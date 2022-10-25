@@ -28,7 +28,7 @@ def _create_context_and_provider(
         extra_import_libraries,
         deps,
         runtime_deps,
-        linkopts):
+        attr_linkopts):
     objc_providers = []
     cc_compilation_contexts = []
     cc_linking_contexts = []
@@ -107,7 +107,7 @@ def _create_context_and_provider(
 
     non_sdk_linkopts = _add_linkopts(
         objc_provider_kwargs,
-        objc_internal.expand_toolchain_and_ctx_variables(ctx = ctx, flags = linkopts),
+        objc_internal.expand_toolchain_and_ctx_variables(ctx = ctx, flags = attr_linkopts),
     )
     all_non_sdk_linkopts.extend(non_sdk_linkopts)
 
@@ -215,12 +215,10 @@ def _create_context_and_provider(
     #   cc_linking_context's linkopts.
     all_linkopts = all_non_sdk_linkopts
     for sdk_framework in objc_provider_kwargs["sdk_framework"]:
-        all_linkopts.append("-framework")
-        all_linkopts.append(sdk_framework)
+        all_linkopts.append("-Wl,-framework," + sdk_framework)
 
     for weak_sdk_framework in objc_provider_kwargs["weak_sdk_framework"]:
-        all_linkopts.append("-weak_framework")
-        all_linkopts.append(weak_sdk_framework)
+        all_linkopts.append("-Wl,-weak_framework," + weak_sdk_framework)
 
     for sdk_dylib in objc_provider_kwargs["sdk_dylib"]:
         if sdk_dylib.startswith("lib"):

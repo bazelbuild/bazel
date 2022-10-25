@@ -26,6 +26,9 @@ public final class ProtoConstants {
   static final String DEFAULT_JAVA_LITE_PROTO_LABEL =
       "@bazel_tools//tools/proto:javalite_toolchain";
 
+  /** Default label for cc proto toolchains. */
+  static final String DEFAULT_CC_PROTO_LABEL = "@bazel_tools//tools/proto:cc_toolchain";
+
   /**
    * This constant is used in ProtoCompileActionBuilder to generate an error message that's
    * displayed when a strict proto deps violation occurs.

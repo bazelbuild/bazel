@@ -58,7 +58,11 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
   private Package.Builder newBuilder(PackageIdentifier id, Path filename) {
     return packageFactory
         .newPackageBuilder(
-            id, "TESTING", StarlarkSemantics.DEFAULT, RepositoryMapping.ALWAYS_FALLBACK)
+            id,
+            "TESTING",
+            StarlarkSemantics.DEFAULT,
+            RepositoryMapping.ALWAYS_FALLBACK,
+            RepositoryMapping.ALWAYS_FALLBACK)
         .setFilename(RootedPath.toRootedPath(root, filename));
   }
 

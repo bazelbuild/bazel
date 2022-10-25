@@ -67,7 +67,7 @@ public final class TopLevelStatusEvents {
   /** An event that marks the skipping of a top-level target, including skipped tests. */
   @AutoValue
   public abstract static class TopLevelTargetSkippedEvent implements Postable {
-    abstract ConfiguredTarget configuredTarget();
+    public abstract ConfiguredTarget configuredTarget();
 
     public static TopLevelTargetSkippedEvent create(ConfiguredTarget configuredTarget) {
       return new AutoValue_TopLevelStatusEvents_TopLevelTargetSkippedEvent(configuredTarget);
@@ -82,9 +82,16 @@ public final class TopLevelStatusEvents {
   public abstract static class TopLevelEntityAnalysisConcludedEvent implements Postable {
     public abstract SkyKey getAnalyzedTopLevelKey();
 
-    public static TopLevelEntityAnalysisConcludedEvent create(SkyKey analyzedTopLevelKey) {
+    public abstract boolean succeeded();
+
+    public static TopLevelEntityAnalysisConcludedEvent success(SkyKey analyzedTopLevelKey) {
       return new AutoValue_TopLevelStatusEvents_TopLevelEntityAnalysisConcludedEvent(
-          analyzedTopLevelKey);
+          analyzedTopLevelKey, /*succeeded=*/ true);
+    }
+
+    public static TopLevelEntityAnalysisConcludedEvent failure(SkyKey analyzedTopLevelKey) {
+      return new AutoValue_TopLevelStatusEvents_TopLevelEntityAnalysisConcludedEvent(
+          analyzedTopLevelKey, /*succeeded=*/ false);
     }
   }
 

@@ -100,6 +100,7 @@ import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -220,6 +221,26 @@ public final class ActionsTestUtil {
       MetadataHandler metadataHandler,
       MemoizingEvaluator evaluator,
       DiscoveredModulesPruner discoveredModulesPruner) {
+    return createContextForInputDiscovery(
+        executor,
+        eventHandler,
+        actionKeyContext,
+        fileOutErr,
+        execRoot,
+        metadataHandler,
+        new BlockingSkyFunctionEnvironment(evaluator, eventHandler),
+        discoveredModulesPruner);
+  }
+
+  public static ActionExecutionContext createContextForInputDiscovery(
+      Executor executor,
+      ExtendedEventHandler eventHandler,
+      ActionKeyContext actionKeyContext,
+      FileOutErr fileOutErr,
+      Path execRoot,
+      MetadataHandler metadataHandler,
+      Environment environment,
+      DiscoveredModulesPruner discoveredModulesPruner) {
     return ActionExecutionContext.forInputDiscovery(
         executor,
         new SingleBuildFileCache(
@@ -232,7 +253,7 @@ public final class ActionsTestUtil {
         fileOutErr,
         eventHandler,
         ImmutableMap.of(),
-        new BlockingSkyFunctionEnvironment(evaluator, eventHandler),
+        environment,
         /*actionFileSystem=*/ null,
         discoveredModulesPruner,
         SyscallCache.NO_CACHE,
@@ -265,6 +286,18 @@ public final class ActionsTestUtil {
         SpecialArtifact.create(root, execPath, NULL_ARTIFACT_OWNER, SpecialArtifactType.TREE);
     treeArtifact.setGeneratingActionKey(NULL_ACTION_LOOKUP_DATA);
     return treeArtifact;
+  }
+
+  public static SpecialArtifact createTreeArtifactWithGeneratingAction(
+      ArtifactRoot root, String path) {
+    return createTreeArtifactWithGeneratingAction(
+        root, root.getExecPath().getRelative(PathFragment.create(path)));
+  }
+
+  public static SpecialArtifact createUnresolvedSymlinkArtifact(
+      ArtifactRoot root, String execPath) {
+    return createUnresolvedSymlinkArtifactWithExecPath(
+        root, root.getExecPath().getRelative(execPath));
   }
 
   public static SpecialArtifact createUnresolvedSymlinkArtifactWithExecPath(
@@ -311,6 +344,11 @@ public final class ActionsTestUtil {
       @Override
       public PathFragment getExecPath() {
         return path;
+      }
+
+      @Override
+      public boolean isDirectory() {
+        return false;
       }
 
       @Override

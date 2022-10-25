@@ -2343,7 +2343,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "def _var_providing_rule_impl(ctx):",
         "   return [",
         "       CcInfo(),",
-        "       apple_common.new_dynamic_framework_provider(objc=ctx.attr.dep[apple_common.Objc])",
+        "       apple_common.new_dynamic_framework_provider(",
+        "           cc_info=ctx.attr.dep[CcInfo],",
+        "           objc=ctx.attr.dep[apple_common.Objc],",
+        "       )",
         "   ]",
         "var_providing_rule = rule(",
         "   implementation = _var_providing_rule_impl,",
@@ -2579,15 +2582,18 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     ImmutableList<String> userLinkFlags = getCcInfoUserLinkFlagsFromTarget("//x:foo");
     assertThat(userLinkFlags).isNotEmpty();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "AVFoundation").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "CoreData").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "Foundation").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "UIKit").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-lz", "-lc++", "-lxml2", "-lsqlite3");
-    assertThat(userLinkFlags).containsAtLeast("-framework", "Framework").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-weak_framework", "WeakFramework").inOrder();
     assertThat(userLinkFlags)
-        .containsAtLeast("-weak_framework", "WeakFrameworkFromLinkOpt")
-        .inOrder();
+        .containsAtLeast(
+            "-Wl,-framework,AVFoundation",
+            "-Wl,-framework,CoreData",
+            "-Wl,-framework,Foundation",
+            "-Wl,-framework,Framework",
+            "-Wl,-framework,UIKit",
+            "-Wl,-weak_framework,WeakFramework",
+            "-Wl,-weak_framework,WeakFrameworkFromLinkOpt",
+            "-lc++",
+            "-lsqlite3",
+            "-lxml2",
+            "-lz");
   }
 }

@@ -129,8 +129,8 @@ final class RemoteSpawnCache implements SpawnCache {
                   /*cacheHit=*/ true,
                   result.cacheName(),
                   inMemoryOutput,
-                  result.getExecutionMetadata().getWorkerStartTimestamp(),
-                  result.getExecutionMetadata().getWorkerCompletedTimestamp(),
+                  result.getExecutionMetadata().getExecutionStartTimestamp(),
+                  result.getExecutionMetadata().getExecutionCompletedTimestamp(),
                   spawnMetrics.build(),
                   spawn.getMnemonic());
           return SpawnCache.success(spawnResult);
@@ -157,9 +157,9 @@ final class RemoteSpawnCache implements SpawnCache {
       }
     }
 
-    context.report(SPAWN_EXECUTING_EVENT);
-
     context.prefetchInputsAndWait();
+
+    context.report(SPAWN_EXECUTING_EVENT);
 
     if (shouldUploadLocalResults) {
       return new CacheHandle() {

@@ -87,14 +87,23 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       throws ExecException, InterruptedException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     context.report(SpawnSchedulingEvent.create(getName()));
-    try (ResourceHandle ignored =
-        resourceManager.acquireResources(
-            owner,
-            spawn.getLocalResources(),
-            context.speculating() ? ResourcePriority.DYNAMIC_STANDALONE : ResourcePriority.LOCAL)) {
-      context.report(SpawnExecutingEvent.create(getName()));
-      SandboxedSpawn sandbox = prepareSpawn(spawn, context);
-      return runSpawn(spawn, sandbox, context);
+
+    try {
+      try (SilentCloseable c = Profiler.instance().profile("context.prefetchInputs")) {
+        context.prefetchInputsAndWait();
+      }
+
+      try (ResourceHandle ignored =
+          resourceManager.acquireResources(
+              owner,
+              spawn.getLocalResources(),
+              context.speculating()
+                  ? ResourcePriority.DYNAMIC_STANDALONE
+                  : ResourcePriority.LOCAL)) {
+        context.report(SpawnExecutingEvent.create(getName()));
+        SandboxedSpawn sandbox = prepareSpawn(spawn, context);
+        return runSpawn(spawn, sandbox, context);
+      }
     } catch (IOException e) {
       FailureDetail failureDetail =
           createFailureDetail(
@@ -129,9 +138,6 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         sandbox.createFileSystem();
       }
       FileOutErr outErr = context.getFileOutErr();
-      try (SilentCloseable c = Profiler.instance().profile("context.prefetchInputs")) {
-        context.prefetchInputsAndWait();
-      }
 
       SpawnResult result;
       try (SilentCloseable c = Profiler.instance().profile("subprocess.run")) {

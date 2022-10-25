@@ -1,10 +1,6 @@
 # Description:
-#   Package group restricting access to starlark-defined transitions, allowing for careful rollout as it is an experimental feature.
-
-package_group(
-    name = "function_transition_allowlist",
-    packages = ["//..."],
-)
+#   Package group restricting access to starlark-defined transitions, allowing
+#   for careful rollout as it is an experimental feature.
 
 filegroup(
     name = "srcs",

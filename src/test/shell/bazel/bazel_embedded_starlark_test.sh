@@ -24,19 +24,6 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
 
-# On Mac, set host config to use PY2 because our CI Mac workers don't have a
-# Python 3 runtime.
-# TODO(https://github.com/bazelbuild/continuous-integration/issues/578):
-# Remove this workaround.
-if [[ "$(uname -s | tr [:upper:] [:lower:] | grep -E 'darwin.*')" ]]; then
-    HOST_PY_FLAG="--host_force_python=PY2"
-    echo "Setting host Python to PY2 to workaround unavailability of Python 3 \
-on Mac CI"
-else
-    HOST_PY_FLAG=""
-fi
-
-
 test_pkg_tar() {
   rm -rf main
   mkdir main
@@ -52,9 +39,9 @@ pkg_tar(
     srcs = glob(["*.txt"]),
 )
 EOF
-  bazel build $HOST_PY_FLAG ... &> $TEST_log \
+  bazel build ... &> $TEST_log \
     || fail "Expect success, even with all upcoming Starlark changes"
-  grep -q 'Hello World' `bazel info bazel-bin $HOST_PY_FLAG`/data.tar \
+  grep -q 'Hello World' `bazel info bazel-bin `/data.tar \
     || fail "Output not generated correctly"
 }
 
@@ -76,10 +63,10 @@ pkg_tar(
   srcs = glob(["data/**/*"]),
 )
 EOF
-  bazel build $HOST_PY_FLAG :fancy &> $TEST_log \
+  bazel build :fancy &> $TEST_log \
       || fail "Expected success"
   mkdir ../out
-  tar -C ../out -x -v -f `bazel info bazel-bin $HOST_PY_FLAG`/fancy.tar
+  tar -C ../out -x -v -f `bazel info bazel-bin `/fancy.tar
 
   grep equal ../out/data/foo=bar || fail "file with equal sign not packed correctly"
   grep option ../out/data/--foo || fail "file with double minus not packed correctly"

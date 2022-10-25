@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.starlarkbuildapi.apple;
+package com.google.devtools.build.lib.starlarkbuildapi.objc;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -31,9 +31,9 @@ public class AppleBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("rules_apple", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/apple"));
 
-  private final AppleCommonApi<?, ?, ?, ?, ?, ?> appleCommon;
+  private final AppleCommonApi<?, ?, ?, ?, ?, ?, ?> appleCommon;
 
-  public AppleBootstrap(AppleCommonApi<?, ?, ?, ?, ?, ?> appleCommon) {
+  public AppleBootstrap(AppleCommonApi<?, ?, ?, ?, ?, ?, ?> appleCommon) {
     this.appleCommon = appleCommon;
   }
 

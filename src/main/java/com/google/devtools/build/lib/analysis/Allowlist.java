@@ -117,9 +117,6 @@ public final class Allowlist {
       TransitiveInfoCollection packageGroup = ruleContext.getPrerequisite(attributeName);
       PackageSpecificationProvider packageSpecificationProvider =
           packageGroup.get(PackageGroupConfiguredTarget.PROVIDER);
-      if (packageSpecificationProvider == null) {
-        packageSpecificationProvider = packageGroup.get(PackageGroupConfiguredTarget.PROVIDER);
-      }
       return requireNonNull(packageSpecificationProvider, packageGroup.getLabel().toString());
     }
     return null;

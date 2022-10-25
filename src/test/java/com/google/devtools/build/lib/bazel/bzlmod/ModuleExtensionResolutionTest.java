@@ -121,6 +121,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   @Before
   public void setup() throws Exception {
     workspaceRoot = scratch.dir("/ws");
+    String bazelToolsPath = "/ws/embedded_tools";
+    scratch.file(bazelToolsPath + "/MODULE.bazel", "module(name = 'bazel_tools')");
+    scratch.file(bazelToolsPath + "/WORKSPACE");
     modulesRoot = scratch.dir("/modules");
     differencer = new SequencedRecordingDifferencer();
     evaluationContext =
@@ -178,7 +181,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                         externalFilesHelper))
                 .put(
                     SkyFunctions.MODULE_FILE,
-                    new ModuleFileFunction(registryFactory, workspaceRoot, ImmutableMap.of()))
+                    new ModuleFileFunction(
+                        registryFactory,
+                        workspaceRoot,
+                        // Required to load @_builtins.
+                        ImmutableMap.of("bazel_tools", LocalPathOverride.create(bazelToolsPath))))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(SkyFunctions.BZL_COMPILE, new BzlCompileFunction(packageFactory, hashFunction))
                 .put(
@@ -1034,7 +1041,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().getException())
         .hasMessageThat()
-        .contains("Repository '@foo' is not visible from repository '@~ext~ext'");
+        .contains("No repository visible as '@foo' from repository '@~ext~ext'");
   }
 
   @Test

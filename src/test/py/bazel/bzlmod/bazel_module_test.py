@@ -12,7 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# pylint: disable=g-long-ternary
 
+import json
 import os
 import pathlib
 import tempfile
@@ -40,6 +42,13 @@ class BazelModuleTest(test_base.TestBase):
         .createCcModule('yanked2', '1.0') \
         .addMetadata('yanked1', yanked_versions={'1.0': 'dodgy'}) \
         .addMetadata('yanked2', yanked_versions={'1.0': 'sketchy'})
+    self.writeBazelrcFile()
+    self.ScratchFile('WORKSPACE')
+    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
+    # from being used; this allows us to test built-in modules actually work
+    self.ScratchFile('WORKSPACE.bzlmod')
+
+  def writeBazelrcFile(self, allow_yanked_versions=True):
     self.ScratchFile(
         '.bazelrc',
         [
@@ -51,11 +60,10 @@ class BazelModuleTest(test_base.TestBase):
             # bazel_tools can work.
             'common --registry=https://bcr.bazel.build',
             'common --verbose_failures',
-        ])
-    self.ScratchFile('WORKSPACE')
-    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
-    # from being used; this allows us to test built-in modules actually work
-    self.ScratchFile('WORKSPACE.bzlmod')
+        ] + ([
+            # Disable yanked version check so we are not affected BCR changes.
+            'common --allow_yanked_versions=all',
+        ] if allow_yanked_versions else []))
 
   def writeMainProjectFiles(self):
     self.ScratchFile('aaa.patch', [
@@ -433,6 +441,7 @@ class BazelModuleTest(test_base.TestBase):
     self.RunBazel(['build', '@no_op//:no_op'], allow_failure=False)
 
   def testNonRegistryOverriddenModulesIgnoreYanked(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
     src_yanked1 = self.main_registry.projects.joinpath('yanked1', '1.0')
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "yanked1", version = "1.0")', 'local_path_override(',
@@ -450,6 +459,7 @@ class BazelModuleTest(test_base.TestBase):
     self.RunBazel(['build', '--nobuild', '//:main'], allow_failure=False)
 
   def testContainingYankedDepFails(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "yanked1", version = "1.0")',
     ])
@@ -469,6 +479,7 @@ class BazelModuleTest(test_base.TestBase):
         'yanked1@1.0, for the reason: dodgy.', ''.join(stderr))
 
   def testAllowedYankedDepsSuccessByFlag(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "ddd", version = "1.0")',
     ])
@@ -487,6 +498,7 @@ class BazelModuleTest(test_base.TestBase):
                   allow_failure=False)
 
   def testAllowedYankedDepsByEnvVar(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "ddd", version = "1.0")',
     ])
@@ -514,6 +526,7 @@ class BazelModuleTest(test_base.TestBase):
         'yanked1@1.0, for the reason: dodgy.', ''.join(stderr))
 
   def testAllowedYankedDepsSuccessMix(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "ddd", version = "1.0")',
     ])
@@ -531,6 +544,46 @@ class BazelModuleTest(test_base.TestBase):
                   env_add={'BZLMOD_ALLOW_YANKED_VERSIONS': 'yanked2@1.0'},
                   allow_failure=False)
 
+  def setUpProjectWithLocalRegistryModule(self, dep_name, dep_version,
+                                          module_base_path):
+    bazel_registry = {
+        'module_base_path': module_base_path,
+    }
+    with self.main_registry.root.joinpath('bazel_registry.json').open('w') as f:
+      json.dump(bazel_registry, f, indent=4, sort_keys=True)
+
+    self.main_registry.generateCcSource(dep_name, dep_version)
+    self.main_registry.createLocalPathModule(dep_name, dep_version,
+                                             dep_name + '/' + dep_version)
+
+    self.ScratchFile('main.cc', [
+        '#include "%s.h"' % dep_name,
+        'int main() {',
+        '    hello_%s("main function");' % dep_name,
+        '}',
+    ])
+    self.ScratchFile('MODULE.bazel', [
+        'bazel_dep(name = "%s", version = "%s")' % (dep_name, dep_version),
+    ])
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        '  deps = ["@%s//:lib_%s"],' % (dep_name, dep_name),
+        ')',
+    ])
+    self.ScratchFile('WORKSPACE', [])
+
+  def testLocalRepoInSourceJsonAbsoluteBasePath(self):
+    self.setUpProjectWithLocalRegistryModule('sss', '1.3',
+                                             str(self.main_registry.projects))
+    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    self.assertIn('main function => sss@1.3', stdout)
+
+  def testLocalRepoInSourceJsonRelativeBasePath(self):
+    self.setUpProjectWithLocalRegistryModule('sss', '1.3', 'projects')
+    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    self.assertIn('main function => sss@1.3', stdout)
 
 if __name__ == '__main__':
   unittest.main()

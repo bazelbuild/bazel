@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -252,8 +251,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     boolean shrinkResourceCycles =
-        shouldShrinkResourceCycles(
-            dataContext.getAndroidConfig(), ruleContext, dataContext.isResourceShrinkingEnabled());
+        dataContext.shouldShrinkResourceCycles(
+            ruleContext, dataContext.isResourceShrinkingEnabled());
     ProcessedAndroidData processedAndroidData =
         ProcessedAndroidData.processBinaryDataFrom(
             dataContext,
@@ -366,8 +365,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       oneVersionOutputArtifact =
           OneVersionCheckActionBuilder.newBuilder()
               .withEnforcementLevel(oneVersionEnforcementLevel)
-              .outputArtifact(
-                  ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_ONE_VERSION_ARTIFACT))
               .useToolchain(JavaToolchainProvider.from(ruleContext))
               .checkJars(transitiveDependencies)
               .build(ruleContext);
@@ -496,7 +493,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             ruleContext.attributes().has(ProguardHelper.PROGUARD_SPECS, BuildType.LABEL_LIST)
                 ? ruleContext.getPrerequisiteArtifacts(ProguardHelper.PROGUARD_SPECS).list()
                 : ImmutableList.of(),
-            ruleContext.getPrerequisiteArtifacts(":extra_proguard_specs").list(),
             proguardDeps);
     boolean hasProguardSpecs = !proguardSpecs.isEmpty();
 
@@ -673,8 +669,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     Artifact artProfileZip =
-        androidSemantics.getArtProfileForApk(
-            ruleContext, finalClassesDex, proguardOutputMap, hasProguardSpecs);
+        androidSemantics.getArtProfileForApk(ruleContext, finalClassesDex, finalProguardOutputMap);
     Artifact unsignedApk =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
     Artifact zipAlignedApk =
@@ -1108,14 +1103,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       Artifact resourceProguardConfig,
       Artifact mergedManifest,
       ImmutableList<Artifact> localProguardSpecs,
-      ImmutableList<Artifact> extraProguardSpecs,
       Iterable<ProguardSpecProvider> proguardDeps) {
 
     ImmutableList<Artifact> proguardSpecs =
         ProguardHelper.collectTransitiveProguardSpecs(
             dataContext.getLabel(),
             dataContext.getActionConstructionContext(),
-            Iterables.concat(ImmutableList.of(resourceProguardConfig), extraProguardSpecs),
+            ImmutableList.of(resourceProguardConfig),
             localProguardSpecs,
             proguardDeps);
 
@@ -1131,15 +1125,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     return proguardSpecs;
-  }
-
-  /** Returns {@code true} if resource shrinking should be performed. */
-  static boolean shouldShrinkResourceCycles(
-      AndroidConfiguration androidConfig,
-      RuleErrorConsumer errorConsumer,
-      boolean shrinkResources) {
-    boolean global = androidConfig.useAndroidResourceCycleShrinking();
-    return global && shrinkResources;
   }
 
   private static ResourceApk shrinkResources(

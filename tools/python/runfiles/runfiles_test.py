@@ -262,6 +262,10 @@ class RunfilesTest(unittest.TestCase):
     self.assertEqual(mf, "")
     self.assertEqual(dr, "")
 
+  def testCurrentRepository(self):
+    self.assertEqual(
+        runfiles.Create({"RUNFILES_DIR": "whatever"}).CurrentRepository(), "")
+
   @staticmethod
   def IsWindows():
     return os.name == "nt"

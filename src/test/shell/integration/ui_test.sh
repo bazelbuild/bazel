@@ -695,4 +695,22 @@ EOF
   expect_log_n "^"$'\e'"\[31m"$'\e'"\[1mFAILED:"$'\e'"\[0m Build did NOT complete successfully" 4
 }
 
+function test_bazel_run_error_visible() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+sh_test(
+  name = 'foo',
+  srcs = ['foo.sh'],
+  shard_count = 2,
+)
+EOF
+  touch foo/foo.sh
+  chmod +x foo/foo.sh
+  bazel run --curses=yes //foo &> "$TEST_log" && "Expected failure"
+  expect_log "ERROR: 'run' only works with tests with one shard"
+  # If we would print this again after the run failed, we would overwrite the
+  # error message above.
+  expect_log_n "INFO: Build completed successfully, [45] total actions" 1
+}
+
 run_suite "Integration tests for ${PRODUCT_NAME}'s UI"

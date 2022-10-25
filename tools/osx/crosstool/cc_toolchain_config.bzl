@@ -258,14 +258,6 @@ def _impl(ctx):
                         ],
                     ),
                     flag_group(
-                        flags = ["-framework", "%{framework_names}"],
-                        iterate_over = "framework_names",
-                    ),
-                    flag_group(
-                        flags = ["-weak_framework", "%{weak_framework_names}"],
-                        iterate_over = "weak_framework_names",
-                    ),
-                    flag_group(
                         flags = ["-l%{library_names}"],
                         iterate_over = "library_names",
                     ),
@@ -527,14 +519,6 @@ def _impl(ctx):
                 flag_groups = [
                     flag_group(flags = ["-target", target_system_name]),
                     flag_group(
-                        flags = ["-framework", "%{framework_names}"],
-                        iterate_over = "framework_names",
-                    ),
-                    flag_group(
-                        flags = ["-weak_framework", "%{weak_framework_names}"],
-                        iterate_over = "weak_framework_names",
-                    ),
-                    flag_group(
                         flags = ["-l%{library_names}"],
                         iterate_over = "library_names",
                     ),
@@ -793,7 +777,10 @@ def _impl(ctx):
                 flag_groups = [
                     flag_group(
                         flags = [
-                            "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}",
+                            "-Xlinker",
+                            "-rpath",
+                            "-Xlinker",
+                            "@loader_path/%{runtime_library_search_directories}",
                         ],
                         iterate_over = "runtime_library_search_directories",
                         expand_if_available = "runtime_library_search_directories",
@@ -1247,6 +1234,14 @@ def _impl(ctx):
                     flag_group(
                         flags = ["-F%{framework_paths}"],
                         iterate_over = "framework_paths",
+                    ),
+                    flag_group(
+                        flags = ["-framework", "%{framework_names}"],
+                        iterate_over = "framework_names",
+                    ),
+                    flag_group(
+                        flags = ["-weak_framework", "%{weak_framework_names}"],
+                        iterate_over = "weak_framework_names",
                     ),
                 ],
             ),

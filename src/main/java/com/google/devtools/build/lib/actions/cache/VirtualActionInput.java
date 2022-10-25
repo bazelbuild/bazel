@@ -55,6 +55,11 @@ public interface VirtualActionInput extends ActionInput, StreamWriter {
     private EmptyActionInput() {}
 
     @Override
+    public boolean isDirectory() {
+      return false;
+    }
+
+    @Override
     public boolean isSymlink() {
       return false;
     }

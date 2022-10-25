@@ -221,9 +221,10 @@ version. Notably, it does *not* need to serve the source archives itself.
 
 An index registry must follow the format below:
 
-*   `/bazel_registry.json`: A JSON file containing metadata for the registry.
-    Currently, it only has one key, `mirrors`, specifying the list of mirrors to
-    use for source archives.
+*   `/bazel_registry.json`: A JSON file containing metadata for the registry like:
+    * `mirrors`, specifying the list of mirrors to use for source archives.
+    * `module_base_path`, specifying the base path for modules with
+      `local_repository` type in the `source.json` file.
 *   `/modules`: A directory containing a subdirectory for each module in this
     registry.
 *   `/modules/$MODULE`: A directory containing a subdirectory for each version
@@ -243,18 +244,29 @@ An index registry must follow the format below:
 *   `/modules/$MODULE/$VERSION`: A directory containing the following files:
     *   `MODULE.bazel`: The `MODULE.bazel` file of this module version.
     *   `source.json`: A JSON file containing information on how to fetch the
-        source of this module version, with the following fields:
-        *   `url`: The URL of the source archive.
-        *   `integrity`: The
-            [Subresource Integrity](https://w3c.github.io/webappsec-subresource-integrity/#integrity-metadata-description){: .external}
-            checksum of the archive.
-        *   `strip_prefix`: A directory prefix to strip when extracting the
-            source archive.
-        *   `patches`: A list of strings, each of which names a patch file to
-            apply to the extracted archive. The patch files are located under
-            the `/modules/$MODULE/$VERSION/patches` directory.
-        *   `patch_strip`: Same as the `--strip` argument of Unix patch.
-    *   `patches/`: An optional directory containing patch files.
+        source of this module version.
+      * The default type is "archive" with the following fields:
+          *   `url`: The URL of the source archive.
+          *   `integrity`: The
+              [Subresource Integrity](https://w3c.github.io/webappsec-subresource-integrity/#integrity-metadata-description){: .external}
+              checksum of the archive.
+          *   `strip_prefix`: A directory prefix to strip when extracting the
+              source archive.
+          *   `patches`: A list of strings, each of which names a patch file to
+              apply to the extracted archive. The patch files are located under
+              the `/modules/$MODULE/$VERSION/patches` directory.
+          *   `patch_strip`: Same as the `--strip` argument of Unix patch.
+      * The type can be changed to use a local path with these fields:
+          *   `type`: `local_path`
+          *   `path`: The local path to the repo, calculated as following:
+              * If path is an absolute path, will be used as it is.
+              * If path is a relative path and `module_base_path` is an absolute path,
+                path is resolved to `<module_base_path>/<path>`
+              * If path and `module_base_path` are both relative paths, path is
+                resolved to `<registry_path>/<module_base_path>/<path>`.
+                Registry must be hosted locally and used by `--registry=file://<registry_path>`.
+                Otherwise, Bazel will throw an error.
+    *   `patches/`: An optional directory containing patch files, only used when `source.json` has "archive" type.
 
 ### Bazel Central Registry {:#bazel-central-registry}
 

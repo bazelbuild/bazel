@@ -305,8 +305,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       oneVersionOutputArtifact =
           OneVersionCheckActionBuilder.newBuilder()
               .withEnforcementLevel(oneVersionEnforcementLevel)
-              .outputArtifact(
-                  ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_ONE_VERSION_ARTIFACT))
               .useToolchain(javaToolchain)
               .checkJars(
                   NestedSetBuilder.fromNestedSet(attributes.getRuntimeClassPath())

@@ -58,7 +58,8 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
 
   @Test
   public void simpleCase() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     scratch.file(
         "pkg/BUILD",
         "py_library(",
@@ -116,7 +117,8 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
 
   @Test
   public void twoContradictoryRequirements() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     scratch.file(
         "pkg/BUILD",
         "py_library(",
@@ -152,7 +154,8 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
 
   @Test
   public void toplevelSelfContradictory() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     scratch.file(
         "pkg/BUILD",
         "py_binary(",
@@ -178,7 +181,8 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
 
   @Test
   public void indirectDependencies() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     // A <- B <- C <- bin, where only B has the constraint.
     scratch.file(
         "pkg/BUILD",
@@ -219,7 +223,8 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
 
   @Test
   public void onlyReportTopmost() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     // A <- B <- C <- bin, where A and C have the constraint.
     scratch.file(
         "pkg/BUILD",
@@ -261,7 +266,8 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
 
   @Test
   public void oneTopmostReachesAnother() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     // A <- B <- C, where A and C have the constraint.
     // A <- bin and C <- bin, so both A and C are top-most even though C has a path to A.
     scratch.file(
@@ -306,7 +312,8 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
 
   @Test
   public void multiplePathsToRequirement() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     // Diamond graph A <- B, A <- C, B <- bin, C <- bin, where only A has the constraint.
     // A is reached through two different paths but reported only once.
     scratch.file(

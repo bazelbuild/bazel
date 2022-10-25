@@ -172,7 +172,7 @@ function create_deploy_jar() {
 HOW_TO_BOOTSTRAP='
 
 --------------------------------------------------------------------------------
-NOTE: This failure is likely occuring if you are trying to bootstrap bazel from
+NOTE: This failure is likely occurring if you are trying to bootstrap bazel from
 a developer checkout. Those checkouts do not include the generated output of
 the protoc compiler (as we prefer not to version generated files).
 
