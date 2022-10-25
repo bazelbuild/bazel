@@ -267,7 +267,7 @@ public final class JavaToolchainProvider extends NativeInfo
     return label;
   }
 
-  /** @return the target Java bootclasspath */
+  /** Returns the target Java bootclasspath. */
   public BootClassPathInfo getBootclasspath() {
     return bootclasspath;
   }
@@ -325,7 +325,6 @@ public final class JavaToolchainProvider extends NativeInfo
     return reducedClasspathIncompatibleProcessors;
   }
 
-
   /**
    * Returns {@code true} if header compilation should be forcibly disabled, overriding
    * --java_header_compilation.
@@ -374,6 +373,12 @@ public final class JavaToolchainProvider extends NativeInfo
     return depsChecker;
   }
 
+  @Override
+  public Artifact getDepsCheckerForStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return depsChecker();
+  }
+
   @Nullable
   public Artifact getResourceJarBuilder() {
     return resourceJarBuilder;
@@ -397,12 +402,12 @@ public final class JavaToolchainProvider extends NativeInfo
     return compatibleJavacOptions;
   }
 
-  /** @return the map of target environment-specific javacopts. */
+  /** Returns the map of target environment-specific javacopts. */
   public ImmutableList<String> getCompatibleJavacOptions(String key) {
     return getCompatibleJavacOptions().get(key);
   }
 
-  /** @return the list of default options for the java compiler */
+  /** Returns the list of default options for the java compiler. */
   public ImmutableList<String> getJavacOptions(RuleContext ruleContext) {
     ImmutableList.Builder<String> result = ImmutableList.<String>builder().addAll(javacOptions);
     if (ruleContext != null) {
@@ -421,7 +426,7 @@ public final class JavaToolchainProvider extends NativeInfo
     return jvmOptions;
   }
 
-  /** @return whether JavaBuilders supports running as a persistent worker or not */
+  /** Returns whether JavaBuilders supports running as a persistent worker or not. */
   public boolean getJavacSupportsWorkers() {
     return javacSupportsWorkers;
   }

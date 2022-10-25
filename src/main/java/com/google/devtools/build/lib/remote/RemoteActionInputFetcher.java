@@ -70,8 +70,8 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   }
 
   @Override
-  protected boolean shouldDownloadFile(Path path, FileArtifactValue metadata) {
-    return metadata.isRemote() && !path.exists();
+  protected boolean canDownloadFile(Path path, FileArtifactValue metadata) {
+    return metadata.isRemote();
   }
 
   @Override

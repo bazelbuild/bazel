@@ -55,17 +55,19 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
       boolean sandboxfsMapSymlinkTargets,
       TreeDeleter treeDeleter)
       throws IOException {
+    // The order of the permissions settings calls matters, see
+    // https://github.com/bazelbuild/bazel/issues/16364
     Path inaccessibleHelperFile = sandboxBase.getRelative("inaccessibleHelperFile");
     FileSystemUtils.touchFile(inaccessibleHelperFile);
-    inaccessibleHelperFile.setReadable(false);
-    inaccessibleHelperFile.setWritable(false);
     inaccessibleHelperFile.setExecutable(false);
+    inaccessibleHelperFile.setWritable(false);
+    inaccessibleHelperFile.setReadable(false);
 
     Path inaccessibleHelperDir = sandboxBase.getRelative("inaccessibleHelperDir");
     inaccessibleHelperDir.createDirectory();
-    inaccessibleHelperDir.setReadable(false);
-    inaccessibleHelperDir.setWritable(false);
     inaccessibleHelperDir.setExecutable(false);
+    inaccessibleHelperDir.setWritable(false);
+    inaccessibleHelperDir.setReadable(false);
 
     return new LinuxSandboxedSpawnRunner(
         helpers,

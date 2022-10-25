@@ -178,6 +178,53 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
   }
 
   /**
+   * Returns an absolutely unambiguous canonical form for this package in label form. Parsing this
+   * string in any environment, even when subject to repository mapping, should identify the same
+   * package.
+   */
+  public String getUnambiguousCanonicalForm() {
+    return String.format("@@%s//%s", getRepository().getName(), getPackageFragment());
+  }
+
+  /**
+   * Returns a label representation for this package that is suitable for display. The returned
+   * string is as simple as possible while referencing the current package when parsed in the
+   * context of the main repository.
+   *
+   * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
+   * @return
+   *     <dl>
+   *       <dt><code>//some/pkg</code>
+   *       <dd>if this package lives in the main repository
+   *       <dt><code>@protobuf//some/pkg</code>
+   *       <dd>if this package lives in a repository with "protobuf" as <code>name</code> of a
+   *           repository in WORKSPACE or as apparent name of a Bzlmod dependency of the main module
+   *       <dt><code>@@protobuf~3.19.2//some/pkg</code>
+   *       <dd>only with Bzlmod if the current package belongs to a repository that is not visible
+   *           from the main module
+   */
+  public String getDisplayForm(RepositoryMapping mainRepositoryMapping) {
+    Preconditions.checkArgument(
+        mainRepositoryMapping.ownerRepo() == null || mainRepositoryMapping.ownerRepo().isMain());
+    if (repository.isMain()) {
+      // Packages in the main repository can always use repo-relative form.
+      return "//" + getPackageFragment();
+    }
+    if (!mainRepositoryMapping.usesStrictDeps()) {
+      // If the main repository mapping is not using strict visibility, then Bzlmod is certainly
+      // disabled, which means that canonical and apparent names can be used interchangeably from
+      // the context of the main repository.
+      return repository.getNameWithAt() + "//" + getPackageFragment();
+    }
+    // If possible, represent the repository with a non-canonical label using the apparent name the
+    // main repository has for it, otherwise fall back to a canonical label.
+    return mainRepositoryMapping
+        .getInverse(repository)
+        .map(apparentName -> "@" + apparentName + "//" + getPackageFragment())
+        .orElseGet(this::getUnambiguousCanonicalForm);
+  }
+
+  /**
    * Returns the package path, possibly qualified with a repository name.
    *
    * <p>Packages that live in the main repo are stringified without a "@" qualifier or "//"

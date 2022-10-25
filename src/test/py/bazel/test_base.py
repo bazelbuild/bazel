@@ -285,6 +285,8 @@ class TestBase(unittest.TestCase):
     """
     if not path:
       return
+    if lines is not None and not isinstance(lines, list):
+      raise ValueError('expected lines to be a list, got ' + str(type(lines)))
     abspath = self.Path(path)
     if os.path.exists(abspath) and not os.path.isfile(abspath):
       raise IOError('"%s" (%s) exists and is not a file' % (path, abspath))

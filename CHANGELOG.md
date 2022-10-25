@@ -1,3 +1,27 @@
+## Release 6.0.0-pre.20221012.2 (2022-10-24)
+
+```
+Baseline: 849f706ac227b1a18f26070cb772c9825583a1b3
+
+Cherry picks:
+
+   + 1ab8498a536cab2ff77cc221e4052ef7a6c7b778:
+     Automated rollback of commit
+     849f706ac227b1a18f26070cb772c9825583a1b3.
+   + c5ccb06cb40dff72c69ea774e63cb8a1eea8ea1e:
+     Automated rollback of commit
+     bc1e9d85c97e8a62b49c6e26ede14eccd4951bd4.
+   + 977d7fb3837ceeabd17ecd639037f95a99ca4cb1:
+     Use single argument form for framework linkopts
+```
+
+Incompatible changes:
+
+  - GrpcRemoteDownloader only includes relevant headers instead of
+    sending all credentials.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Keith Smiley, Xiangquan Xiao.
+
 ## Release 6.0.0-pre.20221007.4 (2022-10-20)
 
 ```

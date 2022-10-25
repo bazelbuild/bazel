@@ -1581,7 +1581,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     prepareSkyframeActionExecutorForExecution(reporter, executor, options, checker);
   }
 
-  private void deleteActionsIfRemoteOptionsChanged(OptionsProvider options)
+  public void deleteActionsIfRemoteOptionsChanged(OptionsProvider options)
       throws AbruptExitException {
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     Map<String, String> remoteDefaultExecProperties;

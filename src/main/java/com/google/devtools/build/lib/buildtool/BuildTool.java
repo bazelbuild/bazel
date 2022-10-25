@@ -334,10 +334,9 @@ public class BuildTool {
                 request,
                 buildOptions,
                 loadingResult,
-                () -> executionTool.prepareForExecution(request.getId()));
+                () -> executionTool.prepareForExecution(request.getId()),
+                result::setBuildConfigurationCollection);
         buildCompleted = true;
-        result.setBuildConfigurationCollection(
-            analysisAndExecutionResult.getConfigurationCollection());
         executionTool.handleConvenienceSymlinks(analysisAndExecutionResult);
       } catch (InvalidConfigurationException
           | TargetParsingException

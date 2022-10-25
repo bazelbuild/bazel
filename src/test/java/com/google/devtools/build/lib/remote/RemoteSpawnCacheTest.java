@@ -240,7 +240,6 @@ public class RemoteSpawnCacheTest {
                 options,
                 remoteCache,
                 null,
-                ImmutableSet.of(),
                 tempPathGenerator,
                 /* captureCorruptedOutputsDir= */ null));
     return new RemoteSpawnCache(execRoot, options, /* verboseFailures=*/ true, service);

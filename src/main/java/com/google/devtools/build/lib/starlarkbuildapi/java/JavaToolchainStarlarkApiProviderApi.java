@@ -126,4 +126,12 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
   @Nullable
   ImmutableList<String> getCompatibleJavacOptionsForStarlark(String key, StarlarkThread thread)
       throws EvalException;
+
+  @Nullable
+  @StarlarkMethod(
+      name = "deps_checker",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  FileApi getDepsCheckerForStarlark(StarlarkThread thread) throws EvalException;
 }

@@ -212,7 +212,7 @@ EOF
   || fail "Expected toplevel output bazel-bin/a/foobar.txt to be downloaded"
 
 
-  # Delete the file to test that the action is re-run
+  # Delete the file to test that the toplevel output can be re-downloaded
   rm -f bazel-bin/a/foobar.txt
 
   bazel build \
@@ -221,10 +221,52 @@ EOF
     --remote_download_toplevel \
     //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
 
-  expect_log "2 processes: 1 remote cache hit, 1 internal"
+  expect_log "1 process: 1 internal"
 
   [[ -f bazel-bin/a/foobar.txt ]] \
   || fail "Expected toplevel output bazel-bin/a/foobar.txt to be re-downloaded"
+}
+
+function test_downloads_toplevel_change_toplevel_targets() {
+  # Test that if a second invocation changes toplevel targets, the outputs of
+  # new target will be downloaded even if we hit a skyframe cache.
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+)
+
+genrule(
+  name = "foobar",
+  srcs = [":foo"],
+  outs = ["foobar.txt"],
+  cmd = "cat $(location :foo) > \"$@\" && echo \"bar\" >> \"$@\"",
+)
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
+
+  (! [[ -f bazel-bin/a/foo.txt ]]) \
+    || fail "Expected intermediate output bazel-bin/a/foo.txt to not be downloaded"
+
+  [[ -f bazel-bin/a/foobar.txt ]] \
+    || fail "Expected toplevel output bazel-bin/a/foobar.txt to be downloaded"
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foobar"
+
+  expect_log "1 process: 1 internal"
+
+  [[ -f bazel-bin/a/foo.txt ]] \
+    || fail "Expected toplevel output bazel-bin/a/foo.txt to be downloaded"
 }
 
 function test_downloads_toplevel_runfiles() {
@@ -464,8 +506,6 @@ EOF
 
   [[ -f bazel-testlogs/a/test/test.xml ]] \
   || fail "Expected toplevel output bazel-testlogs/a/test/test.log to be downloaded"
-
-  bazel clean
 
   # When invoking bazel build the test binary should be downloaded.
   bazel build \

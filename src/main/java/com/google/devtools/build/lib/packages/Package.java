@@ -248,6 +248,13 @@ public class Package {
    */
   private RepositoryMapping repositoryMapping;
 
+  /**
+   * The repository mapping of the main repository. This is only used internally to obtain
+   * user-friendly apparent names from canonical repository names in error message arising from this
+   * package.
+   */
+  private RepositoryMapping mainRepositoryMapping;
+
   private Set<Label> defaultCompatibleWith = ImmutableSet.of();
   private Set<Label> defaultRestrictedTo = ImmutableSet.of();
 
@@ -478,6 +485,7 @@ public class Package {
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
     this.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
+    this.mainRepositoryMapping = Preconditions.checkNotNull(builder.mainRepositoryMapping);
     ImmutableMap.Builder<RepositoryName, ImmutableMap<String, RepositoryName>>
         repositoryMappingsBuilder = ImmutableMap.builder();
     if (!builder.externalPackageRepositoryMappings.isEmpty() && !builder.isRepoRulePackage()) {
@@ -731,7 +739,7 @@ public class Package {
       String blazeQuerySuggestion =
           String.format(
               "Tip: use `query %s:*` to see all the targets in that package",
-              packageIdentifier.getCanonicalForm());
+              packageIdentifier.getDisplayForm(mainRepositoryMapping));
       return String.format(
           " (%s)", Joiner.on(" ").skipNulls().join(targetSuggestion, blazeQuerySuggestion));
     }
@@ -880,6 +888,7 @@ public class Package {
             LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
             workspaceName,
             starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
+            mainRepoMapping,
             mainRepoMapping)
         .setFilename(workspacePath);
   }
@@ -894,7 +903,11 @@ public class Package {
             basePackageId,
             DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES,
             starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
-            repoMapping)
+            repoMapping,
+            // This mapping is *not* the main repository's mapping, but since it is only used to
+            // construct a query command in an error message and the package built here can't be
+            // seen by query, the particular value does not matter.
+            RepositoryMapping.ALWAYS_FALLBACK)
         .setFilename(moduleFilePath);
   }
 
@@ -974,6 +987,11 @@ public class Package {
      * workspace.
      */
     private final RepositoryMapping repositoryMapping;
+    /**
+     * The repository mapping of the main repository. This is only used to resolve user-friendly
+     * apparent names from canonical repository names in error message arising from this package.
+     */
+    private final RepositoryMapping mainRepositoryMapping;
     /** Converts label literals to Label objects within this package. */
     private final LabelConverter labelConverter;
 
@@ -1098,10 +1116,12 @@ public class Package {
         PackageIdentifier id,
         String workspaceName,
         boolean noImplicitFileExport,
-        RepositoryMapping repositoryMapping) {
+        RepositoryMapping repositoryMapping,
+        RepositoryMapping mainRepositoryMapping) {
       this.pkg = new Package(id, workspaceName, packageSettings.succinctTargetNotFoundErrors());
       this.noImplicitFileExport = noImplicitFileExport;
       this.repositoryMapping = repositoryMapping;
+      this.mainRepositoryMapping = mainRepositoryMapping;
       this.labelConverter = new LabelConverter(id, repositoryMapping);
       if (pkg.getName().startsWith("javatests/")) {
         setDefaultTestonly(true);

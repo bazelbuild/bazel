@@ -118,6 +118,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
 
   private static final ImmutableSet<PackageIdentifier> PRIVATE_STARLARKIFICATION_ALLOWLIST =
       ImmutableSet.of(
+          PackageIdentifier.createUnchecked("_builtins", ""),
           PackageIdentifier.createInMainRepo("test"), // for tests
           PackageIdentifier.createInMainRepo("tools/build_defs/android/dev"),
           PackageIdentifier.createInMainRepo("tools/build_defs/android/release/blaze"));
@@ -936,8 +937,11 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     Label label =
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();
-    if (!PRIVATE_STARLARKIFICATION_ALLOWLIST.contains(label.getPackageIdentifier())
-        && !label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
+    if (PRIVATE_STARLARKIFICATION_ALLOWLIST.stream()
+        .noneMatch(
+            allowedPrefix ->
+                label.getRepository().equals(allowedPrefix.getRepository())
+                    && label.getPackageFragment().startsWith(allowedPrefix.getPackageFragment()))) {
       throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
   }

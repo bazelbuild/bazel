@@ -78,7 +78,6 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
-import net.starlark.java.eval.Tuple;
 
 /** Common parts of the implementation of cc rules. */
 public final class CcCommon implements StarlarkValue {
@@ -230,11 +229,6 @@ public final class CcCommon implements StarlarkValue {
     return mergedOutputGroups;
   }
 
-  @StarlarkMethod(name = "copts", structField = true, documented = false)
-  public Sequence<String> getCoptsForStarlark() {
-    return StarlarkList.immutableCopyOf(getCopts());
-  }
-
   @StarlarkMethod(name = "linkopts", structField = true, documented = false)
   public Sequence<String> getLinkoptsForStarlark() {
     return StarlarkList.immutableCopyOf(getLinkopts());
@@ -308,30 +302,6 @@ public final class CcCommon implements StarlarkValue {
       }
     }
     return mapToListOfPairs(map);
-  }
-
-  @StarlarkMethod(name = "srcs", documented = false, structField = true)
-  public Sequence<Tuple> getSourcesForStarlark() {
-    List<Pair<Artifact, Label>> sources = getSources();
-    ImmutableList<Tuple> tupleList =
-        sources.stream().map(p -> Tuple.pair(p.first, p.second)).collect(toImmutableList());
-    return StarlarkList.immutableCopyOf(tupleList);
-  }
-
-  @StarlarkMethod(name = "private_hdrs", documented = false, structField = true)
-  public Sequence<Tuple> getPrivateHeaderForStarlark() {
-    return convertListPairToTuple(getPrivateHeaders());
-  }
-
-  @StarlarkMethod(name = "public_hdrs", documented = false, structField = true)
-  public Sequence<Tuple> getPublicHeaderForStarlark() {
-    return convertListPairToTuple(getHeaders());
-  }
-
-  private Sequence<Tuple> convertListPairToTuple(List<Pair<Artifact, Label>> listPair) {
-    ImmutableList<Tuple> tupleList =
-        listPair.stream().map(p -> Tuple.pair(p.first, p.second)).collect(toImmutableList());
-    return StarlarkList.immutableCopyOf(tupleList);
   }
 
   /**
@@ -418,7 +388,6 @@ public final class CcCommon implements StarlarkValue {
   }
 
   /** Returns the C++ toolchain provider. */
-  @StarlarkMethod(name = "toolchain", documented = false, structField = true)
   public CcToolchainProvider getToolchain() {
     return ccToolchain;
   }

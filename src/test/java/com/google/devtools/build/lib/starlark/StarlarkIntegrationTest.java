@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
-import com.google.devtools.build.lib.analysis.RunfilesLibraryInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
@@ -3652,35 +3651,5 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "in my_rule rule //examples:my_target: Returning RunEnvironmentInfo from a non-executable,"
             + " non-test target has no effect",
         ImmutableSet.of(EventKind.WARNING));
-  }
-
-  @Test
-  public void runfilesLibraryInfoCanBeReturnedAndQueried() throws Exception {
-    scratch.file(
-        "examples/rules.bzl",
-        "def my_runfiles_library_impl(ctx):",
-        "  return [RunfilesLibraryInfo()]",
-        "my_runfiles_library = rule(implementation = my_runfiles_library_impl)",
-        "def language_rule_impl(ctx):",
-        "  if RunfilesLibraryInfo not in ctx.attr.dep:",
-        "    fail('dep does not advertise RunfilesLibraryInfo')",
-        "language_rule = rule(",
-        "  implementation = language_rule_impl,",
-        "  attrs = {'dep': attr.label()},",
-        ")");
-    scratch.file(
-        "examples/BUILD",
-        "load(':rules.bzl', 'language_rule', 'my_runfiles_library')",
-        "my_runfiles_library(name = 'runfiles_library')",
-        "language_rule(",
-        "  name = 'target',",
-        "  dep = ':runfiles_library',",
-        ")");
-
-    ConfiguredTarget runfilesLibrary = getConfiguredTarget("//examples:runfiles_library");
-    assertThat(runfilesLibrary.get(RunfilesLibraryInfo.PROVIDER)).isNotNull();
-
-    // Succeeds only if targets can be queried for the presence of RunfilesLibraryInfo in Starlark.
-    getConfiguredTarget("//examples:target");
   }
 }
