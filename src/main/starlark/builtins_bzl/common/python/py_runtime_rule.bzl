@@ -13,9 +13,70 @@
 # limitations under the License.
 """Implementation of py_runtime rule."""
 
+load(":common/paths.bzl", "paths")
+
+_PyRuntimeInfo = _builtins.toplevel.PyRuntimeInfo
+
 def _py_runtime_impl(ctx):
-    _ = ctx  # @unused
-    fail("not implemented")
+    interpreter_path = ctx.attr.interpreter_path
+    interpreter = ctx.file.interpreter
+    if (interpreter_path and interpreter) or (not interpreter_path and not interpreter):
+        fail("exactly one of the 'interpreter' or 'interpreter_path' attributes must be specified")
+
+    hermetic = bool(interpreter)
+    runtime_files = ctx.attr.files[DefaultInfo].files
+    if not hermetic:
+        if runtime_files:
+            fail("if 'interpreter_path' is given then 'files' must be empty")
+        if not paths.is_absolute(interpreter_path):
+            fail("interpreter_path must be an absolute path")
+
+    if ctx.attr.coverage_tool:
+        coverage_di = ctx.attr.coverage_tool[DefaultInfo]
+
+        # TODO(b/254866025): Use a Java helper to call NestedSet.isSingleton
+        # instead of always flattening to a list
+        coverage_di_files = coverage_di.files.to_list()
+        if len(coverage_di_files) == 1:
+            coverage_tool = coverage_di_files[0]
+        elif coverage_di.files_to_run and coverage_di.files_to_run.executable:
+            coverage_tool = coverage_di.files_to_run.executable
+        else:
+            fail("coverage_tool must be an executable target or must produce exactly one file.")
+
+        coverage_files = depset(transitive = [
+            coverage_di.files,
+            coverage_di.default_runfiles.files,
+        ])
+    else:
+        coverage_tool = None
+        coverage_files = None
+
+    python_version = ctx.attr.python_version
+    if python_version == "_INTERNAL_SENTINEL":
+        if ctx.fragments.py.use_toolchains:
+            fail(
+                "When using Python toolchains, this attribute must be set explicitly to either 'PY2' " +
+                "or 'PY3'. See https://github.com/bazelbuild/bazel/issues/7899 for more " +
+                "information. You can temporarily avoid this error by reverting to the legacy " +
+                "Python runtime mechanism (`--incompatible_use_python_toolchains=false`).",
+            )
+        else:
+            python_version = ctx.fragments.default_python_version
+
+    return [
+        _PyRuntimeInfo(
+            files = runtime_files,
+            coverage_tool = coverage_tool,
+            coverage_files = coverage_files,
+            python_version = python_version,
+            stub_shebang = ctx.attr.stub_shebang,
+        ),
+        DefaultInfo(
+            files = runtime_files,
+            runfiles = ctx.runfiles(),
+        ),
+    ]
 
 # Bind to the name "py_runtime" to preserve the kind/rule_class it shows up
 # as elsewhere.
