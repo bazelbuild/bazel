@@ -431,7 +431,7 @@ public class ActionCacheChecker {
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       Map<String, String> remoteDefaultPlatformProperties,
-      boolean isRemoteCacheEnabled)
+      boolean loadCachedOutputMetadata)
       throws InterruptedException {
     // TODO(bazel-team): (2010) For RunfilesAction/SymlinkAction and similar actions that
     // produce only symlinks we should not check whether inputs are valid at all - all that matters
@@ -476,7 +476,7 @@ public class ActionCacheChecker {
     if (entry != null
         && !entry.isCorrupted()
         && cacheConfig.storeOutputMetadata()
-        && isRemoteCacheEnabled) {
+        && loadCachedOutputMetadata) {
       // load remote metadata from action cache
       cachedOutputMetadata = loadCachedOutputMetadata(action, entry, metadataHandler);
     }
@@ -780,7 +780,7 @@ public class ActionCacheChecker {
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       Map<String, String> remoteDefaultPlatformProperties,
-      boolean isRemoteCacheEnabled)
+      boolean loadCachedOutputMetadata)
       throws InterruptedException {
     if (action != null) {
       removeCacheEntry(action);
@@ -793,7 +793,7 @@ public class ActionCacheChecker {
         metadataHandler,
         artifactExpander,
         remoteDefaultPlatformProperties,
-        isRemoteCacheEnabled);
+        loadCachedOutputMetadata);
   }
 
   /** Returns an action key. It is always set to the first output exec path string. */
