@@ -51,6 +51,11 @@ import org.junit.runners.JUnit4;
 public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
 
   @Before
+  public void setCommandLineFlags() throws Exception {
+    setBuildLanguageOptions("--experimental_google_legacy_api");
+  }
+
+  @Before
   public final void writeBuildFile() throws Exception {
     scratch.file(
         "java/jarlib/BUILD",
@@ -65,6 +70,12 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "package_group(",
         "    name = 'java_import_exports',",
         "    packages = ['//...'],",
+        ")");
+    scratch.overwriteFile(
+        "tools/allowlists/java_import_empty_jars/BUILD",
+        "package_group(",
+        "    name = 'java_import_empty_jars',",
+        "    packages = [],",
         ")");
   }
 
@@ -259,7 +270,9 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testPermitsEmptyJars() throws Exception {
+    useConfiguration("--incompatible_disallow_java_import_empty_jars=0");
     scratchConfiguredTarget("pkg", "rule", "java_import(name = 'rule', jars = [])");
+    assertNoEvents();
   }
 
   @Test

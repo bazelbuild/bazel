@@ -79,4 +79,16 @@ public interface JavaConfigurationApi extends StarlarkValue {
       doc = "Returns true if empty java_import jars are not allowed.",
       useStarlarkThread = true)
   boolean getDisallowJavaImportEmptyJarsInStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "use_ijars",
+      doc = "Returns true iff Java compilation should use ijars.",
+      useStarlarkThread = true)
+  boolean getUseIjarsInStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "disallow_java_import_exports",
+      doc = "Returns true if java_import exports are not allowed.",
+      useStarlarkThread = true)
+  boolean getDisallowJavaImportExportsInStarlark(StarlarkThread thread) throws EvalException;
 }

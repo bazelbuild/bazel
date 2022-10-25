@@ -2564,6 +2564,48 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void useIjars_fails() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+java_import");
+    scratch.file(
+        "foo/rule.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  ctx.fragments.java.use_ijars()",
+        "  return []",
+        "myrule = rule(",
+        "  implementation=_impl,",
+        "  fragments = ['java']",
+        ")");
+    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:myrule");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void disallowJavaImportExports_fails() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+java_import");
+    scratch.file(
+        "foo/rule.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  ctx.fragments.java.disallow_java_import_exports()",
+        "  return []",
+        "myrule = rule(",
+        "  implementation=_impl,",
+        "  fragments = ['java']",
+        ")");
+    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:myrule");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
   public void mergeRuntimeOutputJarsTest() throws Exception {
     scratch.file(
         "foo/custom_library.bzl",
