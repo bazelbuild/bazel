@@ -881,7 +881,9 @@ def _expand_make_variables_for_copts(ctx, tokenization, unexpanded_tokens, addit
 def _get_copts(ctx, common, feature_configuration, additional_make_variable_substitutions):
     if not hasattr(ctx.attr, "copts"):
         fail("could not find rule attribute named: 'copts'")
-    package_copts = common.unexpanded_package_copts
+    package_copts = []
+    if common:
+        package_copts = common.unexpanded_package_copts
     attribute_copts = ctx.attr.copts
     tokenization = not (cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "no_copts_tokenization") or "no_copts_tokenization" in ctx.features)
     expanded_package_copts = _expand_make_variables_for_copts(ctx, tokenization, package_copts, additional_make_variable_substitutions)
