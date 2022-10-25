@@ -351,6 +351,7 @@ PIC_ARCHIVE = [".pic.a"]
 ALWAYSLINK_LIBRARY = [".lo"]
 ALWAYSLINK_PIC_LIBRARY = [".pic.lo"]
 SHARED_LIBRARY = [".so", ".dylib", ".dll"]
+INTERFACE_SHARED_LIBRARY = [".ifso", ".tbd", ".lib", ".dll.a"]
 OBJECT_FILE = [".o", ".obj"]
 PIC_OBJECT_FILE = [".pic.o"]
 
@@ -362,6 +363,16 @@ CC_AND_OBJC.extend(OBJCPP_SOURCE)
 CC_AND_OBJC.extend(CC_HEADER)
 CC_AND_OBJC.extend(ASSEMBLER)
 CC_AND_OBJC.extend(ASSESMBLER_WITH_C_PREPROCESSOR)
+
+DISALLOWED_HDRS_FILES = []
+DISALLOWED_HDRS_FILES.extend(ARCHIVE)
+DISALLOWED_HDRS_FILES.extend(PIC_ARCHIVE)
+DISALLOWED_HDRS_FILES.extend(ALWAYSLINK_LIBRARY)
+DISALLOWED_HDRS_FILES.extend(ALWAYSLINK_PIC_LIBRARY)
+DISALLOWED_HDRS_FILES.extend(SHARED_LIBRARY)
+DISALLOWED_HDRS_FILES.extend(INTERFACE_SHARED_LIBRARY)
+DISALLOWED_HDRS_FILES.extend(OBJECT_FILE)
+DISALLOWED_HDRS_FILES.extend(PIC_OBJECT_FILE)
 
 extensions = struct(
     CC_SOURCE = CC_SOURCE,
@@ -377,6 +388,7 @@ extensions = struct(
     OBJECT_FILE = OBJECT_FILE,
     PIC_OBJECT_FILE = PIC_OBJECT_FILE,
     CC_AND_OBJC = CC_AND_OBJC,
+    DISALLOWED_HDRS_FILES = DISALLOWED_HDRS_FILES,  # Also includes VERSIONED_SHARED_LIBRARY files.
 )
 
 def _collect_header_tokens(
@@ -906,7 +918,7 @@ def _get_expanded_env(ctx, additional_make_variable_substitutions):
     return expanded_env
 
 def _has_target_constraints(ctx, constraints):
-    # Constraints is a label_list
+    # Constraints is a label_list.
     for constraint in constraints:
         constraint_value = constraint[platform_common.ConstraintValueInfo]
         if ctx.target_platform_has_constraint(constraint_value):
@@ -931,6 +943,65 @@ def _is_stamping_enabled_for_aspect(ctx):
 
 def _get_local_defines_for_runfiles_lookup(ctx):
     return ["BAZEL_CURRENT_REPOSITORY=\"{}\"".format(ctx.label.workspace_name)]
+
+# This should be enough to assume if two labels are equal.
+def _are_labels_equal(a, b):
+    return a.name == b.name and a.package == b.package
+
+def _map_to_list(m):
+    result = []
+    for k, v in m.items():
+        result.append((k, v))
+    return result
+
+# Returns a list of (Artifact, Label) tuples. Each tuple represents an input source
+# file and the label of the rule that generates it (or the label of the source file itself if it
+# is an input file).
+def _get_srcs(ctx):
+    if not hasattr(ctx.attr, "srcs"):
+        return []
+
+    # "srcs" attribute is a LABEL_LIST in cc_rules, which might also contain files.
+    artifact_label_map = {}
+    for src in ctx.attr.srcs:
+        if DefaultInfo in src:
+            for artifact in src[DefaultInfo].files.to_list():
+                if "." + artifact.extension not in CC_HEADER:
+                    old_label = artifact_label_map.get(artifact, None)
+                    artifact_label_map[artifact] = src.label
+                    if old_label != None and not _are_labels_equal(old_label, src.label) and "." + artifact.extension in CC_AND_OBJC:
+                        fail(
+                            "Artifact '{}' is duplicated (through '{}' and '{}')".format(artifact, old_label, src),
+                            attr = "srcs",
+                        )
+    return _map_to_list(artifact_label_map)
+
+# Returns a list of (Artifact, Label) tuples. Each tuple represents an input source
+# file and the label of the rule that generates it (or the label of the source file itself if it
+# is an input file).
+def _get_private_hdrs(ctx):
+    if not hasattr(ctx.attr, "srcs"):
+        return []
+    artifact_label_map = {}
+    for src in ctx.attr.srcs:
+        if DefaultInfo in src:
+            for artifact in src[DefaultInfo].files.to_list():
+                if "." + artifact.extension in CC_HEADER:
+                    artifact_label_map[artifact] = src.label
+    return _map_to_list(artifact_label_map)
+
+# Returns the files from headers and does some checks.
+def _get_public_hdrs(ctx):
+    if not hasattr(ctx.attr, "hdrs"):
+        return []
+    artifact_label_map = {}
+    for hdr in ctx.attr.hdrs:
+        if DefaultInfo in hdr:
+            for artifact in hdr[DefaultInfo].files.to_list():
+                if _check_src_extension(artifact, DISALLOWED_HDRS_FILES, True):
+                    continue
+                artifact_label_map[artifact] = hdr.label
+    return _map_to_list(artifact_label_map)
 
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
@@ -978,4 +1049,8 @@ cc_helper = struct(
     is_stamping_enabled = _is_stamping_enabled,
     is_stamping_enabled_for_aspect = _is_stamping_enabled_for_aspect,
     get_local_defines_for_runfiles_lookup = _get_local_defines_for_runfiles_lookup,
+    are_labels_equal = _are_labels_equal,
+    get_srcs = _get_srcs,
+    get_private_hdrs = _get_private_hdrs,
+    get_public_hdrs = _get_public_hdrs,
 )
