@@ -117,6 +117,9 @@ public interface OutputService {
   ModifiedFileSet startBuild(EventHandler eventHandler, UUID buildId, boolean finalizeActions)
       throws BuildFailedException, AbruptExitException, InterruptedException;
 
+  /** Flush and wait for in-progress downloads. */
+  void flushOutputTree() throws InterruptedException;
+
   /**
    * Finish the build.
    *

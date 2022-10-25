@@ -929,7 +929,14 @@ public final class RemoteModule extends BlazeModule {
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);
 
-      if (remoteOutputsMode.downloadToplevelOutputsOnly()) {
+      boolean useToplevelDownloader = remoteOutputsMode.downloadToplevelOutputsOnly();
+
+      // Download toplevel artifacts for `run` command.
+      if ("run".equals(env.getCommandName())) {
+        useToplevelDownloader = true;
+      }
+
+      if (useToplevelDownloader) {
         toplevelArtifactsDownloader =
             new ToplevelArtifactsDownloader(
                 env.getCommandName(),

@@ -309,6 +309,10 @@ public final class SkyframeActionExecutor {
     return executorEngine.getExecRoot();
   }
 
+  ActionInputPrefetcher getActionInputPrefetcher() {
+    return actionInputPrefetcher;
+  }
+
   ActionContextRegistry getActionContextRegistry() {
     return executorEngine;
   }

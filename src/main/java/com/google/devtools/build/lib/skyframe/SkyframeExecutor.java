@@ -2630,6 +2630,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return memoizingEvaluator;
   }
 
+  public ActionInputPrefetcher getActionInputPrefetcher() {
+    return skyframeActionExecutor.getActionInputPrefetcher();
+  }
+
   @VisibleForTesting
   public ConfiguredRuleClassProvider getRuleClassProviderForTesting() {
     return ruleClassProvider;

@@ -21,11 +21,14 @@ import com.google.common.collect.ImmutableSet;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.CompletableEmitter;
+import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.functions.Action;
+import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -131,6 +134,8 @@ public final class AsyncTaskCache<KeyT, ValueT> {
     @GuardedBy("lock")
     private final List<SingleObserver<? super ValueT>> observers = new ArrayList<>();
 
+    private final AsyncSubject<ValueT> completion = AsyncSubject.create();
+
     Execution(KeyT key, Single<ValueT> upstream) {
       this.key = key;
       this.upstream = upstream;
@@ -182,6 +187,9 @@ public final class AsyncTaskCache<KeyT, ValueT> {
             observer.onSuccess(value);
           }
 
+          completion.onNext(value);
+          completion.onComplete();
+
           maybeNotifyTermination();
         }
       }
@@ -197,6 +205,8 @@ public final class AsyncTaskCache<KeyT, ValueT> {
           for (SingleObserver<? super ValueT> observer : ImmutableList.copyOf(observers)) {
             observer.onError(error);
           }
+
+          completion.onError(error);
 
           maybeNotifyTermination();
         }
@@ -348,7 +358,42 @@ public final class AsyncTaskCache<KeyT, ValueT> {
     }
   }
 
-  /** Waits for the channel to become terminated. */
+  /**
+   * Waits for the in-progress tasks to finish. Any tasks that are submitted after the call are not
+   * waited.
+   */
+  public void awaitInProgressTasks() throws InterruptedException {
+    Completable completable =
+        Completable.defer(
+            () -> {
+              Collection<Execution> executions;
+              synchronized (lock) {
+                executions = ImmutableList.copyOf(inProgress.values());
+              }
+
+              if (executions.isEmpty()) {
+                return Completable.complete();
+              }
+
+              return Completable.fromPublisher(
+                  Flowable.fromIterable(executions)
+                      .flatMapSingle(e -> Single.fromObservable(e.completion)));
+            });
+
+    try {
+      completable.blockingAwait();
+    } catch (RuntimeException e) {
+      Throwable cause = e.getCause();
+      if (cause != null) {
+        throwIfInstanceOf(cause, InterruptedException.class);
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * Waits for the channel to become terminated.
+   */
   public void awaitTermination() throws InterruptedException {
     Completable completable =
         Completable.create(
@@ -493,7 +538,17 @@ public final class AsyncTaskCache<KeyT, ValueT> {
       cache.shutdown();
     }
 
-    /** Waits for the cache to become terminated. */
+    /**
+     * Waits for the in-progress tasks to finish. Any tasks that are submitted after the call are
+     * not waited.
+     */
+    public void awaitInProgressTasks() throws InterruptedException {
+      cache.awaitInProgressTasks();
+    }
+
+    /**
+     * Waits for the cache to become terminated.
+     */
     public void awaitTermination() throws InterruptedException {
       cache.awaitTermination();
     }
