@@ -217,11 +217,11 @@ function assert_gcov_coverage_srcs_a_cc() {
 
     # The expected coverage result for coverage_srcs/a.cc in gcov format.
     local expected_gcov_result_a_cc="file:coverage_srcs/a.cc
-function:4,10,1,_Z1ab
-lcount:4,1,0
-lcount:5,1,0
-lcount:6,1,0
-lcount:8,0,1"
+function:4,1,_Z1ab
+lcount:4,1
+lcount:5,1
+lcount:6,1
+lcount:8,0"
     assert_coverage_entry_in_file "$expected_gcov_result_a_cc" "$output_file"
 }
 
@@ -235,11 +235,11 @@ function assert_gcov_coverage_srcs_t_cc() {
 
     # The expected coverage result for coverage_srcs/t.cc in gcov format.
     local expected_gcov_result_t_cc="coverage_srcs/t.cc
-function:5,8,1,main
-lcount:5,1,0
-lcount:6,1,0
-lcount:7,1,0
-lcount:8,1,0"
+function:5,1,main
+lcount:5,1
+lcount:6,1
+lcount:7,1
+lcount:8,1"
     assert_coverage_entry_in_file "$expected_gcov_result_t_cc" "$output_file"
 }
 
@@ -248,11 +248,11 @@ function assert_gcov_coverage_srcs_b_h() {
 
     # The expected coverage result for coverage_srcs/b.h in gcov format.
     local expected_gcov_result="file:coverage_srcs/b.h
-function:1,7,1,_Z1bi
-lcount:1,1,0
-lcount:2,1,0
-lcount:3,1,0
-lcount:5,0,1"
+function:1,1,_Z1bi
+lcount:1,1
+lcount:2,1
+lcount:3,1
+lcount:5,0"
     assert_coverage_entry_in_file "$expected_gcov_result" "$output_file"
 }
 
@@ -261,11 +261,11 @@ function assert_gcov_coverage_srcs_d_a_cc() {
 
     # The expected coverage result for coverage_srcs/different/a.cc in gcov format.
     local expected_gcov_result_d_a_cc="file:coverage_srcs/different/a.cc
-function:1,7,1,_Z11different_ab
-lcount:1,1,0
-lcount:2,1,0
-lcount:3,0,1
-lcount:5,1,0"
+function:1,1,_Z11different_ab
+lcount:1,1
+lcount:2,1
+lcount:3,0
+lcount:5,1"
     assert_coverage_entry_in_file "$expected_gcov_result_d_a_cc" "$output_file"
 }
 
