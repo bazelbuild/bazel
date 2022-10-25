@@ -37,7 +37,10 @@ java_test(
     size = "small",
     srcs = glob(
         ["**/*.java"],
-        exclude = NATIVE_SSL_TEST + ["BuildWithoutTheBytesIntegrationTest.java"],
+        exclude = NATIVE_SSL_TEST + [
+            "BuildWithoutTheBytesIntegrationTest.java",
+            "BuildWithoutTheBytesIntegrationTestBase.java",
+        ],
     ) + NATIVE_SSL_TEST_MAYBE,
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -119,6 +122,24 @@ java_test(
     ],
 )
 
+java_library(
+    name = "build_without_the_bytes_integration_test_base",
+    srcs = [
+        "BuildWithoutTheBytesIntegrationTestBase.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 java_test(
     name = "BuildWithoutTheBytesIntegrationTest",
     size = "large",
@@ -128,14 +149,14 @@ java_test(
         "//third_party/grpc-java:grpc-jar",
     ],
     deps = [
+        ":build_without_the_bytes_integration_test_base",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/dynamic",
         "//src/main/java/com/google/devtools/build/lib/remote",
-        "//src/main/java/com/google/devtools/build/lib/sandbox",
+        "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
         "//third_party:guava",
         "//third_party:junit4",

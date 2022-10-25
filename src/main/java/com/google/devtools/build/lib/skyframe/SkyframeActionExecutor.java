@@ -603,15 +603,16 @@ public final class SkyframeActionExecutor {
     RemoteOptions remoteOptions;
     SortedMap<String, String> remoteDefaultProperties;
     EventHandler handler;
-    boolean isRemoteCacheEnabled;
+    boolean loadCachedOutputMetadata;
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, action.describe())) {
       remoteOptions = this.options.getOptions(RemoteOptions.class);
       remoteDefaultProperties =
           remoteOptions != null
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
-      isRemoteCacheEnabled =
-          (remoteOptions != null && remoteOptions.isRemoteCacheEnabled()) || outputService != null;
+      loadCachedOutputMetadata =
+          outputService
+              != null; // Only load cached output metadata if remote output service is available
       handler =
           options.getOptions(BuildRequestOptions.class).explanationPath != null ? reporter : null;
       token =
@@ -623,7 +624,7 @@ public final class SkyframeActionExecutor {
               metadataHandler,
               artifactExpander,
               remoteDefaultProperties,
-              isRemoteCacheEnabled);
+              loadCachedOutputMetadata);
     } catch (UserExecException e) {
       throw ActionExecutionException.fromExecException(e, action);
     }
@@ -681,7 +682,7 @@ public final class SkyframeActionExecutor {
                   metadataHandler,
                   artifactExpander,
                   remoteDefaultProperties,
-                  isRemoteCacheEnabled);
+                  loadCachedOutputMetadata);
         }
       }
 
