@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -128,12 +129,13 @@ public abstract class CcModule
   private static final ImmutableList<String> SUPPORTED_OUTPUT_TYPES =
       ImmutableList.of("executable", "dynamic_library", "archive");
 
-  private static final ImmutableList<String> PRIVATE_STARLARKIFICATION_ALLOWLIST =
+  private static final ImmutableList<PackageIdentifier> PRIVATE_STARLARKIFICATION_ALLOWLIST =
       ImmutableList.of(
-          "bazel_internal/test_rules/cc",
-          "tools/build_defs/android/dev",
-          "tools/build_defs/android/release/blaze",
-          "rust/private");
+          PackageIdentifier.createUnchecked("_builtins", ""),
+          PackageIdentifier.createInMainRepo("bazel_internal/test_rules/cc"),
+          PackageIdentifier.createInMainRepo("tools/build_defs/android/dev"),
+          PackageIdentifier.createInMainRepo("tools/build_defs/android/release/blaze"),
+          PackageIdentifier.createInMainRepo("rust/private"));
 
   public abstract CppSemantics getSemantics();
 
@@ -1932,8 +1934,11 @@ public abstract class CcModule
     Label label =
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();
-    if (!isBuiltIn(thread)
-        && !PRIVATE_STARLARKIFICATION_ALLOWLIST.contains(label.getPackageName())) {
+    if (PRIVATE_STARLARKIFICATION_ALLOWLIST.stream()
+        .noneMatch(
+            allowedPrefix ->
+                label.getRepository().equals(allowedPrefix.getRepository())
+                    && label.getPackageFragment().startsWith(allowedPrefix.getPackageFragment()))) {
       throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
   }
