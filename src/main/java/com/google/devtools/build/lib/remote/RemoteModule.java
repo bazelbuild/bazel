@@ -703,46 +703,74 @@ public final class RemoteModule extends BlazeModule {
                 remoteExecutionCode));
   }
 
+  // This is a Skymeld-only code path. At the same time, afterAnalysis is exclusive to the
+  // non-Skymeld code path.
+  @Override
+  public void afterTopLevelTargetAnalysis(
+      CommandEnvironment env,
+      BuildRequest request,
+      BuildOptions buildOptions,
+      ConfiguredTarget configuredTarget) {
+    if (shouldParseNoCacheOutputs()) {
+      parseNoCacheOutputsFromSingleConfiguredTarget(
+          Preconditions.checkNotNull(buildEventArtifactUploaderFactoryDelegate.get()),
+          configuredTarget);
+    }
+  }
+
   @Override
   public void afterAnalysis(
       CommandEnvironment env,
       BuildRequest request,
       BuildOptions buildOptions,
       AnalysisResult analysisResult) {
-    if (remoteOptions != null
-        && remoteOptions.remoteBuildEventUploadMode == RemoteBuildEventUploadMode.ALL
-        && remoteOptions.incompatibleRemoteBuildEventUploadRespectNoCache) {
+    if (shouldParseNoCacheOutputs()) {
       parseNoCacheOutputs(analysisResult);
     }
   }
 
-  private void parseNoCacheOutputs(AnalysisResult analysisResult) {
-    if (actionContextProvider == null || actionContextProvider.getRemoteCache() == null) {
-      return;
+  // Separating the conditions for readability.
+  private boolean shouldParseNoCacheOutputs() {
+    if (remoteOptions == null
+        || remoteOptions.remoteBuildEventUploadMode != RemoteBuildEventUploadMode.ALL
+        || !remoteOptions.incompatibleRemoteBuildEventUploadRespectNoCache) {
+      return false;
     }
 
-    ByteStreamBuildEventArtifactUploader uploader = buildEventArtifactUploaderFactoryDelegate.get();
-    if (uploader == null) {
-      return;
+    if (actionContextProvider == null || actionContextProvider.getRemoteCache() == null) {
+      return false;
     }
+
+    return buildEventArtifactUploaderFactoryDelegate.get() != null;
+  }
+
+  private void parseNoCacheOutputs(AnalysisResult analysisResult) {
+    ByteStreamBuildEventArtifactUploader uploader =
+        Preconditions.checkNotNull(buildEventArtifactUploaderFactoryDelegate.get());
 
     for (ConfiguredTarget configuredTarget : analysisResult.getTargetsToBuild()) {
-      // This will either dereference an alias chain, or return the final ConfiguredTarget.
-      configuredTarget = configuredTarget.getActual();
+      parseNoCacheOutputsFromSingleConfiguredTarget(uploader, configuredTarget);
+    }
+  }
 
-      if (configuredTarget instanceof RuleConfiguredTarget) {
-        RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
-        for (ActionAnalysisMetadata action : ruleConfiguredTarget.getActions()) {
-          boolean uploadLocalResults =
-              Utils.shouldUploadLocalResultsToRemoteCache(remoteOptions, action.getExecutionInfo());
-          if (!uploadLocalResults) {
-            for (Artifact output : action.getOutputs()) {
-              if (output.isTreeArtifact()) {
-                uploader.omitTree(output.getPath());
-              } else {
-                uploader.omitFile(output.getPath());
-              }
-            }
+  private void parseNoCacheOutputsFromSingleConfiguredTarget(
+      ByteStreamBuildEventArtifactUploader uploader, ConfiguredTarget configuredTarget) {
+    // This will either dereference an alias chain, or return the final ConfiguredTarget.
+    ConfiguredTarget actualConfiguredTarget = configuredTarget.getActual();
+    if (!(actualConfiguredTarget instanceof RuleConfiguredTarget)) {
+      return;
+    }
+
+    RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) actualConfiguredTarget;
+    for (ActionAnalysisMetadata action : ruleConfiguredTarget.getActions()) {
+      boolean uploadLocalResults =
+          Utils.shouldUploadLocalResultsToRemoteCache(remoteOptions, action.getExecutionInfo());
+      if (!uploadLocalResults) {
+        for (Artifact output : action.getOutputs()) {
+          if (output.isTreeArtifact()) {
+            uploader.omitTree(output.getPath());
+          } else {
+            uploader.omitFile(output.getPath());
           }
         }
       }
