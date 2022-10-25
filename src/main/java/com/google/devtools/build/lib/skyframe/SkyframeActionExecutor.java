@@ -727,8 +727,10 @@ public final class SkyframeActionExecutor {
       // Skyframe has already done all the filesystem access needed for outputs and swallows
       // IOExceptions for inputs. So an IOException is impossible here.
       throw new IllegalStateException(
-          "failed to update action cache for " + action.prettyPrint()
-              + ", but all outputs should already have been checked", e);
+          "failed to update action cache for "
+              + action.prettyPrint()
+              + ", but all outputs should already have been checked",
+          e);
     }
   }
 
@@ -866,12 +868,12 @@ public final class SkyframeActionExecutor {
   }
 
   /**
-   * Returns true if the Builder is winding down (i.e. cancelling outstanding
-   * actions and preparing to abort.)
-   * The builder is winding down iff:
+   * Returns true if the Builder is winding down (i.e. cancelling outstanding actions and preparing
+   * to abort.) The builder is winding down iff:
+   *
    * <ul>
-   * <li>we had an execution error
-   * <li>we are not running with --keep_going
+   *   <li>we had an execution error
+   *   <li>we are not running with --keep_going
    * </ul>
    */
   private boolean isBuilderAborting() {
@@ -1197,8 +1199,10 @@ public final class SkyframeActionExecutor {
       Artifact primaryOutput = action.getPrimaryOutput();
       Path primaryOutputPath = actionExecutionContext.getInputPath(primaryOutput);
       try {
-        Preconditions.checkState(action.inputsDiscovered(),
-            "Action %s successfully executed, but inputs still not known", action);
+        Preconditions.checkState(
+            action.inputsDiscovered(),
+            "Action %s successfully executed, but inputs still not known",
+            action);
 
         try {
           flushActionFileSystem(actionExecutionContext.getActionFileSystem(), outputService);
@@ -1481,12 +1485,15 @@ public final class SkyframeActionExecutor {
       String msg = prefix + "is a dangling symbolic link";
       reporter.handle(Event.error(action.getOwner().getLocation(), msg));
     } else {
-      String suffix = genrule ? " by genrule. This is probably "
-          + "because the genrule actually didn't create this output, or because the output was a "
-          + "directory and the genrule was run remotely (note that only the contents of "
-          + "declared file outputs are copied from genrules run remotely)" : "";
-      reporter.handle(Event.error(
-          action.getOwner().getLocation(), prefix + "was not created" + suffix));
+      String suffix =
+          genrule
+              ? " by genrule. This is probably because the genrule actually didn't create this"
+                  + " output, or because the output was a directory and the genrule was run"
+                  + " remotely (note that only the contents of declared file outputs are copied"
+                  + " from genrules run remotely)"
+              : "";
+      reporter.handle(
+          Event.error(action.getOwner().getLocation(), prefix + "was not created" + suffix));
     }
   }
 
@@ -1496,8 +1503,9 @@ public final class SkyframeActionExecutor {
     if (e instanceof FileNotFoundException) {
       errorMessage = String.format("TreeArtifact %s was not created", output.prettyPrint());
     } else {
-      errorMessage = String.format(
-          "Error while validating output TreeArtifact %s : %s", output, e.getMessage());
+      errorMessage =
+          String.format(
+              "Error while validating output TreeArtifact %s : %s", output, e.getMessage());
     }
 
     reporter.handle(Event.error(action.getOwner().getLocation(), errorMessage));
