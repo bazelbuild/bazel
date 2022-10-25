@@ -43,7 +43,9 @@ public class ConstraintSettingRule implements RuleDefinition {
         constraint list (such as for a <code>config_setting</code>) that requires a particular value
         for that setting.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(DEFAULT_CONSTRAINT_VALUE_ATTR, BuildType.NODEP_LABEL))
+        .add(
+            attr(DEFAULT_CONSTRAINT_VALUE_ATTR, BuildType.NODEP_LABEL)
+                .nonconfigurable("constants must be consistent across configurations"))
         .build();
   }
 

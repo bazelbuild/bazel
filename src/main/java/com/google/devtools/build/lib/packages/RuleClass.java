@@ -2725,14 +2725,6 @@ public class RuleClass {
       // not building it today because the exact needs are not clear.
       return true;
     }
-    // BEGIN-INTERNAL
-    // TODO(aiuto): This is a Google-ism, remove from Bazel.
-    String packageName = ruleDefinitionEnvironmentLabel.getPackageName();
-    if (packageName.startsWith("tools/build_defs/license")
-        || packageName.startsWith("third_party/rules_license")) {
-      return true;
-    }
-    // END-INTERNAL
     return false;
   }
 }
