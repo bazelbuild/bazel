@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
-import com.google.devtools.build.lib.analysis.RunfilesLibraryInfo;
 import com.google.devtools.build.lib.packages.StarlarkLibrary;
 import com.google.devtools.build.lib.packages.StarlarkLibrary.SelectLibrary;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -49,6 +48,5 @@ public final class StarlarkModules {
     predeclared.put("Actions", ActionsProvider.INSTANCE);
     predeclared.put("DefaultInfo", DefaultInfo.PROVIDER);
     predeclared.put("RunEnvironmentInfo", RunEnvironmentInfo.PROVIDER);
-    predeclared.put("RunfilesLibraryInfo", RunfilesLibraryInfo.PROVIDER);
   }
 }
