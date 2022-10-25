@@ -330,6 +330,8 @@ public class ExecutionTool {
       skyframeExecutor.configureActionExecutor(
           skyframeBuilder.getFileCache(), skyframeBuilder.getActionInputPrefetcher());
     }
+
+    skyframeExecutor.deleteActionsIfRemoteOptionsChanged(request);
     try (SilentCloseable c =
         Profiler.instance().profile("prepareSkyframeActionExecutorForExecution")) {
       skyframeExecutor.prepareSkyframeActionExecutorForExecution(
