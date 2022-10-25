@@ -128,6 +128,8 @@ EOF
       coverage_srcs/different/a.cc coverage_srcs/different/a.o \
       coverage_srcs/t.cc coverage_srcs/t.o
 
+  find .
+
   agcno=$(ls coverage_srcs/*a.gcno)
   dagcno=$(ls coverage_srcs/different/*a.gcno)
   tgcno=$(ls coverage_srcs/*t.gcno)
@@ -356,9 +358,9 @@ function test_cc_test_coverage_gcov() {
       # This assertion is needed to make sure no other source files are included
       # in the output file.
       local nr_lines="$(wc -l < "$output_file")"
-      [[ "$nr_lines" == 28 ]] || \
+      [[ "$nr_lines" == 24 ]] || \
         fail "Number of lines in C++ gcov coverage output file is "\
-        "$nr_lines and different than 28"
+        "$nr_lines and different than 24"
     else
 
       # There may or may not be "gcda" in the extension.
