@@ -217,7 +217,8 @@ public class BuildView {
       int mergedPhasesExecutionJobsCount,
       @Nullable ResourceManager resourceManager,
       @Nullable BuildResultListener buildResultListener,
-      @Nullable ExecutionSetup executionSetupCallback)
+      @Nullable ExecutionSetup executionSetupCallback,
+      @Nullable BuildConfigurationsCreated buildConfigurationsCreatedCallback)
       throws ViewCreationFailedException, InvalidConfigurationException, InterruptedException,
           BuildFailedException, TestExecException, AbruptExitException {
     logger.atInfo().log("Starting analysis");
@@ -243,6 +244,9 @@ public class BuildView {
     // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
     try (SilentCloseable c = Profiler.instance().profile("createConfigurations")) {
       configurations = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
+    }
+    if (buildConfigurationsCreatedCallback != null) {
+      buildConfigurationsCreatedCallback.run(configurations);
     }
     try (SilentCloseable c = Profiler.instance().profile("AnalysisUtils.getTargetsWithConfigs")) {
       topLevelTargetsWithConfigsResult =
@@ -872,6 +876,12 @@ public class BuildView {
     void prepareForExecution()
         throws AbruptExitException, BuildFailedException, InvalidConfigurationException,
             InterruptedException;
+  }
+
+  /** The callback for when BuildConfigurationCollection is available. */
+  @FunctionalInterface
+  public interface BuildConfigurationsCreated {
+    void run(BuildConfigurationCollection buildConfigurationCollection);
   }
 
   /**

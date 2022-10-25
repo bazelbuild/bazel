@@ -222,7 +222,8 @@ public class BuildViewForTesting {
         /*mergedPhasesExecutionJobsCount=*/ 0,
         /*resourceManager=*/ null,
         /*buildResultListener=*/ null,
-        /*executionSetupCallback=*/ null);
+        /*executionSetupCallback=*/ null,
+        /*buildConfigurationsCreatedCallback=*/ null);
   }
 
   /** Sets the configurations. Not thread-safe. */
