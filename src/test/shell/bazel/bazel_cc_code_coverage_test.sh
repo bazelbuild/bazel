@@ -128,8 +128,6 @@ EOF
       coverage_srcs/different/a.cc coverage_srcs/different/a.o \
       coverage_srcs/t.cc coverage_srcs/t.o
 
-  find .
-
   agcno=$(ls coverage_srcs/*a.gcno)
   dagcno=$(ls coverage_srcs/different/*a.gcno)
   tgcno=$(ls coverage_srcs/*t.gcno)
