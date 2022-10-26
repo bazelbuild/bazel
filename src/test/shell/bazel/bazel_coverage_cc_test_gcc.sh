@@ -924,4 +924,149 @@ EOF
      expect_log "WARNING: There was no coverage found."
 }
 
+function setup_external_cc_target() {
+  cat > WORKSPACE <<'EOF'
+local_repository(
+    name = "other_repo",
+    path = "other_repo",
+)
+EOF
+
+  cat > BUILD <<'EOF'
+cc_library(
+    name = "b",
+    srcs = ["b.cc"],
+    hdrs = ["b.h"],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > b.h <<'EOF'
+int b(bool what);
+EOF
+
+  cat > b.cc <<'EOF'
+int b(bool what) {
+  if (what) {
+    return 1;
+  } else {
+    return 2;
+  }
+}
+EOF
+
+  mkdir -p other_repo
+  touch other_repo/WORKSPACE
+
+  cat > other_repo/BUILD <<'EOF'
+cc_library(
+    name = "a",
+    srcs = ["a.cc"],
+    hdrs = ["a.h"],
+    deps = ["@//:b"],
+)
+
+cc_test(
+    name = "t",
+    srcs = ["t.cc"],
+    linkstatic = True,
+    deps = [":a"],
+)
+EOF
+
+  cat > other_repo/a.h <<'EOF'
+int a(bool what);
+EOF
+
+  cat > other_repo/a.cc <<'EOF'
+#include "a.h"
+#include "b.h"
+
+int a(bool what) {
+  if (what) {
+    return b(what);
+  } else {
+    return 1 + b(what);
+  }
+}
+EOF
+
+  cat > other_repo/t.cc <<'EOF'
+#include <stdio.h>
+#include "a.h"
+
+int main(void) {
+  a(true);
+}
+EOF
+}
+
+function test_external_cc_target_can_collect_coverage() {
+  if is_gcov_missing_or_wrong_version; then
+    echo "Skipping test." && return
+  fi
+
+  setup_external_cc_target
+
+  bazel coverage --test_output=all --instrumentation_filter=// @other_repo//:t \
+      &>"$TEST_log" || fail "Coverage for @other_repo//:t failed"
+
+  local coverage_file_path="$(get_coverage_file_path_from_test_log)"
+  local expected_result_a_cc='SF:external/other_repo/a.cc
+FN:4,_Z1ab
+FNDA:1,_Z1ab
+FNF:1
+FNH:1
+DA:4,1
+DA:5,1
+DA:6,1
+DA:8,0
+LH:3
+LF:4
+end_of_record'
+  local expected_result_b_cc='SF:b.cc
+FN:1,_Z1bb
+FNDA:1,_Z1bb
+FNF:1
+FNH:1
+DA:1,1
+DA:2,1
+DA:3,1
+DA:5,0
+LH:3
+LF:4
+end_of_record'
+
+  assert_coverage_result "$expected_result_a_cc" "$coverage_file_path"
+  assert_coverage_result "$expected_result_b_cc" "$coverage_file_path"
+}
+
+function test_external_cc_target_coverage_not_collected_by_default() {
+  if is_gcov_missing_or_wrong_version; then
+    echo "Skipping test." && return
+  fi
+
+  setup_external_cc_target
+
+  bazel coverage --test_output=all @other_repo//:t \
+      &>"$TEST_log" || fail "Coverage for @other_repo//:t failed"
+
+  local coverage_file_path="$(get_coverage_file_path_from_test_log)"
+  local expected_result_b_cc='SF:b.cc
+FN:1,_Z1bb
+FNDA:1,_Z1bb
+FNF:1
+FNH:1
+DA:1,1
+DA:2,1
+DA:3,1
+DA:5,0
+LH:3
+LF:4
+end_of_record'
+
+  assert_coverage_result "$expected_result_b_cc" "$coverage_file_path"
+  assert_not_contains "SF:external/other_repo/a.cc" "$coverage_file_path"
+}
+
 run_suite "test tests"
