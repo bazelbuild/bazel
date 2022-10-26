@@ -103,7 +103,7 @@ public final class UiEventHandler implements EventHandler {
   private final boolean showTimestamp;
   private final OutErr outErr;
   private final ImmutableSet<EventKind> filteredEvents;
-  private long minimalDelayMillis;
+  private long progressRateLimitMillis;
   private long minimalUpdateInterval;
   private long lastRefreshMillis;
   private long mustRefreshAfterMillis;
@@ -191,14 +191,16 @@ public final class UiEventHandler implements EventHandler {
     this.stateTracker.setProgressSampleSize(options.uiActionsShown);
     this.numLinesProgressBar = 0;
     if (this.cursorControl) {
-      this.minimalDelayMillis = Math.round(options.showProgressRateLimit * 1000);
+      this.progressRateLimitMillis = Math.round(options.showProgressRateLimit * 1000);
     } else {
-      this.minimalDelayMillis =
+      this.progressRateLimitMillis =
           Math.max(
               Math.round(options.showProgressRateLimit * 1000),
               NO_CURSES_MINIMAL_PROGRESS_RATE_LIMIT);
     }
-    this.minimalUpdateInterval = Math.max(this.minimalDelayMillis, MINIMAL_UPDATE_INTERVAL_MILLIS);
+    this.minimalUpdateInterval = Math.max(
+                                     this.progressRateLimitMillis, 
+                                     MINIMAL_UPDATE_INTERVAL_MILLIS);
     this.stdoutLineBuffer = new ByteArrayOutputStream();
     this.stderrLineBuffer = new ByteArrayOutputStream();
     this.dateShown = false;
@@ -843,7 +845,7 @@ public final class UiEventHandler implements EventHandler {
       return;
     }
     long nowMillis = clock.currentTimeMillis();
-    if (lastRefreshMillis + minimalDelayMillis < nowMillis) {
+    if (lastRefreshMillis + progressRateLimitMillis < nowMillis) {
       if (updateLock.tryLock()) {
         try {
           synchronized (this) {
@@ -895,7 +897,7 @@ public final class UiEventHandler implements EventHandler {
     }
     long nowMillis = clock.currentTimeMillis();
     if (lastRefreshMillis < mustRefreshAfterMillis
-        && mustRefreshAfterMillis < nowMillis + minimalDelayMillis) {
+        && mustRefreshAfterMillis < nowMillis + progressRateLimitMillis) {
       // Within a small interval from now, an update is scheduled anyway,
       // so don't do a time-based update of the progress bar now, to avoid
       // updates too close to each other.
@@ -907,7 +909,7 @@ public final class UiEventHandler implements EventHandler {
   private void ignoreRefreshLimitOnce() {
     // Set refresh time variables in a state such that the next progress bar
     // update will definitely be written out.
-    lastRefreshMillis = clock.currentTimeMillis() - minimalDelayMillis - 1;
+    lastRefreshMillis = clock.currentTimeMillis() - progressRateLimitMillis - 1;
   }
 
   private void startUpdateThread() {
