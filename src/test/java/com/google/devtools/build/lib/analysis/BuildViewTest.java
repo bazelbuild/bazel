@@ -699,8 +699,8 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
         "no such target '//x:z': target 'z' not declared in package 'x' defined by"
-            + " /workspace/x/BUILD (Tip: use `query //x:*` to see all the targets in that package)"
-            + " and referenced by '//y:y'");
+            + " /workspace/x/BUILD (Tip: use `query \"//x:*\"` to see all the targets in that"
+            + " package) and referenced by '//y:y'");
   }
 
   @Test
