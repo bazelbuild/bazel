@@ -738,7 +738,7 @@ public class Package {
           suggestedTarget == null ? null : String.format("did you mean '%s'?", suggestedTarget);
       String blazeQuerySuggestion =
           String.format(
-              "Tip: use `query %s:*` to see all the targets in that package",
+              "Tip: use `query \"%s:*\"` to see all the targets in that package",
               packageIdentifier.getDisplayForm(mainRepositoryMapping));
       return String.format(
           " (%s)", Joiner.on(" ").skipNulls().join(targetSuggestion, blazeQuerySuggestion));
