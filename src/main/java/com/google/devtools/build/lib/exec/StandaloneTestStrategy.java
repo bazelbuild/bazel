@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -50,8 +51,10 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -65,8 +68,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 /** Runs TestRunnerAction actions. */
@@ -714,14 +719,22 @@ public class StandaloneTestStrategy extends TestStrategy {
         closeSuppressed(e, fileOutErr);
         throw e;
       }
-      actionExecutionContext
-          .getMetadataHandler()
-          .getMetadata(testAction.getCoverageDirectoryTreeArtifact());
-      ImmutableSet<? extends ActionInput> expandedCoverageDir =
+      Path coverageDir =
           actionExecutionContext
-              .getMetadataHandler()
-              .getTreeArtifactChildren(
-                  (SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact());
+              .getPathResolver()
+              .convertPath(testAction.getCoverageDirectoryTreeArtifact().getPath());
+      Set<ActionInput> expandedCoverageDir = new HashSet<>();
+      TreeArtifactValue.visitTree(
+          coverageDir,
+          ((parentRelativePath, type) -> {
+            if (type == Dirent.Type.DIRECTORY) {
+              return;
+            }
+            expandedCoverageDir.add(
+                TreeFileArtifact.createTreeOutput(
+                    (SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact(),
+                    parentRelativePath));
+          }));
       Spawn coveragePostProcessingSpawn =
           createCoveragePostProcessingSpawn(
               actionExecutionContext,
@@ -771,7 +784,10 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     Verify.verify(
         !(testAction.isCoverageMode() && testAction.getSplitCoveragePostProcessing())
-            || testAction.getCoverageData().getPath().exists());
+            || actionExecutionContext
+                .getPathResolver()
+                .convertPath(testAction.getCoverageData().getPath())
+                .exists());
     Verify.verifyNotNull(spawnResults);
     Verify.verifyNotNull(testResultDataBuilder);
 

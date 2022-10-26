@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.test.CoverageReport;
 import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
@@ -56,7 +57,8 @@ public class ToplevelArtifactsDownloader {
     UNKNOWN,
     BUILD,
     TEST,
-    RUN;
+    RUN,
+    COVERAGE;
   }
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -83,6 +85,9 @@ public class ToplevelArtifactsDownloader {
       case "run":
         this.commandMode = CommandMode.RUN;
         break;
+      case "coverage":
+        this.commandMode = CommandMode.COVERAGE;
+        break;
       default:
         this.commandMode = CommandMode.UNKNOWN;
     }
@@ -104,36 +109,48 @@ public class ToplevelArtifactsDownloader {
     FileArtifactValue getMetadata(Path path);
   }
 
+  private void downloadTestOutput(Path path) {
+    // Since the event is fired within action execution, the skyframe doesn't know the outputs of
+    // test actions yet, so we can't get their metadata through skyframe. However, the fileSystem
+    // of the path is an ActionFileSystem, we use it to get the metadata for this file.
+    //
+    // If the test hit action cache, the filesystem is local filesystem because the actual test
+    // action didn't get the chance to execute. In this case the metadata is null which is fine
+    // because test outputs are already downloaded (otherwise it cannot hit the action cache).
+    FileArtifactValue metadata = pathToMetadataConverter.getMetadata(path);
+    if (metadata != null) {
+      ListenableFuture<Void> future =
+          actionInputPrefetcher.downloadFileAsync(path.asFragment(), metadata, Priority.LOW);
+      addCallback(
+          future,
+          new FutureCallback<Void>() {
+            @Override
+            public void onSuccess(Void unused) {}
+
+            @Override
+            public void onFailure(Throwable throwable) {
+              logger.atWarning().withCause(throwable).log(
+                  "Failed to download test output %s.", path);
+            }
+          },
+          directExecutor());
+    }
+  }
+
   @Subscribe
   @AllowConcurrentEvents
   public void onTestAttempt(TestAttempt event) {
     for (Pair<String, Path> pair : event.getFiles()) {
       Path path = checkNotNull(pair.getSecond());
-      // Since the event is fired within action execution, the skyframe doesn't know the outputs of
-      // test actions yet, so we can't get their metadata through skyframe. However, the fileSystem
-      // of the path is an ActionFileSystem, we use it to get the metadata for this file.
-      //
-      // If the test hit action cache, the filesystem is local filesystem because the actual test
-      // action didn't get the chance to execute. In this case the metadata is null which is fine
-      // because test outputs are already downloaded (otherwise it cannot hit the action cache).
-      FileArtifactValue metadata = pathToMetadataConverter.getMetadata(path);
-      if (metadata != null) {
-        ListenableFuture<Void> future =
-            actionInputPrefetcher.downloadFileAsync(path.asFragment(), metadata, Priority.LOW);
-        addCallback(
-            future,
-            new FutureCallback<Void>() {
-              @Override
-              public void onSuccess(Void unused) {}
+      downloadTestOutput(path);
+    }
+  }
 
-              @Override
-              public void onFailure(Throwable throwable) {
-                logger.atWarning().withCause(throwable).log(
-                    "Failed to download test output %s.", path);
-              }
-            },
-            directExecutor());
-      }
+  @Subscribe
+  @AllowConcurrentEvents
+  public void onCoverageReport(CoverageReport event) {
+    for (var file : event.getFiles()) {
+      downloadTestOutput(file);
     }
   }
 
@@ -172,8 +189,9 @@ public class ToplevelArtifactsDownloader {
       case RUN:
         // Always download outputs of toplevel targets in RUN mode
         return true;
+      case COVERAGE:
       case TEST:
-        // Do not download test binary in test mode.
+        // Do not download test binary in test/coverage mode.
         try {
           var configuredTargetValue =
               (ConfiguredTargetValue) memoizingEvaluator.getExistingValue(configuredTargetKey);
