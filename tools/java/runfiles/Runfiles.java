@@ -120,6 +120,11 @@ public abstract class Runfiles {
     this.sourceCanonical = sourceRepository;
   }
 
+  protected Runfiles(Runfiles runfiles, String sourceRepository) {
+    this.repoMapping = runfiles.repoMapping;
+    this.sourceCanonical = sourceRepository;
+  }
+
   /**
    * Returns a new {@link Runfiles} instance.
    *
@@ -220,6 +225,22 @@ public abstract class Runfiles {
       return new DirectoryBased(getRunfilesDir(env), sourceRepository);
     }
   }
+
+  /**
+   * Returns a new instance that uses the provided source repository as a default for all calls to
+   * {@link #rlocation(String)}.
+   *
+   * <p>This is useful when receiving a {@link Runfiles} instance from a different Bazel
+   * repository. In this case, while the runfiles manifest or directory encoded in the instance
+   * should be used for runfiles lookups, the repository from which apparent repository names should
+   * be resolved needs to change.
+   *
+   * @param sourceRepository the canonical name of the Bazel repository relative to which apparent
+   *                         repository names should be resolved
+   * @return a new {@link Runfiles} instance identical to this one, except that calls to
+   * {@link #rlocation(String)} use the provided source repository.
+   */
+  public abstract Runfiles withSourceRepository(String sourceRepository);
 
   /**
    * Returns the runtime path of a runfile (a Bazel-built binary's/test's data-dependency).
@@ -360,6 +381,17 @@ public abstract class Runfiles {
       this.runfiles = loadRunfiles(manifestPath);
     }
 
+    private ManifestBased(ManifestBased existing, String sourceRepository) {
+      super(existing, sourceRepository);
+      this.manifestPath = existing.manifestPath;
+      this.runfiles = existing.runfiles;
+    }
+
+    @Override
+    public Runfiles withSourceRepository(String sourceRepository) {
+      return new ManifestBased(this, sourceRepository);
+    }
+
     private static Map<String, String> loadRunfiles(String path) throws IOException {
       HashMap<String, String> result = new HashMap<>();
       try (BufferedReader r =
@@ -444,6 +476,16 @@ public abstract class Runfiles {
       Util.checkArgument(!Util.isNullOrEmpty(runfilesDir));
       Util.checkArgument(new File(runfilesDir).isDirectory());
       this.runfilesRoot = runfilesDir;
+    }
+
+    private DirectoryBased(DirectoryBased existing, String sourceRepository) {
+      super(existing, sourceRepository);
+      this.runfilesRoot = existing.runfilesRoot;
+    }
+
+    @Override
+    public Runfiles withSourceRepository(String sourceRepository) {
+      return new DirectoryBased(this, sourceRepository);
     }
 
     private static String findRepositoryMapping(String runfilesRoot) {

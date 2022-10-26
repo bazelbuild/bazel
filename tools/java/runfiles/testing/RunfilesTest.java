@@ -344,6 +344,50 @@ public final class RunfilesTest {
   }
 
   @Test
+  public void testManifestBasedRlocationWithRepoMapping_fromOtherRepo_withSourceRepository()
+      throws Exception {
+    Path mf = tempFile("foo.runfiles/MANIFEST", ImmutableList.of(
+        "config.json /etc/config.json",
+        "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
+        "_main/bar/runfile /the/path/./to/other//other runfile.txt",
+        "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"));
+    tempFile("foo.repo_mapping", ImmutableList.of(
+        ",my_module,_main",
+        ",my_protobuf,protobuf~3.19.2",
+        ",my_workspace,_main",
+        "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
+    Runfiles r = Runfiles.createManifestBasedForTesting(mf.toString(), "")
+        .withSourceRepository("protobuf~3.19.2");
+
+    assertThat(r.rlocation("protobuf/foo/runfile")).isEqualTo("C:/Actual Path\\protobuf\\runfile");
+    assertThat(r.rlocation("protobuf/bar/dir")).isEqualTo("E:\\Actual Path\\Directory");
+    assertThat(r.rlocation("protobuf/bar/dir/file")).isEqualTo("E:\\Actual Path\\Directory/file");
+    assertThat(r.rlocation("protobuf/bar/dir/de eply/nes  ted/fi~le")).isEqualTo(
+        "E:\\Actual Path\\Directory/de eply/nes  ted/fi~le");
+
+    assertThat(r.rlocation("my_module/bar/runfile")).isNull();
+    assertThat(r.rlocation("my_protobuf/foo/runfile")).isNull();
+    assertThat(r.rlocation("my_protobuf/bar/dir")).isNull();
+    assertThat(r.rlocation("my_protobuf/bar/dir/file")).isNull();
+    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi~le")).isNull();
+
+    assertThat(r.rlocation("_main/bar/runfile")).isEqualTo(
+        "/the/path/./to/other//other runfile.txt");
+    assertThat(r.rlocation("protobuf~3.19.2/foo/runfile")).isEqualTo(
+        "C:/Actual Path\\protobuf\\runfile");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir")).isEqualTo("E:\\Actual Path\\Directory");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/file")).isEqualTo(
+        "E:\\Actual Path\\Directory/file");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le")).isEqualTo(
+        "E:\\Actual Path\\Directory/de eply/nes  ted/fi~le");
+
+    assertThat(r.rlocation("config.json")).isEqualTo("/etc/config.json");
+    assertThat(r.rlocation("_main")).isNull();
+    assertThat(r.rlocation("my_module")).isNull();
+    assertThat(r.rlocation("protobuf")).isNull();
+  }
+
+  @Test
   public void testDirectoryBasedRlocationWithRepoMapping_fromMain() throws Exception {
     Path dir = tempDir.newFolder("foo.runfiles").toPath();
     tempFile(dir.getParent().resolve("foo.repo_mapping").toString(), ImmutableList.of(
@@ -391,6 +435,42 @@ public final class RunfilesTest {
         ",my_workspace,_main",
         "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
     Runfiles r = Runfiles.createDirectoryBasedForTesting(dir.toString(), "protobuf~3.19.2");
+
+    assertThat(r.rlocation("protobuf/foo/runfile")).isEqualTo(dir + "/protobuf~3.19.2/foo/runfile");
+    assertThat(r.rlocation("protobuf/bar/dir")).isEqualTo(dir + "/protobuf~3.19.2/bar/dir");
+    assertThat(r.rlocation("protobuf/bar/dir/file")).isEqualTo(
+        dir + "/protobuf~3.19.2/bar/dir/file");
+    assertThat(r.rlocation("protobuf/bar/dir/de eply/nes  ted/fi~le")).isEqualTo(
+        dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+
+    assertThat(r.rlocation("my_module/bar/runfile")).isEqualTo(dir + "/my_module/bar/runfile");
+    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi~le")).isEqualTo(
+        dir + "/my_protobuf/bar/dir/de eply/nes  ted/fi~le");
+
+    assertThat(r.rlocation("_main/bar/runfile")).isEqualTo(
+        dir + "/_main/bar/runfile");
+    assertThat(r.rlocation("protobuf~3.19.2/foo/runfile")).isEqualTo(
+        dir + "/protobuf~3.19.2/foo/runfile");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir")).isEqualTo(dir + "/protobuf~3.19.2/bar/dir");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/file")).isEqualTo(
+        dir + "/protobuf~3.19.2/bar/dir/file");
+    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le")).isEqualTo(
+        dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+
+    assertThat(r.rlocation("config.json")).isEqualTo(dir + "/config.json");
+  }
+
+  @Test
+  public void testDirectoryBasedRlocationWithRepoMapping_fromOtherRepo_withSourceRepository()
+      throws Exception {
+    Path dir = tempDir.newFolder("foo.runfiles").toPath();
+    Path rm = tempFile(dir.getParent().resolve("foo.repo_mapping").toString(), ImmutableList.of(
+        ",my_module,_main",
+        ",my_protobuf,protobuf~3.19.2",
+        ",my_workspace,_main",
+        "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
+    Runfiles r = Runfiles.createDirectoryBasedForTesting(dir.toString(), "")
+        .withSourceRepository("protobuf~3.19.2");
 
     assertThat(r.rlocation("protobuf/foo/runfile")).isEqualTo(dir + "/protobuf~3.19.2/foo/runfile");
     assertThat(r.rlocation("protobuf/bar/dir")).isEqualTo(dir + "/protobuf~3.19.2/bar/dir");
