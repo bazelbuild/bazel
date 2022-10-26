@@ -17,7 +17,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Comparator.comparing;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -106,9 +105,6 @@ public class RepoMappingManifestAction extends AbstractFileWriteAction {
         if (entry.targetRepoApparentName().isEmpty()) {
           // The apparent repo name can only be empty for the main repo. We skip this line as
           // Rlocation paths can't reference an empty apparent name anyway.
-          Preconditions.checkArgument(
-              entry.sourceRepo().isMain(),
-              "only the main repo mapping can contain an entry with an empty apparent name");
           continue;
         }
         // The canonical name of the main repo is the empty string, which is not a valid name for a
