@@ -1025,36 +1025,39 @@ By default, test tag filtering is not applied. Note that you can also filter
 on test's `size` and `local` tags in
 this manner.
 
-#### `--test_lang_filters={{ "<var>" }}lang[,lang]*{{ "</var>" }}` {:#test-lang-filters}
+#### `--test_lang_filters={{ "<var>" }}string[,string]*{{ "</var>" }}` {:#test-lang-filters}
 
-Specifies a comma-separated list of test languages for languages with an official `*_test` rule the
-(see [build encyclopedia](/reference/be/overview) for a full list of these). Each
-language can be optionally preceded with '-' to specify excluded
-languages. The name used for each language should be the same as
-the language prefix in the `*_test` rule, for example,
-`cc`, `java` or `sh`.
+Specifies a comma-separated list of strings referring to names of test rule
+classes. To refer to the rule class `foo_test`, use the string "foo". Bazel will
+test (or build if `--build_tests_only` is also specified) only
+targets of the referenced rule classes. To instead exclude those targets, use
+the string "-foo". For example,
 
-If specified, Bazel will test (or build if `--build_tests_only`
-is also specified) only test targets of the specified language(s).
-
-For example,
-
+</p>
 <pre>
-  % bazel test --test_lang_filters=cc,java foo/...
+  % bazel test --test_lang_filters=foo,bar //baz/...
 </pre>
-
-will test only the C/C++ and Java tests (defined using
-`cc_test` and `java_test` rules, respectively)
-in `foo/...`, while
-
+<p>
+  will test only targets that are instances of `foo_test` or `bar_test` in
+  `//baz/...`, while
+</p>
 <pre>
-  % bazel test --test_lang_filters=-sh,-java foo/...
+  % bazel test --test_lang_filters=-foo,-bar //baz/...
 </pre>
+<p>
+  will test all the targets in `//baz/...` except for the `foo_test` and
+  `bar_test` instances.
+</p>
 
-will run all of the tests in `foo/...` except for the
-`sh_test` and `java_test` tests.
+Tip: You can use `bazel query --output=label_kind "//p:t"` to
+learn the rule class name of the target `//p:t`. And you can
+look at the pair of instantiation stacks in the output of
+`bazel query --output=build "//p:t"` to learn why that target
+is an instance of that rule class.
 
-By default, test language filtering is not applied.
+Warning: The option name "--test_lang_filter" is vestigal and is therefore
+unfortunately misleading; don't make assumptions about the semantics based on
+the name.
 
 #### `--test_filter={{ "<var>" }}filter-expression{{ "</var>" }}` {:#test-filter}
 
