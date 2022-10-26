@@ -74,10 +74,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     if (OS.getCurrent() != OS.LINUX) {
       return false;
     }
-    if (!LinuxSandboxUtil.isSupported(cmdEnv)) {
+    if (!LinuxSandboxUtil.isSupported(cmdEnv.getBlazeWorkspace())) {
       return false;
     }
-    Path linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv);
+    Path linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv.getBlazeWorkspace());
     Boolean isSupported;
     synchronized (isSupportedMap) {
       isSupported = isSupportedMap.get(linuxSandbox);
@@ -156,7 +156,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.blazeDirs = cmdEnv.getDirectories();
     this.execRoot = cmdEnv.getExecRoot();
     this.allowNetwork = helpers.shouldAllowNetwork(cmdEnv.getOptions());
-    this.linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv);
+    this.linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv.getBlazeWorkspace());
     this.sandboxBase = sandboxBase;
     this.inaccessibleHelperFile = inaccessibleHelperFile;
     this.inaccessibleHelperDir = inaccessibleHelperDir;

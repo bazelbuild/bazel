@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -23,14 +23,14 @@ public final class LinuxSandboxUtil {
   private static final String LINUX_SANDBOX = "linux-sandbox" + OsUtils.executableExtension();
 
   /** Returns whether using the {@code linux-sandbox} is supported in the command environment. */
-  public static boolean isSupported(CommandEnvironment cmdEnv) {
+  public static boolean isSupported(BlazeWorkspace blazeWorkspace) {
     // We can only use the linux-sandbox if the linux-sandbox exists in the embedded tools.
     // This might not always be the case, e.g. while bootstrapping.
-    return getLinuxSandbox(cmdEnv) != null;
+    return getLinuxSandbox(blazeWorkspace) != null;
   }
 
   /** Returns the path of the {@code linux-sandbox} binary, or null if it doesn't exist. */
-  public static Path getLinuxSandbox(CommandEnvironment cmdEnv) {
-    return cmdEnv.getBlazeWorkspace().getBinTools().getEmbeddedPath(LINUX_SANDBOX);
+  public static Path getLinuxSandbox(BlazeWorkspace blazeWorkspace) {
+    return blazeWorkspace.getBinTools().getEmbeddedPath(LINUX_SANDBOX);
   }
 }

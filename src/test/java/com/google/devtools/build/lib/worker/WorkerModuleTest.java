@@ -27,10 +27,13 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.RecordingExceptionHandler;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -310,8 +313,20 @@ public class WorkerModuleTest {
             .setStartupOptionsProvider(startupOptionsProvider)
             .build();
     when(env.getRuntime()).thenReturn(blazeRuntime);
-    when(env.getDirectories())
-        .thenReturn(new BlazeDirectories(serverDirectories, null, null, "blaze"));
+    BlazeDirectories blazeDirectories =
+        new BlazeDirectories(serverDirectories, null, null, "blaze");
+    BlazeWorkspace blazeWorkspace =
+        new BlazeWorkspace(
+            blazeRuntime,
+            blazeDirectories,
+            null,
+            new RecordingExceptionHandler(),
+            null,
+            BinTools.forUnitTesting(blazeDirectories, ImmutableList.of()),
+            null,
+            null);
+    when(env.getBlazeWorkspace()).thenReturn(blazeWorkspace);
+    when(env.getDirectories()).thenReturn(blazeDirectories);
     EventBus eventBus = new EventBus();
     when(env.getEventBus()).thenReturn(eventBus);
     when(env.getReporter()).thenReturn(new Reporter(eventBus, storedEventHandler));

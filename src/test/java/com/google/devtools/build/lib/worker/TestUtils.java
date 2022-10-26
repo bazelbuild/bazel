@@ -229,7 +229,7 @@ class TestUtils {
     }
 
     @Override
-    Subprocess createProcess() {
+    protected Subprocess createProcess() {
       return fakeSubprocess;
     }
 
