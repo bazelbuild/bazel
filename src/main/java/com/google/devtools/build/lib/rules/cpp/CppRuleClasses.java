@@ -168,6 +168,15 @@ public class CppRuleClasses {
   /** A string constant for the layering_check feature. */
   public static final String LAYERING_CHECK = "layering_check";
 
+  /**
+   * A string constant that signifies whether the crosstool validates layering_check in
+   * textual_hdrs. We use the compiler's definition of textual_hdrs also for all regular but
+   * non-modular headers. This in turn means that the compiler can check layering in headers of the
+   * same target, irrespective the PARSE_HEADERS feature and we can elide separate header actions.
+   */
+  public static final String VALIDATES_LAYERING_CHECK_IN_TEXTUAL_HDRS =
+      "validates_layering_check_in_textual_hdrs";
+
   /** A string constant for the header_modules feature. */
   public static final String HEADER_MODULES = "header_modules";
 

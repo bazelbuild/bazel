@@ -1566,6 +1566,7 @@ public final class CcCompilationHelper {
         continue;
       }
       if (cppConfiguration.getParseHeadersSkippedIfCorrespondingSrcsFound()
+          && featureConfiguration.isEnabled(CppRuleClasses.VALIDATES_LAYERING_CHECK_IN_TEXTUAL_HDRS)
           && compiledBasenames.contains(
               Files.getNameWithoutExtension(artifact.getExecPathString()))) {
         continue;
