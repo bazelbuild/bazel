@@ -70,6 +70,20 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   protected final Path execRoot;
   protected final ImmutableList<Pattern> patternsToDownload;
 
+  private static class Context {
+    private final Set<Path> nonWritableDirs = Sets.newConcurrentHashSet();
+
+    public void addNonWritableDir(Path dir) {
+      nonWritableDirs.add(dir);
+    }
+
+    public void finalizeContext() throws IOException {
+      for (Path path : nonWritableDirs) {
+        path.setWritable(false);
+      }
+    }
+  }
+
   /** Priority for the staging task. */
   protected enum Priority {
     /**
@@ -176,27 +190,37 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       files.add(input);
     }
 
+    Context context = new Context();
+
     Flowable<TransferResult> treeDownloads =
         Flowable.fromIterable(trees.entrySet())
             .flatMapSingle(
                 entry ->
                     toTransferResult(
                         prefetchInputTreeOrSymlink(
-                            metadataProvider, entry.getKey(), entry.getValue(), priority)));
+                            context,
+                            metadataProvider,
+                            entry.getKey(),
+                            entry.getValue(),
+                            priority)));
 
     Flowable<TransferResult> fileDownloads =
         Flowable.fromIterable(files)
             .flatMapSingle(
                 input ->
                     toTransferResult(
-                        prefetchInputFileOrSymlink(metadataProvider, input, priority)));
+                        prefetchInputFileOrSymlink(context, metadataProvider, input, priority)));
 
     Flowable<TransferResult> transfers = Flowable.merge(treeDownloads, fileDownloads);
-    Completable prefetch = mergeBulkTransfer(transfers).onErrorResumeNext(this::onErrorResumeNext);
+    Completable prefetch =
+        Completable.using(
+                () -> context, ctx -> mergeBulkTransfer(transfers), Context::finalizeContext)
+            .onErrorResumeNext(this::onErrorResumeNext);
     return toListenableFuture(prefetch);
   }
 
   private Completable prefetchInputTreeOrSymlink(
+      Context context,
       MetadataProvider provider,
       SpecialArtifact tree,
       List<TreeFileArtifact> treeFiles,
@@ -216,7 +240,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     PathFragment prefetchExecPath = treeMetadata.getMaterializationExecPath().orElse(execPath);
 
     Completable prefetch =
-        prefetchInputTree(provider, prefetchExecPath, treeFiles, treeMetadata, priority);
+        prefetchInputTree(context, provider, prefetchExecPath, treeFiles, treeMetadata, priority);
 
     // If prefetching to a different path, plant a symlink into it.
     if (!prefetchExecPath.equals(execPath)) {
@@ -249,6 +273,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Completable prefetchInputTree(
+      Context context,
       MetadataProvider provider,
       PathFragment execPath,
       List<TreeFileArtifact> treeFiles,
@@ -303,7 +328,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                       }
                     }
                     checkState(dir.equals(path));
-                    finalizeDownload(tempPath, path);
+                    finalizeDownload(context, tempPath, path);
                   }
 
                   for (Path dir : dirs) {
@@ -337,7 +362,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Completable prefetchInputFileOrSymlink(
-      MetadataProvider metadataProvider, ActionInput input, Priority priority) throws IOException {
+      Context context, MetadataProvider metadataProvider, ActionInput input, Priority priority)
+      throws IOException {
     if (input instanceof VirtualActionInput) {
       prefetchVirtualActionInput((VirtualActionInput) input);
       return Completable.complete();
@@ -353,7 +379,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     PathFragment prefetchExecPath = metadata.getMaterializationExecPath().orElse(execPath);
 
     Completable prefetch =
-        downloadFileNoCheckRx(execRoot.getRelative(prefetchExecPath), metadata, priority);
+        downloadFileNoCheckRx(context, execRoot.getRelative(prefetchExecPath), metadata, priority);
 
     // If prefetching to a different path, plant a symlink into it.
     if (!prefetchExecPath.equals(execPath)) {
@@ -371,15 +397,16 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * <p>The file will be written into a temporary file and moved to the final destination after the
    * download finished.
    */
-  private Completable downloadFileRx(Path path, FileArtifactValue metadata, Priority priority) {
+  private Completable downloadFileRx(
+      Context context, Path path, FileArtifactValue metadata, Priority priority) {
     if (!canDownloadFile(path, metadata)) {
       return Completable.complete();
     }
-    return downloadFileNoCheckRx(path, metadata, priority);
+    return downloadFileNoCheckRx(context, path, metadata, priority);
   }
 
   private Completable downloadFileNoCheckRx(
-      Path path, FileArtifactValue metadata, Priority priority) {
+      Context context, Path path, FileArtifactValue metadata, Priority priority) {
     if (path.isSymbolicLink()) {
       try {
         path = path.getRelative(path.readSymbolicLink());
@@ -402,7 +429,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                         directExecutor())
                     .doOnComplete(
                         () -> {
-                          finalizeDownload(tempPath, finalPath);
+                          finalizeDownload(context, tempPath, finalPath);
                           completed.set(true);
                         }),
             tempPath -> {
@@ -439,11 +466,24 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   protected ListenableFuture<Void> downloadFileAsync(
       PathFragment path, FileArtifactValue metadata, Priority priority) {
+    Context context = new Context();
     return toListenableFuture(
-        downloadFileRx(execRoot.getFileSystem().getPath(path), metadata, priority));
+        Completable.using(
+            () -> context,
+            ctx ->
+                downloadFileRx(context, execRoot.getFileSystem().getPath(path), metadata, priority),
+            Context::finalizeContext));
   }
 
-  private void finalizeDownload(Path tmpPath, Path path) throws IOException {
+  private void finalizeDownload(Context context, Path tmpPath, Path path) throws IOException {
+    Path parentDir = path.getParentDirectory();
+    // In case the parent directory of the destination is not writable, temporarily change it to
+    // writable. b/254844173.
+    if (parentDir != null && !parentDir.isWritable()) {
+      context.addNonWritableDir(parentDir);
+      parentDir.setWritable(true);
+    }
+
     // The permission of output file is changed to 0555 after action execution. We manually change
     // the permission here for the downloaded file to keep this behaviour consistent.
     tmpPath.chmod(0555);
