@@ -382,7 +382,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   /**
    * Returns extra precomputed values to inject, both into Skyframe and the testing package loaders.
    */
-  protected ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues() {
+  protected ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues() throws Exception {
     return ImmutableList.of();
   }
 
