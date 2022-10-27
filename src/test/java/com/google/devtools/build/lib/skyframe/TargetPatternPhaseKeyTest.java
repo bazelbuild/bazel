@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.EqualsTester;
 import com.google.common.testing.NullPointerTester;
-import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternPhaseKey;
@@ -171,7 +170,7 @@ public final class TargetPatternPhaseKeyTest {
 
   private static TestFilter emptyTestFilter() {
     LoadingOptions options = Options.getDefaults(LoadingOptions.class);
-    return TestFilter.forOptions(options, NullEventHandler.INSTANCE, ImmutableSet.of());
+    return TestFilter.forOptions(options);
   }
 
   @Test
