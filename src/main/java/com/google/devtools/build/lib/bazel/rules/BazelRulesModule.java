@@ -127,15 +127,6 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean incompatibleDisableInMemoryToolsDefaultsPackage;
 
     @Option(
-        name = "output_symbol_counts",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {OptionMetadataTag.HIDDEN, OptionMetadataTag.DEPRECATED},
-        help = "Deprecated no-op.")
-    public boolean symbolCounts;
-
-    @Option(
         name = "incompatible_disable_sysroot_from_configuration",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

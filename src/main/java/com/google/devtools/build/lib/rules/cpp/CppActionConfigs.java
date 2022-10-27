@@ -453,26 +453,6 @@ public class CppActionConfigs {
                         "    }",
                         "  }")));
       }
-
-      if (!existingFeatureNames.contains("symbol_counts")) {
-        featureBuilder.add(
-            getFeature(
-                Joiner.on("\n")
-                    .join(
-                        "  name: 'symbol_counts'",
-                        "  flag_set {",
-                        "    action: 'c++-link-executable'",
-                        "    action: 'c++-link-dynamic-library'",
-                        "    action: 'c++-link-nodeps-dynamic-library'",
-                        "    action: 'lto-index-for-dynamic-library'",
-                        "    action: 'lto-index-for-nodeps-dynamic-library'",
-                        "    action: 'lto-index-for-executable'",
-                        "    flag_group {",
-                        "      expand_if_all_available: 'symbol_counts_output'",
-                        "      flag: '-Wl,--print-symbol-counts=%{symbol_counts_output}'",
-                        "    }",
-                        "  }")));
-      }
       if (!existingFeatureNames.contains("shared_flag")) {
         featureBuilder.add(
             getFeature(
@@ -1200,7 +1180,6 @@ public class CppActionConfigs {
                         "  tool {",
                         "    tool_path: '" + gccToolPath + "'",
                         "  }",
-                        "  implies: 'symbol_counts'",
                         "  implies: 'strip_debug_symbols'",
                         "  implies: 'linkstamps'",
                         "  implies: 'output_execpath_flags'",
@@ -1224,7 +1203,6 @@ public class CppActionConfigs {
                         "  tool {",
                         "    tool_path: '" + gccToolPath + "'",
                         "  }",
-                        "  implies: 'symbol_counts'",
                         "  implies: 'strip_debug_symbols'",
                         "  implies: 'linkstamps'",
                         "  implies: 'output_execpath_flags'",
@@ -1250,7 +1228,6 @@ public class CppActionConfigs {
                         "  }",
                         "  implies: 'build_interface_libraries'",
                         "  implies: 'dynamic_library_linker_tool'",
-                        "  implies: 'symbol_counts'",
                         "  implies: 'strip_debug_symbols'",
                         "  implies: 'shared_flag'",
                         "  implies: 'linkstamps'",
@@ -1276,7 +1253,6 @@ public class CppActionConfigs {
                         "  }",
                         "  implies: 'build_interface_libraries'",
                         "  implies: 'dynamic_library_linker_tool'",
-                        "  implies: 'symbol_counts'",
                         "  implies: 'strip_debug_symbols'",
                         "  implies: 'shared_flag'",
                         "  implies: 'linkstamps'",
@@ -1302,7 +1278,6 @@ public class CppActionConfigs {
                         "  }",
                         "  implies: 'build_interface_libraries'",
                         "  implies: 'dynamic_library_linker_tool'",
-                        "  implies: 'symbol_counts'",
                         "  implies: 'strip_debug_symbols'",
                         "  implies: 'shared_flag'",
                         "  implies: 'linkstamps'",
@@ -1328,7 +1303,6 @@ public class CppActionConfigs {
                         "  }",
                         "  implies: 'build_interface_libraries'",
                         "  implies: 'dynamic_library_linker_tool'",
-                        "  implies: 'symbol_counts'",
                         "  implies: 'strip_debug_symbols'",
                         "  implies: 'shared_flag'",
                         "  implies: 'linkstamps'",
