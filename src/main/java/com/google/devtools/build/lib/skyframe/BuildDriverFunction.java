@@ -68,6 +68,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -433,9 +434,9 @@ public class BuildDriverFunction implements SkyFunction {
    */
   private static void declareDependenciesAndCheckValues(
       Environment env, Iterable<? extends SkyKey> skyKeys) throws InterruptedException {
-    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(skyKeys);
-    while (result.hasNext()) {
-      if (result.next() == null) {
+    SkyframeLookupResult result = env.getValuesAndExceptions(skyKeys);
+    for (SkyKey key : skyKeys) {
+      if (result.get(key) == null) {
         return;
       }
     }
