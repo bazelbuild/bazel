@@ -284,8 +284,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         .hasMessageThat()
         .isEqualTo(
             "no such target '//foo:A': target 'A' not declared in package 'foo' defined by"
-                + " /workspace/foo/BUILD (Tip: use `query //foo:*` to see all the targets in that"
-                + " package)");
+                + " /workspace/foo/BUILD (Tip: use `query \"//foo:*\"` to see all the targets in"
+                + " that package)");
 
     // These are the only input files: BUILD, Z
     Set<String> inputFiles = Sets.newTreeSet();
@@ -423,8 +423,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         .hasMessageThat()
         .isEqualTo(
             "no such target '//x:z.cc': target 'z.cc' not declared in package 'x' defined by"
-                + " /workspace/x/BUILD (did you mean 'x.cc'? Tip: use `query //x:*` to see all the"
-                + " targets in that package)");
+                + " /workspace/x/BUILD (did you mean 'x.cc'? Tip: use `query \"//x:*\"` to see all"
+                + " the targets in that package)");
 
     e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("dir"));
     assertThat(e)
