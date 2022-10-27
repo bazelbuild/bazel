@@ -2874,18 +2874,20 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .isEqualTo("external/dep~4.5");
     assertThat(eval(module, "Label('@@//foo:bar').workspace_root")).isEqualTo("");
 
-    assertThat(assertThrows(EvalException.class, () -> eval(module, "Label('@//foo:bar')")))
-        .hasMessageThat()
-        .contains(
-            "Invalid label string '@//foo:bar': no repository visible as '@' from repository "
-                + "'@module~1.2.3'");
+    assertThat(eval(module, "str(Label('@//foo:bar'))")).isEqualTo("@//foo:bar");
     assertThat(
             assertThrows(
-                EvalException.class,
-                () -> eval(module, "Label('@@//foo:bar').relative('@not_dep//foo:bar')")))
+                EvalException.class, () -> eval(module, "Label('@//foo:bar').workspace_name")))
         .hasMessageThat()
-        .contains(
-            "Invalid label string '@not_dep//foo:bar': no repository visible as '@not_dep' "
-                + "from repository '@module~1.2.3'");
+        .isEqualTo(
+            "'workspace_name' is not allowed on invalid Label @[unknown repo '' requested from"
+                + " @module~1.2.3]//foo:bar");
+    assertThat(
+            assertThrows(
+                EvalException.class, () -> eval(module, "Label('@//foo:bar').workspace_root")))
+        .hasMessageThat()
+        .isEqualTo(
+            "'workspace_root' is not allowed on invalid Label @[unknown repo '' requested from"
+                + " @module~1.2.3]//foo:bar");
   }
 }

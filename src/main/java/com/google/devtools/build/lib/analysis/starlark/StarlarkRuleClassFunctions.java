@@ -1004,15 +1004,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     BazelModuleContext moduleContext =
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     try {
-      Label label = Label.parseWithRepoContext(labelString, moduleContext.packageContext());
-      if (!label.getRepository().isVisible()) {
-        throw Starlark.errorf(
-            "Invalid label string '%s': no repository visible as '@%s' from %s",
-            labelString,
-            label.getRepository().getName(),
-            label.getRepository().getOwnerRepoDisplayString());
-      }
-      return label;
+      return Label.parseWithRepoContext(labelString, moduleContext.packageContext());
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("Illegal absolute label syntax: %s", e.getMessage());
     }
