@@ -1,3 +1,33 @@
+## Release 6.0.0-pre.20221020.1 (2022-10-27)
+
+```
+Baseline: e7218d556a2a265183a10a19fcaa21c0277820ad
+```
+
+Incompatible changes:
+
+  - In package_group's `packages` attribute, the syntax "//..." now
+    refers to all packages in the same repository as the package
+    group, rather than all packages everywhere. The new item "public"
+    can be used instead to obtain the old behavior. In `bazel query
+    --output=proto` (and `--output=xml`), the `packages` attribute
+    now serializes with the leading double slash included (for
+    instance, `//foo/bar/...` instead of `foo/bar/...`). See also
+    #16355, #16323, and #16391.
+
+New features:
+
+  - Support local_repository in Bazel Registry's source.json file
+
+Important changes:
+
+  - Record hermetic packaged JDK modules file size in deploy JAR
+    manifest 'JDK-Lib-Modules-Size' attribute.
+  - .bzl files may now set a visibility to guard what other .bzl and
+    BUILD files may load them. See [...] for more information.
+
+This release contains contributions from many people at Google, as well as Adam Singer, Albert Lloveras, Alex Eagle, Benjamin Lee, Benjamin Peterson, Christopher Rydell, Ed Schouten, Eric Wendelin, Fabian Meumertzheim, Jordan, Keith Smiley, Kirill Zabelin, Son Luong Ngoc, Tetsuo Kiso, Waleed Khan, Xavier Bonaventura, Yannic Bonenberger.
+
 ## Release 6.0.0-pre.20221012.2 (2022-10-24)
 
 ```
