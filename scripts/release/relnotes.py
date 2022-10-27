@@ -16,48 +16,11 @@ import re
 import requests
 import subprocess
 
-GCS_BASE_URL = "https://www.googleapis.com/storage/v1/b/bazel/o?delimiter=/"
 
-
-def _paginated_get(base_url):
-  """GETs a URL from GCS, respecting the pagination token if any."""
-  next_page_token = None
-  while True:
-    url = base_url
-    if next_page_token is not None:
-      url += f"&pageToken={next_page_token}"
-    r = requests.get(url)
-    r.raise_for_status()
-    json = r.json()
-    yield json
-    if "nextPageToken" in json:
-      next_page_token = json["nextPageToken"]
-    else:
-      break
-
-
-def _version_sort_key(v):
-  # Converts "5.3.2" into [5, 3, 2] so that we get a natural lexicographical
-  # sort. Note that we have a version "0.2.2b" so we just convert any non-digit
-  # segment into 9999.
-  return [int(s) if s.isdigit() else 9999 for s in v.split(".")]
-
-
-def get_latest_release():
-  """Discovers the latest stable release name from GCS."""
-  # The following call lists all version bases (the X.X.X part), including
-  # RC-only and rolling-only versions.
-  versions = [prefix.rstrip("/") for json in _paginated_get(GCS_BASE_URL)
-              if "prefixes" in json
-              for prefix in json["prefixes"]]
-  # Sort the versions from latest to earliest.
-  versions.sort(key=_version_sort_key, reverse=True)
-  for version in versions:
-    # The following call identifies the first version that has a stable release.
-    if any("items" in json for json in
-           _paginated_get(f"{GCS_BASE_URL}&prefix={version}/release/")):
-      return version
-  raise ValueError("couldn't find a single release version!")
+def get_last_release():
+  """Discovers the last stable release name from GitHub."""
+  response = requests.get('https://github.com/bazelbuild/bazel/releases/latest')
+  return response.url.split("/")[-1]
 
 
 def git(*args):
@@ -113,21 +76,20 @@ def get_relnotes_between(base, head):
 
 if __name__ == "__main__":
   # Get the last stable release.
-  last_release = get_latest_release()
+  last_release = get_last_release()
   print("last_release is", last_release)
-  last_release_branch = "origin/release-" + last_release
+  git("fetch", "origin", f"refs/tags/{last_release}:refs/tags/{last_release}")
 
   # Assuming HEAD is on the current (to-be-released) release, find the merge
   # base with the last release so that we know which commits to generate notes
   # for.
-  merge_base = git("merge-base", "HEAD", last_release_branch)[0]
+  merge_base = git("merge-base", "HEAD", last_release)[0]
   print("merge base with", last_release, "is", merge_base)
 
   # Generate notes for all commits from last branch cut to HEAD, but filter out
   # any identical notes from the previous release branch.
   cur_release_relnotes = get_relnotes_between(merge_base, "HEAD")
-  last_release_relnotes = set(
-    get_relnotes_between(merge_base, last_release_branch))
+  last_release_relnotes = set(get_relnotes_between(merge_base, last_release))
   filtered_relnotes = [note for note in cur_release_relnotes
                        if note not in last_release_relnotes]
 
