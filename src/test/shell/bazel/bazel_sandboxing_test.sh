@@ -33,14 +33,14 @@ source ${CURRENT_DIR}/../sandboxing_test_utils.sh \
 source ${CURRENT_DIR}/remote_helpers.sh \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
-cat >>$TEST_TMPDIR/bazelrc <<'EOF'
+function set_up {
+  cat >>$TEST_TMPDIR/bazelrc <<'EOF'
 # Testing the sandboxed strategy requires using the sandboxed strategy. While it is the default,
 # we want to make sure that this explicitly fails when the strategy is not available on the system
 # running the test.
 build --spawn_strategy=sandboxed --genrule_strategy=sandboxed
 EOF
 
-function set_up {
   export BAZEL_GENFILES_DIR=$(bazel info bazel-genfiles 2>/dev/null)
   export BAZEL_BIN_DIR=$(bazel info bazel-bin 2>/dev/null)
 
@@ -254,17 +254,25 @@ function test_sandbox_undeclared_deps() {
 }
 
 function test_sandbox_undeclared_deps_with_local() {
-  bazel build examples/genrule:breaks1_works_with_local &> $TEST_log \
+  bazel build --incompatible_legacy_local_fallback \
+    examples/genrule:breaks1_works_with_local &> $TEST_log \
     || fail "Non-hermetic genrule failed even though local=1: examples/genrule:breaks1_works_with_local"
   [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks1_works_with_local.txt" ] \
     || fail "Genrule did not produce output: examples/genrule:breaks1_works_with_local"
 }
 
 function test_sandbox_undeclared_deps_with_local_tag() {
-  bazel build examples/genrule:breaks1_works_with_local_tag &> $TEST_log \
+  bazel build --incompatible_legacy_local_fallback \
+    examples/genrule:breaks1_works_with_local_tag &> $TEST_log \
     || fail "Non-hermetic genrule failed even though tags=['local']: examples/genrule:breaks1_works_with_local_tag"
   [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks1_works_with_local_tag.txt" ] \
     || fail "Genrule did not produce output: examples/genrule:breaks1_works_with_local_tag"
+}
+
+function test_sandbox_undeclared_deps_with_local_tag_no_fallback() {
+  bazel build examples/genrule:breaks1_works_with_local_tag &> $TEST_log \
+    && fail "Non-hermetic genrule suucceeded even though tags=['local']: examples/genrule:breaks1_works_with_local_tag" \
+    || true
 }
 
 function test_sandbox_undeclared_deps_starlark() {
@@ -284,7 +292,8 @@ function test_sandbox_undeclared_deps_starlark() {
 }
 
 function test_sandbox_undeclared_deps_starlark_with_local_tag() {
-  bazel build examples/genrule:starlark_breaks1_works_with_local_tag &> $TEST_log \
+  bazel build --incompatible_legacy_local_fallback \
+    examples/genrule:starlark_breaks1_works_with_local_tag &> $TEST_log \
     || fail "Non-hermetic genrule failed even though tags=['local']: examples/genrule:starlark_breaks1_works_with_local_tag"
   [ -f "${BAZEL_BIN_DIR}/examples/genrule/starlark_breaks1_works_with_local_tag.txt" ] \
     || fail "Action did not produce output: examples/genrule:starlark_breaks1_works_with_local_tag"
@@ -292,7 +301,7 @@ function test_sandbox_undeclared_deps_starlark_with_local_tag() {
 
 function test_sandbox_block_filesystem() {
   # The point of this test is to attempt to read something from the filesystem
-  # that is blocked via --sandbox_block_path= and thus should't be accessible.
+  # that is blocked via --sandbox_block_path= and thus shouldn't be accessible.
   #
   # /var/log is an arbitrary choice of directory that should exist on all
   # Unix-like systems.
@@ -494,6 +503,12 @@ function test_sandbox_block_network_access() {
 }
 
 function test_sandbox_network_access_with_local() {
+  cat >>$TEST_TMPDIR/bazelrc <<'EOF'
+# With `--incompatible_legacy_local_fallback` turned off, we need to explicitly
+# include a non-sandboxed strategy.
+build --spawn_strategy=sandboxed,standalone --genrule_strategy=sandboxed,standalone
+EOF
+
   setup_network_tests '"local"'
 
   check_network_ok localhost

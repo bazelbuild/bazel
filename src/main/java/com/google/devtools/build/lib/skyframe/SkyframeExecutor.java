@@ -2857,7 +2857,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             ImmutableList.copyOf(options.buildTagFilterList),
             options.buildManualTests,
             options.expandTestSuites,
-            TestFilter.forOptions(options, eventHandler, pkgFactory.getRuleClassNames()));
+            TestFilter.forOptions(options));
     return getTargetPatternPhaseValue(eventHandler, targetPatterns, threadCount, keepGoing, key);
   }
 

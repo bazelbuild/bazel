@@ -165,7 +165,7 @@ public class HttpConnectorMultiplexerTest {
     Function<URL, ImmutableMap<String, List<String>>> headerFunction =
         HttpConnectorMultiplexer.getHeaderFunction(baseHeaders, additionalHeaders);
 
-    // Unreleated URL
+    // Unrelated URL
     assertThat(headerFunction.apply(new URL("http://example.org/some/path/file.txt")))
         .containsExactly(
             "Accept-Encoding",

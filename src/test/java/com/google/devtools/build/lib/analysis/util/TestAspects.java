@@ -968,13 +968,14 @@ public class TestAspects {
                   .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
                   .advertiseProvider(RequiredProvider2.class));
 
-  /**
-   * Rule with an implcit dependency.
-   */
-  public static final MockRule IMPLICIT_DEP_RULE = () ->
-      MockRule.ancestor(BASE_RULE.getClass()).factory(DummyRuleFactory.class).define(
-          "implicit_dep",
-          attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")));
+  /** Rule with an implicit dependency. */
+  public static final MockRule IMPLICIT_DEP_RULE =
+      () ->
+          MockRule.ancestor(BASE_RULE.getClass())
+              .factory(DummyRuleFactory.class)
+              .define(
+                  "implicit_dep",
+                  attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")));
 
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
   private static final LabelListLateBoundDefault<?> PLUGINS_LABEL_LIST =

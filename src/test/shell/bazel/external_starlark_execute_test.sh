@@ -56,7 +56,7 @@ EOF
     bazel build //:it
     cp `bazel info bazel-genfiles`/it.txt output
     cat output
-    grep baz output || fail "repo rule faild to wait for child process"
+    grep baz output || fail "repo rule failed to wait for child process"
 }
 
 test_interrupted_children_waited() {

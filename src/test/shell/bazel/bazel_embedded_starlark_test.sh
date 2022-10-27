@@ -46,7 +46,7 @@ EOF
 }
 
 test_pkg_tar_quoting() {
-  # Verify that pkg_tar can handle file names that are allowed as lablels
+  # Verify that pkg_tar can handle file names that are allowed as labels
   # but contain characters that could mess up options.
   rm -rf main out
   mkdir main

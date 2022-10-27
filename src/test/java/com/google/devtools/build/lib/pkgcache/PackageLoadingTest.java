@@ -237,7 +237,7 @@ public class PackageLoadingTest extends FoundationTestCase {
         .isEqualTo(
             "no such target '//pkg1:not-there': target 'not-there' "
                 + "not declared in package 'pkg1' defined by /workspace/pkg1/BUILD (Tip: use "
-                + "`query //pkg1:*` to see all the targets in that package)");
+                + "`query \"//pkg1:*\"` to see all the targets in that package)");
   }
 
   /**

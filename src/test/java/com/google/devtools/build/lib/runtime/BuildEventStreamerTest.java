@@ -1111,7 +1111,7 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
     // In this case, we expect 3 events in the stream, in that order:
     // - an artificial progress event as initial event, to properly link in
     //   all events
-    // - the unusal first event we have seen, and
+    // - the unusual first event we have seen, and
     // - a progress event reporting the flushed messages.
     BuildEventStreamer.OutErrProvider outErr = mock(BuildEventStreamer.OutErrProvider.class);
     String stdoutMsg = "Some text that was written to stdout.";

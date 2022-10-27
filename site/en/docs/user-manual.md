@@ -312,18 +312,6 @@ extension.
 
 The options `--fdo_instrument` and `--fdo_optimize` cannot be used at the same time.
 
-#### `--[no]output_symbol_counts` {:#output-symbol-counts}
-
-If enabled, each gold-invoked link of a C++ executable binary will output
-a _symbol counts_ file (via the `--print-symbol-counts` gold
-option). For each linker input, the file logs the number of symbols that were
-defined and the number of symbols that were used in the binary.
-This information can be used to track unnecessary link dependencies.
-The symbol counts file is written to the binary's output path with the name
-`[targetname].sc`.
-
-This option is disabled by default.
-
 #### `--java_language_version={{ "<var>" }}version{{ "</var>" }}` {:#java-language-version}
 
 This option specifies the version of Java sources. For example:
@@ -790,6 +778,9 @@ The default is 0, that means an incremental algorithm: the first
 report will be printed after 10 seconds, then 30 seconds and after
 that progress is reported once every minute.
 
+When bazel is using cursor control, as specified by
+[`--curses`](#curses), progress is reported every second.
+
 #### `--local_{ram,cpu}_resources {{ "<var>" }}resources or resource expression{{ "</var>" }}` {:#local-resources}
 
 These options specify the amount of local resources (RAM in MB and number of CPU logical cores)
@@ -1025,36 +1016,39 @@ By default, test tag filtering is not applied. Note that you can also filter
 on test's `size` and `local` tags in
 this manner.
 
-#### `--test_lang_filters={{ "<var>" }}lang[,lang]*{{ "</var>" }}` {:#test-lang-filters}
+#### `--test_lang_filters={{ "<var>" }}string[,string]*{{ "</var>" }}` {:#test-lang-filters}
 
-Specifies a comma-separated list of test languages for languages with an official `*_test` rule the
-(see [build encyclopedia](/reference/be/overview) for a full list of these). Each
-language can be optionally preceded with '-' to specify excluded
-languages. The name used for each language should be the same as
-the language prefix in the `*_test` rule, for example,
-`cc`, `java` or `sh`.
+Specifies a comma-separated list of strings referring to names of test rule
+classes. To refer to the rule class `foo_test`, use the string "foo". Bazel will
+test (or build if `--build_tests_only` is also specified) only
+targets of the referenced rule classes. To instead exclude those targets, use
+the string "-foo". For example,
 
-If specified, Bazel will test (or build if `--build_tests_only`
-is also specified) only test targets of the specified language(s).
-
-For example,
-
+</p>
 <pre>
-  % bazel test --test_lang_filters=cc,java foo/...
+  % bazel test --test_lang_filters=foo,bar //baz/...
 </pre>
-
-will test only the C/C++ and Java tests (defined using
-`cc_test` and `java_test` rules, respectively)
-in `foo/...`, while
-
+<p>
+  will test only targets that are instances of `foo_test` or `bar_test` in
+  `//baz/...`, while
+</p>
 <pre>
-  % bazel test --test_lang_filters=-sh,-java foo/...
+  % bazel test --test_lang_filters=-foo,-bar //baz/...
 </pre>
+<p>
+  will test all the targets in `//baz/...` except for the `foo_test` and
+  `bar_test` instances.
+</p>
 
-will run all of the tests in `foo/...` except for the
-`sh_test` and `java_test` tests.
+Tip: You can use `bazel query --output=label_kind "//p:t"` to
+learn the rule class name of the target `//p:t`. And you can
+look at the pair of instantiation stacks in the output of
+`bazel query --output=build "//p:t"` to learn why that target
+is an instance of that rule class.
 
-By default, test language filtering is not applied.
+Warning: The option name "--test_lang_filter" is vestigal and is therefore
+unfortunately misleading; don't make assumptions about the semantics based on
+the name.
 
 #### `--test_filter={{ "<var>" }}filter-expression{{ "</var>" }}` {:#test-filter}
 
@@ -1126,11 +1120,10 @@ default. When disabled, progress messages are suppressed.
 
 #### `--show_progress_rate_limit={{ "<var>" }}n{{ "</var>" }}` {:#show-progress-rate}
 
-This option causes bazel to display only
-one progress message per `n` seconds, where {{ "<var>" }}n{{ "</var>" }} is a real number.
-If `n` is -1, all progress messages will be displayed. The default value for
-this option is 0.02, meaning bazel will limit the progress messages to one per every
-0.02 seconds.
+This option causes bazel to display at most one progress message per `n` seconds,
+where {{ "<var>" }}n{{ "</var>" }} is a real number.
+The default value for this option is 0.02, meaning bazel will limit the progress
+messages to one per every 0.02 seconds.
 
 #### `--show_result={{ "<var>" }}n{{ "</var>" }}` {:#show-result}
 

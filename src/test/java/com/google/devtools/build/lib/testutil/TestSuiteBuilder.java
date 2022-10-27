@@ -67,7 +67,7 @@ public final class TestSuiteBuilder {
         }
       }
     } catch (ClassPathException e) {
-      throw new AssertionError("Cannot retrive classes: " + e.getMessage());
+      throw new AssertionError("Cannot retrieve classes: " + e.getMessage());
     }
     return result;
   }

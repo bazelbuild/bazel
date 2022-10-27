@@ -90,7 +90,7 @@ public class BazelCcModule extends CcModule
       Sequence<?> privateHeaders, // <Artifact> expected
       Object textualHeaders,
       Object additionalExportedHeaders,
-      Sequence<?> includes, // <String> expected
+      Object starlarkIncludes,
       Object looseIncludes,
       Sequence<?> quoteIncludes, // <String> expected
       Sequence<?> systemIncludes, // <String> expected
@@ -130,7 +130,7 @@ public class BazelCcModule extends CcModule
         privateHeaders,
         textualHeaders,
         additionalExportedHeaders,
-        includes,
+        starlarkIncludes,
         looseIncludes,
         quoteIncludes,
         systemIncludes,

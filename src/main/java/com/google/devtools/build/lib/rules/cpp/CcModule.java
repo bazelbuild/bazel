@@ -135,7 +135,8 @@ public abstract class CcModule
           PackageIdentifier.createInMainRepo("bazel_internal/test_rules/cc"),
           PackageIdentifier.createInMainRepo("tools/build_defs/android/dev"),
           PackageIdentifier.createInMainRepo("tools/build_defs/android/release/blaze"),
-          PackageIdentifier.createInMainRepo("rust/private"));
+          PackageIdentifier.createInMainRepo("rust/private"),
+          PackageIdentifier.createUnchecked("rules_rust", "rust/private"));
 
   public abstract CppSemantics getSemantics();
 
@@ -2003,7 +2004,7 @@ public abstract class CcModule
       Sequence<?> privateHeadersUnchecked, // <Artifact> expected
       Object textualHeadersStarlarkObject,
       Object additionalExportedHeadersObject,
-      Sequence<?> includes, // <String> expected
+      Object starlarkIncludes,
       Object starlarkLooseIncludes,
       Sequence<?> quoteIncludes, // <String> expected
       Sequence<?> systemIncludes, // <String> expected
@@ -2151,15 +2152,17 @@ public abstract class CcModule
       helper.addPublicHeaders(publicHeaders).addPrivateHeaders(privateHeaders).addSources(sources);
     }
 
+    List<String> includes =
+        starlarkIncludes instanceof Depset
+            ? Depset.cast(starlarkIncludes, String.class, "includes").toList()
+            : Sequence.cast(starlarkIncludes, String.class, "includes");
     helper
         .addCcCompilationContexts(
             Sequence.cast(
                 ccCompilationContexts, CcCompilationContext.class, "compilation_contexts"))
         .addImplementationDepsCcCompilationContexts(implementationContexts)
         .addIncludeDirs(
-            Sequence.cast(includes, String.class, "includes").stream()
-                .map(PathFragment::create)
-                .collect(ImmutableList.toImmutableList()))
+            includes.stream().map(PathFragment::create).collect(ImmutableList.toImmutableList()))
         .addQuoteIncludeDirs(
             Sequence.cast(quoteIncludes, String.class, "quote_includes").stream()
                 .map(PathFragment::create)

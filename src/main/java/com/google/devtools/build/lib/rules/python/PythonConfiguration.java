@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.TriState;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -95,6 +96,14 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     return defaultVersion;
   }
 
+  @StarlarkMethod(
+      name = "default_python_version",
+      structField = true,
+      doc = "The default python version from --incompatible_py3_is_default")
+  public String getDefaultPythonVersionForStarlark() {
+    return defaultVersion.name();
+  }
+
   @Override
   @Nullable
   public String getOutputDirectoryName() {
@@ -140,6 +149,10 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
    * Returns true if executable Python rules should obtain their runtime from the Python toolchain
    * rather than legacy flags.
    */
+  @StarlarkMethod(
+      name = "use_toolchains",
+      structField = true,
+      doc = "The value from the --incompatible_use_python_toolchains flag")
   public boolean useToolchains() {
     return useToolchains;
   }

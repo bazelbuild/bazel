@@ -42,7 +42,8 @@ public class ConstraintValueRule implements RuleDefinition {
                 .mandatory()
                 .allowedRuleClasses(ConstraintSettingRule.RULE_NAME)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ConstraintSettingInfo.PROVIDER.id()))
+                .mandatoryProviders(ConstraintSettingInfo.PROVIDER.id())
+                .nonconfigurable("constants must be consistent across configurations"))
         .build();
   }
 

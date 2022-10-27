@@ -163,7 +163,7 @@ public class SkydocMain {
                   providerInfoMap,
                   userDefinedFunctions,
                   aspectInfoMap);
-    } catch (StarlarkEvaluationException exception) {
+    } catch (StarlarkEvaluationException | EvalException exception) {
       exception.printStackTrace();
       System.err.println("Stardoc documentation generation failed: " + exception.getMessage());
       System.exit(1);
@@ -386,7 +386,8 @@ public class SkydocMain {
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
       List<AspectInfoWrapper> aspectInfoList)
-      throws InterruptedException, IOException, LabelSyntaxException, StarlarkEvaluationException {
+      throws InterruptedException, IOException, LabelSyntaxException, StarlarkEvaluationException,
+          EvalException {
     Path path = pathOfLabel(label, semantics);
 
     if (pending.contains(path)) {
@@ -473,7 +474,7 @@ public class SkydocMain {
     return module;
   }
 
-  private Path pathOfLabel(Label label, StarlarkSemantics semantics) {
+  private Path pathOfLabel(Label label, StarlarkSemantics semantics) throws EvalException {
     String workspacePrefix = "";
     if (!label.getWorkspaceRootForStarlarkOnly(semantics).isEmpty()
         && !label.getWorkspaceName().equals(workspaceName)) {

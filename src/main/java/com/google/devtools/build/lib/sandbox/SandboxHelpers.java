@@ -177,7 +177,6 @@ public final class SandboxHelpers {
         parent = parent.getParentDirectory();
       }
     }
-
     cleanRecursively(root, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs);
   }
 

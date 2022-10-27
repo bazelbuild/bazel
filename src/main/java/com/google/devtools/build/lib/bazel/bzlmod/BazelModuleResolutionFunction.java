@@ -366,8 +366,16 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     // Calculate a unique name for each used extension id.
     BiMap<String, ModuleExtensionId> extensionUniqueNames = HashBiMap.create();
     for (ModuleExtensionId id : extensionUsagesById.rowKeySet()) {
-      String bestName =
-          id.getBzlFileLabel().getRepository().getName() + "~" + id.getExtensionName();
+      // Ensure that the resulting extension name (and thus the repository names derived from it) do
+      // not start with a tilde.
+      RepositoryName repository = id.getBzlFileLabel().getRepository();
+      String nonEmptyRepoPart;
+      if (repository.isMain()) {
+        nonEmptyRepoPart = "_main";
+      } else {
+        nonEmptyRepoPart = repository.getName();
+      }
+      String bestName = nonEmptyRepoPart + "~" + id.getExtensionName();
       if (extensionUniqueNames.putIfAbsent(bestName, id) == null) {
         continue;
       }

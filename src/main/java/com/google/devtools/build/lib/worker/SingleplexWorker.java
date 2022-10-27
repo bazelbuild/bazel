@@ -64,14 +64,14 @@ class SingleplexWorker extends Worker {
    * zombie processes. Unfortunately, shutdown hooks are not guaranteed to be called, but this is
    * the best we can do. This must be set when a process is created.
    */
-  private Thread shutdownHook;
+  protected Thread shutdownHook;
 
   SingleplexWorker(WorkerKey workerKey, int workerId, final Path workDir, Path logFile) {
     super(workerKey, workerId, logFile);
     this.workDir = workDir;
   }
 
-  Subprocess createProcess() throws IOException {
+  protected Subprocess createProcess() throws IOException {
     this.shutdownHook =
         new Thread(
             () -> {

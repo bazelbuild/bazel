@@ -23,14 +23,24 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /** Creates and manages the contents of a working directory of a persistent worker. */
 final class WorkerExecRoot {
   private final Path workDir;
+  private final List<PathFragment> extraDirs;
 
-  public WorkerExecRoot(Path workDir) {
+  /**
+   * Creates a new WorkerExecRoot.
+   *
+   * @param workDir The directory (workspace dir) that the worker will be executing in.
+   * @param extraDirs Directories that must survive sandbox cleanup, e.g. for things that are
+   *     bind-mounted.
+   */
+  public WorkerExecRoot(Path workDir, List<PathFragment> extraDirs) {
     this.workDir = workDir;
+    this.extraDirs = extraDirs;
   }
 
   public void createFileSystem(
@@ -41,7 +51,7 @@ final class WorkerExecRoot {
     // First compute all the inputs and directories that we need. This is based only on
     // `workerFiles`, `inputs` and `outputs` and won't do any I/O.
     Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
-    LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
+    LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>(extraDirs);
     SandboxHelpers.populateInputsAndDirsToCreate(
         ImmutableSet.of(),
         inputsToCreate,

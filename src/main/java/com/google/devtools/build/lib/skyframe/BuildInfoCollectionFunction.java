@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -61,20 +61,20 @@ public class BuildInfoCollectionFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     final BuildInfoKeyAndConfig keyAndConfig = (BuildInfoKeyAndConfig) skyKey.argument();
     ImmutableSet<SkyKey> keysToRequest =
-        ImmutableSet.of(
-            WorkspaceStatusValue.BUILD_INFO_KEY,
-            keyAndConfig.getConfigurationKey());
-    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(keysToRequest);
+        ImmutableSet.of(WorkspaceStatusValue.BUILD_INFO_KEY, keyAndConfig.getConfigurationKey());
+    SkyframeLookupResult result = env.getValuesAndExceptions(keysToRequest);
     if (env.valuesMissing()) {
       return null;
     }
-    WorkspaceStatusValue infoArtifactValue = (WorkspaceStatusValue) result.next();
+    WorkspaceStatusValue infoArtifactValue =
+        (WorkspaceStatusValue) result.get(WorkspaceStatusValue.BUILD_INFO_KEY);
     if (infoArtifactValue == null) {
       BugReport.logUnexpected("Value for: BuildInfoKey was missing, this should never happen");
       return null;
     }
 
-    BuildConfigurationValue config = (BuildConfigurationValue) result.next();
+    BuildConfigurationValue config =
+        (BuildConfigurationValue) result.get(keyAndConfig.getConfigurationKey());
     if (config == null) {
       BugReport.logUnexpected(
           "Value for: '%s' was missing, this should never happen",

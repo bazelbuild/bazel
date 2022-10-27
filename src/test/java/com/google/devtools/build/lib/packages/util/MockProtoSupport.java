@@ -27,7 +27,7 @@ public final class MockProtoSupport {
     throw new UnsupportedOperationException();
   }
 
-  /** This is workarround for tests that do not use {@code Scratch} (e.g. aquery-tests). */
+  /** This is workaround for tests that do not use {@code Scratch} (e.g. aquery-tests). */
   public static final String MIGRATION_TAG =
       String.format("tags = ['%s'],", ProtoCommon.PROTO_RULES_MIGRATION_LABEL);
 

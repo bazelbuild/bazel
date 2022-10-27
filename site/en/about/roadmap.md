@@ -19,9 +19,9 @@ Q4 brings Bazel 6.0 — the new [long term support (LTS)](https://bazel.build/re
 [Bzlmod](https://bazel.build/docs/bzlmod) automatically resolves transitive dependencies, allowing projects to scale while staying fast and resource-efficient. Introduced experimentally in Bazel 5.0, Bzlmod will be generally available and  provide a solution for the [diamond dependency problem](https://docs.google.com/document/d/1moQfNcEIttsk6vYanNKIy3ZuK53hQUFq1b1r0rmsYVg/edit#heading=h.lgyp7ubwxmjc).
 
 *   Bzlmod goes from ‘experimental’ to ‘generally available’
-*   Includes support for `rules\_jvm\_external`, allowing users to download Maven dependencies for Java projects
+*   Includes support for `rules_jvm_external`, allowing users to download Maven dependencies for Java projects
 *   [Bzlmod Migration Guide](https://docs.google.com/document/d/1JtXIVnXyFZ4bmbiBCr5gsTH4-opZAFf5DMMb-54kES0/edit?usp=gmail) provides tools, scripts, and documentation to teams looking to adopt Bzlmod
-*   The [Bazel central repository](https://github.com/bazelbuild/bazel-central-registry) hosts core Bazel `BUILD` rules (`rules\_jvm\_external`, `rules\_go`, `rules\_python`, `rules\_nodejs`) and key dependencies required for Bzlmod
+*   The [Bazel central repository](https://github.com/bazelbuild/bazel-central-registry) hosts core Bazel `BUILD` rules (`rules_jvm_external`, `rules_go`, `rules_python`, `rules_nodejs`) and key dependencies required for Bzlmod
 
 For more on this development, watch the [Bzlmod community update](https://www.youtube.com/watch?v=MuW5XNcFukE) or read the [original design doc](https://docs.google.com/document/d/1moQfNcEIttsk6vYanNKIy3ZuK53hQUFq1b1r0rmsYVg/edit#heading=h.lgyp7ubwxmjc).
 
@@ -54,7 +54,7 @@ For more on this development, read the Bazel-JetBrains [blog announcement](https
 
 Looking ahead, the Bazel team has begun development or anticipates prioritizing the following features in 2023 and beyond.
 
-### Improving Bazel's Android build rules 
+### Improving Bazel's Android build rules
 
 Continue to invest in the Android app development experience, focusing on the workflow through build, test, and deployment.
 

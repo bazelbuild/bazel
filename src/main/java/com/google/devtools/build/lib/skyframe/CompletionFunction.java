@@ -51,7 +51,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -70,19 +70,6 @@ public final class CompletionFunction<
   /** A strategy for completing the build. */
   interface Completor<
       ValueT, ResultT extends SkyValue, KeyT extends TopLevelActionLookupKey, FailureT> {
-
-    /**
-     * Returns the options which determine the artifacts to build for the top-level targets.
-     *
-     * <p>For the Top level targets we made a conscious decision to include the
-     * TopLevelArtifactContext within the SkyKey as an argument to the CompletionFunction rather
-     * than a separate SkyKey. As a result we do have <num top level targets> extra SkyKeys for
-     * every unique TopLevelArtifactContexts used over the lifetime of Blaze. This is a minor
-     * tradeoff, since it significantly improves null build times when we're switching the
-     * TopLevelArtifactContexts frequently (common for IDEs), by reusing existing SkyKeys from
-     * earlier runs, instead of causing an eager invalidation were the TopLevelArtifactContext
-     * modeled as a separate SkyKey.
-     */
 
     /** Creates an event reporting an absent input artifact. */
     Event getRootCauseError(ValueT value, KeyT key, LabelCause rootCause, Environment env)
@@ -161,8 +148,7 @@ public final class CompletionFunction<
     ArtifactsToBuild artifactsToBuild = valueAndArtifactsToBuild.second;
 
     ImmutableList<Artifact> allArtifacts = artifactsToBuild.getAllArtifacts().toList();
-    SkyframeIterableResult inputDeps =
-        env.getOrderedValuesAndExceptions(Artifact.keys(allArtifacts));
+    SkyframeLookupResult inputDeps = env.getValuesAndExceptions(Artifact.keys(allArtifacts));
 
     boolean allArtifactsAreImportant = artifactsToBuild.areAllOutputGroupsImportant();
 
@@ -197,7 +183,8 @@ public final class CompletionFunction<
     for (Artifact input : allArtifacts) {
       try {
         SkyValue artifactValue =
-            inputDeps.nextOrThrow(ActionExecutionException.class, SourceArtifactException.class);
+            inputDeps.getOrThrow(
+                Artifact.key(input), ActionExecutionException.class, SourceArtifactException.class);
         if (artifactValue != null) {
           if (artifactValue instanceof MissingArtifactValue) {
             handleSourceFileError(

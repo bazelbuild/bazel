@@ -17,8 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -42,11 +40,7 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
   private static final Predicate<Target> ALWAYS_TRUE = (t) -> true;
 
   /** Convert the options into a test filter. */
-  public static TestFilter forOptions(
-      LoadingOptions options, ExtendedEventHandler eventHandler, Set<String> ruleNames) {
-    if (!options.testLangFilterList.isEmpty()) {
-      checkLangFilters(options.testLangFilterList, eventHandler, ruleNames);
-    }
+  public static TestFilter forOptions(LoadingOptions options) {
     return new TestFilter(
         ImmutableSet.copyOf(options.testSizeFilterSet),
         ImmutableSet.copyOf(options.testTimeoutFilterSet),
@@ -141,20 +135,6 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
     return target ->
         target instanceof Rule
             && allowedTimeouts.contains(TestTimeout.getTestTimeout((Rule) target));
-  }
-
-  /** Check languages specified in --test_lang_filters and warn if any of them are unknown. */
-  private static void checkLangFilters(
-      List<String> langFilterList, ExtendedEventHandler reporter, Set<String> allRuleNames) {
-    for (String lang : langFilterList) {
-      if (lang.startsWith("-")) {
-        lang = lang.substring(1);
-      }
-      if (!allRuleNames.contains(lang + "_test")) {
-        reporter.handle(
-            Event.warn("Unknown language '" + lang + "' in --test_lang_filters option"));
-      }
-    }
   }
 
   /**

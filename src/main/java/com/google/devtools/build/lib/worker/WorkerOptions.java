@@ -222,4 +222,12 @@ public class WorkerOptions extends OptionsBase {
           "If this limit is greater than zero idle workers might be killed if the total memory"
               + " usage of all  workers exceed the limit.")
   public int totalWorkerMemoryLimitMb;
+
+  @Option(
+      name = "experimental_worker_sandbox_hardening",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "If enabled, workers are run in a hardened sandbox, if the implementation allows it.")
+  public boolean sandboxHardening;
 }
