@@ -371,7 +371,7 @@ class BazelModuleTest(test_base.TestBase):
                                          allow_failure=True)
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
-        "ERROR: <builtin>: //pkg:~module_ext~foo: no such attribute 'invalid_attr' in 'repo_rule' rule",
+        "ERROR: <builtin>: //pkg:_main~module_ext~foo: no such attribute 'invalid_attr' in 'repo_rule' rule",
         stderr)
     self.assertTrue(
         any([

@@ -39,7 +39,10 @@ public final class RepositoryName {
 
   @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("");
 
-  private static final Pattern VALID_REPO_NAME = Pattern.compile("[\\w\\-.~]*");
+  // Repository names must not start with a tilde as shells treat unescaped paths starting with them
+  // specially.
+  // https://www.gnu.org/software/bash/manual/html_node/Tilde-Expansion.html
+  private static final Pattern VALID_REPO_NAME = Pattern.compile("|[\\w\\-.][\\w\\-.~]*");
 
   // Must start with a letter. Can contain ASCII letters and digits, underscore, dash, and dot.
   private static final Pattern VALID_USER_PROVIDED_NAME = Pattern.compile("[a-zA-Z][-.\\w]*$");
@@ -156,7 +159,7 @@ public final class RepositoryName {
     if (!VALID_REPO_NAME.matcher(name).matches()) {
       throw LabelParser.syntaxErrorf(
           "invalid repository name '@%s': repo names may contain only A-Z, a-z, 0-9, '-', '_', '.'"
-              + " and '~'",
+              + " and '~' and must not start with '~'",
           StringUtilities.sanitizeControlChars(name));
     }
   }
