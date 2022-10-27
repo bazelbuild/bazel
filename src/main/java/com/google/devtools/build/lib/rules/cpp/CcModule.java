@@ -135,7 +135,8 @@ public abstract class CcModule
           PackageIdentifier.createInMainRepo("bazel_internal/test_rules/cc"),
           PackageIdentifier.createInMainRepo("tools/build_defs/android/dev"),
           PackageIdentifier.createInMainRepo("tools/build_defs/android/release/blaze"),
-          PackageIdentifier.createInMainRepo("rust/private"));
+          PackageIdentifier.createInMainRepo("rust/private"),
+          PackageIdentifier.createUnchecked("rules_rust", "rust/private"));
 
   public abstract CppSemantics getSemantics();
 
