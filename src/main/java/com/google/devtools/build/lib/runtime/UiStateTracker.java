@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressRecei
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
@@ -88,7 +87,7 @@ class UiStateTracker {
 
   private int sampleSize = 3;
 
-  protected String status;
+  private String status;
   protected String additionalMessage;
 
   protected final Clock clock;
@@ -455,31 +454,31 @@ class UiStateTracker {
     executionProgressReceiver = event.getExecutionProgressReceiver();
   }
 
-  Event buildComplete(BuildCompleteEvent event) {
+  void buildComplete(BuildCompleteEvent event) {
     buildComplete = true;
     buildCompleteAt = Instant.ofEpochMilli(clock.currentTimeMillis());
 
-    status = null;
-    additionalMessage = "";
     if (event.getResult().getSuccess()) {
+      status = "INFO";
       int actionsCompleted = this.actionsCompleted.get();
       if (failedTests == 0) {
-        return Event.info(
+        additionalMessage =
             "Build completed successfully, "
                 + actionsCompleted
-                + pluralize(" total action", actionsCompleted));
+                + pluralize(" total action", actionsCompleted);
       } else {
-        return Event.info(
+        additionalMessage =
             "Build completed, "
                 + failedTests
                 + pluralize(" test", failedTests)
                 + " FAILED, "
                 + actionsCompleted
-                + pluralize(" total action", actionsCompleted));
+                + pluralize(" total action", actionsCompleted);
       }
     } else {
       ok = false;
-      return Event.error("Build did NOT complete successfully");
+      status = "FAILED";
+      additionalMessage = "Build did NOT complete successfully";
     }
   }
 
@@ -1325,9 +1324,7 @@ class UiStateTracker {
       return;
     }
 
-    if (!buildComplete) {
-      writeExecutionProgress(terminalWriter, shortVersion);
-    }
+    writeExecutionProgress(terminalWriter, shortVersion);
 
     if (!shortVersion) {
       reportOnDownloads(terminalWriter);
