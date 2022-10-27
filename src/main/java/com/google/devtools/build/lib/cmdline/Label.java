@@ -338,7 +338,8 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
               + " \"external/repo\"</pre>",
       useStarlarkSemantics = true)
   @Deprecated
-  public String getWorkspaceRootForStarlarkOnly(StarlarkSemantics semantics) {
+  public String getWorkspaceRootForStarlarkOnly(StarlarkSemantics semantics) throws EvalException {
+    checkRepoVisibilityForStarlark("workspace_root");
     return packageIdentifier
         .getRepository()
         .getExecPath(semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT))
@@ -431,7 +432,8 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
           "The repository part of this label. For instance, "
               + "<pre class=language-python>Label(\"@foo//bar:baz\").workspace_name"
               + " == \"foo\"</pre>")
-  public String getWorkspaceName() {
+  public String getWorkspaceName() throws EvalException {
+    checkRepoVisibilityForStarlark("workspace_name");
     return packageIdentifier.getRepository().getName();
   }
 
@@ -504,21 +506,10 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
         @Param(name = "relName", doc = "The label that will be resolved relative to this one.")
       },
       useStarlarkThread = true)
-  public Label getRelative(String relName, StarlarkThread thread)
-      throws LabelSyntaxException, EvalException {
-    Label label =
-        getRelativeWithRemapping(
-            relName,
-            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
-                .repoMapping());
-    if (!label.getRepository().isVisible()) {
-      throw Starlark.errorf(
-          "Invalid label string '%s': no repository visible as '@%s' from %s",
-          relName,
-          label.getRepository().getName(),
-          label.getRepository().getOwnerRepoDisplayString());
-    }
-    return label;
+  public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {
+    return getRelativeWithRemapping(
+        relName,
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).repoMapping());
   }
 
   /**
@@ -675,5 +666,11 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   public String expandToCommandLine() {
     // TODO(wyv): Consider using StarlarkSemantics here too for optional unambiguity.
     return getCanonicalForm();
+  }
+
+  private void checkRepoVisibilityForStarlark(String method) throws EvalException {
+    if (!getRepository().isVisible()) {
+      throw Starlark.errorf("'%s' is not allowed on invalid Label %s", method, this);
+    }
   }
 }
