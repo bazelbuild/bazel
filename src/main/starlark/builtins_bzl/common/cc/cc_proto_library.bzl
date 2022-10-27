@@ -293,5 +293,5 @@ cc_proto_library = rule(
             allow_files = False,
         ),
     },
-    toolchains = cc_helper.use_cpp_toolchain(),
+    # toolchains = cc_helper.use_cpp_toolchain(),
 )
