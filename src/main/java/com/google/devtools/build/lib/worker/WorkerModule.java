@@ -27,11 +27,15 @@ import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
+import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
+import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.worker.SandboxedWorker.WorkerSandboxOptions;
 import com.google.devtools.build.lib.worker.WorkerPool.WorkerPoolConfig;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
@@ -78,14 +82,28 @@ public class WorkerModule extends BlazeModule {
    */
   @Subscribe
   public void buildStarting(BuildStartingEvent event) {
-    WorkerOptions options = event.request().getOptions(WorkerOptions.class);
+    WorkerOptions options = checkNotNull(event.request().getOptions(WorkerOptions.class));
     if (workerFactory != null) {
       workerFactory.setReporter(options.workerVerbose ? env.getReporter() : null);
     }
     Path workerDir =
         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-workers");
-
-    WorkerFactory newWorkerFactory = new WorkerFactory(workerDir);
+    BlazeWorkspace workspace = env.getBlazeWorkspace();
+    WorkerSandboxOptions workerSandboxOptions;
+    if (options.sandboxHardening) {
+      SandboxOptions sandboxOptions = event.request().getOptions(SandboxOptions.class);
+      workerSandboxOptions =
+          WorkerSandboxOptions.create(
+              LinuxSandboxUtil.getLinuxSandbox(workspace),
+              sandboxOptions.sandboxFakeHostname,
+              sandboxOptions.sandboxFakeUsername,
+              sandboxOptions.sandboxDebug,
+              ImmutableList.copyOf(sandboxOptions.sandboxTmpfsPath),
+              ImmutableList.copyOf(sandboxOptions.sandboxWritablePath));
+    } else {
+      workerSandboxOptions = null;
+    }
+    WorkerFactory newWorkerFactory = new WorkerFactory(workerDir, workerSandboxOptions);
     if (!newWorkerFactory.equals(workerFactory)) {
       if (workerDir.exists()) {
         try {

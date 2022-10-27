@@ -26,5 +26,8 @@ package_group(
 # Approved clients of java.starlark.net.
 package_group(
     name = "clients",
+    # TODO(#11261, 16355): The meaning of `//...` changed from "public" to "this
+    # repo only" in Bazel 6.0. Switch this to `public` in a subsequent release.
+    # (This must remain `//...` in 6.0 to allow bootstrapping Bazel with 5.x.)
     packages = ["//..."],  # anyone
 )

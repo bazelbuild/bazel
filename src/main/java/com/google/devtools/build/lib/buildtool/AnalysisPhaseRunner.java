@@ -249,7 +249,8 @@ public final class AnalysisPhaseRunner {
               /*mergedPhasesExecutionJobsCount=*/ 0,
               /*resourceManager=*/ null,
               /*buildResultListener=*/ null,
-              /*executionSetupCallback*/ null);
+              /*executionSetupCallback*/ null,
+              /*buildConfigurationsCreatedCallback=*/ null);
     } catch (BuildFailedException | TestExecException | AbruptExitException unexpected) {
       throw new IllegalStateException("Unexpected execution exception type: ", unexpected);
     }

@@ -336,12 +336,12 @@ java_library(
         ":package_specification_provider",
         ":platform_options",
         ":provider_collection",
+        ":repo_mapping_manifest_action",
         ":required_config_fragments_provider",
         ":resolved_toolchain_context",
         ":rule_configured_object_value",
         ":rule_definition_environment",
         ":run_environment_info",
-        ":runfiles_library_info",
         ":starlark/args",
         ":starlark/bazel_build_api_globals",
         ":starlark/function_transition_util",
@@ -984,6 +984,25 @@ java_library(
 )
 
 java_library(
+    name = "repo_mapping_manifest_action",
+    srcs = ["RepoMappingManifestAction.java"],
+    deps = [
+        ":actions/abstract_file_write_action",
+        ":actions/deterministic_writer",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "required_config_fragments_provider",
     srcs = ["RequiredConfigFragmentsProvider.java"],
     deps = [
@@ -1030,16 +1049,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "runfiles_library_info",
-    srcs = ["RunfilesLibraryInfo.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
     ],
 )
 

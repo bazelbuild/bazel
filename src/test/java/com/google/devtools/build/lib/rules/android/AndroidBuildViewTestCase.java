@@ -56,6 +56,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import org.junit.Before;
 
@@ -362,7 +363,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     }
     Map<String, String> splitData =
         Splitter.on(",")
-            .withKeyValueSeparator(Splitter.onPattern("(?<!\\\\):"))
+            .withKeyValueSeparator(Splitter.on(Pattern.compile("(?<!\\\\):")))
             .split(mergeArgs.get(mergeArgs.indexOf("--mergeeManifests") + 1));
     ImmutableMap.Builder<String, String> results = new ImmutableMap.Builder<>();
     for (Map.Entry<String, String> manifestAndLabel : splitData.entrySet()) {

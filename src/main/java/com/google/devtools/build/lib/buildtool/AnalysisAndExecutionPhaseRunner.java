@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.BuildView;
+import com.google.devtools.build.lib.analysis.BuildView.BuildConfigurationsCreated;
 import com.google.devtools.build.lib.analysis.BuildView.ExecutionSetup;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -76,7 +77,8 @@ public final class AnalysisAndExecutionPhaseRunner {
       BuildRequest request,
       BuildOptions buildOptions,
       TargetPatternPhaseValue loadingResult,
-      ExecutionSetup executionSetupCallback)
+      ExecutionSetup executionSetupCallback,
+      BuildConfigurationsCreated buildConfigurationCreatedCallback)
       throws BuildFailedException, InterruptedException, ViewCreationFailedException,
           TargetParsingException, LoadingFailedException, AbruptExitException,
           InvalidConfigurationException, TestExecException, RepositoryMappingResolutionException {
@@ -126,7 +128,12 @@ public final class AnalysisAndExecutionPhaseRunner {
                   env.getRuntime().getBlazeModules(), env, request, buildOptions)) {
         analysisAndExecutionResult =
             runAnalysisAndExecutionPhase(
-                env, request, loadingResult, buildOptions, executionSetupCallback);
+                env,
+                request,
+                loadingResult,
+                buildOptions,
+                executionSetupCallback,
+                buildConfigurationCreatedCallback);
       }
       BuildResultListener buildResultListener = env.getBuildResultListener();
       AnalysisPhaseRunner.reportTargets(
@@ -186,7 +193,8 @@ public final class AnalysisAndExecutionPhaseRunner {
       BuildRequest request,
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
-      ExecutionSetup executionSetupCallback)
+      ExecutionSetup executionSetupCallback,
+      BuildConfigurationsCreated buildConfigurationCreatedCallback)
       throws InterruptedException, InvalidConfigurationException, ViewCreationFailedException,
           BuildFailedException, TestExecException, RepositoryMappingResolutionException,
           AbruptExitException {
@@ -226,7 +234,8 @@ public final class AnalysisAndExecutionPhaseRunner {
             request.getBuildOptions().jobs,
             env.getLocalResourceManager(),
             env.getBuildResultListener(),
-            executionSetupCallback);
+            executionSetupCallback,
+            buildConfigurationCreatedCallback);
   }
 
   /**

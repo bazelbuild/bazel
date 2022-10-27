@@ -82,8 +82,10 @@ load(":my_rules.bzl", "some_rule", nice_alias = "some_other_rule")
 ```
 
 In a `.bzl` file, symbols starting with `_` are not exported and cannot be
-loaded from another file. Visibility doesn't affect loading (yet): you don't
-need to use `exports_files` to make a `.bzl` file visible.
+loaded from another file.
+
+You can use [load visibility](/concepts/visibility#load-visibility) to restrict
+who may load a `.bzl` file.
 
 ## Types of build rules {:#types-of-build-rules}
 

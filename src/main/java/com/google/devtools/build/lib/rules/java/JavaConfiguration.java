@@ -93,7 +93,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final StrictDepsMode strictJavaDeps;
   private final String fixDepsTool;
   private final Label proguardBinary;
-  private final ImmutableList<Label> extraProguardSpecs;
   private final NamedLabel bytecodeOptimizer;
   private final boolean runLocalJavaOptimizations;
   private final ImmutableList<Label> localJavaOptimizationConfiguration;
@@ -132,7 +131,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.strictJavaDeps = javaOptions.strictJavaDeps;
     this.fixDepsTool = javaOptions.fixDepsTool;
     this.proguardBinary = javaOptions.proguard;
-    this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
     this.runLocalJavaOptimizations = javaOptions.runLocalJavaOptimizations;
     this.localJavaOptimizationConfiguration =
         ImmutableList.copyOf(javaOptions.localJavaOptimizationConfiguration);
@@ -237,6 +235,16 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return useIjars;
   }
 
+  /**
+   * Returns true iff Java compilation should use ijars. Checks if the functions is been called from
+   * builtins.
+   */
+  @Override
+  public boolean getUseIjarsInStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return useIjars;
+  }
+
   /** Returns true iff Java header compilation is enabled. */
   public boolean useHeaderCompilation() {
     return useHeaderCompilation;
@@ -280,7 +288,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return fixDepsTool;
   }
 
-  /** @return proper label only if --java_launcher= is specified, otherwise null. */
+  /** Returns proper label only if --java_launcher= is specified, otherwise null. */
   @StarlarkConfigurationField(
       name = "launcher",
       doc = "Returns the label provided with --java_launcher, if any.",
@@ -298,11 +306,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   @Nullable
   public Label getProguardBinary() {
     return proguardBinary;
-  }
-
-  /** Returns all labels provided with --extra_proguard_specs. */
-  public ImmutableList<Label> getExtraProguardSpecs() {
-    return extraProguardSpecs;
   }
 
   /**
@@ -402,6 +405,14 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
       throws EvalException {
     checkPrivateAccess(thread);
     return disallowJavaImportEmptyJars;
+  }
+
+  /** Returns true if java_import exports are not allowed. */
+  @Override
+  public boolean getDisallowJavaImportExportsInStarlark(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    return disallowJavaImportExports;
   }
 
   @Override

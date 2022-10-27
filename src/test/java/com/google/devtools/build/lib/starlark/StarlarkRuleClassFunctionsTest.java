@@ -28,11 +28,16 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -64,6 +69,7 @@ import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -75,8 +81,10 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
+import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
@@ -2827,5 +2835,57 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     ev.assertContainsError(
         "Error in analysis_test: 'name' cannot be set or overridden in 'attr_values'");
+  }
+
+  private Object eval(Module module, String... lines) throws Exception {
+    ParserInput input = ParserInput.fromLines(lines);
+    return Starlark.eval(input, FileOptions.DEFAULT, module, ev.getStarlarkThread());
+  }
+
+  @Test
+  public void testLabelWithStrictVisibility() throws Exception {
+    ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
+    StarlarkModules.addPredeclared(predeclared);
+    RepositoryName currentRepo = RepositoryName.createUnvalidated("module~1.2.3");
+    RepositoryName otherRepo = RepositoryName.createUnvalidated("dep~4.5");
+    Label bzlLabel =
+        Label.create(
+            PackageIdentifier.create(currentRepo, PathFragment.create("lib")), "label.bzl");
+    Object clientData =
+        BazelModuleContext.create(
+            bzlLabel,
+            RepositoryMapping.create(
+                ImmutableMap.of("my_module", currentRepo, "dep", otherRepo), currentRepo),
+            "lib/label.bzl",
+            /*loads=*/ ImmutableMap.of(),
+            /*bzlTransitiveDigest=*/ new byte[0]);
+    Module module =
+        Module.withPredeclaredAndData(
+            StarlarkSemantics.DEFAULT, predeclared.buildOrThrow(), clientData);
+
+    assertThat(eval(module, "Label('//foo:bar').workspace_root"))
+        .isEqualTo("external/module~1.2.3");
+    assertThat(eval(module, "Label('@my_module//foo:bar').workspace_root"))
+        .isEqualTo("external/module~1.2.3");
+    assertThat(eval(module, "Label('@@module~1.2.3//foo:bar').workspace_root"))
+        .isEqualTo("external/module~1.2.3");
+    assertThat(eval(module, "Label('@dep//foo:bar').workspace_root")).isEqualTo("external/dep~4.5");
+    assertThat(eval(module, "Label('@@dep~4.5//foo:bar').workspace_root"))
+        .isEqualTo("external/dep~4.5");
+    assertThat(eval(module, "Label('@@//foo:bar').workspace_root")).isEqualTo("");
+
+    assertThat(assertThrows(EvalException.class, () -> eval(module, "Label('@//foo:bar')")))
+        .hasMessageThat()
+        .contains(
+            "Invalid label string '@//foo:bar': no repository visible as '@' from repository "
+                + "'@module~1.2.3'");
+    assertThat(
+            assertThrows(
+                EvalException.class,
+                () -> eval(module, "Label('@@//foo:bar').relative('@not_dep//foo:bar')")))
+        .hasMessageThat()
+        .contains(
+            "Invalid label string '@not_dep//foo:bar': no repository visible as '@not_dep' "
+                + "from repository '@module~1.2.3'");
   }
 }

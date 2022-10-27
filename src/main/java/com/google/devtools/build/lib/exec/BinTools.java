@@ -189,6 +189,11 @@ public final class BinTools {
     }
 
     @Override
+    public boolean isDirectory() {
+      return false;
+    }
+
+    @Override
     public ByteString getBytes() throws IOException {
       ByteString.Output out = ByteString.newOutput();
       writeTo(out);

@@ -90,6 +90,13 @@ class BazelRegistry:
     self.archives.mkdir(parents=True, exist_ok=True)
     self.registry_suffix = registry_suffix
 
+  def setModuleBasePath(self, module_base_path):
+    bazel_registry = {
+        'module_base_path': module_base_path,
+    }
+    with self.root.joinpath('bazel_registry.json').open('w') as f:
+      json.dump(bazel_registry, f, indent=4, sort_keys=True)
+
   def getURL(self):
     """Return the URL of this registry."""
     return self.root.resolve().as_uri()
@@ -268,7 +275,7 @@ class BazelRegistry:
 
     return self
 
-  def createLocalPathModule(self, name, version, path):
+  def createLocalPathModule(self, name, version, path, deps=None):
     """Add a local module into the registry."""
     module_dir = self.root.joinpath('modules', name, version)
     module_dir.mkdir(parents=True, exist_ok=True)
@@ -279,13 +286,16 @@ class BazelRegistry:
         'path': path,
     }
 
+    if deps is None:
+      deps = {}
+
     scratchFile(
         module_dir.joinpath('MODULE.bazel'), [
             'module(',
             '  name = "%s",' % name,
             '  version = "%s",' % version,
             ')',
-        ])
+        ] + ['bazel_dep(name="%s",version="%s")' % p for p in deps.items()])
 
     with module_dir.joinpath('source.json').open('w') as f:
       json.dump(source, f, indent=4, sort_keys=True)

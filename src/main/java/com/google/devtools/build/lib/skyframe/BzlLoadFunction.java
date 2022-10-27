@@ -767,7 +767,7 @@ public class BzlLoadFunction implements SkyFunction {
       return null; // Skyframe deps unavailable
     }
 
-    // Validate that the current .bzl file satisfies each loaded dependency's bzl-visibility.
+    // Validate that the current .bzl file satisfies each loaded dependency's load visibility.
     // Violations are reported as error events (since there can be more than one in a single file)
     // and also trigger a BzlLoadFailedException.
     checkLoadVisibilities(
@@ -835,7 +835,7 @@ public class BzlLoadFunction implements SkyFunction {
     if (bzlVisibility == null) {
       bzlVisibility = BzlVisibility.PUBLIC;
     }
-    // We save bzl-visibility in the BzlLoadValue rather than the BazelModuleContext because
+    // We save load visibility in the BzlLoadValue rather than the BazelModuleContext because
     // visibility doesn't need to be introspected by any Starlark builtin methods, and because the
     // alternative would mean mutating or overwriting the BazelModuleContext after evaluation.
     return new BzlLoadValue(module, transitiveDigest, bzlVisibility);
@@ -1468,14 +1468,14 @@ public class BzlLoadFunction implements SkyFunction {
     }
 
     /**
-     * Returns an exception for bzl-visibility violations.
+     * Returns an exception for load visibility violations.
      *
      * <p>{@code fileDescription} is a string like {@code "module //pkg:foo.bzl"} or {@code "file
      * //pkg:BUILD"}.
      */
     static BzlLoadFailedException visibilityViolation(String fileDescription) {
       return new BzlLoadFailedException(
-          String.format("%s contains .bzl load-visibility violations", fileDescription),
+          String.format("%s contains .bzl load visibility violations", fileDescription),
           Code.VISIBILITY_ERROR);
     }
   }

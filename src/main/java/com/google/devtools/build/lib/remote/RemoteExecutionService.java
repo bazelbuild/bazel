@@ -25,8 +25,6 @@ import static com.google.devtools.build.lib.remote.RemoteCache.createFailureDeta
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
-import static com.google.devtools.build.lib.remote.util.Utils.hasFilesToDownload;
-import static com.google.devtools.build.lib.remote.util.Utils.shouldDownloadAllSpawnOutputs;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
@@ -74,13 +72,13 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnInputExpander.InputWalker;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -106,12 +104,17 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.worker.WorkerKey;
+import com.google.devtools.build.lib.worker.WorkerOptions;
+import com.google.devtools.build.lib.worker.WorkerParser;
+import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
@@ -158,7 +161,6 @@ public class RemoteExecutionService {
   private final RemoteOptions remoteOptions;
   @Nullable private final RemoteCache remoteCache;
   @Nullable private final RemoteExecutionClient remoteExecutor;
-  private final ImmutableSet<PathFragment> filesToDownload;
   private final TempPathGenerator tempPathGenerator;
   @Nullable private final Path captureCorruptedOutputsDir;
   private final Cache<Object, MerkleTree> merkleTreeCache;
@@ -182,7 +184,6 @@ public class RemoteExecutionService {
       RemoteOptions remoteOptions,
       @Nullable RemoteCache remoteCache,
       @Nullable RemoteExecutionClient remoteExecutor,
-      ImmutableSet<ActionInput> filesToDownload,
       TempPathGenerator tempPathGenerator,
       @Nullable Path captureCorruptedOutputsDir) {
     this.reporter = reporter;
@@ -203,11 +204,6 @@ public class RemoteExecutionService {
     }
     this.merkleTreeCache = merkleTreeCacheBuilder.build();
 
-    ImmutableSet.Builder<PathFragment> filesToDownloadBuilder = ImmutableSet.builder();
-    for (ActionInput actionInput : filesToDownload) {
-      filesToDownloadBuilder.add(actionInput.getExecPath());
-    }
-    this.filesToDownload = filesToDownloadBuilder.build();
     this.tempPathGenerator = tempPathGenerator;
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
 
@@ -225,7 +221,7 @@ public class RemoteExecutionService {
     ArrayList<String> outputDirectories = new ArrayList<>();
     for (ActionInput output : outputs) {
       String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
-      if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
+      if (output.isDirectory()) {
         outputDirectories.add(pathString);
       } else {
         outputFiles.add(pathString);
@@ -354,13 +350,19 @@ public class RemoteExecutionService {
     return outputDirMap;
   }
 
-  private MerkleTree buildInputMerkleTree(Spawn spawn, SpawnExecutionContext context)
+  private MerkleTree buildInputMerkleTree(
+      Spawn spawn, SpawnExecutionContext context, ToolSignature toolSignature)
       throws IOException, ForbiddenActionInputException {
     // Add output directories to inputs so that they are created as empty directories by the
     // executor. The spec only requires the executor to create the parent directory of an output
     // directory, which differs from the behavior of both local and sandboxed execution.
     SortedMap<PathFragment, ActionInput> outputDirMap = buildOutputDirMap(spawn);
-    if (remoteOptions.remoteMerkleTreeCache) {
+    boolean useMerkleTreeCache = remoteOptions.remoteMerkleTreeCache;
+    if (toolSignature != null) {
+      // Marking tool files is not yet supported in conjunction with the merkle tree cache.
+      useMerkleTreeCache = false;
+    }
+    if (useMerkleTreeCache) {
       MetadataProvider metadataProvider = context.getMetadataProvider();
       ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
       remotePathResolver.walkInputs(
@@ -383,7 +385,12 @@ public class RemoteExecutionService {
         newInputMap.putAll(outputDirMap);
         inputMap = newInputMap;
       }
-      return MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
+      return MerkleTree.build(
+          inputMap,
+          toolSignature == null ? ImmutableSet.of() : toolSignature.toolInputs,
+          context.getMetadataProvider(),
+          execRoot,
+          digestUtil);
     }
   }
 
@@ -430,11 +437,24 @@ public class RemoteExecutionService {
 
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, UserExecException, ForbiddenActionInputException {
-    final MerkleTree merkleTree = buildInputMerkleTree(spawn, context);
+      throws IOException, ExecException, ForbiddenActionInputException, InterruptedException {
+    ToolSignature toolSignature =
+        remoteOptions.markToolInputs
+                && Spawns.supportsWorkers(spawn)
+                && !spawn.getToolFiles().isEmpty()
+            ? computePersistentWorkerSignature(spawn, context)
+            : null;
+    final MerkleTree merkleTree = buildInputMerkleTree(spawn, context, toolSignature);
 
     // Get the remote platform properties.
     Platform platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+    if (toolSignature != null) {
+      platform =
+          PlatformUtils.getPlatformProto(
+              spawn, remoteOptions, ImmutableMap.of("persistentWorkerKey", toolSignature.key));
+    } else {
+      platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+    }
 
     Command command =
         buildCommand(
@@ -472,6 +492,21 @@ public class RemoteExecutionService {
         command,
         action,
         actionKey);
+  }
+
+  @Nullable
+  private ToolSignature computePersistentWorkerSignature(Spawn spawn, SpawnExecutionContext context)
+      throws IOException, ExecException, InterruptedException {
+    WorkerParser workerParser =
+        new WorkerParser(
+            execRoot, Options.getDefaults(WorkerOptions.class), LocalEnvProvider.NOOP, null);
+    WorkerKey workerKey = workerParser.compute(spawn, context).getWorkerKey();
+    Fingerprint fingerprint = new Fingerprint();
+    fingerprint.addBytes(workerKey.getWorkerFilesCombinedHash().asBytes());
+    fingerprint.addIterableStrings(workerKey.getArgs());
+    fingerprint.addStringMap(workerKey.getEnv());
+    return new ToolSignature(
+        fingerprint.hexDigestAndReset(), workerKey.getWorkerFilesWithDigests().keySet());
   }
 
   /** A value class representing the result of remotely executed {@link RemoteAction}. */
@@ -975,10 +1010,11 @@ public class RemoteExecutionService {
         ImmutableList.builder();
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
     boolean downloadOutputs =
-        shouldDownloadAllSpawnOutputs(
-            remoteOutputsMode,
-            /* exitCode = */ result.getExitCode(),
-            hasFilesToDownload(action.getSpawn().getOutputFiles(), filesToDownload));
+        remoteOutputsMode.downloadAllOutputs()
+            ||
+            // In case the action failed, download all outputs. It might be helpful for debugging
+            // and there is no point in injecting output metadata of a failed action.
+            result.getExitCode() != 0;
 
     // Download into temporary paths, then move everything at the end.
     // This avoids holding the output lock while downloading, which would prevent the local branch
@@ -1429,6 +1465,20 @@ public class RemoteExecutionService {
       }
       reportedErrors.add(evt.getMessage());
       reporter.handle(evt);
+    }
+  }
+
+  /**
+   * A simple value class combining a hash of the tool inputs (and their digests) as well as a set
+   * of the relative paths of all tool inputs.
+   */
+  private static final class ToolSignature {
+    private final String key;
+    private final Set<PathFragment> toolInputs;
+
+    private ToolSignature(String key, Set<PathFragment> toolInputs) {
+      this.key = key;
+      this.toolInputs = toolInputs;
     }
   }
 }

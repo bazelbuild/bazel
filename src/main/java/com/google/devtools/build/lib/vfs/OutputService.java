@@ -48,35 +48,42 @@ public interface OutputService {
   /** Properties of the action file system implementation provided by this output service. */
   enum ActionFileSystemType {
 
-    /** Action file system is disabled */
+    /** The action file system is disabled. */
     DISABLED,
 
     /**
-     * The action file system implementation does not take over the output base but complements the
-     * file system by being able to stage remote outputs accessed as inputs by local actions, as
-     * used by Bazel.
+     * The action file system implementation is purely in-memory, taking full control of the output
+     * base. It's not able to stage remote outputs accessed as inputs by local actions, but is able
+     * to do input discovery. Used by Blaze.
      */
-    STAGE_REMOTE_FILES,
+    IN_MEMORY_ONLY_FILE_SYSTEM,
 
     /**
-     * The action file system implementation is fully featured in-memory file system implementation
-     * and takes full control of the output base, as used by Blaze.
+     * The action file system implementation mixes an in-memory and a local file system. It uses the
+     * in-memory filesystem for in-process and remote actions, but is also aware of outputs from
+     * local actions. It's able to stage remote outputs accessed as inputs by local actions and to
+     * do input discovery. Used by Blaze.
      */
-    IN_MEMORY_FILE_SYSTEM,
+    STAGE_REMOTE_FILES_FILE_SYSTEM,
 
     /**
-     * The action file system implementation mixes in-memory and local file system. It uses
-     * in-memory filesystem for in-process and remote actions but is also aware of outputs from
-     * local actions. It's able to stage remote outputs accessed as inputs by local actions.
+     * The action file system implementation mixes an in-memory and a local file system. It uses the
+     * in-memory filesystem for in-process and remote actions, but is also aware of outputs from
+     * local actions. It's able to stage remote outputs accessed as inputs by local actions, but
+     * unable to do input discovery. Used by Bazel.
      */
-    IN_MEMORY_FILE_SYSTEM_AND_STAGE_REMOTE_FILES;
+    REMOTE_FILE_SYSTEM;
 
     public boolean inMemoryFileSystem() {
-      return this == IN_MEMORY_FILE_SYSTEM || this == IN_MEMORY_FILE_SYSTEM_AND_STAGE_REMOTE_FILES;
+      return this != DISABLED;
     }
 
-    public boolean supportLocalActions() {
-      return this != IN_MEMORY_FILE_SYSTEM;
+    public boolean supportsLocalActions() {
+      return this != IN_MEMORY_ONLY_FILE_SYSTEM;
+    }
+
+    public boolean supportsInputDiscovery() {
+      return this != REMOTE_FILE_SYSTEM;
     }
 
     public boolean isEnabled() {

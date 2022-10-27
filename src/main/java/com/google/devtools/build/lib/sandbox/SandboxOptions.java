@@ -348,7 +348,7 @@ public class SandboxOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_legacy_local_fallback",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},

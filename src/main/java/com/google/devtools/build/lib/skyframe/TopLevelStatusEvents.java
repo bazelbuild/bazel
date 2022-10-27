@@ -67,7 +67,7 @@ public final class TopLevelStatusEvents {
   /** An event that marks the skipping of a top-level target, including skipped tests. */
   @AutoValue
   public abstract static class TopLevelTargetSkippedEvent implements Postable {
-    abstract ConfiguredTarget configuredTarget();
+    public abstract ConfiguredTarget configuredTarget();
 
     public static TopLevelTargetSkippedEvent create(ConfiguredTarget configuredTarget) {
       return new AutoValue_TopLevelStatusEvents_TopLevelTargetSkippedEvent(configuredTarget);

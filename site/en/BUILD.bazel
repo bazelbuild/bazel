@@ -18,8 +18,8 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = [
-        "//scripts/docs:__pkg__",
-        "//site:__pkg__",
+        "//scripts/docs:__pkg__",  # Scheuklappen: keep
+        "//site:__pkg__",  # Scheuklappen: keep
     ],
 )
 
@@ -30,5 +30,7 @@ pkg_tar(
         exclude = ["**/BUILD"],
     ),
     strip_prefix = "/site/en",
-    visibility = ["//scripts/docs:__pkg__"],
+    visibility = [
+        "//scripts/docs:__pkg__",  # Scheuklappen: keep
+    ],
 )

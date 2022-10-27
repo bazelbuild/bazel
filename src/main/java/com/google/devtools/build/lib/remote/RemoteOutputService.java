@@ -51,7 +51,7 @@ public class RemoteOutputService implements OutputService {
   @Override
   public ActionFileSystemType actionFileSystemType() {
     return actionInputFetcher != null
-        ? ActionFileSystemType.STAGE_REMOTE_FILES
+        ? ActionFileSystemType.REMOTE_FILE_SYSTEM
         : ActionFileSystemType.DISABLED;
   }
 

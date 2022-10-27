@@ -12,8 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# pylint: disable=g-long-ternary
 
-import json
 import os
 import pathlib
 import tempfile
@@ -21,6 +21,7 @@ import unittest
 
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
+from src.test.py.bazel.bzlmod.test_utils import scratchFile
 
 
 class BazelModuleTest(test_base.TestBase):
@@ -41,22 +42,28 @@ class BazelModuleTest(test_base.TestBase):
         .createCcModule('yanked2', '1.0') \
         .addMetadata('yanked1', yanked_versions={'1.0': 'dodgy'}) \
         .addMetadata('yanked2', yanked_versions={'1.0': 'sketchy'})
+    self.writeBazelrcFile()
+    self.ScratchFile('WORKSPACE')
+    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
+    # from being used; this allows us to test built-in modules actually work
+    self.ScratchFile('WORKSPACE.bzlmod')
+
+  def writeBazelrcFile(self, allow_yanked_versions=True):
     self.ScratchFile(
         '.bazelrc',
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'common --experimental_enable_bzlmod',
+            'common --enable_bzlmod',
             'common --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
             'common --registry=https://bcr.bazel.build',
             'common --verbose_failures',
-        ])
-    self.ScratchFile('WORKSPACE')
-    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
-    # from being used; this allows us to test built-in modules actually work
-    self.ScratchFile('WORKSPACE.bzlmod')
+        ] + ([
+            # Disable yanked version check so we are not affected BCR changes.
+            'common --allow_yanked_versions=all',
+        ] if allow_yanked_versions else []))
 
   def writeMainProjectFiles(self):
     self.ScratchFile('aaa.patch', [
@@ -434,6 +441,7 @@ class BazelModuleTest(test_base.TestBase):
     self.RunBazel(['build', '@no_op//:no_op'], allow_failure=False)
 
   def testNonRegistryOverriddenModulesIgnoreYanked(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
     src_yanked1 = self.main_registry.projects.joinpath('yanked1', '1.0')
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "yanked1", version = "1.0")', 'local_path_override(',
@@ -451,6 +459,7 @@ class BazelModuleTest(test_base.TestBase):
     self.RunBazel(['build', '--nobuild', '//:main'], allow_failure=False)
 
   def testContainingYankedDepFails(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "yanked1", version = "1.0")',
     ])
@@ -470,6 +479,7 @@ class BazelModuleTest(test_base.TestBase):
         'yanked1@1.0, for the reason: dodgy.', ''.join(stderr))
 
   def testAllowedYankedDepsSuccessByFlag(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "ddd", version = "1.0")',
     ])
@@ -488,6 +498,7 @@ class BazelModuleTest(test_base.TestBase):
                   allow_failure=False)
 
   def testAllowedYankedDepsByEnvVar(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "ddd", version = "1.0")',
     ])
@@ -515,6 +526,7 @@ class BazelModuleTest(test_base.TestBase):
         'yanked1@1.0, for the reason: dodgy.', ''.join(stderr))
 
   def testAllowedYankedDepsSuccessMix(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "ddd", version = "1.0")',
     ])
@@ -532,14 +544,7 @@ class BazelModuleTest(test_base.TestBase):
                   env_add={'BZLMOD_ALLOW_YANKED_VERSIONS': 'yanked2@1.0'},
                   allow_failure=False)
 
-  def setUpProjectWithLocalRegistryModule(self, dep_name, dep_version,
-                                          module_base_path):
-    bazel_registry = {
-        'module_base_path': module_base_path,
-    }
-    with self.main_registry.root.joinpath('bazel_registry.json').open('w') as f:
-      json.dump(bazel_registry, f, indent=4, sort_keys=True)
-
+  def setUpProjectWithLocalRegistryModule(self, dep_name, dep_version):
     self.main_registry.generateCcSource(dep_name, dep_version)
     self.main_registry.createLocalPathModule(dep_name, dep_version,
                                              dep_name + '/' + dep_version)
@@ -563,15 +568,107 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile('WORKSPACE', [])
 
   def testLocalRepoInSourceJsonAbsoluteBasePath(self):
-    self.setUpProjectWithLocalRegistryModule('sss', '1.3',
-                                             str(self.main_registry.projects))
+    self.main_registry.setModuleBasePath(str(self.main_registry.projects))
+    self.setUpProjectWithLocalRegistryModule('sss', '1.3')
     _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
     self.assertIn('main function => sss@1.3', stdout)
 
   def testLocalRepoInSourceJsonRelativeBasePath(self):
-    self.setUpProjectWithLocalRegistryModule('sss', '1.3', 'projects')
+    self.main_registry.setModuleBasePath('projects')
+    self.setUpProjectWithLocalRegistryModule('sss', '1.3')
     _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
     self.assertIn('main function => sss@1.3', stdout)
+
+  def testRunfilesRepoMappingManifest(self):
+    self.main_registry.setModuleBasePath('projects')
+    projects_dir = self.main_registry.projects
+
+    # Set up a "bare_rule" module that contains the "bare_binary" rule which
+    # passes runfiles along
+    self.main_registry.createLocalPathModule('bare_rule', '1.0', 'bare_rule')
+    projects_dir.joinpath('bare_rule').mkdir(exist_ok=True)
+    scratchFile(projects_dir.joinpath('bare_rule', 'WORKSPACE'))
+    scratchFile(projects_dir.joinpath('bare_rule', 'BUILD'))
+    scratchFile(
+        projects_dir.joinpath('bare_rule', 'defs.bzl'), [
+            'def _bare_binary_impl(ctx):',
+            '  exe = ctx.actions.declare_file(ctx.label.name)',
+            '  ctx.actions.write(exe,',
+            '    "#/bin/bash\\nif [[ ! -f \\"$0.repo_mapping\\" ]]; then\\necho >&2 \\"ERROR: cannot find repo mapping manifest file\\"\\nexit 1\\nfi",',
+            '    True)',
+            '  runfiles = ctx.runfiles(files=ctx.files.data)',
+            '  for data in ctx.attr.data:',
+            '    runfiles = runfiles.merge(data[DefaultInfo].default_runfiles)',
+            '  return DefaultInfo(files=depset(direct=[exe]), executable=exe, runfiles=runfiles)',
+            'bare_binary=rule(',
+            '  implementation=_bare_binary_impl,',
+            '  attrs={"data":attr.label_list(allow_files=True)},',
+            '  executable=True,',
+            ')',
+        ])
+
+    # Now set up a project tree shaped like a diamond
+    self.ScratchFile('MODULE.bazel', [
+        'module(name="me",version="1.0")',
+        'bazel_dep(name="foo",version="1.0")',
+        'bazel_dep(name="bar",version="2.0")',
+        'bazel_dep(name="bare_rule",version="1.0")',
+    ])
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('WORKSPACE.bzlmod', ['workspace(name="me_ws")'])
+    self.ScratchFile('BUILD', [
+        'load("@bare_rule//:defs.bzl", "bare_binary")',
+        'bare_binary(name="me",data=["@foo"])',
+    ])
+    self.main_registry.createLocalPathModule('foo', '1.0', 'foo', {
+        'quux': '1.0',
+        'bare_rule': '1.0'
+    })
+    self.main_registry.createLocalPathModule('bar', '2.0', 'bar', {
+        'quux': '2.0',
+        'bare_rule': '1.0'
+    })
+    self.main_registry.createLocalPathModule('quux', '1.0', 'quux1',
+                                             {'bare_rule': '1.0'})
+    self.main_registry.createLocalPathModule('quux', '2.0', 'quux2',
+                                             {'bare_rule': '1.0'})
+    for dir_name, build_file in [
+        ('foo', 'bare_binary(name="foo",data=["@quux"])'),
+        ('bar', 'bare_binary(name="bar",data=["@quux"])'),
+        ('quux1', 'bare_binary(name="quux")'),
+        ('quux2', 'bare_binary(name="quux")'),
+    ]:
+      projects_dir.joinpath(dir_name).mkdir(exist_ok=True)
+      scratchFile(projects_dir.joinpath(dir_name, 'WORKSPACE'))
+      scratchFile(
+          projects_dir.joinpath(dir_name, 'BUILD'), [
+              'load("@bare_rule//:defs.bzl", "bare_binary")',
+              'package(default_visibility=["//visibility:public"])',
+              build_file,
+          ])
+
+    # We use a shell script to check that the binary itself can see the repo
+    # mapping manifest. This obviously doesn't work on Windows, so we just build
+    # the target. TODO(wyv): make this work on Windows by using Batch.
+    bazel_command = 'build' if self.IsWindows() else 'run'
+
+    # Finally we get to build stuff!
+    self.RunBazel([bazel_command, '//:me'], allow_failure=False)
+    with open(self.Path('bazel-bin/me.repo_mapping'), 'r') as f:
+      self.assertEqual(
+          f.read().strip(), """,foo,foo~1.0
+,me,_main
+,me_ws,_main
+foo~1.0,foo,foo~1.0
+foo~1.0,quux,quux~2.0
+quux~2.0,quux,quux~2.0""")
+    self.RunBazel([bazel_command, '@bar//:bar'], allow_failure=False)
+    with open(self.Path('bazel-bin/external/bar~2.0/bar.repo_mapping'),
+              'r') as f:
+      self.assertEqual(
+          f.read().strip(), """bar~2.0,bar,bar~2.0
+bar~2.0,quux,quux~2.0
+quux~2.0,quux,quux~2.0""")
 
 if __name__ == '__main__':
   unittest.main()

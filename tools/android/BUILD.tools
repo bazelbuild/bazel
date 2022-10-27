@@ -523,17 +523,17 @@ config_setting(
 
 package_group(
     name = "android_device_allowlist",
-    packages = ["//..."],
+    packages = ["public"],
 )
 
 package_group(
     name = "export_deps_allowlist",
-    packages = ["//..."],
+    packages = ["public"],
 )
 
 package_group(
     name = "allow_android_library_deps_without_srcs_allowlist",
-    packages = ["//..."],
+    packages = ["public"],
 )
 
 sh_binary(

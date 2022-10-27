@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Worker.Code;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.XattrProvider;
@@ -65,8 +66,6 @@ import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -294,10 +293,15 @@ final class WorkerSpawnRunner implements SpawnRunner {
   static void expandArgument(Path execRoot, String arg, WorkRequest.Builder requestBuilder)
       throws IOException {
     if (arg.startsWith("@") && !arg.startsWith("@@") && !isExternalRepositoryLabel(arg)) {
-      for (String line :
-          Files.readAllLines(
-              Paths.get(execRoot.getRelative(arg.substring(1)).getPathString()), UTF_8)) {
-        expandArgument(execRoot, line, requestBuilder);
+      String argValue = arg.substring(1);
+      Path path = execRoot.getRelative(argValue);
+      try {
+        for (String line : FileSystemUtils.readLines(path, UTF_8)) {
+          expandArgument(execRoot, line, requestBuilder);
+        }
+      } catch (IOException e) {
+        throw new IOException(
+            String.format("Failed to read @-argument '%s' from file '%s'.", argValue, path), e);
       }
     } else {
       requestBuilder.addArguments(arg);

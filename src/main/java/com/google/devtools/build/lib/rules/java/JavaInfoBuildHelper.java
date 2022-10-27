@@ -91,6 +91,7 @@ final class JavaInfoBuildHelper {
       Location location) {
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
     javaInfoBuilder.setLocation(location);
+    javaInfoBuilder.setNeverlink(neverlink);
 
     JavaCompilationArgsProvider.Builder javaCompilationArgsBuilder =
         JavaCompilationArgsProvider.builder();

@@ -1000,6 +1000,11 @@ public final class Profiler {
         writer.beginObject();
         writer.name("mnemonic").value(data.mnemonic.getValueForJson());
         writer.endObject();
+      } else if (data.type == ProfilerTask.CRITICAL_PATH_COMPONENT) {
+        writer.name("args");
+        writer.beginObject();
+        writer.name("tid").value(data.threadId);
+        writer.endObject();
       }
       long threadId =
           data.type == ProfilerTask.CRITICAL_PATH_COMPONENT

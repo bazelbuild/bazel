@@ -645,7 +645,7 @@ public final class UiEventHandler implements EventHandler {
   @Subscribe
   public void afterCommand(AfterCommandEvent event) {
     synchronized (this) {
-      buildRunning = true;
+      buildRunning = false;
     }
     completeBuild();
     try {

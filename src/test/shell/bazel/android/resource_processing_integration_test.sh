@@ -120,8 +120,8 @@ function test_persistent_multiplex_resource_processor() {
   create_android_binary
   setup_font_resources
 
-  assert_build //java/bazel:bin --persistent_android_resource_processor \
-    --experimental_persistent_multiplex_busybox_tools
+  assert_build //java/bazel:bin --experimental_worker_multiplex \
+    --persistent_multiplex_android_tools
 }
 
 run_suite "Resource processing integration tests"

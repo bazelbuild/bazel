@@ -41,6 +41,11 @@ public final class ActionInputHelper {
     }
 
     @Override
+    public boolean isDirectory() {
+      return false;
+    }
+
+    @Override
     public int hashCode() {
       return getExecPathString().hashCode();
     }
@@ -98,6 +103,32 @@ public final class ActionInputHelper {
       @Override
       public PathFragment getExecPath() {
         return path;
+      }
+    };
+  }
+
+  /**
+   * Creates an ActionInput with just the given relative path (which must point to a directory) and
+   * no digest.
+   *
+   * @param path the relative path of the input.
+   * @return a ActionInput.
+   */
+  public static ActionInput fromPathToDirectory(PathFragment path) {
+    return new BasicActionInput() {
+      @Override
+      public String getExecPathString() {
+        return path.getPathString();
+      }
+
+      @Override
+      public PathFragment getExecPath() {
+        return path;
+      }
+
+      @Override
+      public boolean isDirectory() {
+        return true;
       }
     };
   }

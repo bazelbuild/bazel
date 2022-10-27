@@ -189,7 +189,6 @@ public class JavaRuntimeTest extends BuildViewTestCase {
         ")",
         "java_runtime(",
         "    name = 'jvm', ",
-        "    srcs = glob(['generated_java_home/**']), ",
         "    java = 'generated_java_home/bin/java', ",
         "    java_home = 'generated_java_home',",
         ")");

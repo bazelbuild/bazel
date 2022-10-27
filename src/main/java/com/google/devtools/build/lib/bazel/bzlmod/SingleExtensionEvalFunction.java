@@ -139,7 +139,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     if (bzlLoadValue == null) {
       return null;
     }
-    // TODO(wyv): Consider whether there's a need to check bzl-visibility
+    // TODO(wyv): Consider whether there's a need to check .bzl load visibility
     // (BzlLoadFunction#checkLoadVisibilities).
     // TODO(wyv): Consider refactoring to use PackageFunction#loadBzlModules, or the simpler API
     // that may be created by b/237658764.

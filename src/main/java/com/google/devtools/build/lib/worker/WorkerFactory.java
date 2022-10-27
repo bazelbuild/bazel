@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.worker.SandboxedWorker.WorkerSandboxOptions;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Locale;
@@ -45,9 +46,19 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
 
   private final Path workerBaseDir;
   private Reporter reporter;
+  /**
+   * Options specific to hardened sandbox. Null if {@code --experimental_worker_sandbox_hardening}
+   * is not set.
+   */
+  @Nullable private final WorkerSandboxOptions hardenedSandboxOptions;
 
   public WorkerFactory(Path workerBaseDir) {
+    this(workerBaseDir, null);
+  }
+
+  public WorkerFactory(Path workerBaseDir, @Nullable WorkerSandboxOptions hardenedSandboxOptions) {
     this.workerBaseDir = workerBaseDir;
+    this.hardenedSandboxOptions = hardenedSandboxOptions;
   }
 
   public void setReporter(Reporter reporter) {
@@ -72,7 +83,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
         worker = new SandboxedWorkerProxy(key, workerId, logFile, workerMultiplexer, workDir);
       } else {
         Path workDir = getSandboxedWorkerPath(key, workerId);
-        worker = new SandboxedWorker(key, workerId, workDir, logFile);
+        worker = new SandboxedWorker(key, workerId, workDir, logFile, hardenedSandboxOptions);
       }
     } else if (key.isMultiplex()) {
       WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
@@ -196,12 +207,13 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
       return false;
     }
     WorkerFactory that = (WorkerFactory) o;
-    return workerBaseDir.equals(that.workerBaseDir);
+    return workerBaseDir.equals(that.workerBaseDir)
+        && Objects.equals(this.hardenedSandboxOptions, that.hardenedSandboxOptions);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(workerBaseDir);
+    return Objects.hash(workerBaseDir, hardenedSandboxOptions);
   }
 
   /** This class simultaneously sends messages to a logger and an event reporter. */

@@ -533,6 +533,36 @@ public class WorkerSpawnRunnerTest {
     assertRecordedResponsethrowsException("", "did not return a WorkResponse", workerAsResource);
   }
 
+  @Test
+  public void testExpandArgument_expandsArgumentsRecursively() throws IOException {
+    WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
+    FileSystemUtils.writeIsoLatin1(fs.getPath("/file"), "arg1\n@file2\nmulti arg\n");
+    FileSystemUtils.writeIsoLatin1(fs.getPath("/file2"), "arg2\narg3");
+    WorkerSpawnRunner.expandArgument(fs.getPath("/"), "@file", requestBuilder);
+    assertThat(requestBuilder.getArgumentsList())
+        .containsExactly("arg1", "arg2", "arg3", "multi arg", "");
+  }
+
+  @Test
+  public void testExpandArgument_expandsOnlyProperArguments() throws IOException {
+    WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
+    FileSystemUtils.writeIsoLatin1(fs.getPath("/file"), "arg1\n@@nonfile\n@foo//bar\narg2");
+    WorkerSpawnRunner.expandArgument(fs.getPath("/"), "@file", requestBuilder);
+    assertThat(requestBuilder.getArgumentsList())
+        .containsExactly("arg1", "@@nonfile", "@foo//bar", "arg2");
+  }
+
+  @Test
+  public void testExpandArgument_failsOnMissingFile() throws IOException {
+    WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () -> WorkerSpawnRunner.expandArgument(fs.getPath("/dir/"), "@file", requestBuilder));
+    assertThat(e).hasMessageThat().contains("file");
+    assertThat(e).hasMessageThat().contains("/dir/file");
+  }
+
   private static String logMarker(String text) {
     return "---8<---8<--- " + text + " ---8<---8<---\n";
   }

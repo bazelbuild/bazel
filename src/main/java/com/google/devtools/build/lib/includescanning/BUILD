@@ -40,7 +40,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:glob_descriptor",
         "//src/main/java/com/google/devtools/build/lib/skyframe:glob_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:mutable_supplier",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:per_build_syscall_cache",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",

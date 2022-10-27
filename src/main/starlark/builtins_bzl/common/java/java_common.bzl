@@ -133,10 +133,10 @@ def basic_java_library(
         ctx.outputs.sourcejar,
         source_files,
         source_jars,
-        _collect_deps(deps + [coverage_config.runner]) if coverage_config and coverage_config.runner else _collect_deps(deps),
-        _collect_deps(runtime_deps),
+        collect_deps(deps + [coverage_config.runner]) if coverage_config and coverage_config.runner else collect_deps(deps),
+        collect_deps(runtime_deps),
         plugins_javaplugininfo,
-        _collect_deps(exports),
+        collect_deps(exports),
         _collect_plugins(exported_plugins),
         resources,
         resource_jars,
@@ -208,7 +208,7 @@ def _collect_plugins(plugins):
     """
     return _filter_provider(JavaPluginInfo, plugins)
 
-def _collect_deps(deps):
+def collect_deps(deps):
     """Collects dependencies from an attribute.
 
     Use this call to collect plugins from `deps`, `runtime_deps`, or `exports` attribute.
