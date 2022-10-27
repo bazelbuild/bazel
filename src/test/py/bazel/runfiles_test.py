@@ -226,7 +226,7 @@ class RunfilesTest(test_base.TestBase):
         # runfiles tree, Bazel actually creates empty __init__.py files (again
         # on every platform). However to keep these manifest entries correct,
         # they need to have a space character.
-        # We could probably strip thses lines completely, but this test doesn't
+        # We could probably strip these lines completely, but this test doesn't
         # aim to exercise what would happen in that case.
         mock_manifest_data = [
             mock_manifest_line

@@ -88,7 +88,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       DottedVersion.fromStringUnchecked(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
 
   /**
-   * Returns the configuration obtained by applying the apple crosstool configuration transtion to
+   * Returns the configuration obtained by applying the apple crosstool configuration transition to
    * this {@code BuildViewTestCase}'s target configuration.
    */
   protected BuildConfigurationValue getAppleCrosstoolConfiguration() throws InterruptedException {

@@ -267,7 +267,7 @@ public class RemoteSpawnRunnerTest {
 
   @Test
   public void cachableSpawnsShouldBeCached_localFallback() throws Exception {
-    // Test that if a cachable spawn is executed locally due to the local fallback,
+    // Test that if a cacheable spawn is executed locally due to the local fallback,
     // that its result is uploaded to the remote cache.
 
     remoteOptions.remoteAcceptCached = true;

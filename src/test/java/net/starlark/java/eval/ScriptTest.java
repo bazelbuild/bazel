@@ -252,7 +252,7 @@ public final class ScriptTest {
           //
           // TODO(adonovan): the old logic checks only that each error is matched
           // by at least one expectation. Instead, ensure that errors
-          // and expections match exactly. Furthermore, look only at errors
+          // and exceptions match exactly. Furthermore, look only at errors
           // whose stack has a frame with a file/line that matches the expectation.
           // This requires inspecting EvalException stack.
           // (There can be at most one dynamic error per chunk.

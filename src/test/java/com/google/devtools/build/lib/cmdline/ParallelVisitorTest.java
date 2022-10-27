@@ -115,7 +115,7 @@ public class ParallelVisitorTest {
     invocationLatch.await();
     testThread.interrupt();
 
-    // Verify that the thread is interruptable (unit test will time out if it's not interruptable).
+    // Verify that the thread is interruptible (unit test will time out if it's not interruptible).
     testThread.join();
   }
 

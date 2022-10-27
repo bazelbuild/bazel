@@ -114,7 +114,7 @@ class EvaluationTestCase {
   }
 
   /**
-   * Verifies that a piece of Starlark code fails at the specifed location with either a {@link
+   * Verifies that a piece of Starlark code fails at the specified location with either a {@link
    * SyntaxError} or an {@link EvalException} having the specified error message.
    *
    * <p>For a {@link SyntaxError}, the location checked is the first reported error's location. For

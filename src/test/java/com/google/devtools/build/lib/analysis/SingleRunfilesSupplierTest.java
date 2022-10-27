@@ -144,10 +144,10 @@ public final class SingleRunfilesSupplierTest {
     SingleRunfilesSupplier original =
         SingleRunfilesSupplier.createCaching(
             oldDir, runfiles, /*buildRunfileLinks=*/ false, /*runfileLinksEnabled=*/ false);
-    SingleRunfilesSupplier overriden = original.withOverriddenRunfilesDir(newDir);
+    SingleRunfilesSupplier overridden = original.withOverriddenRunfilesDir(newDir);
 
     Map<PathFragment, Map<PathFragment, Artifact>> mappingsOld = original.getMappings();
-    Map<PathFragment, Map<PathFragment, Artifact>> mappingsNew = overriden.getMappings();
+    Map<PathFragment, Map<PathFragment, Artifact>> mappingsNew = overridden.getMappings();
 
     assertThat(mappingsOld).containsExactly(oldDir, runfiles.getRunfilesInputs(null, null));
     assertThat(mappingsNew).containsExactly(newDir, runfiles.getRunfilesInputs(null, null));

@@ -103,7 +103,7 @@ public class JsonFormatFileTransportTest {
   /**
    * A thin wrapper around an OutputStream that counts number of bytes written and verifies flushes.
    *
-   * <p>The methods below need to be syncrhonized because they override methods from {@link
+   * <p>The methods below need to be synchronized because they override methods from {@link
    * BufferedOutputStream} *not* because there's a concurrent access to the stream.
    */
   private static final class WrappedOutputStream extends BufferedOutputStream {

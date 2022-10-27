@@ -114,11 +114,11 @@ public class EagerInvalidatorTest {
   }
 
   protected InvalidatingNodeVisitor.InvalidationState newInvalidationState() {
-    throw new UnsupportedOperationException("Sublcasses must override");
+    throw new UnsupportedOperationException("Subclasses must override");
   }
 
   protected InvalidationType defaultInvalidationType() {
-    throw new UnsupportedOperationException("Sublcasses must override");
+    throw new UnsupportedOperationException("Subclasses must override");
   }
 
   protected boolean reverseDepsPresent() {

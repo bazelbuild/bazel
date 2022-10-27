@@ -167,7 +167,7 @@ function serve_not_found() {
   cd -
 }
 
-# Simulates a server timeing out while trying to generate a response.
+# Simulates a server timing out while trying to generate a response.
 function serve_timeout() {
   port_file=server-port.$$
   cd "${TEST_TMPDIR}"

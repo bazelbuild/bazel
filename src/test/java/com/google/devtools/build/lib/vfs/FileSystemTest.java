@@ -874,7 +874,7 @@ public abstract class FileSystemTest {
       bDir.setReadable(false);
       topDir.setReadable(false);
     } catch (UnsupportedOperationException e) {
-      // Skip testing if the file system does not support clearing the needed attibutes.
+      // Skip testing if the file system does not support clearing the needed attributes.
       return;
     }
 
@@ -922,7 +922,7 @@ public abstract class FileSystemTest {
       bDir.setWritable(false);
       topDir.setWritable(false);
     } catch (UnsupportedOperationException e) {
-      // Skip testing if the file system does not support clearing the needed attibutes.
+      // Skip testing if the file system does not support clearing the needed attributes.
       return;
     }
 
@@ -971,7 +971,7 @@ public abstract class FileSystemTest {
       bDir.setExecutable(false);
       topDir.setExecutable(false);
     } catch (UnsupportedOperationException e) {
-      // Skip testing if the file system does not support clearing the needed attibutes.
+      // Skip testing if the file system does not support clearing the needed attributes.
       return;
     }
 
@@ -1023,7 +1023,7 @@ public abstract class FileSystemTest {
       topDir.setReadable(false);
       topDir.setExecutable(false);
     } catch (UnsupportedOperationException e) {
-      // Skip testing if the file system does not support clearing the needed attibutes.
+      // Skip testing if the file system does not support clearing the needed attributes.
       return;
     }
 

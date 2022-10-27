@@ -160,7 +160,8 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
             .collect(Collectors.toList());
     if (ans.size() > 1) {
       throw new NoSuchElementException(
-          String.format("Multple matches for fragment=%s, option=%s", fragmentOptions, optionName));
+          String.format(
+              "Multiple matches for fragment=%s, option=%s", fragmentOptions, optionName));
     } else if (ans.isEmpty()) {
       throw new NoSuchElementException(
           String.format("No matches for fragment=%s, option=%s", fragmentOptions, optionName));

@@ -1444,7 +1444,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         new IOException() {
           @Override
           public String getMessage() {
-            throw new IllegalStateException("should't get here!");
+            throw new IllegalStateException("shouldn't get here!");
           }
         });
     // And we evaluate the PackageValue node for the Package in keepGoing mode,

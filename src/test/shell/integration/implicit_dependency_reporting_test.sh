@@ -72,7 +72,7 @@ def _rule_impl(ctx):
     executable = "cp",
     arguments = [f.path for f in ctx.files._data] + [out.path],
     mnemonic = "copying",
-    progress_message = "Copying implict data dependency for %s" % ctx.label
+    progress_message = "Copying implicit data dependency for %s" % ctx.label
   )
 
 implicit_rule = rule(
@@ -97,10 +97,10 @@ EOF
   rm -rf magic
 
   bazel build //:it > "${TEST_log}" 2>&1 \
-      && fail "Missing implict dependency should be detected" || :
+      && fail "Missing implicit dependency should be detected" || :
   expect_log 'rule.*implicit_rule.*implicitly depends'
   expect_log 'attribute _data of.*implicit_rule'
   expect_log 'You must manually put the data to magic/place'
 }
 
-run_suite "Integration tests for reporing missing implicit dependencies"
+run_suite "Integration tests for reporting missing implicit dependencies"
