@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import com.google.auth.Credentials;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
@@ -33,7 +34,7 @@ public interface Downloader {
    * caller is responsible for cleaning up outputs of failed downloads.
    *
    * @param urls list of mirror URLs with identical content
-   * @param authHeaders map of authentication headers per URL
+   * @param credentials credentials to use when connecting to URLs
    * @param checksum valid checksum which is checked, or absent to disable
    * @param output path to the destination file to write
    * @param type extension, e.g. "tar.gz" to force on downloaded filename, or empty to not do this
@@ -42,7 +43,7 @@ public interface Downloader {
    */
   void download(
       List<URL> urls,
-      Map<URI, Map<String, List<String>>> authHeaders,
+      Credentials credentials,
       Optional<Checksum> checksum,
       String canonicalId,
       Path output,

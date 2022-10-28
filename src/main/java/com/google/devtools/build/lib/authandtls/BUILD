@@ -6,6 +6,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:srcs",
+        "//src/main/java/com/google/devtools/build/lib/authandtls/staticcredentials:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
