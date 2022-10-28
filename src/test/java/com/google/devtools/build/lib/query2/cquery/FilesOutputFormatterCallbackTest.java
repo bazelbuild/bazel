@@ -33,6 +33,7 @@ import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -71,7 +72,7 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         "            runfiles = ctx.runfiles([runfile]),",
         "        ),",
         "        OutputGroupInfo(",
-        "            foobar = [output_group_only],",
+        "            foobar = [output_group_only, ctx.file.explicit_source_dep],",
         "        ),",
         "    ]",
         "r = rule(",
@@ -105,7 +106,8 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     this.reporter = new Reporter(new EventBus(), events::add);
   }
 
-  private List<String> getOutput(String queryExpression, List<String> outputGroups)
+  private List<String> getOutput(String queryExpression, List<String> outputGroups,
+      boolean includeSourceFiles)
       throws Exception {
     QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
@@ -113,6 +115,7 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     PostAnalysisQueryEnvironment<KeyedConfiguredTarget> env =
         ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
 
+    options.includeSourceFiles = includeSourceFiles;
     ByteArrayOutputStream output = new ByteArrayOutputStream();
     FilesOutputFormatterCallback callback =
         new FilesOutputFormatterCallback(
@@ -133,22 +136,52 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
   @Test
   public void basicQuery_defaultOutputGroup() throws Exception {
-    List<String> output = getOutput("//pkg:all", ImmutableList.of());
+    List<String> output = getOutput("//pkg:all", ImmutableList.of(), false);
     assertContainsExactlyWithBinDirPrefix(
         output, "pkg/main_default_file", "pkg/other_default_file");
   }
 
   @Test
+  public void basicQuery_defaultOutputGroup_includeSourceFiles() throws Exception {
+    List<String> output = getOutput("//pkg:all", ImmutableList.of(), true);
+    var sourceAndGeneratedFiles = output.stream()
+        .collect(Collectors.<String>partitioningBy(path -> path.startsWith("bazel-out/")));
+    assertThat(sourceAndGeneratedFiles.get(false)).containsExactly("pkg/BUILD", "defs/rules.bzl");
+    assertContainsExactlyWithBinDirPrefix(sourceAndGeneratedFiles.get(true),
+        "pkg/main_default_file", "pkg/other_default_file");
+  }
+
+  @Test
   public void basicQuery_defaultAndCustomOutputGroup() throws Exception {
-    List<String> output = getOutput("//pkg:main", ImmutableList.of("+foobar"));
+    List<String> output = getOutput("//pkg:main", ImmutableList.of("+foobar"), false);
     assertContainsExactlyWithBinDirPrefix(
         output, "pkg/main_default_file", "pkg/main_output_group_only");
   }
 
   @Test
+  public void basicQuery_defaultAndCustomOutputGroup_includeSourceFiles() throws Exception {
+    List<String> output = getOutput("//pkg:main", ImmutableList.of("+foobar"), true);
+    var sourceAndGeneratedFiles = output.stream()
+        .collect(Collectors.<String>partitioningBy(path -> path.startsWith("bazel-out/")));
+    assertThat(sourceAndGeneratedFiles.get(false)).containsExactly("pkg/BUILD", "defs/rules.bzl");
+    assertContainsExactlyWithBinDirPrefix(
+        sourceAndGeneratedFiles.get(true), "pkg/main_default_file", "pkg/main_output_group_only");
+  }
+
+  @Test
   public void basicQuery_customOutputGroupOnly() throws Exception {
-    List<String> output = getOutput("//pkg:other", ImmutableList.of("foobar"));
+    List<String> output = getOutput("//pkg:other", ImmutableList.of("foobar"), false);
     assertContainsExactlyWithBinDirPrefix(output, "pkg/other_output_group_only");
+  }
+
+  @Test
+  public void basicQuery_customOutputGroupOnly_includeSourceFiles() throws Exception {
+    List<String> output = getOutput("//pkg:other", ImmutableList.of("foobar"), true);
+    var sourceAndGeneratedFiles = output.stream()
+        .collect(Collectors.<String>partitioningBy(path -> path.startsWith("bazel-out/")));
+    assertThat(sourceAndGeneratedFiles.get(false)).containsExactly("pkg/BUILD");
+    assertContainsExactlyWithBinDirPrefix(sourceAndGeneratedFiles.get(true),
+        "pkg/other_output_group_only");
   }
 
   private void assertContainsExactlyWithBinDirPrefix(
