@@ -98,7 +98,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -1840,16 +1840,15 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Nullable
   private static ImmutableMap<Artifact, NestedSet<Artifact>> computeTransitivelyUsedModules(
       SkyFunction.Environment env, Set<DerivedArtifact> usedModules) throws InterruptedException {
-    // Because SkyframeIterableResult.next call does not specify any exceptions where
-    // SkyframeIterableResult is returned by env.getOrderedValuesAndExceptions, it is
-    // impossible for input discovery to recover from exceptions thrown by spurious module deps (for
-    // instance, if a commented-out include references a header file with an error in it). However,
-    // we generally don't try to recover from errors around spurious includes discovered in the
-    // current build.
+    // Because SkyframeLookupResult.get call does not specify any exceptions where
+    // SkyframeLookupResult is returned by env.getValuesAndExceptions, it is impossible for input
+    // discovery to recover from exceptions thrown by spurious module deps (for instance, if a
+    // commented-out include references a header file with an error in it). However, we generally
+    // don't try to recover from errors around spurious includes discovered in the current build.
     // TODO(janakr): Can errors be aggregated here at least?
     Collection<SkyKey> skyKeys =
         Collections2.transform(usedModules, DerivedArtifact::getGeneratingActionKey);
-    SkyframeIterableResult actionExecutionValues = env.getOrderedValuesAndExceptions(skyKeys);
+    SkyframeLookupResult actionExecutionValues = env.getValuesAndExceptions(skyKeys);
     if (env.valuesMissing()) {
       return null;
     }
@@ -1858,7 +1857,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     for (DerivedArtifact module : usedModules) {
       Preconditions.checkState(
           module.isFileType(CppFileTypes.CPP_MODULE), "Non-module? %s", module);
-      SkyValue skyValue = actionExecutionValues.next();
+      SkyValue skyValue = actionExecutionValues.get(module.getGeneratingActionKey());
       if (skyValue == null) {
         return null;
       }

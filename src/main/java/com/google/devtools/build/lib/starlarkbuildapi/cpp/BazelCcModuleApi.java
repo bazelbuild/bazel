@@ -142,7 +142,8 @@ public interface BazelCcModuleApi<
                     + "Usually passed with -I. Propagated to dependents transitively.",
             positional = false,
             named = true,
-            defaultValue = "[]"),
+            defaultValue = "[]",
+            allowedTypes = {@ParamType(type = Sequence.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "loose_includes",
             documented = false,
@@ -369,7 +370,7 @@ public interface BazelCcModuleApi<
       Sequence<?> privateHeaders, // <FileT> or Tuple<FileT,Label> expected
       Object textualHeaders,
       Object additionalExportedHeaders,
-      Sequence<?> includes, // <String> expected
+      Object starlarkIncludes,
       Object starlarkLooseIncludes,
       Sequence<?> quoteIncludes, // <String> expected
       Sequence<?> systemIncludes, // <String> expected

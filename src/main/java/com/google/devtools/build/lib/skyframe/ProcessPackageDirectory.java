@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -138,14 +138,16 @@ public final class ProcessPackageDirectory {
 
     SkyKey pkgLookupKey = PackageLookupValue.key(packageId);
     SkyKey dirListingKey = DirectoryListingValue.key(rootedPath);
-    SkyframeIterableResult pkgLookupAndDirectoryListingDeps =
-        env.getOrderedValuesAndExceptions(ImmutableList.of(pkgLookupKey, dirListingKey));
+    SkyframeLookupResult pkgLookupAndDirectoryListingDeps =
+        env.getValuesAndExceptions(ImmutableList.of(pkgLookupKey, dirListingKey));
     PackageLookupValue pkgLookupValue;
     try {
       pkgLookupValue =
           (PackageLookupValue)
-              pkgLookupAndDirectoryListingDeps.nextOrThrow(
-                  NoSuchPackageException.class, InconsistentFilesystemException.class);
+              pkgLookupAndDirectoryListingDeps.getOrThrow(
+                  pkgLookupKey,
+                  NoSuchPackageException.class,
+                  InconsistentFilesystemException.class);
     } catch (NoSuchPackageException e) {
       return reportErrorAndReturn("Failed to load package", e, rootRelativePath, env.getListener());
     } catch (InconsistentFilesystemException e) {
@@ -154,7 +156,8 @@ public final class ProcessPackageDirectory {
     DirectoryListingValue dirListingValue;
     try {
       dirListingValue =
-          (DirectoryListingValue) pkgLookupAndDirectoryListingDeps.nextOrThrow(IOException.class);
+          (DirectoryListingValue)
+              pkgLookupAndDirectoryListingDeps.getOrThrow(dirListingKey, IOException.class);
     } catch (FileSymlinkException e) {
       // DirectoryListingFunction only throws FileSymlinkCycleException when FileFunction throws it,
       // but FileFunction was evaluated for rootedPath above, and didn't throw there. It shouldn't

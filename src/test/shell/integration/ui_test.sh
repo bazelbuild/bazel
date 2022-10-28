@@ -688,8 +688,11 @@ EOF
   # Build event file needed so UI considers build to continue after failure.
   ! bazel test --build_event_json_file=bep.json --curses=yes --color=yes \
       //foo:foo &> "$TEST_log" || fail "Expected failure"
-  # Expect to see exactly one failure message.
-  expect_log_n '\[31m\[1mERROR: \[0mBuild did NOT complete successfully' 1
+  # Expect to see a failure message with an "erase line" control code prepended.
+  expect_log $'\e'"\[K"$'\e'"\[31m"$'\e'"\[1mFAILED:"$'\e'"\[0m Build did NOT complete successfully"
+  # We should not see a build failure message without an "erase line" to start.
+  # TODO(janakr): Fix the excessive printing of this failure message.
+  expect_log_n "^"$'\e'"\[31m"$'\e'"\[1mFAILED:"$'\e'"\[0m Build did NOT complete successfully" 4
 }
 
 function test_bazel_run_error_visible() {

@@ -574,17 +574,15 @@ public final class UiEventHandler implements EventHandler {
     // it as an event and add a timestamp, if events are supposed to have a timestamp.
     boolean done = false;
     synchronized (this) {
-      handleInternal(stateTracker.buildComplete(event));
+      stateTracker.buildComplete(event);
       ignoreRefreshLimitOnce();
+      refresh();
 
       // After a build has completed, only stop updating the UI if there is no more activities.
       if (!stateTracker.hasActivities()) {
         buildRunning = false;
         done = true;
       }
-
-      // Only refresh after we have determined whether we need to keep the progress bar up.
-      refresh();
     }
     if (done) {
       stopUpdateThread();
@@ -987,10 +985,8 @@ public final class UiEventHandler implements EventHandler {
           TIMESTAMP_FORMAT.format(
               Instant.ofEpochMilli(clock.currentTimeMillis()).atZone(ZoneId.systemDefault()));
     }
-    if (stateTracker.hasActivities()) {
-      stateTracker.writeProgressBar(terminalWriter, /*shortVersion=*/ !cursorControl, timestamp);
-      terminalWriter.newline();
-    }
+    stateTracker.writeProgressBar(terminalWriter, /*shortVersion=*/ !cursorControl, timestamp);
+    terminalWriter.newline();
     numLinesProgressBar = countingTerminalWriter.getWrittenLines();
     if (progressInTermTitle) {
       LoggingTerminalWriter stringWriter = new LoggingTerminalWriter(true);
