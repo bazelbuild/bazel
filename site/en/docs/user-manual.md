@@ -790,6 +790,9 @@ The default is 0, that means an incremental algorithm: the first
 report will be printed after 10 seconds, then 30 seconds and after
 that progress is reported once every minute.
 
+When bazel is using cursor control, as specified by
+[`--curses`](#curses), progress is reported every second.
+
 #### `--local_{ram,cpu}_resources {{ "<var>" }}resources or resource expression{{ "</var>" }}` {:#local-resources}
 
 These options specify the amount of local resources (RAM in MB and number of CPU logical cores)
@@ -1126,11 +1129,10 @@ default. When disabled, progress messages are suppressed.
 
 #### `--show_progress_rate_limit={{ "<var>" }}n{{ "</var>" }}` {:#show-progress-rate}
 
-This option causes bazel to display only
-one progress message per `n` seconds, where {{ "<var>" }}n{{ "</var>" }} is a real number.
-If `n` is -1, all progress messages will be displayed. The default value for
-this option is 0.02, meaning bazel will limit the progress messages to one per every
-0.02 seconds.
+This option causes bazel to display at most one progress message per `n` seconds,
+where {{ "<var>" }}n{{ "</var>" }} is a real number.
+The default value for this option is 0.02, meaning bazel will limit the progress
+messages to one per every 0.02 seconds.
 
 #### `--show_result={{ "<var>" }}n{{ "</var>" }}` {:#show-result}
 
