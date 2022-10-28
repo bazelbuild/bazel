@@ -91,7 +91,7 @@ public final class AutoBazelRepositoryProcessor extends AbstractProcessor {
       out.printf("   * The canonical name of the repository containing the Bazel target that\n");
       out.printf("   * compiled {@link %s}.\n", annotatedClass.getQualifiedName().toString());
       out.printf("   */\n");
-      out.printf("  static final String BAZEL_REPOSITORY = \"%s\";\n", repositoryName);
+      out.printf("  static final String NAME = \"%s\";\n", repositoryName);
       out.printf("\n");
       out.printf("  private %s() {}\n", generatedClassSimpleName);
       out.printf("}\n");

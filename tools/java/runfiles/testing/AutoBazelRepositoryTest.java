@@ -46,12 +46,12 @@ public final class AutoBazelRepositoryTest {
 
     }
 
-    assertThat(AutoBazelRepository_AutoBazelRepositoryTest.BAZEL_REPOSITORY).isEqualTo(
+    assertThat(AutoBazelRepository_AutoBazelRepositoryTest.NAME).isEqualTo(
         "for testing only");
-    assertThat(AutoBazelRepository_AutoBazelRepositoryTest_NestedClass.BAZEL_REPOSITORY).isEqualTo(
+    assertThat(AutoBazelRepository_AutoBazelRepositoryTest_NestedClass.NAME).isEqualTo(
         "for testing only");
     assertThat(
-        AutoBazelRepository_AutoBazelRepositoryTest_NestedClass_FurtherNestedClass.BAZEL_REPOSITORY)
+        AutoBazelRepository_AutoBazelRepositoryTest_NestedClass_FurtherNestedClass.NAME)
         .isEqualTo("for testing only");
   }
 }

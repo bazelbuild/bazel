@@ -21,7 +21,7 @@ import java.lang.annotation.Target;
 
 /**
  * Annotating a class {@code Fooer} with this annotation generates a class
- * {@code AutoBazelRepository_Fooer} defining a {@link String} constant {@code BAZEL_REPOSITORY}
+ * {@code AutoBazelRepository_Fooer} defining a {@link String} constant {@code NAME}
  * containing the canonical name of the repository containing the Bazel target that compiled the
  * annotated class.
  */
