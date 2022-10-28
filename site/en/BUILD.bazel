@@ -23,6 +23,7 @@ filegroup(
     ],
 )
 
+# Snapshot of the full site, including stylesheets and images
 pkg_tar(
     name = "docs",
     srcs = glob(
