@@ -263,13 +263,9 @@ and this sandboxing must be separately enabled with the
 For more information on persistent workers, see:
 
 *   [Original persistent workers blog post](https://blog.bazel.build/2015/12/10/java-workers.html)
-*   [Haskell implementation description](https://www.tweag.io/blog/2019-09-25-bazel-ghc-persistent-worker-internship/)
-    {: .external}
-*   [Blog post by Mike Morearty](https://medium.com/@mmorearty/how-to-create-a-persistent-worker-for-bazel-7738bba2cabb)
-    {: .external}
+*   [Haskell implementation description](https://www.tweag.io/blog/2019-09-25-bazel-ghc-persistent-worker-internship/){: .external}
+*   [Blog post by Mike Morearty](https://medium.com/@mmorearty/how-to-create-a-persistent-worker-for-bazel-7738bba2cabb){: .external}
 *   [Front End Development with Bazel: Angular/TypeScript and Persistent Workers
-    w/ Asana](https://www.youtube.com/watch?v=0pgERydGyqo) {: .external}
-*   [Bazel strategies explained](https://jmmv.dev/2019/12/bazel-strategies.html)
-    {: .external}
-*   [Informative worker strategy discussion on the bazel-discuss mailing list](https://groups.google.com/forum/#!msg/bazel-discuss/oAEnuhYOPm8/ol7hf4KWJgAJ)
-    {: .external}
+    w/ Asana](https://www.youtube.com/watch?v=0pgERydGyqo){: .external}
+*   [Bazel strategies explained](https://jmmv.dev/2019/12/bazel-strategies.html){: .external}
+*   [Informative worker strategy discussion on the bazel-discuss mailing list](https://groups.google.com/forum/#!msg/bazel-discuss/oAEnuhYOPm8/ol7hf4KWJgAJ){: .external}

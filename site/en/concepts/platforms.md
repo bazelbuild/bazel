@@ -70,7 +70,7 @@ from `//:myplatform`.
 1. *Either* the projects depending on yours support `//:myplatform` *or* your
 project supports the legacy APIs (like `--crosstool_top`).
 1. `//:myplatform` references
-[common declarations][Common Platform Declaration]{: .external}
+[common declarations][Common Platform Declarations]{: .external}
 of `CPU`, `OS`, and other generic concepts that support automatic cross-project
 compatibility.
 1. All relevant projects'
