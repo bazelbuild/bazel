@@ -981,4 +981,16 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   public static String targetKindSuffix() {
     return " rule";
   }
+
+  public boolean isPackageMetadata() {
+    String repository = this.getRepository().getName();
+    if (repository.equals("rules_license")) {
+      return true;
+    }
+    // TODO(aiuto): This is a Google-ism, remove from Bazel.
+    if (this.getPackage().getName().equals("tools/build_defs")) {
+      return true;
+    }
+    return this.getRuleClassObject().isBazelLicense();
+  }
 }

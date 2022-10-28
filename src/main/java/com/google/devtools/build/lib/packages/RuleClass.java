@@ -2277,7 +2277,7 @@ public class RuleClass {
         // correct graph.
         //
         // TODO(b/183637322) consider this further
-        if (rule.getRuleClassObject().isBazelLicense()) {
+        if (rule.isPackageMetadata()) {
           // Do nothing
         } else {
           rule.setAttributeValue(
