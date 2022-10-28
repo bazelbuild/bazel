@@ -164,9 +164,9 @@ mechanism in the new system. Here are two important concepts:
     *   For module extension repos: `{{ "<var>" }}module_name{{ "</var>" }}~{{ "<var>" }}version{{ "</var>" }}~{{ "<var>" }}extension_name{{ "</var>" }}~{{ "<var>" }}repo_name{{ "</var>" }}`
         <br>(<b>Example</b>. `@rules_cc~0.0.1~cc_configure~local_config_cc`)
 
-*   **Local repository name**: The repository name to be used in the `BUILD` and
-    `.bzl` files within a repo. The same dependency could have different local
-    names for different repos.
+*   **Apparent repository name**: The repository name to be used in the `BUILD` and
+    `.bzl` files within a repo. The same dependency could have different apparent
+    names in different repos.
     <br>It's determined as follows:
 
     *   For Bazel module repos: `{{ "<var>" }}module_name{{ "</var>" }}` by
@@ -176,10 +176,10 @@ mechanism in the new system. Here are two important concepts:
         [`use_repo`](/rules/lib/globals#use_repo).
 
 Every repository has a repository mapping dictionary of its direct dependencies,
-which is a map from the local repository name to the canonical repository name.
+which is a map from the apparent repository name to the canonical repository name.
 We use the repository mapping to resolve the repository name when constructing a
 label. Note that, there is no conflict of canonical repository names, and the
-usages of local repository names can be discovered by parsing the `MODULE.bazel`
+usages of apparent repository names can be discovered by parsing the `MODULE.bazel`
 file, therefore conflicts can be easily caught and resolved without affecting
 other dependencies.
 
