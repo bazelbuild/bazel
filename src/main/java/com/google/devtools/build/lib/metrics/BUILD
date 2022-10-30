@@ -6,7 +6,9 @@ package(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["*"]),
+    srcs = glob(["*"]) + [
+        "//src/main/java/com/google/devtools/build/lib/metrics/criticalpath:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
 )
 
