@@ -20,12 +20,12 @@ USAGE:
       py_binary(
           name = "my_binary",
           ...
-          deps = ["@rules_python//python/runfiles"],
+          deps = ["@bazel_tools//tools/python/runfiles"],
       )
 
 2.  Import the runfiles library.
 
-      from rules_python.python.runfiles import runfiles
+      from tools.python.runfiles import runfiles
 
 3.  Create a Runfiles object and use rlocation to look up runfile paths:
 
@@ -49,7 +49,7 @@ USAGE:
     the right environment variables for them:
 
       import subprocess
-      from rules_python.python.runfiles import runfiles
+      from tools.python.runfiles import runfiles
 
       r = runfiles.Create()
       env = {}
