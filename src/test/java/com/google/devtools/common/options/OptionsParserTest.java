@@ -2369,6 +2369,30 @@ public final class OptionsParserTest {
         .containsExactly("--second=hello");
   }
 
+  @Test
+  public void negativeTargetPatternsInOptions_failsDistinctively() {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
+    OptionsParsingException e = assertThrows(OptionsParsingException.class,
+        () -> parser.parse("//foo", "-//bar", "//baz"));
+    assertThat(e).hasMessageThat().contains("-//bar");
+    assertThat(e).hasMessageThat()
+        .contains("Negative target patterns can only appear after the end of options marker");
+    assertThat(e).hasMessageThat()
+        .contains("Flags corresponding to Starlark-defined build settings always start with '--'");
+  }
+
+  @Test
+  public void negativeExternalTargetPatternsInOptions_failsDistinctively() {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
+    OptionsParsingException e = assertThrows(OptionsParsingException.class,
+        () -> parser.parse("//foo", "-@repo//bar", "//baz"));
+    assertThat(e).hasMessageThat().contains("-@repo//bar");
+    assertThat(e).hasMessageThat()
+        .contains("Negative target patterns can only appear after the end of options marker");
+    assertThat(e).hasMessageThat()
+        .contains("Flags corresponding to Starlark-defined build settings always start with '--'");
+  }
+
   private static OptionInstanceOrigin createInvocationPolicyOrigin() {
     return createInvocationPolicyOrigin(/*implicitDependent=*/ null, /*expandedFrom=*/ null);
   }
