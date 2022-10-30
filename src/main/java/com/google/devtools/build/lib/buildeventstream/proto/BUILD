@@ -27,8 +27,10 @@ proto_library(
     srcs = ["build_event_stream.proto"],
     deps = [
         "//src/main/protobuf:command_line_proto",
+        "//src/main/protobuf:critical_path_proto",
         "//src/main/protobuf:failure_details_proto",
         "//src/main/protobuf:invocation_policy_proto",
+        "//src/main/protobuf:spawn_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:timestamp_proto",
     ],

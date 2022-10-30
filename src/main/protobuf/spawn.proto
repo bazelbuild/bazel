@@ -60,7 +60,22 @@ message Platform {
 }
 
 // Timing, size, and memory statistics for a SpawnExec.
+//
+// Next id: 21
 message SpawnMetrics {
+  // Identifier of a BES event of this type.
+  message BepId {
+    SpawnExecKind exec_kind = 1;
+  }
+
+  enum SpawnExecKind {
+    OTHER = 0;
+    REMOTE = 1;
+    LOCAL = 2;
+    WORKER = 3;
+  }
+  SpawnExecKind exec_kind = 20;
+
   // Total wall time spent running a spawn, measured locally.
   google.protobuf.Duration total_time = 1;
   // Time taken to convert the spawn into a network request.
