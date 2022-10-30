@@ -150,9 +150,9 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     } else {
       String errorMessage =
           String.format(
-              "%s is not visible from target '%s'. Check "
-                  + "the visibility declaration of the former target if you think "
-                  + "the dependency is legitimate",
+              "\n\n%s\n\nis not visible from\n\ntarget '%s'\n\n"
+                  + "Check the visibility declaration of the former target if you think the "
+                  + "dependency is legitimate",
               AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND), rule);
 
       if (prerequisite.getTarget().getTargetKind().equals(InputFile.targetKind())) {
