@@ -14,6 +14,8 @@
 """PYTHON RULE IMPLEMENTATION ONLY: Do not use outside of the rule implementations and their tests.
 
 Various builtin Starlark defined objects exposed for non-builtin Starlark.
+
+These may change at any time and are closely coupled to the rule implementation.
 """
 
 # This replaces the Java-defined name using exports.bzl toplevels mapping.

@@ -13,11 +13,29 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Bridge to allow builtins bzl code to call Java code. */
 @StarlarkBuiltin(name = "py_builtins", documented = false)
 public abstract class PyBuiltins implements StarlarkValue {
   public static final String NAME = "py_builtins";
+
+  @StarlarkMethod(
+      name = "is_singleton_depset",
+      doc = "Efficiently checks if the depset is a singleton.",
+      parameters = {
+        @Param(
+            name = "value",
+            positional = true,
+            named = false,
+            defaultValue = "unbound",
+            doc = "depset to check for being a singleton")
+      })
+  public boolean isSingletonDepset(Depset depset) {
+    return depset.getSet().isSingleton();
+  }
 }

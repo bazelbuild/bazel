@@ -17,6 +17,8 @@ load(":common/paths.bzl", "paths")
 
 _PyRuntimeInfo = _builtins.toplevel.PyRuntimeInfo
 
+_py_builtins = _builtins.internal.py_builtins
+
 def _py_runtime_impl(ctx):
     interpreter_path = ctx.attr.interpreter_path or None  # Convert empty string to None
     interpreter = ctx.file.interpreter
@@ -38,11 +40,8 @@ def _py_runtime_impl(ctx):
     if ctx.attr.coverage_tool:
         coverage_di = ctx.attr.coverage_tool[DefaultInfo]
 
-        # TODO(b/254866025): Use a Java helper to call NestedSet.isSingleton
-        # instead of always flattening to a list
-        coverage_di_files = coverage_di.files.to_list()
-        if len(coverage_di_files) == 1:
-            coverage_tool = coverage_di_files[0]
+        if _py_builtins.is_singleton_depset(coverage_di.files):
+            coverage_tool = coverage_di.files.to_list()[0]
         elif coverage_di.files_to_run and coverage_di.files_to_run.executable:
             coverage_tool = coverage_di.files_to_run.executable
         else:
