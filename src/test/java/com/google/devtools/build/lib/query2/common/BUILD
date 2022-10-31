@@ -89,3 +89,16 @@ java_test(
         "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )
+
+java_test(
+    name = "QueryTaskFutureImplTest",
+    srcs = ["QueryTaskFutureImplTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
