@@ -615,7 +615,7 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Additional options to pass to gcc for host tools.")
+      help = "Additional options to pass to the C compiler for tools built in the host or exec configurations.")
   public List<String> hostCoptList;
 
   @Option(
@@ -624,7 +624,7 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Additional options to pass to gcc for host tools.")
+      help = "Additional options to pass to C++ compiler for tools built in the host or exec configurations.")
   public List<String> hostCxxoptList;
 
   @Option(
@@ -633,7 +633,7 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Additional option to pass to gcc when compiling C source files for host tools.")
+      help = "Additional option to pass to the C compiler when compiling C (but not C++) source files in the host or exec configurations.")
   public List<String> hostConlyoptList;
 
   @Option(
@@ -642,7 +642,7 @@ public class CppOptions extends FragmentOptions {
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Additional option to pass to gcc when linking host tools.")
+      help = "Additional option to pass to linker when linking tools in the host or exec configurations.")
   public List<String> hostLinkoptList;
 
   @Option(
