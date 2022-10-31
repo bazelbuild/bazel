@@ -46,8 +46,13 @@ class PackageOutputFormatter extends AbstractUnorderedFormatter {
       public void processOutput(Iterable<Target> partialResult) {
 
         for (Target target : partialResult) {
-          packageNames.add(
-              target.getLabel().getPackageIdentifier().getDisplayForm(mainRepoMapping));
+          String packageLabel = target.getLabel().getPackageIdentifier()
+              .getDisplayForm(mainRepoMapping);
+          // For backwards compatibility, emit main repo packages as "a/b" rather than "//a/b".
+          if (packageLabel.startsWith("//")) {
+            packageLabel = packageLabel.substring(2);
+          }
+          packageNames.add(packageLabel);
         }
       }
 
