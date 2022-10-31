@@ -176,7 +176,7 @@ fail_rule(
    header = "Auto-Configuration Error:",
    message = ("Cannot find Java binary {java_binary} in {java_home}; either correct your JAVA_HOME, " +
           "PATH or specify Java from remote repository (e.g. " +
-          "--java_runtime_version=remotejdk_11")
+          "--java_runtime_version=remotejdk_11)")
 )
 config_setting(
    name = "localjdk_setting",
