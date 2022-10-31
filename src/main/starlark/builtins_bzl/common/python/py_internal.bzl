@@ -18,5 +18,9 @@ Various builtin Starlark defined objects exposed for non-builtin Starlark.
 These may change at any time and are closely coupled to the rule implementation.
 """
 
+_py_builtins = _builtins.internal.py_builtins
+
 # This replaces the Java-defined name using exports.bzl toplevels mapping.
-py_internal = struct()
+py_internal = struct(
+    is_singleton_depset = _py_builtins.is_singleton_depset,
+)
