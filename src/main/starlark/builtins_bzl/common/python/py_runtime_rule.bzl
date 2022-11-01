@@ -17,14 +17,20 @@ load(":common/paths.bzl", "paths")
 
 _PyRuntimeInfo = _builtins.toplevel.PyRuntimeInfo
 
+_py_builtins = _builtins.internal.py_builtins
+
 def _py_runtime_impl(ctx):
-    interpreter_path = ctx.attr.interpreter_path
+    interpreter_path = ctx.attr.interpreter_path or None  # Convert empty string to None
     interpreter = ctx.file.interpreter
     if (interpreter_path and interpreter) or (not interpreter_path and not interpreter):
         fail("exactly one of the 'interpreter' or 'interpreter_path' attributes must be specified")
 
+    runtime_files = depset(transitive = [
+        t[DefaultInfo].files
+        for t in ctx.attr.files
+    ])
+
     hermetic = bool(interpreter)
-    runtime_files = ctx.attr.files[DefaultInfo].files
     if not hermetic:
         if runtime_files:
             fail("if 'interpreter_path' is given then 'files' must be empty")
@@ -34,11 +40,8 @@ def _py_runtime_impl(ctx):
     if ctx.attr.coverage_tool:
         coverage_di = ctx.attr.coverage_tool[DefaultInfo]
 
-        # TODO(b/254866025): Use a Java helper to call NestedSet.isSingleton
-        # instead of always flattening to a list
-        coverage_di_files = coverage_di.files.to_list()
-        if len(coverage_di_files) == 1:
-            coverage_tool = coverage_di_files[0]
+        if _py_builtins.is_singleton_depset(coverage_di.files):
+            coverage_tool = coverage_di.files.to_list()[0]
         elif coverage_di.files_to_run and coverage_di.files_to_run.executable:
             coverage_tool = coverage_di.files_to_run.executable
         else:
@@ -62,11 +65,13 @@ def _py_runtime_impl(ctx):
                 "Python runtime mechanism (`--incompatible_use_python_toolchains=false`).",
             )
         else:
-            python_version = ctx.fragments.default_python_version
+            python_version = ctx.fragments.py.default_python_version
 
     return [
         _PyRuntimeInfo(
-            files = runtime_files,
+            interpreter_path = interpreter_path or None,
+            interpreter = interpreter,
+            files = runtime_files if hermetic else None,
             coverage_tool = coverage_tool,
             coverage_files = coverage_files,
             python_version = python_version,
@@ -152,6 +157,7 @@ the `run` and `lcov` subcommands.
 """,
         ),
         "python_version": attr.string(
+            default = "_INTERNAL_SENTINEL",
             values = ["PY2", "PY3", "_INTERNAL_SENTINEL"],
             doc = """
 Whether this runtime is for Python major version 2 or 3. Valid values are `"PY2"`
