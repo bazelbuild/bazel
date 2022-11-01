@@ -1010,7 +1010,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_macos_set_install_name",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
