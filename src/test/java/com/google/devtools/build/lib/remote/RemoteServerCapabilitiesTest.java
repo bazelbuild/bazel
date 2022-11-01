@@ -308,8 +308,7 @@ public class RemoteServerCapabilitiesTest {
   }
 
   @Test
-  public void testCheckClientServerCompatibility_remoteCacheDoesNotSupportUpdate()
-      throws Exception {
+  public void testCheckClientServerCompatibility_remoteCacheDoesNotSupportUpdate() {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
             .setLowApiVersion(ApiVersion.current.toSemVer())
@@ -324,9 +323,7 @@ public class RemoteServerCapabilitiesTest {
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
-    assertThat(st.getErrors()).hasSize(1);
-    assertThat(st.getErrors().get(0))
-        .containsMatch("not authorized to write local results to the remote cache");
+    assertThat(st.isOk()).isTrue();
 
     // Ignored when no local upload.
     remoteOptions.remoteUploadLocalResults = false;
@@ -398,8 +395,7 @@ public class RemoteServerCapabilitiesTest {
   }
 
   @Test
-  public void testCheckClientServerCompatibility_localFallbackNoRemoteCacheUpdate()
-      throws Exception {
+  public void testCheckClientServerCompatibility_localFallbackNoRemoteCacheUpdate() {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
             .setLowApiVersion(ApiVersion.current.toSemVer())
@@ -423,9 +419,7 @@ public class RemoteServerCapabilitiesTest {
             remoteOptions,
             DigestFunction.Value.SHA256,
             ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
-    assertThat(st.getErrors()).hasSize(1);
-    assertThat(st.getErrors().get(0))
-        .containsMatch("not authorized to write local results to the remote cache");
+    assertThat(st.isOk()).isTrue();
 
     // Ignored when no fallback.
     remoteOptions.remoteLocalFallback = false;
