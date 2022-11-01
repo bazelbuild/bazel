@@ -292,6 +292,13 @@ public abstract class AbstractBlazeQueryEnvironment<T>
   }
 
   @Override
+  public <R> QueryTaskFuture<R> whenSucceedsOrIsCancelledCall(
+      QueryTaskFuture<?> future, QueryTaskCallable<R> callable) {
+    return QueryTaskFutureImpl.whenSucceedsOrIsCancelledCall(
+        (QueryTaskFutureImpl<?>) future, callable, directExecutor());
+  }
+
+  @Override
   public <T1, T2> QueryTaskFuture<T2> transformAsync(
       QueryTaskFuture<T1> future, Function<T1, QueryTaskFuture<T2>> function) {
     return QueryTaskFutureImpl.ofDelegate(
@@ -468,6 +475,23 @@ public abstract class AbstractBlazeQueryEnvironment<T>
           : new QueryTaskFutureImpl<>(delegate);
     }
 
+    public static <R> QueryTaskFutureImpl<R> whenSucceedsOrIsCancelledCall(
+        QueryTaskFutureImpl<?> future, QueryTaskCallable<R> callable, Executor executor) {
+      return QueryTaskFutureImpl.ofDelegate(
+          Futures.whenAllComplete(cast(ImmutableList.of(future)))
+              .call(
+                  () -> {
+                    try {
+                      var unused = future.get();
+                    } catch (CancellationException unused) {
+                      // If the input future is cancelled, we are supposed to swallow the
+                      // `CancellationException` and proceed normally.
+                    }
+                    return callable.call();
+                  },
+                  executor));
+    }
+
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
       return delegate.cancel(mayInterruptIfRunning);
@@ -508,7 +532,12 @@ public abstract class AbstractBlazeQueryEnvironment<T>
       }
     }
 
-    public T getChecked() throws InterruptedException, QueryException {
+    @Override
+    public boolean gracefullyCancel() {
+      return cancel(true);
+    }
+
+    private T getChecked() throws InterruptedException, QueryException {
       try {
         return get();
       } catch (CancellationException unused) {

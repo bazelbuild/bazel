@@ -753,6 +753,13 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         Futures.whenAllSucceed(cast(futures)).call(callable, executor));
   }
 
+  @Override
+  public <R> QueryTaskFuture<R> whenSucceedsOrIsCancelledCall(
+      QueryTaskFuture<?> future, QueryTaskCallable<R> callable) {
+    return QueryTaskFutureImpl.whenSucceedsOrIsCancelledCall(
+        (QueryTaskFutureImpl<?>) future, callable, executor);
+  }
+
   @ThreadSafe
   @Override
   public ThreadSafeMutableSet<Target> createThreadSafeMutableSet() {

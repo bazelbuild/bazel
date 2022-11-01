@@ -1354,7 +1354,7 @@ public class RuleClass {
      * @throws IllegalArgumentException if the attribute with this name does not exist
      */
     @CanIgnoreReturnValue
-    public <TYPE> Builder removeAttribute(String name) {
+    public Builder removeAttribute(String name) {
       Preconditions.checkState(attributes.containsKey(name), "No such attribute '%s' to remove.",
           name);
       attributes.remove(name);
@@ -1366,7 +1366,7 @@ public class RuleClass {
      * rules's. Only works for Starlark.
      */
     @CanIgnoreReturnValue
-    public <TYPE> Builder setExecutableStarlark() {
+    public Builder setExecutableStarlark() {
       this.isExecutableStarlark = true;
       return this;
     }
@@ -1431,7 +1431,7 @@ public class RuleClass {
      * com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics} for details.
      */
     @CanIgnoreReturnValue
-    public <TYPE> Builder compatibleWith(Label... environments) {
+    public Builder compatibleWith(Label... environments) {
       add(
           attr(DEFAULT_COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
               .value(ImmutableList.copyOf(environments)));
@@ -1447,7 +1447,7 @@ public class RuleClass {
      * <p>The input list cannot be empty.
      */
     @CanIgnoreReturnValue
-    public <TYPE> Builder restrictedTo(Label firstEnvironment, Label... otherEnvironments) {
+    public Builder restrictedTo(Label firstEnvironment, Label... otherEnvironments) {
       ImmutableList<Label> environments = ImmutableList.<Label>builder().add(firstEnvironment)
           .add(otherEnvironments).build();
       add(
@@ -1464,7 +1464,7 @@ public class RuleClass {
      * @param reason user-informative message explaining the reason for exemption (not used)
      */
     @CanIgnoreReturnValue
-    public <TYPE> Builder exemptFromConstraintChecking(String reason) {
+    public Builder exemptFromConstraintChecking(String reason) {
       Preconditions.checkState(this.supportsConstraintChecking);
       this.supportsConstraintChecking = false;
       attributes.remove(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR);

@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
+import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
@@ -121,6 +122,7 @@ import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ContextGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.python.PyBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.stubs.ProviderStub;
@@ -137,6 +139,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Function;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Starlark;
 
 /** A rule class provider implementing the rules Bazel knows. */
 public class BazelRuleClassProvider {
@@ -456,6 +459,13 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelPyBinaryRule());
           builder.addRuleDefinition(new BazelPyTestRule());
           builder.addRuleDefinition(new PyRuntimeRule());
+
+          // This symbol is overridden by exports.bzl
+          builder.addStarlarkAccessibleTopLevels(
+              "py_internal",
+              ContextGuardedValue.onlyInAllowedRepos(
+                  Starlark.NONE, PyBootstrap.allowedRepositories));
+          builder.addStarlarkBuiltinsInternal(BazelPyBuiltins.NAME, new BazelPyBuiltins());
 
           builder.addStarlarkBootstrap(
               new PyBootstrap(

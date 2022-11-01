@@ -337,6 +337,25 @@ public interface QueryEnvironment<T> {
      * the precise definition of "successful".
      */
     public abstract T getIfSuccessful();
+
+    /**
+     * Attempts to cancel execution of this task.
+     *
+     * <p>Please note that all threads executing the task will be interrupted in an attempt to stop
+     * the task when the underlying task gets cancelled.
+     *
+     * <p>After calling {@link QueryTaskFuture#gracefullyCancel()},
+     *
+     * <ol>
+     *   <li>{@link #getIfSuccessful()} will throw an {@link IllegalStateException} which wraps
+     *       {@link java.util.concurrent.CancellationException}.
+     *   <li>{@link #whenAllSucceedCall(Iterable, QueryTaskCallable)} will also cancel the returned
+     *       {@link QueryTaskFuture} and do not execute {@link QueryTaskCallable}.
+     *   <li>{@link #whenSucceedsOrIsCancelledCall(QueryTaskFuture, QueryTaskCallable)} will still
+     *       execute {@link QueryTaskCallable}.
+     * </ol>
+     */
+    public abstract boolean gracefullyCancel();
   }
 
   /**
@@ -436,12 +455,24 @@ public interface QueryEnvironment<T> {
       Iterable<? extends QueryTaskFuture<?>> futures, QueryTaskCallable<R> callable);
 
   /**
+   * Returns a {@link QueryTaskFuture} representing the given computation {@code callable} being
+   * performed after the successful completion or cancellation of the computations encapsulated by
+   * the given {@code future}.
+   *
+   * <p>The returned {@link QueryTaskFuture} is considered "successful" iff {@code future} is
+   * "successful" or only throws a {@link java.util.concurrent.CancellationException} and {@code
+   * callable#call} does not throw an exception.
+   */
+  <R> QueryTaskFuture<R> whenSucceedsOrIsCancelledCall(
+      QueryTaskFuture<?> future, QueryTaskCallable<R> callable);
+
+  /**
    * Returns a {@link QueryTaskFuture} representing the asynchronous application of the given {@code
    * function} to the value produced by the computation encapsulated by the given {@code future}.
    *
    * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of {@link
    * #whenSucceedsCall}, {@link #whenAllSucceed}, and {@link QueryTaskFuture#getIfSuccessful} iff
-   * {@code} future is "successful".
+   * {@code future} is "successful".
    */
   <T1, T2> QueryTaskFuture<T2> transformAsync(
       QueryTaskFuture<T1> future, Function<T1, QueryTaskFuture<T2>> function);
