@@ -56,6 +56,15 @@ def _objc_library_impl(ctx):
     _validate_attributes(srcs = ctx.attr.srcs, non_arc_srcs = ctx.attr.non_arc_srcs, label = ctx.label)
 
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+        requested_features = ctx.features,
+        unsupported_features = ctx.disabled_features,
+    )
+
+    if not cc_common.action_is_enabled(feature_configuration = feature_configuration, action_name = "objc-compile"):
+        fail("Compiling objc_library targets requires the Apple CC toolchain which can be found here: https://github.com/bazelbuild/apple_support")
 
     common_variables = compilation_support.build_common_variables(
         ctx = ctx,

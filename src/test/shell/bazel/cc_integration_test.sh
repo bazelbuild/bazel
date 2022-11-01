@@ -728,7 +728,7 @@ EOF
       --output_groups=out
 
   cat "bazel-bin/${package}/aspect_out" | \
-      grep "\(gcc\|clang\|clanc-cl.exe\|cl.exe\)" \
+      grep "\(gcc\|clang\|clanc-cl.exe\|cl.exe\|cc_wrapper.sh\)" \
       || fail "args didn't contain the tool path"
 
   cat "bazel-bin/${package}/aspect_out" | grep "a.*o .*b.*o .*c.*o" \

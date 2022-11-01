@@ -38,7 +38,6 @@ sh_test(
         "//:workspace-file",
         "//src/test/shell/bazel:test-deps",
     ],
-    shard_count = 3,
     tags = ["no_windows"],
 )
 
