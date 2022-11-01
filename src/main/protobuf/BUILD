@@ -300,6 +300,7 @@ filegroup(
         ":command_line_java_proto_srcs",
         ":command_server_java_grpc_srcs",
         ":command_server_java_proto_srcs",
+        ":critical_path_java_proto_srcs",
         ":failure_details_java_proto_srcs",
         ":option_filters_java_proto_srcs",
         ":profile_java_proto_srcs",
