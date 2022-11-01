@@ -14,6 +14,10 @@ The following resources will help you work with Bazel on C++ projects:
 *  [Tutorial: Building a C++ project](/tutorials/cpp)
 *  [C++ common use cases](/tutorials/cpp-use-cases)
 *  [C/C++ rules](/reference/be/c-cpp)
+*  Essential Libraries
+   -  [Abseil](https://abseil.io/docs/cpp/quickstart){: .external}
+   -  [Boost](https://github.com/nelhage/rules_boost){: .external}
+   -  [HTTPS Requests: CPR and libcurl](https://github.com/hedronvision/bazel-make-cc-https-easy){: .external}
 *  [C++ toolchain configuration](/docs/cc-toolchain-config-reference)
 *  [Tutorial: Configuring C++ toolchains](/tutorials/cc-toolchain-config)
 *  [Integrating with C++ rules](/docs/integrating-with-rules-cc)
