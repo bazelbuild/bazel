@@ -350,29 +350,10 @@ public class GrpcRemoteDownloaderTest {
                 new URL("http://example.com/a"),
                 new URL("http://example.com/b"),
                 new URL("file:/not/limited/to/http")),
-            ImmutableMap.of(
-                new URI("http://example.com"),
-                ImmutableMap.of(
-                    "Some-Header", ImmutableList.of("some header content"),
-                    "Another-Header",
-                        ImmutableList.of("another header content", "even more header content")),
-                new URI("http://example.org"),
-                ImmutableMap.of(
-                    "Org-Header",
-                    ImmutableList.of("org header content", "and a second one", "and a third one"))),
             com.google.common.base.Optional.<Checksum>of(
                 Checksum.fromSubresourceIntegrity(
                     "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")),
-            "canonical ID",
-            /* includeAllHeaders= */ false);
-
-    final String expectedAuthHeadersJson =
-        "{"
-            + "\"http://example.com\":{"
-            + "\"Another-Header\":\"another header content\","
-            + "\"Some-Header\":\"some header content\""
-            + "}"
-            + "}";
+            "canonical ID");
 
     assertThat(request)
         .isEqualTo(
@@ -387,63 +368,6 @@ public class GrpcRemoteDownloaderTest {
                         .setValue("sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
                 .addQualifiers(
                     Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
-                .addQualifiers(
-                    Qualifier.newBuilder()
-                        .setName("bazel.auth_headers")
-                        .setValue(expectedAuthHeadersJson))
-                .build());
-  }
-
-  @Test
-  public void testFetchBlobRequestWithAllHeaders() throws Exception {
-    FetchBlobRequest request =
-        GrpcRemoteDownloader.newFetchBlobRequest(
-            "instance name",
-            ImmutableList.of(
-                new URL("http://example.com/a"),
-                new URL("http://example.com/b"),
-                new URL("file:/not/limited/to/http")),
-            ImmutableMap.of(
-                new URI("http://example.com"),
-                ImmutableMap.of(
-                    "Some-Header", ImmutableList.of("some header content"),
-                    "Another-Header",
-                        ImmutableList.of("another header content", "even more header content")),
-                new URI("http://example.org"),
-                ImmutableMap.of(
-                    "Org-Header",
-                    ImmutableList.of("org header content", "and a second one", "and a third one"))),
-            com.google.common.base.Optional.<Checksum>of(
-                Checksum.fromSubresourceIntegrity(
-                    "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")),
-            "canonical ID",
-            /* includeAllHeaders= */ true);
-
-    final String expectedAuthHeadersJson =
-        "{"
-            + "\"http://example.com\":{"
-            + "\"Another-Header\":[\"another header content\",\"even more header content\"],"
-            + "\"Some-Header\":[\"some header content\"]"
-            + "}"
-            + "}";
-
-    assertThat(request)
-        .isEqualTo(
-            FetchBlobRequest.newBuilder()
-                .setInstanceName("instance name")
-                .addUris("http://example.com/a")
-                .addUris("http://example.com/b")
-                .addUris("file:/not/limited/to/http")
-                .addQualifiers(
-                    Qualifier.newBuilder()
-                        .setName("checksum.sri")
-                        .setValue("sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
-                .addQualifiers(
-                    Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
-                .addQualifiers(
-                    Qualifier.newBuilder()
-                        .setName("bazel.auth_headers")
-                        .setValue(expectedAuthHeadersJson))
                 .build());
   }
 }
