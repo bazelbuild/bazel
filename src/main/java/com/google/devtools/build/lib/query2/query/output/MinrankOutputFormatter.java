@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
@@ -70,7 +71,8 @@ class MinrankOutputFormatter extends OutputFormatter {
       OutputStream out,
       AspectResolver aspectResolver,
       EventHandler eventHandler,
-      HashFunction hashFunction)
+      HashFunction hashFunction,
+      RepositoryMapping mainRepoMapping)
       throws IOException {
     PrintStream printStream = new PrintStream(out);
     // getRoots() isn't defined for cyclic graphs, so in order to handle
@@ -108,7 +110,7 @@ class MinrankOutputFormatter extends OutputFormatter {
     if (outputToOrder != null) {
       Collections.sort(outputToOrder);
       for (RankAndLabel item : outputToOrder) {
-        printStream.print(item + lineTerm);
+        printStream.print(item.toDisplayString(mainRepoMapping) + lineTerm);
       }
     }
 

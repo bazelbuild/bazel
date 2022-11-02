@@ -17,12 +17,14 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.TemplateDictApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -58,6 +60,7 @@ public class TemplateDict implements TemplateDictApi {
       Depset valuesSet,
       String joinWith,
       StarlarkCallable mapEach,
+      Boolean uniquify,
       StarlarkThread thread)
       throws EvalException {
     if (mapEach instanceof StarlarkFunction) {
@@ -71,7 +74,7 @@ public class TemplateDict implements TemplateDictApi {
       }
     }
     substitutions.add(
-        new LazySubstitution(key, thread.getSemantics(), valuesSet, mapEach, joinWith));
+        new LazySubstitution(key, thread.getSemantics(), valuesSet, mapEach, uniquify, joinWith));
     return this;
   }
 
@@ -84,6 +87,7 @@ public class TemplateDict implements TemplateDictApi {
     private final StarlarkSemantics semantics;
     private final Depset valuesSet;
     private final StarlarkCallable mapEach;
+    private final boolean uniquify;
     private final String joinWith;
 
     public LazySubstitution(
@@ -91,11 +95,13 @@ public class TemplateDict implements TemplateDictApi {
         StarlarkSemantics semantics,
         Depset valuesSet,
         StarlarkCallable mapEach,
+        boolean uniquify,
         String joinWith) {
       super(key);
       this.semantics = semantics;
       this.valuesSet = valuesSet;
       this.mapEach = mapEach;
+      this.uniquify = uniquify;
       this.joinWith = joinWith;
     }
 
@@ -126,6 +132,19 @@ public class TemplateDict implements TemplateDictApi {
             throw Starlark.errorf(
                 "Could not evaluate substitution for %s: %s", val, e.getMessage());
           }
+        }
+        if (uniquify) {
+          // Stably deduplicate parts in-place.
+          int count = parts.size();
+          HashSet<String> seen = Sets.newHashSetWithExpectedSize(count);
+          int addIndex = 0;
+          for (int i = 0; i < count; ++i) {
+            String val = parts.get(i);
+            if (seen.add(val)) {
+              parts.set(addIndex++, val);
+            }
+          }
+          parts = parts.subList(0, addIndex);
         }
         return Joiner.on(joinWith).join(parts);
       }

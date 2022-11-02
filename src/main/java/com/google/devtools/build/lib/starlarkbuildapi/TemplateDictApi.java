@@ -73,9 +73,24 @@ public interface TemplateDictApi extends StarlarkValue {
                 "A Starlark function accepting a single argument and returning a String. This"
                     + " function is applied to each item of the depset specified in the"
                     + " <code>values</code> parameter"),
+        @Param(
+            name = "uniquify",
+            named = true,
+            positional = false,
+            defaultValue = "False",
+            doc =
+                "If true, duplicate strings derived from <code>values</code> will be omitted. Only "
+                    + "the first occurrence of each string will remain. Usually this feature is "
+                    + "not needed because depsets already omit duplicates, but it can be useful "
+                    + "if <code>map_each</code> emits the same string for multiple items."),
       },
       useStarlarkThread = true)
   TemplateDictApi addJoined(
-      String key, Depset values, String joinWith, StarlarkCallable mapEach, StarlarkThread thread)
+      String key,
+      Depset values,
+      String joinWith,
+      StarlarkCallable mapEach,
+      Boolean uniquify,
+      StarlarkThread thread)
       throws EvalException;
 }

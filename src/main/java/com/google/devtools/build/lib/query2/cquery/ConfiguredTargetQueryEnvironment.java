@@ -205,9 +205,21 @@ public class ConfiguredTargetQueryEnvironment
         cqueryOptions.aspectDeps.createResolver(packageManager, eventHandler);
     return ImmutableList.of(
         new LabelAndConfigurationOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, true),
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            true,
+            getMainRepoMapping()),
         new LabelAndConfigurationOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, false),
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            false,
+            getMainRepoMapping()),
         new TransitionsOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -215,7 +227,8 @@ public class ConfiguredTargetQueryEnvironment
             skyframeExecutor,
             accessor,
             hostConfiguration,
-            trimmingTransitionFactory),
+            trimmingTransitionFactory,
+            getMainRepoMapping()),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -251,7 +264,8 @@ public class ConfiguredTargetQueryEnvironment
             out,
             skyframeExecutor,
             accessor,
-            kct -> getFwdDeps(ImmutableList.of(kct))),
+            kct -> getFwdDeps(ImmutableList.of(kct)),
+            getMainRepoMapping()),
         new StarlarkOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
         new FilesOutputFormatterCallback(
