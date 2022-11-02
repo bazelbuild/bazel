@@ -2280,8 +2280,7 @@ public class RuleClass {
         if (rule.getRuleClassObject().isBazelLicense()) {
           // Do nothing
         } else {
-          rule.setAttributeValue(
-              attr, pkgBuilder.getDefaultApplicableLicenses(), /*explicit=*/ false);
+          rule.setAttributeValue(attr, pkgBuilder.getDefaultPackageMetadata(), /*explicit=*/ false);
         }
 
       } else if (attr.getName().equals("licenses") && attr.getType() == BuildType.LICENSE) {
