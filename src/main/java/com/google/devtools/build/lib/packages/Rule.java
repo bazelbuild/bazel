@@ -884,7 +884,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     // have old-style licenses. This is hardcoding the representation
     // of new-style rules, but it's in the old-style licensing code path
     // and will ultimately be removed.
-    if (ruleClass.isBazelLicense()) {
+    if (ruleClass.isPackageMetadataRule()) {
       return License.NO_LICENSE;
     } else if (isAttrDefined("licenses", BuildType.LICENSE)
         && isAttributeValueExplicitlySpecified("licenses")) {
