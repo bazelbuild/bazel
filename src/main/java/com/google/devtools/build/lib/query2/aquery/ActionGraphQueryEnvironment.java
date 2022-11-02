@@ -170,7 +170,13 @@ public class ActionGraphQueryEnvironment
             StreamedOutputHandler.OutputType.JSON,
             actionFilters),
         new ActionGraphTextOutputFormatterCallback(
-            eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters),
+            eventHandler,
+            aqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            actionFilters,
+            getMainRepoMapping()),
         new ActionGraphSummaryOutputFormatterCallback(
             eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters));
   }
