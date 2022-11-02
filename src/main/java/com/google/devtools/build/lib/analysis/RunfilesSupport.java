@@ -285,10 +285,8 @@ public final class RunfilesSupport {
   }
 
   /**
-   * Returns the foo.repo_mapping file if Bazel is run with transitive package tracking turned on
-   * (see {@code SkyframeExecutor#getForcedSingleSourceRootIfNoExecrootSymlinkCreation}) and any of
-   * the transitive packages come from a repository with strict deps (see {@code
-   * #collectRepoMappings}). Otherwise, returns null.
+   * Returns the foo.repo_mapping file if Bzlmod is enabled (see
+   * {@link #createRepoMappingManifestAction}). Otherwise, returns null.
    */
   @Nullable
   public Artifact getRepoMappingManifest() {

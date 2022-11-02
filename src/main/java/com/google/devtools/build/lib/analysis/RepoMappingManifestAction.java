@@ -101,6 +101,12 @@ public class RepoMappingManifestAction extends AbstractFileWriteAction {
       throws InterruptedException, ExecException {
     return out -> {
       PrintWriter writer = new PrintWriter(out, /*autoFlush=*/ false, ISO_8859_1);
+
+      // The executable needs to be able to learn its own repository name. This is especially
+      // important for scripting languages that have no way to compile in this information and whose
+      // entrypoint is not invoked from a runfiles tree (e.g. shell scripts on Unix).
+      writer.format("%s\n", getOwner().getLabel().getRepository().getName());
+
       for (Entry entry : entries) {
         if (entry.targetRepoApparentName().isEmpty()) {
           // The apparent repo name can only be empty for the main repo. We skip this line as
