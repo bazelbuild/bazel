@@ -80,6 +80,19 @@ java_library(
 )
 
 java_library(
+    name = "java-compilation-context",
+    srcs = [
+        "JavaCompileActionContext.java",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/protobuf:deps_java_proto",
+    ],
+)
+
+java_library(
     name = "java-compilation",
     srcs = [
         "AndroidLintActionBuilder.java",

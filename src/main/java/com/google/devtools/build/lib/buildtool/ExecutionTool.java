@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.rules.java.JavaCompileActionContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -102,6 +103,7 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -116,6 +118,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+
 import javax.annotation.Nullable;
 
 /**
@@ -183,6 +186,10 @@ public class ExecutionTool {
     actionContextRegistryBuilder
         .restrictTo(WorkspaceStatusAction.Context.class, "")
         .restrictTo(SymlinkTreeActionContext.class, "");
+
+    // Register JavaCompileActionContext for java_classpath=bazel to work
+    actionContextRegistryBuilder.register(
+        JavaCompileActionContext.class, new JavaCompileActionContext());
 
     this.prefetcher = executorBuilder.getActionInputPrefetcher();
     this.executorLifecycleListeners = executorBuilder.getExecutorLifecycleListeners();
