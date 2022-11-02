@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.output;
 
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import java.io.IOException;
@@ -31,7 +32,7 @@ public class StreamedProtoOutputFormatter extends ProtoOutputFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      final OutputStream out, final QueryOptions options) {
+      final OutputStream out, final QueryOptions options, RepositoryMapping mainRepoMapping) {
     return new OutputFormatterCallback<Target>() {
       @Override
       public void processOutput(Iterable<Target> partialResult)
