@@ -63,6 +63,7 @@ public class AndroidBootstrap implements Bootstrap {
       AndroidFeatureFlagSetProviderApi.Provider androidFeatureFlagSetProviderApiProvider,
       ProguardMappingProviderApi.Provider<?> proguardMappingProviderApiProvider,
       AndroidBinaryDataInfoApi.Provider<?, ?, ?, ?> androidBinaryDataInfoProvider,
+      AndroidBinaryNativeLibsInfoApi.Provider<?> androidBinaryInternalNativeLibsInfoApiProvider,
       BaselineProfileProviderApi.Provider<?> baselineProfileProvider) {
 
     this.androidCommon = androidCommon;
@@ -73,6 +74,8 @@ public class AndroidBootstrap implements Bootstrap {
     builder.put(AndroidResourcesInfoApi.NAME, androidResourcesInfoProvider);
     builder.put(AndroidNativeLibsInfoApi.NAME, androidNativeLibsInfoProvider);
     builder.put(AndroidApplicationResourceInfoApi.NAME, androidApplicationResourceInfoApiProvider);
+    builder.put(
+        AndroidBinaryNativeLibsInfoApi.NAME, androidBinaryInternalNativeLibsInfoApiProvider);
     builder.put(AndroidSdkProviderApi.NAME, androidSdkProviderApi);
     builder.put(AndroidManifestInfoApi.NAME, androidManifestInfo);
     builder.put(AndroidAssetsInfoApi.NAME, androidAssetsInfoProvider);
