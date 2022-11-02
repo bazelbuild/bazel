@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
@@ -249,6 +250,11 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   protected TargetPattern getPattern(String pattern) throws TargetParsingException {
     return mainRepoTargetParser.parse(pattern);
+  }
+
+  @Override
+  public RepositoryMapping getMainRepoMapping() {
+    return mainRepoTargetParser.getRepoMapping();
   }
 
   public ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets) throws InterruptedException {

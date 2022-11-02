@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.collect.Iterables;
 import com.google.common.hash.HashFunction;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
@@ -45,12 +46,14 @@ abstract class AbstractUnorderedFormatter extends OutputFormatter implements Str
       OutputStream out,
       AspectResolver aspectResolver,
       @Nullable EventHandler eventHandler,
-      HashFunction hashFunction)
+      HashFunction hashFunction,
+      RepositoryMapping mainRepoMapping)
       throws IOException, InterruptedException {
     setOptions(options, aspectResolver, hashFunction);
     setEventHandler(eventHandler);
     OutputFormatterCallback.processAllTargets(
-        createPostFactoStreamCallback(out, options), getOrderedTargets(result, options));
+        createPostFactoStreamCallback(out, options, mainRepoMapping),
+        getOrderedTargets(result, options));
   }
 
   protected Iterable<Target> getOrderedTargets(Digraph<Target> result, QueryOptions options) {

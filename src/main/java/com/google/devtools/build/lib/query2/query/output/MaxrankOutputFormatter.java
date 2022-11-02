@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.query2.query.output;
 import static java.util.Comparator.comparingInt;
 
 import com.google.common.hash.HashFunction;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
@@ -58,7 +59,8 @@ class MaxrankOutputFormatter extends OutputFormatter {
       OutputStream out,
       AspectResolver aspectResolver,
       EventHandler eventHandler,
-      HashFunction hashFunction)
+      HashFunction hashFunction,
+      RepositoryMapping mainRepoMapping)
       throws IOException {
     // In order to handle cycles correctly, we need work on the strong
     // component graph, as cycles should be treated a "clump" of nodes all on
@@ -102,7 +104,7 @@ class MaxrankOutputFormatter extends OutputFormatter {
     final String lineTerm = options.getLineTerminator();
     PrintStream printStream = new PrintStream(out);
     for (RankAndLabel item : output) {
-      printStream.print(item + lineTerm);
+      printStream.print(item.toDisplayString(mainRepoMapping) + lineTerm);
     }
     flushAndCheckError(printStream);
   }

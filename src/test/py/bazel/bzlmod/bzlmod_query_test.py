@@ -30,9 +30,11 @@ class BzlmodQueryTest(test_base.TestBase):
     self.registries_work_dir = tempfile.mkdtemp(dir=self._test_cwd)
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main'))
-    self.main_registry.createCcModule('aaa', '1.0') \
+    self.main_registry.createCcModule('aaa', '1.0', {'ccc': '1.2'}) \
       .createCcModule('aaa', '1.1') \
-      .createCcModule('bbb', '1.0', {'aaa': '1.0'}, {'aaa': 'com_foo_bar_aaa'})
+      .createCcModule('bbb', '1.0', {'aaa': '1.0'}, {'aaa': 'com_foo_bar_aaa'}) \
+      .createCcModule('ccc', '1.2')
+
     self.ScratchFile(
         '.bazelrc',
         [
@@ -58,7 +60,28 @@ class BzlmodQueryTest(test_base.TestBase):
     ])
     _, stdout, _ = self.RunBazel(['query', '@my_repo//...'],
                                  allow_failure=False)
-    self.assertListEqual(['@aaa~1.0//:lib_aaa'], stdout)
+    self.assertListEqual(['@my_repo//:lib_aaa'], stdout)
+
+  def testQueryModuleRepoTransitiveDeps(self):
+    self.ScratchFile('MODULE.bazel', [
+        'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
+    ])
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        '  deps = ["@my_repo//:lib_aaa"],',
+        ')',
+    ])
+    _, stdout, _ = self.RunBazel([
+        'query',
+        'kind("cc_.* rule", deps(//:main))',
+        '--noimplicit_deps',
+        '--notool_deps',
+    ],
+                                 allow_failure=False)
+    self.assertListEqual(
+        ['//:main', '@my_repo//:lib_aaa', '@@ccc~1.2//:lib_ccc'], stdout)
 
   def testAqueryModuleRepoTargetsBelow(self):
     self.ScratchFile('MODULE.bazel', [
@@ -67,7 +90,32 @@ class BzlmodQueryTest(test_base.TestBase):
     ])
     _, stdout, _ = self.RunBazel(['aquery', '@my_repo//...'],
                                  allow_failure=False)
+    # This label is stringified into a "purpose" in some action before it
+    # reaches aquery code, so can't decanonicalize it.
     self.assertEqual(stdout[0], 'cc_library-compile for @aaa~1.0//:lib_aaa')
+    self.assertIn('Target: @my_repo//:lib_aaa', stdout)
+
+  def testAqueryModuleRepoTransitiveDeps(self):
+    self.ScratchFile('MODULE.bazel', [
+        'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
+    ])
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        '  deps = ["@my_repo//:lib_aaa"],',
+        ')',
+    ])
+    _, stdout, _ = self.RunBazel([
+        'aquery',
+        'kind("cc_.* rule", deps(//:main))',
+        '--noimplicit_deps',
+        '--notool_deps',
+    ],
+                                 allow_failure=False)
+    self.assertIn('Target: //:main', stdout)
+    self.assertIn('Target: @my_repo//:lib_aaa', stdout)
+    self.assertIn('Target: @@ccc~1.2//:lib_ccc', stdout)
 
   def testCqueryModuleRepoTargetsBelow(self):
     self.ScratchFile('MODULE.bazel', [
@@ -76,7 +124,30 @@ class BzlmodQueryTest(test_base.TestBase):
     ])
     _, stdout, _ = self.RunBazel(['cquery', '@my_repo//...'],
                                  allow_failure=False)
-    self.assertRegex(stdout[0], r'@aaa~1.0//:lib_aaa \([\w\d]+\)')
+    self.assertRegex(stdout[0], r'@my_repo//:lib_aaa \([\w\d]+\)')
+
+  def testCqueryModuleRepoTransitiveDeps(self):
+    self.ScratchFile('MODULE.bazel', [
+        'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
+    ])
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        '  deps = ["@my_repo//:lib_aaa"],',
+        ')',
+    ])
+    _, stdout, _ = self.RunBazel([
+        'cquery',
+        'kind("cc_.* rule", deps(//:main))',
+        '--noimplicit_deps',
+        '--notool_deps',
+    ],
+                                 allow_failure=False)
+    self.assertRegex(stdout[0], r'^//:main \([\w\d]+\)$')
+    self.assertRegex(stdout[1], r'^@my_repo//:lib_aaa \([\w\d]+\)$')
+    self.assertRegex(stdout[2], r'^@@ccc~1.2//:lib_ccc \([\w\d]+\)$')
+    self.assertEqual(len(stdout), 3)
 
   def testFetchModuleRepoTargetsBelow(self):
     self.ScratchFile('MODULE.bazel', [
@@ -101,7 +172,7 @@ class BzlmodQueryTest(test_base.TestBase):
     self.assertIsNotNone(output_file)
     output = output_file.readlines()
     output_file.close()
-    self.assertListEqual(['@aaa~1.0//:lib_aaa\n'], output)
+    self.assertListEqual(['@my_repo//:lib_aaa\n'], output)
 
   def testQueryCannotResolveRepoMapping_malformedModuleFile(self):
     self.ScratchFile('MODULE.bazel', [

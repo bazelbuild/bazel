@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
@@ -28,6 +29,7 @@ import java.io.OutputStream;
 /** Default Output callback for cquery. Prints a label and configuration pair per result. */
 public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsafeCallback {
   private final boolean showKind;
+  private final RepositoryMapping mainRepoMapping;
 
   LabelAndConfigurationOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
@@ -35,9 +37,11 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTarget> accessor,
-      boolean showKind) {
+      boolean showKind,
+      RepositoryMapping mainRepoMapping) {
     super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
     this.showKind = showKind;
+    this.mainRepoMapping = mainRepoMapping;
   }
 
   @Override
@@ -55,7 +59,7 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       }
       output =
           output
-              .append(keyedConfiguredTarget.getLabel())
+              .append(keyedConfiguredTarget.getLabel().getDisplayForm(mainRepoMapping))
               .append(" (")
               .append(shortId(getConfiguration(keyedConfiguredTarget.getConfigurationKey())))
               .append(")");
