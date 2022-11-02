@@ -408,10 +408,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               .build(ruleContext));
     }
 
+    AndroidBinaryNativeLibsInfo nativeLibsInfo =
+        ruleContext.getPrerequisite("application_resources", AndroidBinaryNativeLibsInfo.PROVIDER);
+
     NativeLibs nativeLibs;
-    if (androidApplicationResourceInfo != null
-        && androidApplicationResourceInfo.getNativeLibs() != null) {
-      nativeLibs = androidApplicationResourceInfo.getNativeLibs();
+    if (nativeLibsInfo != null && nativeLibsInfo.getNativeLibs() != null) {
+      nativeLibs = nativeLibsInfo.getNativeLibs();
     } else {
       nativeLibs =
           NativeLibs.fromLinkedNativeDeps(
@@ -422,9 +424,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     final NestedSet<Artifact> nativeLibsAar;
-    if (androidApplicationResourceInfo != null
-        && androidApplicationResourceInfo.getTransitiveNativeLibs() != null) {
-      nativeLibsAar = androidApplicationResourceInfo.getTransitiveNativeLibs();
+    if (nativeLibsInfo != null && nativeLibsInfo.getTransitiveNativeLibs() != null) {
+      nativeLibsAar = nativeLibsInfo.getTransitiveNativeLibs();
     } else {
       nativeLibsAar = getTransitiveNativeLibs(ruleContext);
     }

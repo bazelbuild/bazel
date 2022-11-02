@@ -20,7 +20,6 @@ load(":common/java/java_common.bzl", "construct_defaultinfo")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS", "validate_proguard_specs")
 load(":common/rule_util.bzl", "merge_attrs")
-load(":common/java/java_util.bzl", "create_single_jar")
 load(":common/java/import_deps_check.bzl", "import_deps_check")
 
 JavaInfo = _builtins.toplevel.JavaInfo
@@ -52,10 +51,11 @@ def _process_with_ijars_if_needed(jars, ctx):
             interface_jar_directory = "_ijar/" + ctx.label.name + "/" + ijar_basename
 
             interface_jar = ctx.actions.declare_file(interface_jar_directory)
-            create_single_jar(
-                ctx,
-                interface_jar,
-                depset([jar]),
+            java_common.run_ijar(
+                ctx.actions,
+                jar = jar,
+                output = interface_jar,
+                java_toolchain = semantics.find_java_toolchain(ctx),
             )
         file_dict[jar] = interface_jar
 

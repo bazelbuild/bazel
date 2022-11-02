@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.hash.HashFunction;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.Target;
@@ -58,6 +59,7 @@ public abstract class OutputFormatter {
       OutputStream out,
       AspectResolver aspectProvider,
       @Nullable EventHandler eventHandler,
-      HashFunction hashFunction)
+      HashFunction hashFunction,
+      RepositoryMapping mainRepoMapping)
       throws IOException, InterruptedException;
 }

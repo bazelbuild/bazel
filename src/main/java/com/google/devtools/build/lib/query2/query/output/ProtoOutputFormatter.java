@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.RULE;
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.SOURCE_FILE;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -32,6 +31,7 @@ import com.google.common.collect.Maps;
 import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
@@ -158,21 +158,15 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, QueryOptions options) {
+      OutputStream out, QueryOptions options, RepositoryMapping mainRepoMapping) {
     return new StreamedQueryResultFormatter(out);
   }
 
   @Override
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-    return createStreamCallback(out, options);
-  }
-
-  @VisibleForTesting
-  public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
-      OutputStream out, QueryOptions options) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options));
+        createPostFactoStreamCallback(out, options, env.getMainRepoMapping()));
   }
 
   private static Iterable<Target> getSortedLabels(Digraph<Target> result) {

@@ -136,7 +136,9 @@ public class PackageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_config_setting_private_default_visibility",
-      defaultValue = "false",
+      // TODO(b/179944632): remove this flag when all repos work with this=true +
+      // --incompatible_enforce_config_setting_visibility=true.
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},

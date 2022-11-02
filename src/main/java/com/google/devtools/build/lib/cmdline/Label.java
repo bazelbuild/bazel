@@ -419,9 +419,19 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * Label.parse*(x.getUnambiguousCanonicalForm(), ...).equals(x)}).
    */
   public String getUnambiguousCanonicalForm() {
-    return String.format(
-        "@@%s//%s:%s",
-        packageIdentifier.getRepository().getName(), packageIdentifier.getPackageFragment(), name);
+    return packageIdentifier.getUnambiguousCanonicalForm() + ":" + name;
+  }
+
+  /**
+   * Returns a label string that is suitable for display, i.e., it resolves to this label when
+   * parsed in the context of the main repository and has a repository part that is as simple as
+   * possible.
+   *
+   * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
+   * @return analogous to {@link PackageIdentifier#getDisplayForm(RepositoryMapping)}
+   */
+  public String getDisplayForm(RepositoryMapping mainRepositoryMapping) {
+    return packageIdentifier.getDisplayForm(mainRepositoryMapping) + ":" + name;
   }
 
   /** Return the name of the repository label refers to without the leading `at` symbol. */

@@ -143,6 +143,16 @@ java_library(
 )
 
 java_library(
+    name = "pair",
+    srcs = [
+        "Pair.java",
+    ],
+    deps = [
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "util",
     srcs = [
         "AbstractIndexer.java",
@@ -165,7 +175,6 @@ java_library(
         "OptionsUtils.java",
         "OrderedSetMultimap.java",
         "OsUtils.java",
-        "Pair.java",
         "PathFragmentFilter.java",
         "PersistentMap.java",
         "RegexFilter.java",
@@ -176,6 +185,10 @@ java_library(
         "ThreadUtils.java",
         "TimeUtilities.java",
         "UserUtils.java",
+    ],
+    exports = [
+        # vfs depends on the profiler and creates a cycle since we use Pair in profiler
+        ":pair",
     ],
     deps = [
         ":os",
