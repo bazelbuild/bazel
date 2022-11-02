@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
@@ -62,6 +63,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
 
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
   private final AqueryActionFilter actionFilters;
+  private final RepositoryMapping mainRepoMapping;
   private Map<String, String> paramFileNameToContentMap;
 
   ActionGraphTextOutputFormatterCallback(
@@ -70,9 +72,11 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTargetValue> accessor,
-      AqueryActionFilter actionFilters) {
+      AqueryActionFilter actionFilters,
+      RepositoryMapping mainRepoMapping) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.actionFilters = actionFilters;
+    this.mainRepoMapping = mainRepoMapping;
   }
 
   @Override
@@ -145,7 +149,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
 
       stringBuilder
           .append("  Target: ")
-          .append(actionOwner.getLabel())
+          .append(actionOwner.getLabel().getDisplayForm(mainRepoMapping))
           .append('\n')
           .append("  Configuration: ")
           .append(configProto.getMnemonic())
@@ -153,7 +157,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       if (actionOwner.getExecutionPlatform() != null) {
         stringBuilder
             .append("  Execution platform: ")
-            .append(actionOwner.getExecutionPlatform().label().toString())
+            .append(actionOwner.getExecutionPlatform().label().getDisplayForm(mainRepoMapping))
             .append("\n");
       }
 

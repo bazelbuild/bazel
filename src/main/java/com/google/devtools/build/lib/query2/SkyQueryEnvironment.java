@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ParallelVisitor.VisitTaskStatusCallback;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
@@ -956,6 +957,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @Override
   public TargetAccessor<Target> getAccessor() {
     return accessor;
+  }
+
+  @Override
+  @ThreadSafe
+  public RepositoryMapping getMainRepoMapping() {
+    return mainRepoTargetParser.getRepoMapping();
   }
 
   @ThreadSafe
