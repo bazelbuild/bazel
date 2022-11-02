@@ -877,7 +877,7 @@ TEST_F(RunfilesTest,
 
   string error;
   unique_ptr<Runfiles> r(Runfiles::Create(argv0, "", "", "", &error));
-  r.reset(r->WithSourceRepository("protobuf~3.19.2"));
+  r = r->WithSourceRepository("protobuf~3.19.2");
   ASSERT_NE(r, nullptr);
   EXPECT_TRUE(error.empty());
 

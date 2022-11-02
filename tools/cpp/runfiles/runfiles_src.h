@@ -184,26 +184,23 @@ class Runfiles {
   // repository as a default for all calls to Rlocation.
   //
   // The current instance remains valid.
-  Runfiles* WithSourceRepository(const std::string& source_repository) const {
-    std::map<std::string, std::string> runfiles_map(runfiles_map_);
-    std::string directory(directory_);
-    std::map<std::pair<std::string, std::string>, std::string>
-        repo_mapping(repo_mapping_);
-    std::vector<std::pair<std::string, std::string> > envvars(envvars_);
-    auto* new_runfiles =
-        new Runfiles(std::move(runfiles_map), std::move(directory),
-                     std::move(repo_mapping), std::move(envvars),
-                     std::string(source_repository));
-    return new_runfiles;
+  std::unique_ptr<Runfiles> WithSourceRepository(
+      const std::string& source_repository) const {
+    return std::unique_ptr<Runfiles>(
+        new Runfiles(runfiles_map_,
+                     directory_,
+                     repo_mapping_,
+                     envvars_,
+                     source_repository));
   }
 
  private:
-  Runfiles(std::map<std::string, std::string>&& runfiles_map,
-           std::string&& directory,
+  Runfiles(std::map<std::string, std::string> runfiles_map,
+           std::string directory,
            std::map<std::pair<std::string, std::string>,
-                    std::string>&& repo_mapping,
-           std::vector<std::pair<std::string, std::string> >&& envvars,
-           std::string&& source_repository_)
+                    std::string> repo_mapping,
+           std::vector<std::pair<std::string, std::string> > envvars,
+           std::string source_repository_)
       : runfiles_map_(std::move(runfiles_map)),
         directory_(std::move(directory)),
         repo_mapping_(std::move(repo_mapping)),
