@@ -187,12 +187,21 @@ public class JavaStarlarkCommon
   public Artifact runIjar(
       StarlarkActionFactory actions,
       Artifact jar,
+      Object output,
       Object targetLabel,
-      JavaToolchainProvider javaToolchain)
+      JavaToolchainProvider javaToolchain,
+      StarlarkThread thread)
       throws EvalException {
+    if (output != Starlark.NONE) {
+      checkPrivateAccess(thread);
+    }
     return JavaInfoBuildHelper.getInstance()
         .buildIjar(
-            actions, jar, targetLabel != Starlark.NONE ? (Label) targetLabel : null, javaToolchain);
+            actions,
+            jar,
+            output != Starlark.NONE ? (Artifact) output : null,
+            targetLabel != Starlark.NONE ? (Label) targetLabel : null,
+            javaToolchain);
   }
 
   @Override

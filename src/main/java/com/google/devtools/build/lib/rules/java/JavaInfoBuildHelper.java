@@ -404,11 +404,17 @@ final class JavaInfoBuildHelper {
   public Artifact buildIjar(
       StarlarkActionFactory actions,
       Artifact inputJar,
+      @Nullable Artifact outputJar,
       @Nullable Label targetLabel,
       JavaToolchainProvider javaToolchain)
       throws EvalException {
-    String ijarBasename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-ijar.jar";
-    Artifact interfaceJar = actions.declareFile(ijarBasename, inputJar);
+    Artifact interfaceJar;
+    if (outputJar != null) {
+      interfaceJar = outputJar;
+    } else {
+      String ijarBasename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-ijar.jar";
+      interfaceJar = actions.declareFile(ijarBasename, inputJar);
+    }
     FilesToRunProvider ijarTarget = javaToolchain.getIjar();
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder().addExecPath(inputJar).addExecPath(interfaceJar);
