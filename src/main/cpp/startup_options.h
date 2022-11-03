@@ -167,8 +167,6 @@ class StartupOptions {
 
   bool autodetect_server_javabase;
 
-  bool experimental_rewind_missing_files;
-
   std::string host_jvm_profile;
 
   std::vector<std::string> host_jvm_args;

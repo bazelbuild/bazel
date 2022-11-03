@@ -459,9 +459,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   if (startup_options.autodetect_server_javabase) {
     result.push_back("--default_system_javabase=" + GetSystemJavabase());
   }
-  if (startup_options.experimental_rewind_missing_files) {
-    result.push_back("--experimental_rewind_missing_files");
-  }
 
   if (!startup_options.server_jvm_out.IsEmpty()) {
     result.push_back("--server_jvm_out=" +

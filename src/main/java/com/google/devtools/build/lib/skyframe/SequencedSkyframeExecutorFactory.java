@@ -40,8 +40,7 @@ public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorF
       SyscallCache perCommandSyscallCache,
       @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
       SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver,
-      BugReporter bugReporter,
-      GraphInconsistencyReceiver graphInconsistencyReceiver) {
+      BugReporter bugReporter) {
     return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
         .setPkgFactory(pkgFactory)
         .setFileSystem(fileSystem)
@@ -54,7 +53,6 @@ public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorF
         .setRepositoryHelpersHolder(repositoryHelpersHolder)
         .setSkyKeyStateReceiver(skyKeyStateReceiver)
         .setBugReporter(bugReporter)
-        .setGraphInconsistencyReceiver(graphInconsistencyReceiver)
         .build();
   }
 }

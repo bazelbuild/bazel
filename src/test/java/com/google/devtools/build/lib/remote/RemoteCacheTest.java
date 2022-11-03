@@ -586,7 +586,7 @@ public class RemoteCacheTest {
     IOException e =
         Assert.assertThrows(
             IOException.class,
-            () -> remoteCache.ensureInputsPresent(context, merkleTree, ImmutableMap.of(), false));
+            () -> remoteCache.ensureInputsPresent(context, merkleTree, ImmutableMap.of(), "", false));
 
     assertThat(e).hasMessageThat().contains("upload failed");
   }

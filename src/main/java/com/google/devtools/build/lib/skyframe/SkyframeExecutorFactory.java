@@ -54,7 +54,6 @@ public interface SkyframeExecutorFactory {
       SyscallCache perCommandSyscallCache,
       SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
       SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver,
-      BugReporter bugReporter,
-      GraphInconsistencyReceiver graphInconsistencyReceiver)
+      BugReporter bugReporter)
       throws AbruptExitException;
 }

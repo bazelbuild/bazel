@@ -298,8 +298,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 SyscallCache.NO_CACHE,
                 /*repositoryHelpersHolder=*/ null,
                 SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE,
-                BugReporter.defaultInstance(),
-                GraphInconsistencyReceiver.THROWING);
+                BugReporter.defaultInstance());
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(

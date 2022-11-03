@@ -502,17 +502,4 @@ public class BlazeServerStartupOptions extends OptionsBase {
           "When --noautodetect_server_javabase is passed, Bazel does not fall back to the local "
               + "JDK for running the bazel server and instead exits.")
   public boolean autodetectServerJavabase;
-
-  @Option(
-      name = "experimental_rewind_missing_files",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help =
-          "When --experimental_rewind_missing_files is passed, Bazel will attempt to re-run "
-              + "actions it has already run if their outputs have been lost (e.g. because they "
-              + "were run on a remote execution system, forgotten by that system, and were never "
-              + "downloaded. When not passed, Bazel is likely to just fail a build when this "
-              + "happens.")
-  public boolean experimentalRewindMissingFiles;
 }

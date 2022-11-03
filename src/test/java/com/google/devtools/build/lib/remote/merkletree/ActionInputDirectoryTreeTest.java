@@ -77,9 +77,9 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     assertThat(directoriesAtDepth(1, tree)).isEmpty();
 
     FileNode expectedFooNode =
-        FileNode.createExecutable("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"), foo);
+        FileNode.createExecutable("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"), false, foo);
     FileNode expectedBarNode =
-        FileNode.createExecutable("bar.cc", bar.getBytes(), digestUtil.computeAsUtf8("bar"), false);
+        FileNode.createExecutable("bar.cc", bar.getBytes(), digestUtil.computeAsUtf8("bar"), false, null);
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode, expectedBarNode);
   }
@@ -124,13 +124,13 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     assertThat(directoriesAtDepth(3, tree)).isEmpty();
 
     FileNode expectedFooNode =
-        FileNode.createExecutable("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"), foo);
+        FileNode.createExecutable("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"), false, foo);
     FileNode expectedBarNode =
         FileNode.createExecutable(
-            "bar.cc", execRoot.getRelative(bar.getExecPath()), digestUtil.computeAsUtf8("bar"), null);
+            "bar.cc", execRoot.getRelative(bar.getExecPath()), digestUtil.computeAsUtf8("bar"), false, null);
     FileNode expectedBuzzNode =
         FileNode.createExecutable(
-            "buzz.cc", execRoot.getRelative(buzz.getExecPath()), digestUtil.computeAsUtf8("buzz"), null);
+            "buzz.cc", execRoot.getRelative(buzz.getExecPath()), digestUtil.computeAsUtf8("buzz"), false, null);
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode);
     assertThat(fileNodesAtDepth(tree, 2)).containsExactly(expectedBarNode);
@@ -167,7 +167,7 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
 
     FileNode expectedFooNode =
         FileNode.createExecutable(
-            "foo.cc", execRoot.getRelative(foo.getExecPath()), digestUtil.computeAsUtf8("foo"), null);
+            "foo.cc", execRoot.getRelative(foo.getExecPath()), digestUtil.computeAsUtf8("foo"), false, null);
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode);
 

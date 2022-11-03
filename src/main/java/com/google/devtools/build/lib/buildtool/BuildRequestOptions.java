@@ -430,6 +430,19 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean rewindLostInputs;
 
   @Option(
+      name = "experimental_rewind_missing_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "When --experimental_rewind_missing_files is passed, Bazel will attempt to re-run "
+              + "actions it has already run if their outputs have been lost (e.g. because they "
+              + "were run on a remote execution system, forgotten by that system, and were never "
+              + "downloaded. When not passed, Bazel is likely to just fail a build when this "
+              + "happens.")
+  public boolean experimentalRewindMissingFiles;
+
+  @Option(
       name = "discard_actions_after_execution",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

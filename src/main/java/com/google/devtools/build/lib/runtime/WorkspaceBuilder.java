@@ -31,8 +31,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
-import com.google.devtools.build.skyframe.RewindingGraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -107,11 +105,6 @@ public final class WorkspaceBuilder {
       perCommandSyscallCache = createPerBuildSyscallCache();
     }
 
-    GraphInconsistencyReceiver graphInconsistencyReceiver = GraphInconsistencyReceiver.THROWING;
-    if (runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).experimentalRewindMissingFiles) {
-      graphInconsistencyReceiver = new RewindingGraphInconsistencyReceiver();
-    }
-
     SkyframeExecutor skyframeExecutor =
         skyframeExecutorFactory.create(
             packageFactory,
@@ -126,8 +119,7 @@ public final class WorkspaceBuilder {
             skyKeyStateReceiver == null
                 ? SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE
                 : skyKeyStateReceiver,
-            runtime.getBugReporter(),
-            graphInconsistencyReceiver);
+            runtime.getBugReporter());
     return new BlazeWorkspace(
         runtime,
         directories,

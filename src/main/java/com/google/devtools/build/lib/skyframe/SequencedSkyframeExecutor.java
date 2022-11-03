@@ -94,6 +94,7 @@ import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
+import com.google.devtools.build.skyframe.RewindingGraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -158,7 +159,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
   private int numSourceFilesCheckedBecauseOfMissingDiffs;
   private Duration outputTreeDiffCheckingDuration = Duration.ofSeconds(-1L);
-  private GraphInconsistencyReceiver graphInconsistencyReceiver;
 
   private final WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver;
   private GraphInconsistencyReceiver inconsistencyReceiver = GraphInconsistencyReceiver.THROWING;
@@ -181,8 +181,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       SkyKeyStateReceiver skyKeyStateReceiver,
-      BugReporter bugReporter,
-      GraphInconsistencyReceiver graphInconsistencyReceiver) {
+      BugReporter bugReporter) {
     super(
         skyframeExecutorConsumerOnInit,
         pkgFactory,
@@ -206,7 +205,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.repositoryHelpersHolder = repositoryHelpersHolder;
     this.workspaceInfoFromDiffReceiver = workspaceInfoFromDiffReceiver;
-    this.graphInconsistencyReceiver = graphInconsistencyReceiver;
   }
 
   @Override
@@ -224,7 +222,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         skyFunctions,
         recordingDiffer,
         progressReceiver,
-        graphInconsistencyReceiver,
+        inconsistencyReceiver,
         trackIncrementalState ? DEFAULT_EVENT_FILTER_WITH_ACTIONS : EventFilter.NO_STORAGE,
         emittedEventState,
         trackIncrementalState);
@@ -264,16 +262,19 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       TimestampGranularityMonitor tsgm,
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
-    if (evaluatorNeedsReset) {
+    if (experimentalRewindMissingFilesEnabled(options)) {
+        inconsistencyReceiver = new RewindingGraphInconsistencyReceiver();
+    } else if (evaluatorNeedsReset) {
       inconsistencyReceiver =
           rewindingPermitted(options)
-              ? new RewindableGraphInconsistencyReceiver()
-              : GraphInconsistencyReceiver.THROWING;
+            ? new RewindableGraphInconsistencyReceiver()
+            : GraphInconsistencyReceiver.THROWING;
       // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
       // or if the graph doesn't have edges, so that a fresh graph can be used.
       resetEvaluator();
       evaluatorNeedsReset = false;
     }
+
     super.sync(eventHandler, packageLocator, commandId, clientEnv, repoEnvOption, tsgm, options);
     long startTime = System.nanoTime();
     WorkspaceInfoFromDiff workspaceInfo = handleDiffs(eventHandler, options);
@@ -282,6 +283,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     long duration = stopTime - startTime;
     sourceDiffCheckingDuration = duration > 0 ? Duration.ofNanos(duration) : Duration.ZERO;
     return workspaceInfo;
+  }
+
+  private boolean experimentalRewindMissingFilesEnabled(OptionsProvider options) {
+      BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+      return buildRequestOptions != null && buildRequestOptions.experimentalRewindMissingFiles;
   }
 
   private boolean rewindingPermitted(OptionsProvider options) {
@@ -979,7 +985,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
     private SkyFunction ignoredPackagePrefixesFunction;
     private BugReporter bugReporter = BugReporter.defaultInstance();
-    private GraphInconsistencyReceiver graphInconsistencyReceiver = GraphInconsistencyReceiver.THROWING;
     private SkyKeyStateReceiver skyKeyStateReceiver = SkyKeyStateReceiver.NULL_INSTANCE;
     private SyscallCache perCommandSyscallCache = null;
 
@@ -996,7 +1001,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Preconditions.checkNotNull(externalPackageHelper);
       Preconditions.checkNotNull(actionOnIOExceptionReadingBuildFile);
       Preconditions.checkNotNull(ignoredPackagePrefixesFunction);
-      Preconditions.checkNotNull(graphInconsistencyReceiver);
 
       SequencedSkyframeExecutor skyframeExecutor =
           new SequencedSkyframeExecutor(
@@ -1017,8 +1021,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               repositoryHelpersHolder,
               actionOnIOExceptionReadingBuildFile,
               skyKeyStateReceiver,
-              bugReporter,
-              graphInconsistencyReceiver);
+              bugReporter);
       skyframeExecutor.init();
       return skyframeExecutor;
     }
@@ -1056,11 +1059,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     @CanIgnoreReturnValue
     public Builder setBugReporter(BugReporter bugReporter) {
       this.bugReporter = bugReporter;
-      return this;
-    }
-
-    public Builder setGraphInconsistencyReceiver(GraphInconsistencyReceiver graphInconsistencyReceiver) {
-      this.graphInconsistencyReceiver = graphInconsistencyReceiver;
       return this;
     }
 
