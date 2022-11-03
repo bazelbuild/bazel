@@ -345,7 +345,7 @@ public final class Runfiles {
 
   private static Map<Preloaded.RepoMappingKey, String> loadRepositoryMapping(String path)
       throws IOException {
-    if (path == null) {
+    if (path == null || !new File(path).exists()) {
       return Collections.emptyMap();
     }
 
@@ -380,7 +380,7 @@ public final class Runfiles {
       Util.checkArgument(!manifestPath.isEmpty());
       this.manifestPath = manifestPath;
       this.runfiles = loadRunfiles(manifestPath);
-      this.repoMapping = loadRepositoryMapping(findRepositoryMapping(manifestPath));
+      this.repoMapping = loadRepositoryMapping(rlocationChecked("_repo_mapping"));
     }
 
     @Override
@@ -446,18 +446,6 @@ public final class Runfiles {
       }
       return "";
     }
-
-    private static String findRepositoryMapping(String manifestPath) {
-      if (manifestPath != null && (manifestPath.endsWith(".runfiles/MANIFEST")
-          || manifestPath.endsWith(".runfiles\\MANIFEST")
-          || manifestPath.endsWith(".runfiles_manifest"))) {
-        String path = manifestPath.substring(0, manifestPath.length() - 18) + ".repo_mapping";
-        if (new File(path).isFile()) {
-          return path;
-        }
-      }
-      return null;
-    }
   }
 
   /**
@@ -472,7 +460,7 @@ public final class Runfiles {
       Util.checkArgument(!Util.isNullOrEmpty(runfilesDir));
       Util.checkArgument(new File(runfilesDir).isDirectory());
       this.runfilesRoot = runfilesDir;
-      this.repoMapping = loadRepositoryMapping(findRepositoryMapping(runfilesRoot));
+      this.repoMapping = loadRepositoryMapping(rlocationChecked("_repo_mapping"));
     }
 
     @Override
@@ -492,16 +480,6 @@ public final class Runfiles {
       // TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can pick up RUNFILES_DIR.
       result.put("JAVA_RUNFILES", runfilesRoot);
       return result;
-    }
-
-    private static String findRepositoryMapping(String runfilesRoot) {
-      if (runfilesRoot != null && runfilesRoot.endsWith(".runfiles")) {
-        String path = runfilesRoot.substring(0, runfilesRoot.length() - 9) + ".repo_mapping";
-        if (new File(path).isFile()) {
-          return path;
-        }
-      }
-      return null;
     }
   }
 

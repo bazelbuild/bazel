@@ -256,16 +256,17 @@ public final class RunfilesTest {
 
   @Test
   public void testManifestBasedRlocationWithRepoMapping_fromMain() throws Exception {
-    Path mf = tempFile("foo.runfiles_manifest", ImmutableList.of(
-        "config.json /etc/config.json",
-        "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
-        "_main/bar/runfile /the/path/./to/other//other runfile.txt",
-        "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"));
-    tempFile("foo.repo_mapping", ImmutableList.of(
+    Path rm = tempFile("foo.repo_mapping", ImmutableList.of(
         ",my_module,_main",
         ",my_protobuf,protobuf~3.19.2",
         ",my_workspace,_main",
         "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
+    Path mf = tempFile("foo.runfiles_manifest", ImmutableList.of(
+        "_repo_mapping " + rm,
+        "config.json /etc/config.json",
+        "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
+        "_main/bar/runfile /the/path/./to/other//other runfile.txt",
+        "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"));
     Runfiles r = Runfiles.createManifestBasedForTesting(mf.toString()).withSourceRepository("");
 
     assertThat(r.rlocation("my_module/bar/runfile")).isEqualTo(
@@ -303,16 +304,17 @@ public final class RunfilesTest {
 
   @Test
   public void testManifestBasedRlocationUnmapped() throws Exception {
-    Path mf = tempFile("foo.runfiles_manifest", ImmutableList.of(
-        "config.json /etc/config.json",
-        "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
-        "_main/bar/runfile /the/path/./to/other//other runfile.txt",
-        "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"));
-    tempFile("foo.repo_mapping", ImmutableList.of(
+    Path rm = tempFile("foo.repo_mapping", ImmutableList.of(
         ",my_module,_main",
         ",my_protobuf,protobuf~3.19.2",
         ",my_workspace,_main",
         "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
+    Path mf = tempFile("foo.runfiles_manifest", ImmutableList.of(
+        "_repo_mapping " + rm,
+        "config.json /etc/config.json",
+        "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
+        "_main/bar/runfile /the/path/./to/other//other runfile.txt",
+        "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"));
     Runfiles r = Runfiles.createManifestBasedForTesting(mf.toString()).unmapped();
 
     assertThat(r.rlocation("my_module/bar/runfile")).isNull();
@@ -345,16 +347,17 @@ public final class RunfilesTest {
 
   @Test
   public void testManifestBasedRlocationWithRepoMapping_fromOtherRepo() throws Exception {
-    Path mf = tempFile("foo.runfiles/MANIFEST", ImmutableList.of(
-        "config.json /etc/config.json",
-        "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
-        "_main/bar/runfile /the/path/./to/other//other runfile.txt",
-        "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"));
-    tempFile("foo.repo_mapping", ImmutableList.of(
+    Path rm = tempFile("foo.repo_mapping", ImmutableList.of(
         ",my_module,_main",
         ",my_protobuf,protobuf~3.19.2",
         ",my_workspace,_main",
         "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
+    Path mf = tempFile("foo.runfiles/MANIFEST", ImmutableList.of(
+        "_repo_mapping " + rm,
+        "config.json /etc/config.json",
+        "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
+        "_main/bar/runfile /the/path/./to/other//other runfile.txt",
+        "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"));
     Runfiles r = Runfiles.createManifestBasedForTesting(mf.toString())
         .withSourceRepository("protobuf~3.19.2");
 
@@ -389,7 +392,7 @@ public final class RunfilesTest {
   @Test
   public void testDirectoryBasedRlocationWithRepoMapping_fromMain() throws Exception {
     Path dir = tempDir.newFolder("foo.runfiles").toPath();
-    tempFile(dir.getParent().resolve("foo.repo_mapping").toString(), ImmutableList.of(
+    tempFile(dir.resolve("_repo_mapping").toString(), ImmutableList.of(
         ",my_module,_main",
         ",my_protobuf,protobuf~3.19.2",
         ",my_workspace,_main",
@@ -428,7 +431,7 @@ public final class RunfilesTest {
   @Test
   public void testDirectoryBasedRlocationUnmapped() throws Exception {
     Path dir = tempDir.newFolder("foo.runfiles").toPath();
-    tempFile(dir.getParent().resolve("foo.repo_mapping").toString(), ImmutableList.of(
+    Path rm = tempFile(dir.resolve("_repo_mapping").toString(), ImmutableList.of(
         ",my_module,_main",
         ",my_protobuf,protobuf~3.19.2",
         ",my_workspace,_main",
@@ -467,7 +470,7 @@ public final class RunfilesTest {
   @Test
   public void testDirectoryBasedRlocationWithRepoMapping_fromOtherRepo() throws Exception {
     Path dir = tempDir.newFolder("foo.runfiles").toPath();
-    Path rm = tempFile(dir.getParent().resolve("foo.repo_mapping").toString(), ImmutableList.of(
+    Path rm = tempFile(dir.resolve("_repo_mapping").toString(), ImmutableList.of(
         ",my_module,_main",
         ",my_protobuf,protobuf~3.19.2",
         ",my_workspace,_main",
@@ -530,8 +533,8 @@ public final class RunfilesTest {
 
   @Test
   public void testInvalidRepoMapping() throws Exception {
-    Path mf = tempFile("foo.runfiles/MANIFEST", ImmutableList.of());
-    tempFile("foo.repo_mapping", ImmutableList.of("a,b,c,d"));
+    Path rm = tempFile("foo.repo_mapping", ImmutableList.of("a,b,c,d"));
+    Path mf = tempFile("foo.runfiles/MANIFEST", ImmutableList.of("_repo_mapping " + rm));
     assertThrows(IllegalArgumentException.class,
         () -> Runfiles.createManifestBasedForTesting(mf.toString()).withSourceRepository(""));
   }
