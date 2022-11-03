@@ -132,6 +132,16 @@ public final class RunfilesSupport {
     }
     Preconditions.checkState(!runfiles.isEmpty());
 
+    Artifact repoMappingManifest =
+        createRepoMappingManifestAction(ruleContext, runfiles, owningExecutable);
+    if (repoMappingManifest != null) {
+      runfiles = new Runfiles.Builder(ruleContext.getWorkspaceName(),
+          ruleContext.getConfiguration().legacyExternalRunfiles())
+          .merge(runfiles)
+          .addRootSymlink(PathFragment.create("_repo_mapping"), repoMappingManifest)
+          .build();
+    }
+
     Artifact runfilesInputManifest;
     Artifact runfilesManifest;
     if (createManifest) {
@@ -142,8 +152,6 @@ public final class RunfilesSupport {
       runfilesInputManifest = null;
       runfilesManifest = null;
     }
-    Artifact repoMappingManifest =
-        createRepoMappingManifestAction(ruleContext, runfiles, owningExecutable);
     Artifact runfilesMiddleman =
         createRunfilesMiddleman(
             ruleContext, owningExecutable, runfiles, runfilesManifest, repoMappingManifest);
