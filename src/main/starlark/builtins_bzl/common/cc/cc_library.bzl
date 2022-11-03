@@ -25,9 +25,8 @@ def _cc_library_impl(ctx):
     cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library", True)
 
     common = cc_internal.create_common(ctx = ctx)
-    common.report_invalid_options(ctx = ctx)
-
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
+    cc_helper.report_invalid_options(cc_toolchain, ctx.fragments.cpp)
 
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
@@ -58,7 +57,7 @@ def _cc_library_impl(ctx):
         defines = common.defines,
         local_defines = common.local_defines + cc_helper.get_local_defines_for_runfiles_lookup(ctx),
         loose_includes = common.loose_include_dirs,
-        system_includes = common.system_include_dirs,
+        system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
         copts_filter = common.copts_filter,
         purpose = "cc_library-compile",
         srcs = cc_helper.get_srcs(ctx),

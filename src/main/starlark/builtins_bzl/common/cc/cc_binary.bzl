@@ -567,10 +567,6 @@ def _matches(extensions, target):
 def _is_link_shared(ctx):
     return hasattr(ctx.attr, "linkshared") and ctx.attr.linkshared
 
-def _report_invalid_options(ctx, cc_toolchain, cpp_config):
-    if cpp_config.grte_top() != None and cc_toolchain.sysroot == None:
-        fail("The selected toolchain does not support setting --grte_top (it doesn't specify builtin_sysroot).")
-
 def _is_apple_platform(target_cpu):
     if target_cpu in _IOS_SIMULATOR_TARGET_CPUS or target_cpu in _IOS_DEVICE_TARGET_CPUS or target_cpu in _WATCHOS_SIMULATOR_TARGET_CPUS or target_cpu in _WATCHOS_DEVICE_TARGET_CPUS or target_cpu in _TVOS_SIMULATOR_TARGET_CPUS or target_cpu in _TVOS_DEVICE_TARGET_CPUS or target_cpu in _CATALYST_TARGET_CPUS or target_cpu in _MACOS_TARGET_CPUS:
         return True
@@ -601,7 +597,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     # TODO(b/198254254): Fill empty providers if needed.
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
     cpp_config = ctx.fragments.cpp
-    _report_invalid_options(ctx, cc_toolchain, cpp_config)
+    cc_helper.report_invalid_options(cc_toolchain, cpp_config)
 
     precompiled_files = cc_helper.build_precompiled_files(ctx)
     link_target_type = _EXECUTABLE
@@ -657,7 +653,7 @@ def cc_binary_impl(ctx, additional_linkopts):
         defines = common.defines,
         local_defines = common.local_defines + cc_helper.get_local_defines_for_runfiles_lookup(ctx),
         loose_includes = common.loose_include_dirs,
-        system_includes = common.system_include_dirs,
+        system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
         private_hdrs = cc_helper.get_private_hdrs(ctx),
         public_hdrs = cc_helper.get_public_hdrs(ctx),
         copts_filter = common.copts_filter,
