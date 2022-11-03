@@ -441,7 +441,7 @@ public interface NodeEntry {
    * SkyFunction} last build, meaning independently of the values of any other deps in this group
    * (although possibly depending on deps in earlier groups). Thus the caller may check all the deps
    * in this group in parallel, since the deps in all previous groups are verified unchanged. See
-   * {@link SkyFunction.Environment#getOrderedValuesAndExceptions} for more on dependency groups.
+   * {@link SkyFunction.Environment#getValuesAndExceptions} for more on dependency groups.
    *
    * @see DirtyBuildingState#getNextDirtyDirectDeps()
    */

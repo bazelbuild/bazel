@@ -1132,7 +1132,7 @@ public abstract class MemoizingEvaluatorTest {
               @Nullable
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                env.getOrderedValuesAndExceptions(ImmutableList.of(leafKey, bKey));
+                env.getValuesAndExceptions(ImmutableList.of(leafKey, bKey));
                 return null;
               }
             });
@@ -1243,8 +1243,8 @@ public abstract class MemoizingEvaluatorTest {
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
                 // The order here is important -- 2 before 1.
-                SkyframeIterableResult result =
-                    env.getOrderedValuesAndExceptions(ImmutableList.of(cycleKey2, cycleKey1));
+                SkyframeLookupResult result =
+                    env.getValuesAndExceptions(ImmutableList.of(cycleKey2, cycleKey1));
                 Preconditions.checkState(env.valuesMissing(), result);
                 return null;
               }
@@ -1584,7 +1584,7 @@ public abstract class MemoizingEvaluatorTest {
                 // Order depKey first - makeGraphDeterministic() only makes the batch maps returned
                 // by the graph deterministic, not the order of temporary direct deps. This makes
                 // the order of deps match (alphabetized by the string representation).
-                env.getOrderedValuesAndExceptions(ImmutableList.of(depKey, topKey));
+                env.getValuesAndExceptions(ImmutableList.of(depKey, topKey));
                 assertThat(env.valuesMissing()).isTrue();
                 return null;
               }
@@ -2117,7 +2117,7 @@ public abstract class MemoizingEvaluatorTest {
         .getOrCreate(topKey)
         .setBuilder(
             (skyKey, env) -> {
-              env.getOrderedValuesAndExceptions(ImmutableList.of(errorKey, midKey, mid2Key));
+              env.getValuesAndExceptions(ImmutableList.of(errorKey, midKey, mid2Key));
               if (env.valuesMissing()) {
                 return null;
               }
@@ -2155,9 +2155,9 @@ public abstract class MemoizingEvaluatorTest {
         .setBuilder(
             (skyKey, env) -> {
               SkyKeyValue val =
-                  ((SkyKeyValue)
-                      env.getOrderedValuesAndExceptions(ImmutableList.of(groupDepA, groupDepB))
-                          .next());
+                  (SkyKeyValue)
+                      env.getValuesAndExceptions(ImmutableList.of(groupDepA, groupDepB))
+                          .get(groupDepA);
               if (env.valuesMissing()) {
                 return null;
               }
@@ -2290,7 +2290,7 @@ public abstract class MemoizingEvaluatorTest {
                 topRequestedDepOrRestartedBuild.countDown();
               }
               // top's builder just requests both deps in a group.
-              env.getOrderedValuesAndExceptions(ImmutableList.of(firstKey, slowAddingDep));
+              env.getValuesAndExceptions(ImmutableList.of(firstKey, slowAddingDep));
               return env.valuesMissing() ? null : new StringValue("top");
             });
     // First build : just prime the graph.
@@ -2523,7 +2523,7 @@ public abstract class MemoizingEvaluatorTest {
               if (dep1 == null) {
                 return null;
               }
-              env.getOrderedValuesAndExceptions(
+              env.getValuesAndExceptions(
                   ImmutableList.of(newlyRequestedDoneDep, newlyRequestedNotDoneDep));
               if (numFunctionCalls.get() < 4) {
                 return Restart.SELF;
@@ -2637,7 +2637,7 @@ public abstract class MemoizingEvaluatorTest {
 
               // Request the second group. In the first build it's [leaf2, leaf4].
               // In the second build it's [leaf2, leaf5]
-              env.getOrderedValuesAndExceptions(
+              env.getValuesAndExceptions(
                   ImmutableList.of(
                       leaves.get(2),
                       GraphTester.toSkyKey(((StringValue) values.get(leaves.get(2))).getValue())));

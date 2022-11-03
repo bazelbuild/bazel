@@ -35,7 +35,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -51,7 +51,7 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
   private static final String ALIAS_RULE_NAME = "alias";
   private static final String ALIAS_ACTUAL_ATTRIBUTE_NAME = "actual";
 
-  public StarlarkBuildSettingsDetailsFunction() {}
+  StarlarkBuildSettingsDetailsFunction() {}
 
   @Override
   @Nullable
@@ -155,14 +155,14 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
       }
       ImmutableSet<PackageValue.Key> packageKeys =
           getPackageKeysFromLabels(unverifiedBuildSettings);
-      SkyframeIterableResult newlyLoaded = env.getOrderedValuesAndExceptions(packageKeys);
+      SkyframeLookupResult newlyLoaded = env.getValuesAndExceptions(packageKeys);
       if (env.valuesMissing()) {
         return null;
       }
-      for (SkyKey packageKey : packageKeys) {
+      for (PackageValue.Key packageKey : packageKeys) {
         try {
-          SkyValue skyValue = newlyLoaded.nextOrThrow(NoSuchPackageException.class);
-          buildSettingPackages.put((PackageValue.Key) packageKey, (PackageValue) skyValue);
+          SkyValue skyValue = newlyLoaded.getOrThrow(packageKey, NoSuchPackageException.class);
+          buildSettingPackages.put(packageKey, (PackageValue) skyValue);
         } catch (NoSuchPackageException e) {
           throw new TransitionException(e);
         }

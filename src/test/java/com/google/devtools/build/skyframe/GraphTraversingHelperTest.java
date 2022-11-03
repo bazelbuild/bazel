@@ -20,6 +20,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import org.junit.Test;
@@ -29,11 +30,12 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link GraphTraversingHelper}. */
 @RunWith(JUnit4.class)
 public final class GraphTraversingHelperTest {
-  SkyFunction.Environment mockEnv = mock(SkyFunction.Environment.class);
-  SkyKey keyA = mock(SkyKey.class, "keyA");
-  SkyKey keyB = mock(SkyKey.class, "keyB");
-  SomeErrorException exn = new SomeErrorException("");
-  SkyValue value = mock(SkyValue.class);
+
+  private final SkyFunction.Environment mockEnv = mock(SkyFunction.Environment.class);
+  private final SkyKey keyA = mock(SkyKey.class, "keyA");
+  private final SkyKey keyB = mock(SkyKey.class, "keyB");
+  private final SomeErrorException exn = new SomeErrorException("");
+  private final SkyValue value = mock(SkyValue.class);
 
   private static final class SomeOtherErrorException extends Exception {
     private SomeOtherErrorException() {}
@@ -43,7 +45,7 @@ public final class GraphTraversingHelperTest {
   public void declareDependenciesAndCheckIfValuesMissing_valuesMissingBeforeCompute()
       throws Exception {
     when(mockEnv.valuesMissing()).thenReturn(true);
-    when(mockEnv.getOrderedValuesAndExceptions(ImmutableSet.of(keyA))).thenReturn(null);
+    when(mockEnv.getValuesAndExceptions(ImmutableSet.of(keyA))).thenReturn(null);
     boolean valuesMissing =
         GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
             mockEnv, ImmutableSet.of(keyA), SomeOtherErrorException.class);
@@ -54,10 +56,10 @@ public final class GraphTraversingHelperTest {
   public void declareDependenciesAndCheckIfValuesMissing_valuesMissingAfterCompute()
       throws Exception {
     BugReporter mockReporter = mock(BugReporter.class);
-    SkyframeIterableResult result =
-        new SimpleSkyframeIterableResult(
-            () -> {}, ImmutableSet.of(ValueOrUntypedException.ofExn(exn)).iterator());
-    when(mockEnv.getOrderedValuesAndExceptions(ImmutableSet.of(keyA))).thenReturn(result);
+    SkyframeLookupResult result =
+        new SimpleSkyframeLookupResult(
+            () -> {}, ImmutableMap.of(keyA, ValueOrUntypedException.ofExn(exn))::get);
+    when(mockEnv.getValuesAndExceptions(ImmutableSet.of(keyA))).thenReturn(result);
     boolean valuesMissing =
         GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
             mockEnv,
@@ -74,14 +76,16 @@ public final class GraphTraversingHelperTest {
   @Test
   public void declareDependenciesAndCheckIfValuesMissing_notValuesMissingAfterCompute()
       throws Exception {
-    SkyframeIterableResult result =
-        new SimpleSkyframeIterableResult(
+    SkyframeLookupResult result =
+        new SimpleSkyframeLookupResult(
             () -> {},
-            ImmutableList.of(
+            ImmutableMap.of(
+                    keyA,
                     ValueOrUntypedException.ofExn(exn),
+                    keyB,
                     ValueOrUntypedException.ofValueUntyped(value))
-                .iterator());
-    when(mockEnv.getOrderedValuesAndExceptions(ImmutableList.of(keyA, keyB))).thenReturn(result);
+                ::get);
+    when(mockEnv.getValuesAndExceptions(ImmutableList.of(keyA, keyB))).thenReturn(result);
     boolean valuesMissing =
         GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
             mockEnv, ImmutableList.of(keyA, keyB), SomeErrorException.class);
@@ -91,12 +95,16 @@ public final class GraphTraversingHelperTest {
   @Test
   public void declareDependenciesAndCheckIfValuesMissing_nullAfterError_hasCorrectKeyInBugReport()
       throws Exception {
-    SkyframeIterableResult result =
-        new SimpleSkyframeIterableResult(
+    SkyframeLookupResult result =
+        new SimpleSkyframeLookupResult(
             () -> {},
-            ImmutableList.of(ValueOrUntypedException.ofExn(exn), ValueOrUntypedException.ofNull())
-                .iterator());
-    when(mockEnv.getOrderedValuesAndExceptions(ImmutableList.of(keyA, keyB))).thenReturn(result);
+            ImmutableMap.of(
+                    keyA,
+                    ValueOrUntypedException.ofExn(exn),
+                    keyB,
+                    ValueOrUntypedException.ofNull())
+                ::get);
+    when(mockEnv.getValuesAndExceptions(ImmutableList.of(keyA, keyB))).thenReturn(result);
     BugReporter mockReporter = mock(BugReporter.class);
 
     boolean valuesMissing =
@@ -113,7 +121,7 @@ public final class GraphTraversingHelperTest {
   public void declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions_beforeCompute()
       throws Exception {
     when(mockEnv.valuesMissing()).thenReturn(true);
-    when(mockEnv.getOrderedValuesAndExceptions(ImmutableSet.of(keyB))).thenReturn(null);
+    when(mockEnv.getValuesAndExceptions(ImmutableSet.of(keyB))).thenReturn(null);
 
     assertThat(
             GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions(
@@ -124,10 +132,10 @@ public final class GraphTraversingHelperTest {
   @Test
   public void declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions_valuesMissing()
       throws Exception {
-    when(mockEnv.getOrderedValuesAndExceptions(ImmutableSet.of(keyA)))
+    when(mockEnv.getValuesAndExceptions(ImmutableSet.of(keyA)))
         .thenReturn(
-            new SimpleSkyframeIterableResult(
-                () -> {}, ImmutableSet.of(ValueOrUntypedException.ofExn(exn)).iterator()));
+            new SimpleSkyframeLookupResult(
+                () -> {}, ImmutableMap.of(keyA, ValueOrUntypedException.ofExn(exn))::get));
 
     assertThat(
             GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions(
@@ -138,11 +146,11 @@ public final class GraphTraversingHelperTest {
   @Test
   public void declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions_notValuesMissing()
       throws Exception {
-    when(mockEnv.getOrderedValuesAndExceptions(ImmutableSet.of(keyB)))
+    when(mockEnv.getValuesAndExceptions(ImmutableSet.of(keyB)))
         .thenReturn(
-            new SimpleSkyframeIterableResult(
+            new SimpleSkyframeLookupResult(
                 () -> {},
-                ImmutableSet.of(ValueOrUntypedException.ofValueUntyped(value)).iterator()));
+                ImmutableMap.of(keyB, ValueOrUntypedException.ofValueUntyped(value))::get));
 
     assertThat(
             GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions(

@@ -50,7 +50,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -200,13 +200,13 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
                         .build())
             .collect(toImmutableList());
 
-    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(keys);
+    SkyframeLookupResult values = env.getValuesAndExceptions(keys);
     ImmutableList.Builder<ConfiguredTargetKey> validPlatformKeys = new ImmutableList.Builder<>();
     boolean valuesMissing = false;
     for (ConfiguredTargetKey platformKey : keys) {
       Label platformLabel = platformKey.getLabel();
       try {
-        SkyValue value = values.nextOrThrow(ConfiguredValueCreationException.class);
+        SkyValue value = values.getOrThrow(platformKey, ConfiguredValueCreationException.class);
         if (value == null) {
           valuesMissing = true;
           continue;

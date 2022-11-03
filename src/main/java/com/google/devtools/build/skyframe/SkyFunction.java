@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.lib.util.GroupedList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -236,6 +237,7 @@ public interface SkyFunction {
      * <p>Returns a {@link SkyframeLookupResult}, which allows the calling {@code SkyFunction} to
      * get a value or throw an exception per SkyKey.
      */
+    @CanIgnoreReturnValue
     SkyframeLookupResult getValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
         throws InterruptedException;
 

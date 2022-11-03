@@ -77,7 +77,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
@@ -286,10 +285,10 @@ public class PackageFunction implements SkyFunction {
       throws InternalInconsistentFilesystemException, FileSymlinkException, InterruptedException {
     checkState(Iterables.all(depKeys, SkyFunctions.isSkyFunction(SkyFunctions.GLOB)), depKeys);
     FileSymlinkException arbitraryFse = null;
-    SkyframeIterableResult skyframeIterableResult = env.getOrderedValuesAndExceptions(depKeys);
-    while (skyframeIterableResult.hasNext()) {
+    SkyframeLookupResult result = env.getValuesAndExceptions(depKeys);
+    for (SkyKey key : depKeys) {
       try {
-        skyframeIterableResult.nextOrThrow(IOException.class, BuildFileNotFoundException.class);
+        result.getOrThrow(key, IOException.class, BuildFileNotFoundException.class);
       } catch (InconsistentFilesystemException e) {
         throw new InternalInconsistentFilesystemException(packageIdentifier, e);
       } catch (FileSymlinkException e) {
@@ -725,11 +724,12 @@ public class PackageFunction implements SkyFunction {
       Environment env, List<BzlLoadValue.Key> keys)
       throws InterruptedException, BzlLoadFailedException {
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
-    SkyframeIterableResult starlarkLookupResults = env.getOrderedValuesAndExceptions(keys);
-    for (int i = 0; i < keys.size(); i++) {
+    SkyframeLookupResult starlarkLookupResults = env.getValuesAndExceptions(keys);
+    for (BzlLoadValue.Key key : keys) {
       // TODO(adonovan): if get fails, report the source location
       // in the corresponding programLoads[i] (see caller).
-      bzlLoads.add((BzlLoadValue) starlarkLookupResults.nextOrThrow(BzlLoadFailedException.class));
+      bzlLoads.add(
+          (BzlLoadValue) starlarkLookupResults.getOrThrow(key, BzlLoadFailedException.class));
     }
     return env.valuesMissing() ? null : bzlLoads;
   }
