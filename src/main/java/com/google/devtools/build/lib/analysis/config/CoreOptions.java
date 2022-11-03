@@ -660,7 +660,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "If enabled, Bazel allows the use of ctx.action.declare_symlink() and the use of "
               + "ctx.actions.symlink() without a target file, thus allowing the creation of "
-              + "unresolved symlinks")
+              + "unresolved symlinks. Unresolved symlinks inside tree artifacts are not currently "
+              + "supported.")
   public boolean allowUnresolvedSymlinks;
 
   /** Values for --experimental_output_paths. */

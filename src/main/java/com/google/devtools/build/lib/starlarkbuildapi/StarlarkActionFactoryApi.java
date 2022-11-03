@@ -83,7 +83,9 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
               + "current package. You must create an action that generates the directory. "
               + "The contents of the directory are not directly accessible from Starlark, "
               + "but can be expanded in an action command with "
-              + "<a href=\"Args.html#add_all\"><code>Args.add_all()</code></a>.",
+              + "<a href=\"Args.html#add_all\"><code>Args.add_all()</code></a>. "
+              + "Only regular files and directories can be in the expanded contents of a "
+              + "declare_directory.",
       parameters = {
         @Param(
             name = "filename",
@@ -109,13 +111,13 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
   @StarlarkMethod(
       name = "declare_symlink",
       doc =
-          "<p><b>Experimental</b>. This parameter is experimental and may change at any "
-              + "time. Please do not depend on it. It may be enabled on an experimental basis by "
-              + "setting <code>--experimental_allow_unresolved_symlinks</code></p> <p>Declares "
+          "<p>This parameter is experimental and may change at any "
+              + "time. It may be disabled by "
+              + "setting <code>--noexperimental_allow_unresolved_symlinks</code></p> <p>Declares "
               + "that the rule or aspect creates a symlink with the given name in the current "
               + "package. You must create an action that generates this symlink. Bazel will never "
               + "dereference this symlink and will transfer it verbatim to sandboxes or remote "
-              + "executors.",
+              + "executors. Symlinks inside tree artifacts are not currently supported.",
       parameters = {
         @Param(
             name = "filename",
@@ -204,9 +206,9 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             positional = false,
             defaultValue = "None",
             doc =
-                "(Experimental) The exact path that the output symlink will point to. No "
+                "The exact path that the output symlink will point to. No "
                     + "normalization or other processing is applied. Access to this feature "
-                    + "requires setting <code>--experimental_allow_unresolved_symlinks</code>."),
+                    + "requires setting <code>--allow_unresolved_symlinks</code>."),
         @Param(
             name = "is_executable",
             named = true,
