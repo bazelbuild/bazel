@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
@@ -121,6 +122,12 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         "genrule(name='foo', outs=['foo.txt'], cmd='never executed')",
         "sh_library(name='lib', srcs=[':foo'])");
 
+    FileSystemUtils.appendIsoLatin1(scratch.resolve("WORKSPACE"), "workspace(name='workspace')");
+    // Invalidate WORKSPACE to pick up the name.
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
+
     LocationExpander expander = makeExpander("//expansion:lib");
     assertThat(expander.expand("foo $(execpath :foo) bar"))
         .matches("foo .*-out/.*/expansion/foo\\.txt bar");
@@ -130,6 +137,22 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         .matches("foo expansion/foo.txt bar");
     assertThat(expander.expand("foo $(rootpaths :foo) bar"))
         .matches("foo expansion/foo.txt bar");
+    assertThat(expander.expand("foo $(rlocationpath :foo) bar"))
+        .isEqualTo("foo workspace/expansion/foo.txt bar");
+    assertThat(expander.expand("foo $(rlocationpaths :foo) bar"))
+        .isEqualTo("foo workspace/expansion/foo.txt bar");
+    assertThat(expander.expand("foo $(rlocationpath //expansion:foo) bar"))
+        .isEqualTo("foo workspace/expansion/foo.txt bar");
+    assertThat(expander.expand("foo $(rlocationpaths //expansion:foo) bar"))
+        .isEqualTo("foo workspace/expansion/foo.txt bar");
+    assertThat(expander.expand("foo $(rlocationpath @//expansion:foo) bar"))
+        .isEqualTo("foo workspace/expansion/foo.txt bar");
+    assertThat(expander.expand("foo $(rlocationpaths @//expansion:foo) bar"))
+        .isEqualTo("foo workspace/expansion/foo.txt bar");
+    assertThat(expander.expand("foo $(rlocationpath @workspace//expansion:foo) bar"))
+        .isEqualTo("foo workspace/expansion/foo.txt bar");
+    assertThat(expander.expand("foo $(rlocationpaths @workspace//expansion:foo) bar"))
+        .isEqualTo("foo workspace/expansion/foo.txt bar");
   }
 
   @Test
@@ -158,6 +181,10 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         .matches("foo external/r/p/foo.txt bar");
     assertThat(expander.expand("foo $(rootpaths @r//p:foo) bar"))
         .matches("foo external/r/p/foo.txt bar");
+    assertThat(expander.expand("foo $(rlocationpath @r//p:foo) bar"))
+        .isEqualTo("foo r/p/foo.txt bar");
+    assertThat(expander.expand("foo $(rlocationpath @r//p:foo) bar"))
+        .isEqualTo("foo r/p/foo.txt bar");
   }
 
   @Test
@@ -183,6 +210,10 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         .matches("foo .*-out/.*/external/r/p/foo\\.txt bar");
     assertThat(expander.expand("foo $(rootpath @r//p:foo) bar")).matches("foo ../r/p/foo.txt bar");
     assertThat(expander.expand("foo $(rootpaths @r//p:foo) bar")).matches("foo ../r/p/foo.txt bar");
+    assertThat(expander.expand("foo $(rlocationpath @r//p:foo) bar"))
+        .isEqualTo("foo r/p/foo.txt bar");
+    assertThat(expander.expand("foo $(rlocationpath @r//p:foo) bar"))
+        .isEqualTo("foo r/p/foo.txt bar");
   }
 
   @Test
@@ -210,6 +241,10 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         .matches("foo .*-out/r/.*/p/foo\\.txt bar");
     assertThat(expander.expand("foo $(rootpath @r//p:foo) bar")).matches("foo ../r/p/foo.txt bar");
     assertThat(expander.expand("foo $(rootpaths @r//p:foo) bar")).matches("foo ../r/p/foo.txt bar");
+    assertThat(expander.expand("foo $(rlocationpath @r//p:foo) bar"))
+        .isEqualTo("foo r/p/foo.txt bar");
+    assertThat(expander.expand("foo $(rlocationpaths @r//p:foo) bar"))
+        .isEqualTo("foo r/p/foo.txt bar");
   }
 
   @Test
@@ -224,5 +259,9 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         .matches("foo .*-out/.*/expansion/bar\\.txt .*-out/.*/expansion/foo\\.txt bar");
     assertThat(expander.expand("foo $(rootpaths :foo) bar"))
         .matches("foo expansion/bar.txt expansion/foo.txt bar");
+    assertThat(expander.expand("foo $(rlocationpaths :foo) bar"))
+        .isEqualTo(
+            "foo __main__/expansion/bar.txt __main__/expansion/foo.txt bar"
+                .replace("__main__", TestConstants.WORKSPACE_NAME));
   }
 }
