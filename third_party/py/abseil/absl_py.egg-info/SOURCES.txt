@@ -1,3 +1,7 @@
+AUTHORS
+LICENSE
+MANIFEST.in
+README.md
 setup.py
 absl/__init__.py
 absl/app.py
@@ -10,10 +14,13 @@ absl/flags/_flag.py
 absl/flags/_flagvalues.py
 absl/flags/_helpers.py
 absl/flags/_validators.py
+absl/flags/_validators_classes.py
+absl/flags/argparse_flags.py
 absl/logging/__init__.py
 absl/logging/converter.py
 absl/testing/__init__.py
 absl/testing/_bazelize_command.py
+absl/testing/_pretty_print_reporter.py
 absl/testing/absltest.py
 absl/testing/flagsaver.py
 absl/testing/parameterized.py
@@ -21,5 +28,4 @@ absl/testing/xml_reporter.py
 absl_py.egg-info/PKG-INFO
 absl_py.egg-info/SOURCES.txt
 absl_py.egg-info/dependency_links.txt
-absl_py.egg-info/requires.txt
 absl_py.egg-info/top_level.txt
