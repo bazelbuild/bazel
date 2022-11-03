@@ -206,9 +206,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             positional = false,
             defaultValue = "None",
             doc =
-                "The exact path that the output symlink will point to. No "
-                    + "normalization or other processing is applied. Access to this feature "
-                    + "requires setting <code>--allow_unresolved_symlinks</code>."),
+                "The exact path that the output symlink will point to. No normalization or other "
+                    + "processing is applied."),
         @Param(
             name = "is_executable",
             named = true,
