@@ -365,6 +365,7 @@ public class RemoteCacheTest {
     assertThat(remoteCache.casUploadCache.getInProgressTasks()).isEmpty();
     assertThat(remoteCache.casUploadCache.getFinishedTasks()).isEmpty();
     for (SettableFuture<Void> future : futures) {
+      System.err.println("future: " + future.toString());
       assertThat(future.isCancelled()).isTrue();
     }
   }
