@@ -661,8 +661,11 @@ class BazelModuleTest(test_base.TestBase):
         [bazel_command, '//:me', '--test_output=errors'],
         allow_failure=True)
     self.AssertExitCode(0, exit_code, stderr, stdout)
-    for path in ('bazel-bin/me.repo_mapping',
-                 'bazel-bin/me.runfiles/_repo_mapping'):
+
+    paths = ['bazel-bin/me.repo_mapping']
+    if not self.IsWindows():
+      paths.append('bazel-bin/me.runfiles/_repo_mapping')
+    for path in paths:
       with open(self.Path(path), 'r') as f:
         self.assertEqual(
             f.read().strip(), """,foo,foo~1.0
@@ -671,17 +674,26 @@ class BazelModuleTest(test_base.TestBase):
 foo~1.0,foo,foo~1.0
 foo~1.0,quux,quux~2.0
 quux~2.0,quux,quux~2.0""")
+    with open(self.Path('bazel-bin/me.runfiles_manifest')) as f:
+      self.assertIn("_repo_mapping ", f.read())
+
     exit_code, stderr, stdout = self.RunBazel(
         [bazel_command, '@bar//:bar', '--test_output=errors'],
         allow_failure=True)
     self.AssertExitCode(0, exit_code, stderr, stdout)
-    for path in ('bazel-bin/external/bar~2.0/bar.repo_mapping',
-                 'bazel-bin/external/bar~2.0/bar.runfiles/_repo_mapping'):
+
+    paths = ['bazel-bin/external/bar~2.0/bar.repo_mapping']
+    if not self.IsWindows():
+      paths.append('bazel-bin/external/bar~2.0/bar.runfiles/_repo_mapping')
+    for path in paths:
       with open(self.Path(path), 'r') as f:
         self.assertEqual(
             f.read().strip(), """bar~2.0,bar,bar~2.0
 bar~2.0,quux,quux~2.0
 quux~2.0,quux,quux~2.0""")
+    with open(
+        self.Path('bazel-bin/external/bar~2.0/bar.runfiles_manifest')) as f:
+      self.assertIn("_repo_mapping ", f.read())
 
 if __name__ == '__main__':
   unittest.main()
