@@ -61,7 +61,7 @@ exported_rules = {
     "+cc_test": cc_test,
     "+cc_library": cc_library,
     "proto_lang_toolchain": proto_lang_toolchain,
-    "-py_runtime": py_runtime,
+    "+py_runtime": py_runtime,
 }
 
 # A list of Starlark functions callable from native rules implementation.
