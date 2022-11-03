@@ -18,10 +18,6 @@ Do NOT import this module directly. Import the flags package and use the
 aliases defined at the package level instead.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import sys
 
 from absl.flags import _helpers
@@ -50,13 +46,13 @@ class DuplicateFlagError(Error):
 
     Args:
       flagname: str, the name of the flag being redefined.
-      flag_values: FlagValues, the FlagValues instance containing the first
-          definition of flagname.
-      other_flag_values: FlagValues, if it is not None, it should be the
-          FlagValues object where the second definition of flagname occurs.
-          If it is None, we assume that we're being called when attempting
-          to create the flag a second time, and we use the module calling
-          this one as the source of the second definition.
+      flag_values: :class:`FlagValues`, the FlagValues instance containing the
+        first definition of flagname.
+      other_flag_values: :class:`FlagValues`, if it is not None, it should be
+        the FlagValues object where the second definition of flagname occurs.
+        If it is None, we assume that we're being called when attempting to
+        create the flag a second time, and we use the module calling this one
+        as the source of the second definition.
 
     Returns:
       An instance of DuplicateFlagError.
@@ -101,7 +97,7 @@ class UnrecognizedFlagError(Error):
 
 
 class UnparsedFlagAccessError(Error):
-  """Raised when accessing the flag value from unparsed FlagValues."""
+  """Raised when accessing the flag value from unparsed :class:`FlagValues`."""
 
 
 class ValidationError(Error):
@@ -109,4 +105,4 @@ class ValidationError(Error):
 
 
 class FlagNameConflictsWithMethodError(Error):
-  """Raised when a flag name conflicts with FlagValues methods."""
+  """Raised when a flag name conflicts with :class:`FlagValues` methods."""

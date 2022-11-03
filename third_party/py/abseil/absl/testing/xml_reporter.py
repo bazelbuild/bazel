@@ -14,10 +14,7 @@
 
 """A Python test reporter that generates test reports in JUnit XML format."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
+import datetime
 import re
 import sys
 import threading
@@ -25,8 +22,7 @@ import time
 import traceback
 import unittest
 from xml.sax import saxutils
-
-import six
+from absl.testing import _pretty_print_reporter
 
 
 # See http://www.w3.org/TR/REC-xml/#NT-Char
@@ -73,10 +69,41 @@ def _escape_cdata(s):
   Returns:
     An escaped version of the input string.
   """
-  for char, escaped in six.iteritems(_control_character_conversions):
+  for char, escaped in _control_character_conversions.items():
     s = s.replace(char, escaped)
   return s.replace(']]>', ']] >')
 
+
+def _iso8601_timestamp(timestamp):
+  """Produces an ISO8601 datetime.
+
+  Args:
+    timestamp: an Epoch based timestamp in seconds.
+
+  Returns:
+    A iso8601 format timestamp if the input is a valid timestamp, None otherwise
+  """
+  if timestamp is None or timestamp < 0:
+    return None
+  return datetime.datetime.fromtimestamp(
+      timestamp, tz=datetime.timezone.utc).isoformat()
+
+
+def _print_xml_element_header(element, attributes, stream, indentation=''):
+  """Prints an XML header of an arbitrary element.
+
+  Args:
+    element: element name (testsuites, testsuite, testcase)
+    attributes: 2-tuple list with (attributes, values) already escaped
+    stream: output stream to write test report XML to
+    indentation: indentation added to the element header
+  """
+  stream.write('%s<%s' % (indentation, element))
+  for attribute in attributes:
+    if (len(attribute) == 2 and attribute[0] is not None and
+        attribute[1] is not None):
+      stream.write(' %s="%s"' % (attribute[0], attribute[1]))
+  stream.write('>\n')
 
 # Copy time.time which ensures the real time is used internally.
 # This prevents bad interactions with tests that stub out time.
@@ -97,6 +124,7 @@ class _TestCaseResult(object):
     name: The name of the individual test method.
     full_class_name: The full name of the test class.
     run_time: The duration (in seconds) it took to run the test.
+    start_time: Epoch relative timestamp of when test started (in seconds)
     errors: A list of error 4-tuples. Error tuple entries are
         1) a string identifier of either "failure" or "error"
         2) an exception_type
@@ -110,6 +138,7 @@ class _TestCaseResult(object):
 
   def __init__(self, test):
     self.run_time = -1
+    self.start_time = -1
     self.skip_reason = None
     self.errors = []
     self.test = test
@@ -126,6 +155,10 @@ class _TestCaseResult(object):
       full_class_name = match.group(2)
     else:
       class_name = unittest.util.strclass(test.__class__)
+      if isinstance(test, unittest.case._SubTest):
+        # If the test case is a _SubTest, the real TestCase instance is
+        # available as _SubTest.test_case.
+        class_name = unittest.util.strclass(test.test_case.__class__)
       if test_desc.startswith(class_name + '.'):
         # In a typical unittest.TestCase scenario, test.id() returns with
         # a class name formatted using unittest.util.strclass.
@@ -142,6 +175,9 @@ class _TestCaseResult(object):
 
   def set_run_time(self, time_in_secs):
     self.run_time = time_in_secs
+
+  def set_start_time(self, time_in_secs):
+    self.start_time = time_in_secs
 
   def print_xml_summary(self, stream):
     """Prints an XML Summary of a TestCase.
@@ -162,10 +198,15 @@ class _TestCaseResult(object):
       status = 'notrun'
       result = 'suppressed'
 
-    stream.write(
-        '  <testcase name="%s" status="%s" result="%s" time="%.1f" '
-        'classname="%s">\n' % (
-            self.name, status, result, self.run_time, self.full_class_name))
+    test_case_attributes = [
+        ('name', '%s' % self.name),
+        ('status', '%s' % status),
+        ('result', '%s' % result),
+        ('time', '%.3f' % self.run_time),
+        ('classname', self.full_class_name),
+        ('timestamp', _iso8601_timestamp(self.start_time)),
+    ]
+    _print_xml_element_header('testcase', test_case_attributes, stream, '  ')
     self._print_testcase_details(stream)
     stream.write('  </testcase>\n')
 
@@ -186,6 +227,9 @@ class _TestSuiteResult(object):
     self.suites = {}
     self.failure_counts = {}
     self.error_counts = {}
+    self.overall_start_time = -1
+    self.overall_end_time = -1
+    self._testsuites_properties = {}
 
   def add_test_case_result(self, test_case_result):
     suite_name = type(test_case_result.test).__name__
@@ -193,6 +237,11 @@ class _TestSuiteResult(object):
       # _ErrorHolder is a special case created by unittest for class / module
       # level functions.
       suite_name = test_case_result.full_class_name.rsplit('.')[-1]
+    if isinstance(test_case_result.test, unittest.case._SubTest):
+      # If the test case is a _SubTest, the real TestCase instance is
+      # available as _SubTest.test_case.
+      suite_name = type(test_case_result.test.test_case).__name__
+
     self._setup_test_suite(suite_name)
     self.suites[suite_name].append(test_case_result)
     for error in test_case_result.errors:
@@ -206,24 +255,41 @@ class _TestSuiteResult(object):
         break
 
   def print_xml_summary(self, stream):
-    overall_test_count = sum([len(x) for x in self.suites.values()])
+    overall_test_count = sum(len(x) for x in self.suites.values())
     overall_failures = sum(self.failure_counts.values())
     overall_errors = sum(self.error_counts.values())
-    overall_time = 0
-    for tests in self.suites.values():
-      overall_time += sum([x.run_time for x in tests])
-    overall_args = (overall_test_count, overall_failures, overall_errors,
-                    overall_time)
-    stream.write('<testsuites name="" tests="%d" failures="%d" '
-                 'errors="%d" time="%.1f">\n' % overall_args)
+    overall_attributes = [
+        ('name', ''),
+        ('tests', '%d' % overall_test_count),
+        ('failures', '%d' % overall_failures),
+        ('errors', '%d' % overall_errors),
+        ('time', '%.3f' % (self.overall_end_time - self.overall_start_time)),
+        ('timestamp', _iso8601_timestamp(self.overall_start_time)),
+    ]
+    _print_xml_element_header('testsuites', overall_attributes, stream)
+    if self._testsuites_properties:
+      stream.write('    <properties>\n')
+      for name, value in sorted(self._testsuites_properties.items()):
+        stream.write('      <property name="%s" value="%s"></property>\n' %
+                     (_escape_xml_attr(name), _escape_xml_attr(str(value))))
+      stream.write('    </properties>\n')
+
     for suite_name in self.suites:
       suite = self.suites[suite_name]
-      suite_time = sum([x.run_time for x in suite])
+      suite_end_time = max(x.start_time + x.run_time for x in suite)
+      suite_start_time = min(x.start_time for x in suite)
       failures = self.failure_counts[suite_name]
       errors = self.error_counts[suite_name]
-      args = (suite_name, len(suite), failures, errors, suite_time)
-      stream.write('<testsuite name="%s" tests="%d" failures="%d" '
-                   'errors="%d" time="%.1f">\n' % args)
+      suite_attributes = [
+          ('name', '%s' % suite_name),
+          ('tests', '%d' % len(suite)),
+          ('failures', '%d' % failures),
+          ('errors', '%d' % errors),
+          ('time', '%.3f' % (suite_end_time - suite_start_time)),
+          ('timestamp', _iso8601_timestamp(suite_start_time)),
+      ]
+      _print_xml_element_header('testsuite', suite_attributes, stream)
+
       for test_case_result in suite:
         test_case_result.print_xml_summary(stream)
       stream.write('</testsuite>\n')
@@ -241,8 +307,24 @@ class _TestSuiteResult(object):
     self.failure_counts[suite_name] = 0
     self.error_counts[suite_name] = 0
 
+  def set_end_time(self, timestamp_in_secs):
+    """Sets the start timestamp of this test suite.
 
-class _TextAndXMLTestResult(unittest.TextTestResult):
+    Args:
+      timestamp_in_secs: timestamp in seconds since epoch
+    """
+    self.overall_end_time = timestamp_in_secs
+
+  def set_start_time(self, timestamp_in_secs):
+    """Sets the end timestamp of this test suite.
+
+    Args:
+      timestamp_in_secs: timestamp in seconds since epoch
+    """
+    self.overall_start_time = timestamp_in_secs
+
+
+class _TextAndXMLTestResult(_pretty_print_reporter.TextTestResult):
   """Private TestResult class that produces both formatted text results and XML.
 
   Used by TextAndXMLTestRunner.
@@ -252,15 +334,17 @@ class _TextAndXMLTestResult(unittest.TextTestResult):
   _TEST_CASE_RESULT_CLASS = _TestCaseResult
 
   def __init__(self, xml_stream, stream, descriptions, verbosity,
-               time_getter=_time_copy):
+               time_getter=_time_copy, testsuites_properties=None):
     super(_TextAndXMLTestResult, self).__init__(stream, descriptions, verbosity)
     self.xml_stream = xml_stream
     self.pending_test_case_results = {}
     self.suite = self._TEST_SUITE_RESULT_CLASS()
+    if testsuites_properties:
+      self.suite._testsuites_properties = testsuites_properties
     self.time_getter = time_getter
 
     # This lock guards any mutations on pending_test_case_results.
-    self._pending_test_case_results_lock = threading.Lock()
+    self._pending_test_case_results_lock = threading.RLock()
 
   def startTest(self, test):
     self.start_time = self.time_getter()
@@ -278,12 +362,18 @@ class _TextAndXMLTestResult(unittest.TextTestResult):
       test_id = id(test)
       run_time = self.time_getter() - self.start_time
       result.set_run_time(run_time)
+      result.set_start_time(self.start_time)
       self.suite.add_test_case_result(result)
       del self.pending_test_case_results[test_id]
 
+  def startTestRun(self):
+    self.suite.set_start_time(self.time_getter())
+    super(_TextAndXMLTestResult, self).startTestRun()
+
   def stopTestRun(self):
+    self.suite.set_end_time(self.time_getter())
     # All pending_test_case_results will be added to the suite and removed from
-    # the pending_test_case_results dictionary. Grabing the write lock to avoid
+    # the pending_test_case_results dictionary. Grabbing the write lock to avoid
     # results from being added during this process to avoid duplicating adds or
     # accidentally erasing newly appended pending results.
     with self._pending_test_case_results_lock:
@@ -295,8 +385,9 @@ class _TextAndXMLTestResult(unittest.TextTestResult):
       for test_id in self.pending_test_case_results:
         result = self.pending_test_case_results[test_id]
         if hasattr(self, 'start_time'):
-          run_time = self.time_getter() - self.start_time
+          run_time = self.suite.overall_end_time - self.start_time
           result.set_run_time(run_time)
+          result.set_start_time(self.start_time)
         self.suite.add_test_case_result(result)
       self.pending_test_case_results.clear()
 
@@ -364,12 +455,14 @@ class _TextAndXMLTestResult(unittest.TextTestResult):
 
   def addError(self, test, err):
     super(_TextAndXMLTestResult, self).addError(test, err)
-    error_summary = ('error', err[0], err[1], self._exc_info_to_string(err))
+    error_summary = ('error', err[0], err[1],
+                     self._exc_info_to_string(err, test=test))
     self.add_pending_test_case_result(test, error_summary=error_summary)
 
   def addFailure(self, test, err):
     super(_TextAndXMLTestResult, self).addFailure(test, err)
-    error_summary = ('failure', err[0], err[1], self._exc_info_to_string(err))
+    error_summary = ('failure', err[0], err[1],
+                     self._exc_info_to_string(err, test=test))
     self.add_pending_test_case_result(test, error_summary=error_summary)
 
   def addSkip(self, test, reason):
@@ -379,7 +472,8 @@ class _TextAndXMLTestResult(unittest.TextTestResult):
   def addExpectedFailure(self, test, err):
     super(_TextAndXMLTestResult, self).addExpectedFailure(test, err)
     if callable(getattr(test, 'recordProperty', None)):
-      test.recordProperty('EXPECTED_FAILURE', self._exc_info_to_string(err))
+      test.recordProperty('EXPECTED_FAILURE',
+                          self._exc_info_to_string(err, test=test))
     self.add_pending_test_case_result(test)
 
   def addUnexpectedSuccess(self, test):
@@ -389,6 +483,19 @@ class _TextAndXMLTestResult(unittest.TextTestResult):
                      'Test case %s should have failed, but passed.'
                      % (test_name))
     self.add_pending_test_case_result(test, error_summary=error_summary)
+
+  def addSubTest(self, test, subtest, err):  # pylint: disable=invalid-name
+    super(_TextAndXMLTestResult, self).addSubTest(test, subtest, err)
+    if err is not None:
+      if issubclass(err[0], test.failureException):
+        error_summary = ('failure', err[0], err[1],
+                         self._exc_info_to_string(err, test=test))
+      else:
+        error_summary = ('error', err[0], err[1],
+                         self._exc_info_to_string(err, test=test))
+    else:
+      error_summary = None
+    self.add_pending_test_case_result(subtest, error_summary=error_summary)
 
   def printErrors(self):
     super(_TextAndXMLTestResult, self).printErrors()
@@ -406,6 +513,7 @@ class TextAndXMLTestRunner(unittest.TextTestRunner):
   _TEST_RESULT_CLASS = _TextAndXMLTestResult
 
   _xml_stream = None
+  _testsuites_properties = {}
 
   def __init__(self, xml_stream=None, *args, **kwargs):
     """Initialize a TextAndXMLTestRunner.
@@ -441,5 +549,10 @@ class TextAndXMLTestRunner(unittest.TextTestRunner):
     if self._xml_stream is None:
       return super(TextAndXMLTestRunner, self)._makeResult()
     else:
-      return self._TEST_RESULT_CLASS(self._xml_stream, self.stream,
-                                     self.descriptions, self.verbosity)
+      return self._TEST_RESULT_CLASS(
+          self._xml_stream, self.stream, self.descriptions, self.verbosity,
+          testsuites_properties=self._testsuites_properties)
+
+  @classmethod
+  def set_testsuites_property(cls, key, value):
+    cls._testsuites_properties[key] = value
