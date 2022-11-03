@@ -311,12 +311,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                 ruleContext.getActionOwner(), inputArtifact, outputArtifact, progressMessage);
       }
     } else {
-      if (!ruleContext.getConfiguration().allowUnresolvedSymlinks()) {
-        throw Starlark.errorf(
-            "actions.symlink() to unresolved symlink is not allowed; "
-                + "use the --experimental_allow_unresolved_symlinks command line option");
-      }
-
       if (!outputArtifact.isSymlink()) {
         throw Starlark.errorf(
             "symlink() with \"target_path\" param requires that \"output\" be declared as a "
