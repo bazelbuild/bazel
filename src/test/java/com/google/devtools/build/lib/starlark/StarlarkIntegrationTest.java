@@ -732,6 +732,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "cc_binary(name = 'binary', data = [':cr'])"
     );
 
+    useConfiguration("--incompatible_always_include_files_in_data");
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:binary");
 
     assertThat(target.getLabel().toString()).isEqualTo("//test/starlark:binary");
@@ -764,6 +765,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "java_binary(name = 'binary', data = [':cr'], srcs = ['Foo.java'], main_class = 'Foo')"
     );
 
+    useConfiguration("--incompatible_always_include_files_in_data");
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:binary");
 
     assertThat(target.getLabel().toString()).isEqualTo("//test/starlark:binary");
@@ -796,6 +798,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "py_binary(name = 'binary', data = [':cr'], srcs = ['binary.py'])"
     );
 
+    useConfiguration("--incompatible_always_include_files_in_data");
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:binary");
 
     assertThat(target.getLabel().toString()).isEqualTo("//test/starlark:binary");
@@ -828,6 +831,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "sh_binary(name = 'binary', data = [':cr'], srcs = ['script.sh'])"
     );
 
+    useConfiguration("--incompatible_always_include_files_in_data");
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:binary");
 
     assertThat(target.getLabel().toString()).isEqualTo("//test/starlark:binary");
