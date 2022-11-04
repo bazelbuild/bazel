@@ -82,14 +82,17 @@ public abstract class Runfiles {
 
   private static final String MAIN_REPOSITORY_NAME = "";
 
+  /**
+   * See {@link com.google.devtools.build.lib.analysis.RepoMappingManifestAction.Entry}.
+   */
   private static class RepoMappingKey {
 
-    public final String sourceCanonical;
-    public final String targetApparent;
+    public final String sourceRepo;
+    public final String targetRepoApparentName;
 
-    public RepoMappingKey(String sourceCanonical, String targetApparent) {
-      this.sourceCanonical = sourceCanonical;
-      this.targetApparent = targetApparent;
+    public RepoMappingKey(String sourceRepo, String targetRepoApparentName) {
+      this.sourceRepo = sourceRepo;
+      this.targetRepoApparentName = targetRepoApparentName;
     }
 
     @Override
@@ -101,28 +104,28 @@ public abstract class Runfiles {
         return false;
       }
       RepoMappingKey that = (RepoMappingKey) o;
-      return sourceCanonical.equals(that.sourceCanonical) && targetApparent.equals(
-          that.targetApparent);
+      return sourceRepo.equals(that.sourceRepo) && targetRepoApparentName.equals(
+          that.targetRepoApparentName);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(sourceCanonical, targetApparent);
+      return Objects.hash(sourceRepo, targetRepoApparentName);
     }
   }
 
   private final Map<RepoMappingKey, String> repoMapping;
-  private final String sourceCanonical;
+  private final String sourceRepository;
 
   // Package-private constructor, so only package-private classes may extend it.
   private Runfiles(String repoMappingPath, String sourceRepository) throws IOException {
     this.repoMapping = loadRepositoryMapping(repoMappingPath);
-    this.sourceCanonical = sourceRepository;
+    this.sourceRepository = sourceRepository;
   }
 
   protected Runfiles(Runfiles runfiles, String sourceRepository) {
     this.repoMapping = runfiles.repoMapping;
-    this.sourceCanonical = sourceRepository;
+    this.sourceRepository = sourceRepository;
   }
 
   /**
@@ -256,7 +259,7 @@ public abstract class Runfiles {
    *                                  empty, or not normalized (contains "./", "../", or "//")
    */
   public final String rlocation(String path) {
-    return rlocation(path, this.sourceCanonical);
+    return rlocation(path, this.sourceRepository);
   }
 
   /**
