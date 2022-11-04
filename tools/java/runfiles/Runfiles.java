@@ -78,67 +78,84 @@ import java.util.stream.Collectors;
  *   Process p = pb.start();
  * </pre>
  */
-public abstract class Runfiles {
+public final class Runfiles {
 
-  private static final String MAIN_REPOSITORY_NAME = "";
+  public abstract static class Preloaded {
 
-  /**
-   * See {@link com.google.devtools.build.lib.analysis.RepoMappingManifestAction.Entry}.
-   */
-  private static class RepoMappingKey {
+    /**
+     * See {@link com.google.devtools.build.lib.analysis.RepoMappingManifestAction.Entry}.
+     */
+    static class RepoMappingKey {
 
-    public final String sourceRepo;
-    public final String targetRepoApparentName;
+      public final String sourceRepo;
+      public final String targetRepoApparentName;
 
-    public RepoMappingKey(String sourceRepo, String targetRepoApparentName) {
-      this.sourceRepo = sourceRepo;
-      this.targetRepoApparentName = targetRepoApparentName;
+      public RepoMappingKey(String sourceRepo, String targetRepoApparentName) {
+        this.sourceRepo = sourceRepo;
+        this.targetRepoApparentName = targetRepoApparentName;
+      }
+
+      @Override
+      public boolean equals(Object o) {
+        if (this == o) {
+          return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+          return false;
+        }
+        RepoMappingKey that = (RepoMappingKey) o;
+        return sourceRepo.equals(that.sourceRepo) && targetRepoApparentName.equals(
+            that.targetRepoApparentName);
+      }
+
+      @Override
+      public int hashCode() {
+        return Objects.hash(sourceRepo, targetRepoApparentName);
+      }
     }
 
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      RepoMappingKey that = (RepoMappingKey) o;
-      return sourceRepo.equals(that.sourceRepo) && targetRepoApparentName.equals(
-          that.targetRepoApparentName);
+    /**
+     * Returns a new instance that uses the provided source repository as a default for all calls to
+     * {@link #rlocation(String)}.
+     *
+     * <p>This is useful when receiving a {@link Runfiles} instance from a different Bazel
+     * repository. In this case, while the runfiles manifest or directory encoded in the instance
+     * should be used for runfiles lookups, the repository from which apparent repository names
+     * should be resolved needs to change.
+     *
+     * @param sourceRepository the canonical name of the Bazel repository relative to which apparent
+     *                         repository names should be resolved
+     * @return a new {@link Runfiles} instance identical to this one, except that calls to
+     * {@link #rlocation(String)} use the provided source repository.
+     */
+    public final Runfiles withSourceRepository(String sourceRepository) {
+      Util.checkArgument(sourceRepository != null);
+      return new Runfiles(this, sourceRepository);
     }
 
-    @Override
-    public int hashCode() {
-      return Objects.hash(sourceRepo, targetRepoApparentName);
+    public final Runfiles unmapped() {
+      return new Runfiles(this, null);
+    }
+
+    protected abstract Map<String, String> getEnvVars();
+
+    protected abstract String rlocationChecked(String path);
+
+    protected abstract Map<RepoMappingKey, String> getRepoMapping();
+
+    // Private constructor, so only nested classes may extend it.
+    private Preloaded() {
     }
   }
 
-  private final Map<RepoMappingKey, String> repoMapping;
+  private static final String MAIN_REPOSITORY = "";
+
+  private final Preloaded preloadedRunfiles;
   private final String sourceRepository;
 
-  // Package-private constructor, so only package-private classes may extend it.
-  private Runfiles(String repoMappingPath, String sourceRepository) throws IOException {
-    this.repoMapping = loadRepositoryMapping(repoMappingPath);
+  private Runfiles(Preloaded preloadedRunfiles, String sourceRepository) {
+    this.preloadedRunfiles = preloadedRunfiles;
     this.sourceRepository = sourceRepository;
-  }
-
-  protected Runfiles(Runfiles runfiles, String sourceRepository) {
-    this.repoMapping = runfiles.repoMapping;
-    this.sourceRepository = sourceRepository;
-  }
-
-  /**
-   * Returns a new {@link Runfiles} instance.
-   *
-   * <p><strong>Deprecated: With {@code --enable_bzlmod}, this function can only resolve runfiles
-   * correctly if called from the main repository. Use {@link #create(String)} instead. </strong>
-   *
-   * <p>This method passes the JVM's environment variable map to {@link #create(Map)}.
-   */
-  @Deprecated
-  public static Runfiles create() throws IOException {
-    return create(System.getenv());
   }
 
   /**
@@ -150,42 +167,8 @@ public abstract class Runfiles {
    *                         lookups should be performed. This can be obtained using
    *                         {@link AutoBazelRepository} (see class documentation).
    */
-  public static Runfiles create(String sourceRepository) throws IOException {
-    return create(System.getenv(), sourceRepository);
-  }
-
-  /**
-   * Returns a new {@link Runfiles} instance.
-   *
-   * <p><strong>Deprecated: With {@code --enable_bzlmod}, this function can only resolve runfiles
-   * correctly if called from the main repository. Use {@link #create(Map, String)} instead.
-   * </strong>
-   *
-   * <p>The returned object is either:
-   *
-   * <ul>
-   *   <li>manifest-based, meaning it looks up runfile paths from a manifest file, or
-   *   <li>directory-based, meaning it looks up runfile paths under a given directory path
-   * </ul>
-   *
-   * <p>If {@code env} contains "RUNFILES_MANIFEST_ONLY" with value "1", this method returns a
-   * manifest-based implementation. The manifest's path is defined by the "RUNFILES_MANIFEST_FILE"
-   * key's value in {@code env}.
-   *
-   * <p>Otherwise this method returns a directory-based implementation. The directory's path is
-   * defined by the value in {@code env} under the "RUNFILES_DIR" key, or if absent, then under the
-   * "JAVA_RUNFILES" key.
-   *
-   * <p>Note about performance: the manifest-based implementation eagerly reads and caches the whole
-   * manifest file upon instantiation.
-   *
-   * @throws IOException if RUNFILES_MANIFEST_ONLY=1 is in {@code env} but there's no
-   *                     "RUNFILES_MANIFEST_FILE", "RUNFILES_DIR", or "JAVA_RUNFILES" key in
-   *                     {@code env} or their values are empty, or some IO error occurs
-   */
-  @Deprecated
-  public static Runfiles create(Map<String, String> env) throws IOException {
-    return create(env, MAIN_REPOSITORY_NAME);
+  public static Preloaded preload() throws IOException {
+    return preload(System.getenv());
   }
 
   /**
@@ -217,33 +200,64 @@ public abstract class Runfiles {
    *                     "RUNFILES_MANIFEST_FILE", "RUNFILES_DIR", or "JAVA_RUNFILES" key in
    *                     {@code env} or their values are empty, or some IO error occurs
    */
-  public static Runfiles create(Map<String, String> env, String sourceRepository)
-      throws IOException {
+  public static Preloaded preload(Map<String, String> env) throws IOException {
     if (isManifestOnly(env)) {
       // On Windows, Bazel sets RUNFILES_MANIFEST_ONLY=1.
       // On every platform, Bazel also sets RUNFILES_MANIFEST_FILE, but on Linux and macOS it's
       // faster to use RUNFILES_DIR.
-      return new ManifestBased(getManifestPath(env), sourceRepository);
+      return new ManifestBased(getManifestPath(env));
     } else {
-      return new DirectoryBased(getRunfilesDir(env), sourceRepository);
+      return new DirectoryBased(getRunfilesDir(env));
     }
   }
 
   /**
-   * Returns a new instance that uses the provided source repository as a default for all calls to
-   * {@link #rlocation(String)}.
+   * Returns a new {@link Runfiles} instance.
    *
-   * <p>This is useful when receiving a {@link Runfiles} instance from a different Bazel
-   * repository. In this case, while the runfiles manifest or directory encoded in the instance
-   * should be used for runfiles lookups, the repository from which apparent repository names should
-   * be resolved needs to change.
+   * <p><strong>Deprecated: With {@code --enable_bzlmod}, this function can only resolve runfiles
+   * correctly if called from the main repository. Use {@link #preload()}}
+   * instead.</strong>
    *
-   * @param sourceRepository the canonical name of the Bazel repository relative to which apparent
-   *                         repository names should be resolved
-   * @return a new {@link Runfiles} instance identical to this one, except that calls to
-   * {@link #rlocation(String)} use the provided source repository.
+   * <p>This method passes the JVM's environment variable map to {@link #create(Map)}.
    */
-  public abstract Runfiles withSourceRepository(String sourceRepository);
+  @Deprecated
+  public static Runfiles create() throws IOException {
+    return preload().withSourceRepository(MAIN_REPOSITORY);
+  }
+
+  /**
+   * Returns a new {@link Runfiles} instance.
+   *
+   * <p><strong>Deprecated: With {@code --enable_bzlmod}, this function can only resolve runfiles
+   * correctly if called from the main repository. Use {@link #preload(Map)} instead.
+   * </strong>
+   *
+   * <p>The returned object is either:
+   *
+   * <ul>
+   *   <li>manifest-based, meaning it looks up runfile paths from a manifest file, or
+   *   <li>directory-based, meaning it looks up runfile paths under a given directory path
+   * </ul>
+   *
+   * <p>If {@code env} contains "RUNFILES_MANIFEST_ONLY" with value "1", this method returns a
+   * manifest-based implementation. The manifest's path is defined by the "RUNFILES_MANIFEST_FILE"
+   * key's value in {@code env}.
+   *
+   * <p>Otherwise this method returns a directory-based implementation. The directory's path is
+   * defined by the value in {@code env} under the "RUNFILES_DIR" key, or if absent, then under the
+   * "JAVA_RUNFILES" key.
+   *
+   * <p>Note about performance: the manifest-based implementation eagerly reads and caches the whole
+   * manifest file upon instantiation.
+   *
+   * @throws IOException if RUNFILES_MANIFEST_ONLY=1 is in {@code env} but there's no
+   *                     "RUNFILES_MANIFEST_FILE", "RUNFILES_DIR", or "JAVA_RUNFILES" key in
+   *                     {@code env} or their values are empty, or some IO error occurs
+   */
+  @Deprecated
+  public static Runfiles create(Map<String, String> env) throws IOException {
+    return preload(env).withSourceRepository(MAIN_REPOSITORY);
+  }
 
   /**
    * Returns the runtime path of a runfile (a Bazel-built binary's/test's data-dependency).
@@ -258,27 +272,7 @@ public abstract class Runfiles {
    * @throws IllegalArgumentException if {@code path} fails validation, for example if it's null or
    *                                  empty, or not normalized (contains "./", "../", or "//")
    */
-  public final String rlocation(String path) {
-    return rlocation(path, this.sourceRepository);
-  }
-
-  /**
-   * Returns the runtime path of a runfile (a Bazel-built binary's/test's data-dependency).
-   *
-   * <p>The returned path may not be valid. The caller should check the path's validity and that
-   * the path exists.
-   *
-   * <p>The function may return null. In that case the caller can be sure that the rule does not
-   * know about this data-dependency.
-   *
-   * @param path             runfiles-root-relative path of the runfile
-   * @param sourceRepository the canonical name of the Bazel repository relative to which apparent
-   *                         repository names in runfiles paths should be resolved. Overrides the
-   *                         repository set when creating this {@link Runfiles} instance.
-   * @throws IllegalArgumentException if {@code path} fails validation, for example if it's null or
-   *                                  empty, or not normalized (contains "./", "../", or "//")
-   */
-  public final String rlocation(String path, String sourceRepository) {
+  public String rlocation(String path) {
     Util.checkArgument(path != null);
     Util.checkArgument(!path.isEmpty());
     Util.checkArgument(
@@ -296,14 +290,18 @@ public abstract class Runfiles {
       return path;
     }
 
+    if (sourceRepository == null) {
+      return preloadedRunfiles.rlocationChecked(path);
+    }
     String[] apparentTargetAndRemainder = path.split("/", 2);
     if (apparentTargetAndRemainder.length < 2) {
-      return rlocationChecked(path);
+      return preloadedRunfiles.rlocationChecked(path);
     }
-    String targetCanonical = repoMapping.getOrDefault(
-        new RepoMappingKey(sourceRepository, apparentTargetAndRemainder[0]),
+    String targetCanonical = preloadedRunfiles.getRepoMapping().getOrDefault(
+        new Preloaded.RepoMappingKey(sourceRepository, apparentTargetAndRemainder[0]),
         apparentTargetAndRemainder[0]);
-    return rlocationChecked(targetCanonical + "/" + apparentTargetAndRemainder[1]);
+    return preloadedRunfiles.rlocationChecked(
+        targetCanonical + "/" + apparentTargetAndRemainder[1]);
   }
 
   /**
@@ -312,7 +310,9 @@ public abstract class Runfiles {
    * <p>The caller should add the returned key-value pairs to the environment of subprocesses in
    * case those subprocesses are also Bazel-built binaries that need to use runfiles.
    */
-  public abstract Map<String, String> getEnvVars();
+  public Map<String, String> getEnvVars() {
+    return preloadedRunfiles.getEnvVars();
+  }
 
   /**
    * Returns true if the platform supports runfiles only via manifests.
@@ -343,7 +343,7 @@ public abstract class Runfiles {
     return value;
   }
 
-  private static Map<RepoMappingKey, String> loadRepositoryMapping(String path)
+  private static Map<Preloaded.RepoMappingKey, String> loadRepositoryMapping(String path)
       throws IOException {
     if (path == null) {
       return Collections.emptyMap();
@@ -361,38 +361,62 @@ public abstract class Runfiles {
             return split;
           })
           .collect(Collectors.toMap(
-              split -> new RepoMappingKey(split[0], split[1]),
+              split -> new Preloaded.RepoMappingKey(split[0], split[1]),
               split -> split[2])));
     }
   }
 
-  abstract String rlocationChecked(String path);
-
   /**
    * {@link Runfiles} implementation that parses a runfiles-manifest file to look up runfiles.
    */
-  private static final class ManifestBased extends Runfiles {
+  private static final class ManifestBased extends Runfiles.Preloaded {
 
     private final Map<String, String> runfiles;
     private final String manifestPath;
+    private final Map<RepoMappingKey, String> repoMapping;
 
-    ManifestBased(String manifestPath, String sourceRepository) throws IOException {
-      super(findRepositoryMapping(manifestPath), sourceRepository);
+    ManifestBased(String manifestPath) throws IOException {
       Util.checkArgument(manifestPath != null);
       Util.checkArgument(!manifestPath.isEmpty());
       this.manifestPath = manifestPath;
       this.runfiles = loadRunfiles(manifestPath);
-    }
-
-    private ManifestBased(ManifestBased existing, String sourceRepository) {
-      super(existing, sourceRepository);
-      this.manifestPath = existing.manifestPath;
-      this.runfiles = existing.runfiles;
+      this.repoMapping = loadRepositoryMapping(findRepositoryMapping(manifestPath));
     }
 
     @Override
-    public Runfiles withSourceRepository(String sourceRepository) {
-      return new ManifestBased(this, sourceRepository);
+    protected String rlocationChecked(String path) {
+      String exactMatch = runfiles.get(path);
+      if (exactMatch != null) {
+        return exactMatch;
+      }
+      // If path references a runfile that lies under a directory that itself is a runfile, then
+      // only the directory is listed in the manifest. Look up all prefixes of path in the manifest
+      // and append the relative path from the prefix if there is a match.
+      int prefixEnd = path.length();
+      while ((prefixEnd = path.lastIndexOf('/', prefixEnd - 1)) != -1) {
+        String prefixMatch = runfiles.get(path.substring(0, prefixEnd));
+        if (prefixMatch != null) {
+          return prefixMatch + '/' + path.substring(prefixEnd + 1);
+        }
+      }
+      return null;
+    }
+
+    @Override
+    protected Map<String, String> getEnvVars() {
+      HashMap<String, String> result = new HashMap<>(4);
+      result.put("RUNFILES_MANIFEST_ONLY", "1");
+      result.put("RUNFILES_MANIFEST_FILE", manifestPath);
+      String runfilesDir = findRunfilesDir(manifestPath);
+      result.put("RUNFILES_DIR", runfilesDir);
+      // TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can pick up RUNFILES_DIR.
+      result.put("JAVA_RUNFILES", runfilesDir);
+      return result;
+    }
+
+    @Override
+    protected Map<RepoMappingKey, String> getRepoMapping() {
+      return repoMapping;
     }
 
     private static Map<String, String> loadRunfiles(String path) throws IOException {
@@ -434,61 +458,40 @@ public abstract class Runfiles {
       }
       return null;
     }
-
-    @Override
-    public String rlocationChecked(String path) {
-      String exactMatch = runfiles.get(path);
-      if (exactMatch != null) {
-        return exactMatch;
-      }
-      // If path references a runfile that lies under a directory that itself is a runfile, then
-      // only the directory is listed in the manifest. Look up all prefixes of path in the manifest
-      // and append the relative path from the prefix if there is a match.
-      int prefixEnd = path.length();
-      while ((prefixEnd = path.lastIndexOf('/', prefixEnd - 1)) != -1) {
-        String prefixMatch = runfiles.get(path.substring(0, prefixEnd));
-        if (prefixMatch != null) {
-          return prefixMatch + '/' + path.substring(prefixEnd + 1);
-        }
-      }
-      return null;
-    }
-
-    @Override
-    public Map<String, String> getEnvVars() {
-      HashMap<String, String> result = new HashMap<>(4);
-      result.put("RUNFILES_MANIFEST_ONLY", "1");
-      result.put("RUNFILES_MANIFEST_FILE", manifestPath);
-      String runfilesDir = findRunfilesDir(manifestPath);
-      result.put("RUNFILES_DIR", runfilesDir);
-      // TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can pick up RUNFILES_DIR.
-      result.put("JAVA_RUNFILES", runfilesDir);
-      return result;
-    }
   }
 
   /**
    * {@link Runfiles} implementation that appends runfiles paths to the runfiles root.
    */
-  private static final class DirectoryBased extends Runfiles {
+  private static final class DirectoryBased extends Preloaded {
 
     private final String runfilesRoot;
+    private final Map<RepoMappingKey, String> repoMapping;
 
-    DirectoryBased(String runfilesDir, String sourceRepository) throws IOException {
-      super(findRepositoryMapping(runfilesDir), sourceRepository);
+    DirectoryBased(String runfilesDir) throws IOException {
       Util.checkArgument(!Util.isNullOrEmpty(runfilesDir));
       Util.checkArgument(new File(runfilesDir).isDirectory());
       this.runfilesRoot = runfilesDir;
-    }
-
-    private DirectoryBased(DirectoryBased existing, String sourceRepository) {
-      super(existing, sourceRepository);
-      this.runfilesRoot = existing.runfilesRoot;
+      this.repoMapping = loadRepositoryMapping(findRepositoryMapping(runfilesRoot));
     }
 
     @Override
-    public Runfiles withSourceRepository(String sourceRepository) {
-      return new DirectoryBased(this, sourceRepository);
+    protected String rlocationChecked(String path) {
+      return runfilesRoot + "/" + path;
+    }
+
+    @Override
+    protected Map<RepoMappingKey, String> getRepoMapping() {
+      return repoMapping;
+    }
+
+    @Override
+    protected Map<String, String> getEnvVars() {
+      HashMap<String, String> result = new HashMap<>(2);
+      result.put("RUNFILES_DIR", runfilesRoot);
+      // TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can pick up RUNFILES_DIR.
+      result.put("JAVA_RUNFILES", runfilesRoot);
+      return result;
     }
 
     private static String findRepositoryMapping(String runfilesRoot) {
@@ -500,29 +503,13 @@ public abstract class Runfiles {
       }
       return null;
     }
-
-    @Override
-    String rlocationChecked(String path) {
-      return runfilesRoot + "/" + path;
-    }
-
-    @Override
-    public Map<String, String> getEnvVars() {
-      HashMap<String, String> result = new HashMap<>(2);
-      result.put("RUNFILES_DIR", runfilesRoot);
-      // TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can pick up RUNFILES_DIR.
-      result.put("JAVA_RUNFILES", runfilesRoot);
-      return result;
-    }
   }
 
-  static Runfiles createManifestBasedForTesting(String manifestPath, String sourceRepository)
-      throws IOException {
-    return new ManifestBased(manifestPath, sourceRepository);
+  static Preloaded createManifestBasedForTesting(String manifestPath) throws IOException {
+    return new ManifestBased(manifestPath);
   }
 
-  static Runfiles createDirectoryBasedForTesting(String runfilesDir, String sourceRepository)
-      throws IOException {
-    return new DirectoryBased(runfilesDir, sourceRepository);
+  static Preloaded createDirectoryBasedForTesting(String runfilesDir) throws IOException {
+    return new DirectoryBased(runfilesDir);
   }
 }
