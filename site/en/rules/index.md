@@ -14,7 +14,6 @@ This page describes the recommended, native, and non-native Bazel rules.
 Here is a selection of recommended rules:
 
 * [Android](/docs/bazel-and-android)
-* [Boost](https://github.com/nelhage/rules_boost){: .external}
 * [C / C++](/docs/bazel-and-cpp)
 * [Docker](https://github.com/bazelbuild/rules_docker){: .external}
 * [Go](https://github.com/bazelbuild/rules_go){: .external}
