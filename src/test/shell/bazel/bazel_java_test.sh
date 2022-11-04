@@ -1820,10 +1820,13 @@ package com.example;
 
 import com.google.devtools.build.runfiles.AutoBazelRepository;
 
-@AutoBazelRepository
 public class Binary {
+  @AutoBazelRepository
+  private static class Class1 {
+  }
+
   public static void main(String[] args) {
-    System.out.printf("in pkg/Binary.java: '%s'%n", AutoBazelRepository_Binary.NAME);
+    System.out.printf("in pkg/Binary.java: '%s'%n", AutoBazelRepository_Binary_Class1.NAME);
     Library.printRepositoryName();
   }
 }
@@ -1834,10 +1837,15 @@ package com.example;
 
 import com.google.devtools.build.runfiles.AutoBazelRepository;
 
-@AutoBazelRepository
 public class Test {
+  private static class Class1 {
+    @AutoBazelRepository
+    private static class Class2 {
+    }
+  }
+
   public static void main(String[] args) {
-    System.out.printf("in pkg/Test.java: '%s'%n", AutoBazelRepository_Test.NAME);
+    System.out.printf("in pkg/Test.java: '%s'%n", AutoBazelRepository_Test_Class1_Class2.NAME);
     Library.printRepositoryName();
   }
 }
@@ -1894,11 +1902,12 @@ EOF
 package com.example;
 
 import com.google.devtools.build.runfiles.AutoBazelRepository;
+import static com.example.AutoBazelRepository_Binary.NAME;
 
 @AutoBazelRepository
 public class Binary {
   public static void main(String[] args) {
-    System.out.printf("in external/other_repo/pkg/Binary.java: '%s'%n", AutoBazelRepository_Binary.NAME);
+    System.out.printf("in external/other_repo/pkg/Binary.java: '%s'%n", NAME);
     Library2.printRepositoryName();
     Library.printRepositoryName();
   }

@@ -35,8 +35,10 @@ import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic.Kind;
 
 @SupportedAnnotationTypes("com.google.devtools.build.runfiles.AutoBazelRepository")
-@SupportedOptions("bazel.repository")
+@SupportedOptions(AutoBazelRepositoryProcessor.BAZEL_REPOSITORY_OPTION)
 public final class AutoBazelRepositoryProcessor extends AbstractProcessor {
+
+  static final String BAZEL_REPOSITORY_OPTION = "bazel.repository";
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
@@ -53,9 +55,16 @@ public final class AutoBazelRepositoryProcessor extends AbstractProcessor {
   }
 
   private void emitClass(TypeElement annotatedClass) {
-    // This option is always provided by JavaBuilder.
-    String repositoryName = processingEnv.getOptions()
-        .getOrDefault("bazel.repository", "for testing only");
+    // This option is always provided by the Java rule implementations.
+    if (!processingEnv.getOptions().containsKey(BAZEL_REPOSITORY_OPTION)) {
+      processingEnv.getMessager().printMessage(Kind.ERROR, String.format(
+          "The %1$s annotation processor option is not set. To use this annotation processor, "
+              + "provide the canonical repository name of the current target as the value of the "
+              + "-A%1$s flag.",
+          BAZEL_REPOSITORY_OPTION), annotatedClass);
+      return;
+    }
+    String repositoryName = processingEnv.getOptions().get(BAZEL_REPOSITORY_OPTION);
     if (repositoryName == null) {
       // javac translates '-Abazel.repository=' into a null value.
       // https://github.com/openjdk/jdk/blob/7a49c9baa1d4ad7df90e7ca626ec48ba76881822/src/jdk.compiler/share/classes/com/sun/tools/javac/processing/JavacProcessingEnvironment.java#L651
