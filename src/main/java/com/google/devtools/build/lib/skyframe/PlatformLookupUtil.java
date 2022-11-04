@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -51,7 +52,7 @@ public class PlatformLookupUtil {
       return null;
     }
 
-    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(platformKeys);
+    SkyframeLookupResult values = env.getValuesAndExceptions(platformKeys);
     boolean valuesMissing = env.valuesMissing();
     Map<ConfiguredTargetKey, PlatformInfo> platforms = valuesMissing ? null : new HashMap<>();
     for (ConfiguredTargetKey key : platformKeys) {
@@ -80,12 +81,13 @@ public class PlatformLookupUtil {
             .map(PackageValue::key)
             .collect(toImmutableSet());
 
-    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(packageKeys);
+    SkyframeLookupResult values = env.getValuesAndExceptions(packageKeys);
     boolean valuesMissing = env.valuesMissing();
     Map<PackageIdentifier, Package> packages = valuesMissing ? null : new HashMap<>();
-    while (values.hasNext()) {
+    for (PackageValue.Key packageKey : packageKeys) {
       try {
-        PackageValue packageValue = (PackageValue) values.nextOrThrow(NoSuchPackageException.class);
+        PackageValue packageValue =
+            (PackageValue) values.getOrThrow(packageKey, NoSuchPackageException.class);
         if (!valuesMissing && packageValue != null) {
           packages.put(packageValue.getPackage().getPackageIdentifier(), packageValue.getPackage());
         }
@@ -125,13 +127,13 @@ public class PlatformLookupUtil {
    * InvalidPlatformException} is thrown.
    */
   @Nullable
-  private static PlatformInfo findPlatformInfo(
-      ConfiguredTargetKey key, SkyframeIterableResult values) throws InvalidPlatformException {
-
+  private static PlatformInfo findPlatformInfo(ConfiguredTargetKey key, SkyframeLookupResult values)
+      throws InvalidPlatformException {
     try {
       ConfiguredTargetValue ctv =
           (ConfiguredTargetValue)
-              values.nextOrThrow(
+              values.getOrThrow(
+                  key,
                   ConfiguredValueCreationException.class,
                   NoSuchThingException.class,
                   ActionConflictException.class);
@@ -189,10 +191,6 @@ public class PlatformLookupUtil {
 
     public InvalidPlatformException(Label label, ActionConflictException e) {
       super(formatError(label, DEFAULT_ERROR), e);
-    }
-
-    InvalidPlatformException(Label label, String error) {
-      super(formatError(label, error));
     }
 
     @Override

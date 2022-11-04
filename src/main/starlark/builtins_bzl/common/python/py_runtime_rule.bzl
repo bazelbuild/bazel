@@ -14,6 +14,7 @@
 """Implementation of py_runtime rule."""
 
 load(":common/paths.bzl", "paths")
+load(":common/python/providers.bzl", "DEFAULT_STUB_SHEBANG")
 
 _PyRuntimeInfo = _builtins.toplevel.PyRuntimeInfo
 
@@ -169,9 +170,7 @@ value.
             """,
         ),
         "stub_shebang": attr.string(
-            # TODO(b/254866025): Have PyRuntimeInfo and this use a shared
-            # constant
-            default = "#!/usr/bin/env python3",
+            default = DEFAULT_STUB_SHEBANG,
             doc = """
 "Shebang" expression prepended to the bootstrapping Python stub script
 used when executing `py_binary` targets.

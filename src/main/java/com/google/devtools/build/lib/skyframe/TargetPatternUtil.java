@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -49,14 +49,14 @@ public class TargetPatternUtil {
 
     Iterable<TargetPatternKey> targetPatternKeys =
         TargetPatternValue.keys(targetPatterns, filteringPolicy);
-    SkyframeIterableResult resolvedPatterns = env.getOrderedValuesAndExceptions(targetPatternKeys);
+    SkyframeLookupResult resolvedPatterns = env.getValuesAndExceptions(targetPatternKeys);
     boolean valuesMissing = env.valuesMissing();
     ImmutableList.Builder<Label> labels = valuesMissing ? null : new ImmutableList.Builder<>();
 
     for (TargetPatternKey pattern : targetPatternKeys) {
-      TargetPatternValue value;
       try {
-        value = (TargetPatternValue) resolvedPatterns.nextOrThrow(TargetParsingException.class);
+        TargetPatternValue value =
+            (TargetPatternValue) resolvedPatterns.getOrThrow(pattern, TargetParsingException.class);
         if (!valuesMissing && value != null) {
           labels.addAll(value.getTargets().getTargets());
         }
@@ -101,8 +101,8 @@ public class TargetPatternUtil {
   // TODO(bazel-team): Consolidate this and TargetParsingException. Just have the latter store the
   //   original unparsed pattern too.
   public static final class InvalidTargetPatternException extends Exception {
-    private String invalidPattern;
-    private TargetParsingException tpe;
+    private final String invalidPattern;
+    private final TargetParsingException tpe;
 
     public InvalidTargetPatternException(String invalidPattern, TargetParsingException tpe) {
       super(tpe);

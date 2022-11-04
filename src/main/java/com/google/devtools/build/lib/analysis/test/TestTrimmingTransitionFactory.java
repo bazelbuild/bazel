@@ -13,9 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -25,11 +29,11 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.common.options.Options;
 
 /**
@@ -39,6 +43,9 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
 
   private static final ImmutableSet<String> TEST_OPTIONS =
       ImmutableSet.copyOf(Options.getDefaults(TestOptions.class).asMap().keySet());
+
+  private static final Label TRANSITIVE_CONFIG_TO_TRIGGER_SKIP =
+      Label.parseCanonicalUnchecked("//command_line_option/fragment:test");
 
   /**
    * Trimming transition which removes the test config fragment if --trim_test_configuration is on.
@@ -109,6 +116,10 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
       return NoTransition.INSTANCE;
     }
 
+    // TODO(blaze-configurability-team): Needing special logic for config_setting implies
+    //   getConfigurationFragmentPolicy is not accurate for config_setting, which is bad.
+    // That said, config_setting on test options should be banned regardless of what rule type
+    // consumes them.
     for (String referencedOptions : ruleClass.getOptionReferenceFunction().apply(ruleData.rule())) {
       if (TEST_OPTIONS.contains(referencedOptions)) {
         // Test-option-referencing config_setting; no need to trim here.
@@ -117,11 +128,22 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
     }
 
     // Non-test rule. Trim it!
-    // Use an attribute mapper to ensure testonly is resolved to an actual boolean value.
-    // It is expected all rules should have a boolean testonly value so the `has` check is only
-    //   there as an over-abundance of caution.
+    // Use an attribute mapper to ensure attributes are resolved to expected types
+    // these attributes are defined in BaseRuleClasses
     NonconfigurableAttributeMapper attrs = NonconfigurableAttributeMapper.of(ruleData.rule());
-    if (attrs.has("testonly", Type.BOOLEAN) && attrs.get("testonly", Type.BOOLEAN)) {
+
+    // Skip trimming when transitive_configs has magic value.
+    if (attrs.has(BaseRuleClasses.TAGGED_TRIMMING_ATTR, NODEP_LABEL_LIST)) {
+      for (Label entry : attrs.get(BaseRuleClasses.TAGGED_TRIMMING_ATTR, NODEP_LABEL_LIST)) {
+        if (entry.equals(TRANSITIVE_CONFIG_TO_TRIGGER_SKIP)) {
+          return NoTransition.INSTANCE;
+        }
+      }
+    }
+
+    // Only skip testonly = true when --experimental_retain_test_configuration_across_testonly
+    //   so have to defer decision until actually have a config.
+    if (attrs.has("testonly", BOOLEAN) && attrs.get("testonly", BOOLEAN)) {
       return TestTrimmingTransition.TESTONLY_TRUE;
     }
     return TestTrimmingTransition.TESTONLY_FALSE;

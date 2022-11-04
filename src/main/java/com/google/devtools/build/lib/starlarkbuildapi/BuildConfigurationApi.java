@@ -80,4 +80,16 @@ public interface BuildConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "is_tool_configuration", documented = false, useStarlarkThread = true)
   boolean isToolConfigurationForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "has_separate_genfiles_directory",
+      documented = false,
+      useStarlarkThread = true)
+  boolean hasSeparateGenfilesDirectoryForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "is_sibling_repository_layout",
+      documented = false,
+      useStarlarkThread = true)
+  boolean isSiblingRepositoryLayoutForStarlark(StarlarkThread thread) throws EvalException;
 }
