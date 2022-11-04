@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
@@ -314,11 +315,26 @@ public class RemoteCacheTest {
 
     Deque<SettableFuture<Void>> futures = new ConcurrentLinkedDeque<>();
     CountDownLatch uploadBlobCalls = new CountDownLatch(2);
+    CountDownLatch futuresCancelled = new CountDownLatch(2);
+
     doAnswer(
             invocationOnMock -> {
               SettableFuture<Void> future = SettableFuture.create();
               futures.add(future);
               uploadBlobCalls.countDown();
+              Futures.addCallback(
+                future,
+                new FutureCallback<Void>() {
+                  @Override
+                  public void onSuccess(Void unused) {}
+
+                  @Override
+                  public void onFailure(Throwable t) {
+                      futuresCancelled.countDown();
+                  }
+                },
+                MoreExecutors.directExecutor()
+              );
               return future;
             })
         .when(cacheProtocol)
@@ -355,19 +371,17 @@ public class RemoteCacheTest {
     // act
     thread.start();
     uploadBlobCalls.await();
+
     assertThat(futures).hasSize(2);
     assertThat(remoteCache.casUploadCache.getInProgressTasks()).isNotEmpty();
 
     thread.interrupt();
     ensureInputsPresentReturned.await();
+    futuresCancelled.await(50L, TimeUnit.MILLISECONDS);
 
     // assert
     assertThat(remoteCache.casUploadCache.getInProgressTasks()).isEmpty();
     assertThat(remoteCache.casUploadCache.getFinishedTasks()).isEmpty();
-    for (SettableFuture<Void> future : futures) {
-      System.err.println("future: " + future.toString());
-      assertThat(future.isCancelled()).isTrue();
-    }
   }
 
   @Test
