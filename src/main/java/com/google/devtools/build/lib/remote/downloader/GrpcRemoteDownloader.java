@@ -21,6 +21,7 @@ import build.bazel.remote.asset.v1.FetchGrpc.FetchBlockingStub;
 import build.bazel.remote.asset.v1.Qualifier;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
@@ -41,7 +42,6 @@ import io.grpc.Channel;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.URI;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
@@ -110,7 +110,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   @Override
   public void download(
       List<URL> urls,
-      Map<URI, Map<String, List<String>>> authHeaders,
+      Credentials credentials,
       com.google.common.base.Optional<Checksum> checksum,
       String canonicalId,
       Path destination,
@@ -154,7 +154,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       eventHandler.handle(
           Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
       fallbackDownloader.download(
-          urls, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv, type);
+          urls, credentials, checksum, canonicalId, destination, eventHandler, clientEnv, type);
     }
   }
 

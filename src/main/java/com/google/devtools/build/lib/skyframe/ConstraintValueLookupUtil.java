@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -36,7 +37,7 @@ public class ConstraintValueLookupUtil {
       Iterable<ConfiguredTargetKey> constraintValueKeys, Environment env)
       throws InterruptedException, InvalidConstraintValueException {
 
-    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(constraintValueKeys);
+    SkyframeLookupResult values = env.getValuesAndExceptions(constraintValueKeys);
     boolean valuesMissing = env.valuesMissing();
     List<ConstraintValueInfo> constraintValues = valuesMissing ? null : new ArrayList<>();
     for (ConfiguredTargetKey key : constraintValueKeys) {
@@ -59,13 +60,12 @@ public class ConstraintValueLookupUtil {
    */
   @Nullable
   private static ConstraintValueInfo findConstraintValueInfo(
-      ConfiguredTargetKey key, SkyframeIterableResult values)
-      throws InvalidConstraintValueException {
-
+      ConfiguredTargetKey key, SkyframeLookupResult values) throws InvalidConstraintValueException {
     try {
       ConfiguredTargetValue ctv =
           (ConfiguredTargetValue)
-              values.nextOrThrow(
+              values.getOrThrow(
+                  key,
                   ConfiguredValueCreationException.class,
                   NoSuchThingException.class,
                   ActionConflictException.class);

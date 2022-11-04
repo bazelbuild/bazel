@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKe
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import javax.annotation.Nullable;
 
 /**
@@ -103,7 +103,7 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
     RepositoryMapping mainRepoMapping = repositoryMappingValue.getRepositoryMapping();
     ImmutableList<SkyKey> skyKeys = getSkyKeys(skyKey, eventHandler, mainRepoMapping);
 
-    SkyframeIterableResult tokensByKey = env.getOrderedValuesAndExceptions(skyKeys);
+    SkyframeLookupResult tokensByKey = env.getValuesAndExceptions(skyKeys);
     if (env.valuesMissing()) {
       return null;
     }
@@ -111,7 +111,8 @@ public class PrepareDepsOfPatternsFunction implements SkyFunction {
     for (SkyKey key : skyKeys) {
       try {
         SkyValue value =
-            tokensByKey.nextOrThrow(
+            tokensByKey.getOrThrow(
+                key,
                 TargetParsingException.class,
                 ProcessPackageDirectoryException.class,
                 InconsistentFilesystemException.class);

@@ -44,7 +44,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -189,14 +189,14 @@ public class RegisteredToolchainsFunction implements SkyFunction {
                         .build())
             .collect(toImmutableList());
 
-    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(keys);
+    SkyframeLookupResult values = env.getValuesAndExceptions(keys);
     ImmutableList.Builder<DeclaredToolchainInfo> toolchains = new ImmutableList.Builder<>();
     boolean valuesMissing = false;
     for (SkyKey key : keys) {
       ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) key.argument();
       Label toolchainLabel = configuredTargetKey.getLabel();
       try {
-        SkyValue value = values.nextOrThrow(ConfiguredValueCreationException.class);
+        SkyValue value = values.getOrThrow(key, ConfiguredValueCreationException.class);
         if (value == null) {
           valuesMissing = true;
           continue;

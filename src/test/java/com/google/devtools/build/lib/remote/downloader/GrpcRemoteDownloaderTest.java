@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
@@ -66,7 +67,6 @@ import io.grpc.util.MutableHandlerRegistry;
 import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
@@ -172,7 +172,6 @@ public class GrpcRemoteDownloaderTest {
       guavaChecksum = com.google.common.base.Optional.<Checksum>of(checksum.get());
     }
 
-    final ImmutableMap<URI, Map<String, List<String>>> authHeaders = ImmutableMap.of();
     final String canonicalId = "";
     final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
     final Map<String, String> clientEnv = ImmutableMap.of();
@@ -181,7 +180,7 @@ public class GrpcRemoteDownloaderTest {
     final Path destination = scratch.resolve("output file path");
     downloader.download(
         urls,
-        authHeaders,
+        StaticCredentials.EMPTY,
         guavaChecksum,
         canonicalId,
         destination,
