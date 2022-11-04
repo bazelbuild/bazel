@@ -222,8 +222,8 @@ public class Package {
   /** The list of transitive closure of the Starlark file dependencies. */
   private ImmutableList<Label> starlarkFileDependencies;
 
-  /** The package's default "applicable_licenses" attribute. */
-  private Set<Label> defaultApplicableLicenses = ImmutableSet.of();
+  /** The package's default "package_metadata" attribute. */
+  private ImmutableSet<Label> defaultPackageMetadata = ImmutableSet.of();
 
   /**
    * The package's default "licenses" and "distribs" attributes, as specified
@@ -480,7 +480,7 @@ public class Package {
     this.starlarkFileDependencies = builder.starlarkFileDependencies;
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
-    this.defaultApplicableLicenses = ImmutableSortedSet.copyOf(builder.defaultApplicableLicenses);
+    this.defaultPackageMetadata = ImmutableSortedSet.copyOf(builder.defaultPackageMetadata);
     this.features = ImmutableSortedSet.copyOf(builder.features);
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
@@ -799,9 +799,9 @@ public class Package {
     return defaultVisibilitySet;
   }
 
-  /** Gets the licenses list for the default applicable_licenses declared by this package. */
-  public Set<Label> getDefaultApplicableLicenses() {
-    return defaultApplicableLicenses;
+  /** Gets the package metadata list for the default metadata declared by this package. */
+  public Set<Label> getDefaultPackageMetadata() {
+    return defaultPackageMetadata;
   }
 
   /** Gets the parsed license object for the default license declared by this package. */
@@ -1024,7 +1024,7 @@ public class Package {
     // serialize events emitted during its construction/evaluation.
     @Nullable private FailureDetail failureDetailOverride = null;
 
-    private ImmutableList<Label> defaultApplicableLicenses = ImmutableList.of();
+    private ImmutableList<Label> defaultPackageMetadata = ImmutableList.of();
     private License defaultLicense = License.NO_LICENSE;
     private Set<License.DistributionType> defaultDistributionSet = License.DEFAULT_DISTRIB;
 
@@ -1431,16 +1431,16 @@ public class Package {
      * attribute when not explicitly specified by the rule. Records a package error if any labels
      * are duplicated.
      */
-    void setDefaultApplicableLicenses(List<Label> licenses, String attrName, Location location) {
+    void setDefaultPackageMetadata(List<Label> licenses, String attrName, Location location) {
       if (hasDuplicateLabels(
           licenses, "package " + pkg.getName(), attrName, location, this::addEvent)) {
         setContainsErrors();
       }
-      this.defaultApplicableLicenses = ImmutableList.copyOf(licenses);
+      this.defaultPackageMetadata = ImmutableList.copyOf(licenses);
     }
 
-    ImmutableList<Label> getDefaultApplicableLicenses() {
-      return defaultApplicableLicenses;
+    ImmutableList<Label> getDefaultPackageMetadata() {
+      return defaultPackageMetadata;
     }
 
     /**

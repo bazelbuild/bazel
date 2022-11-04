@@ -2237,9 +2237,6 @@ public class RuleClass {
 
       } else if (attr.getName().equals(APPLICABLE_LICENSES_ATTR)
           && attr.getType() == BuildType.LABEL_LIST) {
-        // TODO(b/149505729): Determine the right semantics for someone trying to define their own
-        // attribute named applicable_licenses.
-        //
         // The check here is preventing against an corner case where the license() rule can get
         // itself as an applicable_license. This breaks the graph because there is now a self-edge.
         //
@@ -2262,26 +2259,10 @@ public class RuleClass {
         // have the self-edge problem, they would get all default_applicable_licenses and now the
         // graph is inconsistent in that some license() rules have applicable_licenses while others
         // do not.
-        //
-        // Another possible workaround is to leverage the fact that license() rules instantiated
-        // before the package() rule will not get default_applicable_licenses applied, and the
-        // self-edge problem cannot occur in that case. The semantics for how package() should
-        // impact rules instantiated prior are not clear and not well understood. If this
-        // modification is distasteful, leveraging the package() behavior and clarifying the
-        // semantics is an option. It's not recommended since BUILD files are not thought to be
-        // order-dependent, but they have always been, so fixing that behavior may be more important
-        // than some unfortunate code here.
-        //
-        // Breaking the encapsulation to recognize license() rules and treat them uniformly results
-        // fixes the self-edge problem and results in the simplest, semantically
-        // correct graph.
-        //
-        // TODO(b/183637322) consider this further
-        if (rule.getRuleClassObject().isBazelLicense()) {
+        if (rule.getRuleClassObject().isPackageMetadataRule()) {
           // Do nothing
         } else {
-          rule.setAttributeValue(
-              attr, pkgBuilder.getDefaultApplicableLicenses(), /*explicit=*/ false);
+          rule.setAttributeValue(attr, pkgBuilder.getDefaultPackageMetadata(), /*explicit=*/ false);
         }
 
       } else if (attr.getName().equals("licenses") && attr.getType() == BuildType.LICENSE) {
@@ -2714,10 +2695,36 @@ public class RuleClass {
         && packageIdentifier.getPackageFragment().isMultiSegment();
   }
 
-  // Returns true if this rule is a license() rule as defined in
-  // https://docs.google.com/document/d/1uwBuhAoBNrw8tmFs-NxlssI6VRolidGYdYqagLqHWt8/edit#
-  // TODO(b/183637322) consider this further
-  public boolean isBazelLicense() {
-    return name.equals("_license") && hasAttr("license_kinds", BuildType.LABEL_LIST);
+  /**
+   * Returns true if this rule is a <code>license()</code> as described in
+   * https://docs.google.com/document/d/1uwBuhAoBNrw8tmFs-NxlssI6VRolidGYdYqagLqHWt8/edit# or
+   * similar metadata.
+   *
+   * <p>The intended use is to detect if this rule is of a type which would be used in <code>
+   * default_package_metadata</code>, so that we don't apply it to an instanced of itself when
+   * <code>applicable_licenses</code> is left unset. Doing so causes a self-referential loop. To
+   * prevent that, we are overly cautious at this time, treating all rules from <code>@rules_license
+   * </code> as potential metadata rules.
+   *
+   * <p>Most users will only use declarations from <code>@rules_license</code>. If they which to
+   * create organization local rules, they must be careful to avoid loops by explicitly setting
+   * <code>applicable_licenses</code> on each of the metadata targets they define, so that default
+   * processing is not an issue.
+   */
+  public boolean isPackageMetadataRule() {
+    // If it was not defined in Starlark, it can not be a new style package metadata rule.
+    if (ruleDefinitionEnvironmentLabel == null) {
+      return false;
+    }
+    if (ruleDefinitionEnvironmentLabel.getRepository().getName().equals("rules_license")) {
+      // For now, we treat all rules in rules_license as potenial metadate rules.
+      // In the future we should add a way to disambiguate the two. The least invasive
+      // thing is to add a hidden attribute to mark metadata rules. That attribute
+      // could have a default value referencing @rules_license//<something>. That style
+      // of checking would allow users to apply it to their own metadata rules. We are
+      // not building it today because the exact needs are not clear.
+      return true;
+    }
+    return false;
   }
 }
