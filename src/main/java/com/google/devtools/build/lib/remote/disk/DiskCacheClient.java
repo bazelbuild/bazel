@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote.disk;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -149,10 +150,16 @@ public class DiskCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
-      RemoteActionExecutionContext context, Iterable<Digest> digests) {
-    // Both upload and download check if the file exists before doing I/O. So we don't
-    // have to do it here.
-    return Futures.immediateFuture(ImmutableSet.copyOf(digests));
+      RemoteActionExecutionContext context, Intention intention, Iterable<Digest> digests) {
+    ImmutableSet.Builder<Digest> missingDigests = ImmutableSet.builder();
+
+    for (Digest digest : digests) {
+      if (!toPath(digest.getHash(), /* actionResult= */ false).exists()) {
+        missingDigests.add(digest);
+      }
+    }
+
+    return Futures.immediateFuture(missingDigests.build());
   }
 
   protected Path toPathNoSplit(String key) {

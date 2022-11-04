@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -614,6 +615,8 @@ public class RemoteSpawnCacheTest {
     RemoteSpawnCache cache = remoteSpawnCacheWithOptions(remoteOptions);
 
     ActionResult success = ActionResult.newBuilder().setExitCode(0).build();
+    when(remoteCache.findMissingDigests(any(), any(), any()))
+        .thenReturn(Futures.immediateFuture(ImmutableSet.of()));
     when(remoteCache.downloadActionResult(
             any(RemoteActionExecutionContext.class), any(), /* inlineOutErr= */ eq(false)))
         .thenReturn(CachedActionResult.remote(success));
@@ -640,6 +643,8 @@ public class RemoteSpawnCacheTest {
     IOException downloadFailure = new IOException("downloadMinimal failed");
 
     ActionResult success = ActionResult.newBuilder().setExitCode(0).build();
+    when(remoteCache.findMissingDigests(any(), any(), any()))
+        .thenReturn(Futures.immediateFuture(ImmutableSet.of()));
     when(remoteCache.downloadActionResult(
             any(RemoteActionExecutionContext.class), any(), /* inlineOutErr= */ eq(false)))
         .thenReturn(CachedActionResult.remote(success));

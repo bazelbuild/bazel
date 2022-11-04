@@ -21,11 +21,29 @@ import com.google.common.util.concurrent.ListenableFuture;
 public interface MissingDigestsFinder {
 
   /**
+   * The intention for the requested digests.
+   */
+  enum Intention {
+    /**
+     * Intents to read the requested digests. In case of a combined cache, the implementation should
+     * return the intersection of missing digests from each cache component because a following read
+     * operation on the digests could return the content.
+     */
+    READ,
+    /**
+     * Intents to upload for the missing digests. In case of a combined cache, the implementation
+     * should return the union of missing digests from each cache component so an upload will occur
+     * later to make sure the digest are stored on each cache component.
+     */
+    WRITE;
+  }
+
+  /**
    * Returns a set of digests that the remote cache does not know about. The returned set is
    * guaranteed to be a subset of {@code digests}.
    *
    * @param digests The list of digests to look for.
    */
   ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
-      RemoteActionExecutionContext context, Iterable<Digest> digests);
+      RemoteActionExecutionContext context, Intention intention, Iterable<Digest> digests);
 }

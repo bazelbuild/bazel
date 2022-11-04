@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.remote.common.MissingDigestsFinder.Intention;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -231,11 +232,13 @@ public class RemoteCacheTest {
     Path file = execRoot.getRelative("file");
 
     getFromFuture(remoteCache.uploadBlob(context, emptyDigest, ByteString.EMPTY));
-    assertThat(getFromFuture(remoteCache.findMissingDigests(context, ImmutableSet.of(emptyDigest))))
+    assertThat(getFromFuture(
+        remoteCache.findMissingDigests(context, Intention.WRITE, ImmutableSet.of(emptyDigest))))
         .containsExactly(emptyDigest);
 
     getFromFuture(remoteCache.uploadFile(context, emptyDigest, file));
-    assertThat(getFromFuture(remoteCache.findMissingDigests(context, ImmutableSet.of(emptyDigest))))
+    assertThat(getFromFuture(
+        remoteCache.findMissingDigests(context, Intention.WRITE, ImmutableSet.of(emptyDigest))))
         .containsExactly(emptyDigest);
   }
 
@@ -279,15 +282,17 @@ public class RemoteCacheTest {
         .when(remoteCacheClient)
         .uploadFile(any(), any(), any());
     doAnswer(
-            invocationOnMock ->
-                inMemoryCacheClient.findMissingDigests(
-                    invocationOnMock.getArgument(0), invocationOnMock.getArgument(1)))
+        invocationOnMock ->
+            inMemoryCacheClient.findMissingDigests(
+                invocationOnMock.getArgument(0), invocationOnMock.getArgument(1),
+                invocationOnMock.getArgument(2)))
         .when(remoteCacheClient)
-        .findMissingDigests(any(), any());
+        .findMissingDigests(any(), any(), any());
     RemoteCache remoteCache = newRemoteCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
-    assertThat(getFromFuture(remoteCache.findMissingDigests(context, ImmutableList.of(digest))))
+    assertThat(getFromFuture(
+        remoteCache.findMissingDigests(context, Intention.WRITE, ImmutableList.of(digest))))
         .containsExactly(digest);
 
     Exception thrown = null;
@@ -300,7 +305,8 @@ public class RemoteCacheTest {
     assertThat(thrown).isInstanceOf(IOException.class);
     getFromFuture(remoteCache.uploadFile(context, digest, file));
 
-    assertThat(getFromFuture(remoteCache.findMissingDigests(context, ImmutableList.of(digest))))
+    assertThat(getFromFuture(
+        remoteCache.findMissingDigests(context, Intention.WRITE, ImmutableList.of(digest))))
         .isEmpty();
   }
 
@@ -384,7 +390,7 @@ public class RemoteCacheTest {
               return findMissingDigestsFuture;
             })
         .when(remoteCache)
-        .findMissingDigests(any(), any());
+        .findMissingDigests(any(), any(), any());
     Deque<SettableFuture<Void>> futures = new ConcurrentLinkedDeque<>();
     CountDownLatch uploadBlobCalls = new CountDownLatch(2);
     doAnswer(

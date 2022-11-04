@@ -688,7 +688,10 @@ public final class HttpCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
-      RemoteActionExecutionContext context, Iterable<Digest> digests) {
+      RemoteActionExecutionContext context, Intention intention, Iterable<Digest> digests) {
+    if (intention == Intention.READ) {
+      throw new UnsupportedOperationException("HttpCache doesn't supported findMissingDigests.");
+    }
     return Futures.immediateFuture(ImmutableSet.copyOf(digests));
   }
 

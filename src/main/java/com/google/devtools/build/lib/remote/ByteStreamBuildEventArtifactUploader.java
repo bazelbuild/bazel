@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.remote.common.MissingDigestsFinder.Intention;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
 import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
@@ -247,7 +248,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     if (digestsToQuery.isEmpty()) {
       return Single.just(knownRemotePaths);
     }
-    return toSingle(() -> remoteCache.findMissingDigests(context, digestsToQuery), executor)
+    return toSingle(() -> remoteCache.findMissingDigests(context, Intention.WRITE, digestsToQuery), executor)
         .onErrorResumeNext(
             error -> {
               reporterUploadError(error);

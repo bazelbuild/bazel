@@ -22,6 +22,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.RemoteCache.createFailureDetail;
+import static com.google.devtools.build.lib.remote.RemoteCacheClientFactory.isHttpCache;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
@@ -86,6 +87,8 @@ import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultM
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.FileMetadata;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.SymlinkMetadata;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.MissingDigestsFinder.Intention;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
@@ -144,6 +147,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -514,27 +518,35 @@ public class RemoteExecutionService {
     private final ActionResult actionResult;
     @Nullable private final ExecuteResponse executeResponse;
     @Nullable private final String cacheName;
+    @Nullable private final ActionResultMetadata metadata;
+
+    public static RemoteActionResult createFromCache(CachedActionResult cachedActionResult) {
+      return createFromCache(cachedActionResult, /* metadata= */ null);
+    }
 
     /** Creates a new {@link RemoteActionResult} instance from a cached result. */
-    public static RemoteActionResult createFromCache(CachedActionResult cachedActionResult) {
+    public static RemoteActionResult createFromCache(CachedActionResult cachedActionResult,
+        @Nullable ActionResultMetadata metadata) {
       checkArgument(cachedActionResult != null, "cachedActionResult is null");
       return new RemoteActionResult(
-          cachedActionResult.actionResult(), null, cachedActionResult.cacheName());
+          cachedActionResult.actionResult(), null, cachedActionResult.cacheName(), metadata);
     }
 
     /** Creates a new {@link RemoteActionResult} instance from a execute response. */
     public static RemoteActionResult createFromResponse(ExecuteResponse response) {
       checkArgument(response.hasResult(), "response doesn't have result");
-      return new RemoteActionResult(response.getResult(), response, /* cacheName */ null);
+      return new RemoteActionResult(response.getResult(), response, /* cacheName= */ null, /* metadata= */ null);
     }
 
     public RemoteActionResult(
         ActionResult actionResult,
         @Nullable ExecuteResponse executeResponse,
-        @Nullable String cacheName) {
+        @Nullable String cacheName,
+        @Nullable ActionResultMetadata metadata) {
       this.actionResult = actionResult;
       this.executeResponse = executeResponse;
       this.cacheName = cacheName;
+      this.metadata = metadata;
     }
 
     /** Returns the exit code of remote executed action. */
@@ -560,6 +572,15 @@ public class RemoteExecutionService {
 
     public List<OutputSymlink> getOutputDirectorySymlinks() {
       return actionResult.getOutputDirectorySymlinksList();
+    }
+
+    public ActionResult getActionResult() {
+      return actionResult;
+    }
+
+    @Nullable
+    public ActionResultMetadata getActionResultMetadata() {
+      return metadata;
     }
 
     /**
@@ -631,21 +652,73 @@ public class RemoteExecutionService {
   @Nullable
   public RemoteActionResult lookupCache(RemoteAction action)
       throws IOException, InterruptedException {
-    checkState(
-        action.getRemoteActionExecutionContext().getReadCachePolicy().allowAnyCache(),
-        "spawn doesn't accept cached result");
+    RemoteActionExecutionContext context = action.getRemoteActionExecutionContext();
+    checkState(context.getReadCachePolicy().allowAnyCache(), "spawn doesn't accept cached result");
 
-    CachedActionResult cachedActionResult =
-        remoteCache.downloadActionResult(
-            action.getRemoteActionExecutionContext(),
-            action.getActionKey(),
-            /* inlineOutErr= */ false);
+    CachedActionResult cachedActionResult = remoteCache.downloadActionResult(context,
+        action.getActionKey(), /* inlineOutErr= */ false);
 
     if (cachedActionResult == null) {
       return null;
     }
 
+    if (shouldCheckReferencedFiles(cachedActionResult.actionResult())) {
+      // Check whether all the referenced files are available in the remote cache, otherwise, we
+      // consider it as cache miss.
+      try {
+        ActionResultMetadata metadata;
+        try (SilentCloseable c = Profiler.instance().profile("Remote.parseActionResultMetadata")) {
+          metadata = parseActionResultMetadata(context, cachedActionResult.actionResult());
+        }
+        ImmutableSet<Digest> missingDigests = getFromFuture(
+            remoteCache.findMissingDigests(context, Intention.READ,
+                () -> Stream.concat(metadata.files.values().stream(),
+                        metadata.directories.values().stream().flatMap(dir -> dir.files.stream()))
+                    .map(file -> file.digest).iterator()));
+        if (!missingDigests.isEmpty()) {
+          // Some referenced files are missing, ignore the cached action result to rerun the spawn.
+          return null;
+        }
+        return RemoteActionResult.createFromCache(cachedActionResult, metadata);
+      } catch (CacheNotFoundException e) {
+        return null;
+      } catch (BulkTransferException e) {
+        if (e.onlyCausedByCacheNotFoundException()) {
+          return null;
+        }
+        throw e;
+      }
+    }
+
     return RemoteActionResult.createFromCache(cachedActionResult);
+  }
+
+  /**
+   * Returns {@code true} if it should also check whether all references files in the action result
+   * are available in the remote cache to call it a cache-hit.
+   */
+  private boolean shouldCheckReferencedFiles(ActionResult actionResult) {
+    // No need to check failed action result since we will rerun the generating spawn anyway.
+    if (actionResult.getExitCode() != 0) {
+      return false;
+    }
+
+    // Only need to check for Build without the Bytes. In the normal mode, we download all the
+    // referenced files immediately, so any missing files wil be detected and the action result is
+    // ignored. The generating spawn will be re-executed. However, for Build without the Bytes, we
+    // don't download the referenced files within spawn execution. If any download attempt later
+    // fails due to file not found, we cannot rerun the generating spawns at that moment. So we need
+    // to check the existence of referenced files now.
+    if (remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
+      return false;
+    }
+
+    // HttpCache doesn't support `findMissingDigests` so we can't check.
+    if (isHttpCache(remoteOptions)) {
+      return false;
+    }
+
+    return true;
   }
 
   private ListenableFuture<FileMetadata> downloadFile(
@@ -921,13 +994,13 @@ public class RemoteExecutionService {
   }
 
   ActionResultMetadata parseActionResultMetadata(
-      RemoteActionExecutionContext context, RemoteActionResult result)
+      RemoteActionExecutionContext context, ActionResult result)
       throws IOException, InterruptedException {
     checkNotNull(remoteCache, "remoteCache can't be null");
 
     Map<Path, ListenableFuture<Tree>> dirMetadataDownloads =
         Maps.newHashMapWithExpectedSize(result.getOutputDirectoriesCount());
-    for (OutputDirectory dir : result.getOutputDirectories()) {
+    for (OutputDirectory dir : result.getOutputDirectoriesList()) {
       dirMetadataDownloads.put(
           remotePathResolver.outputPathToLocalPath(encodeBytestringUtf8(dir.getPath())),
           Futures.transformAsync(
@@ -953,7 +1026,7 @@ public class RemoteExecutionService {
     }
 
     ImmutableMap.Builder<Path, FileMetadata> files = ImmutableMap.builder();
-    for (OutputFile outputFile : result.getOutputFiles()) {
+    for (OutputFile outputFile : result.getOutputFilesList()) {
       Path localPath =
           remotePathResolver.outputPathToLocalPath(encodeBytestringUtf8(outputFile.getPath()));
       files.put(
@@ -963,7 +1036,7 @@ public class RemoteExecutionService {
 
     ImmutableMap.Builder<Path, SymlinkMetadata> symlinks = ImmutableMap.builder();
     Iterable<OutputSymlink> outputSymlinks =
-        Iterables.concat(result.getOutputFileSymlinks(), result.getOutputDirectorySymlinks());
+        Iterables.concat(result.getOutputFileSymlinksList(), result.getOutputDirectorySymlinksList());
     for (OutputSymlink symlink : outputSymlinks) {
       Path localPath =
           remotePathResolver.outputPathToLocalPath(encodeBytestringUtf8(symlink.getPath()));
@@ -999,9 +1072,11 @@ public class RemoteExecutionService {
       context = context.withReadCachePolicy(context.getReadCachePolicy().addRemoteCache());
     }
 
-    ActionResultMetadata metadata;
-    try (SilentCloseable c = Profiler.instance().profile("Remote.parseActionResultMetadata")) {
-      metadata = parseActionResultMetadata(context, result);
+    ActionResultMetadata metadata = result.getActionResultMetadata();
+    if (metadata == null) {
+      try (SilentCloseable c = Profiler.instance().profile("Remote.parseActionResultMetadata")) {
+        metadata = parseActionResultMetadata(context, result.getActionResult());
+      }
     }
 
     FileOutErr outErr = action.getSpawnExecutionContext().getFileOutErr();

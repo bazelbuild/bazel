@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.remote.common.MissingDigestsFinder.Intention;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
@@ -465,7 +466,7 @@ public class UploadManifest {
 
     String outputPrefix = "cas/";
     Flowable<RxUtils.TransferResult> bulkTransfers =
-        toSingle(() -> remoteCache.findMissingDigests(context, digests), directExecutor())
+        toSingle(() -> remoteCache.findMissingDigests(context, Intention.WRITE, digests), directExecutor())
             .doOnSubscribe(d -> reportUploadStarted(reporter, action, outputPrefix, digests))
             .doOnError(error -> reportUploadFinished(reporter, action, outputPrefix, digests))
             .doOnDispose(() -> reportUploadFinished(reporter, action, outputPrefix, digests))

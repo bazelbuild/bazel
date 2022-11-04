@@ -33,6 +33,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.common.MissingDigestsFinder.Intention;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -252,7 +253,7 @@ public class RemoteExecutionCache extends RemoteCache {
                                   if (digestsToQuery.isEmpty()) {
                                     return immediateFuture(ImmutableSet.of());
                                   }
-                                  return findMissingDigests(context, digestsToQuery);
+                                  return findMissingDigests(context, Intention.WRITE, digestsToQuery);
                                 },
                                 directExecutor())
                             .map(
