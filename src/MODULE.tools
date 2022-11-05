@@ -33,3 +33,7 @@ register_toolchains("@local_config_sh//:local_sh_toolchain")
 
 remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
+
+android_tools_extension = use_extension("//tools/android:extensions.bzl", "android_tools_extension")
+use_repo(android_tools_extension, "android_tools")
+use_repo(android_tools_extension, "android_gmaven_r8")
