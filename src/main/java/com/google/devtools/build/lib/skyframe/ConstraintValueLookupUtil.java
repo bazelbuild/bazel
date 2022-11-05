@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,7 +53,7 @@ public class ConstraintValueLookupUtil {
 
   /**
    * Returns the {@link ConstraintValueInfo} provider from the {@link ConfiguredTarget} in the
-   * {@link SkyframeIterableResult}, or {@code null} if the {@link ConfiguredTarget} is not present.
+   * {@link SkyframeLookupResult}, or {@code null} if the {@link ConfiguredTarget} is not present.
    * If the {@link ConfiguredTarget} does not have a {@link ConstraintValueInfo} provider, a {@link
    * InvalidConstraintValueException} is thrown.
    */
