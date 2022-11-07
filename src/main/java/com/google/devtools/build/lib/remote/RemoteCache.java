@@ -130,9 +130,6 @@ public class RemoteCache extends AbstractReferenceCounted {
   /** Upload the action result to the remote cache. */
   public ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
-    Preconditions.checkState(
-        actionCacheSupportsUpdate(),
-        "Cannot upload action result to remote cache that does not support action cache updates");
 
     Completable upload =
         RxFutures.toCompletable(
