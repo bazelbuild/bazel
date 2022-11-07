@@ -21,8 +21,9 @@ import javax.annotation.Nullable;
 
 /**
  * Helper to check if requested nodes are done in the graph. The only method {@link
- * #declareDependenciesAndCheckIfValuesMissing} calls {@link SkyframeIterableResult} and checks that
- * all nodes are done, either with values or expected exceptions.
+ * #declareDependenciesAndCheckIfValuesMissing} calls {@link
+ * SkyFunction.Environment#getValuesAndExceptions} and checks that all nodes are done, either with
+ * values or expected exceptions.
  *
  * <p>Only use this helper if you know what you are doing! Most Skyframe users should not need to
  * call it.

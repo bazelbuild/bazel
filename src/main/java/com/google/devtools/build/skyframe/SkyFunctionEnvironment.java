@@ -545,43 +545,6 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     return this;
   }
 
-  @Override
-  public SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
-      throws InterruptedException {
-    getValuesAndExceptions(depKeys);
-
-    Iterator<? extends SkyKey> it = depKeys.iterator();
-    return new SkyframeIterableResult() {
-      @Override
-      public boolean hasNext() {
-        return it.hasNext();
-      }
-
-      @Nullable
-      @Override
-      public <
-              E1 extends Exception,
-              E2 extends Exception,
-              E3 extends Exception,
-              E4 extends Exception>
-          SkyValue nextOrThrow(
-              @Nullable Class<E1> exceptionClass1,
-              @Nullable Class<E2> exceptionClass2,
-              @Nullable Class<E3> exceptionClass3,
-              @Nullable Class<E4> exceptionClass4)
-              throws E1, E2, E3, E4 {
-        SkyKey key = it.next();
-        return unwrapOrThrow(
-            key,
-            maybeGetValueFromErrorOrDeps(key),
-            exceptionClass1,
-            exceptionClass2,
-            exceptionClass3,
-            exceptionClass4);
-      }
-    };
-  }
-
   @CanIgnoreReturnValue
   private SkyValue processDepEntry(SkyKey depKey, @Nullable NodeEntry depEntry)
       throws InterruptedException {

@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelperImpl;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
@@ -226,8 +225,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
-                    new BzlmodRepoRuleFunction(
-                        ruleClassProvider, directories, new BzlmodRepoRuleHelperImpl()))
+                    new BzlmodRepoRuleFunction(ruleClassProvider, directories))
                 .put(
                     SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
                     new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))

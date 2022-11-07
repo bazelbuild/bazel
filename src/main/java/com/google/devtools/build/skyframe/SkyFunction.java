@@ -242,23 +242,13 @@ public interface SkyFunction {
         throws InterruptedException;
 
     /**
-     * Similar to {@link #getValuesAndExceptions}, but returns a {@link SkyframeIterableResult},
-     * which contains the results in the same order as {@code depKeys}.
-     *
-     * <p>Prefer {@link #getValuesAndExceptions} at it creates slightly less garbage.
-     */
-    // TODO(jhorvitz): Delete this method now that it has no benefit over getValuesAndExceptions.
-    SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
-        throws InterruptedException;
-
-    /**
      * Returns whether there was a previous getValue[s][OrThrow] that indicated a missing
      * dependency. Formally, returns true iff at least one of the following occurred:
      *
      * <ul>
      *   <li>getValue[OrThrow](k[, c]) returned {@code null} for some k
      *   <li>A call to result#next[OrThrow]([c]) returned {@code null} where result =
-     *       getOrderedValuesAndExceptions(ks) for some ks
+     *       getValuesAndExceptions(ks) for some ks
      *   <li>A call to result#get[OrThrow](k[, c]) returned {@code null} where result =
      *       getValuesAndExceptions(ks) for some ks
      * </ul>

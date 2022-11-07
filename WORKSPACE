@@ -394,23 +394,6 @@ dist_http_archive(
     name = "io_bazel_skydoc",
 )
 
-# Stardoc recommends declaring its dependencies via "*_dependencies" functions.
-# This requires that the repositories these functions come from need to be
-# fetched unconditionally for everything (including just building bazel!), so
-# provide them as http_archives that can be shiped in the distdir, to keep the
-# distribution archive self-contained.
-dist_http_archive(
-    name = "io_bazel_rules_sass",
-)
-
-dist_http_archive(
-    name = "rules_nodejs",
-)
-
-dist_http_archive(
-    name = "build_bazel_rules_nodejs",
-)
-
 dist_http_archive(
     name = "platforms",
 )
@@ -620,22 +603,6 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
 
 stardoc_repositories()
-
-load("@io_bazel_rules_sass//:package.bzl", "rules_sass_dependencies")
-
-rules_sass_dependencies()
-
-load("@build_bazel_rules_nodejs//:repositories.bzl", "build_bazel_rules_nodejs_dependencies")
-
-build_bazel_rules_nodejs_dependencies()
-
-load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories")
-
-node_repositories()
-
-load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
-
-sass_repositories()
 
 register_execution_platforms("//:default_host_platform")  # buildozer: disable=positional-args
 

@@ -67,7 +67,6 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeS
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -428,9 +427,9 @@ public class BuildDriverFunction implements SkyFunction {
   /**
    * Declares dependencies and checks values for requested nodes in the graph.
    *
-   * <p>Calls {@link SkyframeIterableResult} and iterates over the result. If any node is not done,
-   * or during iteration any value has exception, {@link SkyFunction.Environment#valuesMissing} will
-   * return true.
+   * <p>Calls {@link SkyFunction.Environment#getValuesAndExceptions} and iterates over the result.
+   * If any node is not done, or during iteration any value has exception, {@link
+   * SkyFunction.Environment#valuesMissing} will return true.
    */
   private static void declareDependenciesAndCheckValues(
       Environment env, Iterable<? extends SkyKey> skyKeys) throws InterruptedException {
