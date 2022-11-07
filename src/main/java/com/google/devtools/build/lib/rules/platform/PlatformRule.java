@@ -56,7 +56,8 @@ public class PlatformRule implements RuleDefinition {
         .add(
             attr(CONSTRAINT_VALUES_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ConstraintValueInfo.PROVIDER.id()))
+                .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
+                .nonconfigurable("Part of the configuration"))
 
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(parents) -->
         The label of a <code>platform</code> target that this platform should inherit from. Although
@@ -67,7 +68,8 @@ public class PlatformRule implements RuleDefinition {
         .add(
             attr(PARENTS_PLATFORM_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(PlatformInfo.PROVIDER.id()))
+                .mandatoryProviders(PlatformInfo.PROVIDER.id())
+                .nonconfigurable("Part of the configuration"))
 
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(remote_execution_properties) -->
         DEPRECATED. Please use exec_properties attribute instead.
