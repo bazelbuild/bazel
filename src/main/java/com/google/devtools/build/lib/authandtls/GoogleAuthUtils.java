@@ -26,10 +26,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
-import io.grpc.auth.MoreCallCredentials;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
@@ -205,22 +203,6 @@ public final class GoogleAuthUtils {
     }
 
     return newUnixNettyChannelBuilder(proxy).overrideAuthority(targetUrl);
-  }
-
-  /**
-   * Create a new {@link CallCredentials} object from the authentication flags, or null if no flags
-   * are set.
-   *
-   * @throws IOException in case the credentials can't be constructed.
-   */
-  @Nullable
-  public static CallCredentials newGoogleCallCredentials(AuthAndTLSOptions options)
-      throws IOException {
-    Optional<Credentials> creds = newGoogleCredentials(options);
-    if (creds.isPresent()) {
-      return MoreCallCredentials.from(creds.get());
-    }
-    return null;
   }
 
   /**
