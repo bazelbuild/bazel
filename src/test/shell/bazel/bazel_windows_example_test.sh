@@ -106,6 +106,8 @@ function test_cpp() {
   test -f ./bazel-bin/${cpp_pkg}/hello-world.pdb \
     && fail "PDB file should not be generated in OPT mode"
   assert_build ${cpp_pkg}:hello-world
+  test -f ./bazel-bin/${cpp_pkg}/hello-world.pdb \
+    || fail "PDB file should be generated"
   ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
     || fail "./bazel-bin/${cpp_pkg}/hello-world foo execution failed"
   expect_log "Hello foo"

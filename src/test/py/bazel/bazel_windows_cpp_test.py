@@ -476,7 +476,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         'main/BUILD',
         [
             'cc_binary(',
-            '  name = "main.dll",',
+            '  name = "main",',
             '  srcs = ["main.cc"],',
             '  deps = ["//:B"],',  # Transitively depends on //:A
             '  linkstatic = 0,'
