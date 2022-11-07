@@ -134,20 +134,13 @@ public final class RunfilesSupport {
 
     Artifact repoMappingManifest =
         createRepoMappingManifestAction(ruleContext, runfiles, owningExecutable);
-    if (repoMappingManifest != null) {
-      runfiles = new Runfiles.Builder(ruleContext.getWorkspaceName(),
-          ruleContext.getConfiguration().legacyExternalRunfiles())
-          .merge(runfiles)
-          .addRootSymlink(PathFragment.create("_repo_mapping"), repoMappingManifest)
-          .build();
-    }
 
     Artifact runfilesInputManifest;
     Artifact runfilesManifest;
     if (createManifest) {
       runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext, owningExecutable);
-      runfilesManifest =
-          createRunfilesAction(ruleContext, runfiles, buildRunfileLinks, runfilesInputManifest);
+      runfilesManifest = createRunfilesAction(ruleContext, runfiles, buildRunfileLinks,
+          runfilesInputManifest, repoMappingManifest);
     } else {
       runfilesInputManifest = null;
       runfilesManifest = null;
@@ -395,7 +388,8 @@ public final class RunfilesSupport {
       ActionConstructionContext context,
       Runfiles runfiles,
       boolean createSymlinks,
-      Artifact inputManifest) {
+      Artifact inputManifest,
+      @Nullable Artifact repoMappingManifest) {
     // Compute the names of the runfiles directory and its MANIFEST file.
     context
         .getAnalysisEnvironment()
@@ -405,6 +399,7 @@ public final class RunfilesSupport {
                 context.getActionOwner(),
                 inputManifest,
                 runfiles,
+                repoMappingManifest,
                 context.getConfiguration().remotableSourceManifestActions()));
 
     if (!createSymlinks) {
@@ -431,7 +426,8 @@ public final class RunfilesSupport {
                 inputManifest,
                 runfiles,
                 outputManifest,
-                /*filesetRoot=*/ null));
+                repoMappingManifest,
+                /*filesetRoot=*/  null));
     return outputManifest;
   }
 

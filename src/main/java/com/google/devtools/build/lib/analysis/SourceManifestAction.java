@@ -61,7 +61,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
 
   private static final Comparator<Map.Entry<PathFragment, Artifact>> ENTRY_COMPARATOR =
       (path1, path2) -> path1.getKey().getPathString().compareTo(path2.getKey().getPathString());
-
+  private final Artifact repoMappingManifest;
   /**
    * Interface for defining manifest formatting and reporting specifics. Implementations must be
    * immutable.
@@ -118,28 +118,32 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   @VisibleForTesting
   SourceManifestAction(
       ManifestWriter manifestWriter, ActionOwner owner, Artifact primaryOutput, Runfiles runfiles) {
-    this(manifestWriter, owner, primaryOutput, runfiles, /*remotableSourceManifestActions=*/ false);
+    this(manifestWriter, owner, primaryOutput, runfiles, /*remotableSourceManifestActions=*/ null,
+        false);
   }
 
   /**
    * Creates a new AbstractSourceManifestAction instance using latin1 encoding to write the manifest
    * file and with a specified root path for manifest entries.
    *
-   * @param manifestWriter the strategy to use to write manifest entries
-   * @param owner the action owner
-   * @param primaryOutput the file to which to write the manifest
-   * @param runfiles runfiles
+   * @param manifestWriter      the strategy to use to write manifest entries
+   * @param owner               the action owner
+   * @param primaryOutput       the file to which to write the manifest
+   * @param runfiles            runfiles
+   * @param repoMappingManifest the repository mapping manifest for runfiles
    */
   public SourceManifestAction(
       ManifestWriter manifestWriter,
       ActionOwner owner,
       Artifact primaryOutput,
       Runfiles runfiles,
+      @Nullable Artifact repoMappingManifest,
       boolean remotableSourceManifestActions) {
     // The real set of inputs is computed in #getInputs().
     super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput, false);
     this.manifestWriter = manifestWriter;
     this.runfiles = runfiles;
+    this.repoMappingManifest = repoMappingManifest;
     this.remotableSourceManifestActions = remotableSourceManifestActions;
   }
 
@@ -180,7 +184,8 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   @VisibleForTesting
   public void writeOutputFile(OutputStream out, @Nullable EventHandler eventHandler)
       throws IOException {
-    writeFile(out, runfiles.getRunfilesInputs(eventHandler, getOwner().getLocation()));
+    writeFile(out,
+        runfiles.getRunfilesInputs(eventHandler, getOwner().getLocation(), repoMappingManifest));
   }
 
   /**
@@ -201,8 +206,8 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    final Map<PathFragment, Artifact> runfilesInputs =
-        runfiles.getRunfilesInputs(ctx.getEventHandler(), getOwner().getLocation());
+    final Map<PathFragment, Artifact> runfilesInputs = runfiles.getRunfilesInputs(
+        ctx.getEventHandler(), getOwner().getLocation(), repoMappingManifest);
     return out -> writeFile(out, runfilesInputs);
   }
 
@@ -247,6 +252,10 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
     fp.addString(GUID);
     fp.addBoolean(remotableSourceManifestActions);
     runfiles.fingerprint(fp);
+    fp.addBoolean(repoMappingManifest != null);
+    if (repoMappingManifest != null) {
+      fp.addPath(repoMappingManifest.getExecPath());
+    }
   }
 
   @Override
