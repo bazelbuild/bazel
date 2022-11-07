@@ -323,7 +323,10 @@ public class RemoteServerCapabilitiesTest {
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
-    assertThat(st.isOk()).isTrue();
+    assertThat(st.getErrors()).isEmpty();
+    assertThat(st.getWarnings()).hasSize(1);
+    assertThat(st.getWarnings().get(0))
+        .contains("remote cache does not support uploading action results");
 
     // Ignored when no local upload.
     remoteOptions.remoteUploadLocalResults = false;
@@ -419,7 +422,10 @@ public class RemoteServerCapabilitiesTest {
             remoteOptions,
             DigestFunction.Value.SHA256,
             ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
-    assertThat(st.isOk()).isTrue();
+    assertThat(st.getErrors()).isEmpty();
+    assertThat(st.getWarnings()).hasSize(1);
+    assertThat(st.getWarnings().get(0))
+        .contains("remote cache does not support uploading action results");
 
     // Ignored when no fallback.
     remoteOptions.remoteLocalFallback = false;
@@ -429,7 +435,10 @@ public class RemoteServerCapabilitiesTest {
             remoteOptions,
             DigestFunction.Value.SHA256,
             ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
-    assertThat(st.isOk()).isTrue();
+    assertThat(st.getErrors()).isEmpty();
+    assertThat(st.getWarnings()).hasSize(1);
+    assertThat(st.getWarnings().get(0))
+        .contains("remote cache does not support uploading action results");
 
     // Ignored when no uploading local results.
     remoteOptions.remoteLocalFallback = true;
