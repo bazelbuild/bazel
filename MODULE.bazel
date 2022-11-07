@@ -1,10 +1,8 @@
-# To build Bazel with Bzlmod
-# 1. Copy WORKSPACE.bzlmod to replace the original WORKSPACE file.
-# 2. Run `bazel build --experimental_enable_bzlmod //src:bazel_nojdk`.
+# To build Bazel with Bzlmod: `bazel build --enable_bzlmod //src:bazel_nojdk`.
 
 module(
     name = "bazel",
-    version = "6.0.0-pre",
+    version = "7.0.0-pre",
     repo_name = "io_bazel",
 )
 

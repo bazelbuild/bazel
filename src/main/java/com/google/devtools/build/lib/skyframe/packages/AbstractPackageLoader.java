@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelperImpl;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -500,8 +499,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(getExternalPackageHelper()))
         .put(
             BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
-            new BzlmodRepoRuleFunction(
-                ruleClassProvider, directories, new BzlmodRepoRuleHelperImpl()))
+            new BzlmodRepoRuleFunction(ruleClassProvider, directories))
         .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction())
         .put(
             SkyFunctions.PACKAGE,

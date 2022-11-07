@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.Map;
@@ -122,7 +121,7 @@ public class PlatformLookupUtil {
 
   /**
    * Returns the {@link PlatformInfo} provider from the {@link ConfiguredTarget} in the {@link
-   * SkyframeIterableResult}, or {@code null} if the {@link ConfiguredTarget} is not present. If the
+   * SkyframeLookupResult}, or {@code null} if the {@link ConfiguredTarget} is not present. If the
    * {@link ConfiguredTarget} does not have a {@link PlatformInfo} provider, a {@link
    * InvalidPlatformException} is thrown.
    */

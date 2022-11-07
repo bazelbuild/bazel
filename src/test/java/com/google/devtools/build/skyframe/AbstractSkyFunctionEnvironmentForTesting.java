@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -75,13 +74,5 @@ public abstract class AbstractSkyFunctionEnvironmentForTesting
       throws InterruptedException {
     Map<SkyKey, ValueOrUntypedException> valuesOrExceptions = getValueOrUntypedExceptions(depKeys);
     return new SimpleSkyframeLookupResult(() -> valuesMissing = true, valuesOrExceptions::get);
-  }
-
-  @Override
-  public final SkyframeIterableResult getOrderedValuesAndExceptions(
-      Iterable<? extends SkyKey> depKeys) throws InterruptedException {
-    List<ValueOrUntypedException> valuesOrExceptions = getOrderedValueOrUntypedExceptions(depKeys);
-    Iterator<ValueOrUntypedException> valuesOrExceptionsi = valuesOrExceptions.iterator();
-    return new SimpleSkyframeIterableResult(() -> valuesMissing = true, valuesOrExceptionsi);
   }
 }

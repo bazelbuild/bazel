@@ -292,7 +292,7 @@ public class BuildView {
               e.getMessage());
       throw new ViewCreationFailedException(
           errorMessage,
-          createFailureDetail(errorMessage, Analysis.Code.UNEXPECTED_ANALYSIS_EXCEPTION),
+          createAnalysisFailureDetail(errorMessage, Analysis.Code.UNEXPECTED_ANALYSIS_EXCEPTION),
           e);
     }
     ImmutableList.Builder<AspectClass> aspectClassesBuilder = ImmutableList.builder();
@@ -333,7 +333,7 @@ public class BuildView {
           String errorMessage = String.format("Invalid aspect '%s': %s", aspect, e.getMessage());
           throw new ViewCreationFailedException(
               errorMessage,
-              createFailureDetail(errorMessage, Analysis.Code.ASPECT_LABEL_SYNTAX_ERROR),
+              createAnalysisFailureDetail(errorMessage, Analysis.Code.ASPECT_LABEL_SYNTAX_ERROR),
               e);
         }
         String starlarkFunctionName = aspect.substring(delimiterPosition + 1);
@@ -347,7 +347,8 @@ public class BuildView {
         } else {
           String errorMessage = "Aspect '" + aspect + "' is unknown";
           throw new ViewCreationFailedException(
-              errorMessage, createFailureDetail(errorMessage, Analysis.Code.ASPECT_NOT_FOUND));
+              errorMessage,
+              createAnalysisFailureDetail(errorMessage, Analysis.Code.ASPECT_NOT_FOUND));
         }
       }
     }
@@ -614,8 +615,11 @@ public class BuildView {
     ImmutableSet<ConfiguredTarget> exclusiveIfLocalTests = exclusiveIfLocalTestsBuilder.build();
 
     FailureDetail failureDetail =
-        createFailureDetail(loadingResult, skyframeAnalysisResult, topLevelTargetsWithConfigs);
+        createAnalysisFailureDetail(
+            loadingResult, skyframeAnalysisResult, topLevelTargetsWithConfigs);
     if (includeExecutionPhase) {
+      SkyframeAnalysisAndExecutionResult skyframeAnalysisAndExecutionResult =
+          (SkyframeAnalysisAndExecutionResult) skyframeAnalysisResult;
       return new AnalysisAndExecutionResult(
           configurations,
           ImmutableSet.copyOf(configuredTargets),
@@ -623,6 +627,7 @@ public class BuildView {
           allTargetsToTest == null ? null : ImmutableSet.copyOf(allTargetsToTest),
           ImmutableSet.copyOf(targetsToSkip),
           failureDetail,
+          skyframeAnalysisAndExecutionResult.getRepresentativeExecutionExitCode(),
           artifactsToBuild.build(),
           parallelTests,
           exclusiveTests,
@@ -679,23 +684,12 @@ public class BuildView {
   /**
    * Check for errors in "chronological" order (acknowledge that loading and analysis are
    * interleaved, but sequential on the single target scale).
-   *
-   * <p>For Skymeld: execution errors should take precedence, since those are DetailedExceptions.
    */
   @Nullable
-  public static FailureDetail createFailureDetail(
+  public static FailureDetail createAnalysisFailureDetail(
       TargetPatternPhaseValue loadingResult,
       @Nullable SkyframeAnalysisResult skyframeAnalysisResult,
       @Nullable TopLevelTargetsAndConfigsResult topLevelTargetsAndConfigs) {
-    if (skyframeAnalysisResult instanceof SkyframeAnalysisAndExecutionResult) {
-      SkyframeAnalysisAndExecutionResult skyframeAnalysisAndExecutionResult =
-          (SkyframeAnalysisAndExecutionResult) skyframeAnalysisResult;
-      if (skyframeAnalysisAndExecutionResult.getRepresentativeExecutionExitCode() != null) {
-        return skyframeAnalysisAndExecutionResult
-            .getRepresentativeExecutionExitCode()
-            .getFailureDetail();
-      }
-    }
     if (loadingResult.hasError()) {
       return FailureDetail.newBuilder()
           .setMessage("command succeeded, but there were errors parsing the target pattern")
@@ -728,7 +722,8 @@ public class BuildView {
     return null;
   }
 
-  private static FailureDetail createFailureDetail(String errorMessage, Analysis.Code code) {
+  private static FailureDetail createAnalysisFailureDetail(
+      String errorMessage, Analysis.Code code) {
     return FailureDetail.newBuilder()
         .setMessage(errorMessage)
         .setAnalysis(Analysis.newBuilder().setCode(code))
