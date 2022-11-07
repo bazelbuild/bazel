@@ -234,6 +234,14 @@ class RemoteServerCapabilities {
                 digestFunction, cacheCap.getDigestFunctionsList()));
       }
 
+      if (remoteOptions.remoteUploadLocalResults &&
+          !cacheCap.getActionCacheUpdateCapabilities().getUpdateEnabled()) {
+        result.addWarning(
+            "--remote_upload_local_results is set, but the remote cache does not support uploading "
+                + "action results or the current account is not authorized to write local results "
+                + "to the remote cache.");
+      }
+
       if (remoteOptions.cacheCompression
           && !cacheCap.getSupportedCompressorsList().contains(Compressor.Value.ZSTD)) {
         result.addError(
