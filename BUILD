@@ -212,6 +212,7 @@ REMOTE_PLATFORMS = ("rbe_ubuntu1804_java11",)
         exec_properties = {
             "dockerNetwork": "standard",
             "dockerPrivileged": "true",
+            "Pool": "default",
         },
         parents = ["@" + platform_name + "//config:platform"],
     )
@@ -227,7 +228,7 @@ REMOTE_PLATFORMS = ("rbe_ubuntu1804_java11",)
             "//:highcpu_machine",
         ],
         exec_properties = {
-            "gceMachineType": "e2-highcpu-32",
+            "Pool": "highcpu",
         },
         parents = ["//:" + platform_name + "_platform"],
     )
