@@ -308,41 +308,6 @@ DIST_DEPS = {
             "additional_distfiles",
         ],
     },
-    # for Stardoc
-    "io_bazel_rules_sass": {
-        "archive": "1.25.0.zip",
-        "sha256": "c78be58f5e0a29a04686b628cf54faaee0094322ae0ac99da5a8a8afca59a647",
-        "strip_prefix": "rules_sass-1.25.0",
-        "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
-            "https://github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
-        ],
-        "used_in": [
-            "additional_distfiles",
-        ],
-    },
-    "build_bazel_rules_nodejs": {
-        "archive": "rules_nodejs-5.5.0.tar.gz",
-        "sha256": "0fad45a9bda7dc1990c47b002fd64f55041ea751fafc00cd34efb96107675778",
-        "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/5.5.0/rules_nodejs-5.5.0.tar.gz",
-            "https://github.com/bazelbuild/rules_nodejs/releases/download/5.5.0/rules_nodejs-5.5.0.tar.gz",
-        ],
-        "used_in": [
-            "additional_distfiles",
-        ],
-    },
-    "rules_nodejs": {
-        "archive": "rules_nodejs-core-5.5.0.tar.gz",
-        "sha256": "4d48998e3fa1e03c684e6bdf7ac98051232c7486bfa412e5b5475bbaec7bb257",
-        "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/5.5.0/rules_nodejs-core-5.5.0.tar.gz",
-            "https://github.com/bazelbuild/rules_nodejs/releases/download/5.5.0/rules_nodejs-core-5.5.0.tar.gz",
-        ],
-        "used_in": [
-            "additional_distfiles",
-        ],
-    },
     "desugar_jdk_libs": {
         # Commit 5847d6a06302136d95a14b4cbd4b55a9c9f1436e of 2021-03-10
         "archive": "5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
