@@ -191,24 +191,6 @@ java_library(
 )
 
 java_library(
-    name = "repo_rule_helper",
-    srcs = [
-        "BzlmodRepoRuleHelper.java",
-        "BzlmodRepoRuleHelperImpl.java",
-    ],
-    deps = [
-        ":common",
-        ":registry",
-        ":resolution",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "repo_rule_creator",
     srcs = ["BzlmodRepoRuleCreator.java"],
     deps = [

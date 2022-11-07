@@ -107,7 +107,6 @@ import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintS
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
-import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelperImpl;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -606,7 +605,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(externalPackageHelper));
     map.put(
         BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
-        new BzlmodRepoRuleFunction(ruleClassProvider, directories, new BzlmodRepoRuleHelperImpl()));
+        new BzlmodRepoRuleFunction(ruleClassProvider, directories));
     map.put(
         SkyFunctions.TARGET_COMPLETION,
         TargetCompletor.targetCompletionFunction(
