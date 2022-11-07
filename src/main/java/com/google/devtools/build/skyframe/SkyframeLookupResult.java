@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 
 /**
@@ -53,6 +54,7 @@ public interface SkyframeLookupResult {
    * a subtype of {@link InterruptedException}. See {@link
    * SkyFunctionException#validateExceptionType} for details.
    */
+  @CanIgnoreReturnValue
   @Nullable
   default <E extends Exception> SkyValue getOrThrow(SkyKey skyKey, Class<E> exceptionClass)
       throws E {
@@ -60,6 +62,7 @@ public interface SkyframeLookupResult {
   }
 
   /** Similar to {@link #getOrThrow(SkyKey, Class)}, but takes two exception class parameters. */
+  @CanIgnoreReturnValue
   @Nullable
   default <E1 extends Exception, E2 extends Exception> SkyValue getOrThrow(
       SkyKey skyKey, Class<E1> exceptionClass1, Class<E2> exceptionClass2) throws E1, E2 {
@@ -67,6 +70,7 @@ public interface SkyframeLookupResult {
   }
 
   /** Similar to {@link #getOrThrow(SkyKey, Class)}, but takes three exception class parameters. */
+  @CanIgnoreReturnValue
   @Nullable
   <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue getOrThrow(
       SkyKey skyKey,

@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.Version;
 import java.util.function.Supplier;
@@ -121,17 +120,6 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
     preFetch.inform();
     try {
       return delegate.getValuesAndExceptions(depKeys);
-    } finally {
-      postFetch.inform();
-    }
-  }
-
-  @Override
-  public SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
-      throws InterruptedException {
-    preFetch.inform();
-    try {
-      return delegate.getOrderedValuesAndExceptions(depKeys);
     } finally {
       postFetch.inform();
     }

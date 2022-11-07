@@ -1003,6 +1003,167 @@ def _get_public_hdrs(ctx):
                 artifact_label_map[artifact] = hdr.label
     return _map_to_list(artifact_label_map)
 
+def _report_invalid_options(cc_toolchain, cpp_config):
+    if cpp_config.grte_top() != None and cc_toolchain.sysroot == None:
+        fail("The selected toolchain does not support setting --grte_top (it doesn't specify builtin_sysroot).")
+
+def _is_repository_main(repository):
+    return repository == ""
+
+def _get_drive_str_length(path):
+    if len(path) == 0:
+        return 0
+    if path[0] == "/":
+        return 1
+    return 0
+
+def _needs_to_normalize(path):
+    dot_count = 0
+    prev_char = ""
+    for i in range(len(path)):
+        c = path[i]
+        if c == "\\":
+            return True
+        if c == "/":
+            if prev_char == "/":
+                return True
+            if dot_count == 1 or dot_count == 2:
+                return True
+        if c == ".":
+            dot_count += 1
+        else:
+            dot_count = 0
+        prev_char = c
+    if prev_char == "/" or dot_count == 1 or dot_count == 2:
+        return True
+    return False
+
+# Normalizes any '.' and '..' in-place in the segment list by shifting other segments to the
+# front. Returns the remaining number of items.
+def _remove_relative_paths(segments, is_absolute, start_index = 0):
+    segment_count = 0
+    shift = start_index
+    for i in range(start_index, len(segments)):
+        segment = segments[i]
+        if segment == ".":
+            shift += 1
+            continue
+        if segment == "..":
+            if segment_count > 0 and segments[segment_count - 1] != "..":
+                # Remove the last segment, if there is one and it is not "..". This
+                # means that the resulting path can still contain ".."
+                # segments at the beginning.
+                segment_count -= 1
+                shift += 2
+                continue
+            elif is_absolute:
+                # If this is absolute, then just pop it the ".." off and remain at root
+                shift += 1
+                continue
+        segment_count += 1
+        if shift > 0:
+            segments[i - shift] = segments[i]
+    return segment_count
+
+def _normalize(path):
+    if len(path) == 0:
+        return path
+    is_absolute = path[0] == "/"
+    result = []
+    if is_absolute:
+        result.append("/")
+    segments = path.split("/")
+    segment_count = _remove_relative_paths(segments, is_absolute)
+
+    # segment_count might not be the same as len(segments)
+    for i in range(segment_count):
+        result.append(segments[i])
+        result.append("/")
+
+    # Remove trailing "/".
+    if segment_count > 0:
+        result = result[:-1]
+    return "".join(result)
+
+def _get_relative(original, other):
+    if len(original) == 0:
+        return other
+    if len(other) == 0:
+        return original
+
+    other_drive_str_length = _get_drive_str_length(other)
+    needs_to_normalize = _needs_to_normalize(other)
+
+    # This is an absolute path, simply return it.
+    if other_drive_str_length > 0:
+        normalized_path = other
+        if needs_to_normalize:
+            normalized_path = _normalize(other)
+        return normalized_path
+    new_path = ""
+    if original.endswith("/"):
+        original = original[:-1]
+    if other.endswith("/"):
+        other = other[:-1]
+
+    new_path = original + "/" + other
+    if needs_to_normalize:
+        return _normalize(new_path)
+    return new_path
+
+def _repository_exec_path(ctx, sibling_repository_layout):
+    repository = ctx.label.workspace_name
+    if _is_repository_main(repository):
+        return ""
+    prefix = "external"
+    if sibling_repository_layout:
+        prefix = ".."
+    if repository.startswith("@"):
+        repository = repository[1:]
+    return _get_relative(prefix, repository)
+
+def _package_exec_path(ctx, package, sibling_repository_layout):
+    return _get_relative(_repository_exec_path(ctx, sibling_repository_layout), package)
+
+def _package_source_root(ctx, package, sibling_repository_layout):
+    repository = ctx.label.workspace_name
+    if _is_repository_main(repository) or sibling_repository_layout:
+        return package
+    if repository.startswith("@"):
+        repository = repository[1:]
+    return _get_relative(_get_relative("external", repository), package)
+
+def _contains_up_level_references(path):
+    return path.startswith("..") and (len(path) == 2 or path[2] == "/")
+
+def _system_include_dirs(ctx, additional_make_variable_substitutions):
+    result = []
+    sibling_repository_layout = ctx.configuration.is_sibling_repository_layout()
+    package = ctx.label.package
+    package_exec_path = _package_exec_path(ctx, package, sibling_repository_layout)
+    package_source_root = _package_source_root(ctx, package, sibling_repository_layout)
+    for include in ctx.attr.includes:
+        includes_attr = _expand(ctx, include, additional_make_variable_substitutions)
+        if includes_attr.startswith("/"):
+            continue
+        includes_path = _get_relative(package_exec_path, includes_attr)
+        if not sibling_repository_layout and _contains_up_level_references(includes_path):
+            fail("Path references a path above the execution root.", attr = "includes")
+
+        if len(includes_path) == 0:
+            fail("'" + includes_attr + "' resolves to the workspace root, which would allow this rule and all of its " +
+                 "transitive dependents to include any file in your workspace. Please include only" +
+                 " what you need", attr = "includes")
+        result.append(includes_path)
+
+        # We don't need to perform the above checks against out_includes_path again since any errors
+        # must have manifested in includesPath already.
+        out_includes_path = _get_relative(package_source_root, includes_attr)
+        if (ctx.configuration.has_separate_genfiles_directory()):
+            result.append(_get_relative(ctx.genfiles_dir.path, out_includes_path))
+        result.append(_get_relative(ctx.bin_dir.path, out_includes_path))
+    return result
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -1053,4 +1214,6 @@ cc_helper = struct(
     get_srcs = _get_srcs,
     get_private_hdrs = _get_private_hdrs,
     get_public_hdrs = _get_public_hdrs,
+    report_invalid_options = _report_invalid_options,
+    system_include_dirs = _system_include_dirs,
 )

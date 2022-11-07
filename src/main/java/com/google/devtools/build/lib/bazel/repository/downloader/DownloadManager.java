@@ -24,6 +24,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCacheHitEvent;
@@ -256,7 +257,7 @@ public class DownloadManager {
       try {
         downloader.download(
             rewrittenUrls,
-            rewrittenAuthHeaders,
+            new StaticCredentials(rewrittenAuthHeaders),
             checksum,
             canonicalId,
             destination,
@@ -337,7 +338,7 @@ public class DownloadManager {
     for (int attempt = 0; attempt <= retries; ++attempt) {
       try {
         return httpDownloader.downloadAndReadOneUrl(
-            rewrittenUrls.get(0), authHeaders, eventHandler, clientEnv);
+            rewrittenUrls.get(0), new StaticCredentials(authHeaders), eventHandler, clientEnv);
       } catch (ContentLengthMismatchException e) {
         if (attempt == retries) {
           throw e;

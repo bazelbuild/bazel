@@ -298,46 +298,11 @@ DIST_DEPS = {
         ],
     },
     "rules_pkg": {
-        "archive": "rules_pkg-0.7.0.tar.gz",
-        "sha256": "8a298e832762eda1830597d64fe7db58178aa84cd5926d76d5b744d6558941c2",
+        "archive": "rules_pkg-0.8.0.tar.gz",
+        "sha256": "eea0f59c28a9241156a47d7a8e32db9122f3d50b505fae0f33de6ce4d9b61834",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.7.0/rules_pkg-0.7.0.tar.gz",
-            "https://github.com/bazelbuild/rules_pkg/releases/download/0.7.0/rules_pkg-0.7.0.tar.gz",
-        ],
-        "used_in": [
-            "additional_distfiles",
-        ],
-    },
-    # for Stardoc
-    "io_bazel_rules_sass": {
-        "archive": "1.25.0.zip",
-        "sha256": "c78be58f5e0a29a04686b628cf54faaee0094322ae0ac99da5a8a8afca59a647",
-        "strip_prefix": "rules_sass-1.25.0",
-        "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
-            "https://github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
-        ],
-        "used_in": [
-            "additional_distfiles",
-        ],
-    },
-    "build_bazel_rules_nodejs": {
-        "archive": "rules_nodejs-5.5.0.tar.gz",
-        "sha256": "0fad45a9bda7dc1990c47b002fd64f55041ea751fafc00cd34efb96107675778",
-        "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/5.5.0/rules_nodejs-5.5.0.tar.gz",
-            "https://github.com/bazelbuild/rules_nodejs/releases/download/5.5.0/rules_nodejs-5.5.0.tar.gz",
-        ],
-        "used_in": [
-            "additional_distfiles",
-        ],
-    },
-    "rules_nodejs": {
-        "archive": "rules_nodejs-core-5.5.0.tar.gz",
-        "sha256": "4d48998e3fa1e03c684e6bdf7ac98051232c7486bfa412e5b5475bbaec7bb257",
-        "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/5.5.0/rules_nodejs-core-5.5.0.tar.gz",
-            "https://github.com/bazelbuild/rules_nodejs/releases/download/5.5.0/rules_nodejs-core-5.5.0.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.8.0/rules_pkg-0.8.0.tar.gz",
+            "https://github.com/bazelbuild/rules_pkg/releases/download/0.8.0/rules_pkg-0.8.0.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",

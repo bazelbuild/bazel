@@ -3022,7 +3022,6 @@ EOF
   bazel \
     --windows_enable_symlinks \
     build \
-    --experimental_allow_unresolved_symlinks \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     //pkg:b &>$TEST_log || fail "expected build to succeed"
@@ -3035,7 +3034,6 @@ EOF
   bazel \
     --windows_enable_symlinks \
     build \
-    --experimental_allow_unresolved_symlinks \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_merkle_tree_cache \

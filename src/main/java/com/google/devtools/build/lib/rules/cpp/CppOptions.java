@@ -615,7 +615,9 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Additional options to pass to gcc for host tools.")
+      help =
+          "Additional options to pass to the C compiler for tools built in the host or exec"
+              + " configurations.")
   public List<String> hostCoptList;
 
   @Option(
@@ -624,7 +626,9 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Additional options to pass to gcc for host tools.")
+      help =
+          "Additional options to pass to C++ compiler for tools built in the host or exec"
+              + " configurations.")
   public List<String> hostCxxoptList;
 
   @Option(
@@ -633,8 +637,32 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Additional option to pass to gcc when compiling C source files for host tools.")
+      help =
+          "Additional option to pass to the C compiler when compiling C (but not C++) source files"
+              + " in the host or exec configurations.")
   public List<String> hostConlyoptList;
+
+  @Option(
+      name = "host_per_file_copt",
+      allowMultiple = true,
+      converter = PerLabelOptions.PerLabelOptionsConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Additional options to selectively pass to the C/C++ compiler when "
+              + "compiling certain files in the host or exec configurations. "
+              + "This option can be passed multiple times. "
+              + "Syntax: regex_filter@option_1,option_2,...,option_n. Where regex_filter stands "
+              + "for a list of include and exclude regular expression patterns (Also see "
+              + "--instrumentation_filter). option_1 to option_n stand for "
+              + "arbitrary command line options. If an option contains a comma it has to be "
+              + "quoted with a backslash. Options can contain @. Only the first @ is used to "
+              + "split the string. Example: "
+              + "--host_per_file_copt=//foo/.*\\.cc,-//foo/bar\\.cc@-O0 adds the -O0 "
+              + "command line option to the gcc command line of all cc files in //foo/ "
+              + "except bar.cc.")
+  public List<PerLabelOptions> hostPerFileCoptsList;
 
   @Option(
       name = "host_linkopt",
@@ -642,7 +670,9 @@ public class CppOptions extends FragmentOptions {
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Additional option to pass to gcc when linking host tools.")
+      help =
+          "Additional option to pass to linker when linking tools in the host or exec"
+              + " configurations.")
   public List<String> hostLinkoptList;
 
   @Option(
@@ -1218,6 +1248,7 @@ public class CppOptions extends FragmentOptions {
     host.coptList = coptListBuilder.addAll(hostCoptList).build();
     host.cxxoptList = cxxoptListBuilder.addAll(hostCxxoptList).build();
     host.conlyoptList = ImmutableList.copyOf(hostConlyoptList);
+    host.perFileCopts = ImmutableList.copyOf(hostPerFileCoptsList);
     host.linkoptList = ImmutableList.copyOf(hostLinkoptList);
 
     host.useStartEndLib = useStartEndLib;
@@ -1252,6 +1283,7 @@ public class CppOptions extends FragmentOptions {
     host.hostCppCompiler = hostCppCompiler;
     host.hostCrosstoolTop = hostCrosstoolTop;
     host.hostCxxoptList = hostCxxoptList;
+    host.hostPerFileCoptsList = hostPerFileCoptsList;
     host.hostLibcTopLabel = hostLibcTopLabel;
     host.hostLinkoptList = hostLinkoptList;
 

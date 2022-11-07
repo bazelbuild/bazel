@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.lib.util.GroupedList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -236,17 +237,8 @@ public interface SkyFunction {
      * <p>Returns a {@link SkyframeLookupResult}, which allows the calling {@code SkyFunction} to
      * get a value or throw an exception per SkyKey.
      */
+    @CanIgnoreReturnValue
     SkyframeLookupResult getValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
-        throws InterruptedException;
-
-    /**
-     * Similar to {@link #getValuesAndExceptions}, but returns a {@link SkyframeIterableResult},
-     * which contains the results in the same order as {@code depKeys}.
-     *
-     * <p>Prefer {@link #getValuesAndExceptions} at it creates slightly less garbage.
-     */
-    // TODO(jhorvitz): Delete this method now that it has no benefit over getValuesAndExceptions.
-    SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
         throws InterruptedException;
 
     /**
@@ -256,7 +248,7 @@ public interface SkyFunction {
      * <ul>
      *   <li>getValue[OrThrow](k[, c]) returned {@code null} for some k
      *   <li>A call to result#next[OrThrow]([c]) returned {@code null} where result =
-     *       getOrderedValuesAndExceptions(ks) for some ks
+     *       getValuesAndExceptions(ks) for some ks
      *   <li>A call to result#get[OrThrow](k[, c]) returned {@code null} where result =
      *       getValuesAndExceptions(ks) for some ks
      * </ul>

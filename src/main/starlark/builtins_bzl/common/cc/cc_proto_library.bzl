@@ -266,8 +266,8 @@ _cc_proto_aspect = aspect(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_cc"),
         ),
         "_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
-        "_cc_toolchain_type": attr.label(default = "@bazel_tools//tools/cpp:toolchain_type"),
     },
+    toolchains = cc_helper.use_cpp_toolchain(),
 )
 
 def _impl(ctx):

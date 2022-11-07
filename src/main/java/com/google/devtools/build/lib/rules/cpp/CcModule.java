@@ -133,8 +133,9 @@ public abstract class CcModule
       ImmutableList.of(
           PackageIdentifier.createUnchecked("_builtins", ""),
           PackageIdentifier.createInMainRepo("bazel_internal/test_rules/cc"),
-          PackageIdentifier.createInMainRepo("tools/build_defs/android/dev"),
-          PackageIdentifier.createInMainRepo("tools/build_defs/android/release/blaze"),
+          PackageIdentifier.createInMainRepo("tools/build_defs/android"),
+          PackageIdentifier.createInMainRepo("third_party/bazel_rules/rules_android"),
+          PackageIdentifier.createUnchecked("build_bazel_rules_android", ""),
           PackageIdentifier.createInMainRepo("rust/private"),
           PackageIdentifier.createUnchecked("rules_rust", "rust/private"));
 

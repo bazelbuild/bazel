@@ -19,7 +19,6 @@ TESTUTIL_FILES = [
     "TrackingAwaiter.java",
     "GraphTester.java",
     "GenericFunctionException.java",
-    "SimpleSkyframeIterableResult.java",
     "SimpleSkyframeLookupResult.java",
     "SomeErrorException.java",
     "TrackingProgressReceiver.java",

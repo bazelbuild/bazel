@@ -239,8 +239,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
     @Override
     public FileStateType getType() {
-      // TODO(tjgq): Try to make this a directory to match reality. I'm not sure what might break.
-      return FileStateType.REGULAR_FILE;
+      return FileStateType.DIRECTORY;
     }
 
     @Override

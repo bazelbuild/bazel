@@ -143,7 +143,8 @@ public final class AnalysisAndExecutionPhaseRunner {
       env.getReporter().handle(Event.progress("Loading complete."));
       env.getReporter().post(new NoAnalyzeEvent());
       logger.atInfo().log("No analysis requested, so finished");
-      FailureDetail failureDetail = BuildView.createFailureDetail(loadingResult, null, null);
+      FailureDetail failureDetail =
+          BuildView.createAnalysisFailureDetail(loadingResult, null, null);
       if (failureDetail != null) {
         throw new BuildFailedException(
             failureDetail.getMessage(), DetailedExitCode.of(failureDetail));

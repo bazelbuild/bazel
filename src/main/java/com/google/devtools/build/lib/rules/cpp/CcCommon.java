@@ -397,21 +397,6 @@ public final class CcCommon implements StarlarkValue {
     return fdoContext;
   }
 
-  @StarlarkMethod(
-      name = "report_invalid_options",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-      })
-  public void reportInvalidOptionsForStarlark(StarlarkRuleContext starlarkRuleContext)
-      throws EvalException {
-    RuleContext ruleContext = starlarkRuleContext.getRuleContext();
-    reportInvalidOptions(ruleContext);
-    if (ruleContext.hasErrors()) {
-      throw new EvalException("Invalid options.");
-    }
-  }
-
   public void reportInvalidOptions(RuleContext ruleContext) {
     reportInvalidOptions(ruleContext, cppConfiguration, ccToolchain);
   }
@@ -666,12 +651,6 @@ public final class CcCommon implements StarlarkValue {
       result.add(packageFragment.getRelative("**"));
     }
     return result.build();
-  }
-
-  @StarlarkMethod(name = "system_include_dirs", structField = true, documented = false)
-  public Sequence<String> getSystemIncludeDirsForStarlark() {
-    return StarlarkList.immutableCopyOf(
-        getSystemIncludeDirs().stream().map(PathFragment::toString).collect(toImmutableList()));
   }
 
   List<PathFragment> getSystemIncludeDirs() {

@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
@@ -80,7 +81,8 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             new PrintStream(output),
             getHelper().getSkyframeExecutor(),
             env.getAccessor(),
-            ct -> env.getFwdDeps(ImmutableList.of(ct)));
+            ct -> env.getFwdDeps(ImmutableList.of(ct)),
+            RepositoryMapping.ALWAYS_FALLBACK);
     env.evaluateQuery(expression, callback);
     return Arrays.asList(output.toString().split(System.lineSeparator()));
   }

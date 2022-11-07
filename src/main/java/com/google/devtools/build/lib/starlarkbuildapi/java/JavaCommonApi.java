@@ -321,6 +321,12 @@ public interface JavaCommonApi<
         @Param(name = "actions", named = true, doc = "ctx.actions"),
         @Param(name = "jar", positional = false, named = true, doc = "The jar to run ijar on."),
         @Param(
+            name = "output",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "None"),
+        @Param(
             name = "target_label",
             positional = false,
             named = true,
@@ -338,9 +344,15 @@ public interface JavaCommonApi<
             positional = false,
             named = true,
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
-      })
+      },
+      useStarlarkThread = true)
   FileApi runIjar(
-      StarlarkActionFactoryT actions, FileT jar, Object targetLabel, JavaToolchainT javaToolchain)
+      StarlarkActionFactoryT actions,
+      FileT jar,
+      Object output,
+      Object targetLabel,
+      JavaToolchainT javaToolchain,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(

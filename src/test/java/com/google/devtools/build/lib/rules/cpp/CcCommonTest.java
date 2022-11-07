@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.List;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -550,6 +551,7 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  @Ignore("(b/484481656): Starlark does not support warnings.")
   public void testCcLibraryBadIncludesWarnedAndIgnored() throws Exception {
     checkWarning(
         "badincludes",
@@ -564,6 +566,7 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  @Ignore("(b/484481656): Starlark does not support warnings.")
   public void testCcLibraryUplevelIncludesWarned() throws Exception {
     checkWarning(
         "third_party/uplevel",
@@ -626,7 +629,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "third_party/root",
         "lib",
         // message:
-        "in includes attribute of cc_library rule //third_party/root:lib: '../..' resolves to the "
+        "attribute includes: '../..' resolves to the "
             + "workspace root, which would allow this rule and all of its transitive dependents to "
             + "include any file in your workspace. Please include only what you need",
         // build file:
@@ -751,6 +754,7 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  @Ignore("(b/484481656): Starlark does not support warnings.")
   public void testIncludeAbsoluteHeaders() throws Exception {
     checkWarning(
         "test",

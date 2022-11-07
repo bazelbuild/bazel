@@ -291,6 +291,9 @@ public class BaseRuleClasses {
   /**
    * The attribute used to list the configuration properties used by a target and its transitive
    * dependencies. Currently only supports config_feature_flag.
+   *
+   * <p>A special value of "//command_line_option/fragments:test" instructs
+   * TestTrimmingTransitionFactory to skip trimming for this rule.
    */
   public static final String TAGGED_TRIMMING_ATTR = "transitive_configs";
 

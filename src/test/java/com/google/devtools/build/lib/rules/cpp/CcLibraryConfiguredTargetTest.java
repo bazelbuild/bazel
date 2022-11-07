@@ -290,7 +290,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testFilesToBuildWithSaveFeatureState() throws Exception {
     useConfiguration("--experimental_save_feature_state");
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     Artifact archive = getBinArtifact("libhello.a", hello);
     assertThat(getFilesToBuild(hello).toList()).containsExactly(archive);
@@ -1897,7 +1896,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsCompilationContextIsNotPropagated() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
     useConfiguration("--experimental_cc_implementation_deps");
     scratch.file(
         "foo/BUILD",
@@ -1962,7 +1960,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsLinkingContextIsPropagated() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
     useConfiguration("--experimental_cc_implementation_deps");
     scratch.file(
         "foo/BUILD",
@@ -2035,7 +2032,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     if (!analysisMock.isThisBazel()) {
       return;
     }
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
     scratch.file(
         "foo/BUILD",
         "cc_library(",
@@ -2055,7 +2051,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsNotInAllowlistThrowsError() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
     if (analysisMock.isThisBazel()) {
       // In OSS usage is controlled only by a flag and not an allowlist.
       return;

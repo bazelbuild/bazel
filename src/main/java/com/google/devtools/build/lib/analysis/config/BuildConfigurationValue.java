@@ -380,6 +380,19 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return !outputDirectories.mergeGenfilesDirectory();
   }
 
+  @Override
+  public boolean hasSeparateGenfilesDirectoryForStarlark(StarlarkThread thread)
+      throws EvalException {
+    RepositoryName repository =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
+            .label()
+            .getRepository();
+    if (!"@_builtins".equals(repository.getNameWithAt())) {
+      throw Starlark.errorf("private API only for use in builtins");
+    }
+    return hasSeparateGenfilesDirectory();
+  }
+
   /**
    * Returns the directory where coverage-related artifacts and metadata files should be stored.
    * This includes for example uninstrumented class files needed for Jacoco's coverage reporting
@@ -483,6 +496,18 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
 
   public boolean isSiblingRepositoryLayout() {
     return siblingRepositoryLayout;
+  }
+
+  @Override
+  public boolean isSiblingRepositoryLayoutForStarlark(StarlarkThread thread) throws EvalException {
+    RepositoryName repository =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
+            .label()
+            .getRepository();
+    if (!"@_builtins".equals(repository.getNameWithAt())) {
+      throw Starlark.errorf("private API only for use in builtins");
+    }
+    return isSiblingRepositoryLayout();
   }
 
   /**
@@ -634,6 +659,13 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   /** Returns if we are building external runfiles symlinks using the old-style structure. */
   public boolean legacyExternalRunfiles() {
     return options.legacyExternalRunfiles;
+  }
+
+  /**
+   * Returns true if Runfiles should merge in FilesToBuild from deps when collecting data runfiles.
+   */
+  public boolean alwaysIncludeFilesToBuildInData() {
+    return options.alwaysIncludeFilesToBuildInData;
   }
 
   /**

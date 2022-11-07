@@ -1,3 +1,15 @@
+## Release 7.0.0-pre.20221026.2 (2022-11-02)
+
+```
+Baseline: b422719f35b1ae5ed5f7f83d05cd778e9c58d793
+```
+
+Important changes:
+
+  - Deletes the --extra_proguard_specs Blaze flag
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim, Olek Wojnar, Sara Adams, Xavier Bonaventura.
+
 ## Release 6.0.0-pre.20221020.1 (2022-10-27)
 
 ```

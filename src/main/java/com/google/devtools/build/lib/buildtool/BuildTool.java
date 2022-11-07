@@ -359,6 +359,15 @@ public class BuildTool {
               result, executionTool.getActionCache(), /*explanationHandler=*/ null, buildCompleted);
         }
       }
+
+      // This is the --keep_going code path: Time to throw the delayed exceptions.
+      // Keeping legacy behavior: for execution errors, keep the message of the BuildFailedException
+      // empty.
+      if (analysisAndExecutionResult.getExecutionDetailedExitCode() != null) {
+        throw new BuildFailedException(
+            null, analysisAndExecutionResult.getExecutionDetailedExitCode());
+      }
+
       FailureDetail delayedFailureDetail = analysisAndExecutionResult.getFailureDetail();
       if (delayedFailureDetail != null) {
         throw new BuildFailedException(

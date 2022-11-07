@@ -183,6 +183,67 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void localAction_stdoutIsReported() throws Exception {
+    // Disable on Windows since it fails for unknown reasons.
+    // TODO(chiwang): Enable it on windows.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return;
+    }
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo my-output-message > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) && touch $@',",
+        "  tags = ['no-remote'],",
+        ")");
+    RecordingOutErr outErr = new RecordingOutErr();
+    this.outErr = outErr;
+
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    assertOutputContains(outErr.outAsLatin1(), "my-output-message");
+  }
+
+  @Test
+  public void localAction_stderrIsReported() throws Exception {
+    // Disable on Windows since it fails for unknown reasons.
+    // TODO(chiwang): Enable it on windows.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return;
+    }
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo my-error-message > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) >&2 && exit 1',",
+        "  tags = ['no-remote'],",
+        ")");
+    RecordingOutErr outErr = new RecordingOutErr();
+    this.outErr = outErr;
+
+    assertThrows(BuildFailedException.class, () -> buildTarget("//:foobar"));
+
+    assertOutputContains(outErr.errAsLatin1(), "my-error-message");
+  }
+
+  @Test
   public void dynamicExecution_stdoutIsReported() throws Exception {
     // Disable on Windows since it fails for unknown reasons.
     // TODO(chiwang): Enable it on windows.

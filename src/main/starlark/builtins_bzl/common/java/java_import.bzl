@@ -20,7 +20,6 @@ load(":common/java/java_common.bzl", "construct_defaultinfo")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS", "validate_proguard_specs")
 load(":common/rule_util.bzl", "merge_attrs")
-load(":common/java/java_util.bzl", "create_single_jar")
 load(":common/java/import_deps_check.bzl", "import_deps_check")
 
 JavaInfo = _builtins.toplevel.JavaInfo
@@ -52,10 +51,11 @@ def _process_with_ijars_if_needed(jars, ctx):
             interface_jar_directory = "_ijar/" + ctx.label.name + "/" + ijar_basename
 
             interface_jar = ctx.actions.declare_file(interface_jar_directory)
-            create_single_jar(
-                ctx,
-                interface_jar,
-                depset([jar]),
+            java_common.run_ijar(
+                ctx.actions,
+                jar = jar,
+                output = interface_jar,
+                java_toolchain = semantics.find_java_toolchain(ctx),
             )
         file_dict[jar] = interface_jar
 
@@ -71,7 +71,7 @@ def _check_empty_jars_error(ctx, jars):
     if len(jars) == 0 and ctx.fragments.java.disallow_java_import_empty_jars() and hasattr(ctx.attr, "_allowlist_java_import_empty_jars") and not getattr(ctx.attr, "_allowlist_java_import_empty_jars").isAvailableFor(ctx.label):
         fail("empty java_import.jars is no longer supported " + ctx.label.package)
 
-def _create_java_info_with_dummy_output_file(ctx, srcjar, deps, exports, runtime_deps_list, neverlink):
+def _create_java_info_with_dummy_output_file(ctx, srcjar, deps, exports, runtime_deps_list, neverlink, cc_info_list):
     dummy_jar = ctx.actions.declare_file(ctx.label.name + "_dummy.jar")
     dummy_src_jar = srcjar
     if dummy_src_jar == None:
@@ -86,6 +86,7 @@ def _create_java_info_with_dummy_output_file(ctx, srcjar, deps, exports, runtime
         runtime_deps = runtime_deps_list,
         neverlink = neverlink,
         exports = [export[JavaInfo] for export in exports if JavaInfo in export],  # Watchout, maybe you need to add them there manually.
+        native_libraries = cc_info_list,
     )
 
 def bazel_java_import_rule(
@@ -137,6 +138,7 @@ def bazel_java_import_rule(
 
     compilation_to_runtime_jar_map = _process_with_ijars_if_needed(collected_jars, ctx)
     runtime_deps_list = [runtime_dep[JavaInfo] for runtime_dep in runtime_deps if JavaInfo in runtime_dep]
+    cc_info_list = [dep[CcInfo] for dep in deps if CcInfo in dep]
     java_info = None
     if len(collected_jars) > 0:
         java_infos = []
@@ -149,11 +151,12 @@ def bazel_java_import_rule(
                 neverlink = neverlink,
                 source_jar = srcjar,
                 exports = [export[JavaInfo] for export in exports if JavaInfo in export],  # Watchout, maybe you need to add them there manually.
+                native_libraries = cc_info_list,
             ))
         java_info = java_common.merge(java_infos)
     else:
         # TODO(kotlaja): Remove next line once all java_import targets with empty jars attribute are cleaned from depot (b/246559727).
-        java_info = _create_java_info_with_dummy_output_file(ctx, srcjar, deps, exports, runtime_deps_list, neverlink)
+        java_info = _create_java_info_with_dummy_output_file(ctx, srcjar, deps, exports, runtime_deps_list, neverlink, cc_info_list)
 
     if len(constraints):
         java_info = semantics.add_constraints(java_info, constraints)

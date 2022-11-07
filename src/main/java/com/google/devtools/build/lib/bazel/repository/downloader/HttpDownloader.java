@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import com.google.auth.Credentials;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -31,7 +32,6 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.SocketTimeoutException;
-import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -63,7 +63,7 @@ public class HttpDownloader implements Downloader {
   @Override
   public void download(
       List<URL> urls,
-      Map<URI, Map<String, List<String>>> authHeaders,
+      Credentials credentials,
       Optional<Checksum> checksum,
       String canonicalId,
       Path destination,
@@ -82,7 +82,7 @@ public class HttpDownloader implements Downloader {
     for (URL url : urls) {
       SEMAPHORE.acquire();
 
-      try (HttpStream payload = multiplexer.connect(url, checksum, authHeaders, type);
+      try (HttpStream payload = multiplexer.connect(url, checksum, credentials, type);
           OutputStream out = destination.getOutputStream()) {
         try {
           ByteStreams.copy(payload, out);
@@ -132,7 +132,7 @@ public class HttpDownloader implements Downloader {
   /** Downloads the contents of one URL and reads it into a byte array. */
   public byte[] downloadAndReadOneUrl(
       URL url,
-      Map<URI, Map<String, List<String>>> authHeaders,
+      Credentials credentials,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv)
       throws IOException, InterruptedException {
@@ -141,7 +141,7 @@ public class HttpDownloader implements Downloader {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     SEMAPHORE.acquire();
     try (HttpStream payload =
-        multiplexer.connect(url, Optional.absent(), authHeaders, Optional.absent())) {
+        multiplexer.connect(url, Optional.absent(), credentials, Optional.absent())) {
       ByteStreams.copy(payload, out);
     } catch (SocketTimeoutException e) {
       // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify

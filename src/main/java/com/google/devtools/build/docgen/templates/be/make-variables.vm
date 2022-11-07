@@ -262,15 +262,15 @@
     </p>
     <p>
       Output files are staged similarly, but are also prefixed with the subpath
-      <code>bazel-out/cpu-compilation_mode/bin</code> (or for certain outputs:
-      <code>bazel-out/cpu-compilation_mode/genfiles</code>, or for the outputs
-      of host tools: <code>bazel-out/host/bin</code>). In the above example,
-      <code>//testapp:app</code> is a host tool because it appears in
+      <code>bazel-out/cpu-compilation_mode/bin</code> (or for the outputs of
+      tools: <code>bazel-out/cpu-opt-exec-hash/bin</code>). In the above example,
+      <code>//testapp:app</code> is a tool because it appears in
       <code>show_app_output</code>'s <code><a
       href="$expander.expandRef("genrule.tools")">tools</a></code> attribute.
       So its output file <code>app</code> is written to
-      <code>bazel-myproject/bazel-out/host/bin/testapp/app</code>. The exec path
-      is thus <code>bazel-out/host/bin/testapp/app</code>. This extra prefix
+      <code>bazel-myproject/bazel-out/cpu-opt-exec-hash/bin/testapp/app</code>.
+      The exec path is thus <code>
+      bazel-out/cpu-opt-exec-hash/bin/testapp/app</code>. This extra prefix
       makes it possible to build the same target for, say, two different CPUs in
       the same build without the results clobbering each other.
     </p>
@@ -284,14 +284,56 @@
 
   <li>
     <p>
-      <code>rootpath</code>: Denotes the runfiles path that a built binary can
-      use to find its dependencies at runtime.
-    </p>
+      <code>rootpath</code>: Denotes the path that a built binary can use to
+      find a dependency at runtime relative to the subdirectory of its runfiles
+      directory corresponding to the main repository.
+      <strong>Note:</strong> This only works if <a
+            href="/reference/command-line-reference#flag--enable_runfiles">
+      <code>--enable_runfiles</code></a> is enabled, which is not the case on
+      Windows by default. Use <code>rlocationpath</code> instead for
+      cross-platform support.
     <p>
-      This is the same as <code>execpath</code> but strips the output prefixes
-      described above. In the above example this means both
+      This is similar to <code>execpath</code> but strips the configuration
+      prefixes described above. In the example from above this means both
       <code>empty.source</code> and <code>app</code> use pure workspace-relative
       paths: <code>testapp/empty.source</code> and <code>testapp/app</code>.
+    </p>
+    <p>
+      The <code>rootpath</code> of a file in an external repository
+      <code>repo</code> will start with <code>../repo/</code>, followed by the
+      repository-relative path.
+    </p>
+    <p>
+      This has the same "one output only" requirements as <code>execpath</code>.
+    </p>
+  </li>
+
+  <li>
+    <p>
+      <code>rlocationpath</code>: The path a built binary can pass to the <code>
+      Rlocation</code> function of a runfiles library to find a dependency at
+      runtime, either in the runfiles directory (if available) or using the
+      runfiles manifest.
+    </p>
+    <p>
+      This is similar to <code>rootpath</code> in that it does not contain
+      configuration prefixes, but differs in that it always starts with the
+      name of the repository. In the example from above this means that <code>
+      empty.source</code> and <code>app</code> result in the following
+      paths: <code>myproject/testapp/empty.source</code> and <code>
+      myproject/testapp/app</code>.
+    </p>
+    <p>
+      The <code>rlocationpath</code> of a file in an external repository
+      <code>repo</code> will start with <code>repo/</code>, followed by the
+      repository-relative path.
+    </p>
+    <p>
+      Passing this path to a binary and resolving it to a file system path using
+      the runfiles libraries is the preferred approach to find dependencies at
+      runtime. Compared to <code>rootpath</code>, it has the advantage that it
+      works on all platforms and even if the runfiles directory is not
+      available.
     </p>
     <p>
       This has the same "one output only" requirements as <code>execpath</code>.
@@ -303,24 +345,25 @@
     <code>rootpath</code>, depending on the attribute being expanded. This is
     legacy pre-Starlark behavior and not recommended unless you really know what
     it does for a particular rule. See <a
-    href="https://github.com/bazelbuild/bazel/issues/2475#issuecomment-339318016">#2475</a>
+          href="https://github.com/bazelbuild/bazel/issues/2475#issuecomment-339318016">#2475</a>
     for details.
   </li>
 </ul>
 
 <p>
-  <code>execpaths</code>, <code>rootpaths</code>, and <code>locations</code> are
-  the plural variations of <code>execpath</code>, <code>rootpath</code>, and
-  <code>location</code>, respectively. They support labels producing multiple
-  outputs, in which case each output is listed separated by a space. Zero-output
-  rules and malformed labels produce build errors.
+  <code>execpaths</code>, <code>rootpaths</code>, <code>rlocationpaths</code>,
+  and <code>locations</code> are the plural variations of <code>execpath</code>,
+  <code>rootpath</code>, <code>rlocationpaths</code>, and<code>location</code>,
+  respectively. They support labels producing multiple outputs, in which case
+  each output is listed separated by a space. Zero-output rules and malformed
+  labels produce build errors.
 </p>
 
 <p>
   All referenced labels must appear in the consuming target's <code>srcs</code>,
   output files, or <code>deps</code>. Otherwise the build fails. C++ targets can
   also reference labels in <code><a
-  href="$expander.expandRef("cc_binary.data")">data</a></code>.
+        href="$expander.expandRef("cc_binary.data")">data</a></code>.
 </p>
 
 <p>
