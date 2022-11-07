@@ -350,17 +350,20 @@ public final class SandboxHelpers {
     private final Map<PathFragment, Path> files;
     private final Map<VirtualActionInput, byte[]> virtualInputs;
     private final Map<PathFragment, PathFragment> symlinks;
+    private final Map<Path, PathFragment> sourceRoots;
 
     private static final SandboxInputs EMPTY_INPUTS =
-        new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
+        new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
 
     public SandboxInputs(
         Map<PathFragment, Path> files,
         Map<VirtualActionInput, byte[]> virtualInputs,
-        Map<PathFragment, PathFragment> symlinks) {
+        Map<PathFragment, PathFragment> symlinks,
+        Map<Path, PathFragment> sourceRoots) {
       this.files = files;
       this.virtualInputs = virtualInputs;
       this.symlinks = symlinks;
+      this.sourceRoots = sourceRoots;
     }
 
     public static SandboxInputs getEmptyInputs() {
@@ -374,6 +377,8 @@ public final class SandboxHelpers {
     public Map<PathFragment, PathFragment> getSymlinks() {
       return symlinks;
     }
+
+    public Map<Path, PathFragment> getSourceRoots() { return sourceRoots; }
 
     /**
      * Materializes a single virtual input inside the given execroot.
@@ -423,7 +428,8 @@ public final class SandboxHelpers {
       return new SandboxInputs(
           Maps.filterKeys(files, allowed::contains),
           ImmutableMap.of(),
-          Maps.filterKeys(symlinks, allowed::contains));
+          Maps.filterKeys(symlinks, allowed::contains),
+          sourceRoots);  // TODO: is this good enough? Overestimating seems to be fine here?
     }
 
     @Override
@@ -456,11 +462,13 @@ public final class SandboxHelpers {
    *
    * @throws IOException if processing symlinks fails
    */
-  public SandboxInputs processInputFiles(Map<PathFragment, ActionInput> inputMap, Path execRoot)
+  public SandboxInputs processInputFiles(Map<PathFragment, ActionInput> inputMap, Path execRoot,
+      Path sandboxExecRoot, Path sandboxSourceRoots)
       throws IOException {
     Map<PathFragment, Path> inputFiles = new TreeMap<>();
     Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
     Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
+    Map<Path, PathFragment> sourceRoots = new TreeMap<>();
 
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
       PathFragment pathFragment = e.getKey();
@@ -477,14 +485,39 @@ public final class SandboxHelpers {
         Path inputPath = execRoot.getRelative(actionInput.getExecPath());
         inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
       } else {
-        Path inputPath =
-            actionInput instanceof EmptyActionInput
-                ? null
-                : execRoot.getRelative(actionInput.getExecPath());
+        Path inputPath;
+
+        if (actionInput instanceof EmptyActionInput) {
+          inputPath = null;
+        } else if (actionInput instanceof  Artifact) {
+          Path artifactRoot;
+          Artifact inputArtifact = (Artifact) actionInput;
+          if (inputArtifact.isSourceArtifact()) {
+            if (sandboxSourceRoots != null) {
+              Path sourceRoot = inputArtifact.getRoot().getRoot().asPath();
+              if (!sourceRoots.containsKey(sourceRoot)) {
+                int next = sourceRoots.size();
+                sourceRoots.put(sourceRoot, PathFragment.create(Integer.toString(next)));
+              }
+
+              artifactRoot = sandboxSourceRoots.getRelative(sourceRoots.get(sourceRoot));
+              inputPath = artifactRoot.getRelative(inputArtifact.getRootRelativePath());
+            } else {
+              inputPath = sandboxExecRoot.getRelative(inputArtifact.getExecPath());
+            }
+          } else {
+            inputPath = sandboxExecRoot.getRelative(inputArtifact.getExecPath());
+          }
+        } else {
+          inputPath = execRoot.getRelative(actionInput.getExecPath());
+        }
+
         inputFiles.put(pathFragment, inputPath);
       }
     }
-    return new SandboxInputs(inputFiles, virtualInputs, inputSymlinks);
+
+    // TODO: are these not immutable-ized?
+    return new SandboxInputs(inputFiles, virtualInputs, inputSymlinks, sourceRoots);
   }
 
   /** The file and directory outputs of a sandboxed spawn. */

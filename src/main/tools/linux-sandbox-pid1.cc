@@ -163,7 +163,7 @@ static int CreateTarget(const char *path, bool is_directory) {
 
   if (is_directory) {
     if (mkdir(path, 0755) < 0) {
-      DIE("mkdir");
+      DIE("mkdir(%s)", path);
     }
   } else {
     LinkFile(path);
@@ -297,12 +297,6 @@ static void MountFilesystems() {
     }
   }
 
-  if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
-            nullptr) < 0) {
-    DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
-        opt.working_dir.c_str());
-  }
-
   std::unordered_set<std::string> bind_mount_sources;
 
   for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
@@ -310,8 +304,8 @@ static void MountFilesystems() {
     bind_mount_sources.insert(source);
     const std::string &target = opt.bind_mount_targets.at(i);
     PRINT_DEBUG("bind mount: %s -> %s", source.c_str(), target.c_str());
-    if (mount(source.c_str(), target.c_str(), nullptr, MS_BIND, nullptr) < 0) {
-      DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", source.c_str(),
+    if (mount(source.c_str(), target.c_str(), nullptr, MS_BIND | MS_REC, nullptr) < 0) {
+      DIE("mount(%s, %s, nullptr, MS_BIND | MS_REC, nullptr)", source.c_str(),
           target.c_str());
     }
   }
@@ -329,6 +323,12 @@ static void MountFilesystems() {
       DIE("mount(%s, %s, nullptr, MS_BIND | MS_REC, nullptr)",
           writable_file.c_str(), writable_file.c_str());
     }
+  }
+
+  if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
+            nullptr) < 0) {
+    DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
+        opt.working_dir.c_str());
   }
 }
 

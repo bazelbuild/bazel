@@ -182,11 +182,16 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
     // the normal execroot does.
     String workspaceName = execRoot.getBaseName();
-    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(workspaceName);
-    sandboxExecRoot.getParentDirectory().createDirectory();
+    Path sandboxExecRootBase = sandboxPath.getRelative("execroot");
+    Path sandboxExecRoot = sandboxExecRootBase.getRelative(workspaceName);
+    sandboxExecRootBase.createDirectory();
     sandboxExecRoot.createDirectory();
 
     Path sandboxTmp = null;
+    Path withinSandboxSourceRoots = null;
+    Path withinSandboxExecRootBase = execRoot;
+    Path withinSandboxWorkingDirectory = null;
+
     if (getSandboxOptions().sandboxHermeticTmp) {
       PathFragment tmpRoot = PathFragment.create("/tmp");
       // With a tmpfs on /tmp, mounting a disk-based hermetic /tmp isn't necessary.
@@ -200,6 +205,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         if (tmpfsPathUnderTmp.isEmpty()) {
           sandboxTmp = sandboxPath.getRelative("_tmp");
           sandboxTmp.createDirectoryAndParents();
+          sandboxTmp.getRelative("bazel-execroot").getRelative(workspaceName).createDirectoryAndParents();
+          sandboxTmp.getRelative("bazel-working-directory").createDirectory();
+
+          withinSandboxSourceRoots = fileSystem.getPath("/tmp/bazel-source-roots");
+          withinSandboxExecRootBase = fileSystem.getPath("/tmp/bazel-execroot");
+          withinSandboxWorkingDirectory = fileSystem.getPath("/tmp/bazel-working-directory");
         } else if (warnedAboutNonHermeticTmp.compareAndSet(false, true)) {
           reporter.handle(
               Event.warn(
@@ -210,16 +221,23 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       }
     }
 
+    SandboxInputs inputs =
+        helpers.processInputFiles(
+            context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
+            execRoot, withinSandboxExecRootBase.getRelative(workspaceName), withinSandboxSourceRoots);
+
+    if (withinSandboxSourceRoots != null) {
+      for (Map.Entry<Path, PathFragment> root : inputs.getSourceRoots().entrySet()) {
+        sandboxTmp.getRelative("bazel-source-roots").getRelative(root.getValue()).createDirectoryAndParents();
+      }
+    }
+
+    SandboxOutputs outputs = helpers.getOutputs(spawn);
+
     ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
     ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
-
-    SandboxInputs inputs =
-        helpers.processInputFiles(
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
-            execRoot);
-    SandboxOutputs outputs = helpers.getOutputs(spawn);
 
     Duration timeout = context.getTimeout();
 
@@ -228,7 +246,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .addExecutionInfo(spawn.getExecutionInfo())
             .setWritableFilesAndDirectories(writableDirs)
             .setTmpfsDirectories(ImmutableSet.copyOf(getSandboxOptions().sandboxTmpfsPath))
-            .setBindMounts(getBindMounts(blazeDirs, sandboxExecRoot, sandboxTmp))
+            .setBindMounts(getBindMounts(blazeDirs, inputs, PathFragment.create("bazel-source-roots"), sandboxExecRootBase, sandboxTmp))
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
             .setEnablePseudoterminal(getSandboxOptions().sandboxExplicitPseudoterminal)
             .setCreateNetworkNamespace(
@@ -237,6 +255,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
                         spawn, getSandboxOptions().defaultSandboxAllowNetwork)))
             .setUseDebugMode(getSandboxOptions().sandboxDebug)
             .setKillDelay(timeoutKillDelay);
+
+    if (withinSandboxWorkingDirectory != null) {
+      commandLineBuilder.setWorkingDirectory(withinSandboxWorkingDirectory.getRelative(workspaceName));
+    }
 
     if (!timeout.isZero()) {
       commandLineBuilder.setTimeout(timeout);
@@ -315,21 +337,25 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return writableDirs.build();
   }
 
-  private SortedMap<Path, Path> getBindMounts(
-      BlazeDirectories blazeDirs, Path sandboxExecRoot, @Nullable Path sandboxTmp)
+  private Map<Path, Path> getBindMounts(
+      BlazeDirectories blazeDirs, SandboxInputs inputs, PathFragment sandboxSourceRoots,
+      Path sandboxExecRoot, @Nullable Path sandboxTmp)
       throws UserExecException {
     Path tmpPath = fileSystem.getPath("/tmp");
-    final SortedMap<Path, Path> bindMounts = Maps.newTreeMap();
+    final Map<Path, Path> bindMounts = Maps.newLinkedHashMap();
     boolean buildUnderTmp = false;
-    if (blazeDirs.getWorkspace().startsWith(tmpPath)) {
-      bindMounts.put(blazeDirs.getWorkspace(), blazeDirs.getWorkspace());
-      buildUnderTmp = true;
-    }
-    if (blazeDirs.getOutputBase().startsWith(tmpPath)) {
-      bindMounts.put(blazeDirs.getOutputBase(), blazeDirs.getOutputBase());
-      buildUnderTmp = true;
-    }
+
     if (sandboxTmp != null) {
+      bindMounts.put(sandboxTmp.getRelative("bazel-execroot"), blazeDirs.getExecRootBase());
+      bindMounts.put(sandboxTmp.getRelative("bazel-working-directory"), sandboxExecRoot);
+
+      for (Map.Entry<Path, PathFragment> sourceRoot : inputs.getSourceRoots().entrySet()) {
+        Path source = sourceRoot.getKey();
+        PathFragment id = sourceRoot.getValue();
+
+        bindMounts.put(sandboxTmp.getRelative(sandboxSourceRoots).getRelative(id), source);
+      }
+
       if (buildUnderTmp) {
         if (warnedAboutNonHermeticTmp.compareAndSet(false, true)) {
           reporter.handle(
@@ -337,13 +363,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
                   "Falling back to non-hermetic /tmp in sandbox since workspace or output base "
                       + "lie under /tmp"));
         }
-      } else {
-        // Mount a fresh, empty temporary directory as /tmp for each sandbox rather than reusing the
-        // host filesystem's /tmp. User-specified bind mounts can override this and use the host's
-        // /tmp instead by mounting /tmp to /tmp, if desired.
-        bindMounts.put(tmpPath, sandboxTmp);
       }
+      bindMounts.put(tmpPath, sandboxTmp);
     }
+
     for (ImmutableMap.Entry<String, String> additionalMountPath :
         getSandboxOptions().sandboxAdditionalMounts) {
       try {
@@ -382,7 +405,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * @param bindMounts the bind mounts map with target as key and source as value
    * @throws UserExecException if any of the mount points are not valid
    */
-  private void validateBindMounts(SortedMap<Path, Path> bindMounts) throws UserExecException {
+  private void validateBindMounts(Map<Path, Path> bindMounts) throws UserExecException {
     for (Map.Entry<Path, Path> bindMount : bindMounts.entrySet()) {
       final Path source = bindMount.getValue();
       final Path target = bindMount.getKey();
