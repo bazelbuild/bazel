@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +26,12 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
+import com.google.devtools.build.lib.authandtls.StaticCredentials;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperCredentials;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
@@ -78,6 +85,7 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -90,6 +98,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersH
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -361,6 +370,41 @@ public class BazelRepositoryModule extends BlazeModule {
                 String.format(
                     "Failed to parse downloader config at %s: %s", e.getLocation(), e.getMessage()),
                 Code.BAD_DOWNLOADER_CONFIG));
+      }
+
+      try {
+        AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
+        var credentialHelperEnvironment =
+            CredentialHelperEnvironment.newBuilder()
+                .setEventReporter(env.getReporter())
+                .setWorkspacePath(env.getWorkspace())
+                .setClientEnvironment(env.getClientEnv())
+                .setHelperExecutionTimeout(authAndTlsOptions.credentialHelperTimeout)
+                .build();
+        CredentialHelperProvider credentialHelperProvider =
+            GoogleAuthUtils.newCredentialHelperProvider(
+                credentialHelperEnvironment,
+                env.getCommandLinePathFactory(),
+                authAndTlsOptions.credentialHelpers);
+
+        downloadManager.setCredentialFactory(headers -> {
+          Preconditions.checkNotNull(headers);
+
+          return new CredentialHelperCredentials(
+              credentialHelperProvider,
+              credentialHelperEnvironment,
+              Optional.of(new StaticCredentials(headers)),
+              authAndTlsOptions.credentialHelperCacheTimeout);
+        });
+      } catch (IOException e) {
+        env.getReporter().handle(Event.error(e.getMessage()));
+        env.getBlazeModuleEnvironment()
+            .exit(
+                new AbruptExitException(
+                    detailedExitCode(
+                        "Error initializing credential helper",
+                        Code.CREDENTIALS_INIT_FAILURE)));
+        return;
       }
 
       if (repoOptions.experimentalDistdir != null) {
