@@ -14,21 +14,30 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleCreator;
-import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelper;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleOverride;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
+import com.google.devtools.build.lib.bazel.bzlmod.Registry;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalValue;
+import com.google.devtools.build.lib.bazel.bzlmod.SingleVersionOverride;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
@@ -59,7 +68,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
 
   private final RuleClassProvider ruleClassProvider;
   private final BlazeDirectories directories;
-  private final BzlmodRepoRuleHelper bzlmodRepoRuleHelper;
+
   /**
    * An empty repo mapping anchored to the main repo.
    *
@@ -74,13 +83,9 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
           ImmutableMap.of("", RepositoryName.MAIN, "bazel_tools", RepositoryName.BAZEL_TOOLS),
           RepositoryName.MAIN);
 
-  public BzlmodRepoRuleFunction(
-      RuleClassProvider ruleClassProvider,
-      BlazeDirectories directories,
-      BzlmodRepoRuleHelper bzlmodRepoRuleHelper) {
+  public BzlmodRepoRuleFunction(RuleClassProvider ruleClassProvider, BlazeDirectories directories) {
     this.ruleClassProvider = ruleClassProvider;
     this.directories = directories;
-    this.bzlmodRepoRuleHelper = bzlmodRepoRuleHelper;
   }
 
   @Nullable
@@ -92,28 +97,42 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
       return null;
     }
 
+    RootModuleFileValue root =
+        (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
     RepositoryName repositoryName = ((BzlmodRepoRuleValue.Key) skyKey).argument();
+    BazelModuleResolutionValue moduleResolution;
 
     // Look for the repo from Bazel module generated repos.
     try {
-      Optional<RepoSpec> result = bzlmodRepoRuleHelper.getRepoSpec(env, repositoryName);
+      // Step 1: Look for repositories defined by non-registry overrides.
+      Optional<RepoSpec> repoSpec = checkRepoFromNonRegistryOverrides(root, repositoryName);
+      if (repoSpec.isPresent()) {
+        return createRuleFromSpec(repoSpec.get(), starlarkSemantics, env);
+      }
+
+      // BazelModuleResolutionValue is affected by repos found in Step 1, therefore it should NOT
+      // be requested in Step 1 to avoid cycle dependency.
+      moduleResolution = (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
       if (env.valuesMissing()) {
         return null;
       }
-      if (result.isPresent()) {
-        return createRuleFromSpec(result.get(), starlarkSemantics, env);
+
+      // Step 2: Look for repositories derived from Bazel Modules.
+      repoSpec =
+          checkRepoFromBazelModules(
+              moduleResolution, root.getOverrides(), env.getListener(), repositoryName);
+      if (repoSpec.isPresent()) {
+        return createRuleFromSpec(repoSpec.get(), starlarkSemantics, env);
       }
     } catch (IOException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
     }
 
     // Otherwise, look for the repo from module extension evaluation results.
-    BazelModuleResolutionValue moduleResolution =
-        (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
-    if (moduleResolution == null) {
-      return null;
-    }
-
     Optional<ModuleExtensionId> extensionId =
         moduleResolution.getExtensionUniqueNames().entrySet().stream()
             .filter(e -> repositoryName.getName().startsWith(e.getValue() + "~"))
@@ -138,6 +157,55 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     Preconditions.checkNotNull(pkg);
 
     return new BzlmodRepoRuleValue(pkg, repositoryName.getName());
+  }
+
+  private static Optional<RepoSpec> checkRepoFromNonRegistryOverrides(
+      RootModuleFileValue root, RepositoryName repositoryName) {
+    String moduleName = root.getNonRegistryOverrideCanonicalRepoNameLookup().get(repositoryName);
+    if (moduleName == null) {
+      return Optional.empty();
+    }
+    NonRegistryOverride override = (NonRegistryOverride) root.getOverrides().get(moduleName);
+    return Optional.of(override.getRepoSpec(repositoryName));
+  }
+
+  private Optional<RepoSpec> checkRepoFromBazelModules(
+      BazelModuleResolutionValue bazelModuleResolutionValue,
+      ImmutableMap<String, ModuleOverride> overrides,
+      ExtendedEventHandler eventListener,
+      RepositoryName repositoryName)
+      throws InterruptedException, IOException {
+    ModuleKey moduleKey =
+        bazelModuleResolutionValue.getCanonicalRepoNameLookup().get(repositoryName);
+    if (moduleKey == null) {
+      return Optional.empty();
+    }
+    com.google.devtools.build.lib.bazel.bzlmod.Module module =
+        bazelModuleResolutionValue.getDepGraph().get(moduleKey);
+    Registry registry = checkNotNull(module.getRegistry());
+    RepoSpec repoSpec = registry.getRepoSpec(moduleKey, repositoryName, eventListener);
+    repoSpec = maybeAppendAdditionalPatches(repoSpec, overrides.get(moduleKey.getName()));
+    return Optional.of(repoSpec);
+  }
+
+  private RepoSpec maybeAppendAdditionalPatches(RepoSpec repoSpec, ModuleOverride override) {
+    if (!(override instanceof SingleVersionOverride)) {
+      return repoSpec;
+    }
+    SingleVersionOverride singleVersion = (SingleVersionOverride) override;
+    if (singleVersion.getPatches().isEmpty()) {
+      return repoSpec;
+    }
+    ImmutableMap.Builder<String, Object> attrBuilder = ImmutableMap.builder();
+    attrBuilder.putAll(repoSpec.attributes());
+    attrBuilder.put("patches", singleVersion.getPatches());
+    attrBuilder.put("patch_cmds", singleVersion.getPatchCmds());
+    attrBuilder.put("patch_args", ImmutableList.of("-p" + singleVersion.getPatchStrip()));
+    return RepoSpec.builder()
+        .setBzlFile(repoSpec.bzlFile())
+        .setRuleClassName(repoSpec.ruleClassName())
+        .setAttributes(attrBuilder.buildOrThrow())
+        .build();
   }
 
   @Nullable

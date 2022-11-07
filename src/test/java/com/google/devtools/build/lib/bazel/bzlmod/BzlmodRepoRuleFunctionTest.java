@@ -16,53 +16,40 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static org.junit.Assert.fail;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.BzlCompileFunction;
-import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
-import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
+import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
-import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
-import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
-import com.google.devtools.build.lib.skyframe.PackageFunction;
-import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -84,14 +71,19 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
 
+  private Path workspaceRoot;
   private MemoizingEvaluator evaluator;
-  private final RecordingDifferencer differencer = new SequencedRecordingDifferencer();
+  private RecordingDifferencer differencer;
   private EvaluationContext evaluationContext;
+  private FakeRegistry.Factory registryFactory;
 
   @Before
   public void setup() throws Exception {
+    workspaceRoot = scratch.dir("/ws");
+    differencer = new SequencedRecordingDifferencer();
     evaluationContext =
         EvaluationContext.newBuilder().setNumThreads(8).setEventHandler(reporter).build();
+    registryFactory = new FakeRegistry.Factory();
     AtomicReference<PathPackageLocator> packageLocator =
         new AtomicReference<>(
             new PathPackageLocator(
@@ -117,12 +109,6 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
         .addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
     ConfiguredRuleClassProvider ruleClassProvider = builder.build();
 
-    PackageFactory pkgFactory =
-        AnalysisMock.get()
-            .getPackageFactoryBuilderForTesting(directories)
-            .build(ruleClassProvider, fileSystem);
-
-    HashFunction hashFunction = fileSystem.getDigestFunction().getHashFunction();
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -136,204 +122,171 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                         externalFilesHelper))
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
-                    new BzlmodRepoRuleFunction(
-                        ruleClassProvider, directories, getFakeBzlmodRepoRuleHelper()))
+                    new BzlmodRepoRuleFunction(ruleClassProvider, directories))
+                .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(
-                    SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
-                    new LocalRepositoryLookupFunction(
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                    SkyFunctions.MODULE_FILE,
+                    new ModuleFileFunction(registryFactory, workspaceRoot, ImmutableMap.of()))
                 .put(
-                    SkyFunctions.PACKAGE,
-                    new PackageFunction(
-                        /*packageFactory=*/ null,
-                        /*pkgLocator=*/ null,
-                        /*showLoadingProgress=*/ null,
-                        /*numPackagesSuccessfullyLoaded=*/ null,
-                        /*bzlLoadFunctionForInlining=*/ null,
-                        /*packageProgress=*/ null,
-                        PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
-                            .INSTANCE,
-                        GlobbingStrategy.SKYFRAME_HYBRID,
-                        ignored -> ThreadStateReceiver.NULL_INSTANCE))
-                .put(
-                    SkyFunctions.PACKAGE_LOOKUP,
-                    new PackageLookupFunction(
-                        new AtomicReference<>(ImmutableSet.of()),
-                        CrossRepositoryLabelViolationStrategy.ERROR,
-                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
-                .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
-                .put(SkyFunctions.BZL_COMPILE, new BzlCompileFunction(pkgFactory, hashFunction))
-                .put(
-                    SkyFunctions.BZL_LOAD,
-                    BzlLoadFunction.create(
-                        pkgFactory, directories, hashFunction, Caffeine.newBuilder().build()))
-                .put(
-                    SkyFunctions.BAZEL_MODULE_RESOLUTION,
-                    // Dummy function that returns a dep graph with just the root module in it.
-                    (skyKey, env) ->
-                        BazelModuleResolutionFunction.createValue(
-                            ImmutableMap.of(ModuleKey.ROOT, Module.builder().build()),
-                            ImmutableMap.of(ModuleKey.ROOT, Module.builder().build()),
-                            ImmutableMap.of()))
-                .put(
-                    SkyFunctions.REPOSITORY_MAPPING,
-                    // Dummy function that always falls back.
-                    (skyKey, env) ->
-                        RepositoryMappingValue.withMapping(RepositoryMapping.ALWAYS_FALLBACK))
-                .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
-                .put(
-                    SkyFunctions.IGNORED_PACKAGE_PREFIXES,
-                    new IgnoredPackagePrefixesFunction(
-                        /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
-                .build(),
+                    SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
+                    new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
+                .buildOrThrow(),
             differencer);
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
-    PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
-
-    setupRepoRules();
-  }
-
-  private void setupRepoRules() throws Exception {
-    scratch.file(rootDirectory.getRelative("tools/build_defs/repo/BUILD").getPathString());
-    scratch.file(
-        rootDirectory.getRelative("tools/build_defs/repo/http.bzl").getPathString(),
-        "def _http_archive_impl(ctx): pass",
-        "",
-        "http_archive = repository_rule(",
-        "    implementation = _http_archive_impl,",
-        "    attrs = {",
-        "      \"url\": attr.string(),",
-        "      \"sha256\": attr.string(),",
-        "    })");
-    scratch.file(rootDirectory.getRelative("maven/BUILD").getPathString());
-    scratch.file(
-        rootDirectory.getRelative("maven/repo.bzl").getPathString(),
-        "def _maven_repo_impl(ctx): pass",
-        "",
-        "maven_repo = repository_rule(",
-        "    implementation = _maven_repo_impl,",
-        "    attrs = {",
-        "      \"artifacts\": attr.string_list(),",
-        "      \"repositories\": attr.string_list(),",
-        "    })");
-  }
-
-  private static FakeBzlmodRepoRuleHelper getFakeBzlmodRepoRuleHelper() {
-    ImmutableMap.Builder<RepositoryName, RepoSpec> repoSpecs = ImmutableMap.builder();
-    repoSpecs
-        // repos from non-registry overrides
-        .put(
-            RepositoryName.createUnvalidated("A"),
-            RepoSpec.builder()
-                .setRuleClassName("local_repository")
-                .setAttributes(
-                    ImmutableMap.of(
-                        "name", "A",
-                        "path", "/foo/bar/A"))
-                .build())
-        // repos from Bazel modules
-        .put(
-            RepositoryName.createUnvalidated("B"),
-            RepoSpec.builder()
-                .setBzlFile(
-                    // In real world, this will be @bazel_tools//tools/build_defs/repo:http.bzl,
-                    "//tools/build_defs/repo:http.bzl")
-                .setRuleClassName("http_archive")
-                .setAttributes(
-                    ImmutableMap.of(
-                        "name", "B",
-                        "url", "https://foo/bar/B.zip",
-                        "sha256", "1234abcd"))
-                .build())
-        // repos from module rules
-        .put(
-            RepositoryName.createUnvalidated("C"),
-            RepoSpec.builder()
-                .setBzlFile("//maven:repo.bzl")
-                .setRuleClassName("maven_repo")
-                .setAttributes(
-                    ImmutableMap.of(
-                        "name", "C",
-                        "artifacts",
-                            ImmutableList.of("junit:junit:4.12", "com.google.guava:guava:19.0"),
-                        "repositories",
-                            ImmutableList.of(
-                                "https://maven.google.com", "https://repo1.maven.org/maven2")))
-                .build());
-    return new FakeBzlmodRepoRuleHelper(repoSpecs.buildOrThrow());
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
+    ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
+    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
+        differencer, CheckDirectDepsMode.WARNING);
+    BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
+        differencer, BazelCompatibilityMode.ERROR);
   }
 
   @Test
-  public void createRepoRule_overrides() throws Exception {
-    RepositoryName a = RepositoryName.create("A");
+  public void testRepoSpec_bazelModule() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')");
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/usr/local/modules")
+            .addModule(
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb', version='1.0');bazel_dep(name='ccc',version='2.0')")
+            .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    RepositoryName repo = RepositoryName.create("ccc~2.0");
     EvaluationResult<BzlmodRepoRuleValue> result =
-        evaluator.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key(a)), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key(repo)), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
-    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key(a));
+    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key(repo));
     Rule repoRule = bzlmodRepoRuleValue.getRule();
 
     assertThat(repoRule.getRuleClassObject().isStarlark()).isFalse();
     assertThat(repoRule.getRuleClass()).isEqualTo("local_repository");
-    assertThat(repoRule.getName()).isEqualTo("A");
-    assertThat(repoRule.getAttr("path", Type.STRING)).isEqualTo("/foo/bar/A");
+    assertThat(repoRule.getName()).isEqualTo("ccc~2.0");
+    assertThat(repoRule.getAttr("path", Type.STRING)).isEqualTo("/usr/local/modules/ccc~2.0");
   }
 
   @Test
-  public void createRepoRule_bazelModules() throws Exception {
-    RepositoryName b = RepositoryName.create("B");
-    // Using a starlark rule in a RepoSpec requires having run Selection first.
-    evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
+  public void testRepoSpec_nonRegistryOverride() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')",
+        "local_path_override(module_name='ccc',path='/foo/bar/C')");
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/usr/local/modules")
+            .addModule(
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb', version='1.0');bazel_dep(name='ccc',version='2.0')")
+            .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    RepositoryName repo = RepositoryName.create("ccc~override");
     EvaluationResult<BzlmodRepoRuleValue> result =
-        evaluator.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key(b)), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key(repo)), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
-    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key(b));
+    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key(repo));
     Rule repoRule = bzlmodRepoRuleValue.getRule();
 
-    assertThat(repoRule.getRuleClassObject().isStarlark()).isTrue();
-    assertThat(repoRule.getRuleClass()).isEqualTo("http_archive");
-    assertThat(repoRule.getName()).isEqualTo("B");
-    assertThat(repoRule.getAttr("url", Type.STRING)).isEqualTo("https://foo/bar/B.zip");
-    assertThat(repoRule.getAttr("sha256", Type.STRING)).isEqualTo("1234abcd");
+    assertThat(repoRule.getRuleClassObject().isStarlark()).isFalse();
+    assertThat(repoRule.getRuleClass()).isEqualTo("local_repository");
+    assertThat(repoRule.getName()).isEqualTo("ccc~override");
+    assertThat(repoRule.getAttr("path", Type.STRING)).isEqualTo("/foo/bar/C");
   }
 
   @Test
-  public void createRepoRule_moduleRules() throws Exception {
-    RepositoryName c = RepositoryName.create("C");
-    // Using a starlark rule in a RepoSpec requires having run Selection first.
-    evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
+  public void testRepoSpec_singleVersionOverride() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')",
+        "single_version_override(",
+        "  module_name='ccc',version='3.0')");
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/usr/local/modules")
+            .addModule(
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb', version='1.0');bazel_dep(name='ccc',version='2.0')")
+            .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')")
+            .addModule(createModuleKey("ccc", "3.0"), "module(name='ccc', version='3.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    RepositoryName repo = RepositoryName.create("ccc~3.0");
     EvaluationResult<BzlmodRepoRuleValue> result =
-        evaluator.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key(c)), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key(repo)), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
-    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key(c));
+    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key(repo));
     Rule repoRule = bzlmodRepoRuleValue.getRule();
 
-    assertThat(repoRule.getRuleClassObject().isStarlark()).isTrue();
-    assertThat(repoRule.getRuleClass()).isEqualTo("maven_repo");
-    assertThat(repoRule.getName()).isEqualTo("C");
-    assertThat(repoRule.getAttr("artifacts", Type.STRING_LIST))
-        .isEqualTo(ImmutableList.of("junit:junit:4.12", "com.google.guava:guava:19.0"));
-    assertThat(repoRule.getAttr("repositories", Type.STRING_LIST))
-        .isEqualTo(ImmutableList.of("https://maven.google.com", "https://repo1.maven.org/maven2"));
+    assertThat(repoRule.getRuleClassObject().isStarlark()).isFalse();
+    assertThat(repoRule.getRuleClass()).isEqualTo("local_repository");
+    assertThat(repoRule.getName()).isEqualTo("ccc~3.0");
+    assertThat(repoRule.getAttr("path", Type.STRING)).isEqualTo("/usr/local/modules/ccc~3.0");
   }
 
   @Test
-  public void createRepoRule_notFound() throws Exception {
-    RepositoryName unknown = RepositoryName.create("unknown");
+  public void testRepoSpec_multipleVersionOverride() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='2.0')",
+        "multiple_version_override(module_name='ddd',versions=['1.0','2.0'])");
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/usr/local/modules")
+            .addModule(
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb', version='1.0');bazel_dep(name='ddd',version='1.0')")
+            .addModule(
+                createModuleKey("ccc", "2.0"),
+                "module(name='ccc', version='2.0');bazel_dep(name='ddd',version='2.0')")
+            .addModule(createModuleKey("ddd", "1.0"), "module(name='ddd', version='1.0')")
+            .addModule(createModuleKey("ddd", "2.0"), "module(name='ddd', version='2.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    RepositoryName repo = RepositoryName.create("ddd~2.0");
     EvaluationResult<BzlmodRepoRuleValue> result =
-        evaluator.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key(unknown)), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key(repo)), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
-    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key(unknown));
+    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key(repo));
+    Rule repoRule = bzlmodRepoRuleValue.getRule();
 
+    assertThat(repoRule.getRuleClassObject().isStarlark()).isFalse();
+    assertThat(repoRule.getRuleClass()).isEqualTo("local_repository");
+    assertThat(repoRule.getName()).isEqualTo("ddd~2.0");
+    assertThat(repoRule.getAttr("path", Type.STRING)).isEqualTo("/usr/local/modules/ddd~2.0");
+  }
+
+  @Test
+  public void testRepoSpec_notFound() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1')");
+
+    RepositoryName repo = RepositoryName.create("ss");
+    EvaluationResult<BzlmodRepoRuleValue> result =
+        evaluator.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key(repo)), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key(repo));
     assertThat(bzlmodRepoRuleValue).isEqualTo(BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE);
   }
+
 }
