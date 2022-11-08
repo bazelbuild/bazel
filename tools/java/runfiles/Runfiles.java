@@ -20,6 +20,7 @@ import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.ref.SoftReference;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
@@ -119,7 +120,9 @@ import java.util.stream.Collectors;
  * with the repository mapping of any Bazel repository specified at a later time.
  *
  * <p>Creating {@link Runfiles} instances can be costly, so applications should try to create as few
- * instances as possible.
+ * instances as possible. {@link Runfiles#preload()}, but not {@link Runfiles#preload(Map)}, returns
+ * a single global, softly cached instance of {@link Preloaded} that is constructed based on the
+ * JVM's environment variables.
  *
  * <p>Instance of {@link Runfiles} are only meant to be used by code located in a single Bazel
  * repository and should not be passed around. They are created by calling
@@ -134,6 +137,8 @@ public final class Runfiles {
   /**
    * A class that encapsulates all data required to look up runfiles relative to any Bazel
    * repository fixed at a later time.
+   *
+   * <p>This class is immutable.
    */
   public abstract static class Preloaded {
 
@@ -211,6 +216,8 @@ public final class Runfiles {
 
   private static final String MAIN_REPOSITORY = "";
 
+  private static SoftReference<Preloaded> DEFAULT_INSTANCE = new SoftReference<>(null);
+
   private final Preloaded preloadedRunfiles;
   private final String sourceRepository;
 
@@ -220,12 +227,18 @@ public final class Runfiles {
   }
 
   /**
-   * Returns a new {@link Runfiles.Preloaded} instance.
+   * Returns the softly cached global {@link Runfiles.Preloaded} instance, creating it if needed.
    *
    * <p>This method passes the JVM's environment variable map to {@link #create(Map)}.
    */
-  public static Preloaded preload() throws IOException {
-    return preload(System.getenv());
+  public static synchronized Preloaded preload() throws IOException {
+    Preloaded instance = DEFAULT_INSTANCE.get();
+    if (instance != null) {
+      return instance;
+    }
+    instance = preload(System.getenv());
+    DEFAULT_INSTANCE = new SoftReference<>(instance);
+    return instance;
   }
 
   /**
