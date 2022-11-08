@@ -23,12 +23,12 @@ Task list:
 
 <!-- The first three items are only needed for major releases (X.0.0) -->
 
--   [ ] Pick release baseline
--   [ ] Create release candidate
+-   [ ] Pick release baseline: [link to base commit]
+-   [ ] Create release candidate: X.Y.Zrc1
 -   [ ] Check downstream projects
--   [ ] Create [draft release announcement](https://docs.google.com/document/d/1pu2ARPweOCTxPsRR8snoDtkC9R51XWRyBXeiC6Ql5so/edit)
--   [ ] Send for review the release announcement PR
--   [ ] Push the release, notify package maintainers
+-   [ ] Create [draft release announcement](https://docs.google.com/document/d/1pu2ARPweOCTxPsRR8snoDtkC9R51XWRyBXeiC6Ql5so/edit) <!-- Note that there should be a new Bazel Release Announcement document for every major release. For minor and patch releases, use the latest open doc. -->
+-   [ ] Send the release announcement PR for review: [link to bazel-blog PR]
+-   [ ] Push the release and notify package maintainers: [link to comment notifying package maintainers]
 -   [ ] Update the documentation
--   [ ] Push the blog post
+-   [ ] Push the blog post: [link to blog post]
 -   [ ] Update the [release page](https://github.com/bazelbuild/bazel/releases/)
