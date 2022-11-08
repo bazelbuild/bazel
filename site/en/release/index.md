@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Release Policy
 
+{% dynamic setvar source_file "site/en/release/index.md" %}
 {% include "_buttons.html" %}
 
 Bazel maintains a

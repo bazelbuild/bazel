@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Build Basics
 
+{% dynamic setvar source_file "site/en/basics/index.md" %}
 {% include "_buttons.html" %}
 
 A build system is one of the most important parts of an engineering organization
