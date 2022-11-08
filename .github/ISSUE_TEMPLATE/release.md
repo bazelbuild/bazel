@@ -1,12 +1,14 @@
 ---
 name: 'Release issue (For release managers only)'
 about: Communicate the progress of a release
-title: 'Release X.Y - $MONTH $YEAR'
+title: 'Release X.Y.Z - $MONTH $YEAR'
 labels: ['release','team-OSS','P1','type: process']
+assignees:
+  - kshyanashree
 
 ---
 
-# Status of Bazel X.Y
+# Status of Bazel X.Y.Z
 
 <!-- The first item is only needed for major releases (X.0.0) -->
 -   Target baseline: [date]
@@ -21,12 +23,12 @@ Task list:
 
 <!-- The first three items are only needed for major releases (X.0.0) -->
 
--   [ ] Pick release baseline:
--   [ ] Create release candidate:
--   [ ] Check downstream projects:
--   [ ] [Create draft release announcement](https://docs.google.com/document/d/1wDvulLlj4NAlPZamdlEVFORks3YXJonCjyuQMUQEmB0/edit)
--   [ ] Send for review the release announcement PR:
--   [ ] Push the release, notify package maintainers:
+-   [ ] Pick release baseline
+-   [ ] Create release candidate
+-   [ ] Check downstream projects
+-   [ ] Create [draft release announcement](https://docs.google.com/document/d/1pu2ARPweOCTxPsRR8snoDtkC9R51XWRyBXeiC6Ql5so/edit)
+-   [ ] Send for review the release announcement PR
+-   [ ] Push the release, notify package maintainers
 -   [ ] Update the documentation
 -   [ ] Push the blog post
 -   [ ] Update the [release page](https://github.com/bazelbuild/bazel/releases/)
