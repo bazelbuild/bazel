@@ -62,12 +62,14 @@ public class ToplevelArtifactsDownloader {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final CommandMode commandMode;
+  private final boolean downloadToplevel;
   private final MemoizingEvaluator memoizingEvaluator;
   private final AbstractActionInputPrefetcher actionInputPrefetcher;
   private final PathToMetadataConverter pathToMetadataConverter;
 
   public ToplevelArtifactsDownloader(
       String commandName,
+      boolean downloadToplevel,
       MemoizingEvaluator memoizingEvaluator,
       AbstractActionInputPrefetcher actionInputPrefetcher,
       PathToMetadataConverter pathToMetadataConverter) {
@@ -84,6 +86,7 @@ public class ToplevelArtifactsDownloader {
       default:
         this.commandMode = CommandMode.UNKNOWN;
     }
+    this.downloadToplevel = downloadToplevel;
     this.memoizingEvaluator = memoizingEvaluator;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.pathToMetadataConverter = pathToMetadataConverter;
@@ -133,6 +136,10 @@ public class ToplevelArtifactsDownloader {
   @Subscribe
   @AllowConcurrentEvents
   public void onAspectComplete(AspectCompleteEvent event) {
+    if (!shouldDownloadToplevelOutputsForTarget(/* configuredTargetKey= */ null)) {
+      return;
+    }
+
     if (event.failed()) {
       return;
     }
@@ -156,28 +163,35 @@ public class ToplevelArtifactsDownloader {
         event.getExecutableTargetData().getRunfiles());
   }
 
-  private boolean shouldDownloadToplevelOutputsForTarget(ConfiguredTargetKey configuredTargetKey) {
-    if (commandMode != CommandMode.TEST) {
-      return true;
-    }
-
-    // Do not download test binary in test mode.
-    try {
-      var configuredTargetValue =
-          (ConfiguredTargetValue) memoizingEvaluator.getExistingValue(configuredTargetKey);
-      if (configuredTargetValue == null) {
-        return false;
-      }
-      ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
-      if (configuredTarget instanceof RuleConfiguredTarget) {
-        var ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
-        var isTestRule = isTestRuleName(ruleConfiguredTarget.getRuleClassString());
-        return !isTestRule;
-      }
-      return true;
-    } catch (InterruptedException ignored) {
-      Thread.currentThread().interrupt();
-      return false;
+  private boolean shouldDownloadToplevelOutputsForTarget(
+      @Nullable ConfiguredTargetKey configuredTargetKey) {
+    switch (commandMode) {
+      case RUN:
+        return true;
+      case TEST:
+        if (configuredTargetKey == null) {
+          return false;
+        }
+        // Do not download test binary in test mode.
+        try {
+          var configuredTargetValue =
+              (ConfiguredTargetValue) memoizingEvaluator.getExistingValue(configuredTargetKey);
+          if (configuredTargetValue == null) {
+            return false;
+          }
+          ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
+          if (configuredTarget instanceof RuleConfiguredTarget) {
+            var ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+            var isTestRule = isTestRuleName(ruleConfiguredTarget.getRuleClassString());
+            return !isTestRule;
+          }
+          return true;
+        } catch (InterruptedException ignored) {
+          Thread.currentThread().interrupt();
+          return false;
+        }
+      default:
+        return downloadToplevel;
     }
   }
 
