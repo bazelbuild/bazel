@@ -273,7 +273,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Whether to upload locally executed action results to the remote cache.")
+      help =
+          "Whether to upload locally executed action results to the remote cache if the remote "
+              + "cache supports it and the user is authorized to do so.")
   public boolean remoteUploadLocalResults;
 
   @Deprecated
