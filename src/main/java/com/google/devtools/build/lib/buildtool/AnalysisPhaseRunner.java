@@ -299,8 +299,7 @@ public final class AnalysisPhaseRunner {
       AnalysisResult analysisResult,
       Map<BuildConfigurationKey, BuildConfigurationValue> configurationMap) {
     for (ConfiguredTarget configuredTarget : analysisResult.getTargetsToBuild()) {
-      env.getEventBus()
-          .post(TopLevelTargetAnalyzedEvent.createWithoutFurtherSymlinkPlanting(configuredTarget));
+      env.getEventBus().post(TopLevelTargetAnalyzedEvent.create(configuredTarget));
       if (analysisResult.getTargetsToSkip().contains(configuredTarget)) {
         env.getEventBus().post(TopLevelTargetSkippedEvent.create(configuredTarget));
       }

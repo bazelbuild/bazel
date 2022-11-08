@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedE
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetReadyForSymlinkPlanting;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -248,16 +249,16 @@ public class BuildDriverFunction implements SkyFunction {
       Environment env,
       ConfiguredTargetValue configuredTargetValue,
       ConfiguredTarget configuredTarget) {
+    env.getListener().post(TopLevelTargetAnalyzedEvent.create(configuredTarget));
     // It's possible that this code path is triggered AFTER the analysis cache clean up and the
     // transitive packages for package root resolution is already cleared. In such a case, the
     // symlinks should have already been planted.
-    TopLevelTargetAnalyzedEvent topLevelTargetAnalyzedEvent =
-        configuredTargetValue.getTransitivePackages() == null
-            ? TopLevelTargetAnalyzedEvent.createWithoutFurtherSymlinkPlanting(configuredTarget)
-            : TopLevelTargetAnalyzedEvent.create(
-                configuredTarget, configuredTargetValue.getTransitivePackages());
-
-    env.getListener().post(topLevelTargetAnalyzedEvent);
+    if (configuredTargetValue.getTransitivePackages() != null) {
+      env.getListener()
+          .post(
+              TopLevelTargetReadyForSymlinkPlanting.create(
+                  configuredTargetValue.getTransitivePackages()));
+    }
   }
 
   /**
