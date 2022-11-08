@@ -12,9 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Runfiles lookup library for Bazel-built Bash binaries and tests, version 2.
+# Runfiles lookup library for Bazel-built Bash binaries and tests, version 3.
 #
 # VERSION HISTORY:
+# - version 3: Fixes a bug in the init code on macOS and makes the library aware
+#              of Bzlmod repository mappings.
+#   Features:
+#     - With Bzlmod enabled, rlocation now takes the repository mapping of the
+#       Bazel repository containing the calling script into account when
+#       looking up runfiles. The new, optional second argument to rlocation can
+#       be used to specify the canonical name of the Bazel repository to use
+#       instead of this default. The new runfiles_current_repository function
+#       can be used to obtain the canonical name of the N-th caller's Bazel
+#       repository.
+#   Fixed:
+#     - Sourcing a shell script that contains the init code from a shell script
+#       that itself contains the init code no longer fails on macOS.
+#   Compatibility:
+#     - The init script and the runfiles library are backwards and forwards
+#       compatible with version 2.
 # - version 2: Shorter init code.
 #   Features:
 #     - "set -euo pipefail" only at end of init code.
@@ -53,7 +69,7 @@
 #
 #       # --- begin runfiles.bash initialization v2 ---
 #       # Copy-pasted from the Bazel Bash runfiles library v2.
-#       set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+#       set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
 #       source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 #         source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
 #         source "$0.runfiles/$f" 2>/dev/null || \
