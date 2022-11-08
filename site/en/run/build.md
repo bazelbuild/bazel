@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Build programs with Bazel
 
+{% include "_buttons.html" %}
+
 This page covers how to build a program with Bazel, build command syntax, and
 target pattern syntax.
 

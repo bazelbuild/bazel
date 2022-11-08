@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Artifact-Based Build Systems
 
+{% include "_buttons.html" %}
+
 This page covers artifact-based build systems and the philosophy behind their
 creation. Bazel is an artifact-based build system. While task-based build
 systems are good step above build scripts, they give too much power to

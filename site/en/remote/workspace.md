@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Finding Non-Hermetic Behavior in WORKSPACE Rules
 
+{% include "_buttons.html" %}
+
 In the following, a host machine is the machine where Bazel runs.
 
 When using remote execution, the actual build and/or test steps are not

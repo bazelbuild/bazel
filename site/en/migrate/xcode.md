@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Migrating from Xcode to Bazel
 
+{% include "_buttons.html" %}
+
 This page describes how to build or test an Xcode project with Bazel. It
 describes the differences between Xcode and Bazel, and provides the steps
 for converting an Xcode project to a Bazel project. It also provides

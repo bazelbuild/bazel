@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Macros
 
+{% include "_buttons.html" %}
+
 This page covers the basics of using macros and includes typical use cases,
 debugging, and conventions.
 

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Bazel Special Interest Groups
 
+{% include "_buttons.html" %}
+
 Bazel hosts Special Interest Groups (SIGs) to focus collaboration on particular
 areas and to support communication and coordination between [Bazel owners,
 maintainers, and contributors](/contribute/contribution-policy). This policy

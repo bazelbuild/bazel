@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Release Policy
 
+{% include "_buttons.html" %}
+
 Bazel maintains a
 [Long Term Support (LTS)](/release/versioning)
 release model, where a major version is released every nine months and minor

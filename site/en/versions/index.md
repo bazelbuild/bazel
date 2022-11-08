@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Documentation Versions
 
+{% include "_buttons.html" %}
+
 The documentation on this website represents the latest in Bazel. Documentation
 is updated at head. Each major supported release will have a snapshot of the
 narrative and reference documentation that follows the lifecycle of Bazel's

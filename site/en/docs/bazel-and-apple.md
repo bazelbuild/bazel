@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Apple Apps and Bazel
 
+{% include "_buttons.html" %}
+
 This page contains resources that help you use Bazel to build macOS and iOS
 projects. It links to a tutorial, build rules, and other information specific to
 using Bazel to build and test for those platforms.

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Rules
 
+{% include "_buttons.html" %}
+
 A **rule** defines a series of [**actions**](#actions) that Bazel performs on
 inputs to produce a set of outputs, which are referenced in
 [**providers**](#providers) returned by the rule's

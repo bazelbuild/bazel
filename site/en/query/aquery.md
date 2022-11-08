@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Action Graph Query (aquery)
 
+{% include "_buttons.html" %}
+
 The `aquery` command allows you to query for actions in your build graph.
 It operates on the post-analysis Configured Target Graph and exposes
 information about **Actions, Artifacts and their relationships.**

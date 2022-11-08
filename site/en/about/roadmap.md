@@ -1,7 +1,11 @@
 Project: /_project.yaml
 Book: /_book.yaml
 # Bazel roadmap
+
+{% include "_buttons.html" %}
+
 ## Overview
+
 The Bazel project constantly evolves in response to your needs — developing features and providing support while maintaining, refactoring, and improving the performance of the core product.
 
 With these changes, we’re looking to keep our open-source community informed and included. This roadmap describes current initiatives and predictions for the future of Bazel development, giving you visibility into current priorities and ongoing projects.

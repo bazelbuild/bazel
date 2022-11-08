@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Build Event Protocol Glossary
 
+{% include "_buttons.html" %}
 
 Each BEP event type has its own semantics, minimally documented in
 [build\_event\_stream.proto](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto){: .external}.

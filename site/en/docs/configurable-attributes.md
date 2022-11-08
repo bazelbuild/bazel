@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Configurable Build Attributes
 
+{% include "_buttons.html" %}
+
 **_Configurable attributes_**, commonly known as [`select()`](
 /reference/be/functions#select), is a Bazel feature that lets users toggle the values
 of build rule attributes at the command line.

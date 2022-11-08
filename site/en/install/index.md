@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Installing Bazel
 
+{% include "_buttons.html" %}
+
 This page describes the various platforms supported by Bazel and links
 to the packages for more details.
 

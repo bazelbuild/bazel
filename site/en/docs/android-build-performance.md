@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Android Build Performance
 
+{% include "_buttons.html" %}
+
 This page contains information on optimizing build performance for Android
 apps specifically. For general build performance optimization with Bazel, see
 [Optimizing Performance](/rules/performance).

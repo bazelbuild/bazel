@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Best Practices
 
+{% include "_buttons.html" %}
+
 This page assumes you are familiar with Bazel and provides guidelines and
 advice on structuring your projects to take full advantage of Bazel's features.
 

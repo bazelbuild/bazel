@@ -31,6 +31,8 @@ Book: /_book.yaml
 
 # Bazel Configurability 2021 Roadmap
 
+{% include "_buttons.html" %}
+
 *Last verified: 2021-01-25* ([update history](https://github.com/bazelbuild/bazel-website/commits/master/roadmaps/configuration.md))
 
 *Point of contact:* [gregestren](https://github.com/gregestren)

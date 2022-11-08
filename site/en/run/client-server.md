@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Client/server implementation
 
+{% include "_buttons.html" %}
 
 The Bazel system is implemented as a long-lived server process. This allows it
 to perform many optimizations not possible with a batch-oriented implementation,

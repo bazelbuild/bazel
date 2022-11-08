@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Remote Caching
 
+{% include "_buttons.html" %}
+
 This page covers remote caching, setting up a server to host the cache, and
 running builds using the remote cache.
 

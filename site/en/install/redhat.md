@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Installing Bazel on Fedora and CentOS
 
+{% include "_buttons.html" %}
+
 This page describes how to install Bazel on Fedora and CentOS.
 
 The Bazel team does not provide official packages for Fedora and CentOS.

@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Labels
 
+{% include "_buttons.html" %}
 
 All targets belong to exactly one package. The name of a target is
 called its _label_.  Every label uniquely identifies a target. A

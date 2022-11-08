@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Guide for Bazel Maintainers
 
+{% include "_buttons.html" %}
+
 This is a guide for the maintainers of the Bazel open source project.
 
 If you are looking to contribute to Bazel, please read [Contributing to

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Adapting Bazel Rules for Remote Execution
 
+{% include "_buttons.html" %}
+
 This page is intended for Bazel users writing custom build and test rules
 who want to understand the requirements for Bazel rules in the context of
 remote execution.

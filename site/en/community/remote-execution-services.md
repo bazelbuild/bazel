@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Remote Execution Services
 
+{% include "_buttons.html" %}
+
 Use the following services to run Bazel with remote execution:
 
 *   Manual

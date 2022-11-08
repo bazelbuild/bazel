@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Recommended Rules
 
+{% include "_buttons.html" %}
+
 In the documentation, we provide a list of
 [recommended rules](/rules).
 

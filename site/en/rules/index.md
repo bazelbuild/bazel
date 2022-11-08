@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Rules
 
+{% include "_buttons.html" %}
+
 The Bazel ecosystem has a growing and evolving set of rules to support popular
 languages and packages. Much of Bazel's strength comes from the ability to
 [define new rules](/rules/concepts) that can be used by others.

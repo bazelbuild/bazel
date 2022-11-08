@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Bazel Tutorial: Build an iOS App
 
+{% include "_buttons.html" %}
+
 This tutorial covers how to build a simple iOS app using Bazel.
 
 ## What you'll learn

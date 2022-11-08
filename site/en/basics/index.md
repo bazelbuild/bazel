@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Build Basics
 
+{% include "_buttons.html" %}
+
 A build system is one of the most important parts of an engineering organization
 because each developer interacts with it potentially dozens or hundreds of times
 per day. A fully featured build system is necessary to enable developer

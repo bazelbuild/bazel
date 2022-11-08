@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Writing Rules on Windows
 
+{% include "_buttons.html" %}
+
 This page focuses on writing Windows-compatible rules, common problems of
 writing portable rules, and some solutions.
 

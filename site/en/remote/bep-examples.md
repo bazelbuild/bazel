@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Build Event Protocol Examples
 
+{% include "_buttons.html" %}
+
 The full specification of the Build Event Protocol can be found in its protocol
 buffer definition. However, it might be helpful to build up some intuition
 before looking at the specification.

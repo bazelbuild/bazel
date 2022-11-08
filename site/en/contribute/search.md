@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Searching the codebase
 
+{% include "_buttons.html" %}
+
 ## Product overview {:#product-overview}
 
 Bazel's [code search and source browsing interface](https://source.bazel.build)

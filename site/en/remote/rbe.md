@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Remote Execution Overview
 
+{% include "_buttons.html" %}
+
 This page covers the benefits, requirements, and options for running Bazel
 with remote execution.
 

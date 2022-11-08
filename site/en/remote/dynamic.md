@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Dynamic Execution
 
+{% include "_buttons.html" %}
+
 __Dynamic execution__ is a feature in Bazel
 [since version 0.21](https://blog.bazel.build/2019/02/01/dynamic-spawn-scheduler.html){: .external},
 where local and remote execution of the same action are started in parallel,

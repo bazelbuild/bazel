@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Contribute to Bazel documentation
 
+{% include "_buttons.html" %}
+
 Thank you for contributing to Bazel's documentation! There are a few ways to
 help create better docs for our community.
 

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Skyframe
 
+{% include "_buttons.html" %}
+
 The parallel evaluation and incrementality model of Bazel.
 
 ## Data model

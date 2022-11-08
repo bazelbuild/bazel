@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Using the Android Native Development Kit with Bazel
 
+{% include "_buttons.html" %}
+
 _If you're new to Bazel, please start with the [Building Android with
 Bazel](/tutorials/android-app) tutorial._
 

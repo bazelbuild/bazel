@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Contributing to Bazel
 
+{% include "_buttons.html" %}
+
 There are many ways to help the Bazel project and ecosystem.
 
 ## Provide feedback {:#feedback}

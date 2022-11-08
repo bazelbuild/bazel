@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Integrating Bazel with IDEs
 
+{% include "_buttons.html" %}
+
 This page covers how to integrate Bazel with IDEs, such as IntelliJ, Android
 Studio, and CLion (or build your own IDE plugin). It also includes links to
 installation and plugin details.

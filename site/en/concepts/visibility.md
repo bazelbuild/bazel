@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Visibility
 
+{% include "_buttons.html" %}
+
 This page covers Bazel's two visibility systems:
 [target visibility](#target-visibility) and [load visibility](#load-visibility).
 

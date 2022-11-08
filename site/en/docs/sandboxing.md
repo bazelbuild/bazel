@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Sandboxing
 
+{% include "_buttons.html" %}
+
 This article covers sandboxing in Bazel, installing `sandboxfs`, and debugging
 your sandboxing environment.
 

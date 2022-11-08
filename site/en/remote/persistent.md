@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Persistent Workers
 
+{% include "_buttons.html" %}
+
 This page covers how to use persistent workers, the benefits, requirements, and
 how workers affect sandboxing.
 

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Bazel Tutorial: Build an Android App
 
+{% include "_buttons.html" %}
+
 This tutorial covers how to build a simple Android app using Bazel.
 
 Bazel supports building Android apps using the

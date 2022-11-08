@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # The Bazel Query Reference
 
+{% include "_buttons.html" %}
+
 This page is the reference manual for the _Bazel Query Language_ used
 when you use `bazel query` to analyze build dependencies. It also
 describes the output formats `bazel query` supports.

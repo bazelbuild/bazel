@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 #  Configurable Query (cquery)
 
+{% include "_buttons.html" %}
+
 `cquery` is a variant of [`query`](/reference/query) that correctly handles
 [`select()`](/docs/configurable-attributes) and build options' effects on the build
 graph.
