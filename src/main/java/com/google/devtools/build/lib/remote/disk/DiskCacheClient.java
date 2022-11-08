@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -174,11 +175,13 @@ public class DiskCacheClient implements RemoteCacheClient {
 
     // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
     Path temp = toPathNoSplit(UUID.randomUUID().toString());
-    try (OutputStream out = temp.getOutputStream()) {
+
+    try (FileOutputStream out = new FileOutputStream(temp.getPathFile())) {
       ByteStreams.copy(in, out);
+      // Fsync temp before we rename it to avoid data loss in the case of machine
+      // crashes (the OS may reorder the writes and the rename).
+      out.getFD().sync();
     }
-    // TODO(ulfjack): Fsync temp here before we rename it to avoid data loss in the case of machine
-    // crashes (the OS may reorder the writes and the rename).
     temp.renameTo(target);
   }
 }
