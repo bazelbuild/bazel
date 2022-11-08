@@ -656,19 +656,23 @@ class BazelModuleTest(test_base.TestBase):
     self.RunBazel([bazel_command, '//:me'], allow_failure=False)
     with open(self.Path('bazel-bin/me.repo_mapping'), 'r') as f:
       self.assertEqual(
-          f.read().strip(), """,foo,foo~1.0
+          f.read(), """
+,foo,foo~1.0
 ,me,_main
 ,me_ws,_main
 foo~1.0,foo,foo~1.0
 foo~1.0,quux,quux~2.0
-quux~2.0,quux,quux~2.0""")
+quux~2.0,quux,quux~2.0
+""")
     self.RunBazel([bazel_command, '@bar//:bar'], allow_failure=False)
     with open(self.Path('bazel-bin/external/bar~2.0/bar.repo_mapping'),
               'r') as f:
       self.assertEqual(
-          f.read().strip(), """bar~2.0,bar,bar~2.0
+          f.read(), """bar~2.0
+bar~2.0,bar,bar~2.0
 bar~2.0,quux,quux~2.0
-quux~2.0,quux,quux~2.0""")
+quux~2.0,quux,quux~2.0
+""")
 
 if __name__ == '__main__':
   unittest.main()

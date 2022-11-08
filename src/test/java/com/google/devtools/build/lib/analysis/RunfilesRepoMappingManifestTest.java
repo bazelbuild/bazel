@@ -152,6 +152,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
     assertThat(getRepoMappingManifestForTarget("//:aaa"))
         .containsExactly(
+            "",
             ",aaa,_main",
             ",aaa_ws,_main",
             ",bbb,bbb~1.0",
@@ -160,7 +161,8 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
             "ddd~2.0,ddd,ddd~2.0")
         .inOrder();
     assertThat(getRepoMappingManifestForTarget("@@ccc~2.0//:ccc"))
-        .containsExactly("ccc~2.0,ccc,ccc~2.0", "ccc~2.0,ddd,ddd~2.0", "ddd~2.0,ddd,ddd~2.0")
+        .containsExactly("ccc~2.0", "ccc~2.0,ccc,ccc~2.0", "ccc~2.0,ddd,ddd~2.0",
+            "ddd~2.0,ddd,ddd~2.0")
         .inOrder();
   }
 
@@ -220,6 +222,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
     assertThat(getRepoMappingManifestForTarget("//:tooled"))
         .containsExactly(
+            "",
             ",main,_main",
             "bare_rule~1.0,bare_rule,bare_rule~1.0",
             "tooled_rule~1.0,bare_rule,bare_rule~1.0")
