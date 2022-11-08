@@ -261,6 +261,12 @@ public interface BazelCcModuleApi<
             named = true,
             defaultValue = "False"),
         @Param(
+            name = "additional_include_scanning_roots",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
             name = "additional_inputs",
             doc = "List of additional files needed for compilation of srcs",
             positional = false,
@@ -385,6 +391,7 @@ public interface BazelCcModuleApi<
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
+      Sequence<?> additionalIncludeScanningRoots, // <FileT> expected
       Sequence<?> additionalInputs, // <FileT> expected
       Object moduleMap,
       Object additionalModuleMaps,
