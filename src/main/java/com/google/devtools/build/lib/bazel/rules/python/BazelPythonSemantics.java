@@ -63,8 +63,6 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   public static final Runfiles.EmptyFilesSupplier GET_INIT_PY_FILES =
       new PythonUtils.GetInitPyFiles((Predicate<PathFragment> & Serializable) source -> false);
-  private static final Template STUB_TEMPLATE =
-      Template.forResource(BazelPythonSemantics.class, "python_stub_template.txt");
 
   public static final PathFragment ZIP_RUNFILES_DIRECTORY_NAME = PathFragment.create("runfiles");
 
@@ -161,6 +159,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     // workspace-relative path. On Windows this is also passed to the launcher to use for the
     // first-stage.
     String pythonBinary = getPythonBinary(ruleContext, common, bazelConfig);
+    Artifact stubTemplateArtifact = ruleContext.getPrerequisiteArtifact("stub_template");
 
     // The python code coverage tool to use, if any.
     String coverageTool = getCoverageTool(ruleContext, common);
@@ -176,8 +175,8 @@ public class BazelPythonSemantics implements PythonSemantics {
     ruleContext.registerAction(
         new TemplateExpansionAction(
             ruleContext.getActionOwner(),
+            stubTemplateArtifact,
             stubOutput,
-            STUB_TEMPLATE,
             ImmutableList.of(
                 Substitution.of("%shebang%", getStubShebang(ruleContext, common)),
                 Substitution.of(

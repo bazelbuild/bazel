@@ -425,6 +425,24 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual(stdout[0], 'Hello world')
 
+  def testPyBinaryCustomStub(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'py_binary(',
+        '  name = "bin",',
+        '  srcs = ["bin.py"],',
+        '  stub_template = ":template.txt",',
+        ')',
+    ])
+    self.ScratchFile('foo/bin.py', ['BAD SYNTAX'])
+    self.ScratchFile('foo/template.txt', [
+        '#!/usr/bin/env python',
+        'import sys',
+        'for arg in sys.argv[1:]:',
+        '  print(arg)',
+    ])
+    self._buildAndCheckArgumentPassing('foo', 'bin')
+
   def testWindowsJavaExeLauncher(self):
     # Skip this test on non-Windows platforms
     if not self.IsWindows():
