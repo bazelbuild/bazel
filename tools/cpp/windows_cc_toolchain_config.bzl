@@ -848,6 +848,32 @@ def _impl(ctx):
             ],
         )
 
+        external_include_paths_feature = feature(
+            name = "external_include_paths",
+            flag_sets = [
+                flag_set(
+                    actions = [
+                        ACTION_NAMES.preprocess_assemble,
+                        ACTION_NAMES.linkstamp_compile,
+                        ACTION_NAMES.c_compile,
+                        ACTION_NAMES.cpp_compile,
+                        ACTION_NAMES.cpp_header_parsing,
+                        ACTION_NAMES.cpp_module_compile,
+                        ACTION_NAMES.clif_match,
+                        ACTION_NAMES.objc_compile,
+                        ACTION_NAMES.objcpp_compile,
+                    ],
+                    flag_groups = [
+                        flag_group(
+                            flags = ["/external:I", "%{external_include_paths}"],
+                            iterate_over = "external_include_paths",
+                            expand_if_available = "external_include_paths",
+                        ),
+                    ],
+                ),
+            ],
+        )
+
         linkstamps_feature = feature(
             name = "linkstamps",
             flag_sets = [
@@ -1070,6 +1096,7 @@ def _impl(ctx):
             msvc_compile_env_feature,
             msvc_link_env_feature,
             include_paths_feature,
+            external_include_paths_feature,
             preprocessor_defines_feature,
             parse_showincludes_feature,
             generate_pdb_file_feature,
