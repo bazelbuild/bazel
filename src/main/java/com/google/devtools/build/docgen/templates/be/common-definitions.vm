@@ -12,6 +12,8 @@
 
 <h1 class="page-title" id="common-definitions">Common definitions</h1>
 
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/docgen/templates/be/common-definitions.vm" %}
+{% include "_buttons.html" %}
 <p>This section defines various terms and concepts that are common to
 many functions or build rules.
 </p>

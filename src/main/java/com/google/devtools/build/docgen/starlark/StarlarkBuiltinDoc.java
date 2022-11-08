@@ -40,9 +40,22 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
   private final Multimap<String, StarlarkJavaMethodDoc> javaMethods;
   private TreeMap<String, StarlarkMethodDoc> methodMap;
   @Nullable private StarlarkConstructorMethodDoc javaConstructor;
+  private final boolean isTopLevel;
+
+  private static final String SOURCE_ROOT = "src/main/java";
+  private static final String NO_SOURCE_FILE_VALUE = "NONE";
 
   public StarlarkBuiltinDoc(
       StarlarkBuiltin module, String title, Class<?> classObject, StarlarkDocExpander expander) {
+    this(module, title, classObject, expander, false);
+  }
+
+  public StarlarkBuiltinDoc(
+      StarlarkBuiltin module,
+      String title,
+      Class<?> classObject,
+      StarlarkDocExpander expander,
+      boolean isTopLevel) {
     super(expander);
     this.module =
         Preconditions.checkNotNull(
@@ -51,6 +64,7 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
     this.classObject = classObject;
     this.methodMap = new TreeMap<>(Collator.getInstance(Locale.US));
     this.javaMethods = HashMultimap.<String, StarlarkJavaMethodDoc>create();
+    this.isTopLevel = isTopLevel;
   }
 
   @Override
@@ -134,5 +148,14 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
       methods.add(javaConstructor);
     }
     return methods.addAll(methodMap.values()).build();
+  }
+
+  public String getSourceFile() {
+    if (isTopLevel) {
+      return NO_SOURCE_FILE_VALUE;
+    }
+
+    String[] parts = classObject.getName().split("\\$", -1);
+    return String.format("%s/%s.java", SOURCE_ROOT, parts[0].replace('.', '/'));
   }
 }
