@@ -739,7 +739,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         builder.addSymlinks(runfiles.getSymlinks());
         builder.addRootSymlinks(runfiles.getRootSymlinks());
       } else {
-        builder.addTarget(defaultLauncher, RunfilesProvider.DEFAULT_RUNFILES);
+        builder.addTarget(
+            defaultLauncher,
+            RunfilesProvider.DEFAULT_RUNFILES,
+            ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData());
       }
     }
 
@@ -748,7 +751,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     List<? extends TransitiveInfoCollection> runtimeDeps =
         ruleContext.getPrerequisites("runtime_deps");
-    builder.addTargets(runtimeDeps, RunfilesProvider.DEFAULT_RUNFILES);
+    builder.addTargets(
+        runtimeDeps,
+        RunfilesProvider.DEFAULT_RUNFILES,
+        ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData());
 
     builder.addTransitiveArtifactsWrappedInStableOrder(common.getRuntimeClasspath());
 

@@ -434,6 +434,18 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean legacyExternalRunfiles;
 
   @Option(
+      name = "incompatible_always_include_files_in_data",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, native rules add <code>DefaultInfo.files</code> of data dependencies to "
+              + "their runfiles, which matches the recommended behavior for Starlark rules ("
+              + "https://bazel.build/extending/rules#runfiles_features_to_avoid).")
+  public boolean alwaysIncludeFilesToBuildInData;
+
+  @Option(
       name = "check_fileset_dependencies_recursively",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -930,6 +942,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.legacyExternalRunfiles = legacyExternalRunfiles;
     host.remotableSourceManifestActions = remotableSourceManifestActions;
     host.skipRunfilesManifests = skipRunfilesManifests;
+    host.alwaysIncludeFilesToBuildInData = alwaysIncludeFilesToBuildInData;
 
     // === Filesets ===
     host.strictFilesetOutput = strictFilesetOutput;

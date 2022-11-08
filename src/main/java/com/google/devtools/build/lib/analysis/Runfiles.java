@@ -935,7 +935,10 @@ public final class Runfiles implements RunfilesApi {
     /** Collects runfiles from data dependencies of a target. */
     @CanIgnoreReturnValue
     public Builder addDataDeps(RuleContext ruleContext) {
-      addTargets(getPrerequisites(ruleContext, "data"), RunfilesProvider.DATA_RUNFILES);
+      addTargets(
+          getPrerequisites(ruleContext, "data"),
+          RunfilesProvider.DATA_RUNFILES,
+          ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData());
       return this;
     }
 
@@ -952,16 +955,20 @@ public final class Runfiles implements RunfilesApi {
     @CanIgnoreReturnValue
     public Builder addTargets(
         Iterable<? extends TransitiveInfoCollection> targets,
-        Function<TransitiveInfoCollection, Runfiles> mapping) {
+        Function<TransitiveInfoCollection, Runfiles> mapping,
+        boolean alwaysIncludeFilesToBuildInData) {
       for (TransitiveInfoCollection target : targets) {
-        addTarget(target, mapping);
+        addTarget(target, mapping, alwaysIncludeFilesToBuildInData);
       }
       return this;
     }
 
-    public Builder addTarget(TransitiveInfoCollection target,
-        Function<TransitiveInfoCollection, Runfiles> mapping) {
-      return addTargetIncludingFileTargets(target, mapping);
+    @CanIgnoreReturnValue
+    public Builder addTarget(
+        TransitiveInfoCollection target,
+        Function<TransitiveInfoCollection, Runfiles> mapping,
+        boolean alwaysIncludeFilesToBuildInData) {
+      return addTargetIncludingFileTargets(target, mapping, alwaysIncludeFilesToBuildInData);
     }
 
     @CanIgnoreReturnValue
@@ -975,8 +982,10 @@ public final class Runfiles implements RunfilesApi {
       return this;
     }
 
-    private Builder addTargetIncludingFileTargets(TransitiveInfoCollection target,
-        Function<TransitiveInfoCollection, Runfiles> mapping) {
+    private Builder addTargetIncludingFileTargets(
+        TransitiveInfoCollection target,
+        Function<TransitiveInfoCollection, Runfiles> mapping,
+        boolean alwaysIncludeFilesToBuildInData) {
       if (target.getProvider(RunfilesProvider.class) == null
           && mapping == RunfilesProvider.DATA_RUNFILES) {
         // RuleConfiguredTarget implements RunfilesProvider, so this will only be called on
@@ -986,6 +995,17 @@ public final class Runfiles implements RunfilesApi {
         // of the memory use, though, since we have a whole lot of FileConfiguredTarget instances.
         addTransitiveArtifacts(target.getProvider(FileProvider.class).getFilesToBuild());
         return this;
+      }
+
+      if (alwaysIncludeFilesToBuildInData && mapping == RunfilesProvider.DATA_RUNFILES) {
+        // Ensure that `DefaultInfo.files` of Starlark rules is merged in so that native rules
+        // interoperate well with idiomatic Starlark rules..
+        // https://bazel.build/extending/rules#runfiles_features_to_avoid
+        // Internal tests fail if the order of filesToBuild is preserved.
+        addTransitiveArtifacts(
+            NestedSetBuilder.<Artifact>stableOrder()
+                .addTransitive(target.getProvider(FileProvider.class).getFilesToBuild())
+                .build());
       }
 
       return addTargetExceptFileTargets(target, mapping);
