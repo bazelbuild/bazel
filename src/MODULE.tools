@@ -35,5 +35,4 @@ remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 
 android_tools_extension = use_extension("//tools/android:extensions.bzl", "android_tools_extension")
-use_repo(android_tools_extension, "android_tools")
-use_repo(android_tools_extension, "android_gmaven_r8")
+use_repo(android_tools_extension, "android_tools", "android_gmaven_r8")
