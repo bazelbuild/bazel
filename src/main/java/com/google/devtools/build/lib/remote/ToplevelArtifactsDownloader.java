@@ -136,7 +136,7 @@ public class ToplevelArtifactsDownloader {
   @Subscribe
   @AllowConcurrentEvents
   public void onAspectComplete(AspectCompleteEvent event) {
-    if (!shouldDownloadToplevelOutputsForTarget(/* configuredTargetKey= */ null)) {
+    if (!shouldDownloadToplevelOutputs(event.getAspectKey().getBaseConfiguredTargetKey())) {
       return;
     }
 
@@ -150,7 +150,7 @@ public class ToplevelArtifactsDownloader {
   @Subscribe
   @AllowConcurrentEvents
   public void onTargetComplete(TargetCompleteEvent event) {
-    if (!shouldDownloadToplevelOutputsForTarget(event.getConfiguredTargetKey())) {
+    if (!shouldDownloadToplevelOutputs(event.getConfiguredTargetKey())) {
       return;
     }
 
@@ -163,15 +163,12 @@ public class ToplevelArtifactsDownloader {
         event.getExecutableTargetData().getRunfiles());
   }
 
-  private boolean shouldDownloadToplevelOutputsForTarget(
-      @Nullable ConfiguredTargetKey configuredTargetKey) {
+  private boolean shouldDownloadToplevelOutputs(ConfiguredTargetKey configuredTargetKey) {
     switch (commandMode) {
       case RUN:
+        // Always download outputs of toplevel targets in RUN mode
         return true;
       case TEST:
-        if (configuredTargetKey == null) {
-          return false;
-        }
         // Do not download test binary in test mode.
         try {
           var configuredTargetValue =
