@@ -637,6 +637,13 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   }
 
   /**
+   * Returns true if Runfiles should merge in FilesToBuild from deps when collecting data runfiles.
+   */
+  public boolean alwaysIncludeFilesToBuildInData() {
+    return options.alwaysIncludeFilesToBuildInData;
+  }
+
+  /**
    * Returns user-specified test environment variables and their values, as set by the --test_env
    * options.
    */
