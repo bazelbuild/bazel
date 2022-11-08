@@ -306,6 +306,9 @@ public class RunCommand implements BlazeCommand  {
       return BlazeCommandResult.detailedExitCode(result.getDetailedExitCode());
     }
 
+    // If Bazel is using an output service (e.g. Build without the Bytes), the toplevel outputs
+    // might still be downloading in the background. Flush the output tree to wait for all the
+    // downloads complete.
     if (env.getOutputService() != null) {
       try {
         env.getOutputService().flushOutputTree();
