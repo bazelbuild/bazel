@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.BindMount;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
@@ -53,6 +54,7 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
@@ -337,35 +339,13 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return writableDirs.build();
   }
 
-  private Map<Path, Path> getBindMounts(
+  private List<BindMount> getBindMounts(
       BlazeDirectories blazeDirs, SandboxInputs inputs, PathFragment sandboxSourceRoots,
       Path sandboxExecRoot, @Nullable Path sandboxTmp)
       throws UserExecException {
     Path tmpPath = fileSystem.getPath("/tmp");
-    final Map<Path, Path> bindMounts = Maps.newLinkedHashMap();
+    final SortedMap<Path, Path> bindMounts = Maps.newTreeMap();
     boolean buildUnderTmp = false;
-
-    if (sandboxTmp != null) {
-      bindMounts.put(sandboxTmp.getRelative("bazel-execroot"), blazeDirs.getExecRootBase());
-      bindMounts.put(sandboxTmp.getRelative("bazel-working-directory"), sandboxExecRoot);
-
-      for (Map.Entry<Path, PathFragment> sourceRoot : inputs.getSourceRoots().entrySet()) {
-        Path source = sourceRoot.getKey();
-        PathFragment id = sourceRoot.getValue();
-
-        bindMounts.put(sandboxTmp.getRelative(sandboxSourceRoots).getRelative(id), source);
-      }
-
-      if (buildUnderTmp) {
-        if (warnedAboutNonHermeticTmp.compareAndSet(false, true)) {
-          reporter.handle(
-              Event.warn(
-                  "Falling back to non-hermetic /tmp in sandbox since workspace or output base "
-                      + "lie under /tmp"));
-        }
-      }
-      bindMounts.put(tmpPath, sandboxTmp);
-    }
 
     for (ImmutableMap.Entry<String, String> additionalMountPath :
         getSandboxOptions().sandboxAdditionalMounts) {
@@ -382,6 +362,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
                 Code.BIND_MOUNT_ANALYSIS_FAILURE));
       }
     }
+
     for (Path inaccessiblePath : getInaccessiblePaths()) {
       if (inaccessiblePath.isDirectory(Symlinks.NOFOLLOW)) {
         bindMounts.put(inaccessiblePath, inaccessibleHelperDir);
@@ -389,8 +370,37 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         bindMounts.put(inaccessiblePath, inaccessibleHelperFile);
       }
     }
+
     validateBindMounts(bindMounts);
-    return bindMounts;
+    ImmutableList.Builder<BindMount> result = ImmutableList.builder();
+
+    if (sandboxTmp != null) {
+      result.add(BindMount.of(sandboxTmp.getRelative("bazel-execroot"), blazeDirs.getExecRootBase()));
+      result.add(BindMount.of(sandboxTmp.getRelative("bazel-working-directory"), sandboxExecRoot));
+
+      for (Map.Entry<Path, PathFragment> sourceRoot : inputs.getSourceRoots().entrySet()) {
+        Path source = sourceRoot.getKey();
+        PathFragment id = sourceRoot.getValue();
+
+        result.add(BindMount.of(sandboxTmp.getRelative(sandboxSourceRoots).getRelative(id), source));
+      }
+
+      if (buildUnderTmp) {
+        if (warnedAboutNonHermeticTmp.compareAndSet(false, true)) {
+          reporter.handle(
+              Event.warn(
+                  "Falling back to non-hermetic /tmp in sandbox since workspace or output base "
+                      + "lie under /tmp"));
+        }
+      }
+      result.add(BindMount.of(tmpPath, sandboxTmp));
+    }
+
+    for (Map.Entry<Path, Path> bindMount : bindMounts.entrySet()) {
+      result.add(BindMount.of(bindMount.getKey(), bindMount.getValue()));
+    }
+
+    return result.build();
   }
 
   /**

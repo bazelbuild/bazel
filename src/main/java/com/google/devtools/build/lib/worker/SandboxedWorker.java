@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.worker;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
+import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.BindMount;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Subprocess;
@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
-import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /** A {@link SingleplexWorker} that runs inside a sandboxed execution root. */
@@ -112,12 +112,13 @@ final class SandboxedWorker extends SingleplexWorker {
     return writableDirs.build();
   }
 
-  private SortedMap<Path, Path> getBindMounts(Path sandboxExecRoot, @Nullable Path sandboxTmp) {
+  private List<BindMount> getBindMounts(Path sandboxExecRoot, @Nullable Path sandboxTmp) {
     Path tmpPath = sandboxExecRoot.getFileSystem().getPath("/tmp");
-    final SortedMap<Path, Path> bindMounts = Maps.newTreeMap();
+    ImmutableList.Builder<BindMount> result = ImmutableList.builder();
     // Mount a fresh, empty temporary directory as /tmp for each sandbox rather than reusing the
     // host filesystem's /tmp. Since we're in a worker, we clean this dir between requests.
-    bindMounts.put(tmpPath, sandboxTmp);
+    result.add(BindMount.of(tmpPath, sandboxTmp));
+    return result.build();
     // TODO(larsrc): Apply InaccessiblePaths
     // for (Path inaccessiblePath : getInaccessiblePaths()) {
     //   if (inaccessiblePath.isDirectory(Symlinks.NOFOLLOW)) {
@@ -127,7 +128,6 @@ final class SandboxedWorker extends SingleplexWorker {
     //   }
     // }
     // validateBindMounts(bindMounts);
-    return bindMounts;
   }
 
   @Override
