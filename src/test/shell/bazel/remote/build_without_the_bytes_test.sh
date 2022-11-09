@@ -1583,7 +1583,7 @@ EOF
   expect_log "bin-message"
 }
 
-function test_java_rbe_coverage_produces_report_with_remote_download_minimal() {
+function test_java_rbe_coverage_produces_report() {
   mkdir -p java/factorial
 
   JAVA_TOOLS_ZIP="released"
@@ -1641,6 +1641,10 @@ EOF
     --remote_executor=grpc://localhost:${worker_port} \
     --instrumentation_filter=//java/factorial \
     //java/factorial:fact-test &> $TEST_log || fail "Shouldn't fail"
+
+  # Test binary shouldn't be downloaded
+  [[ ! -e "bazel-bin/java/factorial/libfact.jar" ]] || fail "bazel-bin/java/factorial/libfact.jar shouldn't exist!"
+  [[ ! -e "bazel-bin/java/factorial/fact-test" ]] || fail "bazel-bin/java/factorial/fact-test.jar shouldn't exist!"
 
   local expected_result="SF:java/factorial/Factorial.java
 FN:2,factorial/Factorial::<init> ()V
