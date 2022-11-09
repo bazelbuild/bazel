@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
-import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -46,7 +45,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -58,7 +56,7 @@ import org.mockito.ArgumentCaptor;
 
 /** Tests for {@link RemoteActionFileSystem} */
 @RunWith(JUnit4.class)
-public final class RemoteActionFileSystemTest {
+public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTestBase {
 
   private static final DigestHashFunction HASH_FUNCTION = DigestHashFunction.SHA256;
 
@@ -70,8 +68,39 @@ public final class RemoteActionFileSystemTest {
       ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
 
   @Before
-  public void createOutputRoot() throws IOException {
+  public void setUp() throws IOException {
     outputRoot.getRoot().asPath().createDirectoryAndParents();
+  }
+
+  @Override
+  protected RemoteActionFileSystem createActionFileSystem(
+      ActionInputMap inputs, Iterable<Artifact> outputs) throws IOException {
+    RemoteActionFileSystem remoteActionFileSystem =
+        new RemoteActionFileSystem(
+            fs,
+            execRoot.asFragment(),
+            outputRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
+            inputs,
+            outputs,
+            inputFetcher);
+    remoteActionFileSystem.updateContext(metadataInjector);
+    remoteActionFileSystem.createDirectoryAndParents(outputRoot.getRoot().asPath().asFragment());
+    return remoteActionFileSystem;
+  }
+
+  @Override
+  protected FileSystem getLocalFileSystem(FileSystem actionFs) {
+    return ((RemoteActionFileSystem) actionFs).getLocalFileSystem();
+  }
+
+  @Override
+  protected FileSystem getRemoteFileSystem(FileSystem actionFs) {
+    return ((RemoteActionFileSystem) actionFs).getRemoteOutputTree();
+  }
+
+  @Override
+  protected PathFragment getOutputPath(String outputRootRelativePath) {
+    return outputRoot.getRoot().asPath().getRelative(outputRootRelativePath).asFragment();
   }
 
   @Test
@@ -80,7 +109,7 @@ public final class RemoteActionFileSystemTest {
     ActionInputMap inputs = new ActionInputMap(2);
     Artifact remoteArtifact = createRemoteArtifact("remote-file", "remote contents", inputs);
     Artifact localArtifact = createLocalArtifact("local-file", "local contents", inputs);
-    FileSystem actionFs = newRemoteActionFileSystem(inputs);
+    FileSystem actionFs = createActionFileSystem(inputs);
     doAnswer(
             invocationOnMock -> {
               FileSystemUtils.writeContent(
@@ -114,7 +143,7 @@ public final class RemoteActionFileSystemTest {
     Artifact localArtifact = createLocalArtifact("local-file", "local contents", inputs);
     Artifact outputArtifact = ActionsTestUtil.createArtifact(outputRoot, "out");
     ImmutableList<Artifact> outputs = ImmutableList.of(outputArtifact);
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs, outputs);
+    RemoteActionFileSystem actionFs = createActionFileSystem(inputs, outputs);
 
     // act
     PathFragment linkPath = outputArtifact.getPath().asFragment();
@@ -144,7 +173,7 @@ public final class RemoteActionFileSystemTest {
     Artifact remoteArtifact = createRemoteArtifact("remote-file", "remote contents", inputs);
     Artifact outputArtifact = ActionsTestUtil.createArtifact(outputRoot, "out");
     ImmutableList<Artifact> outputs = ImmutableList.of(outputArtifact);
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs, outputs);
+    RemoteActionFileSystem actionFs = createActionFileSystem(inputs, outputs);
 
     // act
     PathFragment linkPath = outputArtifact.getPath().asFragment();
@@ -184,7 +213,7 @@ public final class RemoteActionFileSystemTest {
     SpecialArtifact outputArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "out");
     ImmutableList<Artifact> outputs = ImmutableList.of(outputArtifact);
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs, outputs);
+    RemoteActionFileSystem actionFs = createActionFileSystem(inputs, outputs);
 
     // act
     PathFragment linkPath = outputArtifact.getPath().asFragment();
@@ -217,7 +246,7 @@ public final class RemoteActionFileSystemTest {
     SpecialArtifact outputArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "out");
     ImmutableList<Artifact> outputs = ImmutableList.of(outputArtifact);
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs, outputs);
+    RemoteActionFileSystem actionFs = createActionFileSystem(inputs, outputs);
 
     // act
     PathFragment linkPath = outputArtifact.getPath().asFragment();
@@ -252,7 +281,7 @@ public final class RemoteActionFileSystemTest {
     SpecialArtifact outputArtifact =
         ActionsTestUtil.createUnresolvedSymlinkArtifact(outputRoot, "out");
     ImmutableList<Artifact> outputs = ImmutableList.of(outputArtifact);
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs, outputs);
+    RemoteActionFileSystem actionFs = createActionFileSystem(inputs, outputs);
     PathFragment targetPath = PathFragment.create("some/path");
 
     // act
@@ -276,219 +305,33 @@ public final class RemoteActionFileSystemTest {
   }
 
   @Test
-  public void exists_fileDoesNotExist_returnsFalse() throws Exception {
-    ActionInputMap inputs = new ActionInputMap(0);
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
-    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
-
-    assertThat(actionFs.exists(path)).isFalse();
-  }
-
-  @Test
-  public void exists_localFile_returnsTrue() throws Exception {
-    ActionInputMap inputs = new ActionInputMap(0);
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
-    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
-
-    writeLocalFile(actionFs, path, "local contents");
-
-    assertThat(actionFs.exists(path)).isTrue();
-  }
-
-  @Test
-  public void exists_remoteFile_returnsTrue() throws Exception {
-    ActionInputMap inputs = new ActionInputMap(0);
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
-    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
-
-    injectRemoteFile(actionFs, path, "remote contents");
-
-    assertThat(actionFs.exists(path)).isTrue();
-  }
-
-  @Test
-  public void exists_localAndRemoteFile_returnsTrue() throws Exception {
-    ActionInputMap inputs = new ActionInputMap(0);
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
-    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
-
-    writeLocalFile(actionFs, path, "local contents");
-    injectRemoteFile(actionFs, path, "remote contents");
-
-    assertThat(actionFs.exists(path)).isTrue();
-  }
-
-  @Test
-  public void delete_fileDoesNotExist_returnsFalse() throws Exception {
-    ActionInputMap inputs = new ActionInputMap(0);
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
-    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
-
-    assertThat(actionFs.delete(path)).isFalse();
-  }
-
-  @Test
-  public void delete_localFile_succeeds() throws Exception {
-    ActionInputMap inputs = new ActionInputMap(0);
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
-    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
-    writeLocalFile(actionFs, path, "local contents");
-    assertThat(actionFs.getLocalFileSystem().exists(path)).isTrue();
-
-    boolean success = actionFs.delete(path);
-
-    assertThat(success).isTrue();
-    assertThat(actionFs.getLocalFileSystem().exists(path)).isFalse();
-  }
-
-  @Test
-  public void delete_remoteFile_succeeds() throws Exception {
-    ActionInputMap inputs = new ActionInputMap(0);
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
-    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
-    injectRemoteFile(actionFs, path, "remote contents");
-    assertThat(actionFs.getRemoteOutputTree().exists(path)).isTrue();
-
-    boolean success = actionFs.delete(path);
-
-    assertThat(success).isTrue();
-    assertThat(actionFs.exists(path)).isFalse();
-    assertThat(actionFs.getRemoteOutputTree().exists(path)).isFalse();
-  }
-
-  @Test
-  public void delete_localAndRemoteFile_succeeds() throws Exception {
-    ActionInputMap inputs = new ActionInputMap(0);
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
-    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
-    writeLocalFile(actionFs, path, "local contents");
-    injectRemoteFile(actionFs, path, "remote contents");
-    assertThat(actionFs.getLocalFileSystem().exists(path)).isTrue();
-    assertThat(actionFs.getRemoteOutputTree().exists(path)).isTrue();
-
-    boolean success = actionFs.delete(path);
-
-    assertThat(success).isTrue();
-    assertThat(actionFs.exists(path)).isFalse();
-    assertThat(actionFs.getLocalFileSystem().exists(path)).isFalse();
-    assertThat(actionFs.getRemoteOutputTree().exists(path)).isFalse();
-  }
-
-  @Test
-  public void renameTo_fileDoesNotExist_throwError() throws Exception {
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem();
-    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
-    PathFragment newPath = outputRoot.getRoot().asPath().getRelative("file-new").asFragment();
-
-    assertThrows(FileNotFoundException.class, () -> actionFs.renameTo(path, newPath));
-  }
-
-  @Test
-  public void renameTo_onlyRemoteFile_renameRemoteFile() throws Exception {
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem();
-    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
-    injectRemoteFile(actionFs, path, "remote-content");
-    PathFragment newPath = outputRoot.getRoot().asPath().getRelative("file-new").asFragment();
-
-    actionFs.renameTo(path, newPath);
-
-    assertThat(actionFs.exists(path)).isFalse();
-    assertThat(actionFs.exists(newPath)).isTrue();
-    assertThat(actionFs.getRemoteOutputTree().exists(path)).isFalse();
-    assertThat(actionFs.getRemoteOutputTree().exists(newPath)).isTrue();
-  }
-
-  @Test
   public void renameTo_onlyLocalFile_renameLocalFile() throws Exception {
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem();
-    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
+    FileSystem actionFs = createActionFileSystem();
+    PathFragment path = getOutputPath("file");
     writeLocalFile(actionFs, path, "local-content");
-    PathFragment newPath = outputRoot.getRoot().asPath().getRelative("file-new").asFragment();
+    PathFragment newPath = getOutputPath("file-new");
 
     actionFs.renameTo(path, newPath);
 
     assertThat(actionFs.exists(path)).isFalse();
     assertThat(actionFs.exists(newPath)).isTrue();
-    assertThat(actionFs.getLocalFileSystem().exists(path)).isFalse();
-    assertThat(actionFs.getLocalFileSystem().exists(newPath)).isTrue();
+    assertThat(getLocalFileSystem(actionFs).exists(path)).isFalse();
+    assertThat(getLocalFileSystem(actionFs).exists(newPath)).isTrue();
   }
 
-  @Test
-  public void renameTo_localAndRemoteFile_renameBoth() throws Exception {
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem();
-    PathFragment path = outputRoot.getRoot().asPath().getRelative("file").asFragment();
-    injectRemoteFile(actionFs, path, "remote-content");
-    writeLocalFile(actionFs, path, "local-content");
-    PathFragment newPath = outputRoot.getRoot().asPath().getRelative("file-new").asFragment();
-
-    actionFs.renameTo(path, newPath);
-
-    assertThat(actionFs.exists(path)).isFalse();
-    assertThat(actionFs.exists(newPath)).isTrue();
-    assertThat(actionFs.getRemoteOutputTree().exists(path)).isFalse();
-    assertThat(actionFs.getRemoteOutputTree().exists(newPath)).isTrue();
-    assertThat(actionFs.getLocalFileSystem().exists(path)).isFalse();
-    assertThat(actionFs.getLocalFileSystem().exists(newPath)).isTrue();
-  }
-
-  @Test
-  public void createDirectoryAndParents_createLocallyAndRemotely() throws Exception {
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem();
-    PathFragment path = outputRoot.getRoot().asPath().getRelative("dir").asFragment();
-
-    actionFs.createDirectoryAndParents(path);
-
-    assertThat(actionFs.getRemoteOutputTree().getPath(path).isDirectory()).isTrue();
-    assertThat(actionFs.getLocalFileSystem().getPath(path).isDirectory()).isTrue();
-  }
-
-  @Test
-  public void createDirectory_createLocallyAndRemotely() throws Exception {
-    RemoteActionFileSystem actionFs = newRemoteActionFileSystem();
-    actionFs.createDirectoryAndParents(outputRoot.getRoot().asPath().asFragment());
-    PathFragment path = outputRoot.getRoot().asPath().getRelative("dir").asFragment();
-
-    actionFs.createDirectory(path);
-
-    assertThat(actionFs.getRemoteOutputTree().getPath(path).isDirectory()).isTrue();
-    assertThat(actionFs.getLocalFileSystem().getPath(path).isDirectory()).isTrue();
-  }
-
-  private void injectRemoteFile(RemoteActionFileSystem actionFs, PathFragment path, String content)
+  @Override
+  protected void injectRemoteFile(FileSystem actionFs, PathFragment path, String content)
       throws IOException {
     byte[] contentBytes = content.getBytes(StandardCharsets.UTF_8);
     HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contentBytes);
-    actionFs.injectRemoteFile(path, hashCode.asBytes(), contentBytes.length, "action-id");
+    ((RemoteActionFileSystem) actionFs)
+        .injectRemoteFile(path, hashCode.asBytes(), contentBytes.length, "action-id");
   }
 
-  private void writeLocalFile(RemoteActionFileSystem actionFs, PathFragment path, String content)
+  @Override
+  protected void writeLocalFile(FileSystem actionFs, PathFragment path, String content)
       throws IOException {
     FileSystemUtils.writeContent(actionFs.getPath(path), StandardCharsets.UTF_8, content);
-  }
-
-  private RemoteActionFileSystem newRemoteActionFileSystem() throws IOException {
-    ActionInputMap inputs = new ActionInputMap(0);
-    return newRemoteActionFileSystem(inputs, ImmutableList.of());
-  }
-
-  private RemoteActionFileSystem newRemoteActionFileSystem(ActionInputMap inputs)
-      throws IOException {
-    return newRemoteActionFileSystem(inputs, ImmutableList.of());
-  }
-
-  private RemoteActionFileSystem newRemoteActionFileSystem(
-      ActionInputMap inputs, Iterable<Artifact> outputs) throws IOException {
-    RemoteActionFileSystem remoteActionFileSystem =
-        new RemoteActionFileSystem(
-            fs,
-            execRoot.asFragment(),
-            outputRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
-            inputs,
-            outputs,
-            inputFetcher);
-    remoteActionFileSystem.updateContext(metadataInjector);
-    remoteActionFileSystem.createDirectoryAndParents(outputRoot.getRoot().asPath().asFragment());
-    return remoteActionFileSystem;
   }
 
   /** Returns a remote artifact and puts its metadata into the action input map. */
