@@ -118,8 +118,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   @VisibleForTesting
   SourceManifestAction(
       ManifestWriter manifestWriter, ActionOwner owner, Artifact primaryOutput, Runfiles runfiles) {
-    this(manifestWriter, owner, primaryOutput, runfiles, /*remotableSourceManifestActions=*/ null,
-        false);
+    this(manifestWriter, owner, primaryOutput, runfiles, null, false);
   }
 
   /**
