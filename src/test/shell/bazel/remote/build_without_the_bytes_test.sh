@@ -1644,7 +1644,6 @@ EOF
 
   # Test binary shouldn't be downloaded
   [[ ! -e "bazel-bin/java/factorial/libfact.jar" ]] || fail "bazel-bin/java/factorial/libfact.jar shouldn't exist!"
-  [[ ! -e "bazel-bin/java/factorial/fact-test" ]] || fail "bazel-bin/java/factorial/fact-test.jar shouldn't exist!"
 
   local expected_result="SF:java/factorial/Factorial.java
 FN:2,factorial/Factorial::<init> ()V
