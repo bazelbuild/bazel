@@ -306,6 +306,17 @@ public class RunCommand implements BlazeCommand  {
       return BlazeCommandResult.detailedExitCode(result.getDetailedExitCode());
     }
 
+    // If Bazel is using an output service (e.g. Build without the Bytes), the toplevel outputs
+    // might still be downloading in the background. Flush the output tree to wait for all the
+    // downloads complete.
+    if (env.getOutputService() != null) {
+      try {
+        env.getOutputService().flushOutputTree();
+      } catch (InterruptedException ignored) {
+        Thread.currentThread().interrupt();
+      }
+    }
+
     // Make sure that we have exactly 1 built target (excluding --run_under),
     // and that it is executable.
     // These checks should only fail if keepGoing is true, because we already did

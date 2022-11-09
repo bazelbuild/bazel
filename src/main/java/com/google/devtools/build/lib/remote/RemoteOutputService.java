@@ -96,6 +96,13 @@ public class RemoteOutputService implements OutputService {
   }
 
   @Override
+  public void flushOutputTree() throws InterruptedException {
+    if (actionInputFetcher != null) {
+      actionInputFetcher.flushOutputTree();
+    }
+  }
+
+  @Override
   public void finalizeBuild(boolean buildSuccessful) {
     // Intentionally left empty.
   }
