@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.LabelConverter;
@@ -37,6 +38,7 @@ import net.starlark.java.eval.Structure;
 /** A Starlark object representing a Bazel module in the external dependency graph. */
 @StarlarkBuiltin(
     name = "bazel_module",
+    category = DocCategory.BUILTIN,
     doc = "Represents a Bazel module in the external dependency graph.")
 public class StarlarkBazelModule implements StarlarkValue {
   private final String name;
@@ -46,6 +48,7 @@ public class StarlarkBazelModule implements StarlarkValue {
 
   @StarlarkBuiltin(
       name = "bazel_module_tags",
+      category = DocCategory.BUILTIN,
       doc =
           "Contains the tags in a module for the module extension currently being processed. This"
               + " object has a field for each tag class of the extension, and the value of the"

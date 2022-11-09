@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.packages.Attribute;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkValue;
@@ -25,7 +26,10 @@ import net.starlark.java.syntax.Location;
 /**
  * Represents a tag class, which is a "class" of {@link Tag}s that share the same attribute schema.
  */
-@StarlarkBuiltin(name = "tag_class", doc = "Defines a schema of attributes for a tag.")
+@StarlarkBuiltin(
+    name = "tag_class",
+    category = DocCategory.BUILTIN,
+    doc = "Defines a schema of attributes for a tag.")
 @AutoValue
 public abstract class TagClass implements StarlarkValue {
   /** The list of attributes of this tag class. */

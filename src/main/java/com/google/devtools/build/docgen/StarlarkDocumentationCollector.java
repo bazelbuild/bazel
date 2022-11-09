@@ -60,9 +60,9 @@ final class StarlarkDocumentationCollector {
       all =
           collectModules(
               Iterables.concat(
-                  Classpath.findClasses("com/google/devtools/build"), // Bazel
-                  Classpath.findClasses("net/starlark/java")),
-              expander); // Starlark
+                  /*Bazel*/ Classpath.findClasses("com/google/devtools/build"),
+                  /*Starlark*/ Classpath.findClasses("net/starlark/java")),
+              expander);
     }
     return all;
   }

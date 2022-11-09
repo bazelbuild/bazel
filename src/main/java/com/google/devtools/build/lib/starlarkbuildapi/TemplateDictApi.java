@@ -27,7 +27,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Template expansion dict module. */
 @StarlarkBuiltin(
     name = "TemplateDict",
-    category = DocCategory.TOP_LEVEL_TYPE,
+    category = DocCategory.BUILTIN,
     doc =
         "An Args-like structure for use in ctx.actions.expand_template(), which allows for"
             + " deferring evaluation of values till the execution phase.")

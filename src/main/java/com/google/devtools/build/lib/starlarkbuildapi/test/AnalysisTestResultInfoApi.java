@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.test;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import net.starlark.java.annot.Param;
@@ -26,6 +27,7 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @StarlarkBuiltin(
     name = "AnalysisTestResultInfo",
+    category = DocCategory.PROVIDER,
     doc =
         "Encapsulates the result of analyis-phase testing. Build targets which return an instance"
             + " of this provider signal to the build system that it should generate a 'stub' test"
