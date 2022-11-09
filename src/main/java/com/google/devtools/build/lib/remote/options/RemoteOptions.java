@@ -473,15 +473,17 @@ public final class RemoteOptions extends CommonRemoteOptions {
         "--nobuild_runfile_links",
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
+        "--experimental_action_cache_store_output_metadata",
         "--remote_download_outputs=minimal"
       },
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Does not download any remote build outputs to the local machine. This flag is a "
-              + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
-              + "--experimental_inmemory_dotd_files and "
+          "Does not download any remote build outputs to the local machine. This flag is a shortcut"
+              + " for flags: --experimental_inmemory_jdeps_files,"
+              + " --experimental_inmemory_dotd_files,"
+              + " --experimental_action_cache_store_output_metadata and "
               + "--remote_download_outputs=minimal.")
   public Void remoteOutputsMinimal;
 
@@ -492,15 +494,17 @@ public final class RemoteOptions extends CommonRemoteOptions {
       expansion = {
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
+        "--experimental_action_cache_store_output_metadata",
         "--remote_download_outputs=toplevel"
       },
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Only downloads remote outputs of top level targets to the local machine. This flag is a "
-              + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
-              + "--experimental_inmemory_dotd_files and "
+          "Only downloads remote outputs of top level targets to the local machine. This flag is a"
+              + " shortcut for flags: --experimental_inmemory_jdeps_files,"
+              + " --experimental_inmemory_dotd_files,"
+              + " --experimental_action_cache_store_output_metadata and "
               + "--remote_download_outputs=toplevel.")
   public Void remoteOutputsToplevel;
 
