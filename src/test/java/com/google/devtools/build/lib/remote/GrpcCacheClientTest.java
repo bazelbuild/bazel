@@ -369,7 +369,11 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
         .setPath("a/foo")
         .setDigest(fooDigest)
         .setIsExecutable(true);
-    expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("bar")
+        .setTreeDigest(barDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result).isEqualTo(expectedResult.build());
   }
 
@@ -409,7 +413,11 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
 
     ActionResult result = uploadDirectory(remoteCache, ImmutableList.<Path>of(barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("bar")
+        .setTreeDigest(barDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result).isEqualTo(expectedResult.build());
   }
 
@@ -472,7 +480,11 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
 
     ActionResult result = uploadDirectory(remoteCache, ImmutableList.of(barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("bar")
+        .setTreeDigest(barDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result).isEqualTo(expectedResult.build());
   }
 
