@@ -84,6 +84,7 @@ public class StarlarkTestingModule implements TestingModuleApi {
             /*hostFragments=*/ StarlarkList.empty(),
             /*starlarkTestable=*/ false,
             /*toolchains=*/ toolchains,
+            /*useToolchainTransition=*/ false,
             /*providesArg=*/ StarlarkList.empty(),
             /*execCompatibleWith=*/ StarlarkList.empty(),
             /*analysisTest=*/ Boolean.TRUE,
