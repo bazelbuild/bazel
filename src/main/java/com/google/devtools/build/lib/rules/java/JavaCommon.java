@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -371,11 +372,14 @@ public class JavaCommon {
 
   /** Computes javacopts for the current rule. */
   private ImmutableList<String> computeJavacOpts(Collection<String> extraRuleJavacOpts) {
-    return ImmutableList.<String>builder()
+    Builder<String> javacOpts = ImmutableList.<String>builder()
         .addAll(javaToolchain.getJavacOptions(ruleContext))
-        .addAll(extraRuleJavacOpts)
-        // Consumed by com.google.devtools.build.runfiles.AutoBazelRepositoryProcessor.
-        .add("-Abazel.repository=" + ruleContext.getRepository().getName())
+        .addAll(extraRuleJavacOpts);
+    if (activePlugins.plugins().processorClasses().toList()
+        .contains("com.google.devtools.build.runfiles.AutoBazelRepositoryProcessor")) {
+      javacOpts.add("-Abazel.repository=" + ruleContext.getRepository().getName());
+    }
+    return javacOpts
         .addAll(computePerPackageJavacOpts(ruleContext, javaToolchain))
         .addAll(addModuleJavacopts(ruleContext))
         .addAll(ruleContext.getExpander().withDataLocations().tokenized("javacopts"))
@@ -540,8 +544,8 @@ public class JavaCommon {
   public JavaTargetAttributes.Builder initCommon(
       Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts) {
     Preconditions.checkState(javacOpts == null);
-    javacOpts = computeJavacOpts(ImmutableList.copyOf(extraJavacOpts));
     activePlugins = collectPlugins();
+    javacOpts = computeJavacOpts(ImmutableList.copyOf(extraJavacOpts));
 
     JavaTargetAttributes.Builder javaTargetAttributes = new JavaTargetAttributes.Builder(semantics);
     javaCompilationHelper =

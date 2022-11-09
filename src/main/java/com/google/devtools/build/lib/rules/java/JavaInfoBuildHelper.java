@@ -25,6 +25,7 @@ import static java.util.stream.Stream.concat;
 
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -284,6 +285,22 @@ final class JavaInfoBuildHelper {
 
     JavaToolchainProvider toolchainProvider = javaToolchain;
 
+    JavaPluginInfo pluginInfo = mergeExportedJavaPluginInfo(plugins, deps);
+    Builder<String> allJavacOptsBuilder = ImmutableList.<String>builder()
+        .addAll(toolchainProvider.getJavacOptions(starlarkRuleContext.getRuleContext()))
+        .addAll(javaSemantics.getCompatibleJavacOptions(starlarkRuleContext.getRuleContext(),
+            toolchainProvider));
+    if (pluginInfo.plugins().processorClasses().toList()
+        .contains("com.google.devtools.build.runfiles.AutoBazelRepositoryProcessor")) {
+      allJavacOptsBuilder.add(
+          "-Abazel.repository=" + starlarkRuleContext.getRuleContext().getRepository().getName());
+    }
+    allJavacOptsBuilder.addAll(
+            JavaCommon.computePerPackageJavacOpts(starlarkRuleContext.getRuleContext(),
+                toolchainProvider))
+        .addAll(JavaModuleFlagsProvider.toFlags(addExports, addOpens))
+        .addAll(tokenize(javacOpts));
+
     JavaLibraryHelper helper =
         new JavaLibraryHelper(starlarkRuleContext.getRuleContext())
             .setOutput(outputJar)
@@ -295,22 +312,7 @@ final class JavaInfoBuildHelper {
             .setSourcePathEntries(sourcepathEntries)
             .addAdditionalOutputs(annotationProcessorAdditionalOutputs)
             .enableJspecify(enableJSpecify)
-            .setJavacOpts(
-                ImmutableList.<String>builder()
-                    .addAll(toolchainProvider.getJavacOptions(starlarkRuleContext.getRuleContext()))
-                    .addAll(
-                        javaSemantics.getCompatibleJavacOptions(
-                            starlarkRuleContext.getRuleContext(), toolchainProvider))
-                    // Consumed by com.google.devtools.build.runfiles.AutoBazelRepositoryProcessor.
-                    .add(
-                        "-Abazel.repository=" + starlarkRuleContext.getRuleContext().getRepository()
-                            .getName())
-                    .addAll(
-                        JavaCommon.computePerPackageJavacOpts(
-                            starlarkRuleContext.getRuleContext(), toolchainProvider))
-                    .addAll(JavaModuleFlagsProvider.toFlags(addExports, addOpens))
-                    .addAll(tokenize(javacOpts))
-                    .build());
+            .setJavacOpts(allJavacOptsBuilder.build());
 
     if (injectingRuleKind != Starlark.NONE) {
       helper.setInjectingRuleKind((String) injectingRuleKind);
@@ -320,7 +322,6 @@ final class JavaInfoBuildHelper {
     streamProviders(deps, JavaCompilationArgsProvider.class).forEach(helper::addDep);
     streamProviders(exports, JavaCompilationArgsProvider.class).forEach(helper::addExport);
     helper.setCompilationStrictDepsMode(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)));
-    JavaPluginInfo pluginInfo = mergeExportedJavaPluginInfo(plugins, deps);
     // Optimization: skip this if there are no annotation processors, to avoid unnecessarily
     // disabling the direct classpath optimization if `enable_annotation_processor = False`
     // but there aren't any annotation processors.
