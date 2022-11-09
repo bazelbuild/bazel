@@ -886,11 +886,17 @@ public class JavaCommon {
       depsForRunfiles.addAll(ruleContext.getPrerequisites("exports"));
     }
 
-    runfilesBuilder.addTargets(depsForRunfiles, RunfilesProvider.DEFAULT_RUNFILES);
+    runfilesBuilder.addTargets(
+        depsForRunfiles,
+        RunfilesProvider.DEFAULT_RUNFILES,
+        ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData());
 
     TransitiveInfoCollection launcher = JavaHelper.launcherForTarget(semantics, ruleContext);
     if (launcher != null) {
-      runfilesBuilder.addTarget(launcher, RunfilesProvider.DATA_RUNFILES);
+      runfilesBuilder.addTarget(
+          launcher,
+          RunfilesProvider.DATA_RUNFILES,
+          ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData());
     }
 
     semantics.addRunfilesForLibrary(ruleContext, runfilesBuilder);

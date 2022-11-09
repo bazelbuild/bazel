@@ -175,7 +175,11 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
             "platform(name = 'host',",
             "  # Auto-detected host platform constraints.",
             "  constraint_values = HOST_CONSTRAINTS,",
-            ")"),
+            ")",
+            "exports_files([",
+            "  # Export constraints.bzl for use in downstream bzl_library targets.",
+            "  'constraints.bzl',",
+            "])"),
         repositoryName);
   }
 
