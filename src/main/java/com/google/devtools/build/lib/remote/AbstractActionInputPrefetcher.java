@@ -564,4 +564,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       prefetchFiles(outputsToDownload, metadataHandler, Priority.LOW);
     }
   }
+
+  public void flushOutputTree() throws InterruptedException {
+    downloadCache.awaitInProgressTasks();
+  }
 }
