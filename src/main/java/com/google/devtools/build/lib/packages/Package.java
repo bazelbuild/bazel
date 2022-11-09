@@ -2104,12 +2104,7 @@ public class Package {
         CodedInputStream codedIn)
         throws SerializationException, IOException {
       PackageCodecDependencies codecDeps = context.getDependency(PackageCodecDependencies.class);
-      try {
-        return codecDeps.getPackageSerializer().deserialize(context, codedIn);
-      } catch (InterruptedException e) {
-        throw new IllegalStateException(
-            "Unexpected InterruptedException during Package deserialization", e);
-      }
+      return codecDeps.getPackageSerializer().deserialize(context, codedIn);
     }
   }
 }
