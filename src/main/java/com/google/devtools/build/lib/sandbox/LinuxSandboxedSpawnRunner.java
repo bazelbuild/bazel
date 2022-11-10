@@ -400,9 +400,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableList.Builder<BindMount> result = ImmutableList.builder();
 
     if (sandboxTmp != null) {
+      // First mount the real exec root and the empty directory created as the working dir of the
+      // action under $SANDBOX/_tmp
       result.add(BindMount.of(sandboxTmp.getRelative(BAZEL_EXECROOT), blazeDirs.getExecRootBase()));
       result.add(BindMount.of(sandboxTmp.getRelative(BAZEL_WORKING_DIRECTORY), sandboxExecRootBase));
 
+      // Then mount the individual package roots under $SANDBOX/_tmp/bazel-source-roots
       for (Map.Entry<Root, Path> sourceRoot : inputs.getSourceRootBindMounts().entrySet()) {
         Path realSourceRoot = sourceRoot.getValue();
         Root withinSandboxSourceRoot = sourceRoot.getKey();
@@ -410,6 +413,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         result.add(BindMount.of(sandboxTmp.getRelative(sandboxTmpSourceRoot), realSourceRoot));
       }
 
+      // Then mount $SANDBOX/_tmp at /tmp. At this point, even if the output base (and execroot)
+      // and individual source roots are under /tmp, they are accessible at /tmp/bazel-*
       result.add(BindMount.of(tmpPath, sandboxTmp));
     }
 
