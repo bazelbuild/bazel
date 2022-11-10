@@ -151,7 +151,8 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
         .getRunfiles()
         .getRunfilesInputs(
             action.getInputManifest() == null ? actionExecutionContext.getEventHandler() : null,
-            action.getOwner().getLocation());
+            action.getOwner().getLocation(),
+            action.getRepoMappingManifest());
   }
 
   private static void createOutput(

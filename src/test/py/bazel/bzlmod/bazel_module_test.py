@@ -583,27 +583,29 @@ class BazelModuleTest(test_base.TestBase):
     self.main_registry.setModuleBasePath('projects')
     projects_dir = self.main_registry.projects
 
-    # Set up a "bare_rule" module that contains the "bare_binary" rule which
+    # Set up a "bare_rule" module that contains the "bare_test" rule which
     # passes runfiles along
     self.main_registry.createLocalPathModule('bare_rule', '1.0', 'bare_rule')
     projects_dir.joinpath('bare_rule').mkdir(exist_ok=True)
     scratchFile(projects_dir.joinpath('bare_rule', 'WORKSPACE'))
     scratchFile(projects_dir.joinpath('bare_rule', 'BUILD'))
+    # The working directory of a test is the subdirectory of the runfiles
+    # directory corresponding to the main repository.
     scratchFile(
         projects_dir.joinpath('bare_rule', 'defs.bzl'), [
-            'def _bare_binary_impl(ctx):',
+            'def _bare_test_impl(ctx):',
             '  exe = ctx.actions.declare_file(ctx.label.name)',
             '  ctx.actions.write(exe,',
-            '    "#/bin/bash\\nif [[ ! -f \\"$0.repo_mapping\\" ]]; then\\necho >&2 \\"ERROR: cannot find repo mapping manifest file\\"\\nexit 1\\nfi",',
+            '    "#/bin/bash\\nif [[ ! -f ../_repo_mapping || ! -s ../_repo_mapping ]]; then\\necho >&2 \\"ERROR: cannot find repo mapping manifest file\\"\\nexit 1\\nfi",',
             '    True)',
             '  runfiles = ctx.runfiles(files=ctx.files.data)',
             '  for data in ctx.attr.data:',
             '    runfiles = runfiles.merge(data[DefaultInfo].default_runfiles)',
             '  return DefaultInfo(files=depset(direct=[exe]), executable=exe, runfiles=runfiles)',
-            'bare_binary=rule(',
-            '  implementation=_bare_binary_impl,',
+            'bare_test=rule(',
+            '  implementation=_bare_test_impl,',
             '  attrs={"data":attr.label_list(allow_files=True)},',
-            '  executable=True,',
+            '  test=True,',
             ')',
         ])
 
@@ -617,8 +619,8 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile('WORKSPACE')
     self.ScratchFile('WORKSPACE.bzlmod', ['workspace(name="me_ws")'])
     self.ScratchFile('BUILD', [
-        'load("@bare_rule//:defs.bzl", "bare_binary")',
-        'bare_binary(name="me",data=["@foo"])',
+        'load("@bare_rule//:defs.bzl", "bare_test")',
+        'bare_test(name="me",data=["@foo"])',
     ])
     self.main_registry.createLocalPathModule('foo', '1.0', 'foo', {
         'quux': '1.0',
@@ -633,16 +635,16 @@ class BazelModuleTest(test_base.TestBase):
     self.main_registry.createLocalPathModule('quux', '2.0', 'quux2',
                                              {'bare_rule': '1.0'})
     for dir_name, build_file in [
-        ('foo', 'bare_binary(name="foo",data=["@quux"])'),
-        ('bar', 'bare_binary(name="bar",data=["@quux"])'),
-        ('quux1', 'bare_binary(name="quux")'),
-        ('quux2', 'bare_binary(name="quux")'),
+        ('foo', 'bare_test(name="foo",data=["@quux"])'),
+        ('bar', 'bare_test(name="bar",data=["@quux"])'),
+        ('quux1', 'bare_test(name="quux")'),
+        ('quux2', 'bare_test(name="quux")'),
     ]:
       projects_dir.joinpath(dir_name).mkdir(exist_ok=True)
       scratchFile(projects_dir.joinpath(dir_name, 'WORKSPACE'))
       scratchFile(
           projects_dir.joinpath(dir_name, 'BUILD'), [
-              'load("@bare_rule//:defs.bzl", "bare_binary")',
+              'load("@bare_rule//:defs.bzl", "bare_test")',
               'package(default_visibility=["//visibility:public"])',
               build_file,
           ])
@@ -650,25 +652,47 @@ class BazelModuleTest(test_base.TestBase):
     # We use a shell script to check that the binary itself can see the repo
     # mapping manifest. This obviously doesn't work on Windows, so we just build
     # the target. TODO(wyv): make this work on Windows by using Batch.
-    bazel_command = 'build' if self.IsWindows() else 'run'
+    # On Linux and macOS, the script is executed in the sandbox, so we verify
+    # that the repository mapping is present in it.
+    bazel_command = 'build' if self.IsWindows() else 'test'
 
     # Finally we get to build stuff!
-    self.RunBazel([bazel_command, '//:me'], allow_failure=False)
-    with open(self.Path('bazel-bin/me.repo_mapping'), 'r') as f:
-      self.assertEqual(
-          f.read().strip(), """,foo,foo~1.0
+    exit_code, stderr, stdout = self.RunBazel(
+        [bazel_command, '//:me', '--test_output=errors'], allow_failure=True)
+    self.AssertExitCode(0, exit_code, stderr, stdout)
+
+    paths = ['bazel-bin/me.repo_mapping']
+    if not self.IsWindows():
+      paths.append('bazel-bin/me.runfiles/_repo_mapping')
+    for path in paths:
+      with open(self.Path(path), 'r') as f:
+        self.assertEqual(
+            f.read().strip(), """,foo,foo~1.0
 ,me,_main
 ,me_ws,_main
 foo~1.0,foo,foo~1.0
 foo~1.0,quux,quux~2.0
 quux~2.0,quux,quux~2.0""")
-    self.RunBazel([bazel_command, '@bar//:bar'], allow_failure=False)
-    with open(self.Path('bazel-bin/external/bar~2.0/bar.repo_mapping'),
-              'r') as f:
-      self.assertEqual(
-          f.read().strip(), """bar~2.0,bar,bar~2.0
+    with open(self.Path('bazel-bin/me.runfiles_manifest')) as f:
+      self.assertIn('_repo_mapping ', f.read())
+
+    exit_code, stderr, stdout = self.RunBazel(
+        [bazel_command, '@bar//:bar', '--test_output=errors'],
+        allow_failure=True)
+    self.AssertExitCode(0, exit_code, stderr, stdout)
+
+    paths = ['bazel-bin/external/bar~2.0/bar.repo_mapping']
+    if not self.IsWindows():
+      paths.append('bazel-bin/external/bar~2.0/bar.runfiles/_repo_mapping')
+    for path in paths:
+      with open(self.Path(path), 'r') as f:
+        self.assertEqual(
+            f.read().strip(), """bar~2.0,bar,bar~2.0
 bar~2.0,quux,quux~2.0
 quux~2.0,quux,quux~2.0""")
+    with open(
+        self.Path('bazel-bin/external/bar~2.0/bar.runfiles_manifest')) as f:
+      self.assertIn('_repo_mapping ', f.read())
 
 if __name__ == '__main__':
   unittest.main()

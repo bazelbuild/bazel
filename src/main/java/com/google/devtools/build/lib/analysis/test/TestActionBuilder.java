@@ -379,6 +379,7 @@ public final class TestActionBuilder {
           SingleRunfilesSupplier.createCaching(
               runfilesSupport.getRunfilesDirectoryExecPath(),
               runfilesSupport.getRunfiles(),
+              runfilesSupport.getRepoMappingManifest(),
               runfilesSupport.isBuildRunfileLinks(),
               runfilesSupport.isRunfilesEnabled());
     } else {

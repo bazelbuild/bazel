@@ -495,6 +495,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
                   // This matches the code below in collectDefaultRunfiles.
                   .addTransitiveArtifactsWrappedInStableOrder(common.getRuntimeClasspath())
                   .build(),
+              null,
               true));
       filesBuilder.add(runtimeClasspathArtifact);
 
