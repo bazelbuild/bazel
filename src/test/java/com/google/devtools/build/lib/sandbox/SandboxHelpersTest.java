@@ -66,12 +66,14 @@ import org.junit.runners.JUnit4;
 public class SandboxHelpersTest {
 
   private final Scratch scratch = new Scratch();
-  private Path execRoot;
+  private Path execRootPath;
+  private Root execRoot;
   @Nullable private ExecutorService executorToCleanup;
 
   @Before
   public void createExecRoot() throws IOException {
-    execRoot = scratch.dir("/execRoot");
+    execRootPath = scratch.dir("/execRoot");
+    execRoot = Root.fromPath(execRootPath);
   }
 
   @After
@@ -84,6 +86,10 @@ public class SandboxHelpersTest {
     executorToCleanup.awaitTermination(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS);
   }
 
+  private RootedPath execRootedPath(String execPath) {
+    return RootedPath.toRootedPath(execRoot, PathFragment.create(execPath));
+  }
+
   @Test
   public void processInputFiles_materializesParamFile() throws Exception {
     SandboxHelpers sandboxHelpers = new SandboxHelpers();
@@ -94,15 +100,16 @@ public class SandboxHelpersTest {
             ParameterFileType.UNQUOTED,
             UTF_8);
 
-    SandboxInputs inputs = sandboxHelpers.processInputFiles(inputMap(paramFile), execRoot, execRoot, null);
+    SandboxInputs inputs = sandboxHelpers.processInputFiles(inputMap(paramFile), execRootPath,
+        execRootPath, null);
 
     assertThat(inputs.getFiles())
-        .containsExactly(PathFragment.create("paramFile"), execRoot.getChild("paramFile"));
+        .containsExactly(PathFragment.create("paramFile"), execRootedPath("paramFile"));
     assertThat(inputs.getSymlinks()).isEmpty();
-    assertThat(FileSystemUtils.readLines(execRoot.getChild("paramFile"), UTF_8))
+    assertThat(FileSystemUtils.readLines(execRootPath.getChild("paramFile"), UTF_8))
         .containsExactly("-a", "-b")
         .inOrder();
-    assertThat(execRoot.getChild("paramFile").isExecutable()).isTrue();
+    assertThat(execRootPath.getChild("paramFile").isExecutable()).isTrue();
   }
 
   @Test
@@ -113,16 +120,17 @@ public class SandboxHelpersTest {
             scratch.file("tool", "#!/bin/bash", "echo hello"),
             PathFragment.create("_bin/say_hello"));
 
-    SandboxInputs inputs = sandboxHelpers.processInputFiles(inputMap(tool), execRoot, execRoot, null);
+    SandboxInputs inputs = sandboxHelpers.processInputFiles(inputMap(tool), execRootPath,
+        execRootPath, null);
 
     assertThat(inputs.getFiles())
         .containsExactly(
-            PathFragment.create("_bin/say_hello"), execRoot.getRelative("_bin/say_hello"));
+            PathFragment.create("_bin/say_hello"), execRootedPath("_bin/say_hello"));
     assertThat(inputs.getSymlinks()).isEmpty();
-    assertThat(FileSystemUtils.readLines(execRoot.getRelative("_bin/say_hello"), UTF_8))
+    assertThat(FileSystemUtils.readLines(execRootPath.getRelative("_bin/say_hello"), UTF_8))
         .containsExactly("#!/bin/bash", "echo hello")
         .inOrder();
-    assertThat(execRoot.getRelative("_bin/say_hello").isExecutable()).isTrue();
+    assertThat(execRootPath.getRelative("_bin/say_hello").isExecutable()).isTrue();
   }
 
   /**
@@ -232,7 +240,7 @@ public class SandboxHelpersTest {
     RootedPath inputTxt = RootedPath.toRootedPath(
         Root.fromPath(scratch.getFileSystem().getPath("/")),
         PathFragment.create("hello.txt"));
-    Path rootDir = execRoot.getParentDirectory();
+    Path rootDir = execRootPath.getParentDirectory();
     PathFragment input1 = PathFragment.create("existing/directory/with/input1.txt");
     PathFragment input2 = PathFragment.create("partial/directory/input2.txt");
     PathFragment input3 = PathFragment.create("new/directory/input3.txt");
@@ -265,25 +273,25 @@ public class SandboxHelpersTest {
     assertThat(inputsToCreate).containsExactly(input1, input2, input3);
 
     // inputdir1 exists fully
-    execRoot.getRelative(inputDir1).createDirectoryAndParents();
+    execRootPath.getRelative(inputDir1).createDirectoryAndParents();
     // inputdir2 exists partially, should be kept nonetheless.
-    execRoot
+    execRootPath
         .getRelative(inputDir2)
         .getParentDirectory()
         .getRelative("doomedSubdir")
         .createDirectoryAndParents();
     // inputDir3 just doesn't exist
     // outputDir only exists partially
-    execRoot.getRelative(outputDir).getParentDirectory().createDirectoryAndParents();
-    execRoot.getRelative("justSomeDir/thatIsDoomed").createDirectoryAndParents();
-    SandboxHelpers.cleanExisting(rootDir, inputs, inputsToCreate, dirsToCreate, execRoot);
+    execRootPath.getRelative(outputDir).getParentDirectory().createDirectoryAndParents();
+    execRootPath.getRelative("justSomeDir/thatIsDoomed").createDirectoryAndParents();
+    SandboxHelpers.cleanExisting(rootDir, inputs, inputsToCreate, dirsToCreate, execRootPath);
     assertThat(dirsToCreate).containsExactly(inputDir2, inputDir3, outputDir);
-    assertThat(execRoot.getRelative("existing/directory/with").exists()).isTrue();
-    assertThat(execRoot.getRelative("partial").exists()).isTrue();
-    assertThat(execRoot.getRelative("partial/doomedSubdir").exists()).isFalse();
-    assertThat(execRoot.getRelative("partial/directory").exists()).isFalse();
-    assertThat(execRoot.getRelative("justSomeDir/thatIsDoomed").exists()).isFalse();
-    assertThat(execRoot.getRelative("out").exists()).isTrue();
-    assertThat(execRoot.getRelative("out/dir").exists()).isFalse();
+    assertThat(execRootPath.getRelative("existing/directory/with").exists()).isTrue();
+    assertThat(execRootPath.getRelative("partial").exists()).isTrue();
+    assertThat(execRootPath.getRelative("partial/doomedSubdir").exists()).isFalse();
+    assertThat(execRootPath.getRelative("partial/directory").exists()).isFalse();
+    assertThat(execRootPath.getRelative("justSomeDir/thatIsDoomed").exists()).isFalse();
+    assertThat(execRootPath.getRelative("out").exists()).isTrue();
+    assertThat(execRootPath.getRelative("out/dir").exists()).isFalse();
   }
 }

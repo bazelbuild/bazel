@@ -90,7 +90,7 @@ public class SandboxfsSandboxedSpawnTest {
     Path execRoot = spawn.getSandboxExecRoot();
 
     assertThat(execRoot.getRelative("such/input.txt").isSymbolicLink()).isTrue();
-    assertThat(execRoot.getRelative("such/input.txt").resolveSymbolicLinks()).isEqualTo(helloTxt);
+    assertThat(execRoot.getRelative("such/input.txt").resolveSymbolicLinks()).isEqualTo(helloTxt.asPath());
     assertThat(execRoot.getRelative("very").isDirectory()).isTrue();
     assertThat(execRoot.getRelative("wow/writable").isDirectory()).isTrue();
   }
@@ -250,16 +250,16 @@ public class SandboxfsSandboxedSpawnTest {
     // Relative symlinks must be kept as such in the sandbox and they must resolve properly.
     assertThat(execRoot.getRelative("such/link-1.txt").readSymbolicLink())
         .isEqualTo(PathFragment.create("../dir1/input-1.txt"));
-    assertThat(execRoot.getRelative("such/link-1.txt").resolveSymbolicLinks()).isEqualTo(input1);
+    assertThat(execRoot.getRelative("such/link-1.txt").resolveSymbolicLinks()).isEqualTo(input1.asPath());
     assertThat(execRoot.getRelative("such/link-to-link.txt").readSymbolicLink())
         .isEqualTo(PathFragment.create("link-to-input-2"));
     if (mapSymlinkTargets) {
       assertThat(execRoot.getRelative("such/link-to-link.txt").resolveSymbolicLinks())
-          .isEqualTo(input2);
+          .isEqualTo(input2.asPath());
       assertThat(execRoot.getRelative("such/link-to-input-2").readSymbolicLink())
           .isEqualTo(PathFragment.create("../dir1/input-2.txt"));
       assertThat(execRoot.getRelative("such/link-to-input-2").resolveSymbolicLinks())
-          .isEqualTo(input2);
+          .isEqualTo(input2.asPath());
     } else {
       assertThrows(
           "Symlink resolution worked, which means the target was mapped when not expected",
