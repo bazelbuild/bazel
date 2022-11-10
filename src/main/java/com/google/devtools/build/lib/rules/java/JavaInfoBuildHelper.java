@@ -290,7 +290,7 @@ final class JavaInfoBuildHelper {
         .addAll(toolchainProvider.getJavacOptions(starlarkRuleContext.getRuleContext()))
         .addAll(javaSemantics.getCompatibleJavacOptions(starlarkRuleContext.getRuleContext(),
             toolchainProvider));
-    if (pluginInfo.plugins().processorClasses().toList()
+    if (pluginInfo.plugins().processorClasses().toSet()
         .contains("com.google.devtools.build.runfiles.AutoBazelRepositoryProcessor")) {
       allJavacOptsBuilder.add(
           "-Abazel.repository=" + starlarkRuleContext.getRuleContext().getRepository().getName());

@@ -375,7 +375,7 @@ public class JavaCommon {
     Builder<String> javacOpts = ImmutableList.<String>builder()
         .addAll(javaToolchain.getJavacOptions(ruleContext))
         .addAll(extraRuleJavacOpts);
-    if (activePlugins.plugins().processorClasses().toList()
+    if (activePlugins.plugins().processorClasses().toSet()
         .contains("com.google.devtools.build.runfiles.AutoBazelRepositoryProcessor")) {
       javacOpts.add("-Abazel.repository=" + ruleContext.getRepository().getName());
     }
