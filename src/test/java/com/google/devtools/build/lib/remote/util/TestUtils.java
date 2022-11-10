@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.Retrier;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.protobuf.ByteString;
+import io.grpc.Status;
+import io.grpc.Status.Code;
 import io.grpc.stub.StreamObserver;
 import java.util.Collection;
 import java.util.List;
@@ -48,7 +50,7 @@ public class TestUtils {
         new ZeroDelayListeningScheduledExecutorService(retryScheduler);
     return new RemoteRetrier(
         backoff,
-        shouldRetry,
+        (e) -> Status.fromThrowable(e).getCode() != Code.CANCELLED && shouldRetry.test(e),
         zeroDelayRetryScheduler,
         Retrier.ALLOW_ALL_CALLS,
         (millis) -> {
