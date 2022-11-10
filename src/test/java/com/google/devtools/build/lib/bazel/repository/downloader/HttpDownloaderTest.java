@@ -28,6 +28,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -370,7 +371,7 @@ public class HttpDownloaderTest {
       httpDownloader.download(
           Collections.singletonList(
               new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
-          Collections.emptyMap(),
+          StaticCredentials.EMPTY,
           Optional.absent(),
           "testCanonicalId",
           destination,
@@ -409,7 +410,7 @@ public class HttpDownloaderTest {
               httpDownloader.download(
                   Collections.singletonList(
                       new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
-                  Collections.emptyMap(),
+                  StaticCredentials.EMPTY,
                   Optional.absent(),
                   "testCanonicalId",
                   fs.getPath(workingDir.newFile().getAbsolutePath()),
@@ -469,7 +470,7 @@ public class HttpDownloaderTest {
       Path destination = fs.getPath(workingDir.newFile().getAbsolutePath());
       httpDownloader.download(
           urls,
-          Collections.emptyMap(),
+          StaticCredentials.EMPTY,
           Optional.absent(),
           "testCanonicalId",
           destination,
@@ -507,7 +508,7 @@ public class HttpDownloaderTest {
               new String(
                   httpDownloader.downloadAndReadOneUrl(
                       new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
-                      ImmutableMap.of(),
+                      StaticCredentials.EMPTY,
                       eventHandler,
                       Collections.emptyMap()),
                   UTF_8))
@@ -542,7 +543,7 @@ public class HttpDownloaderTest {
           () ->
               httpDownloader.downloadAndReadOneUrl(
                   new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
-                  ImmutableMap.of(),
+                  StaticCredentials.EMPTY,
                   eventHandler,
                   Collections.emptyMap()));
     }
