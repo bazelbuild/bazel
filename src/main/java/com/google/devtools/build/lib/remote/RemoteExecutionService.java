@@ -305,7 +305,8 @@ public class RemoteExecutionService {
 
     if (useRemoteCache(remoteOptions)) {
       allowRemoteCache =
-          shouldUploadLocalResultsToRemoteCache(remoteOptions, spawn.getExecutionInfo());
+          shouldUploadLocalResultsToRemoteCache(remoteOptions, spawn.getExecutionInfo())
+              && remoteCache.actionCacheSupportsUpdate();
       if (useDiskCache(remoteOptions)) {
         // Combined cache
         if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
