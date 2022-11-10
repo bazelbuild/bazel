@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
@@ -61,8 +63,9 @@ public class SandboxfsSandboxedSpawnTest {
 
   @Test
   public void testCreateFileSystem() throws Exception {
-    Path helloTxt = workspaceDir.getRelative("hello.txt");
-    FileSystemUtils.createEmptyFile(helloTxt);
+    RootedPath helloTxt = RootedPath.toRootedPath(
+        Root.fromPath(workspaceDir), PathFragment.create("hello.txt"));
+    FileSystemUtils.createEmptyFile(helloTxt.asPath());
 
     SandboxedSpawn spawn =
         new SandboxfsSandboxedSpawn(
@@ -73,6 +76,7 @@ public class SandboxfsSandboxedSpawnTest {
             ImmutableMap.of(),
             new SandboxInputs(
                 ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
+                ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of()),
             SandboxOutputs.create(
@@ -103,7 +107,7 @@ public class SandboxfsSandboxedSpawnTest {
             "some-workspace-name",
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
-            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
+            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
             SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
             ImmutableSet.of(),
             /* mapSymlinkTargets= */ false,
@@ -117,8 +121,9 @@ public class SandboxfsSandboxedSpawnTest {
 
   @Test
   public void testDelete() throws Exception {
-    Path helloTxt = workspaceDir.getRelative("hello.txt");
-    FileSystemUtils.createEmptyFile(helloTxt);
+    RootedPath helloTxt = RootedPath.toRootedPath(
+        Root.fromPath(workspaceDir), PathFragment.create("hello.txt"));
+    FileSystemUtils.createEmptyFile(helloTxt.asPath());
 
     SandboxedSpawn spawn =
         new SandboxfsSandboxedSpawn(
@@ -129,6 +134,7 @@ public class SandboxfsSandboxedSpawnTest {
             ImmutableMap.of(),
             new SandboxInputs(
                 ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
+                ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of()),
             SandboxOutputs.create(
@@ -163,7 +169,7 @@ public class SandboxfsSandboxedSpawnTest {
             "workspace",
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
-            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
+            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
             SandboxOutputs.create(ImmutableSet.of(outputFile), ImmutableSet.of()),
             ImmutableSet.of(),
             /* mapSymlinkTargets= */ false,
@@ -182,35 +188,36 @@ public class SandboxfsSandboxedSpawnTest {
   }
 
   public void testSymlinks(boolean mapSymlinkTargets) throws Exception {
-    Path input1 = workspaceDir.getRelative("dir1/input-1.txt");
-    input1.getParentDirectory().createDirectory();
-    FileSystemUtils.createEmptyFile(input1);
+    Root workspaceRoot = Root.fromPath(workspaceDir);
+    RootedPath input1 = RootedPath.toRootedPath(workspaceRoot, PathFragment.create("dir1/input-1.txt"));
+    input1.asPath().getParentDirectory().createDirectory();
+    FileSystemUtils.createEmptyFile(input1.asPath());
 
-    Path input2 = workspaceDir.getRelative("dir1/input-2.txt");
-    input2.getParentDirectory().createDirectory();
-    FileSystemUtils.createEmptyFile(input2);
+    RootedPath input2 = RootedPath.toRootedPath(workspaceRoot, PathFragment.create("dir1/input-2.txt"));
+    input2.asPath().getParentDirectory().createDirectory();
+    FileSystemUtils.createEmptyFile(input2.asPath());
 
-    Path linkToInput1 = workspaceDir.getRelative("dir2/link-to-input-1");
-    linkToInput1.getParentDirectory().createDirectory();
-    linkToInput1.createSymbolicLink(PathFragment.create("../dir1/input-1.txt"));
-    assertThat(linkToInput1.readSymbolicLink().isAbsolute()).isFalse();
+    RootedPath linkToInput1 = RootedPath.toRootedPath(workspaceRoot, PathFragment.create("dir2/link-to-input-1"));
+    linkToInput1.asPath().getParentDirectory().createDirectory();
+    linkToInput1.asPath().createSymbolicLink(PathFragment.create("../dir1/input-1.txt"));
+    assertThat(linkToInput1.asPath().readSymbolicLink().isAbsolute()).isFalse();
 
-    Path linkToInput2 = workspaceDir.getRelative("dir2/link-to-input-2");
-    linkToInput2.getParentDirectory().createDirectory();
-    linkToInput2.createSymbolicLink(PathFragment.create("../dir1/input-2.txt"));
-    assertThat(linkToInput2.readSymbolicLink().isAbsolute()).isFalse();
+    RootedPath linkToInput2 = RootedPath.toRootedPath(workspaceRoot, PathFragment.create("dir2/link-to-input-2"));
+    linkToInput2.asPath().getParentDirectory().createDirectory();
+    linkToInput2.asPath().createSymbolicLink(PathFragment.create("../dir1/input-2.txt"));
+    assertThat(linkToInput2.asPath().readSymbolicLink().isAbsolute()).isFalse();
 
-    Path linkToLink = workspaceDir.getRelative("dir2/link-to-link");
-    linkToLink.getParentDirectory().createDirectory();
-    linkToLink.createSymbolicLink(PathFragment.create("link-to-input-2"));
-    assertThat(linkToLink.readSymbolicLink().isAbsolute()).isFalse();
+    RootedPath linkToLink = RootedPath.toRootedPath(workspaceRoot, PathFragment.create("dir2/link-to-link"));
+    linkToLink.asPath().getParentDirectory().createDirectory();
+    linkToLink.asPath().createSymbolicLink(PathFragment.create("link-to-input-2"));
+    assertThat(linkToLink.asPath().readSymbolicLink().isAbsolute()).isFalse();
 
-    Path linkToAbsolutePath = workspaceDir.getRelative("dir2/link-to-absolute-path");
-    linkToAbsolutePath.getParentDirectory().createDirectory();
+    RootedPath linkToAbsolutePath = RootedPath.toRootedPath(workspaceRoot, PathFragment.create("dir2/link-to-absolute-path"));
+    linkToAbsolutePath.getParentDirectory().asPath().createDirectory();
     Path randomPath = workspaceDir.getRelative("/some-random-path");
     FileSystemUtils.createEmptyFile(randomPath);
-    linkToAbsolutePath.createSymbolicLink(randomPath.asFragment());
-    assertThat(linkToAbsolutePath.readSymbolicLink().isAbsolute()).isTrue();
+    linkToAbsolutePath.asPath().createSymbolicLink(randomPath.asFragment());
+    assertThat(linkToAbsolutePath.asPath().readSymbolicLink().isAbsolute()).isTrue();
 
     SandboxedSpawn spawn =
         new SandboxfsSandboxedSpawn(
@@ -227,6 +234,7 @@ public class SandboxfsSandboxedSpawnTest {
                     PathFragment.create("such/link-1.txt"), linkToInput1,
                     PathFragment.create("such/link-to-link.txt"), linkToLink,
                     PathFragment.create("such/abs-link.txt"), linkToAbsolutePath),
+                ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of()),
             SandboxOutputs.create(

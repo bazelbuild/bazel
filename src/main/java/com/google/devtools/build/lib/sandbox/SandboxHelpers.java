@@ -238,9 +238,9 @@ public final class SandboxHelpers {
    */
   static Optional<PathFragment> getExpectedSymlinkDestination(
       PathFragment fragment, SandboxInputs inputs) {
-    Path file = inputs.getFiles().get(fragment).asPath();
+    RootedPath file = inputs.getFiles().get(fragment);
     if (file != null) {
-      return Optional.of(file.asFragment());
+      return Optional.of(file.asPath().asFragment());
     }
     return Optional.ofNullable(inputs.getSymlinks().get(fragment));
   }

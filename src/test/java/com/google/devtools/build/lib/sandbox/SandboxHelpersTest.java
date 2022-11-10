@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
@@ -92,7 +94,7 @@ public class SandboxHelpersTest {
             ParameterFileType.UNQUOTED,
             UTF_8);
 
-    SandboxInputs inputs = sandboxHelpers.processInputFiles(inputMap(paramFile), execRoot);
+    SandboxInputs inputs = sandboxHelpers.processInputFiles(inputMap(paramFile), execRoot, execRoot, null);
 
     assertThat(inputs.getFiles())
         .containsExactly(PathFragment.create("paramFile"), execRoot.getChild("paramFile"));
@@ -111,7 +113,7 @@ public class SandboxHelpersTest {
             scratch.file("tool", "#!/bin/bash", "echo hello"),
             PathFragment.create("_bin/say_hello"));
 
-    SandboxInputs inputs = sandboxHelpers.processInputFiles(inputMap(tool), execRoot);
+    SandboxInputs inputs = sandboxHelpers.processInputFiles(inputMap(tool), execRoot, execRoot, null);
 
     assertThat(inputs.getFiles())
         .containsExactly(
@@ -156,13 +158,13 @@ public class SandboxHelpersTest {
         executorToCleanup.submit(
             () -> {
               try {
-                sandboxHelpers.processInputFiles(inputMap(input), customExecRoot);
+                sandboxHelpers.processInputFiles(inputMap(input), customExecRoot, customExecRoot, null);
                 finishProcessingSemaphore.release();
               } catch (IOException e) {
                 throw new IllegalArgumentException(e);
               }
             });
-    sandboxHelpers.processInputFiles(inputMap(input), customExecRoot);
+    sandboxHelpers.processInputFiles(inputMap(input), customExecRoot, customExecRoot, null);
     finishProcessingSemaphore.release();
     future.get();
 
@@ -227,7 +229,9 @@ public class SandboxHelpersTest {
 
   @Test
   public void cleanExisting_updatesDirs() throws IOException {
-    Path inputTxt = scratch.getFileSystem().getPath("/hello.txt");
+    RootedPath inputTxt = RootedPath.toRootedPath(
+        Root.fromPath(scratch.getFileSystem().getPath("/")),
+        PathFragment.create("hello.txt"));
     Path rootDir = execRoot.getParentDirectory();
     PathFragment input1 = PathFragment.create("existing/directory/with/input1.txt");
     PathFragment input2 = PathFragment.create("partial/directory/input2.txt");
@@ -235,6 +239,7 @@ public class SandboxHelpersTest {
     SandboxInputs inputs =
         new SandboxInputs(
             ImmutableMap.of(input1, inputTxt, input2, inputTxt, input3, inputTxt),
+            ImmutableMap.of(),
             ImmutableMap.of(),
             ImmutableMap.of());
     Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
