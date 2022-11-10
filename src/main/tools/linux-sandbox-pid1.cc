@@ -298,16 +298,9 @@ static void MountFilesystems() {
   }
 
   std::unordered_set<std::string> bind_mount_sources;
-
   for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
     const std::string &source = opt.bind_mount_sources.at(i);
     bind_mount_sources.insert(source);
-    const std::string &target = opt.bind_mount_targets.at(i);
-    PRINT_DEBUG("bind mount: %s -> %s", source.c_str(), target.c_str());
-    if (mount(source.c_str(), target.c_str(), nullptr, MS_BIND | MS_REC, nullptr) < 0) {
-      DIE("mount(%s, %s, nullptr, MS_BIND | MS_REC, nullptr)", source.c_str(),
-          target.c_str());
-    }
   }
 
   for (const std::string &writable_file : opt.writable_files) {
@@ -322,6 +315,16 @@ static void MountFilesystems() {
               MS_BIND | MS_REC, nullptr) < 0) {
       DIE("mount(%s, %s, nullptr, MS_BIND | MS_REC, nullptr)",
           writable_file.c_str(), writable_file.c_str());
+    }
+  }
+
+  for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
+    const std::string &source = opt.bind_mount_sources.at(i);
+    const std::string &target = opt.bind_mount_targets.at(i);
+    PRINT_DEBUG("bind mount: %s -> %s", source.c_str(), target.c_str());
+    if (mount(source.c_str(), target.c_str(), nullptr, MS_BIND | MS_REC, nullptr) < 0) {
+      DIE("mount(%s, %s, nullptr, MS_BIND | MS_REC, nullptr)", source.c_str(),
+          target.c_str());
     }
   }
 
