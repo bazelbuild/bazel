@@ -427,7 +427,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * @param bindMounts the bind mounts map with target as key and source as value
    * @throws UserExecException if any of the mount points are not valid
    */
-  private void validateBindMounts(Map<Path, Path> bindMounts) throws UserExecException {
+  private void validateBindMounts(SortedMap<Path, Path> bindMounts) throws UserExecException {
     for (Map.Entry<Path, Path> bindMount : bindMounts.entrySet()) {
       final Path source = bindMount.getValue();
       final Path target = bindMount.getKey();

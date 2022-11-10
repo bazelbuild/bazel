@@ -470,10 +470,12 @@ public final class SandboxHelpers {
    * @throws IOException if processing symlinks fails
    */
   public SandboxInputs processInputFiles(Map<PathFragment, ActionInput> inputMap, Path execRootPath,
-      Path sandboxExecRootPath, Path sandboxSourceRoots)
+      Path withinSandboxExecRootPath, Path sandboxSourceRoots)
       throws IOException {
-    Root sandboxExecRoot = Root.fromPath(sandboxExecRootPath);
-    Root execRoot = sandboxExecRootPath.equals(execRootPath) ? sandboxExecRoot : Root.fromPath(execRootPath);
+    Root withinSandboxExecRoot = Root.fromPath(withinSandboxExecRootPath);
+    Root execRoot = withinSandboxExecRootPath.equals(execRootPath)
+        ? withinSandboxExecRoot
+        : Root.fromPath(execRootPath);
 
     Map<PathFragment, RootedPath> inputFiles = new TreeMap<>();
     Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
@@ -500,24 +502,19 @@ public final class SandboxHelpers {
         if (actionInput instanceof EmptyActionInput) {
           inputPath = null;
         } else if (actionInput instanceof Artifact) {
-          Root artifactRoot;
           Artifact inputArtifact = (Artifact) actionInput;
-          if (inputArtifact.isSourceArtifact()) {
-            if (sandboxSourceRoots != null) {
-              Root sourceRoot = inputArtifact.getRoot().getRoot();
-              if (!sourceRootToSandboxSourceRoot.containsKey(sourceRoot)) {
-                int next = sourceRootToSandboxSourceRoot.size();
-                sourceRootToSandboxSourceRoot.put(sourceRoot,
-                    Root.fromPath(sandboxSourceRoots.getRelative(Integer.toString(next))));
-              }
-
-              artifactRoot = sourceRootToSandboxSourceRoot.get(sourceRoot);
-              inputPath = RootedPath.toRootedPath(artifactRoot, inputArtifact.getRootRelativePath());
-            } else {
-              inputPath = RootedPath.toRootedPath(sandboxExecRoot, inputArtifact.getExecPath());
+          if (inputArtifact.isSourceArtifact() && sandboxSourceRoots != null) {
+            Root sourceRoot = inputArtifact.getRoot().getRoot();
+            if (!sourceRootToSandboxSourceRoot.containsKey(sourceRoot)) {
+              int next = sourceRootToSandboxSourceRoot.size();
+              sourceRootToSandboxSourceRoot.put(sourceRoot,
+                  Root.fromPath(sandboxSourceRoots.getRelative(Integer.toString(next))));
             }
+
+            inputPath = RootedPath.toRootedPath(
+                sourceRootToSandboxSourceRoot.get(sourceRoot), inputArtifact.getRootRelativePath());
           } else {
-            inputPath = RootedPath.toRootedPath(sandboxExecRoot, inputArtifact.getExecPath());
+            inputPath = RootedPath.toRootedPath(withinSandboxExecRoot, inputArtifact.getExecPath());
           }
         } else {
           inputPath = RootedPath.toRootedPath(execRoot, actionInput.getExecPath());
@@ -527,7 +524,7 @@ public final class SandboxHelpers {
       }
     }
 
-    Map<Root, Path> sandboxRootToSourceRoot = new TreeMap<Root, Path>();
+    Map<Root, Path> sandboxRootToSourceRoot = new TreeMap<>();
     for (Map.Entry<Root, Root> entry : sourceRootToSandboxSourceRoot.entrySet()) {
       sandboxRootToSourceRoot.put(entry.getValue(), entry.getKey().asPath());
     }
