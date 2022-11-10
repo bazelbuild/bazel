@@ -70,6 +70,7 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
                         ? new Runfiles.Builder("TESTING", false).addArtifact(runfile).build()
                         : new Runfiles.Builder("TESTING", false).addArtifact(runfile2).build(),
                     outputManifest,
+                    /*repoMappingManifest=*/ null,
                     /*filesetRoot=*/ null,
                     createActionEnvironment(
                         attributesToFlip.contains(RunfilesActionAttributes.FIXED_ENVIRONMENT),
@@ -85,6 +86,7 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
                     inputManifest,
                     /*runfiles=*/ null,
                     outputManifest,
+                    /*repoMappingManifest=*/ null,
                     /*filesetRoot=*/ "root",
                     createActionEnvironment(
                         attributesToFlip.contains(FilesetActionAttributes.FIXED_ENVIRONMENT),
@@ -103,6 +105,7 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
                         ? new Runfiles.Builder("TESTING", false).addArtifact(runfile).build()
                         : new Runfiles.Builder("TESTING", false).addArtifact(runfile2).build(),
                     outputManifest,
+                    /*repoMappingManifest=*/ null,
                     /*filesetRoot=*/ null,
                     createActionEnvironment(
                         attributesToFlip.contains(SkipManifestAttributes.FIXED_ENVIRONMENT),
@@ -131,6 +134,7 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
                 inputManifest,
                 /*runfiles=*/ null,
                 outputManifest,
+                /*repoMappingManifest=*/ null,
                 /*filesetRoot=*/ null,
                 createActionEnvironment(false, false),
                 /*enableRunfiles=*/ true,
