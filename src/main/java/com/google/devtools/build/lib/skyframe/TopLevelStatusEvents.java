@@ -47,20 +47,23 @@ public final class TopLevelStatusEvents {
   public abstract static class TopLevelTargetAnalyzedEvent implements Postable {
     public abstract ConfiguredTarget configuredTarget();
 
+    public static TopLevelTargetAnalyzedEvent create(ConfiguredTarget configuredTarget) {
+      return new AutoValue_TopLevelStatusEvents_TopLevelTargetAnalyzedEvent(configuredTarget);
+    }
+  }
+
+  /**
+   * An event that signals that we can start planting the symlinks for the transitive packages under
+   * a top level target.
+   */
+  @AutoValue
+  public abstract static class TopLevelTargetReadyForSymlinkPlanting implements Postable {
     public abstract NestedSet<Package> transitivePackagesForSymlinkPlanting();
 
-    public static TopLevelTargetAnalyzedEvent create(
-        ConfiguredTarget configuredTarget,
+    public static TopLevelTargetReadyForSymlinkPlanting create(
         NestedSet<Package> transitivePackagesForSymlinkPlanting) {
-      return new AutoValue_TopLevelStatusEvents_TopLevelTargetAnalyzedEvent(
-          configuredTarget, transitivePackagesForSymlinkPlanting);
-    }
-
-    /** This method is used when no further symlink planting is expected from the subscribers. */
-    public static TopLevelTargetAnalyzedEvent createWithoutFurtherSymlinkPlanting(
-        ConfiguredTarget configuredTarget) {
-      return new AutoValue_TopLevelStatusEvents_TopLevelTargetAnalyzedEvent(
-          configuredTarget, NestedSetBuilder.emptySet(STABLE_ORDER));
+      return new AutoValue_TopLevelStatusEvents_TopLevelTargetReadyForSymlinkPlanting(
+          transitivePackagesForSymlinkPlanting);
     }
   }
 

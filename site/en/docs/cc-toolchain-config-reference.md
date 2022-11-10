@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # C++ Toolchain Configuration
 
+{% include "_buttons.html" %}
+
 ## Overview {:#overview}
 
 To invoke the compiler with the right options, Bazel needs some knowledge about

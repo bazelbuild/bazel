@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Troubleshooting Bazel Remote Execution with Docker Sandbox
 
+{% include "_buttons.html" %}
+
 Bazel builds that succeed locally may fail when executed remotely due to
 restrictions and requirements that do not affect local builds. The most common
 causes of such failures are described in [Adapting Bazel Rules for Remote Execution](/docs/remote-execution-rules).

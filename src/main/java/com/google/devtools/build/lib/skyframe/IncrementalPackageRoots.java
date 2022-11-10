@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
-import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetReadyForSymlinkPlanting;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
@@ -109,7 +109,8 @@ public class IncrementalPackageRoots implements PackageRoots {
 
   @AllowConcurrentEvents
   @Subscribe
-  public void addTargetPackage(TopLevelTargetAnalyzedEvent event) throws AbruptExitException {
+  public void addTargetPackage(TopLevelTargetReadyForSymlinkPlanting event)
+      throws AbruptExitException {
     if (handledTopLevelEvents.add(event)) {
       registerAndPlantSymlinksForExternalPackages(
           event.transitivePackagesForSymlinkPlanting().toList());

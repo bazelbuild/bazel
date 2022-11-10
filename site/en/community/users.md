@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Who's Using Bazel
 
+{% include "_buttons.html" %}
+
 Note: Using Bazel? You can add your company on
 [StackShare](https://stackshare.io/bazel). To add yourself to this page,
 contact [product@bazel.build](mailto:produc@bazel.build).

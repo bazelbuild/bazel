@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Review the dependency graph
 
+{% include "_buttons.html" %}
+
 A successful build has all of its dependencies explicitly stated in the `BUILD`
 file. Bazel uses those statements to create the project's dependency graph,
 which enables accurate incremental builds.

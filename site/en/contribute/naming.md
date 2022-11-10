@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Naming a Bazel related project
 
+{% include "_buttons.html" %}
+
 First, thank you for contributing to the Bazel ecosystem! Please reach out to
 the Bazel community on the
 [bazel-discuss mailing list](https://groups.google.com/forum/#!forum/bazel-discuss

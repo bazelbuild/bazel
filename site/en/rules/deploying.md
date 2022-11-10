@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Deploying Rules
 
+{% include "_buttons.html" %}
+
 This page is for rule writers who are planning to make their rules available
 to others.
 

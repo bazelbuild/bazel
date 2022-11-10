@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Configurations
 
+{% include "_buttons.html" %}
+
 This page covers the benefits and basic usage of Starlark configurations,
 Bazel's API for customizing how your project builds. It includes how to define
 build settings and provides examples.

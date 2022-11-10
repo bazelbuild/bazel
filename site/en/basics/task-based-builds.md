@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Task-Based Build Systems
 
+{% include "_buttons.html" %}
+
 This page covers task-based build systems, how they work and some of the
 complications that can occur with task-based systems. After shell scripts,
 task-based build systems are the next logical evolution of building.

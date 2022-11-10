@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Android and Bazel
 
+{% include "_buttons.html" %}
+
 This page contains resources that help you use Bazel with Android projects. It
 links to a tutorial, build rules, and other information specific to building
 Android projects with Bazel.

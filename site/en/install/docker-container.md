@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Getting Started with Bazel Docker Container
 
+{% include "_buttons.html" %}
+
 This page provides details on the contents of the Bazel container, how to build
 the [abseil-cpp](https://github.com/abseil/abseil-cpp){: .external} project using Bazel
 inside the Bazel container, and how to build this project directly

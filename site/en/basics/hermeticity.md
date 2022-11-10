@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Hermeticity
 
+{% include "_buttons.html" %}
+
 This page covers hermeticity, the benefits of using hermetic builds, and
 strategies for identifying non-hermetic behavior in your builds.
 

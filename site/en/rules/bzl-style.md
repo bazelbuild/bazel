@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # .bzl style guide
 
+{% include "_buttons.html" %}
+
 This page covers basic style guidelines for Starlark and also includes
 information on macros and rules.
 

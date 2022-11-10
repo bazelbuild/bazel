@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Bazel Vision
 
+{% include "_buttons.html" %}
+
 Any software developer can efficiently build, test, and package
 any project, of any size or complexity, with tooling that's easy to adopt and
 extend.

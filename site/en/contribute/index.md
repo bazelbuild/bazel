@@ -3,6 +3,9 @@ Book: /_book.yaml
 
 # Contributing to Bazel
 
+{% dynamic setvar source_file "site/en/contribute/index.md" %}
+{% include "_buttons.html" %}
+
 There are many ways to help the Bazel project and ecosystem.
 
 ## Provide feedback {:#feedback}

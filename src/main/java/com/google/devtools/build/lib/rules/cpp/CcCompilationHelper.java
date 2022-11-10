@@ -801,7 +801,7 @@ public final class CcCompilationHelper {
   // TODO(plf): This is only needed for CLIF. Investigate whether this is strictly necessary or
   // there is a way to avoid include scanning for CLIF rules.
   @CanIgnoreReturnValue
-  public CcCompilationHelper addAditionalIncludeScanningRoots(
+  public CcCompilationHelper addAdditionalIncludeScanningRoots(
       Collection<Artifact> additionalIncludeScanningRoots) {
     this.additionalIncludeScanningRoots.addAll(additionalIncludeScanningRoots);
     return this;

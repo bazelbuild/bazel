@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Creating Persistent Workers
 
+{% include "_buttons.html" %}
+
 [Persistent workers](/docs/persistent-workers) can make your build faster. If
 you have repeated actions in your build that have a high startup cost or would
 benefit from cross-action caching, you may want to implement your own persistent

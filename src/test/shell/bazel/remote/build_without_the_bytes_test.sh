@@ -155,7 +155,6 @@ EOF
 
   bazel build \
     --experimental_ui_debug_all_events \
-    --experimental_action_cache_store_output_metadata \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_minimal \
     //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
@@ -171,7 +170,6 @@ EOF
 
   bazel build \
     --experimental_ui_debug_all_events \
-    --experimental_action_cache_store_output_metadata \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_minimal \
     //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
@@ -1173,14 +1171,6 @@ EOF
 }
 
 function test_download_toplevel_when_turn_remote_cache_off() {
-  download_toplevel_when_turn_remote_cache_off
-}
-
-function test_download_toplevel_when_turn_remote_cache_off_with_metadata() {
-  download_toplevel_when_turn_remote_cache_off --experimental_action_cache_store_output_metadata
-}
-
-function download_toplevel_when_turn_remote_cache_off() {
   # Test that BwtB doesn't cause build failure if remote cache is disabled in a following build.
   # See https://github.com/bazelbuild/bazel/issues/13882.
 
@@ -1215,7 +1205,6 @@ EOF
   bazel build \
     --remote_cache=grpc://localhost:${worker_port} \
     --remote_download_toplevel \
-    "$@" \
     //a:consumer >& $TEST_log || fail "Failed to download outputs"
   [[ -f bazel-bin/a/a.txt ]] || [[ -f bazel-bin/a/b.txt ]] \
     && fail "Expected outputs of producer are not downloaded"
@@ -1224,7 +1213,6 @@ EOF
   echo 'bar' > a/in.txt
   bazel build \
     --remote_download_toplevel \
-    "$@" \
     //a:consumer >& $TEST_log || fail "Failed to build without remote cache"
 }
 
@@ -1329,6 +1317,28 @@ EOF
 
   [[ -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar file does not exist!"
   [[ ! -e "bazel-bin/a/liblib.jdeps" ]] || fail "bazel-bin/a/liblib.jdeps shouldn't exist"
+}
+
+function test_bazel_run_with_minimal() {
+  # Test that `bazel run` works in minimal mode.
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = 'bin',
+  srcs = [],
+  outs = ['bin.out'],
+  cmd = "echo 'echo bin-message' > $@",
+  executable = True,
+)
+EOF
+
+  bazel run \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    //a:bin >& $TEST_log || fail "Failed to run //a:bin"
+
+  expect_log "bin-message"
 }
 
 run_suite "Build without the Bytes tests"

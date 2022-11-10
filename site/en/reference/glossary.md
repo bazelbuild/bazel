@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Bazel Glossary
 
+{% include "_buttons.html" %}
+
 ### Action {:#action}
 
 A command to run during the build, for example, a call to a compiler that takes

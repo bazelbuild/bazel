@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Creating a Macro
 
+{% include "_buttons.html" %}
+
 Imagine that you need to run a tool as part of your build. For example, you
 may want to generate or preprocess a source file, or compress a binary. In this
 tutorial, you are going to create a macro that resizes an image.

@@ -12,6 +12,9 @@
 
 <h1 class="page-title">Functions</h1>
 
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/docgen/templates/be/functions.vm" %}
+{% include "_buttons.html" %}
+
 #if (!$singlePage)
 <h2>Contents</h2>
 <ul>

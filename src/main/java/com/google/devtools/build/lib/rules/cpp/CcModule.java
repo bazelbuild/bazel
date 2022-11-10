@@ -139,6 +139,11 @@ public abstract class CcModule
           PackageIdentifier.createInMainRepo("rust/private"),
           PackageIdentifier.createUnchecked("rules_rust", "rust/private"));
 
+  // TODO(bazel-team): This only makes sense for the parameter in cc_common.compile()
+  //  additional_include_scanning_roots which is technical debt and should go away.
+  private static final PathFragment MATCH_CLIF_ALLOWLISTED_LOCATION =
+      PathFragment.create("tools/build_defs/clif");
+
   public abstract CppSemantics getSemantics();
 
   public abstract CppSemantics getSemantics(Language language);
@@ -2021,8 +2026,8 @@ public abstract class CcModule
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
       Artifact grepIncludes,
-      List<Artifact> headersForClifDoNotUseThisParam,
-      Sequence<?> additionalInputs,
+      Sequence<?> additionalIncludeScanningRoots, // <Artifact> expected
+      Sequence<?> additionalInputs, // <Artifact> expected
       Object moduleMapNoneable,
       Object additionalModuleMapsNoneable,
       Object propagateModuleMapToCompileActionObject,
@@ -2053,6 +2058,9 @@ public abstract class CcModule
         nonCompilationAdditionalInputsObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
+
+    List<Artifact> includeScanningRoots =
+        getAdditionalIncludeScanningRoots(additionalIncludeScanningRoots, thread);
 
     StarlarkActionFactory actions = starlarkActionFactoryApi;
     CcToolchainProvider ccToolchainProvider =
@@ -2181,11 +2189,10 @@ public abstract class CcModule
         .setCopts(
             ImmutableList.copyOf(
                 Sequence.cast(userCompileFlags, String.class, "user_compile_flags")))
-        .addAdditionalCompilationInputs(headersForClifDoNotUseThisParam)
         .addAdditionalCompilationInputs(
             Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
         .addAdditionalInputs(nonCompilationAdditionalInputs)
-        .addAditionalIncludeScanningRoots(headersForClifDoNotUseThisParam)
+        .addAdditionalIncludeScanningRoots(includeScanningRoots)
         .setPurpose(common.getPurpose(getSemantics(language)))
         .addAdditionalExportedHeaders(
             additionalExportedHeaders.stream()
@@ -2249,6 +2256,21 @@ public abstract class CcModule
     } catch (RuleErrorException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
+  }
+
+  private List<Artifact> getAdditionalIncludeScanningRoots(
+      Sequence<?> additionalIncludeScanningRoots, StarlarkThread thread) throws EvalException {
+    PackageIdentifier packageIdentifier =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
+            .label()
+            .getPackageIdentifier();
+    if (!additionalIncludeScanningRoots.isEmpty()
+        && !packageIdentifier.getPackageFragment().startsWith(MATCH_CLIF_ALLOWLISTED_LOCATION)) {
+      throw Starlark.errorf(
+          "This can only be used in %s", MATCH_CLIF_ALLOWLISTED_LOCATION.getPathString());
+    }
+    return Sequence.cast(
+        additionalIncludeScanningRoots, Artifact.class, "additional_include_scanning_roots");
   }
 
   private boolean checkAllSourcesContainTuplesOrNoneOfThem(ImmutableList<Sequence<?>> files)

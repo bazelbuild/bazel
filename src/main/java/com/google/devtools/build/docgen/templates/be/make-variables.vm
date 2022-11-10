@@ -16,6 +16,9 @@
 -->
 <h1 class="page-title" id="make-variables">"Make" Variables</h1>
 
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/docgen/templates/be/make-variables.vm" %}
+{% include "_buttons.html" %}
+
 #if (!$singlePage)
 <ul>
   <li><a href="#use">Use</a></li>

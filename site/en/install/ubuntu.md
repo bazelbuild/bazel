@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Installing Bazel on Ubuntu
 
+{% include "_buttons.html" %}
+
 This page describes the options for installing Bazel on Ubuntu.
 It also provides links to the Bazel completion scripts and the binary installer,
 if needed as a backup option (for example, if you don't have admin access).

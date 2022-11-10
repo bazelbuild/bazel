@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Backward Compatibility
 
+{% include "_buttons.html" %}
+
 This page provides information on how to handle backward compatibility,
 including migrating from one release to another and how to communicate
 incompatible changes.

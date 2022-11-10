@@ -531,6 +531,127 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertOutputsDoNotExist("//:foobar");
   }
 
+  @Test
+  public void incrementalBuild_sourceModified_rerunActions() throws Exception {
+    // Arrange: Prepare workspace and run a clean build
+    write("foo.in", "foo");
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        "  tags = ['no-remote'],",
+        ")");
+
+    buildTarget("//:foobar");
+    assertValidOutputFile("out/foo.txt", "foo" + lineSeparator());
+    assertValidOutputFile("out/foobar.txt", "foo" + lineSeparator() + "bar\n");
+
+    // Act: Modify source file and run an incremental build
+    write("foo.in", "modified");
+
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+
+    // Assert: All actions transitively depend on the source file are re-executed and outputs are
+    // correct.
+    assertValidOutputFile("out/foo.txt", "modified" + lineSeparator());
+    assertValidOutputFile("out/foobar.txt", "modified" + lineSeparator() + "bar\n");
+    assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(2);
+  }
+
+  @Test
+  public void incrementalBuild_intermediateOutputDeleted_nothingIsReEvaluated() throws Exception {
+    // Arrange: Prepare workspace and run a clean build
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        "  tags = ['no-remote'],",
+        ")");
+
+    buildTarget("//:foobar");
+    assertValidOutputFile("out/foo.txt", "foo\n");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+
+    // Act: Delete intermediate output and run an incremental build
+    var fooPath = getOutputPath("out/foo.txt");
+    fooPath.delete();
+
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+
+    // Assert: local output is deleted, skyframe should trust remote files so no nodes will be
+    // re-evaluated.
+    assertOutputDoesNotExist("out/foo.txt");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+    assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(0);
+  }
+
+  @Test
+  public void incrementalBuild_intermediateOutputModified_rerunGeneratingActions()
+      throws Exception {
+    // Arrange: Prepare workspace and run a clean build
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        "  tags = ['no-remote'],",
+        ")");
+
+    buildTarget("//:foobar");
+    assertValidOutputFile("out/foo.txt", "foo\n");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+
+    // Act: Modify the intermediate output and run a incremental build
+    var fooPath = getOutputPath("out/foo.txt");
+    fooPath.delete();
+    writeAbsolute(fooPath, "modified");
+
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+
+    // Assert: the stale intermediate file should be deleted by skyframe before executing the
+    // generating action. Since download minimal, the output didn't get downloaded. Since the input
+    // to action :foobar didn't change, we hit the skyframe cache, so the action node didn't event
+    // get evaluated. The input didn't get prefetched neither.
+    assertOutputDoesNotExist("out/foo.txt");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+    assertThat(actionEventCollector.getActionExecutedEvents()).hasSize(1);
+    assertThat(actionEventCollector.getCachedActionEvents()).isEmpty();
+    var executedAction = actionEventCollector.getActionExecutedEvents().get(0).getAction();
+    assertThat(executedAction.getPrimaryOutput().getFilename()).isEqualTo("foo.txt");
+  }
+
   protected void assertOutputsDoNotExist(String target) throws Exception {
     for (Artifact output : getArtifacts(target)) {
       assertWithMessage(
@@ -624,5 +745,9 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   protected void restartServer() throws Exception {
     // Simulates a server restart
     createRuntimeWrapper();
+  }
+
+  protected static String lineSeparator() {
+    return System.getProperty("line.separator");
   }
 }

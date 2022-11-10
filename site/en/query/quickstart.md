@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Bazel Query How-To
 
+{% include "_buttons.html" %}
+
 This page covers how to get started using Bazel's query language to trace
 dependencies in your code.
 

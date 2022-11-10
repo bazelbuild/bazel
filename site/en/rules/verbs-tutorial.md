@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Using Macros to Create Custom Verbs
 
+{% include "_buttons.html" %}
+
 Day-to-day interaction with Bazel happens primarily through a few commands:
 `build`, `test`, and `run`. At times, though, these can feel limited: you may
 want to push packages to a repository, publish documentation for end-users, or

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Installing Bazel on Windows
 
+{% include "_buttons.html" %}
+
 This page describes the requirements and steps to install Bazel on Windows.
 It also includes troubleshooting and other ways to install Bazel, such as
 using Chocolatey or Scoop.

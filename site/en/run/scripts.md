@@ -1,7 +1,9 @@
 Project: /_project.yaml
 Book: /_book.yaml
 
-#  Calling Bazel from scripts
+# Calling Bazel from scripts
+
+{% include "_buttons.html" %}
 
 You can call Bazel from scripts to perform a build, run tests, or query
 the dependency graph. Bazel has been designed to enable effective scripting, but

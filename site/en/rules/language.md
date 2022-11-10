@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Starlark Language
 
+{% include "_buttons.html" %}
+
 <!-- [TOC] -->
 
 This page is an overview of [Starlark](https://github.com/bazelbuild/starlark),

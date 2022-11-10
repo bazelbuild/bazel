@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Integrating with C++ Rules
 
+{% include "_buttons.html" %}
+
 This page describes how to integrate with C++ rules on various levels.
 
 ## Accessing the C++ toolchain {:#access-c-toolchain}

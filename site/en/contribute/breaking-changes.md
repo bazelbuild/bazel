@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Guide for rolling out breaking changes
 
+{% include "_buttons.html" %}
+
 It is inevitable that we will make breaking changes to Bazel. We will have to
 change our designs and fix the things that do not quite work. However, we need
 to make sure that community and Bazel ecosystem can follow along. To that end,

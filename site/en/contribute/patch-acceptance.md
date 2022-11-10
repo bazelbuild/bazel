@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Patch Acceptance Process
 
+{% include "_buttons.html" %}
+
 This page outlines how contributors can propose and make changes to the Bazel
 code base.
 

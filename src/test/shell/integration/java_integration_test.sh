@@ -843,7 +843,7 @@ java_binary(
 EOF
   bazel build --incompatible_disallow_java_import_empty_jars=0 //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar >& "$TEST_log" \
       || fail "Expected success"
-  bazel run //$pkg/java/hello:hello -- --singlejar >& "$TEST_log"
+  bazel run --incompatible_disallow_java_import_empty_jars=0 //$pkg/java/hello:hello -- --singlejar >& "$TEST_log"
   expect_log "Hello World!"
 }
 

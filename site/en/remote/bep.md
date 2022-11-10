@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Build Event Protocol
 
+{% include "_buttons.html" %}
 
 The [Build Event
 Protocol](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto){: .external}

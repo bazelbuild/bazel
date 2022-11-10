@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Dependencies
 
+{% include "_buttons.html" %}
+
 A target `A` _depends upon_ a target `B` if `B` is needed by `A` at build or
 execution time. The _depends upon_ relation induces a
 [Directed Acyclic Graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph){: .external}

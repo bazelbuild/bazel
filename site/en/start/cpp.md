@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Bazel Tutorial: Build a C++ Project
 
+{% include "_buttons.html" %}
+
 ## Introduction
 
 New to Bazel? You’re in the right place. Follow this First Build tutorial for a
@@ -124,9 +126,9 @@ cc_binary(
 )
 ```
 
-In our example, the `hello-world` target instantiates Bazel's built-in 
+In our example, the `hello-world` target instantiates Bazel's built-in
 <code>[cc_binary rule](https://bazel.build/reference/be/c-cpp#cc_binary)</code>.
-The rule tells Bazel to build a self-contained executable binary from the 
+The rule tells Bazel to build a self-contained executable binary from the
 <code>hello-world.cc</code> source file with no dependencies.
 
 ### Summary: getting started
@@ -165,7 +167,7 @@ bazel build //main:hello-world
 
 In the target label, the `//main:` part is the location of the `BUILD` file
 relative to the root of the workspace, and `hello-world` is the target name in
-the `BUILD` file. 
+the `BUILD` file.
 
 Bazel produces something that looks like this:
 

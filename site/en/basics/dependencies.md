@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Dependency Management
 
+{% include "_buttons.html" %}
+
 In looking through the previous pages, one theme repeats over and over: managing
 your own code is fairly straightforward, but managing its dependencies is much
 more difficult. There are all sorts of dependencies: sometimes there’s a

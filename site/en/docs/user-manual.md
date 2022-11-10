@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Commands and Options
 
+{% include "_buttons.html" %}
+
 This page covers the options that are available with various Bazel commands,
 such as `bazel build`, `bazel run`, and `bazel test`. This page is a companion
 to the list of Bazel's commands in [Build with Bazel](/docs/build).

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Running Bazel with Limited RAM
 
+{% include "_buttons.html" %}
+
 This page describes how to use flags to run Bazel with limited RAM.
 
 In certain situations, you may want Bazel to use minimal memory. You can set the
