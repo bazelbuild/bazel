@@ -125,9 +125,9 @@ public final class LinuxSandboxCommandLineBuilderTest {
     ImmutableSet<PathFragment> tmpfsDirectories = ImmutableSet.of(tmpfsDir1, tmpfsDir2);
 
     List<BindMount> bindMounts = ImmutableList.of(
+        BindMount.of(bindMountSameSourceAndTarget, bindMountSameSourceAndTarget),
         BindMount.of(bindMountTarget1, bindMountSource1),
-        BindMount.of(bindMountTarget2, bindMountSource2),
-        BindMount.of(bindMountSameSourceAndTarget, bindMountSameSourceAndTarget));
+        BindMount.of(bindMountTarget2, bindMountSource2));
 
     ImmutableList<String> expectedCommandLine =
         ImmutableList.<String>builder()
