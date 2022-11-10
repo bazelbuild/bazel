@@ -386,11 +386,14 @@ public final class Runfiles implements RunfilesApi {
    *     normal source tree entries, or runfile conflicts. May be null, in which case obscuring
    *     symlinks are silently discarded, and conflicts are overwritten.
    * @param location Location for eventHandler warnings. Ignored if eventHandler is null.
+   * @param repoMappingManifest repository mapping manifest to add as a root symlink. This manifest
+   *     has to be added automatically for every executable and is thus not part of the Runfiles
+   *     advertised by a configured target.
    * @return Map<PathFragment, Artifact> path fragment to artifact, of normal source tree entries
    *     and elements that live outside the source tree. Null values represent empty input files.
    */
   public Map<PathFragment, Artifact> getRunfilesInputs(
-      EventHandler eventHandler, Location location) {
+      EventHandler eventHandler, Location location, @Nullable Artifact repoMappingManifest) {
     ConflictChecker checker = new ConflictChecker(conflictPolicy, eventHandler, location);
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap(checker);
     // Add artifacts (committed to inclusion on construction of runfiles).
@@ -417,6 +420,9 @@ public final class Runfiles implements RunfilesApi {
       checker = new ConflictChecker(ConflictPolicy.WARN, eventHandler, location);
     }
     builder.add(getRootSymlinksAsMap(checker), checker);
+    if (repoMappingManifest != null) {
+      checker.put(builder.manifest, PathFragment.create("_repo_mapping"), repoMappingManifest);
+    }
     return builder.build();
   }
 

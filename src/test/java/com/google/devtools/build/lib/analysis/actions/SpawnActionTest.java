@@ -409,6 +409,7 @@ public class SpawnActionTest extends BuildViewTestCase {
                     PathFragment.create("destination"),
                     Runfiles.EMPTY,
                     manifest,
+                    /* repoMappingManifest= */ null,
                     /* buildRunfileLinks= */ false,
                     /* runfileLinksEnabled= */ false))
             .addOutput(getBinArtifactWithNoOwner("output"))
@@ -628,6 +629,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         dir,
         Runfiles.EMPTY,
         manifest,
+        /* repoMappingManifest= */ null,
         /* buildRunfileLinks= */ false,
         /* runfileLinksEnabled= */ false);
   }
