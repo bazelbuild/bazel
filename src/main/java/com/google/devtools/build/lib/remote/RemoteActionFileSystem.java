@@ -22,6 +22,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -50,6 +51,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.ReadableByteChannel;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -604,6 +607,73 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     return created;
   }
 
+  @Override
+  protected ImmutableList<String> getDirectoryEntries(PathFragment path) throws IOException {
+    HashSet<String> entries = new HashSet<>();
+
+    boolean ignoredNotFoundInRemote = false;
+    if (isOutput(path)) {
+      try {
+        delegateFs.getPath(path).getDirectoryEntries().stream()
+            .map(Path::getBaseName)
+            .forEach(entries::add);
+        ignoredNotFoundInRemote = true;
+      } catch (FileNotFoundException ignored) {
+        // Intentionally ignored
+      }
+    }
+
+    try {
+      remoteOutputTree.getPath(path).getDirectoryEntries().stream()
+          .map(Path::getBaseName)
+          .forEach(entries::add);
+    } catch (FileNotFoundException e) {
+      if (!ignoredNotFoundInRemote) {
+        throw e;
+      }
+    }
+
+    // sort entries to get a deterministic order.
+    return ImmutableList.sortedCopyOf(entries);
+  }
+
+  @Override
+  protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
+      throws IOException {
+    HashMap<String, Dirent> entries = new HashMap<>();
+
+    boolean ignoredNotFoundInRemote = false;
+    if (isOutput(path)) {
+      try {
+        for (var entry :
+            delegateFs
+                .getPath(path)
+                .readdir(followSymlinks ? Symlinks.FOLLOW : Symlinks.NOFOLLOW)) {
+          entries.put(entry.getName(), entry);
+        }
+        ignoredNotFoundInRemote = true;
+      } catch (FileNotFoundException ignored) {
+        // Intentionally ignored
+      }
+    }
+
+    try {
+      for (var entry :
+          remoteOutputTree
+              .getPath(path)
+              .readdir(followSymlinks ? Symlinks.FOLLOW : Symlinks.NOFOLLOW)) {
+        entries.put(entry.getName(), entry);
+      }
+    } catch (FileNotFoundException e) {
+      if (!ignoredNotFoundInRemote) {
+        throw e;
+      }
+    }
+
+    // sort entries to get a deterministic order.
+    return ImmutableList.sortedCopyOf(entries.values());
+  }
+
   /*
    * -------------------- TODO(buchgr): Not yet implemented --------------------
    *
@@ -614,20 +684,9 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
    */
 
   @Override
-  protected Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
-    return super.getDirectoryEntries(path);
-  }
-
-  @Override
   protected void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
     super.createFSDependentHardLink(linkPath, originalPath);
-  }
-
-  @Override
-  protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
-      throws IOException {
-    return super.readdir(path, followSymlinks);
   }
 
   @Override
