@@ -3,6 +3,9 @@ Book: /_book.yaml
 
 # Installing Bazel
 
+{% dynamic setvar source_file "site/en/install/index.md" %}
+{% include "_buttons.html" %}
+
 This page describes the various platforms supported by Bazel and links
 to the packages for more details.
 

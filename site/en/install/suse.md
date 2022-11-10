@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Installing Bazel on openSUSE Tumbleweed & Leap
 
+{% include "_buttons.html" %}
+
 This page describes how to install Bazel on openSUSE Tumbleweed and Leap.
 
 `NOTE:` The Bazel team does not officially maintain openSUSE support. For issues

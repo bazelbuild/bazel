@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Execution Groups
 
+{% include "_buttons.html" %}
+
 Execution groups allow for multiple execution platforms within a single target.
 Each execution group has its own [toolchain](/docs/toolchains) dependencies and
 performs its own [toolchain resolution](/docs/toolchains#toolchain-resolution).

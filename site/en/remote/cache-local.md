@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Debugging Remote Cache Hits for Local Execution
 
+{% include "_buttons.html" %}
+
 This page describes how to investigate cache misses in the context of local
 execution.
 

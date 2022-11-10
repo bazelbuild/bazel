@@ -596,7 +596,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disallow_java_import_empty_jars",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},

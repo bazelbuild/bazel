@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Community updates
 
+{% include "_buttons.html" %}
+
 Join Bazel developer relations engineers for the monthly community update
 livestream, or catch up on past ones.
 

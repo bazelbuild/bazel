@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Configuring Bazel CI to Test Rules for Remote Execution
 
+{% include "_buttons.html" %}
+
 This page is for owners and maintainers of Bazel rule repositories. It
 describes how to configure the Bazel Continuous Integration (CI) system for
 your repository to test your rules for compatibility against a remote execution

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Aspects
 
+{% include "_buttons.html" %}
+
 This page explains the basics and benefits of using aspects and provides
 simple and advanced examples.
 

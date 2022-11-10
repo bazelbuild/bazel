@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Extension Overview
 
+{% include "_buttons.html" %}
+
 <!-- [TOC] -->
 
 This page describes how to extend the BUILD language using macros

@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Compiling Bazel from Source
 
+{% include "_buttons.html" %}
 
 This page describes how to install Bazel from source and provides
 troubleshooting tips for common issues.

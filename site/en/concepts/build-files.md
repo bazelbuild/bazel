@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # BUILD files
 
+{% include "_buttons.html" %}
+
 The previous sections described packages, targets and labels, and the
 build dependency graph abstractly. This section describes the concrete syntax
 used to define a package.

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Manage external dependencies with Bzlmod
 
+{% include "_buttons.html" %}
+
 *Bzlmod* is the codename of the new [external dependency](/docs/external) system
 introduced in Bazel 5.0. It was introduced to address several pain points of the
 old system that couldn't feasibly be fixed incrementally; see the

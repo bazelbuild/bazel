@@ -6,6 +6,9 @@
 <body>
 
 <h1 class="page-title">Bazel BUILD Encyclopedia of Functions</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/docgen/templates/be/overview.vm" %}
+{% include "_buttons.html" %}
 <h2>Concepts and terminology</h2>
 
 <ul>

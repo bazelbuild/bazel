@@ -14,6 +14,9 @@
 
 <h1 class="page-title">${ruleFamily.name} Rules</h1>
 
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/docgen/templates/be/rules.vm" %}
+{% include "_buttons.html" %}
+
 ${ruleFamily.summary}
 
 #if (!$singlePage)

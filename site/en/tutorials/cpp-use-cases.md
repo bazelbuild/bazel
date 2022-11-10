@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Common C++ Build Use Cases
 
+{% include "_buttons.html" %}
+
 Here you will find some of the most common use cases for building C++ projects
 with Bazel. If you have not done so already, get started with building C++
 projects with Bazel by completing the tutorial

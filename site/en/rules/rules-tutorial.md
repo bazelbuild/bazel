@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Rules Tutorial
 
+{% include "_buttons.html" %}
+
 <!-- [TOC] -->
 
 [Starlark](https://github.com/bazelbuild/starlark) is a Python-like

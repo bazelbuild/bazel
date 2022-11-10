@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # The Bazel Code Base
 
+{% include "_buttons.html" %}
+
 This document is a description of the code base and how Bazel is structured. It
 is intended for people willing to contribute to Bazel, not for end-users.
 

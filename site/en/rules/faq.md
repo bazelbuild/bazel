@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Frequently Asked Questions
 
+{% include "_buttons.html" %}
+
 These are some common issues and questions with writing extensions.
 
 ## Why is my file not produced / my action never executed?

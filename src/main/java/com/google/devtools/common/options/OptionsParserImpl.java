@@ -476,6 +476,18 @@ class OptionsParserImpl {
         continue; // not an option arg
       }
 
+      if (arg.startsWith("-//") || arg.startsWith("-@")) {
+        // Fail with a helpful error when an invalid option looks like an absolute negative target
+        // pattern or a typoed Starlark option.
+        throw new OptionsParsingException(
+            String.format(
+                "Invalid options syntax: %s\n"
+                    + "Note: Negative target patterns can only appear after the end of options"
+                    + " marker ('--'). Flags corresponding to Starlark-defined build settings"
+                    + " always start with '--', not '-'.",
+                arg));
+      }
+
       arg = swapShorthandAlias(arg);
 
       if (arg.equals("--")) { // "--" means all remaining args aren't options

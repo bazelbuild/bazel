@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Migrating from Maven to Bazel
 
+{% include "_buttons.html" %}
+
 This page describes how to migrate from Maven to Bazel, including the
 prerequisites and installation steps. It describes the differences
 between Maven and Bazel, and provides a migration example using the

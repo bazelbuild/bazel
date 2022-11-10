@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ServerCapabilities;
@@ -27,7 +28,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -112,11 +112,10 @@ import javax.annotation.Nullable;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
 public final class RemoteModule extends BlazeModule {
-
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
-  private static final CacheCapabilities DISK_CACHE_CAPABILITIES =
+  private static final CacheCapabilities HTTP_AND_DISK_CACHE_CAPABILITIES =
       CacheCapabilities.newBuilder()
+          .setActionCacheUpdateCapabilities(
+              ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
           .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
           .build();
 
@@ -247,7 +246,7 @@ public final class RemoteModule extends BlazeModule {
       return;
     }
     RemoteCache remoteCache =
-        new RemoteCache(DISK_CACHE_CAPABILITIES, cacheClient, remoteOptions, digestUtil);
+        new RemoteCache(HTTP_AND_DISK_CACHE_CAPABILITIES, cacheClient, remoteOptions, digestUtil);
     actionContextProvider =
         RemoteActionContextProvider.createForRemoteCaching(
             executorService, env, remoteCache, /* retryScheduler= */ null, digestUtil);
@@ -957,22 +956,21 @@ public final class RemoteModule extends BlazeModule {
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);
 
-      if (remoteOutputsMode.downloadToplevelOutputsOnly()) {
-        toplevelArtifactsDownloader =
-            new ToplevelArtifactsDownloader(
-                env.getCommandName(),
-                env.getSkyframeExecutor().getEvaluator(),
-                actionInputFetcher,
-                (path) -> {
-                  FileSystem fileSystem = path.getFileSystem();
-                  Preconditions.checkState(
-                      fileSystem instanceof RemoteActionFileSystem,
-                      "fileSystem must be an instance of RemoteActionFileSystem");
-                  return ((RemoteActionFileSystem) path.getFileSystem())
-                      .getRemoteMetadata(path.asFragment());
-                });
-        env.getEventBus().register(toplevelArtifactsDownloader);
-      }
+      toplevelArtifactsDownloader =
+          new ToplevelArtifactsDownloader(
+              env.getCommandName(),
+              remoteOutputsMode.downloadToplevelOutputsOnly(),
+              env.getSkyframeExecutor().getEvaluator(),
+              actionInputFetcher,
+              (path) -> {
+                FileSystem fileSystem = path.getFileSystem();
+                Preconditions.checkState(
+                    fileSystem instanceof RemoteActionFileSystem,
+                    "fileSystem must be an instance of RemoteActionFileSystem");
+                return ((RemoteActionFileSystem) path.getFileSystem())
+                    .getRemoteMetadata(path.asFragment());
+              });
+      env.getEventBus().register(toplevelArtifactsDownloader);
     }
   }
 

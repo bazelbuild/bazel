@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Java and Bazel
 
+{% include "_buttons.html" %}
+
 This page contains resources that help you use Bazel with Java projects. It
 links to a tutorial, build rules, and other information specific to building
 Java projects with Bazel.

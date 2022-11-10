@@ -31,6 +31,8 @@ Book: /_book.yaml
 
 # Bazel Build API 2021 Roadmap
 
+{% include "_buttons.html" %}
+
 *Last verified: 2021-04-09*
 ([update history](https://github.com/bazelbuild/bazel-website/commits/master/roadmaps/build-api.md))
 

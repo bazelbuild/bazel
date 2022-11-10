@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Toolchain Resolution Implementation Details
 
+{% include "_buttons.html" %}
+
 **Note:** This section is intended for Bazel developers, and is not needed by
 rule authors.
 

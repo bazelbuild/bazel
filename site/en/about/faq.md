@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # FAQ
 
+{% include "_buttons.html" %}
+
 If you have questions or need support, see [Getting Help](/help).
 
 ## What is Bazel?

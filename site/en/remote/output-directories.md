@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Output Directory Layout
 
+{% include "_buttons.html" %}
+
 This page covers requirements and layout for output directories.
 
 ## Requirements {:#requirements}

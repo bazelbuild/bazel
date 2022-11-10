@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Debugging Remote Cache Hits for Remote Execution
 
+{% include "_buttons.html" %}
+
 This page describes how to check your cache hit rate and how to investigate
 cache misses in the context of remote execution.
 

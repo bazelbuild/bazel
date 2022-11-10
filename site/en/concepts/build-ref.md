@@ -3,12 +3,13 @@ Book: /_book.yaml
 
 # Workspaces, packages, and targets
 
+{% include "_buttons.html" %}
+
 Bazel builds software from source code organized in a directory tree called
 a workspace. Source files in the workspace are organized in a nested
 hierarchy of packages, where each package is a directory that contains a set
 of related source files and one `BUILD` file. The `BUILD` file specifies what
 software outputs can be built from the source.
-
 
 ## Workspace {:#workspace}
 

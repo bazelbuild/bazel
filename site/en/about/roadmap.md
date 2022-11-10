@@ -1,7 +1,11 @@
 Project: /_project.yaml
 Book: /_book.yaml
 # Bazel roadmap
+
+{% include "_buttons.html" %}
+
 ## Overview
+
 The Bazel project constantly evolves in response to your needs — developing features and providing support while maintaining, refactoring, and improving the performance of the core product.
 
 With these changes, we’re looking to keep our open-source community informed and included. This roadmap describes current initiatives and predictions for the future of Bazel development, giving you visibility into current priorities and ongoing projects.
@@ -19,7 +23,6 @@ Q4 brings Bazel 6.0 — the new [long term support (LTS)](https://bazel.build/re
 [Bzlmod](https://bazel.build/docs/bzlmod) automatically resolves transitive dependencies, allowing projects to scale while staying fast and resource-efficient. Introduced experimentally in Bazel 5.0, Bzlmod will be generally available and  provide a solution for the [diamond dependency problem](https://docs.google.com/document/d/1moQfNcEIttsk6vYanNKIy3ZuK53hQUFq1b1r0rmsYVg/edit#heading=h.lgyp7ubwxmjc).
 
 *   Bzlmod goes from ‘experimental’ to ‘generally available’
-*   Includes support for `rules_jvm_external`, allowing users to download Maven dependencies for Java projects
 *   [Bzlmod Migration Guide](https://docs.google.com/document/d/1JtXIVnXyFZ4bmbiBCr5gsTH4-opZAFf5DMMb-54kES0/edit?usp=gmail) provides tools, scripts, and documentation to teams looking to adopt Bzlmod
 *   The [Bazel central repository](https://github.com/bazelbuild/bazel-central-registry) hosts core Bazel `BUILD` rules (`rules_jvm_external`, `rules_go`, `rules_python`, `rules_nodejs`) and key dependencies required for Bzlmod
 
@@ -64,15 +67,6 @@ Continue to invest in the Android app development experience, focusing on the wo
 *   Support for recent NDK versions
 *   Test code coverage
 
-### OSS license compliance tools
-
-Developers requested a robust license compliance checker to ensure the availability and security of included packages. This project provides a set of rules and tools to help identify and mitigate compliance and license risks associated with a given software component. Target features include:
-
-*   The ability to audit the packages used by a given target
-*   The ability to build organization specific license compliance checks.
-
-See the in-progress [rules\_license implementation](https://github.com/bazelbuild/rules_license) on Github.
-
 ### Bzlmod: external dependency management system
 
 At launch, Bzlmod improves the scalability and reliability of transitive dependencies. Over the next three years, Bzlmod aims to replace `WORKSPACE` as the default Bazel workspace dependency management subsystem. Targeted features include:
@@ -82,6 +76,12 @@ At launch, Bzlmod improves the scalability and reliability of transitive depende
 *   Bazel Central Registry includes regular community contribution and adoption of key Bazel rules & projects
 *   Bzlmod becomes the default tool for building Bazel projects
 
+### Software Bill of Materials data generation (SBOMs) & OSS license compliance tools
+
+With Bazel, developers can generate data to produce SBOMs. This data will be available in text or JSON format and can be easily formatted to meet [SPDX](https://spdx.dev/specifications/) or [CycloneDX](https://cyclonedx.org/specification/overview/) needs.
+
+Additionally, the project also provides rules to declare the licenses that Bazel modules are available under, and tools to build processes around those declarations.See the in-progress [rules_license implementation](https://github.com/bazelbuild/rules_license) on GitHub.
+
 ### Signed builds
 
 Bazel will provide trusted binaries for Windows and Mac signed with Google keys. This feature enables multi-platform developers/dev-ops to identify the source of Bazel binaries and protect their systems from malicious, unverified binaries.
@@ -90,16 +90,22 @@ Bazel will provide trusted binaries for Windows and Mac signed with Google keys.
 
 The new Platforms API will standardize the architecture configuration for multi-language, multi-platform builds. With this feature, developers can reduce costly development-time errors and complexity in their large builds.
 
+### Automated execution for dynamic builds
+
+By improving resource utilization predictions, Bazel will optimize local and dynamic
+execution of build actions, leading to faster builds and less overloaded developer machines.
+
 ### Build analysis metrics
 
-Bazel telemetry will provide analysis-phase time metrics, letting developers optimize their own build performance.
+Bazel will provide analysis-phase time metrics, letting developers optimize their own build performance.
 
 ### Remote execution with “Builds without the Bytes”
 
 [Builds without the Bytes](https://github.com/bazelbuild/bazel/issues/6862) will optimize performance by only allowing Bazel to download needed artifacts, preventing builds from bottlenecking on network bandwidth. Features added for remote builds include:
 
-*   Use asynchronous download to let local and remote actions kick off as soon as they’ve downloaded their dependent outputs
-*   Add Symlinks support
-*   Retrieve intermediate outputs from remote actions once a build completes
+-   Use asynchronous download to let actions kick off as soon as they’ve downloaded their dependent outputs
+-   Add Symlinks support
+-   Add ways to support retrieving intermediate outputs from remote actions during a build
+-   Supports remote cache eviction between invocations
 
 _\*Copyright © 2022 JetBrains s.r.o. JetBrains and IntelliJ are registered trademarks of JetBrains s.r.o._

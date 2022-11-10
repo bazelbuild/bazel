@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
@@ -105,6 +104,7 @@ public class BazelCcModule extends CcModule
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
+      Sequence<?> additionalIncludeScanningRoots, // <Artifact> expected
       Sequence<?> additionalInputs, // <Artifact> expected
       Object moduleMap,
       Object additionalModuleMaps,
@@ -121,7 +121,7 @@ public class BazelCcModule extends CcModule
       Object nonCompilationAdditionalInputs,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    return compile(
+    return super.compile(
         starlarkActionFactoryApi,
         starlarkFeatureConfiguration,
         starlarkCcToolchainProvider,
@@ -146,9 +146,8 @@ public class BazelCcModule extends CcModule
         disallowPicOutputs,
         disallowNopicOutputs,
         /* grepIncludes= */ null,
-        /* headersForClifDoNotUseThisParam= */ ImmutableList.of(),
-        StarlarkList.immutableCopyOf(
-            Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")),
+        /* additionalIncludeScanningRoots= */ StarlarkList.empty(),
+        additionalInputs,
         moduleMap,
         additionalModuleMaps,
         propagateModuleMapToCompileAction,

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Building with Platforms
 
+{% include "_buttons.html" %}
+
 Bazel has sophisticated support for modeling [platforms][Platforms] and
 [toolchains][Toolchains]. Integrating this with real projects requires
 careful cooperation between code owners, rule maintainers, and core Bazel devs.

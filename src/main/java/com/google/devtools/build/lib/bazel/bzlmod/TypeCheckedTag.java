@@ -29,7 +29,7 @@ import net.starlark.java.eval.Structure;
  * A {@link Tag} whose attribute values have been type-checked against the attribute schema define
  * in the {@link TagClass}.
  */
-@StarlarkBuiltin(name = "bazel_module_tag", doc = "TODO")
+@StarlarkBuiltin(name = "bazel_module_tag", documented = false)
 public class TypeCheckedTag implements Structure {
   private final TagClass tagClass;
   private final Object[] attrValues;

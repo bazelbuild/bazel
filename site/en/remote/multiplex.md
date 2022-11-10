@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Multiplex Workers (Experimental Feature)
 
+{% include "_buttons.html" %}
+
 This page describes multiplex workers, how to write multiplex-compatible
 rules, and workarounds for certain limitations.
 

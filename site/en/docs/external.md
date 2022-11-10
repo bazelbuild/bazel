@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Working with External Dependencies
 
+{% include "_buttons.html" %}
+
 Bazel can depend on targets from other projects. Dependencies from these other
 projects are called _external dependencies_.
 

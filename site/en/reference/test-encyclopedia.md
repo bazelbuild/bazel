@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Test encyclopedia
 
+{% include "_buttons.html" %}
+
 An exhaustive specification of the test execution environment.
 
 ## Background {:#background}

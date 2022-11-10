@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Bazel Tutorial: Build a Java Project
 
+{% include "_buttons.html" %}
+
 This tutorial covers the basics of building Java applications with
 Bazel. You will set up your workspace and build a simple Java project that
 illustrates key Bazel concepts, such as targets and `BUILD` files.

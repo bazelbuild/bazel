@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # C++ and Bazel
 
+{% include "_buttons.html" %}
+
 This page contains resources that help you use Bazel with C++ projects. It links
 to a tutorial, build rules, and other information specific to building C++
 projects with Bazel.

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Bazel Tutorial: Configure C++ Toolchains
 
+{% include "_buttons.html" %}
+
 This tutorial uses an example scenario to describe how to configure C++
 toolchains for a project. It's based on an
 [example C++ project](https://github.com/bazelbuild/examples/tree/master/cpp-tutorial/stage1)

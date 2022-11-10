@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Write bazelrc configuration files
 
+{% include "_buttons.html" %}
 
 Bazel accepts many options. Some options are varied frequently (for example,
 `--subcommands`) while others stay the same across several builds (such as

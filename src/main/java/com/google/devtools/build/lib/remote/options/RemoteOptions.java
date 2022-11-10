@@ -273,7 +273,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Whether to upload locally executed action results to the remote cache.")
+      help =
+          "Whether to upload locally executed action results to the remote cache if the remote "
+              + "cache supports it and the user is authorized to do so.")
   public boolean remoteUploadLocalResults;
 
   @Deprecated
@@ -471,15 +473,17 @@ public final class RemoteOptions extends CommonRemoteOptions {
         "--nobuild_runfile_links",
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
+        "--experimental_action_cache_store_output_metadata",
         "--remote_download_outputs=minimal"
       },
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Does not download any remote build outputs to the local machine. This flag is a "
-              + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
-              + "--experimental_inmemory_dotd_files and "
+          "Does not download any remote build outputs to the local machine. This flag is a shortcut"
+              + " for flags: --experimental_inmemory_jdeps_files,"
+              + " --experimental_inmemory_dotd_files,"
+              + " --experimental_action_cache_store_output_metadata and "
               + "--remote_download_outputs=minimal.")
   public Void remoteOutputsMinimal;
 
@@ -490,15 +494,17 @@ public final class RemoteOptions extends CommonRemoteOptions {
       expansion = {
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
+        "--experimental_action_cache_store_output_metadata",
         "--remote_download_outputs=toplevel"
       },
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Only downloads remote outputs of top level targets to the local machine. This flag is a "
-              + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
-              + "--experimental_inmemory_dotd_files and "
+          "Only downloads remote outputs of top level targets to the local machine. This flag is a"
+              + " shortcut for flags: --experimental_inmemory_jdeps_files,"
+              + " --experimental_inmemory_dotd_files,"
+              + " --experimental_action_cache_store_output_metadata and "
               + "--remote_download_outputs=toplevel.")
   public Void remoteOutputsToplevel;
 

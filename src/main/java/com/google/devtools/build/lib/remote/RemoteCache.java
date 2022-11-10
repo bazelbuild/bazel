@@ -122,6 +122,11 @@ public class RemoteCache extends AbstractReferenceCounted {
     return cacheProtocol.findMissingDigests(context, digests);
   }
 
+  /** Returns whether the action cache supports updating action results. */
+  public boolean actionCacheSupportsUpdate() {
+    return cacheCapabilities.getActionCacheUpdateCapabilities().getUpdateEnabled();
+  }
+
   /** Upload the action result to the remote cache. */
   public ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {

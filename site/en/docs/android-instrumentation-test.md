@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Android Instrumentation Tests
 
+{% include "_buttons.html" %}
+
 _If you're new to Bazel, start with the [Building Android with
 Bazel](/tutorials/android-app) tutorial._
 
