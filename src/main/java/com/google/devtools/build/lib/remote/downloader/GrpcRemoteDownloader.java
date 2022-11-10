@@ -23,8 +23,6 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
@@ -38,9 +36,6 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.StatusRuntimeException;
@@ -51,7 +46,6 @@ import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
@@ -82,7 +76,6 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   // supported by Bazel.
   private static final String QUALIFIER_CHECKSUM_SRI = "checksum.sri";
   private static final String QUALIFIER_CANONICAL_ID = "bazel.canonical_id";
-  private static final String QUALIFIER_AUTH_HEADERS = "bazel.auth_headers";
 
   public GrpcRemoteDownloader(
       String buildRequestId,
@@ -131,13 +124,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         RemoteActionExecutionContext.create(metadata);
 
     final FetchBlobRequest request =
-        newFetchBlobRequest(
-            options.remoteInstanceName,
-            urls,
-            authHeaders,
-            checksum,
-            canonicalId,
-            options.remoteDownloaderSendAllHeaders);
+        newFetchBlobRequest(options.remoteInstanceName, urls, checksum, canonicalId);
     try {
       FetchBlobResponse response =
           retrier.execute(
@@ -175,10 +162,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   static FetchBlobRequest newFetchBlobRequest(
       String instanceName,
       List<URL> urls,
-      Map<URI, Map<String, List<String>>> authHeaders,
       com.google.common.base.Optional<Checksum> checksum,
-      String canonicalId,
-      boolean includeAllHeaders) {
+      String canonicalId) {
     FetchBlobRequest.Builder requestBuilder =
         FetchBlobRequest.newBuilder().setInstanceName(instanceName);
     for (URL url : urls) {
@@ -194,13 +179,6 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     if (!Strings.isNullOrEmpty(canonicalId)) {
       requestBuilder.addQualifiers(
           Qualifier.newBuilder().setName(QUALIFIER_CANONICAL_ID).setValue(canonicalId).build());
-    }
-    if (!authHeaders.isEmpty()) {
-      requestBuilder.addQualifiers(
-          Qualifier.newBuilder()
-              .setName(QUALIFIER_AUTH_HEADERS)
-              .setValue(authHeadersJson(urls, authHeaders, includeAllHeaders))
-              .build());
     }
 
     return requestBuilder.build();
@@ -223,44 +201,5 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       out = new HashOutputStream(out, checksum.get());
     }
     return out;
-  }
-
-  private static String authHeadersJson(
-      List<URL> urls, Map<URI, Map<String, List<String>>> authHeaders, boolean includeAllHeaders) {
-    ImmutableSet<String> hostSet =
-        urls.stream().map(URL::getHost).collect(ImmutableSet.toImmutableSet());
-    Map<String, JsonObject> subObjects = new TreeMap<>();
-    for (Map.Entry<URI, Map<String, List<String>>> entry : authHeaders.entrySet()) {
-      URI uri = entry.getKey();
-      // Only add headers that are relevant to the hosts.
-      if (!hostSet.contains(uri.getHost())) {
-        continue;
-      }
-
-      JsonObject subObject = new JsonObject();
-      Map<String, List<String>> orderedHeaders = new TreeMap<>(entry.getValue());
-      for (Map.Entry<String, List<String>> subEntry : orderedHeaders.entrySet()) {
-        if (includeAllHeaders) {
-          JsonArray values = new JsonArray(subEntry.getValue().size());
-          for (String value : subEntry.getValue()) {
-            values.add(value);
-          }
-          subObject.add(subEntry.getKey(), values);
-        } else {
-          String value = Iterables.getFirst(subEntry.getValue(), null);
-          if (value != null) {
-            subObject.addProperty(subEntry.getKey(), value);
-          }
-        }
-      }
-      subObjects.put(uri.toString(), subObject);
-    }
-
-    JsonObject authHeadersJson = new JsonObject();
-    for (Map.Entry<String, JsonObject> entry : subObjects.entrySet()) {
-      authHeadersJson.add(entry.getKey(), entry.getValue());
-    }
-
-    return new Gson().toJson(authHeadersJson);
   }
 }
