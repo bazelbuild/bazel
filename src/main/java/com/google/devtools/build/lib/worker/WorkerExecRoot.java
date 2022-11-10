@@ -80,7 +80,7 @@ final class WorkerExecRoot {
     for (PathFragment fragment : inputsToCreate) {
       Path key = dir.getRelative(fragment);
       if (inputs.getFiles().containsKey(fragment)) {
-        Path fileDest = inputs.getFiles().get(fragment);
+        Path fileDest = inputs.getFiles().get(fragment).asPath();
         if (fileDest != null) {
           key.createSymbolicLink(fileDest);
         } else {

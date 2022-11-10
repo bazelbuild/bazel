@@ -38,6 +38,8 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
@@ -236,7 +238,7 @@ public final class SandboxHelpers {
    */
   static Optional<PathFragment> getExpectedSymlinkDestination(
       PathFragment fragment, SandboxInputs inputs) {
-    Path file = inputs.getFiles().get(fragment);
+    Path file = inputs.getFiles().get(fragment).asPath();
     if (file != null) {
       return Optional.of(file.asFragment());
     }
@@ -347,30 +349,30 @@ public final class SandboxHelpers {
     private static final AtomicInteger tempFileUniquifierForVirtualInputWrites =
         new AtomicInteger();
 
-    private final Map<PathFragment, Path> files;
+    private final Map<PathFragment, RootedPath> files;
     private final Map<VirtualActionInput, byte[]> virtualInputs;
     private final Map<PathFragment, PathFragment> symlinks;
-    private final Map<Path, PathFragment> sourceRoots;
+    private final Map<Root, Path> sourceRootBindMounts;
 
     private static final SandboxInputs EMPTY_INPUTS =
         new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
 
     public SandboxInputs(
-        Map<PathFragment, Path> files,
+        Map<PathFragment, RootedPath> files,
         Map<VirtualActionInput, byte[]> virtualInputs,
         Map<PathFragment, PathFragment> symlinks,
-        Map<Path, PathFragment> sourceRoots) {
+        Map<Root, Path> sourceRootBindMounts) {
       this.files = files;
       this.virtualInputs = virtualInputs;
       this.symlinks = symlinks;
-      this.sourceRoots = sourceRoots;
+      this.sourceRootBindMounts = sourceRootBindMounts;
     }
 
     public static SandboxInputs getEmptyInputs() {
       return EMPTY_INPUTS;
     }
 
-    public Map<PathFragment, Path> getFiles() {
+    public Map<PathFragment, RootedPath> getFiles() {
       return files;
     }
 
@@ -378,7 +380,7 @@ public final class SandboxHelpers {
       return symlinks;
     }
 
-    public Map<Path, PathFragment> getSourceRoots() { return sourceRoots; }
+    public Map<Root, Path> getSourceRootBindMounts() { return sourceRootBindMounts; }
 
     /**
      * Materializes a single virtual input inside the given execroot.
@@ -425,11 +427,16 @@ public final class SandboxHelpers {
      * included.
      */
     public SandboxInputs limitedCopy(Set<PathFragment> allowed) {
+      Map<PathFragment, RootedPath> limitedFiles = Maps.filterKeys(files, allowed::contains);
+      Map<PathFragment, PathFragment> limitedSymlinks = Maps.filterKeys(symlinks, allowed::contains);
+      Set<Root> usedRoots = new HashSet<>(Maps.transformValues(limitedFiles, RootedPath::getRoot).values());
+      Map<Root, Path> limitedSourceRoots = Maps.filterKeys(sourceRootBindMounts, usedRoots::contains);
+
       return new SandboxInputs(
-          Maps.filterKeys(files, allowed::contains),
+          limitedFiles,
           ImmutableMap.of(),
-          Maps.filterKeys(symlinks, allowed::contains),
-          sourceRoots);  // TODO: is this good enough? Overestimating seems to be fine here?
+          limitedSymlinks,
+          limitedSourceRoots);
     }
 
     @Override
@@ -462,13 +469,16 @@ public final class SandboxHelpers {
    *
    * @throws IOException if processing symlinks fails
    */
-  public SandboxInputs processInputFiles(Map<PathFragment, ActionInput> inputMap, Path execRoot,
-      Path sandboxExecRoot, Path sandboxSourceRoots)
+  public SandboxInputs processInputFiles(Map<PathFragment, ActionInput> inputMap, Path execRootPath,
+      Path sandboxExecRootPath, Path sandboxSourceRoots)
       throws IOException {
-    Map<PathFragment, Path> inputFiles = new TreeMap<>();
+    Root sandboxExecRoot = Root.fromPath(sandboxExecRootPath);
+    Root execRoot = sandboxExecRootPath.equals(execRootPath) ? sandboxExecRoot : Root.fromPath(execRootPath);
+
+    Map<PathFragment, RootedPath> inputFiles = new TreeMap<>();
     Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
     Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
-    Map<Path, PathFragment> sourceRoots = new TreeMap<>();
+    Map<Root, Root> sourceRootToSandboxSourceRoot = new TreeMap<>();
 
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
       PathFragment pathFragment = e.getKey();
@@ -477,7 +487,7 @@ public final class SandboxHelpers {
       if (actionInput instanceof VirtualActionInput) {
         byte[] digest =
             SandboxInputs.materializeVirtualInput(
-                (VirtualActionInput) actionInput, execRoot, /* isExecRootSandboxed=*/ true);
+                (VirtualActionInput) actionInput, execRootPath, /* isExecRootSandboxed=*/ true);
         virtualInputs.put((VirtualActionInput) actionInput, digest);
       }
 
@@ -485,39 +495,44 @@ public final class SandboxHelpers {
         Path inputPath = execRoot.getRelative(actionInput.getExecPath());
         inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
       } else {
-        Path inputPath;
+        RootedPath inputPath;
 
         if (actionInput instanceof EmptyActionInput) {
           inputPath = null;
-        } else if (actionInput instanceof  Artifact) {
-          Path artifactRoot;
+        } else if (actionInput instanceof Artifact) {
+          Root artifactRoot;
           Artifact inputArtifact = (Artifact) actionInput;
           if (inputArtifact.isSourceArtifact()) {
             if (sandboxSourceRoots != null) {
-              Path sourceRoot = inputArtifact.getRoot().getRoot().asPath();
-              if (!sourceRoots.containsKey(sourceRoot)) {
-                int next = sourceRoots.size();
-                sourceRoots.put(sourceRoot, PathFragment.create(Integer.toString(next)));
+              Root sourceRoot = inputArtifact.getRoot().getRoot();
+              if (!sourceRootToSandboxSourceRoot.containsKey(sourceRoot)) {
+                int next = sourceRootToSandboxSourceRoot.size();
+                sourceRootToSandboxSourceRoot.put(sourceRoot,
+                    Root.fromPath(sandboxSourceRoots.getRelative(Integer.toString(next))));
               }
 
-              artifactRoot = sandboxSourceRoots.getRelative(sourceRoots.get(sourceRoot));
-              inputPath = artifactRoot.getRelative(inputArtifact.getRootRelativePath());
+              artifactRoot = sourceRootToSandboxSourceRoot.get(sourceRoot);
+              inputPath = RootedPath.toRootedPath(artifactRoot, inputArtifact.getRootRelativePath());
             } else {
-              inputPath = sandboxExecRoot.getRelative(inputArtifact.getExecPath());
+              inputPath = RootedPath.toRootedPath(sandboxExecRoot, inputArtifact.getExecPath());
             }
           } else {
-            inputPath = sandboxExecRoot.getRelative(inputArtifact.getExecPath());
+            inputPath = RootedPath.toRootedPath(sandboxExecRoot, inputArtifact.getExecPath());
           }
         } else {
-          inputPath = execRoot.getRelative(actionInput.getExecPath());
+          inputPath = RootedPath.toRootedPath(execRoot, actionInput.getExecPath());
         }
 
         inputFiles.put(pathFragment, inputPath);
       }
     }
 
-    // TODO: are these not immutable-ized?
-    return new SandboxInputs(inputFiles, virtualInputs, inputSymlinks, sourceRoots);
+    Map<Root, Path> sandboxRootToSourceRoot = new TreeMap<Root, Path>();
+    for (Map.Entry<Root, Root> entry : sourceRootToSandboxSourceRoot.entrySet()) {
+      sandboxRootToSourceRoot.put(entry.getValue(), entry.getKey().asPath());
+    }
+
+    return new SandboxInputs(inputFiles, virtualInputs, inputSymlinks, sandboxRootToSourceRoot);
   }
 
   /** The file and directory outputs of a sandboxed spawn. */

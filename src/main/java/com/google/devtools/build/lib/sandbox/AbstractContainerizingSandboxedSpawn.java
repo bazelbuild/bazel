@@ -133,7 +133,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     for (PathFragment fragment : inputsToCreate) {
       Path key = sandboxExecRoot.getRelative(fragment);
       if (inputs.getFiles().containsKey(fragment)) {
-        Path fileDest = inputs.getFiles().get(fragment);
+        Path fileDest = inputs.getFiles().get(fragment).asPath();
         if (fileDest != null) {
           copyFile(fileDest, key);
         } else {
