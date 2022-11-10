@@ -249,6 +249,12 @@ public final class BlazeWorkspace {
     getCacheDirectory().deleteTree();
   }
 
+  /** Returns the reference to the action cache instance, without attempting to reload it. */
+  @Nullable
+  public ActionCache getInUseActionCacheWithoutFurtherLoading() {
+    return actionCache;
+  }
+
   /**
    * Returns reference to the lazily instantiated persistent action cache instance. Note, that
    * method may recreate instance between different build requests, so return value should not be

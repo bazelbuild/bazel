@@ -356,7 +356,10 @@ public class BuildTool {
         executionTool.unconditionalExecutionPhaseFinalizations(timer, env.getSkyframeExecutor());
         if (!catastrophe) {
           executionTool.nonCatastrophicFinalizations(
-              result, executionTool.getActionCache(), /*explanationHandler=*/ null, buildCompleted);
+              result,
+              env.getBlazeWorkspace().getInUseActionCacheWithoutFurtherLoading(),
+              /*explanationHandler=*/ null,
+              buildCompleted);
         }
       }
 
