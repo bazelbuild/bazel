@@ -406,12 +406,20 @@ public final class ObjcCommon implements StarlarkValue {
     private void addLinkoptsToObjcProvider(
         Iterable<String> linkopts, ObjcProvider.Builder objcProvider) {
       ImmutableSet.Builder<String> frameworkLinkOpts = new ImmutableSet.Builder<>();
+      ImmutableSet.Builder<String> weakFrameworkLinkOpts = new ImmutableSet.Builder<>();
       ImmutableList.Builder<String> nonFrameworkLinkOpts = new ImmutableList.Builder<>();
-      // Add any framework flags as frameworks directly, rather than as linkopts.
+      // Add any framework flags as frameworks directly, rather than as linkopts.  Otherwise the
+      // "-framework" flag can get incorrectly deduped.
       for (Iterator<String> iterator = linkopts.iterator(); iterator.hasNext(); ) {
         String arg = iterator.next();
         if (arg.equals("-framework") && iterator.hasNext()) {
           frameworkLinkOpts.add(iterator.next());
+        } else if (arg.equals("-weak_framework") && iterator.hasNext()) {
+          weakFrameworkLinkOpts.add(iterator.next());
+        } else if (arg.startsWith("-Wl,-framework,")) {
+          frameworkLinkOpts.add(arg.split(",", -1)[2]);
+        } else if (arg.startsWith("-Wl,-weak_framework,")) {
+          weakFrameworkLinkOpts.add(arg.split(",", -1)[2]);
         } else {
           nonFrameworkLinkOpts.add(arg);
         }
@@ -419,6 +427,7 @@ public final class ObjcCommon implements StarlarkValue {
 
       objcProvider
           .addAll(SDK_FRAMEWORK, frameworkLinkOpts.build())
+          .addAll(WEAK_SDK_FRAMEWORK, weakFrameworkLinkOpts.build())
           .addAll(LINKOPT, nonFrameworkLinkOpts.build());
     }
   }
