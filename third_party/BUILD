@@ -1,5 +1,6 @@
 load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
 load("@rules_license//rules:license.bzl", "license")
+load("@rules_license//rules:package_info.bzl", "package_info")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "distrib_java_import")
 
 package(default_visibility = ["//visibility:public"])
@@ -461,7 +462,7 @@ distrib_java_import(
         ":jcip_annotations",
         ":jsr305",
     ],
-    applicable_licenses = [":guava_license"],
+    applicable_licenses = [":guava_license", ":guava_info"],
 )
 
 license(
@@ -471,6 +472,12 @@ license(
         "@rules_license//licenses/spdx:Apache-2.0",
     ],
     license_text = "guava/LICENSE",
+)
+
+package_info(
+    name = "guava_info",
+    package_name = "guava",
+    package_version = "31.1",
 )
 
 distrib_java_import(

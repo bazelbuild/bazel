@@ -136,6 +136,7 @@ cc_binary(
         "//src/main/protobuf:command_server_cc_proto",
         "//third_party/ijar:zip",
     ],
+    applicable_licenses = ["//:license", "//:package_info"],
 )
 
 cc_library(

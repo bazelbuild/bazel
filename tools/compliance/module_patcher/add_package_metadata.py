@@ -138,7 +138,7 @@ class BuildRewriter(object):
         # Points the BUILD file at a path to the top level liceense declaration
         with open(build_file, 'r', encoding='utf-8') as inp:
             content = inp.read()
-        new_content = add_default_applicable_licenses(content, "//:license")
+        new_content = add_default_applicable_licenses(content, "//:license", "//:package_info")
         if content != new_content:
             os.remove(build_file)
             with open(build_file, 'w', encoding='utf-8') as out:
@@ -175,29 +175,42 @@ class BuildRewriter(object):
             target.append('    ],')
         else:
             target.append('    license_kinds = [],')
+        target.append(')')
+        return '\n'.join(target)
 
-        # TODO(aiuto): These should be in package_info when that is ready.
+    def create_package_info_target(self) -> str:
+        """Creates the text of a package_info() target for this package."""
+        target = [
+            'package_info(',
+            '    name = "package_info",',
+        ]
         if self.package_name:
             target.append('    package_name = "%s",' % self.package_name)
         if self.package_version:
             target.append('    package_version = "%s",' % self.package_version)
         if self.package_url:
             target.append('    package_url = "%s",' % self.package_url)
+        if self.copyright_notice:
+            target.append('    copyright_notice = "%s",' % self.copyright_notice)
         target.append(')')
         return '\n'.join(target)
 
-    def ensure_top_level_license(self, fallback_license):
-       add_license(self.top_build, fallback_license)
+    def ensure_top_level_license(self, fallback_license, fallback_info):
+        add_license(self.top_build, fallback_license, fallback_info)
 
 
-def add_default_applicable_licenses(content: str, license_label: str) -> str:
+def add_default_applicable_licenses(
+    content: str,
+    license_label: str,
+    package_info_label: str) -> str:
     """Add a default_applicable_licenses clause to the package().
 
     Do not add if there already is one.
     Move package() to the first non-load statement.
     """
     # Build what the package statement should contain
-    dal = 'default_applicable_licenses=["%s"],' % license_label
+    dal = 'default_applicable_licenses=["%s", "%s"],' % (
+        license_label, package_info_label)
     m = PACKAGE_RE.search(content)
     if m:
         decls = m.group('decls')
@@ -234,7 +247,7 @@ def add_default_applicable_licenses(content: str, license_label: str) -> str:
     return '\n'.join(ret)
 
 
-def add_license(build_file: str, license_target: str):
+def add_license(build_file: str, license_target: str, info_target: str):
     # Points the BUILD file at a path to the top level liceense declaration
     with open(build_file, 'r', encoding='utf-8') as inp:
         content = inp.read()
@@ -242,12 +255,17 @@ def add_license(build_file: str, license_target: str):
     # Do not overwrite an existing one
     # TBD: We obviously have to be able to.
     if '\nlicense(' in content:  # )
-        return 
+        license_target = None
+    if '\npackage_info(' in content:  # )
+        info_target = None
 
     license_load = """load("@rules_license//rules:license.bzl", "license")"""
     must_add_load = not license_load in content
 
-    new_content = add_default_applicable_licenses(content, "//:license")
+    info_load = """load("@rules_license//rules:package_info.bzl", "package_info")"""
+    must_add_info_load = not info_load in content
+
+    new_content = add_default_applicable_licenses(content, "//:license", "//:package_info")
     # Now splice it into the correct place. That is always before
     # any existing rules.
     ret = []
@@ -255,9 +273,13 @@ def add_license(build_file: str, license_target: str):
     for line in new_content.split('\n'):
         if not license_added:
             t = line.strip()
-            if t and must_add_load and not t.startswith('#'):
-                ret.append(license_load)
-                must_add_load = False
+            if t and not t.startswith('#'):
+                if must_add_load:
+                   ret.append(license_load)
+                   must_add_load = False
+                if must_add_info_load:
+                   ret.append(info_load)
+                   must_add_info_load = False
             if (t
                 and not line.startswith(' ')
                 and not t.startswith('#')
@@ -265,14 +287,22 @@ def add_license(build_file: str, license_target: str):
                 and not t.startswith('load')
                 and not t.startswith('package')):
                   ret.append('')
-                  ret.append(license_target)
+                  if license_target:
+                      ret.append(license_target)
+                  if info_target:
+                      ret.append(info_target)
                   license_added = True
         ret.append(line)
     if not license_added:
         if must_add_load:
             ret.append(license_load)
+        if must_add_info_load:
+            ret.append(info_load)
         ret.append('')
-        ret.append(license_target)
+        if license_target:
+           ret.append(license_target)
+        if info_target:
+            ret.append(info_target)
 
     new_content = '\n'.join(ret)
 
@@ -339,10 +369,14 @@ def main(argv) -> None:
         print('Did not find license file at top level.')
         return
     license = rewriter.create_license_target()
+    package_info = rewriter.create_package_info_target()
     if args.verbose:
         rewriter.print()
         print('Synthesized license:', license)
-    rewriter.ensure_top_level_license(fallback_license=license)
+        print('Synthesized info:', package_info)
+    rewriter.ensure_top_level_license(
+        fallback_license=license,
+        fallback_info=package_info)
     for build_file in rewriter.other_builds:
         rewriter.point_to_top_level_license(build_file)
 

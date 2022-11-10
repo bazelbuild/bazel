@@ -3,6 +3,7 @@
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
 load("//tools/python:private/defs.bzl", "py_binary")
 load("@rules_license//rules:license.bzl", "license")
+load("@rules_license//rules:package_info.bzl", "package_info")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 package(default_visibility = ["//scripts/release:__pkg__"])
@@ -15,6 +16,14 @@ license(
         "@rules_license//licenses/spdx:Apache-2.0",
     ],
     license_text = "LICENSE",
+)
+
+package_info(
+    name = "package_info",
+    copyright_notice = "Copyright © 2014 The Bazel Authors. All rights reserved.",
+    package_name = "bazel",
+    package_url = "https://github.com/bazelbuild/bazel",
+    package_version = "7.0",
 )
 
 exports_files(["LICENSE"])
