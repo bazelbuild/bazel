@@ -130,6 +130,10 @@ def _impl(ctx):
         ACTION_NAMES.lto_backend,
     ]
 
+    all_c_compile_actions = [
+        ACTION_NAMES.c_compile,
+    ]
+
     all_cpp_compile_actions = [
         ACTION_NAMES.cpp_compile,
         ACTION_NAMES.linkstamp_compile,
@@ -2130,18 +2134,6 @@ def _impl(ctx):
                 flag_groups = [flag_group(flags = ["-g"])],
                 with_features = [with_feature_set(features = ["dbg"])],
             ),
-            flag_set(
-                actions = [
-                    ACTION_NAMES.linkstamp_compile,
-                    ACTION_NAMES.cpp_compile,
-                    ACTION_NAMES.cpp_header_parsing,
-                    ACTION_NAMES.cpp_module_compile,
-                    ACTION_NAMES.cpp_module_codegen,
-                    ACTION_NAMES.lto_backend,
-                    ACTION_NAMES.clif_match,
-                ],
-                flag_groups = [flag_group(flags = ["-std=c++11"])],
-            ),
         ],
     )
 
@@ -2674,6 +2666,20 @@ def _impl(ctx):
 
     archive_param_file_feature = feature(name = "archive_param_file")
 
+    # C++ standard to use.
+    std_cxx98_feature = feature(name = "std_cxx98", enabled = False, provides = ["stdcxx"], flag_sets = [flag_set(actions = all_cpp_compile_actions, flag_groups = [flag_group(flags = ["-std=c++98"])])])
+    std_cxx03_feature = feature(name = "std_cxx03", enabled = False, provides = ["stdcxx"], flag_sets = [flag_set(actions = all_cpp_compile_actions, flag_groups = [flag_group(flags = ["-std=c++03"])])])
+    std_cxx11_feature = feature(name = "std_cxx11", enabled = True, provides = ["stdcxx"], flag_sets = [flag_set(actions = all_cpp_compile_actions, flag_groups = [flag_group(flags = ["-std=c++11"])])])
+    std_cxx14_feature = feature(name = "std_cxx14", enabled = False, provides = ["stdcxx"], flag_sets = [flag_set(actions = all_cpp_compile_actions, flag_groups = [flag_group(flags = ["-std=c++14"])])])
+    std_cxx17_feature = feature(name = "std_cxx17", enabled = False, provides = ["stdcxx"], flag_sets = [flag_set(actions = all_cpp_compile_actions, flag_groups = [flag_group(flags = ["-std=c++17"])])])
+    std_cxx20_feature = feature(name = "std_cxx20", enabled = False, provides = ["stdcxx"], flag_sets = [flag_set(actions = all_cpp_compile_actions, flag_groups = [flag_group(flags = ["-std=c++20"])])])
+
+    # C standard to use.
+    std_c89_feature = feature(name = "std_c89", enabled = False, provides = ["stdc"], flag_sets = [flag_set(actions = all_c_compile_actions, flag_groups = [flag_group(flags = ["-std=c89"])])])
+    std_c99_feature = feature(name = "std_c99", enabled = False, provides = ["stdc"], flag_sets = [flag_set(actions = all_c_compile_actions, flag_groups = [flag_group(flags = ["-std=c99"])])])
+    std_c11_feature = feature(name = "std_c11", enabled = True, provides = ["stdc"], flag_sets = [flag_set(actions = all_c_compile_actions, flag_groups = [flag_group(flags = ["-std=c11"])])])
+    std_c17_feature = feature(name = "std_c17", enabled = False, provides = ["stdc"], flag_sets = [flag_set(actions = all_c_compile_actions, flag_groups = [flag_group(flags = ["-std=c17"])])])
+
     if (ctx.attr.cpu == "ios_arm64" or
         ctx.attr.cpu == "ios_arm64e" or
         ctx.attr.cpu == "ios_armv7" or
@@ -2765,6 +2771,16 @@ def _impl(ctx):
             ubsan_feature,
             default_sanitizer_flags_feature,
             archive_param_file_feature,
+            std_cxx98_feature,
+            std_cxx03_feature,
+            std_cxx11_feature,
+            std_cxx14_feature,
+            std_cxx17_feature,
+            std_cxx20_feature,
+            std_c89_feature,
+            std_c99_feature,
+            std_c11_feature,
+            std_c17_feature,
         ]
     elif (ctx.attr.cpu == "darwin_x86_64" or
           ctx.attr.cpu == "darwin_arm64" or
@@ -2847,6 +2863,16 @@ def _impl(ctx):
             ubsan_feature,
             default_sanitizer_flags_feature,
             archive_param_file_feature,
+            std_cxx98_feature,
+            std_cxx03_feature,
+            std_cxx11_feature,
+            std_cxx14_feature,
+            std_cxx17_feature,
+            std_cxx20_feature,
+            std_c89_feature,
+            std_c99_feature,
+            std_c11_feature,
+            std_c17_feature,
         ]
     else:
         fail("Unreachable")
