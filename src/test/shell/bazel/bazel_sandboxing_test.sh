@@ -1003,7 +1003,6 @@ EOF
     //a:t || fail "build failed"
 }
 
-
 function test_read_hermetic_tmp {
   if [[ "$(uname -s)" != Linux ]]; then
     echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
