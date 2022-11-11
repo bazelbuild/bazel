@@ -43,6 +43,7 @@ final class RetainedHeapLimiter {
 
   private final AtomicBoolean throwingOom = new AtomicBoolean(false);
   private final AtomicBoolean heapLimiterTriggeredGc = new AtomicBoolean(false);
+  private final AtomicBoolean loggedIgnoreWarningSinceLastGc = new AtomicBoolean(false);
   private volatile int occupiedHeapPercentageThreshold = 100;
   private final AtomicLong lastTriggeredGcInMilliseconds = new AtomicLong();
   private final BugReporter bugReporter;
@@ -85,6 +86,10 @@ final class RetainedHeapLimiter {
   // Can be called concurrently, handles concurrent calls with #setThreshold gracefully.
   @ThreadSafety.ThreadSafe
   public void handle(MemoryPressureEvent event) {
+    if (throwingOom.get()) {
+      return; // Do nothing if a crash is already in progress.
+    }
+
     if (event.wasManualGc() && !heapLimiterTriggeredGc.getAndSet(false)) {
       // This was a manually triggered GC, but not from us earlier: short-circuit.
       return;
@@ -108,6 +113,7 @@ final class RetainedHeapLimiter {
                         + " GCs, the tenured space is more than %s%% occupied (%s out of a tenured"
                         + " space size of %s).",
                     threshold, event.tenuredSpaceUsedBytes(), event.tenuredSpaceMaxBytes()));
+        logger.atInfo().log("Calling handleCrash");
         // Exits the runtime.
         bugReporter.handleCrash(Crash.from(oom), CrashContext.halt());
       }
@@ -120,6 +126,11 @@ final class RetainedHeapLimiter {
       // Force a full stop-the-world GC and see if it can get us below the threshold.
       System.gc();
       lastTriggeredGcInMilliseconds.set(System.currentTimeMillis());
+      loggedIgnoreWarningSinceLastGc.set(false);
+    } else if (!loggedIgnoreWarningSinceLastGc.getAndSet(true)) {
+      logger.atWarning().log(
+          "Ignoring possible GC thrashing (%s%% of tenured space) because of recently triggered GC",
+          actual);
     }
   }
 }

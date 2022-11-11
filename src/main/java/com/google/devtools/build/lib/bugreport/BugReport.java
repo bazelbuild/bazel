@@ -417,7 +417,9 @@ public final class BugReport {
       preamble += " crashed with args: ";
     }
 
+    logger.atInfo().log("Calling logToRemote");
     LoggingUtil.logToRemote(level, preamble + Joiner.on(' ').join(args), exception, values);
+    logger.atInfo().log("Call to logToRemote complete");
   }
 
   private static final class DefaultBugReporter implements BugReporter {
