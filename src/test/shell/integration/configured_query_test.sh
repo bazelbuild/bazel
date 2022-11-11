@@ -1430,4 +1430,20 @@ EOF
   expect_not_log "QueryException"
 }
 
+function test_does_not_fail_horribly_with_file() {
+  rm -rf peach
+  mkdir -p peach
+  cat > peach/BUILD <<EOF
+sh_library(name='brighton', deps=[':harken'])
+sh_library(name='harken')
+EOF
+
+  echo "deps(//peach:brighton)" > query_file
+  bazel cquery --query_file=query_file > $TEST_log
+
+  expect_log "//peach:brighton"
+  expect_log "//peach:harken"
+}
+
+
 run_suite "${PRODUCT_NAME} configured query tests"
