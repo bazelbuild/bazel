@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -101,15 +100,13 @@ public final class AqueryCommand implements BlazeCommand {
           InterruptedFailureDetails.detailedExitCode(errorMessage));
     }
 
-    // When querying for the state of Skyframe, it's possible to omit the query expression.
-    if (options.getResidue().isEmpty() && !queryCurrentSkyframeState) {
-      String message =
-          "Missing query expression. Use the 'help aquery' command for syntax and help.";
-      env.getReporter().handle(Event.error(message));
-      return createFailureResult(message, Code.COMMAND_LINE_EXPRESSION_MISSING);
+    String query = null;
+    try {
+      query = QueryOptionHelper.readQuery(aqueryOptions, options, env, queryCurrentSkyframeState);
+    } catch (QueryException e) {
+      return BlazeCommandResult.failureDetail(e.getFailureDetail());
     }
 
-    String query = Joiner.on(' ').join(options.getResidue());
     ImmutableMap<String, QueryFunction> functions = getFunctionsMap(env);
 
     // Query expression might be null in the case of --skyframe_state.
