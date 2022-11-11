@@ -494,135 +494,106 @@ TEST_F(RunfilesTest, PathsFromEnvVars) {
   EXPECT_TRUE(TestOnly_PathsFrom(
       "argv0", "mock1.runfiles/MANIFEST", "mock2.runfiles",
       [](const string& path) { return path == "mock1.runfiles/MANIFEST"; },
-      [](const string& path) { return path == "mock2.runfiles"; },
-      [](const string& path) { return path == "mock2.repo_mapping"; }, &mf,
-      &dir, &rm));
+      [](const string& path) { return path == "mock2.runfiles"; }, &mf, &dir));
   EXPECT_EQ(mf, "mock1.runfiles/MANIFEST");
   EXPECT_EQ(dir, "mock2.runfiles");
-  EXPECT_EQ(rm, "mock2.repo_mapping");
 
   // RUNFILES_MANIFEST_FILE is invalid but RUNFILES_DIR is good and there's a
   // runfiles manifest in the runfiles directory.
   EXPECT_TRUE(TestOnly_PathsFrom(
       "argv0", "mock1.runfiles/MANIFEST", "mock2.runfiles",
       [](const string& path) { return path == "mock2.runfiles/MANIFEST"; },
-      [](const string& path) { return path == "mock2.runfiles"; },
-      [](const string& path) { return path == "mock2.repo_mapping"; }, &mf,
-      &dir, &rm));
+      [](const string& path) { return path == "mock2.runfiles"; }, &mf, &dir));
   EXPECT_EQ(mf, "mock2.runfiles/MANIFEST");
   EXPECT_EQ(dir, "mock2.runfiles");
-  EXPECT_EQ(rm, "mock2.repo_mapping");
 
   // RUNFILES_MANIFEST_FILE is invalid but RUNFILES_DIR is good, but there's no
   // runfiles manifest in the runfiles directory.
   EXPECT_TRUE(TestOnly_PathsFrom(
       "argv0", "mock1.runfiles/MANIFEST", "mock2.runfiles",
       [](const string& path) { return false; },
-      [](const string& path) { return path == "mock2.runfiles"; },
-      [](const string& path) { return path == "mock2.repo_mapping"; }, &mf,
-      &dir, &rm));
+      [](const string& path) { return path == "mock2.runfiles"; }, &mf, &dir));
   EXPECT_EQ(mf, "");
   EXPECT_EQ(dir, "mock2.runfiles");
-  EXPECT_EQ(rm, "mock2.repo_mapping");
 
   // RUNFILES_DIR is invalid but RUNFILES_MANIFEST_FILE is good, and it is in
   // a valid-looking runfiles directory.
   EXPECT_TRUE(TestOnly_PathsFrom(
       "argv0", "mock1.runfiles/MANIFEST", "mock2",
       [](const string& path) { return path == "mock1.runfiles/MANIFEST"; },
-      [](const string& path) { return path == "mock1.runfiles"; },
-      [](const string& path) { return path == "mock1.repo_mapping"; }, &mf,
-      &dir, &rm));
+      [](const string& path) { return path == "mock1.runfiles"; }, &mf, &dir));
   EXPECT_EQ(mf, "mock1.runfiles/MANIFEST");
   EXPECT_EQ(dir, "mock1.runfiles");
-  EXPECT_EQ(rm, "mock1.repo_mapping");
 
   // RUNFILES_DIR is invalid but RUNFILES_MANIFEST_FILE is good, but it is not
   // in any valid-looking runfiles directory.
   EXPECT_TRUE(TestOnly_PathsFrom(
       "argv0", "mock1/MANIFEST", "mock2",
       [](const string& path) { return path == "mock1/MANIFEST"; },
-      [](const string& path) { return false; },
-      [](const string& path) { return true; }, &mf, &dir, &rm));
+      [](const string& path) { return false; }, &mf, &dir));
   EXPECT_EQ(mf, "mock1/MANIFEST");
   EXPECT_EQ(dir, "");
-  EXPECT_EQ(rm, "");
 
   // Both envvars are invalid, but there's a manifest in a runfiles directory
   // next to argv0, however there's no other content in the runfiles directory.
   EXPECT_TRUE(TestOnly_PathsFrom(
       "argv0", "mock1/MANIFEST", "mock2",
       [](const string& path) { return path == "argv0.runfiles/MANIFEST"; },
-      [](const string& path) { return false; },
-      [](const string& path) { return path == "argv0.repo_mapping"; }, &mf,
-      &dir, &rm));
+      [](const string& path) { return false; }, &mf, &dir));
   EXPECT_EQ(mf, "argv0.runfiles/MANIFEST");
   EXPECT_EQ(dir, "");
-  EXPECT_EQ(rm, "argv0.repo_mapping");
 
   // Both envvars are invalid, but there's a manifest next to argv0. There's
   // no runfiles tree anywhere.
   EXPECT_TRUE(TestOnly_PathsFrom(
       "argv0", "mock1/MANIFEST", "mock2",
       [](const string& path) { return path == "argv0.runfiles_manifest"; },
-      [](const string& path) { return false; },
-      [](const string& path) { return path == "argv0.repo_mapping"; }, &mf,
-      &dir, &rm));
+      [](const string& path) { return false; }, &mf, &dir));
   EXPECT_EQ(mf, "argv0.runfiles_manifest");
   EXPECT_EQ(dir, "");
-  EXPECT_EQ(rm, "argv0.repo_mapping");
 
   // Both envvars are invalid, but there's a valid manifest next to argv0, and a
   // valid runfiles directory (without a manifest in it).
   EXPECT_TRUE(TestOnly_PathsFrom(
       "argv0", "mock1/MANIFEST", "mock2",
       [](const string& path) { return path == "argv0.runfiles_manifest"; },
-      [](const string& path) { return path == "argv0.runfiles"; },
-      [](const string& path) { return path == "argv0.repo_mapping"; }, &mf,
-      &dir, &rm));
+      [](const string& path) { return path == "argv0.runfiles"; }, &mf, &dir));
   EXPECT_EQ(mf, "argv0.runfiles_manifest");
   EXPECT_EQ(dir, "argv0.runfiles");
-  EXPECT_EQ(rm, "argv0.repo_mapping");
 
   // Both envvars are invalid, but there's a valid runfiles directory next to
   // argv0, though no manifest in it.
   EXPECT_TRUE(TestOnly_PathsFrom(
       "argv0", "mock1/MANIFEST", "mock2",
       [](const string& path) { return false; },
-      [](const string& path) { return path == "argv0.runfiles"; },
-      [](const string& path) { return path == "argv0.repo_mapping"; }, &mf,
-      &dir, &rm));
+      [](const string& path) { return path == "argv0.runfiles"; }, &mf, &dir));
   EXPECT_EQ(mf, "");
   EXPECT_EQ(dir, "argv0.runfiles");
-  EXPECT_EQ(rm, "argv0.repo_mapping");
 
   // Both envvars are invalid, but there's a valid runfiles directory next to
   // argv0 with a valid manifest in it.
   EXPECT_TRUE(TestOnly_PathsFrom(
       "argv0", "mock1/MANIFEST", "mock2",
       [](const string& path) { return path == "argv0.runfiles/MANIFEST"; },
-      [](const string& path) { return path == "argv0.runfiles"; },
-      [](const string& path) { return path == "argv0.repo_mapping"; }, &mf,
-      &dir, &rm));
+      [](const string& path) { return path == "argv0.runfiles"; }, &mf, &dir));
   EXPECT_EQ(mf, "argv0.runfiles/MANIFEST");
   EXPECT_EQ(dir, "argv0.runfiles");
-  EXPECT_EQ(rm, "argv0.repo_mapping");
 }
 
 TEST_F(RunfilesTest, ManifestBasedRlocationWithRepoMapping_fromMain) {
   string uid = LINE_AS_STRING();
-  unique_ptr<MockFile> mf(MockFile::Create(
-      "foo" + uid + ".runfiles_manifest",
-      {"config.json /etc/config.json",
-       "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
-       "_main/bar/runfile /the/path/./to/other//other runfile.txt",
-       "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"}));
-  EXPECT_TRUE(mf != nullptr);
   unique_ptr<MockFile> rm(MockFile::Create(
       "foo" + uid + ".repo_mapping",
       {",my_module,_main", ",my_protobuf,protobuf~3.19.2",
        ",my_workspace,_main", "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
-  EXPECT_TRUE(rm != nullptr);
+  ASSERT_TRUE(rm != nullptr);
+  unique_ptr<MockFile> mf(MockFile::Create(
+      "foo" + uid + ".runfiles_manifest",
+      {"_repo_mapping " + rm->Path(), "config.json /etc/config.json",
+       "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
+       "_main/bar/runfile /the/path/./to/other//other runfile.txt",
+       "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"}));
+  ASSERT_TRUE(mf != nullptr);
   string argv0(mf->Path().substr(
       0, mf->Path().size() - string(".runfiles_manifest").size()));
 
@@ -667,18 +638,18 @@ TEST_F(RunfilesTest, ManifestBasedRlocationWithRepoMapping_fromMain) {
 
 TEST_F(RunfilesTest, ManifestBasedRlocationWithRepoMapping_fromOtherRepo) {
   string uid = LINE_AS_STRING();
-  unique_ptr<MockFile> mf(MockFile::Create(
-      "foo" + uid + ".runfiles_manifest",
-      {"config.json /etc/config.json",
-       "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
-       "_main/bar/runfile /the/path/./to/other//other runfile.txt",
-       "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"}));
-  EXPECT_TRUE(mf != nullptr);
   unique_ptr<MockFile> rm(MockFile::Create(
       "foo" + uid + ".repo_mapping",
       {",my_module,_main", ",my_protobuf,protobuf~3.19.2",
        ",my_workspace,_main", "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
-  EXPECT_TRUE(rm != nullptr);
+  ASSERT_TRUE(rm != nullptr);
+  unique_ptr<MockFile> mf(MockFile::Create(
+      "foo" + uid + ".runfiles_manifest",
+      {"_repo_mapping " + rm->Path(), "config.json /etc/config.json",
+       "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
+       "_main/bar/runfile /the/path/./to/other//other runfile.txt",
+       "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"}));
+  ASSERT_TRUE(mf != nullptr);
   string argv0(mf->Path().substr(
       0, mf->Path().size() - string(".runfiles_manifest").size()));
 
@@ -721,17 +692,13 @@ TEST_F(RunfilesTest, ManifestBasedRlocationWithRepoMapping_fromOtherRepo) {
 
 TEST_F(RunfilesTest, DirectoryBasedRlocationWithRepoMapping_fromMain) {
   string uid = LINE_AS_STRING();
-  unique_ptr<MockFile> dir_marker(
-      MockFile::Create("foo" + uid + ".runfiles/marker"), {});
-  EXPECT_TRUE(dir_marker != nullptr);
-  string dir = dir_marker->DirName();
   unique_ptr<MockFile> rm(MockFile::Create(
-      "foo" + uid + ".repo_mapping",
+      "foo" + uid + ".runfiles/_repo_mapping",
       {",my_module,_main", ",my_protobuf,protobuf~3.19.2",
        ",my_workspace,_main", "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
-  EXPECT_TRUE(rm != nullptr);
-  string argv0(
-      rm->Path().substr(0, rm->Path().size() - string(".repo_mapping").size()));
+  ASSERT_TRUE(rm != nullptr);
+  string dir = rm->DirName();
+  string argv0(dir.substr(0, dir.size() - string(".runfiles").size()));
 
   string error;
   unique_ptr<Runfiles> r(Runfiles::Create(argv0, "", "", "", &error));
@@ -770,17 +737,13 @@ TEST_F(RunfilesTest, DirectoryBasedRlocationWithRepoMapping_fromMain) {
 
 TEST_F(RunfilesTest, DirectoryBasedRlocationWithRepoMapping_fromOtherRepo) {
   string uid = LINE_AS_STRING();
-  unique_ptr<MockFile> dir_marker(
-      MockFile::Create("foo" + uid + ".runfiles/marker"), {});
-  EXPECT_TRUE(dir_marker != nullptr);
-  string dir = dir_marker->DirName();
   unique_ptr<MockFile> rm(MockFile::Create(
-      "foo" + uid + ".repo_mapping",
+      "foo" + uid + ".runfiles/_repo_mapping",
       {",my_module,_main", ",my_protobuf,protobuf~3.19.2",
        ",my_workspace,_main", "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
-  EXPECT_TRUE(rm != nullptr);
-  string argv0(
-      rm->Path().substr(0, rm->Path().size() - string(".repo_mapping").size()));
+  ASSERT_TRUE(rm != nullptr);
+  string dir = rm->DirName();
+  string argv0(dir.substr(0, dir.size() - string(".runfiles").size()));
 
   string error;
   unique_ptr<Runfiles> r(
@@ -817,17 +780,13 @@ TEST_F(RunfilesTest, DirectoryBasedRlocationWithRepoMapping_fromOtherRepo) {
 TEST_F(RunfilesTest,
        DirectoryBasedRlocationWithRepoMapping_fromOtherRepo_withSourceRepo) {
   string uid = LINE_AS_STRING();
-  unique_ptr<MockFile> dir_marker(
-      MockFile::Create("foo" + uid + ".runfiles/marker"), {});
-  EXPECT_TRUE(dir_marker != nullptr);
-  string dir = dir_marker->DirName();
   unique_ptr<MockFile> rm(MockFile::Create(
-      "foo" + uid + ".repo_mapping",
+      "foo" + uid + ".runfiles/_repo_mapping",
       {",my_module,_main", ",my_protobuf,protobuf~3.19.2",
        ",my_workspace,_main", "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
-  EXPECT_TRUE(rm != nullptr);
-  string argv0(
-      rm->Path().substr(0, rm->Path().size() - string(".repo_mapping").size()));
+  ASSERT_TRUE(rm != nullptr);
+  string dir = rm->DirName();
+  string argv0(dir.substr(0, dir.size() - string(".runfiles").size()));
 
   string error;
   unique_ptr<Runfiles> r(Runfiles::Create(argv0, "", "", "", &error));
@@ -863,15 +822,11 @@ TEST_F(RunfilesTest,
 
 TEST_F(RunfilesTest, InvalidRepoMapping) {
   string uid = LINE_AS_STRING();
-  unique_ptr<MockFile> dir_marker(
-      MockFile::Create("foo" + uid + ".runfiles/marker"), {});
-  EXPECT_TRUE(dir_marker != nullptr);
-  string dir = dir_marker->DirName();
   unique_ptr<MockFile> rm(
-      MockFile::Create("foo" + uid + ".repo_mapping", {"a,b"}));
-  EXPECT_TRUE(rm != nullptr);
-  string argv0(
-      rm->Path().substr(0, rm->Path().size() - string(".repo_mapping").size()));
+      MockFile::Create("foo" + uid + ".runfiles/_repo_mapping", {"a,b"}));
+  ASSERT_TRUE(rm != nullptr);
+  string dir = rm->DirName();
+  string argv0(dir.substr(0, dir.size() - string(".runfiles").size()));
 
   string error;
   unique_ptr<Runfiles> r(Runfiles::Create(argv0, "", "", "", &error));
