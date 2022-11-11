@@ -101,7 +101,7 @@ load(
   "overwrite_via_symlink",
   "overwrite_file_from_declared_directory",
   "subdirectories_in_declared_directory",
-  "different_artifacts",
+  "other_artifacts",
 )
 
 overwrite_via_symlink(
@@ -122,8 +122,8 @@ subdirectories_in_declared_directory(
   name = "subdirectories_in_declared_directory"
 )
 
-different_artifacts(
-  name = "different_artifacts"
+other_artifacts(
+  name = "other_artifacts"
 )
 
 genrule(
@@ -257,9 +257,9 @@ subdirectories_in_declared_directory = rule(
 )
 
 
-def _different_artifacts_impl(ctx):
+def _other_artifacts_impl(ctx):
 
-    # Produce artifacts of different types
+    # Produce artifacts of other types
 
     regular_file_artifact = ctx.actions.declare_file(ctx.attr.name + ".regular_file_artifact")
     directory_artifact = ctx.actions.declare_file(ctx.attr.name + ".directory_artifact")
@@ -276,7 +276,7 @@ def _different_artifacts_impl(ctx):
         target_path="dangling"
     )
 
-    # Test different artifact types as input to hermetic sandbox.
+    # Test other artifact types as input to hermetic sandbox.
 
     all_artifacts = [regular_file_artifact,
                      directory_artifact,
@@ -292,8 +292,8 @@ def _different_artifacts_impl(ctx):
 
     return [DefaultInfo(files = depset([result_file]))]
 
-different_artifacts = rule(
-    implementation = _different_artifacts_impl,
+other_artifacts = rule(
+    implementation = _other_artifacts_impl,
 )
 EOF
 }
@@ -307,8 +307,6 @@ function test_absolute_path() {
 
 # Test that the build can't escape the sandbox by resolving symbolic link.
 function test_symbolic_link() {
-  [ "$PLATFORM" != "darwin" ] || return 0
-
   bazel build examples/hermetic:symbolic_link &> $TEST_log \
     && fail "Fail due to non hermetic sandbox: examples/hermetic:symbolic_link" || true
   expect_log "cat: \/execroot\/main\/examples\/hermetic\/unknown_file.txt: No such file or directory"
@@ -316,8 +314,6 @@ function test_symbolic_link() {
 
 # Test that the sandbox discover if the bazel python rule miss dependencies.
 function test_missing_python_deps() {
-  [ "$PLATFORM" != "darwin" ] || return 0
-
   bazel test examples/hermetic:py_module_test --test_output=all &> $TEST_TMPDIR/log \
     && fail "Fail due to non hermetic sandbox: examples/hermetic:py_module_test" || true
 
@@ -326,7 +322,6 @@ function test_missing_python_deps() {
 
 # Test that the intermediate corrupt input file gets re:evaluated
 function test_writing_input_file() {
-  [ "$PLATFORM" != "darwin" ] || return 0
   # Write an input file, this should cause the hermetic sandbox to fail with an exception
   bazel build examples/hermetic:write_input_test &> $TEST_log  \
     && fail "Fail due to non hermetic sandbox: examples/hermetic:write_input_test" || true
@@ -345,7 +340,6 @@ function test_writing_input_file() {
 
 # Test that invalid write of input file is detected, when file is accessed via resolved symlink.
 function test_overwrite_via_resolved_symlink() {
-  [ "$PLATFORM" != "darwin" ] || return 0
   bazel build examples/hermetic:overwrite_via_resolved_symlink &> $TEST_log  \
     && fail "Hermetic sandbox did not detect invalid write to input file"
   expect_log "input dependency .* was modified during execution."
@@ -353,7 +347,6 @@ function test_overwrite_via_resolved_symlink() {
 
 # Test that invalid write of input file is detected, when file is accessed via unresolved symlink.
 function test_overwrite_via_unresolved_symlink() {
-  [ "$PLATFORM" != "darwin" ] || return 0
   bazel build examples/hermetic:overwrite_via_unresolved_symlink &> $TEST_log  \
     && fail "Hermetic sandbox did not detect invalid write to input file"
   expect_log "input dependency .* was modified during execution."
@@ -361,7 +354,6 @@ function test_overwrite_via_unresolved_symlink() {
 
 # Test that invalid write of input file is detected, when file is found implicit via declared directory.
 function test_overwrite_file_from_declared_directory() {
-  [ "$PLATFORM" != "darwin" ] || return 0
   bazel build examples/hermetic:overwrite_file_from_declared_directory &> $TEST_log  \
     && fail "Hermetic sandbox did not detect invalid write to input file"
   expect_log "input dependency .* was modified during execution."
@@ -369,7 +361,6 @@ function test_overwrite_file_from_declared_directory() {
 
 # Test that the sandbox can handle deep directory trees from declared directory.
 function test_subdirectories_in_declared_directory() {
-  [ "$PLATFORM" != "darwin" ] || return 0
   bazel build examples/hermetic:subdirectories_in_declared_directory &> $TEST_log
   cat bazel-bin/examples/hermetic/subdirectories_in_declared_directory.result
   assert_contains "dir/subdir1/subdir2" "bazel-bin/examples/hermetic/subdirectories_in_declared_directory.result"
@@ -377,18 +368,18 @@ function test_subdirectories_in_declared_directory() {
 
 # Test that the sandbox is not crashing and not producing warnings for various types of artifacts.
 # Regression test for Issue #15340
-function test_different_artifacts() {
-  [ "$PLATFORM" != "darwin" ] || return 0
+function test_other_artifacts() {
   bazel shutdown # Clear memory about duplicated warnings
-  bazel build examples/hermetic:different_artifacts &> $TEST_log
+  bazel build examples/hermetic:other_artifacts &> $TEST_log
   expect_not_log "WARNING"
-  assert_contains "regular_file_artifact" "bazel-bin/examples/hermetic/different_artifacts.result"
-  assert_contains "unresolved_symlink_artifact" "bazel-bin/examples/hermetic/different_artifacts.result"
-  assert_contains "directory_artifact" "bazel-bin/examples/hermetic/different_artifacts.result"
-  assert_contains "tree_artifact" "bazel-bin/examples/hermetic/different_artifacts.result"
+  assert_contains "regular_file_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
+  assert_contains "unresolved_symlink_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
+  assert_contains "directory_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
+  assert_contains "tree_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
 check_sandbox_allowed || exit 0
+[ "$PLATFORM" != "darwin" ] || exit 0
 
 run_suite "hermetic_sandbox"
