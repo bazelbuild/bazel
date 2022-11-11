@@ -128,15 +128,3 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
-
-sh_test(
-    name = "disk_cache_test",
-    size = "small",
-    srcs = ["disk_cache_test.sh"],
-    data = [
-        ":remote_utils",
-        "//src/test/shell/bazel:test-deps",
-        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
-        "@bazel_tools//tools/bash/runfiles",
-    ]
-)
