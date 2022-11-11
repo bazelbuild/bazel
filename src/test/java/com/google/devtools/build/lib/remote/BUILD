@@ -40,6 +40,7 @@ java_test(
         exclude = NATIVE_SSL_TEST + [
             "BuildWithoutTheBytesIntegrationTest.java",
             "BuildWithoutTheBytesIntegrationTestBase.java",
+            "DiskCacheIntegrationTest.java",
         ],
     ) + NATIVE_SSL_TEST_MAYBE,
     test_class = "com.google.devtools.build.lib.AllTests",
