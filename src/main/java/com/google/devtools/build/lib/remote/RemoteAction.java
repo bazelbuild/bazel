@@ -138,4 +138,8 @@ public class RemoteAction {
   public NetworkTime getNetworkTime() {
     return remoteActionExecutionContext.getNetworkTime();
   }
+
+  public RemotePathResolver getRemotePathResolver() {
+    return remotePathResolver;
+  }
 }
