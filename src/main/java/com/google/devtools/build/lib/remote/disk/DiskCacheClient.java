@@ -112,6 +112,10 @@ public class DiskCacheClient implements RemoteCacheClient {
   }
 
   private void checkDigestExists(Digest digest) throws CacheNotFoundException {
+    if (digest.getSizeBytes() == 0) {
+      return;
+    }
+
     if (!toPath(digest.getHash(), /* isActionCache= */ false).exists()) {
       throw new CacheNotFoundException(digest);
     }
