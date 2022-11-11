@@ -814,5 +814,65 @@ quux~2.0,quux,quux~2.0""")
                                               allow_failure=True)
     self.AssertExitCode(exit_code, 0, stderr, stdout)
 
+  def testBashRunfilesLibraryRepoMapping(self):
+    self.main_registry.setModuleBasePath('projects')
+    projects_dir = self.main_registry.projects
+
+    self.main_registry.createLocalPathModule('data', '1.0', 'data')
+    projects_dir.joinpath('data').mkdir(exist_ok=True)
+    scratchFile(projects_dir.joinpath('data', 'WORKSPACE'))
+    scratchFile(projects_dir.joinpath('data', 'foo.txt'), ['hello'])
+    scratchFile(
+        projects_dir.joinpath('data', 'BUILD'), ['exports_files(["foo.txt"])'])
+
+    self.main_registry.createLocalPathModule('test', '1.0', 'test',
+                                             {'data': '1.0'})
+    projects_dir.joinpath('test').mkdir(exist_ok=True)
+    scratchFile(projects_dir.joinpath('test', 'WORKSPACE'))
+    scratchFile(
+        projects_dir.joinpath('test', 'BUILD'), [
+          'sh_test(',
+          '    name = "test",',
+          '    srcs = ["test.sh"],',
+          '    data = ["@data//:foo.txt"],',
+          '    args = ["$(rlocationpath @data//:foo.txt)"],',
+          '    deps = ["@bazel_tools//tools/bash/runfiles"],',
+          ')',
+        ])
+    test_script = projects_dir.joinpath('test', 'test.sh')
+    scratchFile(
+        test_script, """#!/usr/bin/env bash
+# --- begin runfiles.bash initialization v2 ---
+# Copy-pasted from the Bazel Bash runfiles library v2.
+set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v2 ---
+[[ -f  "$(rlocation $1)" ]] || exit 1
+[[ -f  "$(rlocation data/foo.txt)" ]] || exit 2
+""".splitlines())
+    os.chmod(test_script, 0o755)
+
+    self.ScratchFile('MODULE.bazel', ['bazel_dep(name="test",version="1.0")'])
+    self.ScratchFile('WORKSPACE')
+
+    # Run sandboxed on Linux and macOS.
+    exit_code, stderr, stdout = self.RunBazel([
+      'test', '@test//:test', '--test_output=errors',
+      '--test_env=RUNFILES_LIB_DEBUG=1'
+    ],
+        allow_failure=True)
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    # Run unsandboxed on all platforms.
+    exit_code, stderr, stdout = self.RunBazel(
+        ['run', '@test//:test'],
+        allow_failure=True,
+        env_add={'RUNFILES_LIB_DEBUG': '1'})
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+
 if __name__ == '__main__':
   unittest.main()
