@@ -36,19 +36,10 @@ java_library(
     name = "test_deps",
     testonly = 1,
     exports = [
-        ":mock-file",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:junit4",
         "//third_party:truth",
         "//tools/java/runfiles",
     ],
-)
-
-java_library(
-    name = "mock-file",
-    testonly = 1,
-    srcs = ["MockFile.java"],
-    exports = ["//third_party:guava"],
-    deps = ["//third_party:guava"],
 )
