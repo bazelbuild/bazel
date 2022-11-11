@@ -357,6 +357,7 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 3,
+    tags = ["requires-network"],
 )
 
 sh_test(
