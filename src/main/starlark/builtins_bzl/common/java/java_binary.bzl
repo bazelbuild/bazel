@@ -491,6 +491,17 @@ def _get_main_class(ctx):
         main_class = helper.primary_class(ctx)
     return main_class
 
+def _get_launcher_info(ctx):
+    launcher = helper.launcher_artifact_for_target(ctx)
+    return struct(
+        launcher = launcher,
+        unstripped_launcher = launcher,
+        runfiles = [],
+        runtime_jars = [],
+        jvm_flags = [],
+        classpath_resources = [],
+    )
+
 BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
     BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS,
     {
@@ -569,7 +580,7 @@ def _bazel_java_binary_impl(ctx):
     if coverage_config:
         main_class = coverage_config.main_class
 
-    launcher_info = None
+    launcher_info = _get_launcher_info(ctx)
     executable = None
     feature_config = helper.get_feature_config(ctx)
     strip_as_default = helper.should_strip_as_default(ctx, feature_config)
