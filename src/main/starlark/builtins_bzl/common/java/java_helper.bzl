@@ -15,6 +15,9 @@
 """Common util functions for java_* rules"""
 
 load(":common/java/java_semantics.bzl", "semantics")
+load(":common/cc/cc_helper.bzl", "cc_helper")
+
+cc_common = _builtins.toplevel.cc_common
 
 def _collect_all_targets_as_deps(ctx):
     deps = []
@@ -202,6 +205,27 @@ def _check_and_get_one_version_attribute(ctx, attr):
 def _jar_and_target_arg_mapper(jar):
     return jar.path + "," + str(jar.owner)
 
+def _get_feature_config(ctx):
+    cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
+    feature_config = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+        requested_features = ctx.features + ["java_launcher_link", "static_linking_mode"],
+        unsupported_features = ctx.disabled_features,
+    )
+    return feature_config
+
+def _should_strip_as_default(ctx, feature_config):
+    fission_is_active = ctx.fragments.cpp.fission_active_for_current_compilation_mode()
+    create_per_obj_debug_info = fission_is_active and cc_common.is_enabled(
+        feature_name = "per_object_debug_info",
+        feature_configuration = feature_config,
+    )
+    compilation_mode = ctx.var["COMPILATION_MODE"]
+    strip_as_default = create_per_obj_debug_info and compilation_mode == "opt"
+
+    return strip_as_default
+
 util = struct(
     collect_all_targets_as_deps = _collect_all_targets_as_deps,
     filter_launcher_for_target = _filter_launcher_for_target,
@@ -213,4 +237,6 @@ util = struct(
     get_shared_native_deps_path = _get_shared_native_deps_path,
     check_and_get_one_version_attribute = _check_and_get_one_version_attribute,
     jar_and_target_arg_mapper = _jar_and_target_arg_mapper,
+    get_feature_config = _get_feature_config,
+    should_strip_as_default = _should_strip_as_default,
 )
