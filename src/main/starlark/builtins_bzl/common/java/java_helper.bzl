@@ -19,7 +19,6 @@ load(":common/java/java_semantics.bzl", "semantics")
 def _collect_all_targets_as_deps(ctx):
     deps = []
     deps.extend(ctx.attr.deps or [])
-    deps.extend([ctx.attr._asan_library] if ctx.attr._asan_library else [])
 
     # TODO(hvd): check for persistent test runner, ctx.fragments.java.addTestSupportToCompileTimeDeps
     if hasattr(ctx.attr, "_test_support") and ctx.attr._test_support:

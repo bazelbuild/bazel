@@ -14,13 +14,18 @@
 
 """ Implementation of java_binary for bazel """
 
-load(":common/java/java_common.bzl", "basic_java_library")
+load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS", "basic_java_library")
 load(":common/java/java_util.bzl", "create_single_jar")
 load(":common/java/java_helper.bzl", helper = "util")
 load(":common/java/java_semantics.bzl", "semantics")
+load(":common/rule_util.bzl", "merge_attrs")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 
+CcInfo = _builtins.toplevel.CcInfo
+CcLauncherInfo = _builtins.internal.cc_internal.launcher_provider
 JavaInfo = _builtins.toplevel.JavaInfo
+JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
 ProtoInfo = _builtins.toplevel.ProtoInfo
 java_common = _builtins.toplevel.java_common
 
@@ -93,10 +98,6 @@ def basic_java_binary(
         fail("launcher specified but create_executable is false")
     if not ctx.attr.use_launcher and ctx.attr.launcher:
         fail("launcher specified but use_launcher is false")
-    if ctx.attr.hermetic and not java_runtime_toolchain.lib_modules:
-        fail("hermetic specified but java_runtime.lib_modules is absent")
-    if not ctx.attr.create_executable and ctx.attr.hermetic:
-        fail("hermetic specified but create_executable is false")
 
     if not ctx.attr.srcs and ctx.attr.deps:
         fail("deps not allowed without srcs; move to runtime_deps?")
@@ -107,7 +108,8 @@ def basic_java_binary(
 
     classpath_resources = []
     classpath_resources.extend(launcher_info.classpath_resources)
-    classpath_resources.extend(ctx.files.classpath_resources)
+    if hasattr(ctx.files, "classpath_resources"):
+        classpath_resources.extend(ctx.files.classpath_resources)
 
     target, common_info = basic_java_library(
         ctx,
@@ -164,7 +166,7 @@ def basic_java_binary(
 
     files_to_build = []
 
-    java_attrs = _collect_attrs(ctx, java_info, launcher_info)
+    java_attrs = _collect_attrs(ctx, java_info, classpath_resources)
 
     if executable:
         files_to_build.append(executable)
@@ -289,17 +291,13 @@ def basic_java_binary(
         ),
     }, default_info, jvm_flags
 
-def _collect_attrs(ctx, java_info, launcher_info):
+def _collect_attrs(ctx, java_info, classpath_resources):
     deploy_env_jars = depset(transitive = [
         dep[JavaRuntimeClasspathInfo].runtime_classpath
         for dep in ctx.attr.deploy_env
     ])
     runtime_classpath_for_archive = java_common.get_runtime_classpath_for_archive(java_info.transitive_runtime_jars, deploy_env_jars)
     runtime_jars = depset([ctx.outputs.classjar])
-
-    classpath_resources = []
-    classpath_resources.extend(ctx.files.classpath_resources)
-    classpath_resources.extend(launcher_info.classpath_resources)
 
     resources = [p for p in ctx.files.srcs if p.extension == "properties"]
     transitive_resources = []
@@ -329,7 +327,7 @@ def _generate_coverage_manifest(ctx, output, runtime_classpath):
     )
 
 def _create_shared_archive(ctx, runtime, java_attrs):
-    classlist = ctx.file.classlist
+    classlist = ctx.file.classlist if hasattr(ctx.file, "classlist") else None
     if not classlist:
         return None
     jsa = ctx.actions.declare_file("%s.jsa" % ctx.label.name)
@@ -340,7 +338,6 @@ def _create_shared_archive(ctx, runtime, java_attrs):
         java_attrs.runtime_jars,
         java_attrs.runtime_classpath_for_archive,
     )
-    config_file = ctx.file.cds_config_file
 
     args = ctx.actions.args()
     args.add("-Xshare:dump")
@@ -349,6 +346,7 @@ def _create_shared_archive(ctx, runtime, java_attrs):
 
     input_files = [classlist, merged]
 
+    config_file = ctx.file.cds_config_file if hasattr(ctx.file, "cds_config_file") else None
     if config_file:
         args.add(config_file, format = "-XX:SharedArchiveConfigFile=%s")
         input_files.append(config_file)
@@ -464,3 +462,69 @@ def _get_validations_from_target(target):
         return target[OutputGroupInfo]._validation
     else:
         return depset()
+
+BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
+    BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS,
+    {
+        "srcs": attr.label_list(
+            allow_files = [".java", ".srcjar", ".properties"] + semantics.EXTRA_SRCS_TYPES,
+            flags = ["DIRECT_COMPILE_TIME_INPUT", "ORDER_INDEPENDENT"],
+        ),
+        "deps": attr.label_list(
+            allow_files = [".jar"],
+            allow_rules = semantics.ALLOWED_RULES_IN_DEPS + semantics.ALLOWED_RULES_IN_DEPS_WITH_WARNING,
+            providers = [
+                [CcInfo],
+                [JavaInfo],
+            ],
+            flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
+        ),
+        "resources": attr.label_list(
+            allow_files = True,
+            flags = ["SKIP_CONSTRAINTS_OVERRIDE", "ORDER_INDEPENDENT"],
+        ),
+        "runtime_deps": attr.label_list(
+            allow_files = [".jar"],
+            allow_rules = semantics.ALLOWED_RULES_IN_DEPS,
+            providers = [[CcInfo], [JavaInfo]],
+            flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
+        ),
+        "data": attr.label_list(
+            allow_files = True,
+            flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
+        ),
+        "plugins": attr.label_list(
+            providers = [JavaPluginInfo],
+            allow_files = True,
+            cfg = "exec",
+        ),
+        "deploy_env": attr.label_list(
+            allow_rules = ["java_binary"],
+            allow_files = False,
+        ),
+        "launcher": attr.label(
+            allow_files = False,
+            providers = [CcLauncherInfo],
+        ),
+        "neverlink": attr.bool(),
+        "javacopts": attr.string_list(),
+        "add_exports": attr.string_list(),
+        "add_opens": attr.string_list(),
+        "main_class": attr.string(),
+        "jvm_flags": attr.string_list(),
+        "deploy_manifest_lines": attr.string_list(),
+        "create_executable": attr.bool(default = True),
+        "stamp": attr.int(default = -1, values = [-1, 0, 1]),
+        "use_testrunner": attr.bool(default = False),
+        "use_launcher": attr.bool(default = True),
+        "env": attr.string_dict(),
+        "_stub_template": attr.label(
+            default = semantics.JAVA_STUB_TEMPLATE_LABEL,
+            allow_single_file = True,
+        ),
+        "_cc_toolchain": attr.label(default = "@" + cc_semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
+        "_grep_includes": cc_semantics.get_grep_includes(),
+        "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
+        "_java_runtime_toolchain_type": attr.label(default = semantics.JAVA_RUNTIME_TOOLCHAIN_TYPE),
+    },
+)
