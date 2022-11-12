@@ -244,6 +244,24 @@ def _get_coverage_config(ctx):
         support_files = [manifest, singlejar],
     )
 
+def _get_java_executable(ctx, java_runtime_toolchain, launcher):
+    java_executable = launcher.short_path if launcher else java_runtime_toolchain.java_executable_runfiles_path
+    if not _is_absolute_path(ctx, java_executable):
+        java_executable = ctx.workspace_name + "/" + java_executable
+    return java_executable
+
+# TODO(hvd): we should check target/exec platform and not host
+def _is_windows(ctx):
+    return ctx.configuration.host_path_separator == ";"
+
+def _is_absolute_path(ctx, path):
+    if _is_windows(ctx):
+        return len(path) > 2 and path[1] == ":"
+    return path.startswith("/")
+
+def _runfiles_enabled(ctx):
+    return ctx.configuration.runfiles_enabled()
+
 util = struct(
     collect_all_targets_as_deps = _collect_all_targets_as_deps,
     filter_launcher_for_target = _filter_launcher_for_target,
@@ -258,4 +276,8 @@ util = struct(
     get_feature_config = _get_feature_config,
     should_strip_as_default = _should_strip_as_default,
     get_coverage_config = _get_coverage_config,
+    get_java_executable = _get_java_executable,
+    is_absolute_path = _is_absolute_path,
+    is_windows = _is_windows,
+    runfiles_enabled = _runfiles_enabled,
 )

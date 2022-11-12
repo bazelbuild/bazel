@@ -15,7 +15,7 @@
 """ Implementation of java_binary for bazel """
 
 load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS", "basic_java_library")
-load(":common/java/java_util.bzl", "create_single_jar")
+load(":common/java/java_util.bzl", "create_single_jar", "shell_quote")
 load(":common/java/java_helper.bzl", helper = "util")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/rule_util.bzl", "merge_attrs")
@@ -502,6 +502,69 @@ def _get_launcher_info(ctx):
         classpath_resources = [],
     )
 
+def _get_executable(ctx):
+    if not ctx.attr.create_executable:
+        return None
+    executable_name = ctx.label.name
+    if helper.is_windows(ctx):
+        executable_name = executable_name + ".exe"
+
+    return ctx.actions.declare_file(executable_name)
+
+def _create_stub(ctx, java_attrs, java_runtime_toolchain, launcher, executable, jvm_flags, main_class, coverage_main_class):
+    java_executable = helper.get_java_executable(ctx, java_runtime_toolchain, launcher)
+    workspace_name = ctx.workspace_name
+    workspace_prefix = workspace_name + ("/" if workspace_name else "")
+    runfiles_enabled = helper.runfiles_enabled(ctx)
+    coverage_enabled = ctx.configuration.coverage_enabled
+
+    test_support = ctx.attr._test_support if ctx.attr.create_executable and ctx.attr.use_testrunner else None
+    test_support_jars = test_support[JavaInfo].transitive_runtime_jars if test_support else depset()
+    classpath = depset(
+        transitive = [
+            java_attrs.runtime_classpath,
+            test_support_jars if ctx.fragments.java.enforce_explicit_java_test_deps else depset(),
+        ],
+    )
+
+    if helper.is_windows(ctx):
+        jvm_flags_for_launcher = []
+        for flag in jvm_flags:
+            jvm_flags_for_launcher.extend(ctx.tokenize(flag))
+        return _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jvm_flags_for_launcher, executable)
+
+    if runfiles_enabled:
+        prefix = "" if helper.is_absolute_path(ctx, java_executable) else "${JAVA_RUNFILES}/"
+        java_bin = "JAVABIN=${JAVABIN:-" + prefix + java_executable + "}"
+    else:
+        java_bin = "JAVABIN=${JAVABIN:-$(rlocation " + java_executable + ")}"
+
+    td = ctx.actions.template_dict()
+    td.add_joined()
+
+    ctx.actions.expand_template(
+        template = ctx.attr.java_stub_template,
+        output = executable,
+        substitutions = {
+            "%runfiles_manifest_only%": "" if runfiles_enabled else "1",
+            "%workspace_prefix%": workspace_prefix,
+            "%javabin%": java_bin,
+            "%needs_runfiles%": "0" if helper.is_absolute_path(ctx, java_runtime_toolchain.java_executable_exec_path) else "1",
+            "%set_jacoco_metadata%": "",
+            "%set_jacoco_main_class%": "export JACOCO_MAIN_CLASS=" + coverage_main_class if coverage_enabled else "",
+            "%set_jacoco_java_runfiles_root%": "export JACOCO_JAVA_RUNFILES_ROOT=${JAVA_RUNFILES}/" + workspace_prefix if coverage_enabled else "",
+            "%java_start_class%": shell_quote(main_class),
+            "%jvm_flags%": " ".join(jvm_flags),
+        },
+        computed_substitutions = td,
+        is_executable = True,
+    )
+    return executable
+
+def _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jvm_flags_for_launcher, executable):
+    #TODO(hvd): implement LauncherFileWriteAction
+    return executable
+
 BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
     BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS,
     {
@@ -581,7 +644,9 @@ def _bazel_java_binary_impl(ctx):
         main_class = coverage_config.main_class
 
     launcher_info = _get_launcher_info(ctx)
-    executable = None
+
+    executable = _get_executable(ctx)
+
     feature_config = helper.get_feature_config(ctx)
     strip_as_default = helper.should_strip_as_default(ctx, feature_config)
 
@@ -598,6 +663,10 @@ def _bazel_java_binary_impl(ctx):
         strip_as_default,
     )
 
+    java_attrs = providers["InternalDeployJarInfo"].java_attrs
+
+    if executable:
+        _create_stub(ctx, java_attrs, java_runtime_toolchain, launcher_info.launcher, executable, jvm_flags, main_class, coverage_main_class, coverage_config)
     return providers.values()
 
 def _compute_test_support(use_testrunner):
