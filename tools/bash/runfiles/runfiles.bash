@@ -105,6 +105,12 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
+# Does not exit with a non-zero exit code if no match is found.
+function __runfiles_maybe_grep() {
+  grep "$@" || test $? = 1;
+}
+export -f __runfiles_maybe_grep
+
 # Prints to stdout the runtime location of a data-dependency.
 # The optional second argument can be used to specify the canonical name of the
 # repository whose repository mapping should be used to resolve the repository
@@ -145,7 +151,7 @@ function rlocation() {
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
         echo >&2 "INFO[runfiles.bash]: rlocation($1): looking up canonical name for ($target_repo_apparent_name) from ($source_repo) in ($RUNFILES_REPO_MAPPING)"
       fi
-      local -r target_repo=$(grep -m1 "^$source_repo,$target_repo_apparent_name," "$RUNFILES_REPO_MAPPING" | cut -d , -f 3)
+      local -r target_repo=$(__runfiles_maybe_grep -m1 "^$source_repo,$target_repo_apparent_name," "$RUNFILES_REPO_MAPPING" | cut -d , -f 3)
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
         echo >&2 "INFO[runfiles.bash]: rlocation($1): canonical name of target repo is ($target_repo)"
       fi
@@ -225,7 +231,7 @@ function runfiles_current_repository() {
     # uses / as the path separator even on Windows.
     local -r normalized_caller_path="$(echo "$caller_path" | sed 's|\\\\*|/|g')"
     local -r escaped_caller_path="$(echo "$normalized_caller_path" | sed 's/[^-A-Za-z0-9_/]/\\&/g')"
-    rlocation_path=$(grep -m1 "^[^ ]* ${escaped_caller_path}$" "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 1)
+    rlocation_path=$(__runfiles_maybe_grep -m1 "^[^ ]* ${escaped_caller_path}$" "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 1)
     if [[ -z "$rlocation_path" ]]; then
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
         echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) is not the target of an entry in the runfiles manifest ($RUNFILES_MANIFEST_FILE)"
@@ -254,7 +260,7 @@ function runfiles_current_repository() {
       # The only shell script that is not executed from the runfiles directory (if it is populated)
       # is the sh_binary entrypoint. Parse its path under the execroot, using the last match to
       # allow for nested execroots (e.g. in Bazel integration tests).
-      local -r repository=$(echo "$normalized_caller_path" | grep -E -o '/execroot/[^/]+/bazel-out/[^/]+/bin/external/[^/]+/' | tail -1 | rev | cut -d / -f 2 | rev)
+      local -r repository=$(echo "$normalized_caller_path" | __runfiles_maybe_grep -E -o '/execroot/[^/]+/bazel-out/[^/]+/bin/external/[^/]+/' | tail -1 | rev | cut -d / -f 2 | rev)
       if [[ -n "$repository" ]]; then
         if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
           echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) lies in repository ($repository)"
@@ -305,7 +311,7 @@ function runfiles_rlocation_checked() {
     if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
       echo >&2 "INFO[runfiles.bash]: rlocation($1): looking in RUNFILES_MANIFEST_FILE ($RUNFILES_MANIFEST_FILE)"
     fi
-    local -r result=$(grep -m1 "^$1 " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)
+    local -r result=$(__runfiles_maybe_grep -m1 "^$1 " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)
     if [[ -z "$result" ]]; then
       # If path references a runfile that lies under a directory that itself
       # is a runfile, then only the directory is listed in the manifest. Look
@@ -318,7 +324,7 @@ function runfiles_rlocation_checked() {
         new_prefix="${prefix%/*}"
         [[ "$new_prefix" == "$prefix" ]] && break
         prefix="$new_prefix"
-        prefix_result=$(grep -m1 "^$prefix " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)
+        prefix_result=$(__runfiles_maybe_grep -m1 "^$prefix " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)
         [[ -z "$prefix_result" ]] && continue
         local -r candidate="${prefix_result}${1#"${prefix}"}"
         if [[ -e "$candidate" ]]; then
