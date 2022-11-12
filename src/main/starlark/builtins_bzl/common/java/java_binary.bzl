@@ -463,6 +463,34 @@ def _get_validations_from_target(target):
     else:
         return depset()
 
+def _check_and_get_main_class(ctx):
+    create_executable = ctx.attr.create_executable
+    main_class = _get_main_class(ctx)
+
+    if not create_executable and main_class:
+        fail("main class must not be specified when executable is not created")
+    if create_executable and not main_class:
+        if not ctx.attr.srcs:
+            fail("need at least one of 'main_class' or Java source files")
+        main_class = helper.primary_class(ctx)
+        if main_class == None:
+            fail("main_class was not provided and cannot be inferred: " +
+                 "source path doesn't include a known root (java, javatests, src, testsrc)")
+
+    return _get_main_class(ctx)
+
+def _get_main_class(ctx):
+    if not ctx.attr.create_executable:
+        return None
+
+    main_class = ctx.attr.main_class
+    if not main_class and ctx.attr.use_testrunner:
+        main_class = "com.google.testing.junit.runner.BazelTestRunner"
+
+    if main_class == "":
+        main_class = helper.primary_class(ctx)
+    return main_class
+
 BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
     BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS,
     {
@@ -535,7 +563,7 @@ def _bazel_java_binary_impl(ctx):
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
     deps = helper.collect_all_targets_as_deps(ctx)
 
-    main_class = None
+    main_class = _check_and_get_main_class(ctx)
     coverage_main_class = None
     coverage_config = None
     launcher_info = None
