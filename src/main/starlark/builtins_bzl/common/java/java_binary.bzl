@@ -528,3 +528,71 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
         "_java_runtime_toolchain_type": attr.label(default = semantics.JAVA_RUNTIME_TOOLCHAIN_TYPE),
     },
 )
+
+def _bazel_java_binary_impl(ctx):
+    toolchain = semantics.find_java_toolchain(ctx)
+    java_runtime_toolchain = semantics.find_java_runtime_toolchain(ctx)
+    cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
+    deps = helper.collect_all_targets_as_deps(ctx)
+
+    main_class = None
+    coverage_main_class = None
+    coverage_config = None
+    launcher_info = None
+    executable = None
+    feature_config = helper.get_feature_config(ctx)
+    strip_as_default = helper.should_strip_as_default(ctx, feature_config)
+
+    providers, default_info, jvm_flags = basic_java_binary(
+        ctx,
+        deps,
+        ctx.files.resources,
+        main_class,
+        coverage_main_class,
+        coverage_config,
+        launcher_info,
+        executable,
+        feature_config,
+        strip_as_default,
+    )
+
+    return providers.values()
+
+def _compute_test_support(use_testrunner):
+    return Label("@//tools/jdk:TestRunner") if use_testrunner else None
+
+def make_java_binary(executable, resolve_launcher_flag):
+    return rule(
+        _bazel_java_binary_impl,
+        attrs = merge_attrs(
+            BASIC_JAVA_BINARY_ATTRIBUTES,
+            {
+                "_java_launcher": attr.label(
+                    default = configuration_field(
+                        fragment = "java",
+                        name = "launcher",
+                    ) if resolve_launcher_flag else None,
+                ),
+                "_test_support": attr.label(default = _compute_test_support),
+            },
+            ({} if executable else {
+                "args": attr.string_list(),
+                "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+            }),
+        ),
+        fragments = ["cpp", "java"],
+        provides = [JavaInfo],
+        toolchains = [semantics.JAVA_TOOLCHAIN, semantics.JAVA_RUNTIME_TOOLCHAIN] + cc_helper.use_cpp_toolchain(),
+        # TODO(hvd): replace with filegroups?
+        outputs = {
+            "classjar": "%{name}.jar",
+            "sourcejar": "%{name}-src.jar",
+            "deploysrcjar": "%{name}_deploy-src.jar",
+        },
+        executable = executable,
+        exec_groups = {
+            "cpp_link": exec_group(copy_from_rule = True),
+        },
+    )
+
+java_binary = make_java_binary(executable = True, resolve_launcher_flag = True)
