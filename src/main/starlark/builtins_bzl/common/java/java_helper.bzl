@@ -226,6 +226,24 @@ def _should_strip_as_default(ctx, feature_config):
 
     return strip_as_default
 
+def _get_coverage_config(ctx):
+    toolchain = semantics.find_java_toolchain(ctx)
+    if not ctx.configuration.coverage_enabled:
+        return None
+    runner = semantics.get_coverage_runner(ctx) if ctx.attr.create_executable else None
+    manifest = ctx.actions.declare_file("runtime_classpath_for_coverage/%s/runtime_classpath.txt" % ctx.label.name)
+    singlejar = toolchain.single_jar
+    return struct(
+        runner = runner,
+        main_class = "com.google.testing.coverage.JacocoCoverageRunner",
+        manifest = manifest,
+        env = {
+            "JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE": manifest.path,
+            "SINGLE_JAR_TOOL": singlejar.path,
+        },
+        support_files = [manifest, singlejar],
+    )
+
 util = struct(
     collect_all_targets_as_deps = _collect_all_targets_as_deps,
     filter_launcher_for_target = _filter_launcher_for_target,
@@ -239,4 +257,5 @@ util = struct(
     jar_and_target_arg_mapper = _jar_and_target_arg_mapper,
     get_feature_config = _get_feature_config,
     should_strip_as_default = _should_strip_as_default,
+    get_coverage_config = _get_coverage_config,
 )

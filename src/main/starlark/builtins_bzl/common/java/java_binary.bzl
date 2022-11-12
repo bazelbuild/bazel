@@ -564,8 +564,11 @@ def _bazel_java_binary_impl(ctx):
     deps = helper.collect_all_targets_as_deps(ctx)
 
     main_class = _check_and_get_main_class(ctx)
-    coverage_main_class = None
-    coverage_config = None
+    coverage_main_class = main_class
+    coverage_config = helper.get_coverage_config(ctx)
+    if coverage_config:
+        main_class = coverage_config.main_class
+
     launcher_info = None
     executable = None
     feature_config = helper.get_feature_config(ctx)
