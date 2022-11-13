@@ -572,7 +572,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
                     + " \"txz\", \".tar.zst\", \".tzst\", \"tar.bz2\", \".ar\", or \".deb\""
                     + " here."),
         @Param(
-            name = "stripPrefix",
+            name = "strip_prefix",
             defaultValue = "''",
             named = true,
             doc =
