@@ -694,5 +694,73 @@ quux~2.0,quux,quux~2.0""")
         self.Path('bazel-bin/external/bar~2.0/bar.runfiles_manifest')) as f:
       self.assertIn('_repo_mapping ', f.read())
 
+  def testJavaRunfilesLibraryRepoMapping(self):
+    self.main_registry.setModuleBasePath('projects')
+    projects_dir = self.main_registry.projects
+
+    self.main_registry.createLocalPathModule('data', '1.0', 'data')
+    projects_dir.joinpath('data').mkdir(exist_ok=True)
+    scratchFile(projects_dir.joinpath('data', 'WORKSPACE'))
+    scratchFile(projects_dir.joinpath('data', 'foo.txt'), ['hello'])
+    scratchFile(
+        projects_dir.joinpath('data', 'BUILD'), ['exports_files(["foo.txt"])'])
+
+    self.main_registry.createLocalPathModule('test', '1.0', 'test',
+                                             {'data': '1.0'})
+    projects_dir.joinpath('test').mkdir(exist_ok=True)
+    scratchFile(projects_dir.joinpath('test', 'WORKSPACE'))
+    scratchFile(
+        projects_dir.joinpath('test', 'BUILD'), [
+            'java_test(',
+            '    name = "test",',
+            '    srcs = ["Test.java"],',
+            '    main_class = "com.example.Test",',
+            '    use_testrunner = False,',
+            '    data = ["@data//:foo.txt"],',
+            '    args = ["$(rlocationpath @data//:foo.txt)"],',
+            '    deps = ["@bazel_tools//tools/java/runfiles"],',
+            ')',
+        ])
+    scratchFile(
+        projects_dir.joinpath('test', 'Test.java'), [
+            'package com.example;',
+            '',
+            'import com.google.devtools.build.runfiles.AutoBazelRepository;',
+            'import com.google.devtools.build.runfiles.Runfiles;',
+            '',
+            'import java.io.File;',
+            'import java.io.IOException;',
+            '',
+            '@AutoBazelRepository',
+            'public class Test {',
+            '  public static void main(String[] args) throws IOException {',
+            '    Runfiles.Preloaded rp = Runfiles.preload();',
+            '    if (!new File(rp.unmapped().rlocation(args[0])).exists()) {',
+            '      System.exit(1);',
+            '    }',
+            '    if (!new File(rp.withSourceRepository(AutoBazelRepository_Test.NAME).rlocation("data/foo.txt")).exists()) {',
+            '      System.exit(1);',
+            '    }',
+            '  }',
+            '}',
+        ])
+
+    self.ScratchFile('MODULE.bazel', ['bazel_dep(name="test",version="1.0")'])
+    self.ScratchFile('WORKSPACE')
+
+    # Run sandboxed on Linux and macOS.
+    exit_code, stderr, stdout = self.RunBazel([
+        'test', '@test//:test', '--test_output=errors',
+        '--test_env=RUNFILES_LIB_DEBUG=1'
+    ],
+                                              allow_failure=True)
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    # Run unsandboxed on all platforms.
+    exit_code, stderr, stdout = self.RunBazel(
+        ['run', '@test//:test'],
+        allow_failure=True,
+        env_add={'RUNFILES_LIB_DEBUG': '1'})
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+
 if __name__ == '__main__':
   unittest.main()
