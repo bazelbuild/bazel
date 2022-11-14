@@ -3780,4 +3780,36 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
             + " non-test target has no effect",
         ImmutableSet.of(EventKind.WARNING));
   }
+
+  @Test
+  public void identicalPrintStatementsOnSameLineNotDeduplicated_buildFileLoop() throws Exception {
+    scratch.file("foo/BUILD", "[print('this is a print statement') for _ in range(2)]");
+    update("//foo:all", /*loadingPhaseThreads=*/ 1, /*doAnalysis=*/ false);
+    assertContainsEventWithFrequency("this is a print statement", 2);
+  }
+
+  @Test
+  public void identicalPrintStatementsOnSameLineNotDeduplicated_macroCalledFromMultipleBuildFiles()
+      throws Exception {
+    scratch.file("defs/BUILD");
+    scratch.file("defs/macro.bzl", "def macro():", "  print('this is a print statement')");
+    scratch.file("foo/BUILD", "load('//defs:macro.bzl', 'macro')", "macro()");
+    scratch.file("bar/BUILD", "load('//defs:macro.bzl', 'macro')", "macro()");
+    update("//...", /*loadingPhaseThreads=*/ 1, /*doAnalysis=*/ false);
+    assertContainsEventWithFrequency("this is a print statement", 2);
+  }
+
+  @Test
+  public void identicalPrintStatementsOnSameLineNotDeduplicated_ruleImplementationFunction()
+      throws Exception {
+    scratch.file(
+        "foo/defs.bzl",
+        "def _my_rule_impl(ctx):",
+        "  print('this is a print statement')",
+        "my_rule = rule(implementation = _my_rule_impl)");
+    scratch.file(
+        "foo/BUILD", "load(':defs.bzl', 'my_rule')", "my_rule(name = 'a')", "my_rule(name = 'b')");
+    update("//foo:all", /*loadingPhaseThreads=*/ 1, /*doAnalysis=*/ true);
+    assertContainsEventWithFrequency("this is a print statement", 2);
+  }
 }
