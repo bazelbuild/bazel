@@ -562,6 +562,7 @@ public final class AnalysisTestUtil {
         runfilesDir,
         runfiles,
         /*manifest=*/ null,
+        /*repoMappingManifest=*/ null,
         /*buildRunfileLinks=*/ false,
         /*runfileLinksEnabled=*/ false);
   }

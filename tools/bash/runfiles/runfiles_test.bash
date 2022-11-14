@@ -205,6 +205,182 @@ function test_init_directory_based_runfiles() {
   [[ -z "$(rlocation "c d")" ]] || fail
 }
 
+function test_directory_based_runfiles_with_repo_mapping_from_main() {
+  local tmpdir="$(mktemp -d $TEST_TMPDIR/tmp.XXXXXXXX)"
+
+  export RUNFILES_DIR=${tmpdir}/mock/runfiles
+  mkdir -p "$RUNFILES_DIR"
+  cat > "$RUNFILES_DIR/_repo_mapping" <<EOF
+,my_module,_main
+,my_protobuf,protobuf~3.19.2
+,my_workspace,_main
+protobuf~3.19.2,protobuf,protobuf~3.19.2
+EOF
+  export RUNFILES_MANIFEST_FILE=
+  source "$runfiles_lib_path"
+
+  mkdir -p "$RUNFILES_DIR/_main/bar"
+  touch "$RUNFILES_DIR/_main/bar/runfile"
+  mkdir -p "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/de eply/nes ted"
+  touch "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/file"
+  touch "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le"
+  mkdir -p "$RUNFILES_DIR/protobuf~3.19.2/foo"
+  touch "$RUNFILES_DIR/protobuf~3.19.2/foo/runfile"
+  touch "$RUNFILES_DIR/config.json"
+
+  [[ "$(rlocation "my_module/bar/runfile" "")" == "$RUNFILES_DIR/_main/bar/runfile" ]] || fail
+  [[ "$(rlocation "my_workspace/bar/runfile" "")" == "$RUNFILES_DIR/_main/bar/runfile" ]] || fail
+  [[ "$(rlocation "my_protobuf/foo/runfile" "")" == "$RUNFILES_DIR/protobuf~3.19.2/foo/runfile" ]] || fail
+  [[ "$(rlocation "my_protobuf/bar/dir" "")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir" ]] || fail
+  [[ "$(rlocation "my_protobuf/bar/dir/file" "")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/file" ]] || fail
+  [[ "$(rlocation "my_protobuf/bar/dir/de eply/nes ted/fi~le" "")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
+
+  [[ -z "$(rlocation "protobuf/foo/runfile" "")" ]] || fail
+  [[ -z "$(rlocation "protobuf/bar/dir/dir/de eply/nes ted/fi~le" "")" ]] || fail
+
+  [[ "$(rlocation "_main/bar/runfile" "")" == "$RUNFILES_DIR/_main/bar/runfile" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/foo/runfile" "")" == "$RUNFILES_DIR/protobuf~3.19.2/foo/runfile" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir" "")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir/file" "")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/file" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" "")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
+
+  [[ "$(rlocation "config.json" "")" == "$RUNFILES_DIR/config.json" ]] || fail
+}
+
+function test_directory_based_runfiles_with_repo_mapping_from_other_repo() {
+  local tmpdir="$(mktemp -d $TEST_TMPDIR/tmp.XXXXXXXX)"
+
+  export RUNFILES_DIR=${tmpdir}/mock/runfiles
+  mkdir -p "$RUNFILES_DIR"
+  cat > "$RUNFILES_DIR/_repo_mapping" <<EOF
+,my_module,_main
+,my_protobuf,protobuf~3.19.2
+,my_workspace,_main
+protobuf~3.19.2,protobuf,protobuf~3.19.2
+EOF
+  export RUNFILES_MANIFEST_FILE=
+  source "$runfiles_lib_path"
+
+  mkdir -p "$RUNFILES_DIR/_main/bar"
+  touch "$RUNFILES_DIR/_main/bar/runfile"
+  mkdir -p "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/de eply/nes ted"
+  touch "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/file"
+  touch "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le"
+  mkdir -p "$RUNFILES_DIR/protobuf~3.19.2/foo"
+  touch "$RUNFILES_DIR/protobuf~3.19.2/foo/runfile"
+  touch "$RUNFILES_DIR/config.json"
+
+  [[ "$(rlocation "protobuf/foo/runfile" "protobuf~3.19.2")" == "$RUNFILES_DIR/protobuf~3.19.2/foo/runfile" ]] || fail
+  [[ "$(rlocation "protobuf/bar/dir" "protobuf~3.19.2")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir" ]] || fail
+  [[ "$(rlocation "protobuf/bar/dir/file" "protobuf~3.19.2")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/file" ]] || fail
+  [[ "$(rlocation "protobuf/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
+
+  [[ -z "$(rlocation "my_module/bar/runfile" "protobuf~3.19.2")" ]] || fail
+  [[ -z "$(rlocation "my_protobuf/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2")" ]] || fail
+
+  [[ "$(rlocation "_main/bar/runfile" "protobuf~3.19.2")" == "$RUNFILES_DIR/_main/bar/runfile" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/foo/runfile" "protobuf~3.19.2")" == "$RUNFILES_DIR/protobuf~3.19.2/foo/runfile" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir" "protobuf~3.19.2")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir/file" "protobuf~3.19.2")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/file" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
+
+  [[ "$(rlocation "config.json" "protobuf~3.19.2")" == "$RUNFILES_DIR/config.json" ]] || fail
+}
+
+function test_manifest_based_runfiles_with_repo_mapping_from_main() {
+  local tmpdir="$(mktemp -d $TEST_TMPDIR/tmp.XXXXXXXX)"
+
+  cat > "$tmpdir/foo.repo_mapping" <<EOF
+,my_module,_main
+,my_protobuf,protobuf~3.19.2
+,my_workspace,_main
+protobuf~3.19.2,protobuf,protobuf~3.19.2
+EOF
+  export RUNFILES_DIR=
+  export RUNFILES_MANIFEST_FILE="$tmpdir/foo.runfiles_manifest"
+  cat > "$RUNFILES_MANIFEST_FILE" << EOF
+_repo_mapping $tmpdir/foo.repo_mapping
+config.json $tmpdir/config.json
+protobuf~3.19.2/foo/runfile $tmpdir/protobuf~3.19.2/foo/runfile
+_main/bar/runfile $tmpdir/_main/bar/runfile
+protobuf~3.19.2/bar/dir $tmpdir/protobuf~3.19.2/bar/dir
+EOF
+  source "$runfiles_lib_path"
+
+  mkdir -p "$tmpdir/_main/bar"
+  touch "$tmpdir/_main/bar/runfile"
+  mkdir -p "$tmpdir/protobuf~3.19.2/bar/dir/de eply/nes ted"
+  touch "$tmpdir/protobuf~3.19.2/bar/dir/file"
+  touch "$tmpdir/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le"
+  mkdir -p "$tmpdir/protobuf~3.19.2/foo"
+  touch "$tmpdir/protobuf~3.19.2/foo/runfile"
+  touch "$tmpdir/config.json"
+
+  [[ "$(rlocation "my_module/bar/runfile" "")" == "$tmpdir/_main/bar/runfile" ]] || fail
+  [[ "$(rlocation "my_workspace/bar/runfile" "")" == "$tmpdir/_main/bar/runfile" ]] || fail
+  [[ "$(rlocation "my_protobuf/foo/runfile" "")" == "$tmpdir/protobuf~3.19.2/foo/runfile" ]] || fail
+  [[ "$(rlocation "my_protobuf/bar/dir" "")" == "$tmpdir/protobuf~3.19.2/bar/dir" ]] || fail
+  [[ "$(rlocation "my_protobuf/bar/dir/file" "")" == "$tmpdir/protobuf~3.19.2/bar/dir/file" ]] || fail
+  [[ "$(rlocation "my_protobuf/bar/dir/de eply/nes ted/fi~le" "")" == "$tmpdir/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
+
+  [[ -z "$(rlocation "protobuf/foo/runfile" "")" ]] || fail
+  [[ -z "$(rlocation "protobuf/bar/dir/dir/de eply/nes ted/fi~le" "")" ]] || fail
+
+  [[ "$(rlocation "_main/bar/runfile" "")" == "$tmpdir/_main/bar/runfile" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/foo/runfile" "")" == "$tmpdir/protobuf~3.19.2/foo/runfile" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir" "")" == "$tmpdir/protobuf~3.19.2/bar/dir" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir/file" "")" == "$tmpdir/protobuf~3.19.2/bar/dir/file" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" "")" == "$tmpdir/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
+
+  [[ "$(rlocation "config.json" "")" == "$tmpdir/config.json" ]] || fail
+}
+
+function test_manifest_based_runfiles_with_repo_mapping_from_other_repo() {
+  local tmpdir="$(mktemp -d $TEST_TMPDIR/tmp.XXXXXXXX)"
+
+  cat > "$tmpdir/foo.repo_mapping" <<EOF
+,my_module,_main
+,my_protobuf,protobuf~3.19.2
+,my_workspace,_main
+protobuf~3.19.2,protobuf,protobuf~3.19.2
+EOF
+  export RUNFILES_DIR=
+  export RUNFILES_MANIFEST_FILE="$tmpdir/foo.runfiles_manifest"
+  cat > "$RUNFILES_MANIFEST_FILE" << EOF
+_repo_mapping $tmpdir/foo.repo_mapping
+config.json $tmpdir/config.json
+protobuf~3.19.2/foo/runfile $tmpdir/protobuf~3.19.2/foo/runfile
+_main/bar/runfile $tmpdir/_main/bar/runfile
+protobuf~3.19.2/bar/dir $tmpdir/protobuf~3.19.2/bar/dir
+EOF
+  source "$runfiles_lib_path"
+
+  mkdir -p "$tmpdir/_main/bar"
+  touch "$tmpdir/_main/bar/runfile"
+  mkdir -p "$tmpdir/protobuf~3.19.2/bar/dir/de eply/nes ted"
+  touch "$tmpdir/protobuf~3.19.2/bar/dir/file"
+  touch "$tmpdir/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le"
+  mkdir -p "$tmpdir/protobuf~3.19.2/foo"
+  touch "$tmpdir/protobuf~3.19.2/foo/runfile"
+  touch "$tmpdir/config.json"
+
+  [[ "$(rlocation "protobuf/foo/runfile" "protobuf~3.19.2")" == "$tmpdir/protobuf~3.19.2/foo/runfile" ]] || fail
+  [[ "$(rlocation "protobuf/bar/dir" "protobuf~3.19.2")" == "$tmpdir/protobuf~3.19.2/bar/dir" ]] || fail
+  [[ "$(rlocation "protobuf/bar/dir/file" "protobuf~3.19.2")" == "$tmpdir/protobuf~3.19.2/bar/dir/file" ]] || fail
+  [[ "$(rlocation "protobuf/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2")" == "$tmpdir/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
+
+  [[ -z "$(rlocation "my_module/bar/runfile" "protobuf~3.19.2")" ]] || fail
+  [[ -z "$(rlocation "my_protobuf/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2")" ]] || fail
+
+  [[ "$(rlocation "_main/bar/runfile" "protobuf~3.19.2")" == "$tmpdir/_main/bar/runfile" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/foo/runfile" "protobuf~3.19.2")" == "$tmpdir/protobuf~3.19.2/foo/runfile" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir" "protobuf~3.19.2")" == "$tmpdir/protobuf~3.19.2/bar/dir" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir/file" "protobuf~3.19.2")" == "$tmpdir/protobuf~3.19.2/bar/dir/file" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2")" == "$tmpdir/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
+
+  [[ "$(rlocation "config.json" "protobuf~3.19.2")" == "$tmpdir/config.json" ]] || fail
+}
+
 function test_directory_based_envvars() {
   export RUNFILES_DIR=mock/runfiles
   export RUNFILES_MANIFEST_FILE=

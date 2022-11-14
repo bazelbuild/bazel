@@ -308,7 +308,7 @@ public class ExecutionTool {
 
     ActionCache actionCache = null;
     if (buildRequestOptions.useActionCache) {
-      actionCache = getActionCache();
+      actionCache = getOrLoadActionCache();
       actionCache.resetStatistics();
     }
     SkyframeBuilder skyframeBuilder;
@@ -400,7 +400,7 @@ public class ExecutionTool {
     BuildRequestOptions options = request.getBuildOptions();
     ActionCache actionCache = null;
     if (options.useActionCache) {
-      actionCache = getActionCache();
+      actionCache = getOrLoadActionCache();
       actionCache.resetStatistics();
     }
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
@@ -876,7 +876,7 @@ public class ExecutionTool {
   }
 
   /** Get action cache if present or reload it from the on-disk cache. */
-  ActionCache getActionCache() throws AbruptExitException {
+  ActionCache getOrLoadActionCache() throws AbruptExitException {
     try {
       return env.getBlazeWorkspace().getOrLoadPersistentActionCache(getReporter());
     } catch (IOException e) {

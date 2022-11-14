@@ -206,14 +206,17 @@ class Runfiles {
   Runfiles& operator=(const Runfiles&) = delete;
   Runfiles& operator=(Runfiles&&) = delete;
 
+  static std::string RlocationUnchecked(
+      const std::string& path,
+      const std::map<std::string, std::string>& runfiles_map,
+      const std::string& directory);
+
   const std::map<std::string, std::string> runfiles_map_;
   const std::string directory_;
   const std::map<std::pair<std::string, std::string>, std::string>
       repo_mapping_;
   const std::vector<std::pair<std::string, std::string> > envvars_;
   const std::string source_repository_;
-
-  std::string RlocationUnchecked(const std::string& path) const;
 };
 
 // The "testing" namespace contains functions that allow unit testing the code.
@@ -243,9 +246,7 @@ bool TestOnly_PathsFrom(
     std::string runfiles_dir,
     std::function<bool(const std::string&)> is_runfiles_manifest,
     std::function<bool(const std::string&)> is_runfiles_directory,
-    std::function<bool(const std::string&)> is_repo_mapping,
-    std::string* out_manifest, std::string* out_directory,
-    std::string* out_repo_mapping);
+    std::string* out_manifest, std::string* out_directory);
 
 // For testing only.
 // Returns true if `path` is an absolute Unix or Windows path.

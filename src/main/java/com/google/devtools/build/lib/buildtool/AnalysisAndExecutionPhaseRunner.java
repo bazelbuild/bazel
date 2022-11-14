@@ -135,9 +135,14 @@ public final class AnalysisAndExecutionPhaseRunner {
                 executionSetupCallback,
                 buildConfigurationCreatedCallback);
       }
+
       BuildResultListener buildResultListener = env.getBuildResultListener();
-      AnalysisPhaseRunner.reportTargets(
-          env, buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
+      if (request.shouldRunTests()) {
+        AnalysisPhaseRunner.reportTargetsWithTests(
+            env, buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
+      } else {
+        AnalysisPhaseRunner.reportTargets(env, buildResultListener.getAnalyzedTargets());
+      }
 
     } else {
       env.getReporter().handle(Event.progress("Loading complete."));

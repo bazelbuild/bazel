@@ -228,10 +228,14 @@ EOF
   expect_log "value before transition: prickly-pear"
   expect_log "value after transition: prickly-pear"
 
+  bazel clean 2>"$TEST_log" || fail "Clean failed"
+
   bazel build :my_target --@sub//:my_flag=prickly-pear \
       > output 2>"$TEST_log" || fail "Expected success"
   expect_log "value before transition: prickly-pear"
   expect_log "value after transition: prickly-pear"
+
+  bazel clean 2>"$TEST_log" || fail "Clean failed"
 
   bazel build :my_target --@//:my_flag=prickly-pear \
       > output 2>"$TEST_log" || fail "Expected success"
