@@ -48,6 +48,12 @@ public class DiskCacheClient implements RemoteCacheClient {
   private final boolean checkActionResult;
   private final DigestUtil digestUtil;
 
+  /**
+   * @param verifyDownloads whether verify the digest of downloaded content are the same as the
+   * digest used to index that file.
+   * @param checkActionResult whether check referenced blobs exist in CAS when checking AC. If this
+   * is {@code true} and blobs referenced by the AC are missing, ignore the AC.
+   */
   public DiskCacheClient(Path root, boolean verifyDownloads, boolean checkActionResult,
       DigestUtil digestUtil) {
     this.root = root;
@@ -116,7 +122,7 @@ public class DiskCacheClient implements RemoteCacheClient {
       return;
     }
 
-    if (!toPath(digest.getHash(), /* isActionCache= */ false).exists()) {
+    if (!toPath(digest.getHash(), /* actionResult= */ false).exists()) {
       throw new CacheNotFoundException(digest);
     }
   }
@@ -136,7 +142,7 @@ public class DiskCacheClient implements RemoteCacheClient {
       var treeDigest = outputDirectory.getTreeDigest();
       checkDigestExists(treeDigest);
 
-      var treePath = toPath(treeDigest.getHash(), /* isActionCache= */ false);
+      var treePath = toPath(treeDigest.getHash(), /* actionResult= */ false);
       var tree = Tree.parseFrom(treePath.getInputStream());
       checkOutputDirectory(tree.getRoot());
       for (var dir : tree.getChildrenList()) {

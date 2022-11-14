@@ -1,3 +1,16 @@
+// Copyright 2022 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package com.google.devtools.build.lib.remote;
 
 import static com.google.devtools.build.lib.testutil.TestUtils.tmpDirFile;
@@ -78,7 +91,7 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
     events.assertContainsInfo("2 disk cache hit");
   }
 
-  private void blobsReferencedInACAreMissingCASIgnoresAc(Runnable setupOptions) throws Exception {
+  private void blobsReferencedInAAreMissingCasIgnoresAc(String... additionalOptions) throws Exception {
     // Arrange: Prepare the workspace and populate disk cache
     write("BUILD",
         "genrule(",
@@ -96,13 +109,13 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
     );
     write("foo.in", "foo");
     write("bar.in", "bar");
-    setupOptions.run();
+    addOptions(additionalOptions);
     buildTarget("//:foobar");
     cleanAndRestartServer();
 
     // Act: Delete blobs in CAS from disk cache and do a clean build
     getWorkspace().getFileSystem().getPath(getDiskCacheDir().getRelative("cas")).deleteTree();
-    setupOptions.run();
+    addOptions(additionalOptions);
     buildTarget("//:foobar");
 
     // Assert: Should ignore the stale AC and rerun the generating action
@@ -110,13 +123,13 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void blobsReferencedInACAreMissingCAS_ignoresAc() throws Exception {
-    blobsReferencedInACAreMissingCASIgnoresAc(() -> {});
+  public void blobsReferencedInAcAreMissingCas_ignoresAc() throws Exception {
+    blobsReferencedInAAreMissingCasIgnoresAc();
   }
 
   @Test
-  public void bwob_blobsReferencedInACAreMissingCAS_ignoresAc() throws Exception {
-    blobsReferencedInACAreMissingCASIgnoresAc(() -> addOptions("--remote_download_minimal"));
+  public void bwob_blobsReferencedInAcAreMissingCas_ignoresAc() throws Exception {
+    blobsReferencedInAAreMissingCasIgnoresAc("--remote_download_minimal");
   }
 
   private void cleanAndRestartServer() throws Exception {
