@@ -110,6 +110,7 @@ DIST_DEPS = {
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+        "package_version": "3.19.6",
     },
     "com_github_grpc_grpc": {
         "archive": "v1.47.0.tar.gz",
@@ -145,6 +146,7 @@ DIST_DEPS = {
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+        "package_version": "cb28da3451f158a947dfc45090fe92b07b243bc1",
     },
     "com_envoyproxy_protoc_gen_validate": {
         "archive": "4694024279bdac52b77e22dc87808bd0fd732b69.tar.gz",
@@ -255,6 +257,7 @@ DIST_DEPS = {
         "used_in": [
             "additional_distfiles",
         ],
+        "package_version": "1.5.2-3",
     },
     ###################################################
     #
