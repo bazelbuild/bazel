@@ -762,5 +762,57 @@ quux~2.0,quux,quux~2.0""")
         env_add={'RUNFILES_LIB_DEBUG': '1'})
     self.AssertExitCode(exit_code, 0, stderr, stdout)
 
+  def testCppRunfilesLibraryRepoMapping(self):
+    self.main_registry.setModuleBasePath('projects')
+    projects_dir = self.main_registry.projects
+
+    self.main_registry.createLocalPathModule('data', '1.0', 'data')
+    projects_dir.joinpath('data').mkdir(exist_ok=True)
+    scratchFile(projects_dir.joinpath('data', 'WORKSPACE'))
+    scratchFile(projects_dir.joinpath('data', 'foo.txt'), ['hello'])
+    scratchFile(
+        projects_dir.joinpath('data', 'BUILD'), ['exports_files(["foo.txt"])'])
+
+    self.main_registry.createLocalPathModule('test', '1.0', 'test',
+                                             {'data': '1.0'})
+    projects_dir.joinpath('test').mkdir(exist_ok=True)
+    scratchFile(projects_dir.joinpath('test', 'WORKSPACE'))
+    scratchFile(
+        projects_dir.joinpath('test', 'BUILD'), [
+          'cc_test(',
+          '    name = "test",',
+          '    srcs = ["test.cpp"],',
+          '    data = ["@data//:foo.txt"],',
+          '    args = ["$(rlocationpath @data//:foo.txt)"],',
+          '    deps = ["@bazel_tools//tools/cpp/runfiles"],',
+          ')',
+        ])
+    scratchFile(
+        projects_dir.joinpath('test', 'test.cpp'), [
+          '#include <cstdlib>',
+          '#include <fstream>',
+          '#include "tools/cpp/runfiles/runfiles.h"',
+          'using bazel::tools::cpp::runfiles::Runfiles;',
+          'int main(int argc, char** argv) {',
+          '  Runfiles* runfiles = Runfiles::Create(argv[0], BAZEL_CURRENT_REPOSITORY);',
+          '  std::ifstream f1(runfiles->Rlocation(argv[1]));',
+          '  if (!f1.good()) std::exit(1);',
+          '  std::ifstream f2(runfiles->Rlocation("data/foo.txt"));',
+          '  if (!f2.good()) std::exit(2);',
+          '}',
+        ])
+
+    self.ScratchFile('MODULE.bazel', ['bazel_dep(name="test",version="1.0")'])
+    self.ScratchFile('WORKSPACE')
+
+    # Run sandboxed on Linux and macOS.
+    exit_code, stderr, stdout = self.RunBazel(
+        ['test', '@test//:test', '--test_output=errors'], allow_failure=True)
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    # Run unsandboxed on all platforms.
+    exit_code, stderr, stdout = self.RunBazel(['run', '@test//:test'],
+                                              allow_failure=True)
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+
 if __name__ == '__main__':
   unittest.main()
