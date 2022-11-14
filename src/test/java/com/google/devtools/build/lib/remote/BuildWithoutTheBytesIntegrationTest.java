@@ -51,7 +51,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     addOptions(
         "--remote_executor=grpc://localhost:" + worker.getPort(),
         "--remote_download_minimal",
-        "--experimental_action_cache_store_output_metadata",
         "--dynamic_local_strategy=standalone",
         "--dynamic_remote_strategy=remote");
   }
