@@ -73,4 +73,5 @@ semantics = struct(
     check_proto_registry_collision = _check_proto_registry_collision,
     get_coverage_runner = _get_coverage_runner,
     add_constraints = _add_constraints,
+    JAVA_STUB_TEMPLATE_LABEL = "@bazel_tools//tools/jdk:java_stub_template.txt",
 )

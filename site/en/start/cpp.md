@@ -69,7 +69,7 @@ There are three sets of files, each set representing a stage in this tutorial.
 In the first stage, you will build a single [target]
 (https://bazel.build/reference/glossary#target) residing in a single [package]
 (https://bazel.build/reference/glossary#package). In the second stage, you will
-you will build both a binary and a library from a single package. In
+build both a binary and a library from a single package. In
 the third and final stage, you will build a project with multiple packages and
 build it with multiple targets.
 

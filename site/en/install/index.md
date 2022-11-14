@@ -30,6 +30,6 @@ officially support them. Contact the package maintainers for support.
 
 ## Community-supported architectures {:#community-supported-architectures}
 
-*   [ppc64el](https://oplab9.parqtec.unicamp.br/pub/ppc64el/bazel){: .external}
+*   [ppc64el](https://ftp2.osuosl.org/pub/ppc64el/bazel/){: .external}
 
 For other platforms, you can try to [compile from source](/install/compile-source).

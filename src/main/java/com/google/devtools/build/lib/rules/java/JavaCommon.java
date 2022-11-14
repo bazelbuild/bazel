@@ -371,9 +371,18 @@ public class JavaCommon {
 
   /** Computes javacopts for the current rule. */
   private ImmutableList<String> computeJavacOpts(Collection<String> extraRuleJavacOpts) {
-    return ImmutableList.<String>builder()
-        .addAll(javaToolchain.getJavacOptions(ruleContext))
-        .addAll(extraRuleJavacOpts)
+    ImmutableList.Builder<String> javacOpts =
+        ImmutableList.<String>builder()
+            .addAll(javaToolchain.getJavacOptions(ruleContext))
+            .addAll(extraRuleJavacOpts);
+    if (activePlugins
+        .plugins()
+        .processorClasses()
+        .toSet()
+        .contains("com.google.devtools.build.runfiles.AutoBazelRepositoryProcessor")) {
+      javacOpts.add("-Abazel.repository=" + ruleContext.getRepository().getName());
+    }
+    return javacOpts
         .addAll(computePerPackageJavacOpts(ruleContext, javaToolchain))
         .addAll(addModuleJavacopts(ruleContext))
         .addAll(ruleContext.getExpander().withDataLocations().tokenized("javacopts"))
@@ -538,8 +547,8 @@ public class JavaCommon {
   public JavaTargetAttributes.Builder initCommon(
       Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts) {
     Preconditions.checkState(javacOpts == null);
-    javacOpts = computeJavacOpts(ImmutableList.copyOf(extraJavacOpts));
     activePlugins = collectPlugins();
+    javacOpts = computeJavacOpts(ImmutableList.copyOf(extraJavacOpts));
 
     JavaTargetAttributes.Builder javaTargetAttributes = new JavaTargetAttributes.Builder(semantics);
     javaCompilationHelper =

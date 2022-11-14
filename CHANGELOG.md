@@ -1,3 +1,34 @@
+## Release 7.0.0-pre.20221102.3 (2022-11-11)
+
+```
+Baseline: 19b8d24531fb728701a85ec050361d434600b5d2
+```
+
+Incompatible changes:
+
+  - This has the side effect of changing the message on unsuccessful
+    builds from
+    ```
+    FAILED: Build did NOT complete successfully (0 packages loaded)
+    ```
+    to
+    ```
+    ERROR: Build did NOT complete successfully
+    ```
+  - Bazel no longer increases the delay between progress updates when
+    there is no cursor control.
+  - This has the side effect of changing the message on unsuccessful
+    builds from
+    ```
+    FAILED: Build did NOT complete successfully (0 packages loaded)
+    ```
+    to
+    ```
+    ERROR: Build did NOT complete successfully
+    ```
+
+This release contains contributions from many people at Google, as well as Ed Schouten, Fabian Meumertzheim, Keith Smiley, Krzysztof Naglik, Patrick Balestra, Tom Cnops, Xdng Yng, Xiangquan Xiao.
+
 ## Release 7.0.0-pre.20221026.2 (2022-11-02)
 
 ```

@@ -37,6 +37,7 @@ public interface SyscallCache extends XattrProvider {
           return path.readdir(Symlinks.NOFOLLOW);
         }
 
+        @Nullable
         @Override
         public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
           return path.statIfFound(symlinks);
@@ -55,6 +56,7 @@ public interface SyscallCache extends XattrProvider {
   Collection<Dirent> readdir(Path path) throws IOException;
 
   /** Returns the stat() for the given path, or null. */
+  @Nullable
   FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException;
 
   /**

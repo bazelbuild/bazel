@@ -250,11 +250,8 @@ public final class BugReport {
       synchronized (LOCK) {
         logger.atSevere().withCause(throwable).log("Handling crash with %s", ctx);
 
-        // Don't try to send a bug report during a crash in a test, it will throw itself.
         if (TestType.isInTest()) {
           lastCrashingThrowable = throwable;
-        } else if (ctx.shouldSendBugReport()) {
-          sendBugReport(throwable, ctx.getArgs());
         }
 
         String crashMsg;
@@ -274,7 +271,14 @@ public final class BugReport {
         ctx.getEventHandler().handle(Event.fatal(crashMsg));
 
         try {
+          // Emit exit data before sending a bug report. Bug reports involve an RPC, and given that
+          // we are crashing, who knows if it will complete. It's more important that we write
+          // exit code and failure detail information so that the crash can be handled correctly.
           emitExitData(crash, ctx, numericExitCode, heapDumpPath);
+          // Don't try to send a bug report during a crash in a test, it will throw itself.
+          if (ctx.shouldSendBugReport() && !TestType.isInTest()) {
+            sendBugReport(throwable, ctx.getArgs());
+          }
         } finally {
           if (ctx.shouldHaltJvm()) {
             // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will
@@ -413,7 +417,9 @@ public final class BugReport {
       preamble += " crashed with args: ";
     }
 
+    logger.atInfo().log("Calling logToRemote");
     LoggingUtil.logToRemote(level, preamble + Joiner.on(' ').join(args), exception, values);
+    logger.atInfo().log("Call to logToRemote complete");
   }
 
   private static final class DefaultBugReporter implements BugReporter {
