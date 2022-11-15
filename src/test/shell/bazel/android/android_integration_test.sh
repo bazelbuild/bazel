@@ -219,6 +219,28 @@ EOF
       //java/com/example/hello:hello || fail "build failed"
 }
 
+function test_hello_android_bzlmod() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = 'hello',
+    manifest = "AndroidManifest.xml",
+    srcs = ['MainActivity.java'],
+    resource_files = glob(["res/**"]),
+)
+EOF
+  cat > MODULE.bazel << 'EOF'
+# Required for android_integration_test_with_platforms
+bazel_dep(name = "platforms", version = "0.0.5")
+EOF
+
+  bazel clean
+  # Check that android builds with bzlmod enable work.
+  bazel build --experimental_enable_bzlmod \
+      //java/com/example/hello:hello || fail "build failed"
+}
+
 function test_android_tools_version() {
   create_new_workspace
   setup_android_sdk_support
