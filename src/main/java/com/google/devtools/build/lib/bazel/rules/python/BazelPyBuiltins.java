@@ -17,4 +17,8 @@ package com.google.devtools.build.lib.bazel.rules.python;
 import com.google.devtools.build.lib.rules.python.PyBuiltins;
 
 /** PyBuiltins with Bazel-specific functionality. */
-public final class BazelPyBuiltins extends PyBuiltins {}
+public final class BazelPyBuiltins extends PyBuiltins {
+  public BazelPyBuiltins() {
+    super(BazelPythonSemantics.GET_INIT_PY_FILES);
+  }
+}

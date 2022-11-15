@@ -58,6 +58,12 @@ import net.starlark.java.eval.StarlarkValue;
 public abstract class PyBuiltins implements StarlarkValue {
   public static final String NAME = "py_builtins";
 
+  private final Runfiles.EmptyFilesSupplier emptyFilesSupplier;
+
+  protected PyBuiltins(Runfiles.EmptyFilesSupplier emptyFilesSupplier) {
+    this.emptyFilesSupplier = emptyFilesSupplier;
+  }
+
   @StarlarkMethod(
       name = "is_singleton_depset",
       doc = "Efficiently checks if the depset is a singleton.",
@@ -256,6 +262,36 @@ public abstract class PyBuiltins implements StarlarkValue {
     return new Runfiles.Builder(
             starlarkCtx.getWorkspaceName(), starlarkCtx.getConfiguration().legacyExternalRunfiles())
         .addLegacyExtraMiddleman(runfilesSupport.getRunfilesMiddleman())
+        .build();
+  }
+
+  @StarlarkMethod(
+      name = "merge_runfiles_with_generated_inits_empty_files_supplier",
+      doc =
+          "Create a runfiles that generates missing __init__.py files using Java and "
+              + "the internal EmptyFilesProvider interface",
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true, defaultValue = "unbound"),
+        @Param(
+            name = "runfiles",
+            positional = false,
+            named = true,
+            defaultValue = "unbound",
+            doc = "Runfiles to merge into the result; must be non-empty"),
+      })
+  public Object mergeRunfilesWithGeneratedInitsEmptyFilesSupplier(
+      StarlarkRuleContext starlarkCtx, Runfiles runfiles) throws EvalException {
+    if (runfiles.isEmpty()) {
+      // The Runfiles merge functions have an optimization to detect an empty runfiles and return a
+      // singleton. Unfortunately, this optimization considers an empty runfiles with
+      // a emptyFilesSupplier as empty, so then drops it when returning the singleton. To work
+      // around this, require that there is *something* in the runfiles.
+      throw Starlark.errorf("input runfiles cannot be empty");
+    }
+    return new Runfiles.Builder(
+            starlarkCtx.getWorkspaceName(), starlarkCtx.getConfiguration().legacyExternalRunfiles())
+        .setEmptyFilesSupplier(emptyFilesSupplier)
+        .merge(runfiles)
         .build();
   }
 
