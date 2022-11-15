@@ -44,6 +44,8 @@ android_sh_test(
     tags = [
         "no-remote",
         "no_windows",
+        # bzlmod test requires network
+        "requires-network",
     ],
 )
 
