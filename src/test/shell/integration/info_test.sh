@@ -51,7 +51,7 @@ function test_info() {
   # Test some arbitrary keys.
   expect_log 'max-heap-size: [0-9]*MB'
   expect_log 'server_pid: [0-9]*'
-  expect_log 'command_log: .*/command\.log'
+  expect_log 'foobar_log: .*/command\.log'
   expect_log 'release: development version'
 
   # Make sure that hidden keys are not shown.
