@@ -106,8 +106,7 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     this.reporter = new Reporter(new EventBus(), events::add);
   }
 
-  private List<String> getOutput(String queryExpression, List<String> outputGroups,
-      boolean includeSourceFiles)
+  private List<String> getOutput(String queryExpression, List<String> outputGroups)
       throws Exception {
     QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
@@ -115,7 +114,6 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     PostAnalysisQueryEnvironment<KeyedConfiguredTarget> env =
         ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
 
-    options.includeSourceFiles = includeSourceFiles;
     ByteArrayOutputStream output = new ByteArrayOutputStream();
     FilesOutputFormatterCallback callback =
         new FilesOutputFormatterCallback(
@@ -136,14 +134,7 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
   @Test
   public void basicQuery_defaultOutputGroup() throws Exception {
-    List<String> output = getOutput("//pkg:all", ImmutableList.of(), false);
-    assertContainsExactlyWithBinDirPrefix(
-        output, "pkg/main_default_file", "pkg/other_default_file");
-  }
-
-  @Test
-  public void basicQuery_defaultOutputGroup_includeSourceFiles() throws Exception {
-    List<String> output = getOutput("//pkg:all", ImmutableList.of(), true);
+    List<String> output = getOutput("//pkg:all", ImmutableList.of());
     var sourceAndGeneratedFiles = output.stream()
         .collect(Collectors.<String>partitioningBy(path -> path.startsWith("bazel-out/")));
     assertThat(sourceAndGeneratedFiles.get(false)).containsExactly("pkg/BUILD", "defs/rules.bzl");
@@ -153,14 +144,7 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
   @Test
   public void basicQuery_defaultAndCustomOutputGroup() throws Exception {
-    List<String> output = getOutput("//pkg:main", ImmutableList.of("+foobar"), false);
-    assertContainsExactlyWithBinDirPrefix(
-        output, "pkg/main_default_file", "pkg/main_output_group_only");
-  }
-
-  @Test
-  public void basicQuery_defaultAndCustomOutputGroup_includeSourceFiles() throws Exception {
-    List<String> output = getOutput("//pkg:main", ImmutableList.of("+foobar"), true);
+    List<String> output = getOutput("//pkg:main", ImmutableList.of("+foobar"));
     var sourceAndGeneratedFiles = output.stream()
         .collect(Collectors.<String>partitioningBy(path -> path.startsWith("bazel-out/")));
     assertThat(sourceAndGeneratedFiles.get(false)).containsExactly("pkg/BUILD", "defs/rules.bzl");
@@ -170,13 +154,7 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
   @Test
   public void basicQuery_customOutputGroupOnly() throws Exception {
-    List<String> output = getOutput("//pkg:other", ImmutableList.of("foobar"), false);
-    assertContainsExactlyWithBinDirPrefix(output, "pkg/other_output_group_only");
-  }
-
-  @Test
-  public void basicQuery_customOutputGroupOnly_includeSourceFiles() throws Exception {
-    List<String> output = getOutput("//pkg:other", ImmutableList.of("foobar"), true);
+    List<String> output = getOutput("//pkg:other", ImmutableList.of("foobar"));
     var sourceAndGeneratedFiles = output.stream()
         .collect(Collectors.<String>partitioningBy(path -> path.startsWith("bazel-out/")));
     assertThat(sourceAndGeneratedFiles.get(false)).containsExactly("pkg/BUILD");

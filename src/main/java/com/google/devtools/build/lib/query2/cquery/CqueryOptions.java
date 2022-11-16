@@ -107,12 +107,4 @@ public class CqueryOptions extends CommonQueryOptions {
               + " error to specify both --starlark:expr and --starlark:file. See help for"
               + " --output=starlark for additional detail.")
   public String file;
-
-  @Option(
-      name = "files:include_source_files",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "If true, source files are included in the output of cquery with --output=files.")
-  public boolean includeSourceFiles;
 }

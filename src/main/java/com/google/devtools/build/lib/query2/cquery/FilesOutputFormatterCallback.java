@@ -54,16 +54,16 @@ public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
       throws IOException, InterruptedException {
     for (KeyedConfiguredTarget keyedTarget : partialResult) {
       ConfiguredTarget target = keyedTarget.getConfiguredTarget();
-      if (!TopLevelArtifactHelper.shouldConsiderForDisplay(target) && !(options.includeSourceFiles
-          && target instanceof InputFileConfiguredTarget)) {
+      if (!TopLevelArtifactHelper.shouldConsiderForDisplay(target)
+          && !(target instanceof InputFileConfiguredTarget)) {
         continue;
       }
       TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext)
           .getImportantArtifacts()
           .toList()
           .stream()
-          .filter(artifact -> TopLevelArtifactHelper.shouldDisplay(artifact) || (
-              artifact.isSourceArtifact() && options.includeSourceFiles))
+          .filter(artifact -> TopLevelArtifactHelper.shouldDisplay(artifact)
+              || artifact.isSourceArtifact())
           .map(Artifact::getExecPathString)
           .forEach(this::addResult);
     }
