@@ -404,6 +404,7 @@ dist_http_archive(
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
+# and tools/android/android_extensions.bzl
 http_archive(
     name = "android_tools_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
@@ -413,6 +414,7 @@ http_archive(
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
+# and tools/android/android_extensions.bzl
 http_jar(
     name = "android_gmaven_r8_for_testing",
     sha256 = "8626ca32fb47aba7fddd2c897615e2e8ffcdb4d4b213572a2aefb3f838f01972",
