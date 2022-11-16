@@ -45,8 +45,6 @@ import javax.annotation.Nullable;
  */
 class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
 
-  protected final BuildConfigurationValue hostConfiguration;
-
   private final HashMap<Label, Target> partialResultMap;
   @Nullable private final TransitionFactory<RuleTransitionData> trimmingTransitionFactory;
   private final RepositoryMapping mainRepoMapping;
@@ -58,7 +56,6 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   /**
    * @param accessor provider of query result configured targets.
-   * @param hostConfiguration host configuration for this query.
    */
   TransitionsOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
@@ -66,11 +63,9 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTarget> accessor,
-      BuildConfigurationValue hostConfiguration,
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
       RepositoryMapping mainRepoMapping) {
     super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
-    this.hostConfiguration = hostConfiguration;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.partialResultMap = Maps.newHashMap();
     this.mainRepoMapping = mainRepoMapping;
@@ -134,9 +129,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                         .map(
                             options -> {
                               String checksum = options.checksum();
-                              return checksum.equals(hostConfiguration.checksum())
-                                  ? "HOST"
-                                  : shortId(checksum);
+                              return shortId(checksum);
                             })
                         .collect(joining(", "))));
         if (verbosity == CqueryOptions.Transitions.LITE) {
