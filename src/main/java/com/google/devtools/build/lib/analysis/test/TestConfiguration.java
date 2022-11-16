@@ -181,7 +181,8 @@ public class TestConfiguration extends Fragment {
         help =
             "Specify strategy for test sharding: "
                 + "'explicit' to only use sharding if the 'shard_count' BUILD attribute is "
-                + "present. 'disabled' to never use test sharding.")
+                + "present. 'disabled' to never use test sharding. 'forced=k' to enforce 'k' "
+                + "shards for testing regardless of the 'shard_count' BUILD attribute.")
     public TestShardingStrategy testShardingStrategy;
 
     @Option(

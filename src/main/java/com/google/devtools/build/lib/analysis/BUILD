@@ -2589,8 +2589,15 @@ java_library(
 
 java_library(
     name = "test/test_sharding_strategy",
-    srcs = ["test/TestShardingStrategy.java"],
-    deps = ["//src/main/java/com/google/devtools/common/options"],
+    srcs = [
+        "test/TestShardingStrategy.java",
+        "test/TestShardingStrategyForced.java",
+        "test/TestShardingStrategyNotForced.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+    ],
 )
 
 java_library(
