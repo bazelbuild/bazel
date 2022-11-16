@@ -220,6 +220,7 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.PrintStream;
 import java.time.Duration;
@@ -2193,9 +2194,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public abstract void invalidateTransientErrors();
 
   /** Configures a given set of configured targets. */
+  @CanIgnoreReturnValue
   EvaluationResult<ActionLookupValue> configureTargets(
       ExtendedEventHandler eventHandler,
-      List<ConfiguredTargetKey> configuredTargetKeys,
+      ImmutableList<ConfiguredTargetKey> configuredTargetKeys,
       ImmutableList<TopLevelAspectsKey> topLevelAspectKeys,
       boolean keepGoing,
       int numThreads,
@@ -2225,7 +2227,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * TopLevelAspectsKey}.
    */
   protected Iterable<? extends SkyKey> analysisPhaseKeys(
-      Iterable<ConfiguredTargetKey> ctKeys, Iterable<TopLevelAspectsKey> aspectKeys) {
+      ImmutableList<ConfiguredTargetKey> ctKeys, ImmutableList<TopLevelAspectsKey> aspectKeys) {
     return Iterables.concat(ctKeys, aspectKeys);
   }
 

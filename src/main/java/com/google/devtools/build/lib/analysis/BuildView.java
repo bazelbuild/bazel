@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
@@ -277,10 +279,10 @@ public class BuildView {
       eventBus.post(new TargetConfiguredEvent(target, byLabel.get(target.getLabel())));
     }
 
-    List<ConfiguredTargetKey> topLevelCtKeys =
+    ImmutableList<ConfiguredTargetKey> topLevelCtKeys =
         topLevelTargetsWithConfigs.stream()
             .map(BuildView::getConfiguredTargetKey)
-            .collect(Collectors.toList());
+            .collect(toImmutableList());
 
     RepositoryMapping mainRepoMapping;
     try {
