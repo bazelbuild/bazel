@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Collection;
 
 /**
  * A wrapper for {@link RuleClass.Builder} that supports access to {@link
@@ -50,44 +48,5 @@ public class ConfigAwareRuleClassBuilder {
    */
   public RuleClass.Builder originalBuilder() {
     return ruleClassBuilder;
-  }
-
-  /**
-   * Declares the fragments required by this rule for the configuration of the host machine this
-   * rule's actions execute on.
-   *
-   * <p>This is not the same as the rule's configuration. The rule's configuration is its
-   * <i>target</i> configuration, which determines the platform it builds outputs for. The actions
-   * created by this rule run on a host machine, which is what the host configuration corresponds
-   * to.
-   *
-   * <p>The value is inherited by subclasses.
-   */
-  @CanIgnoreReturnValue
-  public ConfigAwareRuleClassBuilder requiresHostConfigurationFragments(
-      Class<? extends Fragment>... configurationFragments) {
-    ruleClassBuilder.requiresConfigurationFragments(HostTransition.INSTANCE,
-        configurationFragments);
-    return this;
-  }
-
-  /**
-   * Declares the fragments required by this rule for the configuration of the host machine this
-   * rule's actions execute on.
-   *
-   * <p>This is not the same as the rule's configuration. The rule's configuration is its
-   * <i>target</i> configuration, which determines the platform it builds outputs for. The actions
-   * created by this rule run on a host machine, which is what the host configuration corresponds
-   * to.
-   *
-   * <p>In contrast to {@link #requiresHostConfigurationFragments(Class...)}, this method takes
-   * Starlark module names of fragments instead of their classes.
-   */
-  @CanIgnoreReturnValue
-  public ConfigAwareRuleClassBuilder requiresHostConfigurationFragmentsByStarlarkBuiltinName(
-      Collection<String> configurationFragmentNames) {
-    ruleClassBuilder.requiresConfigurationFragmentsByStarlarkModuleName(
-        HostTransition.INSTANCE, configurationFragmentNames);
-    return this;
   }
 }

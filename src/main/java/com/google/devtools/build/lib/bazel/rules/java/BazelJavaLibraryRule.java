@@ -43,8 +43,6 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
 
     return ConfigAwareRuleClassBuilder.of(builder)
-        // For getting the host Java executable.
-        .requiresHostConfigurationFragments(JavaConfiguration.class)
         .originalBuilder()
         .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
         /* <!-- #BLAZE_RULE(java_library).IMPLICIT_OUTPUTS -->
