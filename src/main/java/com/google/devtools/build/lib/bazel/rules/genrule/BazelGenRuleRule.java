@@ -71,6 +71,13 @@ public final class BazelGenRuleRule implements RuleDefinition {
   for you.
 </p>
 <p>
+  Note that genrule requires a shell to interpret the command argument.
+  It is also easy to reference arbitrary programs available on the PATH, however this makes the command
+  non-hermetic and may not be reproducible.
+  If you only need to run a single tool, consider using
+  <a href="https://github.com/bazelbuild/bazel-skylib/blob/main/docs/run_binary_doc.md">run_binary</a>
+  instead.
+<p>
   Do not use a genrule for running tests. There are special dispensations for tests and test
   results, including caching policies and environment variables. Tests generally need to be run
   after the build is complete and on the target architecture, whereas genrules are executed during
