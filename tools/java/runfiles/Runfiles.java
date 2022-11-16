@@ -356,12 +356,7 @@ public final class Runfiles {
     if (apparentTargetAndRemainder.length < 2) {
       return preloadedRunfiles.rlocationChecked(path);
     }
-    String targetCanonical =
-        preloadedRunfiles
-            .getRepoMapping()
-            .getOrDefault(
-                new Preloaded.RepoMappingKey(sourceRepository, apparentTargetAndRemainder[0]),
-                apparentTargetAndRemainder[0]);
+    String targetCanonical = getCanonicalRepositoryName(apparentTargetAndRemainder[0]);
     return preloadedRunfiles.rlocationChecked(
         targetCanonical + "/" + apparentTargetAndRemainder[1]);
   }
@@ -376,7 +371,17 @@ public final class Runfiles {
     return preloadedRunfiles.getEnvVars();
   }
 
-  /** Returns true if the platform supports runfiles only via manifests. */
+  String getCanonicalRepositoryName(String apparentRepositoryName) {
+    return preloadedRunfiles
+        .getRepoMapping()
+        .getOrDefault(
+            new Preloaded.RepoMappingKey(sourceRepository, apparentRepositoryName),
+            apparentRepositoryName);
+  }
+
+  /**
+   * Returns true if the platform supports runfiles only via manifests.
+   */
   private static boolean isManifestOnly(Map<String, String> env) {
     return "1".equals(env.get("RUNFILES_MANIFEST_ONLY"));
   }
