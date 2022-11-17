@@ -2644,7 +2644,7 @@ java_library(
     srcs = ["TopLevelAspectsValue.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//third_party:guava",
     ],
 )

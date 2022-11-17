@@ -385,8 +385,7 @@ public final class SkyframeBuildView {
         // Skip aspects that couldn't be applied to targets.
         continue;
       }
-      for (SkyValue val : value.getTopLevelAspectsValues()) {
-        AspectValue aspectValue = (AspectValue) val;
+      for (AspectValue aspectValue : value.getTopLevelAspectsValues()) {
         aspects.put(aspectValue.getKey(), aspectValue.getConfiguredAspect());
         if (packages != null) {
           packages.addTransitive(Preconditions.checkNotNull(aspectValue.getTransitivePackages()));
@@ -999,7 +998,7 @@ public final class SkyframeBuildView {
                 skyframeExecutor.getDoneSkyValueForIntrospection(topLevelAspectsKey);
         topLevelAspectsValue
             .getTopLevelAspectsValues()
-            .forEach((aspectValue) -> aspectKeysBuilder.add(((AspectValue) aspectValue).getKey()));
+            .forEach(aspectValue -> aspectKeysBuilder.add(aspectValue.getKey()));
       } catch (FailureToRetrieveIntrospectedValueException e) {
         // It could happen that the analysis of TopLevelAspectKey wasn't complete: either its own
         // analysis failed, or another error was raise in --nokeep_going mode. In that case, it
@@ -1054,8 +1053,7 @@ public final class SkyframeBuildView {
         continue;
       }
       TopLevelAspectsValue topLevelAspectsValue = (TopLevelAspectsValue) value.getWrappedSkyValue();
-      for (SkyValue val : topLevelAspectsValue.getTopLevelAspectsValues()) {
-        AspectValue aspectValue = (AspectValue) val;
+      for (AspectValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
         aspects.put(aspectValue.getKey(), aspectValue.getConfiguredAspect());
       }
     }
