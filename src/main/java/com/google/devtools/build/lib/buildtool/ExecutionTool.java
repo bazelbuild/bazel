@@ -929,7 +929,7 @@ public class ExecutionTool {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
     ImmutableMap<String, Float> extraResources = options.localExtraResources.stream().collect(
-      ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, (v1,v2) -> v1));
+      ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, (v1,v2) -> v2));
 
     resourceMgr.setAvailableResources(
         ResourceSet.create(

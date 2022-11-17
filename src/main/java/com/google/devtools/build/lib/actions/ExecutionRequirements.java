@@ -157,27 +157,22 @@ public class ExecutionRequirements {
   /** How many extra resources an action requires for execution. */
   public static final ParseableRequirement RESOURCES =
       ParseableRequirement.create(
-          "resources:<str>:<int>",
+          "resources:<str>:<float>",
           Pattern.compile("resources:(.+:.+)"),
           s -> {
             Preconditions.checkNotNull(s);
 
             int splitIndex = s.indexOf(":");
             String resourceCount = s.substring(splitIndex+1);
-            int value;
+            float value;
             try {
-              value = Integer.parseInt(resourceCount);
+              value = Float.parseFloat(resourceCount);
             } catch (NumberFormatException e) {
-              return "can't be parsed as an integer";
+              return "can't be parsed as a float";
             }
 
-            // De-and-reserialize & compare to only allow canonical integer formats.
-            if (!Integer.toString(value).equals(resourceCount)) {
-              return "must be in canonical format (e.g. '4' instead of '+04')";
-            }
-
-            if (value < 1) {
-              return "can't be zero or negative";
+            if (value < 0) {
+              return "can't be negative";
             }
 
             return null;

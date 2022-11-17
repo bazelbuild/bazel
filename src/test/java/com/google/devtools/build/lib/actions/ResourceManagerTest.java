@@ -46,6 +46,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.NoSuchElementException;
 import javax.annotation.Nullable;
 import org.apache.commons.pool2.PooledObject;
 import org.junit.Before;
@@ -114,21 +115,42 @@ public final class ResourceManagerTest {
     return acquire(ram, cpu, tests, ResourcePriority.LOCAL);
   }
 
-  private ResourceHandle acquire(double ram, double cpu, int tests, ImmutableMap<String, Float> extraResources, String mnemonic)
+  private ResourceHandle acquire(double ram, double cpu, int tests, String mnemonic)
       throws InterruptedException, IOException {
 
     return rm.acquireResources(
         resourceOwner,
-        ResourceSet.createWithWorkerKey(ram, cpu, tests, extraResources, createWorkerKey(mnemonic)),
+        ResourceSet.createWithWorkerKey(ram, cpu, tests, createWorkerKey(mnemonic)),
+        ResourcePriority.LOCAL);
+  }
+
+  private ResourceHandle acquire(double ram, double cpu, ImmutableMap<String, Float> extraResources, int tests, ResourcePriority priority)
+      throws InterruptedException, IOException, NoSuchElementException {
+    return rm.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, extraResources, tests), priority);
+  }
+
+  private ResourceHandle acquire(double ram, double cpu, ImmutableMap<String, Float> extraResources, int tests)
+      throws InterruptedException, IOException, NoSuchElementException {
+    return acquire(ram, cpu, extraResources, tests, ResourcePriority.LOCAL);
+  }
+
+  private ResourceHandle acquire(double ram, double cpu, ImmutableMap<String, Float> extraResources, int tests, String mnemonic)
+      throws InterruptedException, IOException, NoSuchElementException {
+
+    return rm.acquireResources(
+        resourceOwner,
+        ResourceSet.createWithWorkerKey(ram, cpu, extraResources, tests, createWorkerKey(mnemonic)),
         ResourcePriority.LOCAL);
   }
 
   private void release(double ram, double cpu, int tests) throws IOException, InterruptedException {
-    rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, tests), /* worker=*/ null);
+    rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, tests), /* worker= */ null);
   }
 
-  private void release(double ram, double cpu, int tests, ImmutableMap<String, Float> extraResources) {
-    rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, extraResources, tests));
+  private void release(double ram, double cpu, ImmutableMap<String, Float> extraResources, int tests)
+      throws InterruptedException, IOException {
+    rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, extraResources, tests),
+        /* worker= */ null);
   }
 
   private void validate(int count) {
@@ -179,11 +201,11 @@ public final class ResourceManagerTest {
     release(0, 0, bigTests);
     assertThat(rm.inUse()).isFalse();
 
-    // Ditto, for extra resources (even if they don't exist in the available resource set):
-    ImmutableMap<String, Float> bigExtraResources = ImmutableMap.of("gpu", 10.0f, "fancyresource", 10.0f, "nonexisting", 10.0f);
-    acquire(0, 0, 0, bigExtraResources);
+    // Ditto, for extra resources:
+    ImmutableMap<String, Float> bigExtraResources = ImmutableMap.of("gpu", 10.0f, "fancyresource", 10.0f);
+    acquire(0, 0, bigExtraResources, 0);
     assertThat(rm.inUse()).isTrue();
-    release(0, 0, 0, bigExtraResources);
+    release(0, 0, bigExtraResources, 0);
     assertThat(rm.inUse()).isFalse();
   }
 
@@ -271,20 +293,21 @@ public final class ResourceManagerTest {
     assertThat(rm.inUse()).isFalse();
 
     // Given a partially acquired extra resources:
-    acquire(0, 0, 1, ImmutableMap.of("gpu", 1.0f));
+    acquire(0, 0, ImmutableMap.of("gpu", 1.0f), 1);
 
     // When a request for extra resources is made that would overallocate,
     // Then the request fails:
-    TestThread thread1 = new TestThread(() -> assertThat(acquireNonblocking(0, 0, 0, ImmutableMap.of("gpu", 1.1f))).isNull());
+    TestThread thread1 = new TestThread(() -> acquire(0, 0, ImmutableMap.of("gpu", 1.1f), 0));
     thread1.start();
-    thread1.joinAndAssertState(10000);
+    AssertionError e = assertThrows(AssertionError.class, () -> thread1.joinAndAssertState(1000));
+    assertThat(e).hasCauseThat().hasMessageThat().contains("is still alive");
   }
 
   @Test
   public void testHasResources() throws Exception {
     assertThat(rm.inUse()).isFalse();
     assertThat(rm.threadHasResources()).isFalse();
-    acquire(1, 0.1, 1, ImmutableMap.of("gpu", 1.0f));
+    acquire(1, 0.1, ImmutableMap.of("gpu", 1.0f), 1);
     assertThat(rm.threadHasResources()).isTrue();
 
     // We have resources in this thread - make sure other threads
@@ -305,15 +328,15 @@ public final class ResourceManagerTest {
               assertThat(rm.threadHasResources()).isTrue();
               release(0, 0, 1);
               assertThat(rm.threadHasResources()).isFalse();
-              acquire(0, 0, 0, ImmutableMap.of("gpu", 1.0f));
+              acquire(0, 0, ImmutableMap.of("gpu", 1.0f), 0);
               assertThat(rm.threadHasResources()).isTrue();
-              release(0, 0, 0, ImmutableMap.of("gpu", 1.0f));
+              release(0, 0, ImmutableMap.of("gpu", 1.0f), 0);
               assertThat(rm.threadHasResources()).isFalse();
             });
     thread1.start();
     thread1.joinAndAssertState(10000);
 
-    release(1, 0.1, 1, ImmutableMap.of("gpu", 1.0f));
+    release(1, 0.1, ImmutableMap.of("gpu", 1.0f), 1);
     assertThat(rm.threadHasResources()).isFalse();
     assertThat(rm.inUse()).isFalse();
   }
@@ -702,6 +725,18 @@ public final class ResourceManagerTest {
             });
     thread.start();
     return sync;
+  }
+
+  @Test
+  public void testNonexistingResource() throws Exception {
+    // If we try to use nonexisting resource we should return an error
+    TestThread thread1 =
+        new TestThread(
+            () -> {
+              assertThrows(NoSuchElementException.class, () -> acquire(0, 0, ImmutableMap.of("nonexisting", 1.0f), 0));
+            });
+    thread1.start();
+    thread1.joinAndAssertState(1000);
   }
 
   @Test

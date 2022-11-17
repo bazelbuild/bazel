@@ -475,7 +475,7 @@ public final class Converters {
   /**
    * A converter for for assignments from a string value to a float value.
    */
-  public static class StringToFloatAssignmentConverter implements Converter<Map.Entry<String, Float>> {
+  public static class StringToFloatAssignmentConverter extends Converter.Contextless<Map.Entry<String, Float>> {
     private static final AssignmentConverter baseConverter = new AssignmentConverter();
 
     @Override

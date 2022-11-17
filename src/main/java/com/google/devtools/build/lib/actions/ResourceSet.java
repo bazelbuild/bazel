@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
-import io.reactivex.rxjava3.annotations.NonNull;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import javax.annotation.Nullable;
@@ -58,11 +57,12 @@ public class ResourceSet implements ResourceSetOrBuilder {
   /** The workerKey of used worker. Null if no worker is used. */
   @Nullable private final WorkerKey workerKey;
 
-  private ResourceSet(double memoryMb, double cpuUsage, int localTestCount, @Nullable WorkerKey workerKey) {
+  private ResourceSet(
+      double memoryMb, double cpuUsage, int localTestCount, @Nullable WorkerKey workerKey) {
     this(memoryMb, cpuUsage, ImmutableMap.of(), localTestCount, workerKey);
   }
 
-  private ResourceSet(double memoryMb, double cpuUsage, @NonNull ImmutableMap<String, Float> extraResourceUsage, int localTestCount, @Nullable WorkerKey workerKey) {
+  private ResourceSet(double memoryMb, double cpuUsage, @Nullable ImmutableMap<String, Float> extraResourceUsage, int localTestCount, @Nullable WorkerKey workerKey) {
     this.memoryMb = memoryMb;
     this.cpuUsage = cpuUsage;
     this.extraResourceUsage = extraResourceUsage;
@@ -102,7 +102,7 @@ public class ResourceSet implements ResourceSetOrBuilder {
    * represent available resources.
    */
   public static ResourceSet create(double memoryMb, double cpuUsage, int localTestCount) {
-    return ResourceSet.create(memoryMb, cpuUsage, ImmutableMap.of(), localTestCount, /* wolkerKey= */ null);
+    return ResourceSet.createWithWorkerKey(memoryMb, cpuUsage, ImmutableMap.of(), localTestCount, /* wolkerKey= */ null);
   }
 
   /**
@@ -112,7 +112,11 @@ public class ResourceSet implements ResourceSetOrBuilder {
    * ResourceSets that represent available resources.
    */
   public static ResourceSet create(double memoryMb, double cpuUsage, ImmutableMap<String, Float> extraResourceUsage, int localTestCount) {
-    return createWithWorkerKey(memoryMb, cpuUsage, extraResourceUseage, localTestCount, /* workerKey= */ null);
+    return createWithWorkerKey(memoryMb, cpuUsage, extraResourceUsage, localTestCount, /* workerKey= */ null);
+  }
+
+  public static ResourceSet createWithWorkerKey(double memoryMb, double cpuUsage, int localTestCount, WorkerKey workerKey) {
+    return ResourceSet.createWithWorkerKey(memoryMb, cpuUsage, /* extraResourceUsage= */ImmutableMap.of(), localTestCount, workerKey);
   }
 
   public static ResourceSet createWithWorkerKey(

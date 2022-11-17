@@ -32,6 +32,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import javax.annotation.Nullable;
@@ -196,10 +197,6 @@ public class ResourceManager implements ResourceEstimator {
 
   /** If set, local-only actions are given priority over dynamically run actions. */
   private boolean prioritizeLocalActions;
-
-  private ResourceManager() {
-    usedExtraResources = new HashMap<>();
-  }
 
   @VisibleForTesting
   public static ResourceManager instanceForTestingOnly() {
@@ -392,7 +389,7 @@ public class ResourceManager implements ResourceEstimator {
    * wait.
    */
   private synchronized LatchWithWorker acquire(ResourceSet resources, ResourcePriority priority)
-      throws IOException, InterruptedException {
+      throws IOException, InterruptedException, NoSuchElementException {
     if (areResourcesAvailable(resources)) {
       Worker worker = incrementResources(resources);
       return new LatchWithWorker(/* latch= */ null, worker);
@@ -441,12 +438,6 @@ public class ResourceManager implements ResourceEstimator {
     usedCpu -= resources.getCpuUsage();
     usedRam -= resources.getMemoryMb();
 
-    for (Map.Entry<String, Float> resource : resources.getExtraResourceUsage().entrySet()) {
-      String key = (String)resource.getKey();
-      float value = (float)usedExtraResources.get(key) - resource.getValue();
-      usedExtraResources.put(key, value);
-    }
-
     usedLocalTestCount -= resources.getLocalTestCount();
 
     // TODO(bazel-team): (2010) rounding error can accumulate and value below can end up being
@@ -460,14 +451,14 @@ public class ResourceManager implements ResourceEstimator {
     }
 
     Set<String> toRemove = new HashSet<>();
-    usedExtraResources.entrySet().forEach(
-      resource -> {
-        String key = (String)resource.getKey();
-        float value = (float)usedExtraResources.get(key);
-        if (value < epsilon) {
-          toRemove.add(key);
-        }
-      });
+    for (Map.Entry<String, Float> resource : resources.getExtraResourceUsage().entrySet()) {
+      String key = (String)resource.getKey();
+      float value = (float)usedExtraResources.get(key) - resource.getValue();
+      usedExtraResources.put(key, value);
+      if (value < epsilon) {
+        toRemove.add(key);
+      }
+    }
     for (String key : toRemove) {
       usedExtraResources.remove(key);
     }
@@ -510,14 +501,27 @@ public class ResourceManager implements ResourceEstimator {
   }
 
   /**
+   * Throws an exception if requested extra resource isn't being tracked
+   */
+  private void assertExtraResourcesTracked(ResourceSet resources)
+      throws NoSuchElementException {
+    for (Map.Entry<String, Float> resource : resources.getExtraResourceUsage().entrySet()) {
+      String key = (String)resource.getKey();
+      if (!availableResources.getExtraResourceUsage().containsKey(key)) {
+        throw new NoSuchElementException("Resource "+key+" is not tracked in this resource set.");
+      }
+    }
+  }
+
+  /**
    * Return true iff all requested extra resources are considered to be available.
    */
-  private boolean areExtraResourcesAvailable(ResourceSet resources) {
+  private boolean areExtraResourcesAvailable(ResourceSet resources) throws NoSuchElementException {
     for (Map.Entry<String, Float> resource : resources.getExtraResourceUsage().entrySet()) {
       String key = (String)resource.getKey();
       float used = (float)usedExtraResources.getOrDefault(key, 0f);
       float requested = resource.getValue();
-      float available = (float)availableResources.getExtraResourceUsage().getOrDefault(key, 0f);
+      float available = availableResources.getExtraResourceUsage().get(key);
       float epsilon = 0.0001f;  // Account for possible rounding errors.
       if (requested != 0.0 && used != 0.0 && requested + used > available + epsilon) {
         return false;
@@ -528,7 +532,7 @@ public class ResourceManager implements ResourceEstimator {
 
   // Method will return true if all requested resources are considered to be available.
   @VisibleForTesting
-  boolean areResourcesAvailable(ResourceSet resources) {
+  boolean areResourcesAvailable(ResourceSet resources) throws NoSuchElementException {
     Preconditions.checkNotNull(availableResources);
     // Comparison below is robust, since any calculation errors will be fixed
     // by the release() method.
@@ -543,6 +547,10 @@ public class ResourceManager implements ResourceEstimator {
     boolean workerIsAvailable =
         workerKey == null
             || (activeWorkers < availableWorkers && workerPool.couldBeBorrowed(workerKey));
+
+    // We test for tracking of extra resources whenever acquired and throw an
+    // exception before acquiring any untracked resource.
+    assertExtraResourcesTracked(resources);
 
     if (usedCpu == 0.0 && usedRam == 0.0 && usedExtraResources.isEmpty() && usedLocalTestCount == 0 && workerIsAvailable) {
       return true;
