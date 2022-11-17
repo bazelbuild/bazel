@@ -60,9 +60,9 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
         "sh_library(name = 'foo', deps = [':dep'])",
         "sh_library(name = 'dep', deps = ['//bar:missing'])");
     assertThat(
-            evalThrows("rdeps(//foo:foo, //foo:dep, 1)", /*unconditionallyThrows=*/ false)
+            evalThrows("rdeps(//foo:foo, //foo:dep, 1)", /* unconditionallyThrows= */ false)
                 .getMessage())
-        .contains("errors were encountered while computing transitive closure");
+        .contains("preloading transitive closure failed");
   }
 
   @Override
