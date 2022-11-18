@@ -128,6 +128,7 @@ import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.IOException;
+import java.lang.Runtime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -144,6 +145,7 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -258,12 +260,13 @@ public class RemoteExecutionService {
   }
 
   /** A value class representing an action which can be executed remotely. */
-  public static class RemoteAction {
+  public class RemoteAction {
     private final Spawn spawn;
     private final SpawnExecutionContext spawnExecutionContext;
     private final RemoteActionExecutionContext remoteActionExecutionContext;
     private final RemotePathResolver remotePathResolver;
-    private final MerkleTree merkleTree;
+    private final long inputBytes;
+    private final long inputFiles;
     private final Digest commandHash;
     private final Command command;
     private final Action action;
@@ -283,11 +286,21 @@ public class RemoteExecutionService {
       this.spawnExecutionContext = spawnExecutionContext;
       this.remoteActionExecutionContext = remoteActionExecutionContext;
       this.remotePathResolver = remotePathResolver;
-      this.merkleTree = merkleTree;
+      this.inputBytes = merkleTree.getInputBytes();
+      this.inputFiles = merkleTree.getInputFiles();
       this.commandHash = commandHash;
       this.command = command;
       this.action = action;
       this.actionKey = actionKey;
+    }
+
+    public MerkleTree rebuildMerkleTree()
+        throws IOException, ForbiddenActionInputException {
+      MerkleTree merkleTree = buildInputMerkleTree(spawn, spawnExecutionContext);
+      if (!merkleTree.getRootDigest().equals(action.getInputRootDigest())) {
+        throw new IOException("Rebuilding the Merkle tree yielded a different digest");
+      }
+      return merkleTree;
     }
 
     public RemoteActionExecutionContext getRemoteActionExecutionContext() {
@@ -304,12 +317,12 @@ public class RemoteExecutionService {
      * action.
      */
     public long getInputBytes() {
-      return merkleTree.getInputBytes();
+      return inputBytes;
     }
 
     /** Returns the number of input files of this action. */
     public long getInputFiles() {
-      return merkleTree.getInputFiles();
+      return inputFiles;
     }
 
     /** Returns the id this is action. */
@@ -451,49 +464,57 @@ public class RemoteExecutionService {
     return null;
   }
 
+  private final Semaphore remoteActionBuildingSemaphore =
+      new Semaphore(Runtime.getRuntime().availableProcessors(), true);
+
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, UserExecException, ForbiddenActionInputException {
-    final MerkleTree merkleTree = buildInputMerkleTree(spawn, context);
+      throws InterruptedException, IOException, UserExecException, ForbiddenActionInputException {
+    remoteActionBuildingSemaphore.acquire();
+    try {
+      final MerkleTree merkleTree = buildInputMerkleTree(spawn, context);
 
-    // Get the remote platform properties.
-    Platform platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+      // Get the remote platform properties.
+      Platform platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
 
-    Command command =
-        buildCommand(
-            spawn.getOutputFiles(),
-            spawn.getArguments(),
-            spawn.getEnvironment(),
-            platform,
-            remotePathResolver);
-    Digest commandHash = digestUtil.compute(command);
-    Action action =
-        Utils.buildAction(
-            commandHash,
-            merkleTree.getRootDigest(),
-            platform,
-            context.getTimeout(),
-            Spawns.mayBeCachedRemotely(spawn),
-            buildSalt(spawn));
+      Command command =
+          buildCommand(
+              spawn.getOutputFiles(),
+              spawn.getArguments(),
+              spawn.getEnvironment(),
+              platform,
+              remotePathResolver);
+      Digest commandHash = digestUtil.compute(command);
+      Action action =
+          Utils.buildAction(
+              commandHash,
+              merkleTree.getRootDigest(),
+              platform,
+              context.getTimeout(),
+              Spawns.mayBeCachedRemotely(spawn),
+              buildSalt(spawn));
 
-    ActionKey actionKey = digestUtil.computeActionKey(action);
+      ActionKey actionKey = digestUtil.computeActionKey(action);
 
-    RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata(
-            buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
-    RemoteActionExecutionContext remoteActionExecutionContext =
-        RemoteActionExecutionContext.create(spawn, metadata);
+      RequestMetadata metadata =
+          TracingMetadataUtils.buildMetadata(
+              buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
+      RemoteActionExecutionContext remoteActionExecutionContext =
+          RemoteActionExecutionContext.create(spawn, metadata);
 
-    return new RemoteAction(
-        spawn,
-        context,
-        remoteActionExecutionContext,
-        remotePathResolver,
-        merkleTree,
-        commandHash,
-        command,
-        action,
-        actionKey);
+      return new RemoteAction(
+          spawn,
+          context,
+          remoteActionExecutionContext,
+          remotePathResolver,
+          merkleTree,
+          commandHash,
+          command,
+          action,
+          actionKey);
+    } finally {
+      remoteActionBuildingSemaphore.release();
+    }
   }
 
   /** A value class representing the result of remotely executed {@link RemoteAction}. */
@@ -1297,7 +1318,7 @@ public class RemoteExecutionService {
    * <p>Must be called before calling {@link #executeRemotely}.
    */
   public void uploadInputsIfNotPresent(RemoteAction action, boolean force)
-      throws IOException, InterruptedException {
+      throws ForbiddenActionInputException, IOException, InterruptedException {
     checkState(!shutdown.get(), "shutdown");
     checkState(mayBeExecutedRemotely(action.spawn), "spawn can't be executed remotely");
 
@@ -1307,7 +1328,7 @@ public class RemoteExecutionService {
     additionalInputs.put(action.actionKey.getDigest(), action.action);
     additionalInputs.put(action.commandHash, action.command);
     remoteExecutionCache.ensureInputsPresent(
-        action.remoteActionExecutionContext, action.merkleTree, additionalInputs, force);
+        action.remoteActionExecutionContext, action.rebuildMerkleTree(), additionalInputs, force);
   }
 
   /**
