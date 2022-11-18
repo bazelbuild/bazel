@@ -42,7 +42,6 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
 ) for suffix, embedded_tools_target in {
     "_jdk_allmodules": [":embedded_tools_jdk_allmodules"],
     "_jdk_minimal": [":embedded_tools_jdk_minimal"],
-    "_dev_jdk": [":embedded_tools_dev_jdk"],
     "_nojdk": [":embedded_tools_nojdk"],
     "_notools": [],
 }.items()]
@@ -125,9 +124,8 @@ JAVA_TOOLS = [
         "//src/test:__subpackages__",  # For integration tests
     ],
 ) for suffix, jdk in {
-    "_jdk_allmodules": [":embedded_jdk_allmodules_cached"],
-    "_jdk_minimal": [":embedded_jdk_minimal_cached"],
-    "_dev_jdk": [":embedded_jdk_minimal"],
+    "_jdk_allmodules": [":embedded_jdk_allmodules"],
+    "_jdk_minimal": [":embedded_jdk_minimal"],
     "_nojdk": [],
 }.items()]
 
@@ -139,56 +137,6 @@ rule_size_test(
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
     expect = 465,
     margin = 5,  # percentage
-)
-
-filegroup(
-    name = "embedded_jdk_allmodules_cached",
-    srcs = select({
-        "//src/conditions:darwin_x86_64": [
-            "@openjdk_macos_x86_64//file",
-        ],
-        "//src/conditions:darwin_arm64": [
-            "@openjdk_macos_aarch64//file",
-        ],
-        "//src/conditions:windows_arm64": [
-            "@openjdk_win_arm64_vanilla//file",  # TODO(#14339): replace with openjdk_win_arm64 when packages are uploaded to bazel mirror server
-        ],
-        "//src/conditions:windows_x86_64": [
-            "@openjdk_win//file",
-        ],
-        "//src/conditions:linux_aarch64": [
-            "@openjdk_linux_aarch64//file",
-        ],
-        "//conditions:default": [
-            "@openjdk_linux//file",
-        ],
-    }),
-    visibility = ["//src/test/shell/bazel:__pkg__"],
-)
-
-filegroup(
-    name = "embedded_jdk_minimal_cached",
-    srcs = select({
-        "//src/conditions:darwin_x86_64": [
-            "@openjdk_macos_x86_64_minimal//file",
-        ],
-        "//src/conditions:darwin_arm64": [
-            "@openjdk_macos_aarch64_minimal//file",
-        ],
-        "//src/conditions:windows_arm64": [
-            "@openjdk_win_arm64_vanilla//file",  # TODO(#14339): replace with openjdk_win_arm64 when packages are uploaded to bazel mirror server
-        ],
-        "//src/conditions:windows_x86_64": [
-            "@openjdk_win_minimal//file",
-        ],
-        "//src/conditions:linux_aarch64": [
-            "@openjdk_linux_aarch64_minimal//file",
-        ],
-        "//conditions:default": [
-            "@openjdk_linux_minimal//file",
-        ],
-    }),
-    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 filegroup(
@@ -224,60 +172,29 @@ sh_binary(
     srcs = ["minimize_jdk.sh"],
 )
 
-filegroup(
+genrule(
     name = "embedded_jdk_minimal",
-    srcs = select({
-        "//src/conditions:windows": [
-            ":embedded_jdk_minimal.zip",
-        ],
-        "//conditions:default": [
-            ":embedded_jdk_minimal.tar.gz",
-        ],
-    }),
-)
-
-filegroup(
-    name = "embedded_jdk_allmodules",
-    srcs = select({
-        "//src/conditions:windows": [
-            ":embedded_jdk_allmodules.zip",
-        ],
-        "//conditions:default": [
-            ":embedded_jdk_allmodules.tar.gz",
-        ],
-    }),
-    visibility = ["//src/test/shell/bazel:__pkg__"],
-)
-
-[genrule(
-    name = "embedded_jdk_minimal" + suffix,
     srcs = [
         ":embedded_jdk_vanilla",
         ":minimize_jdk.sh",
         ":jdeps_modules.golden",
     ],
-    outs = ["minimal_jdk" + suffix],
+    outs = ["minimal_jdk.zip"],
     cmd = "$(location :minimize_jdk.sh) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
     visibility = ["//src/test/shell/bazel:__pkg__"],
-) for suffix in [
-    ".zip",
-    ".tar.gz",
-]]
+)
 
-[genrule(
-    name = "embedded_jdk_allmodules" + suffix,
+genrule(
+    name = "embedded_jdk_allmodules",
     srcs = [
         ":embedded_jdk_vanilla",
         ":minimize_jdk.sh",
         ":jdeps_modules.golden",
     ],
-    outs = ["allmodules_jdk" + suffix],
+    outs = ["allmodules_jdk.zip"],
     cmd = "$(location :minimize_jdk.sh) --allmodules $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
     visibility = ["//src/test/shell/bazel:__pkg__"],
-) for suffix in [
-    ".zip",
-    ".tar.gz",
-]]
+)
 
 [srcsfile(
     name = "embedded_tools" + suffix + "_params",
@@ -286,7 +203,6 @@ filegroup(
 ) for suffix in [
     "_jdk_allmodules",
     "_jdk_minimal",
-    "_dev_jdk",
     "_nojdk",
 ]]
 
@@ -302,7 +218,6 @@ filegroup(
 ) for suffix in [
     "_jdk_allmodules",
     "_jdk_minimal",
-    "_dev_jdk",
     "_nojdk",
 ]]
 
@@ -339,7 +254,6 @@ filegroup(
 ) for suffix, embed in [
     ("_jdk_allmodules", True),
     ("_jdk_minimal", True),
-    ("_dev_jdk", True),
     ("_notools", False),
     ("_nojdk", True),
 ]]
@@ -388,7 +302,6 @@ genrule(
     ("", "_jdk_minimal"),
     ("_jdk_allmodules", "_jdk_allmodules"),
     ("_jdk_minimal", "_jdk_minimal"),
-    ("_dev_jdk", "_dev_jdk"),
     ("_notools", "_notools"),
     ("_nojdk", "_nojdk"),
 ]]
@@ -649,16 +562,6 @@ filegroup(
         "@android_tools_for_testing//:WORKSPACE",
         "@bazel_skylib//:WORKSPACE",
         "@com_google_protobuf//:WORKSPACE",
-        "@openjdk11_darwin_aarch64_archive//:WORKSPACE",
-        "@openjdk11_darwin_archive//:WORKSPACE",
-        "@openjdk11_linux_archive//:WORKSPACE",
-        "@openjdk11_windows_archive//:WORKSPACE",
-        "@openjdk11_windows_arm64_archive//:WORKSPACE",
-        "@openjdk_linux_aarch64_minimal//file",
-        "@openjdk_linux_minimal//file",
-        "@openjdk_macos_aarch64_minimal//file",
-        "@openjdk_macos_x86_64_minimal//file",
-        "@openjdk_win_minimal//file",
         "@remote_coverage_tools//:WORKSPACE",
         "@remote_java_tools_darwin_for_testing//:WORKSPACE",
         "@remote_java_tools_for_testing//:WORKSPACE",
