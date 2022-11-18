@@ -106,8 +106,8 @@ function check_consistent_file_contents() {
   local actual="$(cat $1 | ${MD5SUM} | awk '{ print $1; }')"
   local filename="$(echo $1 | ${MD5SUM} | awk '{ print $1; }')"
   local expected="$actual"
-  if (echo "${expected_output}" | grep -q "^${filename} "); then
-    echo "${expected_output}" | grep -q "^${filename} ${actual}$" || {
+  if (grep -q "^${filename} " <<<"${expected_output}"); then
+    grep -q "^${filename} ${actual}$" <<<"${expected_output}" || {
       ls -l "$1"
       fail "output file contents differ"
     }
