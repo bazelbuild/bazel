@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -62,8 +63,6 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   public static final Runfiles.EmptyFilesSupplier GET_INIT_PY_FILES =
       new PythonUtils.GetInitPyFiles((Predicate<PathFragment> & Serializable) source -> false);
-  private static final Template STUB_TEMPLATE =
-      Template.forResource(BazelPythonSemantics.class, "python_stub_template.txt");
 
   public static final PathFragment ZIP_RUNFILES_DIRECTORY_NAME = PathFragment.create("runfiles");
 
@@ -166,12 +165,14 @@ public class BazelPythonSemantics implements PythonSemantics {
       attrVersion = config.getDefaultPythonVersion();
     }
 
+    Artifact bootstrapTemplate = getBootstrapTemplate(ruleContext, common);
+
     // Create the stub file.
     ruleContext.registerAction(
         new TemplateExpansionAction(
             ruleContext.getActionOwner(),
+            bootstrapTemplate,
             stubOutput,
-            STUB_TEMPLATE,
             ImmutableList.of(
                 Substitution.of("%shebang%", getStubShebang(ruleContext, common)),
                 Substitution.of("%main%", common.determineMainExecutableSource()),
@@ -337,7 +338,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     }
     // We put the whole runfiles tree under the ZIP_RUNFILES_DIRECTORY_NAME directory, by doing this
     // , we avoid the conflict between default workspace name "__main__" and __main__.py file.
-    // Note: This name has to be the same with the one in python_stub_template.txt.
+    // Note: This name has to be the same with the one in python_bootstrap_template.txt.
     return ZIP_RUNFILES_DIRECTORY_NAME.getRelative(zipRunfilesPath).toString();
   }
 
@@ -425,6 +426,17 @@ public class BazelPythonSemantics implements PythonSemantics {
     return common.shouldGetRuntimeFromToolchain()
         ? common.getRuntimeFromToolchain()
         : ruleContext.getPrerequisite(":py_interpreter", PyRuntimeInfo.PROVIDER);
+  }
+
+  private static Artifact getBootstrapTemplate(RuleContext ruleContext, PyCommon common) {
+    PyRuntimeInfo provider = getRuntime(ruleContext, common);
+    if (provider != null) {
+      Artifact bootstrapTemplate = provider.getBootstrapTemplate();
+      if (bootstrapTemplate != null) {
+        return bootstrapTemplate;
+      }
+    }
+    return ruleContext.getPrerequisiteArtifact("$default_bootstrap_template");
   }
 
   private static void addRuntime(

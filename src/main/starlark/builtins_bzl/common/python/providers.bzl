@@ -14,6 +14,7 @@
 """Providers for Python rules."""
 
 DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python3"
+DEFAULT_BOOTSTRAP_TEMPLATE = "@bazel_tools//tools/python:python_bootstrap_template.txt"
 _PYTHON_VERSION_VALUES = ["PY2", "PY3"]
 
 def _PyRuntimeInfo_init(
@@ -24,7 +25,8 @@ def _PyRuntimeInfo_init(
         coverage_tool = None,
         coverage_files = None,
         python_version,
-        stub_shebang = None):
+        stub_shebang = None,
+        bootstrap_template = None):
     if (interpreter_path == None) == (interpreter == None):
         fail("exactly one of interpreter_path or interpreter must be set")
     if (interpreter == None) != (files == None):
@@ -46,6 +48,7 @@ def _PyRuntimeInfo_init(
         "coverage_files": coverage_files,
         "python_version": python_version,
         "stub_shebang": stub_shebang,
+        "bootstrap_template": bootstrap_template,
     }
 
 # TODO(#15897): Rename this to PyRuntimeInfo when we're ready to replace the Java
@@ -97,6 +100,9 @@ the same conventions as the standard CPython interpreter.
             "\"Shebang\" expression prepended to the bootstrapping Python stub " +
             "script used when executing `py_binary` targets.  Does not " +
             "apply to Windows."
+        ),
+        "bootstrap_template": (
+            "See py_runtime_rule.bzl%py_runtime.bootstrap_template for docs."
         ),
     },
 )
