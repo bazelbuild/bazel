@@ -836,6 +836,9 @@ message BuildFinished {
   google.protobuf.Timestamp finish_time = 5;
 
   AnomalyReport anomaly_report = 4 [deprecated = true];
+
+  // Only populated if success = false, and sometimes not even then.
+  failure_details.FailureDetail failure_detail = 6;
 }
 
 message BuildMetrics {

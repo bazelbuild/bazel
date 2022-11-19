@@ -255,7 +255,7 @@ public class BuildView {
     }
 
     skyframeBuildView.setConfiguration(
-        eventHandler, topLevelConfig, viewOptions.maxConfigChangesToShow);
+        eventHandler, topLevelConfig, viewOptions.maxConfigChangesToShow, viewOptions.allowAnalysisCacheDiscards);
 
     eventBus.post(new MakeEnvironmentEvent(topLevelConfig.getMakeEnvironment()));
     eventBus.post(topLevelConfig.toBuildEvent());
