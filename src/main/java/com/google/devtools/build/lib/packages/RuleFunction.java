@@ -26,7 +26,7 @@ import net.starlark.java.eval.StarlarkCallable;
         "A callable value representing the type of a native or Starlark rule. Calling the value"
             + " during evaluation of a package's BUILD file creates an instance of the rule and"
             + " adds it to the package's target set. For more information, visit this page about"
-            + "<a href ='https://bazel.build/extending/rules'>Rules</a>."
+            + "<a href ='https://bazel.build/extending/rules'>Rules</a>.")
 public interface RuleFunction extends StarlarkCallable {
   RuleClass getRuleClass();
 }
