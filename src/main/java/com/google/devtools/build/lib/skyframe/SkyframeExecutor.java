@@ -1017,11 +1017,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     ANALYSIS_REFS_ONLY,
     LOADING_NODES_ONLY;
 
-    boolean discardsAnalysis() {
+    public boolean discardsAnalysis() {
       return this != LOADING_NODES_ONLY;
     }
 
-    boolean discardsLoading() {
+    public boolean discardsLoading() {
       return this != ANALYSIS_REFS_ONLY;
     }
   }
@@ -1053,7 +1053,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               topLevelAspects, aspect -> aspect.getLabel().getPackageIdentifier()));
     }
     ImmutableSet<PackageIdentifier> topLevelPackages = packageSetBuilder.build();
-    try (SilentCloseable p = trackDiscardAnalysisCache()) {
+    try (SilentCloseable p = trackDiscardAnalysisCache(discardType)) {
       lastAnalysisDiscarded = true;
       ConcurrentHashMap<SkyKey, InMemoryNodeEntry> mutableNodeMap =
           memoizingEvaluator.getAllValuesMutable();
@@ -1131,8 +1131,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /** Tracks how long it takes to clear the analysis cache. */
-  private SilentCloseable trackDiscardAnalysisCache() {
-    AutoProfiler profiler = GoogleAutoProfilerUtils.logged("discarding analysis cache");
+  private SilentCloseable trackDiscardAnalysisCache(DiscardType discardType) {
+    AutoProfiler profiler =
+        GoogleAutoProfilerUtils.logged("discarding analysis cache " + discardType);
     return () -> {
       Duration d = Duration.ofNanos(profiler.completeAndGetElapsedTimeNanos());
       getEventBus().post(new AnalysisCacheClearEvent(d));
@@ -2199,7 +2200,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   /** Configures a given set of configured targets. */
   @CanIgnoreReturnValue
-  ConfigureTargetsResult configureTargets(
+  protected ConfigureTargetsResult configureTargets(
       ExtendedEventHandler eventHandler,
       ImmutableList<ConfiguredTargetKey> configuredTargetKeys,
       ImmutableList<TopLevelAspectsKey> topLevelAspectKeys,
@@ -2221,7 +2222,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             .build();
     EvaluationResult<ActionLookupValue> result =
         memoizingEvaluator.evaluate(
-            analysisPhaseKeys(configuredTargetKeys, topLevelAspectKeys), evaluationContext);
+            Iterables.concat(configuredTargetKeys, topLevelAspectKeys), evaluationContext);
     perCommandSyscallCache.noteAnalysisPhaseEnded();
 
     ImmutableSet.Builder<ConfiguredTarget> configuredTargets = ImmutableSet.builder();
@@ -2265,14 +2266,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   /** Result of a call to {@link #configureTargets}. */
   @AutoValue
-  abstract static class ConfigureTargetsResult {
-    abstract EvaluationResult<ActionLookupValue> evaluationResult();
+  protected abstract static class ConfigureTargetsResult {
+    public abstract EvaluationResult<ActionLookupValue> evaluationResult();
 
-    abstract ImmutableSet<ConfiguredTarget> configuredTargets();
+    public abstract ImmutableSet<ConfiguredTarget> configuredTargets();
 
-    abstract ImmutableMap<AspectKey, ConfiguredAspect> aspects();
+    public abstract ImmutableMap<AspectKey, ConfiguredAspect> aspects();
 
-    abstract PackageRoots packageRoots();
+    public abstract PackageRoots packageRoots();
   }
 
   /** Returns a map of collected package names to root paths. */
@@ -2285,15 +2286,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
     }
     return packageRoots.buildOrThrow();
-  }
-
-  /**
-   * Returns top-level analysis phase keys, {@link ConfiguredTargetKey} and {@link
-   * TopLevelAspectsKey}.
-   */
-  protected Iterable<? extends SkyKey> analysisPhaseKeys(
-      ImmutableList<ConfiguredTargetKey> ctKeys, ImmutableList<TopLevelAspectsKey> aspectKeys) {
-    return Iterables.concat(ctKeys, aspectKeys);
   }
 
   /**
