@@ -439,20 +439,6 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean discardActionsAfterExecution;
 
   @Option(
-      name = "experimental_async_execution",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "If set to true, Bazel is allowed to run aynchronously, i.e., without reserving a local "
-              + "thread. This only has an effect if the action implementation and the lower-level "
-              + "strategy support it. This setting effectively circumvents the implicit limit of "
-              + "number of concurrently running actions otherwise imposed by the --jobs flag. Use "
-              + "with caution.")
-  public boolean useAsyncExecution;
-
-  @Option(
       name = "incompatible_skip_genfiles_symlink",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

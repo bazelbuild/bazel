@@ -274,7 +274,7 @@ public final class SkyframeActionExecutor {
     // Don't cache possibly stale data from the last build.
     this.options = options;
     // Cache some option values for performance, since we consult them on every action.
-    this.useAsyncExecution = options.getOptions(BuildRequestOptions.class).useAsyncExecution;
+    this.useAsyncExecution = false; // TODO(lberki): Remove supporting code.
     this.finalizeActions = options.getOptions(BuildRequestOptions.class).finalizeActions;
     this.replayActionOutErr = options.getOptions(BuildRequestOptions.class).replayActionOutErr;
     this.outputService = outputService;
