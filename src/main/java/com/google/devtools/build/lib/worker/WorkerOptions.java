@@ -184,7 +184,7 @@ public class WorkerOptions extends OptionsBase {
 
   @Option(
       name = "experimental_worker_as_resource",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help = "If enabled, workers are acquired as resources from ResourceManager.")
