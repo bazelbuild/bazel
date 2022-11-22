@@ -1007,7 +1007,7 @@ public final class SkyframeActionExecutor {
           return ActionStepOrResult.of(e);
         }
 
-        return executeAction(env.getListener(), action);
+        return executeActionAndNotify(env.getListener(), action);
       }
     }
 
@@ -1040,19 +1040,22 @@ public final class SkyframeActionExecutor {
       }
     }
 
-    /** Executes the given action. */
-    private ActionStepOrResult executeAction(ExtendedEventHandler eventHandler, Action action)
+    private ActionStepOrResult executeActionAndNotify(
+        ExtendedEventHandler eventHandler, Action action)
         throws LostInputsActionExecutionException, InterruptedException {
-      ActionResult result;
-      try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "Action.execute")) {
-        result = action.execute(actionExecutionContext);
+      boolean lostInputs = false;
+      try {
+        return executeAction(eventHandler, action);
+      } catch (LostInputsActionExecutionException e) {
+        lostInputs = true;
+        throw e;
+      } finally {
+        notifyActionCompletion(eventHandler, !lostInputs);
+      }
+    }
 
-        // An action's result (or intermediate state) may have been affected by lost inputs. If an
-        // action filesystem is used, it may know whether inputs were lost. We should fail fast if
-        // any were; rewinding may be able to fix it.
-        checkActionFileSystemForLostInputs(
-            actionExecutionContext.getActionFileSystem(), action, outputService);
-      } catch (ActionExecutionException e) {
+    private void maybeSignalLostInputs(ActionExecutionException e, Path primaryOutputPath)
+        throws LostInputsActionExecutionException {
         LostInputsActionExecutionException lostInputsException = null;
         // Action failures may be caused by lost inputs. Lost input failures have higher priority
         // because rewinding may be able to restore what was lost and allow the action to complete
@@ -1068,22 +1071,37 @@ public final class SkyframeActionExecutor {
           }
         }
 
-        Path primaryOutputPath = actionExecutionContext.getInputPath(action.getPrimaryOutput());
-        notifyActionCompletion(
-            eventHandler, /*postActionCompletionEvent=*/ lostInputsException == null);
-        if (lostInputsException != null) {
-          // If inputs are lost, then avoid publishing ActionExecutedEvent or reporting the error.
-          // Action rewinding will rerun this failed action after trying to regenerate the lost
-          // inputs.
-          lostInputsException.setActionStartedEventAlreadyEmitted();
-          enrichLostInputsException(
-              primaryOutputPath,
-              actionLookupData,
-              actionExecutionContext.getFileOutErr(),
-              lostInputsException);
-          throw lostInputsException;
-        }
+      if (lostInputsException == null) {
+        return;
+      }
 
+      // If inputs are lost, then avoid publishing ActionExecutedEvent or reporting the error.
+      // Action rewinding will rerun this failed action after trying to regenerate the lost
+      // inputs.
+      lostInputsException.setActionStartedEventAlreadyEmitted();
+      enrichLostInputsException(
+          primaryOutputPath,
+          actionLookupData,
+          actionExecutionContext.getFileOutErr(),
+          lostInputsException);
+      throw lostInputsException;
+    }
+
+    /** Executes the given action. */
+    private ActionStepOrResult executeAction(ExtendedEventHandler eventHandler, Action action)
+        throws LostInputsActionExecutionException, InterruptedException {
+      ActionResult result;
+      try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "Action.execute")) {
+        result = action.execute(actionExecutionContext);
+
+        // An action's result (or intermediate state) may have been affected by lost inputs. If an
+        // action filesystem is used, it may know whether inputs were lost. We should fail fast if
+        // any were; rewinding may be able to fix it.
+        checkActionFileSystemForLostInputs(
+            actionExecutionContext.getActionFileSystem(), action, outputService);
+      } catch (ActionExecutionException e) {
+        Path primaryOutputPath = actionExecutionContext.getInputPath(action.getPrimaryOutput());
+        maybeSignalLostInputs(e, primaryOutputPath);
         return ActionStepOrResult.of(
             processAndGetExceptionToThrow(
                 eventHandler,
@@ -1093,7 +1111,6 @@ public final class SkyframeActionExecutor {
                 actionExecutionContext.getFileOutErr(),
                 ErrorTiming.AFTER_EXECUTION));
       } catch (InterruptedException e) {
-        notifyActionCompletion(eventHandler, /*postActionCompletionEvent=*/ true);
         return ActionStepOrResult.of(e);
       }
 
@@ -1106,8 +1123,6 @@ public final class SkyframeActionExecutor {
         return new ActionPostprocessingStep(actionExecutionValue);
       } catch (ActionExecutionException e) {
         return ActionStepOrResult.of(e);
-      } finally {
-        notifyActionCompletion(eventHandler, /*postActionCompletionEvent=*/ true);
       }
     }
 
