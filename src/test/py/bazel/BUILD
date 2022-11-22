@@ -245,13 +245,6 @@ py_test(
 )
 
 py_test(
-    name = "action_replay_test",
-    size = "medium",
-    srcs = ["action_replay_test.py"],
-    deps = [":test_base"],
-)
-
-py_test(
     name = "genrule_test",
     size = "medium",
     srcs = ["genrule_test.py"],

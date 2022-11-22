@@ -459,15 +459,6 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean useForkJoinPool;
 
   @Option(
-      name = "experimental_replay_action_out_err",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help = "If this flag is set, replay action out/err on incremental builds.")
-  public boolean replayActionOutErr;
-
-  @Option(
       name = "target_pattern_file",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
