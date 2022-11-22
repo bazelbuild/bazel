@@ -928,22 +928,21 @@ public final class RemoteModule extends BlazeModule {
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);
 
-      if (remoteOutputsMode.downloadToplevelOutputsOnly()) {
-        toplevelArtifactsDownloader =
-            new ToplevelArtifactsDownloader(
-                env.getCommandName(),
-                env.getSkyframeExecutor().getEvaluator(),
-                actionInputFetcher,
-                (path) -> {
-                  FileSystem fileSystem = path.getFileSystem();
-                  Preconditions.checkState(
-                      fileSystem instanceof RemoteActionFileSystem,
-                      "fileSystem must be an instance of RemoteActionFileSystem");
-                  return ((RemoteActionFileSystem) path.getFileSystem())
-                      .getRemoteMetadata(path.asFragment());
-                });
-        env.getEventBus().register(toplevelArtifactsDownloader);
-      }
+      toplevelArtifactsDownloader =
+          new ToplevelArtifactsDownloader(
+              env.getCommandName(),
+              remoteOutputsMode.downloadToplevelOutputsOnly(),
+              env.getSkyframeExecutor().getEvaluator(),
+              actionInputFetcher,
+              (path) -> {
+                FileSystem fileSystem = path.getFileSystem();
+                Preconditions.checkState(
+                    fileSystem instanceof RemoteActionFileSystem,
+                    "fileSystem must be an instance of RemoteActionFileSystem");
+                return ((RemoteActionFileSystem) path.getFileSystem())
+                    .getRemoteMetadata(path.asFragment());
+              });
+      env.getEventBus().register(toplevelArtifactsDownloader);
     }
   }
 
