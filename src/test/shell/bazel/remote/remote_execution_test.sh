@@ -77,11 +77,31 @@ function has_utf8_locale() {
 }
 
 function setup_credential_helper() {
+  # Each helper call atomically writes one byte to this file.
+  # We can later read the file to determine how many calls were made.
+  cat > "${TEST_TMPDIR}/credhelper_log"
+
   cat > "${TEST_TMPDIR}/credhelper" <<'EOF'
 #!/usr/bin/env python3
+import os
+
+path = os.path.join(os.environ["TEST_TMPDIR"], "credhelper_log")
+fd = os.open(path, os.O_WRONLY|os.O_CREAT|os.O_APPEND)
+os.write(fd, b"1")
+os.close(fd)
+
 print("""{"headers":{"Authorization":["Bearer secret_token"]}}""")
 EOF
+
   chmod +x "${TEST_TMPDIR}/credhelper"
+}
+
+function expect_credential_helper_calls() {
+  local -r expected=$1
+  local -r actual=$(wc -c "${TEST_TMPDIR}/credhelper_log" | awk '{print $1}')
+  if [[ "$expected" != "$actual" ]]; then
+    fail "expected $expected instead of $actual credential helper calls"
+  fi
 }
 
 function test_credential_helper_remote_cache() {
@@ -90,11 +110,11 @@ function test_credential_helper_remote_cache() {
   mkdir -p a
 
   cat > a/BUILD <<'EOF'
-genrule(
-  name = "a",
-  outs = ["a.txt"],
+[genrule(
+  name = x,
+  outs = [x + ".txt"],
   cmd = "touch $(OUTS)",
-)
+) for x in ["a", "b"]]
 EOF
 
   stop_worker
@@ -105,10 +125,24 @@ EOF
       //a:a >& $TEST_log && fail "Build without credentials should have failed"
   expect_log "Failed to query remote execution capabilities"
 
+  # Helper shouldn't have been called yet.
+  expect_credential_helper_calls 0
+
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  # First build should have called helper for 4 distinct URIs.
+  expect_credential_helper_calls 4
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  # Second build should have hit the credentials cache.
+  expect_credential_helper_calls 4
 }
 
 function test_credential_helper_remote_execution() {
@@ -117,11 +151,11 @@ function test_credential_helper_remote_execution() {
   mkdir -p a
 
   cat > a/BUILD <<'EOF'
-genrule(
-  name = "a",
-  outs = ["a.txt"],
+[genrule(
+  name = x,
+  outs = [x + ".txt"],
   cmd = "touch $(OUTS)",
-)
+) for x in ["a", "b"]]
 EOF
 
   stop_worker
@@ -133,11 +167,26 @@ EOF
       //a:a >& $TEST_log && fail "Build without credentials should have failed"
   expect_log "Failed to query remote execution capabilities"
 
+  # Helper shouldn't have been called yet.
+  expect_credential_helper_calls 0
+
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  # First build should have called helper for 5 distinct URIs.
+  expect_credential_helper_calls 5
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  # Second build should have hit the credentials cache.
+  expect_credential_helper_calls 5
 }
 
 function test_remote_grpc_cache_with_protocol() {
