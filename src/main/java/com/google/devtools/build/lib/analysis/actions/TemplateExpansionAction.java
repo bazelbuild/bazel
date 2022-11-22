@@ -18,9 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -142,15 +140,18 @@ public final class TemplateExpansionAction extends AbstractAction {
   }
 
   @Override
-  public final ActionContinuationOrResult beginExecution(
-      ActionExecutionContext actionExecutionContext)
-      throws InterruptedException, ActionExecutionException {
-    SpawnContinuation first;
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
     try {
-      first =
+      SpawnContinuation continuation =
           actionExecutionContext
               .getContext(TemplateExpansionContext.class)
-              .expandTemplate(TemplateExpansionAction.this, actionExecutionContext);
+              .expandTemplate(this, actionExecutionContext);
+      while (!continuation.isDone()) {
+        continuation = continuation.execute();
+      }
+
+      return ActionResult.create(continuation.get());
     } catch (EvalException e) {
       DetailedExitCode exitCode =
           DetailedExitCode.of(
@@ -160,32 +161,9 @@ public final class TemplateExpansionAction extends AbstractAction {
                           .setCode(Execution.Code.LOCAL_TEMPLATE_EXPANSION_FAILURE))
                   .build());
       throw new ActionExecutionException(e, /* action= */ this, /* catastrophe= */ false, exitCode);
+    } catch (ExecException e) {
+      throw ActionExecutionException.fromExecException(e, TemplateExpansionAction.this);
     }
-    return new ActionContinuationOrResult() {
-      private SpawnContinuation spawnContinuation = first;
-
-      @Nullable
-      @Override
-      public ListenableFuture<?> getFuture() {
-        return spawnContinuation.getFuture();
-      }
-
-      @Override
-      public ActionContinuationOrResult execute()
-          throws ActionExecutionException, InterruptedException {
-        SpawnContinuation nextContinuation;
-        try {
-          nextContinuation = spawnContinuation.execute();
-          if (!nextContinuation.isDone()) {
-            spawnContinuation = nextContinuation;
-            return this;
-          }
-        } catch (ExecException e) {
-          throw ActionExecutionException.fromExecException(e, TemplateExpansionAction.this);
-        }
-        return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
-      }
-    };
   }
 
   @Override
