@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionContext.ActionContextRegistry;
-import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -197,7 +195,6 @@ public final class SkyframeActionExecutor {
   private ActionOutputDirectoryHelper outputDirectoryHelper;
 
   private OptionsProvider options;
-  private boolean useAsyncExecution;
   private boolean hadExecutionError;
   private boolean replayActionOutErr;
   private boolean freeDiscoveredInputsAfterExecution;
@@ -274,7 +271,6 @@ public final class SkyframeActionExecutor {
     // Don't cache possibly stale data from the last build.
     this.options = options;
     // Cache some option values for performance, since we consult them on every action.
-    this.useAsyncExecution = false; // TODO(lberki): Remove supporting code.
     this.finalizeActions = options.getOptions(BuildRequestOptions.class).finalizeActions;
     this.replayActionOutErr = false; // TODO(lberki): Remove supporting code.
     this.outputService = outputService;
@@ -903,41 +899,6 @@ public final class SkyframeActionExecutor {
         throws InterruptedException, ActionExecutionException;
   }
 
-  private static ActionContinuationOrResult begin(
-      Action action, ActionExecutionContext actionExecutionContext) {
-    return new ActionContinuationOrResult() {
-      @Nullable
-      @Override
-      public ListenableFuture<?> getFuture() {
-        return null;
-      }
-
-      @Override
-      public ActionContinuationOrResult execute()
-          throws ActionExecutionException, InterruptedException {
-        return action.beginExecution(actionExecutionContext);
-      }
-    };
-  }
-
-  /** Returns a continuation to run the specified action in a profiler task. */
-  private static ActionContinuationOrResult runFully(
-      Action action, ActionExecutionContext actionExecutionContext) {
-    return new ActionContinuationOrResult() {
-      @Nullable
-      @Override
-      public ListenableFuture<?> getFuture() {
-        return null;
-      }
-
-      @Override
-      public ActionContinuationOrResult execute()
-          throws ActionExecutionException, InterruptedException {
-        return ActionContinuationOrResult.of(action.execute(actionExecutionContext));
-      }
-    };
-  }
-
   /** Represents an action that needs to be run. */
   private final class ActionRunner extends ActionStep {
     private final Action action;
@@ -1046,19 +1007,7 @@ public final class SkyframeActionExecutor {
           return ActionStepOrResult.of(e);
         }
 
-        // This is the first iteration of the async action execution framework. It is currently only
-        // implemented for SpawnAction (and subclasses), and will need to be extended for all other
-        // action types.
-        if (useAsyncExecution) {
-          // TODO(ulfjack): This causes problems in that REMOTE_EXECUTION segments now heavily
-          // overlap in the Json profile, which the renderer isn't able to handle. We should move
-          // those to some sort of 'virtual thread' to visualize the work that's happening on other
-          // machines.
-          return continueAction(
-              actionExecutionContext.getEventHandler(), begin(action, actionExecutionContext));
-        }
-
-        return continueAction(env.getListener(), runFully(action, actionExecutionContext));
+        return executeAction(env.getListener(), action);
       }
     }
 
@@ -1091,16 +1040,12 @@ public final class SkyframeActionExecutor {
       }
     }
 
-    /** Executes the given continuation and returns a new one or a final result. */
-    private ActionStepOrResult continueAction(
-        ExtendedEventHandler eventHandler, ActionContinuationOrResult actionContinuation)
+    /** Executes the given action. */
+    private ActionStepOrResult executeAction(ExtendedEventHandler eventHandler, Action action)
         throws LostInputsActionExecutionException, InterruptedException {
-      // Every code path that exits this method must call notifyActionCompletion, except for the
-      // one that returns a new ActionContinuationStep. Unfortunately, that requires some code
-      // duplication.
-      ActionContinuationOrResult nextActionContinuationOrResult;
-      try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "ActionContinuation.execute")) {
-        nextActionContinuationOrResult = actionContinuation.execute();
+      ActionResult result;
+      try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "Action.execute")) {
+        result = action.execute(actionExecutionContext);
 
         // An action's result (or intermediate state) may have been affected by lost inputs. If an
         // action filesystem is used, it may know whether inputs were lost. We should fail fast if
@@ -1108,7 +1053,6 @@ public final class SkyframeActionExecutor {
         checkActionFileSystemForLostInputs(
             actionExecutionContext.getActionFileSystem(), action, outputService);
       } catch (ActionExecutionException e) {
-
         LostInputsActionExecutionException lostInputsException = null;
         // Action failures may be caused by lost inputs. Lost input failures have higher priority
         // because rewinding may be able to restore what was lost and allow the action to complete
@@ -1139,6 +1083,7 @@ public final class SkyframeActionExecutor {
               lostInputsException);
           throw lostInputsException;
         }
+
         return ActionStepOrResult.of(
             processAndGetExceptionToThrow(
                 eventHandler,
@@ -1152,16 +1097,11 @@ public final class SkyframeActionExecutor {
         return ActionStepOrResult.of(e);
       }
 
-      if (!nextActionContinuationOrResult.isDone()) {
-        return new ActionContinuationStep(nextActionContinuationOrResult);
-      }
-
       try {
         ActionExecutionValue actionExecutionValue;
         try (SilentCloseable c =
             profiler.profile(ProfilerTask.ACTION_COMPLETE, "actuallyCompleteAction")) {
-          actionExecutionValue =
-              actuallyCompleteAction(eventHandler, nextActionContinuationOrResult.get());
+          actionExecutionValue = actuallyCompleteAction(eventHandler, result);
         }
         return new ActionPostprocessingStep(actionExecutionValue);
       } catch (ActionExecutionException e) {
@@ -1305,27 +1245,6 @@ public final class SkyframeActionExecutor {
           this.metadataHandler.getOutputStore(),
           actionExecutionContext.getOutputSymlinks(),
           action);
-    }
-
-    /** A closure to continue an asynchronously running action. */
-    private class ActionContinuationStep extends ActionStep {
-      private final ActionContinuationOrResult actionContinuationOrResult;
-
-      ActionContinuationStep(ActionContinuationOrResult actionContinuationOrResult) {
-        Preconditions.checkArgument(!actionContinuationOrResult.isDone());
-        this.actionContinuationOrResult = actionContinuationOrResult;
-      }
-
-      @Override
-      public ActionStepOrResult run(Environment env)
-          throws LostInputsActionExecutionException, InterruptedException {
-        ListenableFuture<?> future = actionContinuationOrResult.getFuture();
-        if (future != null && !future.isDone()) {
-          env.dependOnFuture(future);
-          return this;
-        }
-        return continueAction(actionExecutionContext.getEventHandler(), actionContinuationOrResult);
-      }
     }
 
     /**
