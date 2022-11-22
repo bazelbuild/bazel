@@ -136,7 +136,7 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   public void basicQuery_defaultOutputGroup() throws Exception {
     List<String> output = getOutput("//pkg:all", ImmutableList.of());
     var sourceAndGeneratedFiles = output.stream()
-        .collect(Collectors.<String>partitioningBy(path -> path.startsWith("bazel-out/")));
+        .collect(Collectors.<String>partitioningBy(path -> path.matches("^[^/]*-out/.*")));
     assertThat(sourceAndGeneratedFiles.get(false)).containsExactly("pkg/BUILD", "defs/rules.bzl");
     assertContainsExactlyWithBinDirPrefix(sourceAndGeneratedFiles.get(true),
         "pkg/main_default_file", "pkg/other_default_file");
@@ -146,7 +146,7 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   public void basicQuery_defaultAndCustomOutputGroup() throws Exception {
     List<String> output = getOutput("//pkg:main", ImmutableList.of("+foobar"));
     var sourceAndGeneratedFiles = output.stream()
-        .collect(Collectors.<String>partitioningBy(path -> path.startsWith("bazel-out/")));
+        .collect(Collectors.<String>partitioningBy(path -> path.matches("^[^/]*-out/.*")));
     assertThat(sourceAndGeneratedFiles.get(false)).containsExactly("pkg/BUILD", "defs/rules.bzl");
     assertContainsExactlyWithBinDirPrefix(
         sourceAndGeneratedFiles.get(true), "pkg/main_default_file", "pkg/main_output_group_only");
@@ -156,7 +156,7 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   public void basicQuery_customOutputGroupOnly() throws Exception {
     List<String> output = getOutput("//pkg:other", ImmutableList.of("foobar"));
     var sourceAndGeneratedFiles = output.stream()
-        .collect(Collectors.<String>partitioningBy(path -> path.startsWith("bazel-out/")));
+        .collect(Collectors.<String>partitioningBy(path -> path.matches("^[^/]*-out/.*")));
     assertThat(sourceAndGeneratedFiles.get(false)).containsExactly("pkg/BUILD");
     assertContainsExactlyWithBinDirPrefix(sourceAndGeneratedFiles.get(true),
         "pkg/other_output_group_only");
