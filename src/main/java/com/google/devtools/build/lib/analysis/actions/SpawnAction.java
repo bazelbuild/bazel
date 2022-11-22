@@ -27,9 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -334,23 +332,30 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       throws ExecException {}
 
   @Override
-  public final ActionContinuationOrResult beginExecution(
-      ActionExecutionContext actionExecutionContext)
+  public final ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    Spawn spawn;
     try {
       beforeExecute(actionExecutionContext);
-      spawn = getSpawn(actionExecutionContext);
-    } catch (ExecException e) {
-      throw ActionExecutionException.fromExecException(e, this);
+      Spawn spawn = getSpawn(actionExecutionContext);
+      SpawnContinuation continuation =
+          actionExecutionContext
+              .getContext(SpawnStrategyResolver.class)
+              .beginExecution(spawn, actionExecutionContext);
+      while (!continuation.isDone()) {
+        continuation = continuation.execute();
+      }
+
+      ImmutableList<SpawnResult> result = continuation.get();
+      if (resultConsumer != null) {
+        resultConsumer.accept(Pair.of(actionExecutionContext, result));
+      }
+      afterExecute(actionExecutionContext, result);
+      return ActionResult.create(result);
     } catch (CommandLineExpansionException e) {
       throw createCommandLineException(e);
+    } catch (ExecException e) {
+      throw ActionExecutionException.fromExecException(e, this);
     }
-    SpawnContinuation spawnContinuation =
-        actionExecutionContext
-            .getContext(SpawnStrategyResolver.class)
-            .beginExecution(spawn, actionExecutionContext);
-    return new SpawnActionContinuation(actionExecutionContext, spawnContinuation);
   }
 
   private ActionExecutionException createCommandLineException(CommandLineExpansionException e) {
@@ -1437,41 +1442,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer) {
       this.resultConsumer = resultConsumer;
       return this;
-    }
-  }
-
-  private final class SpawnActionContinuation extends ActionContinuationOrResult {
-    private final ActionExecutionContext actionExecutionContext;
-    private final SpawnContinuation spawnContinuation;
-
-    public SpawnActionContinuation(
-        ActionExecutionContext actionExecutionContext, SpawnContinuation spawnContinuation) {
-      this.actionExecutionContext = actionExecutionContext;
-      this.spawnContinuation = spawnContinuation;
-    }
-
-    @Override
-    public ListenableFuture<?> getFuture() {
-      return spawnContinuation.getFuture();
-    }
-
-    @Override
-    public ActionContinuationOrResult execute()
-        throws ActionExecutionException, InterruptedException {
-      try {
-        SpawnContinuation nextContinuation = spawnContinuation.execute();
-        if (nextContinuation.isDone()) {
-          if (resultConsumer != null) {
-            resultConsumer.accept(Pair.of(actionExecutionContext, nextContinuation.get()));
-          }
-          List<SpawnResult> spawnResults = nextContinuation.get();
-          afterExecute(actionExecutionContext, spawnResults);
-          return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
-        }
-        return new SpawnActionContinuation(actionExecutionContext, nextContinuation);
-      } catch (ExecException e) {
-        throw ActionExecutionException.fromExecException(e, SpawnAction.this);
-      }
     }
   }
 
