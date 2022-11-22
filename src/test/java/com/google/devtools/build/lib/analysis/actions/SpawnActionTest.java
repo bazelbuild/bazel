@@ -490,6 +490,22 @@ public class SpawnActionTest extends BuildViewTestCase {
     assertThrows(IllegalArgumentException.class, () -> builder.setMnemonic("contains/slash"));
   }
 
+  @Test
+  public void testProgressMessagePlaceholders() throws Exception {
+    SpawnAction action =
+        builder()
+            .addInput(getSourceArtifact("some/input"))
+            .addOutput(getBinArtifactWithNoOwner("some/output"))
+            .setExecutable(scratch.file("/bin/xxx").asFragment())
+            .setProgressMessage("Progress for %{label}: %{input} -> %{output}")
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    assertThat(action.getProgressMessage())
+        .isEqualTo(
+            "Progress for //null/action:owner: some/input -> "
+                + getAnalysisMock().getProductName()
+                + "-out/k8-fastbuild/bin/some/output");
+  }
+
   /**
    * Tests that the ExtraActionInfo proto that's generated from an action, contains Aspect-related
    * information.

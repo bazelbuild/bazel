@@ -511,25 +511,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   @Override
   protected String getRawProgressMessage() {
     if (progressMessage != null) {
-      if (progressMessage instanceof String) {
-        String progressMessageStr = (String) progressMessage;
-        if (progressMessageStr.contains("%{label}") && getOwner().getLabel() != null) {
-          progressMessageStr =
-              progressMessageStr.replace("%{label}", getOwner().getLabel().toString());
-        }
-        if (progressMessageStr.contains("%{output}") && getPrimaryOutput() != null) {
-          progressMessageStr =
-              progressMessageStr.replace("%{output}", getPrimaryOutput().getExecPathString());
-        }
-        if (progressMessageStr.contains("%{input}") && getPrimaryInput() != null) {
-          progressMessageStr =
-              progressMessageStr.replace("%{input}", getPrimaryInput().getExecPathString());
-        }
-        return progressMessageStr;
-      } else {
-        // handles OnDemandString
-        return progressMessage.toString();
-      }
+      return progressMessage.toString();
     }
     return super.getRawProgressMessage();
   }
