@@ -955,16 +955,9 @@ public final class SkyframeActionExecutor {
           reporter.startTask(null, prependExecPhaseStats(message));
         }
 
+        boolean lostInputs = false;
+
         try {
-          // It is vital that updateStatus and remove are called in pairs. Unfortunately, if async
-          // action execution is enabled, we cannot use a simple finally block, but have to manually
-          // ensure that any code path that finishes the state machine also removes the action from
-          // the status reporter.
-          // To complicate things, the ActionCompletionEvent must _not_ be posted when this action
-          // is rewound.
-          // TODO(ulfjack): Change the uses of ActionStartedEvent and ActionCompletionEvent such
-          // that they can be reposted when rewinding and simplify this code path. Maybe also keep
-          // track of the rewind attempt, so that listeners can use that to adjust their behavior.
           ActionStartedEvent event = new ActionStartedEvent(action, actionStartTime);
           if (statusReporter != null) {
             statusReporter.updateStatus(event);
@@ -1000,14 +993,16 @@ public final class SkyframeActionExecutor {
           } else {
             createOutputDirectories(action);
           }
-        } catch (ActionExecutionException e) {
-          // This try-catch block cannot trigger rewinding, so it is safe to notify the status
-          // reporter and also post the ActionCompletionEvent.
-          notifyActionCompletion(env.getListener(), /*postActionCompletionEvent=*/ true);
-          return ActionStepOrResult.of(e);
-        }
 
-        return executeActionAndNotify(env.getListener(), action);
+          return executeAction(env.getListener(), action);
+        } catch (LostInputsActionExecutionException e) {
+          lostInputs = true;
+          throw e;
+        } catch (ActionExecutionException e) {
+          return ActionStepOrResult.of(e);
+        } finally {
+          notifyActionCompletion(env.getListener(), !lostInputs);
+        }
       }
     }
 
@@ -1037,20 +1032,6 @@ public final class SkyframeActionExecutor {
           completionReceiver.actionCompleted(actionLookupData);
         }
         reporter.finishTask(null, prependExecPhaseStats(message));
-      }
-    }
-
-    private ActionStepOrResult executeActionAndNotify(
-        ExtendedEventHandler eventHandler, Action action)
-        throws LostInputsActionExecutionException, InterruptedException {
-      boolean lostInputs = false;
-      try {
-        return executeAction(eventHandler, action);
-      } catch (LostInputsActionExecutionException e) {
-        lostInputs = true;
-        throw e;
-      } finally {
-        notifyActionCompletion(eventHandler, !lostInputs);
       }
     }
 
