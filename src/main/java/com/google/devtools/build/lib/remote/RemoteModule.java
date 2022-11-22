@@ -585,6 +585,7 @@ public final class RemoteModule extends BlazeModule {
                   env.getWorkingDirectory(),
                   remoteOptions.diskCache,
                   remoteOptions.remoteVerifyDownloads,
+                  !remoteOptions.remoteOutputsMode.downloadAllOutputs(),
                   digestUtil,
                   cacheClient);
         } catch (IOException e) {
@@ -644,6 +645,7 @@ public final class RemoteModule extends BlazeModule {
                   env.getWorkingDirectory(),
                   remoteOptions.diskCache,
                   remoteOptions.remoteVerifyDownloads,
+                  !remoteOptions.remoteOutputsMode.downloadAllOutputs(),
                   digestUtil,
                   cacheClient);
         } catch (IOException e) {
