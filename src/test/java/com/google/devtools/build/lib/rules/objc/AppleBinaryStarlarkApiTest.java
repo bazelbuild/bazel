@@ -566,6 +566,11 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testAvoidDepsSubtractsImportedLibrary() throws Exception {
+    checkAvoidDepsSubtractsImportedLibrary(getRuleType());
+  }
+
+  @Test
   public void testBundleLoaderIsCorrectlyPassedToTheLinker() throws Exception {
     checkBundleLoaderIsCorrectlyPassedToTheLinker(getRuleType());
   }

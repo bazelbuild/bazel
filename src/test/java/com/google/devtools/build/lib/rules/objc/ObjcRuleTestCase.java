@@ -1777,6 +1777,67 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .isNull();
   }
 
+  public void checkAvoidDepsSubtractsImportedLibrary(RuleType ruleType) throws Exception {
+    if (!ruleType.getRuleTypeName().equals("apple_binary_starlark")) {
+      addAppleBinaryStarlarkRule(scratch);
+    }
+
+    ruleType.scratchTarget(
+        scratch, "deps", "['//libs:objc_lib']", "avoid_deps", "['//libs:objc_avoid_lib']");
+
+    scratch.file(
+        "libs/defs.bzl",
+        "def _custom_library_impl(ctx):",
+        "  return [",
+        "      apple_common.new_objc_provider(",
+        "          library=depset([ctx.file.library]),",
+        "      ), CcInfo()",
+        "  ]",
+        "custom_library = rule(",
+        "    _custom_library_impl,",
+        "    attrs={'library': attr.label(allow_single_file=True)},",
+        ")",
+        "def _custom_static_framework_import_impl(ctx):",
+        "  return [",
+        "      apple_common.new_objc_provider(",
+        "          imported_library=depset([ctx.file.library]),",
+        "      ), CcInfo()",
+        "  ]",
+        "custom_static_framework_import = rule(",
+        "    _custom_static_framework_import_impl,",
+        "    attrs={'library': attr.label(allow_single_file=True)},",
+        ")");
+
+    scratch.file(
+        "libs/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "load(':defs.bzl', 'custom_library', 'custom_static_framework_import')",
+        "objc_library(",
+        "    name = 'objc_lib',",
+        "    srcs = ['a.m'],",
+        "    deps = [':framework_library'],",
+        ")",
+        "custom_library(",
+        "    name = 'framework_library',",
+        "    library = 'buzzbuzz.framework/buzzbuzz',",
+        ")",
+        "objc_library(",
+        "    name = 'objc_avoid_lib',",
+        "    srcs = ['b.m'],",
+        "    deps = [':framework'],",
+        ")",
+        "custom_static_framework_import(",
+        "    name = 'framework',",
+        "    library = 'buzzbuzz.framework/buzzbuzz',",
+        ")");
+
+    Artifact binArtifact =
+        getFirstArtifactEndingWith(lipoBinAction("//x:x").getInputs(), "x/x_bin");
+    Action action = getGeneratingAction(binArtifact);
+    assertThat(Artifact.toRootRelativePaths(action.getInputs()))
+        .doesNotContain("libs/buzzbuzz.framework/buzzbuzz");
+  }
+
   public void checkFilesToCompileOutputGroup(RuleType ruleType) throws Exception {
     ruleType.scratchTarget(scratch);
     ConfiguredTarget target = getConfiguredTarget("//x:x");
