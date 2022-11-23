@@ -406,6 +406,13 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         },
     )
 
+    conly_opts = split_escaped(get_env_var(
+        repository_ctx,
+        "BAZEL_CONLYOPTS",
+        "",
+        False,
+    ), ":")
+
     cxx_opts = split_escaped(get_env_var(
         repository_ctx,
         "BAZEL_CXXOPTS",
@@ -446,7 +453,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             bin_search_flags.append("-B" + str(ld_path.dirname))
     coverage_compile_flags, coverage_link_flags = _coverage_flags(repository_ctx, darwin)
     builtin_include_directories = _uniq(
-        _get_cxx_include_directories(repository_ctx, cc, "-xc") +
+        _get_cxx_include_directories(repository_ctx, cc, "-xc", conly_opts) +
         _get_cxx_include_directories(repository_ctx, cc, "-xc++", cxx_opts) +
         _get_cxx_include_directories(
             repository_ctx,
@@ -561,6 +568,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                 ],
             ),
             "%{cxx_flags}": get_starlark_list(cxx_opts + _escaped_cplus_include_paths(repository_ctx)),
+            "%{conly_flags}": get_starlark_list(conly_opts),
             "%{link_flags}": get_starlark_list((
                 ["-fuse-ld=" + gold_or_lld_linker_path] if gold_or_lld_linker_path else []
             ) + _add_linker_option_if_supported(
