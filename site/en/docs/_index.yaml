@@ -88,6 +88,8 @@ landing_page:
       path: /run/client-server
     - heading: Query quickstart
       path: /query/quickstart
+    - heading: Query guide
+      path: /query/guide
     - heading: Query language
       path: /query/language
     - heading: Action graph query (aquery)
