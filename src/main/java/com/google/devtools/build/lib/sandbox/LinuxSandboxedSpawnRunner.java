@@ -66,6 +66,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private static final Map<Path, Boolean> isSupportedMap = new HashMap<>();
   private static final AtomicBoolean warnedAboutNonHermeticTmp = new AtomicBoolean();
 
+  private static final AtomicBoolean warnedAboutUnsupportedModificationCheck = new AtomicBoolean();
+
   /**
    * Returns whether the linux sandbox is supported on the local machine by running a small command
    * in it.
@@ -216,9 +218,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
 
     SandboxInputs inputs =
-        helpers.processInputFiles(
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
-            execRoot);
+        helpers.processInputFiles(context.getInputMapping(PathFragment.EMPTY_FRAGMENT), execRoot);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
     Duration timeout = context.getTimeout();
@@ -439,22 +439,39 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       throws IOException, ForbiddenActionInputException {
     for (ActionInput input : context.getInputMapping(PathFragment.EMPTY_FRAGMENT).values()) {
       if (input instanceof VirtualActionInput) {
+        // Virtual inputs are not existing in file system and can't be tampered with via sandbox. No
+        // need to check them.
         continue;
       }
 
       FileArtifactValue metadata = context.getMetadataProvider().getMetadata(input);
-      Path path = execRoot.getRelative(input.getExecPath());
+      if (!metadata.getType().isFile()) {
+        // The hermetic sandbox creates hardlinks from files inside sandbox to files outside
+        // sandbox. The content of the files outside the sandbox could have been tampered with via
+        // the hardlinks. Therefore files are checked for modifications. But directories and
+        // unresolved symlinks are not represented as hardlinks in sandbox and don't need to be
+        // checked. By continue and not checking them, we avoid UnsupportedOperationException and
+        // IllegalStateException.
+        continue;
+      }
 
+      Path path = execRoot.getRelative(input.getExecPath());
       try {
         if (wasModifiedSinceDigest(metadata.getContentsProxy(), path)) {
           throw new IOException("input dependency " + path + " was modified during execution.");
         }
       } catch (UnsupportedOperationException e) {
-        throw new IOException(
-            "input dependency "
-                + path
-                + " could not be checked for modifications during execution.",
-            e);
+        // Some FileArtifactValue implementations are ignored safely and silently already by the
+        // isFile check above. The remaining ones should probably be checked, but some are not
+        // supporting necessary operations.
+        if (warnedAboutUnsupportedModificationCheck.compareAndSet(false, true)) {
+          reporter.handle(
+              Event.warn(
+                  String.format(
+                      "Input dependency %s of type %s could not be checked for modifications during"
+                          + " execution. Suppressing similar warnings.",
+                      path, metadata.getClass().getSimpleName())));
+        }
       }
     }
   }
