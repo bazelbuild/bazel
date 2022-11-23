@@ -367,8 +367,8 @@ This option prints a list of the output files produced by each target matched
 by the query similar to the list printed at the end of a `bazel build`
 invocation. The output contains only the files advertised in the requested
 output groups as determined by the
-[`--output_groups`](/reference/command-line-reference#flag--output_groups) flag
-and never contains source files.
+[`--output_groups`](/reference/command-line-reference#flag--output_groups) flag.
+It does include source files.
 
 Note: The output of `bazel cquery --output=files //pkg:foo` contains the output
 files of `//pkg:foo` in *all* configurations that occur in the build (also see
