@@ -15,10 +15,8 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
-import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -27,7 +25,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import javax.annotation.Nullable;
 
 /**
  * Abstract Action to write to a file.
@@ -56,50 +53,25 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
   }
 
   @Override
-  public final ActionContinuationOrResult beginExecution(
-      ActionExecutionContext actionExecutionContext)
+  public final ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     try {
       DeterministicWriter deterministicWriter = newDeterministicWriter(actionExecutionContext);
       FileWriteActionContext context = getStrategy(actionExecutionContext);
-      SpawnContinuation first =
+      SpawnContinuation continuation =
           context.beginWriteOutputToFile(
-              AbstractFileWriteAction.this,
-              actionExecutionContext,
-              deterministicWriter,
-              makeExecutable,
-              isRemotable());
-      return new ActionContinuationOrResult() {
-        private SpawnContinuation spawnContinuation = first;
+              this, actionExecutionContext, deterministicWriter, makeExecutable, isRemotable());
+      while (!continuation.isDone()) {
+        continuation = continuation.execute();
+      }
 
-        @Nullable
-        @Override
-        public ListenableFuture<?> getFuture() {
-          return spawnContinuation.getFuture();
-        }
-
-        @Override
-        public ActionContinuationOrResult execute()
-            throws ActionExecutionException, InterruptedException {
-          SpawnContinuation nextContinuation;
-          try {
-            nextContinuation = spawnContinuation.execute();
-            if (!nextContinuation.isDone()) {
-              spawnContinuation = nextContinuation;
-              return this;
-            }
-          } catch (ExecException e) {
-            throw ActionExecutionException.fromExecException(e, AbstractFileWriteAction.this);
-          }
-          afterWrite(actionExecutionContext);
-          return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
-        }
-      };
+      afterWrite(actionExecutionContext);
+      return ActionResult.create(continuation.get());
     } catch (ExecException e) {
       throw ActionExecutionException.fromExecException(e, this);
     }
   }
-
+  
   /**
    * Produce a DeterministicWriter that can write the file to an OutputStream deterministically.
    *
