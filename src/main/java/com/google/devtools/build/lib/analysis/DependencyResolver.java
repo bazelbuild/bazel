@@ -620,7 +620,9 @@ public abstract class DependencyResolver {
 
     Class<FragmentT> fragmentClass = lateBoundDefault.getFragmentClass();
     // TODO(b/65746853): remove this when nothing uses it anymore
-    if (BuildConfigurationValue.class.equals(fragmentClass)) {
+    if (BuildConfigurationValue.class.equals(fragmentClass)
+        // noconfig targets can't meaningfully parse late-bound defaults. See NoConfigTransition.
+        && !ruleConfig.getOptions().hasNoConfig()) {
       return lateBoundDefault.resolve(rule, attributeMap, fragmentClass.cast(ruleConfig));
     }
     if (Void.class.equals(fragmentClass)) {

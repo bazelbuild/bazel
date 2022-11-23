@@ -2042,7 +2042,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ExtendedEventHandler eventHandler, BuildOptions referenceBuildOptions)
       throws InvalidConfigurationException {
     PathFragment platformMappingPath =
-        referenceBuildOptions.get(PlatformOptions.class).platformMappings;
+        referenceBuildOptions.hasNoConfig()
+            ? null
+            : referenceBuildOptions.get(PlatformOptions.class).platformMappings;
 
     PlatformMappingValue.Key platformMappingKey =
         PlatformMappingValue.Key.create(platformMappingPath);
