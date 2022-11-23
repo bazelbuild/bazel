@@ -66,6 +66,8 @@ repository.
    or `type: feature request`, according to the type of the issue.
 1. For platform-specific issues, the DevEx member assigns one `platform:` label,
    such as `platform:apple` for Mac-specific issues.
+1. If the issue is low priority and can be worked on by a new community
+   contributor, the DevEx member assigns the `good first issue` label.
 At this stage, the issue enters the pool of [untriaged open
 issues](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3Auntriaged){: .external}.
 
@@ -178,7 +180,7 @@ issues.
 *   [`team-Core`](https://github.com/bazelbuild/bazel/labels/team-Core){: .external}: Issues for Core team
     * Contact: [haxorz](https://github.com/haxorz){: .external}
 *   [`team-Documentation`](https://github.com/bazelbuild/bazel/labels/team-Documentation){: .external}: Issues for Documentation team
-    * Contact: [communikit](https://github.com/communikit){: .external}
+    * Contact: [philomathing](https://github.com/philomathing){: .external}
 *   [`team-ExternalDeps`](https://github.com/bazelbuild/bazel/labels/team-ExternalDeps): External dependency handling, Bzlmod, remote repositories, WORKSPACE file
     * Contact: [meteorcloudy](https://github.com/meteorcloudy)
 *   [`team-Local-Exec`](https://github.com/bazelbuild/bazel/labels/team-Local-Exec){: .external}: Issues for Execution (Local) team
