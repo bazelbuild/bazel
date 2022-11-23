@@ -1752,4 +1752,21 @@ EOF
   bazel build //:main --repo_env=CC=clang || fail "Expected compiler flag to have value 'clang'"
 }
 
+function test_c_header_with_use_cpp_only_toolchain() {
+  cat > BUILD.bazel <<'EOF'
+cc_binary(
+    name = "main",
+    srcs = ["main.c"],
+)
+EOF
+  cat > main.c <<'EOF'
+#include <stdio.h>
+int main() {
+  printf("%s\n", "Hello, world!");
+}
+EOF
+
+  bazel build //:main --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1 || fail "Expected build to succeed"
+}
+
 run_suite "cc_integration_test"
