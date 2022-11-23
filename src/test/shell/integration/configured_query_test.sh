@@ -1430,4 +1430,18 @@ EOF
   expect_not_log "QueryException"
 }
 
+function test_files_include_source_files() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+filegroup(name="files", srcs=["BUILD"])
+alias(name="alias", actual="single_file")
+EOF
+  touch $pkg/single_file
+
+  bazel cquery --output=files //$pkg:all > output 2>"$TEST_log" || fail "Unexpected failure"
+  assert_contains "$pkg/BUILD" output
+  assert_contains "$pkg/single_file" output
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"

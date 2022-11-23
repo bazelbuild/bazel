@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
+import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -53,14 +54,17 @@ public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
       throws IOException, InterruptedException {
     for (KeyedConfiguredTarget keyedTarget : partialResult) {
       ConfiguredTarget target = keyedTarget.getConfiguredTarget();
-      if (!TopLevelArtifactHelper.shouldConsiderForDisplay(target)) {
+      if (!TopLevelArtifactHelper.shouldConsiderForDisplay(target)
+          && !(target instanceof InputFileConfiguredTarget)) {
         continue;
       }
       TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext)
           .getImportantArtifacts()
           .toList()
           .stream()
-          .filter(TopLevelArtifactHelper::shouldDisplay)
+          .filter(
+              artifact ->
+                  TopLevelArtifactHelper.shouldDisplay(artifact) || artifact.isSourceArtifact())
           .map(Artifact::getExecPathString)
           .forEach(this::addResult);
     }
