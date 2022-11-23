@@ -38,6 +38,12 @@ public class CredentialModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) {
     // Update the cache expiration policy according to the command options.
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
-    credentialCache.policy().expireAfterWrite().get().setExpiresAfter(authAndTlsOptions.credentialHelperCacheTimeout);
+    credentialCache.policy().expireAfterWrite().get()
+        .setExpiresAfter(authAndTlsOptions.credentialHelperCacheTimeout);
+
+    // Clear the cache on clean.
+    if (env.getCommand().name().equals("clean")) {
+      credentialCache.invalidateAll();
+    }
   }
 }

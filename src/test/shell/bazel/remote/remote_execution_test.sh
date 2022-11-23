@@ -76,7 +76,7 @@ function has_utf8_locale() {
   [[ "${charmap}" == "UTF-8" ]]
 }
 
-function setup_credential_helper() {
+function setup_credential_helper_test() {
   # Each helper call atomically writes one byte to this file.
   # We can later read the file to determine how many calls were made.
   cat > "${TEST_TMPDIR}/credhelper_log"
@@ -92,20 +92,7 @@ os.close(fd)
 
 print("""{"headers":{"Authorization":["Bearer secret_token"]}}""")
 EOF
-
   chmod +x "${TEST_TMPDIR}/credhelper"
-}
-
-function expect_credential_helper_calls() {
-  local -r expected=$1
-  local -r actual=$(wc -c "${TEST_TMPDIR}/credhelper_log" | awk '{print $1}')
-  if [[ "$expected" != "$actual" ]]; then
-    fail "expected $expected instead of $actual credential helper calls"
-  fi
-}
-
-function test_credential_helper_remote_cache() {
-  setup_credential_helper
 
   mkdir -p a
 
@@ -119,6 +106,18 @@ EOF
 
   stop_worker
   start_worker --expected_authorization_token=secret_token
+}
+
+function expect_credential_helper_calls() {
+  local -r expected=$1
+  local -r actual=$(wc -c "${TEST_TMPDIR}/credhelper_log" | awk '{print $1}')
+  if [[ "$expected" != "$actual" ]]; then
+    fail "expected $expected instead of $actual credential helper calls"
+  fi
+}
+
+function test_credential_helper_remote_cache() {
+  setup_credential_helper_test
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
@@ -146,20 +145,7 @@ EOF
 }
 
 function test_credential_helper_remote_execution() {
-  setup_credential_helper
-
-  mkdir -p a
-
-  cat > a/BUILD <<'EOF'
-[genrule(
-  name = x,
-  outs = [x + ".txt"],
-  cmd = "touch $(OUTS)",
-) for x in ["a", "b"]]
-EOF
-
-  stop_worker
-  start_worker --expected_authorization_token=secret_token
+  setup_credential_helper_test
 
   bazel build \
       --spawn_strategy=remote \
@@ -187,6 +173,29 @@ EOF
 
   # Second build should have hit the credentials cache.
   expect_credential_helper_calls 5
+}
+
+function test_credential_helper_clear_cache() {
+  setup_credential_helper_test
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  expect_credential_helper_calls 5
+
+  bazel clean
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  # Build after clean should have called helper again.
+  expect_credential_helper_calls 10
 }
 
 function test_remote_grpc_cache_with_protocol() {
