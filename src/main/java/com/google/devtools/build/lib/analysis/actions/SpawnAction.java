@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.actions.PathStripper.CommandAdjuster;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -337,15 +336,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     try {
       beforeExecute(actionExecutionContext);
       Spawn spawn = getSpawn(actionExecutionContext);
-      SpawnContinuation continuation =
+      ImmutableList<SpawnResult> result =
           actionExecutionContext
               .getContext(SpawnStrategyResolver.class)
-              .beginExecution(spawn, actionExecutionContext);
-      while (!continuation.isDone()) {
-        continuation = continuation.execute();
-      }
-
-      ImmutableList<SpawnResult> result = continuation.get();
+              .exec(spawn, actionExecutionContext);
       if (resultConsumer != null) {
         resultConsumer.accept(Pair.of(actionExecutionContext, result));
       }

@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
@@ -276,16 +276,12 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Spawn spawn = createSpawn(actionExecutionContext);
-    SpawnContinuation continuation =
-        actionExecutionContext
-            .getContext(SpawnStrategyResolver.class)
-            .beginExecution(spawn, actionExecutionContext);
-
     try {
-      while (!continuation.isDone()) {
-        continuation = continuation.execute();
-      }
-      return ActionResult.create(continuation.get());
+      ImmutableList<SpawnResult> spawnResult =
+          actionExecutionContext
+              .getContext(SpawnStrategyResolver.class)
+              .exec(spawn, actionExecutionContext);
+      return ActionResult.create(spawnResult);
     } catch (ExecException e) {
       throw ActionExecutionException.fromExecException(e, CppLinkAction.this);
     }

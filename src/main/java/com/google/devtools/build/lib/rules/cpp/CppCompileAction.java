@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
@@ -1501,19 +1500,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       clearAdditionalInputs();
     }
 
-    SpawnContinuation spawnContinuation =
-        actionExecutionContext
-            .getContext(SpawnStrategyResolver.class)
-            .beginExecution(spawn, spawnContext);
     ImmutableList<SpawnResult> spawnResults;
     byte[] dotDContents;
 
     try {
-      while (!spawnContinuation.isDone()) {
-        spawnContinuation = spawnContinuation.execute();
-      }
-
-      spawnResults = spawnContinuation.get();
+      spawnResults =
+          actionExecutionContext.getContext(SpawnStrategyResolver.class).exec(spawn, spawnContext);
       // SpawnActionContext guarantees that the first list entry exists and corresponds to the
       // executed spawn.
       dotDContents = getDotDContents(spawnResults.get(0));

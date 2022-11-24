@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -389,25 +388,6 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     return ImmutableMap.copyOf(effectiveEnvironment);
   }
 
-  private ImmutableList<SpawnResult> runSpawn(
-      Spawn spawn, ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
-    SpawnContinuation spawnContinuation =
-        actionExecutionContext
-            .getContext(SpawnStrategyResolver.class)
-            .beginExecution(spawn, actionExecutionContext);
-
-    try {
-      while (!spawnContinuation.isDone()) {
-        spawnContinuation = spawnContinuation.execute();
-      }
-    } catch (ExecException e) {
-      throw ActionExecutionException.fromExecException(e, this);
-    }
-
-    return spawnContinuation.get();
-  }
-
   private ActionExecutionException wrapIOException(IOException e, String message) {
     return ActionExecutionException.fromExecException(
         new EnvironmentalExecException(
@@ -438,7 +418,16 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       throw createActionExecutionException(e, Code.COMMAND_LINE_EXPANSION_FAILURE);
     }
 
-    ImmutableList<SpawnResult> primaryResults = runSpawn(spawn, actionExecutionContext);
+    ImmutableList<SpawnResult> primaryResults;
+    try {
+      primaryResults =
+          actionExecutionContext
+              .getContext(SpawnStrategyResolver.class)
+              .exec(spawn, actionExecutionContext);
+    } catch (ExecException e) {
+      throw ActionExecutionException.fromExecException(e, this);
+    }
+
     if (reducedClasspath == null) {
       return ActionResult.create(primaryResults);
     }
@@ -486,7 +475,16 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       throw createActionExecutionException(e, detailedCode);
     }
 
-    ImmutableList<SpawnResult> fallbackResults = runSpawn(spawn, actionExecutionContext);
+    ImmutableList<SpawnResult> fallbackResults;
+    try {
+      fallbackResults =
+          actionExecutionContext
+              .getContext(SpawnStrategyResolver.class)
+              .exec(spawn, actionExecutionContext);
+    } catch (ExecException e) {
+      throw ActionExecutionException.fromExecException(e, this);
+    }
+
     if (compilationType == CompilationType.TURBINE) {
       actionExecutionContext
           .getContext(JavaCompileActionContext.class)
