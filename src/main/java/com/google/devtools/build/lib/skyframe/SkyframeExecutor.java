@@ -1416,16 +1416,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /** Sets the path for action log buffers. */
-  @Deprecated
   public void setActionOutputRoot(Path actionOutputRoot) {
-    setActionOutputRoot(actionOutputRoot, actionOutputRoot);
-  }
-
-  /** Sets the path for action log buffers. */
-  public void setActionOutputRoot(Path actionOutputRoot, Path persistentActionOutputRoot) {
     Preconditions.checkNotNull(actionOutputRoot);
-    this.actionLogBufferPathGenerator =
-        new ActionLogBufferPathGenerator(actionOutputRoot, persistentActionOutputRoot);
+    this.actionLogBufferPathGenerator = new ActionLogBufferPathGenerator(actionOutputRoot);
     this.skyframeActionExecutor.setActionLogBufferPathGenerator(actionLogBufferPathGenerator);
   }
 

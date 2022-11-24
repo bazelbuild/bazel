@@ -196,7 +196,6 @@ public final class SkyframeActionExecutor {
 
   private OptionsProvider options;
   private boolean hadExecutionError;
-  private boolean replayActionOutErr;
   private boolean freeDiscoveredInputsAfterExecution;
   private MetadataProvider perBuildFileCache;
   private ActionInputPrefetcher actionInputPrefetcher;
@@ -272,7 +271,6 @@ public final class SkyframeActionExecutor {
     this.options = options;
     // Cache some option values for performance, since we consult them on every action.
     this.finalizeActions = options.getOptions(BuildRequestOptions.class).finalizeActions;
-    this.replayActionOutErr = false; // TODO(lberki): Remove supporting code.
     this.outputService = outputService;
 
     this.outputDirectoryHelper =
@@ -523,24 +521,12 @@ public final class SkyframeActionExecutor {
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
-      ActionLookupData actionLookupData)
-      throws InterruptedException {
+      ActionLookupData actionLookupData) {
     boolean emitProgressEvents = shouldEmitProgressEvents(action);
     ArtifactPathResolver artifactPathResolver =
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot());
     FileOutErr fileOutErr;
-    if (replayActionOutErr) {
-      String actionKey = action.getKey(actionKeyContext, artifactExpander);
-      fileOutErr = actionLogBufferPathGenerator.persistent(actionKey, artifactPathResolver);
-      try {
-        fileOutErr.getErrorPath().delete();
-        fileOutErr.getOutputPath().delete();
-      } catch (IOException e) {
-        throw new IllegalStateException(e);
-      }
-    } else {
-      fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
-    }
+    fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
     return new ActionExecutionContext(
         executorEngine,
         createFileCache(metadataHandler, actionFileSystem),
@@ -550,9 +536,7 @@ public final class SkyframeActionExecutor {
         env.restartPermitted(),
         lostInputsCheck(actionFileSystem, action, outputService),
         fileOutErr,
-        replayActionOutErr && emitProgressEvents
-            ? env.getListener()
-            : selectEventHandler(emitProgressEvents),
+        selectEventHandler(emitProgressEvents),
         clientEnv,
         topLevelFilesets,
         artifactExpander,
@@ -630,21 +614,6 @@ public final class SkyframeActionExecutor {
       if (action.getActionType().isMiddleman()) {
         eventHandler.post(new ActionMiddlemanEvent(action, actionStartTime));
         eventPosted = true;
-      }
-
-      if (replayActionOutErr) {
-        // TODO(ulfjack): This assumes that the stdout/stderr files are unmodified. It would be
-        //  better to integrate them with the action cache and rerun the action when they change.
-        String actionKey = action.getKey(actionKeyContext, artifactExpander);
-        FileOutErr fileOutErr = actionLogBufferPathGenerator.persistent(actionKey, pathResolver);
-        // getOutputPath and getErrorPath cause the FileOutErr to be marked as "dirty" which
-        // invalidates any prior in-memory state it had. Need to do this so that hasRecordedOutput()
-        // checks for file existence again.
-        fileOutErr.getOutputPath();
-        fileOutErr.getErrorPath();
-        if (fileOutErr.hasRecordedOutput()) {
-          dumpRecordedOutErr(eventHandler, action, fileOutErr);
-        }
       }
 
       if (action instanceof NotifyOnActionCacheHit) {
@@ -1121,10 +1090,7 @@ public final class SkyframeActionExecutor {
       // current implementation it uses regular expression matching.
       FileOutErr outErrBuffer = actionExecutionContext.getFileOutErr();
       if (outErrBuffer.hasRecordedOutput()) {
-        if (replayActionOutErr) {
-          dumpRecordedOutErr(actionExecutionContext.getEventHandler(), action, outErrBuffer);
-          outputAlreadyDumped = true;
-        } else if (action.showsOutputUnconditionally()
+        if (action.showsOutputUnconditionally()
             || reporter.showOutput(Label.print(action.getOwner().getLabel()))) {
           dumpRecordedOutErr(reporter, action, outErrBuffer);
           outputAlreadyDumped = true;
@@ -1615,11 +1581,7 @@ public final class SkyframeActionExecutor {
    */
   private void dumpRecordedOutErr(
       EventHandler eventHandler, Action action, FileOutErr outErrBuffer) {
-    Event event =
-        replayActionOutErr
-            // Info events are not cached in Skyframe, so we make this a warning.
-            ? Event.warn("From " + action.describe() + ":")
-            : Event.info("From " + action.describe() + ":");
+    Event event = Event.info("From " + action.describe() + ":");
     dumpRecordedOutErr(eventHandler, event, outErrBuffer);
   }
 

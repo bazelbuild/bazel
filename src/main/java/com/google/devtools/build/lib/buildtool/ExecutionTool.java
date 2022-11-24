@@ -665,15 +665,6 @@ public class ExecutionTool {
           Code.TEMP_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE,
           e);
     }
-
-    try {
-      env.getPersistentActionOutsDirectory().createDirectoryAndParents();
-    } catch (IOException e) {
-      throw createExitException(
-          "Couldn't create persistent action output directory",
-          Code.PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE,
-          e);
-    }
   }
 
   /**
@@ -903,8 +894,7 @@ public class ExecutionTool {
       ModifiedFileSet modifiedOutputFiles) {
     BuildRequestOptions options = request.getBuildOptions();
 
-    skyframeExecutor.setActionOutputRoot(
-        env.getActionTempsDirectory(), env.getPersistentActionOutsDirectory());
+    skyframeExecutor.setActionOutputRoot(env.getActionTempsDirectory());
 
     Predicate<Action> executionFilter =
         CheckUpToDateFilter.fromOptions(request.getOptions(ExecutionOptions.class));

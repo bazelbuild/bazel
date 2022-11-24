@@ -573,10 +573,6 @@ public class CommandEnvironment {
     return getDirectories().getActionTempsDirectory(getExecRoot());
   }
 
-  public Path getPersistentActionOutsDirectory() {
-    return getDirectories().getPersistentActionOutsDirectory(getExecRoot());
-  }
-
   /**
    * Returns the working directory of the {@code blaze} client process.
    *

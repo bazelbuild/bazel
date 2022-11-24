@@ -1314,23 +1314,6 @@ public final class ActionExecutionFunction implements SkyFunction {
         MoreObjects.firstNonNull(input.getOwner(), actionLabel), detailedExitCode);
   }
 
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    // The return value from this method is only applied to non-error, non-debug events that are
-    // posted through the EventHandler associated with the SkyFunction.Environment. For those
-    // events, this setting overrides whatever tag is set.
-    //
-    // If action out/err replay is enabled, then we intentionally post through the Environment to
-    // ensure that the output is replayed on subsequent builds. In that case, we need this to be the
-    // action owner's label.
-    //
-    // Otherwise, Events from action execution are posted to the global Reporter rather than through
-    // the Environment, so this setting is ignored. Note that the SkyframeActionExecutor manually
-    // checks the action owner's label against the Reporter's output filter in that case, which has
-    // the same effect as setting it as a tag on the corresponding event.
-    return Label.print(((ActionLookupData) skyKey).getActionLookupKey().getLabel());
-  }
-
   /**
    * Clears bookkeeping used by action rewinding.
    *
