@@ -313,6 +313,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   // -------------------- File Permissions --------------------
+  // Remote files are always readable, writable and executable since we can't control their
+  // permissions.
 
   @Override
   protected boolean isReadable(PathFragment path) throws IOException {
@@ -323,7 +325,20 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   protected boolean isWritable(PathFragment path) throws IOException {
     FileArtifactValue m = getRemoteMetadata(path);
-    return m != null || super.isWritable(path);
+
+    if (m != null) {
+      // If path exists locally, also check whether it's writable. We need this check for the case
+      // where the action need to delete their local outputs but the parent directory is not
+      // writable.
+      try {
+        return super.isWritable(path);
+      } catch (FileNotFoundException e) {
+        // Intentionally ignored
+        return true;
+      }
+    }
+
+    return super.isWritable(path);
   }
 
   @Override
@@ -334,33 +349,49 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   protected void setReadable(PathFragment path, boolean readable) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m == null) {
+    try {
       super.setReadable(path, readable);
+    } catch (FileNotFoundException e) {
+      // in case of missing remote file, re-throw the error.
+      if (getRemoteMetadata(path) == null) {
+        throw e;
+      }
     }
   }
 
   @Override
   public void setWritable(PathFragment path, boolean writable) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m == null) {
+    try {
       super.setWritable(path, writable);
+    } catch (FileNotFoundException e) {
+      // in case of missing remote file, re-throw the error.
+      if (getRemoteMetadata(path) == null) {
+        throw e;
+      }
     }
   }
 
   @Override
   protected void setExecutable(PathFragment path, boolean executable) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m == null) {
+    try {
       super.setExecutable(path, executable);
+    } catch (FileNotFoundException e) {
+      // in case of missing remote file, re-throw the error.
+      if (getRemoteMetadata(path) == null) {
+        throw e;
+      }
     }
   }
 
   @Override
   protected void chmod(PathFragment path, int mode) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m == null) {
+    try {
       super.chmod(path, mode);
+    } catch (FileNotFoundException e) {
+      // in case of missing remote file, re-throw the error.
+      if (getRemoteMetadata(path) == null) {
+        throw e;
+      }
     }
   }
 
