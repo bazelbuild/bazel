@@ -410,7 +410,8 @@ public final class Runfiles {
       return Collections.emptyMap();
     }
 
-    try (BufferedReader r = new BufferedReader(new FileReader(path, StandardCharsets.UTF_8))) {
+    try (BufferedReader r = new BufferedReader(
+        new InputStreamReader(new FileInputStream(path), StandardCharsets.UTF_8))) {
       return Collections.unmodifiableMap(
           r.lines()
               .filter(line -> !line.isEmpty())
