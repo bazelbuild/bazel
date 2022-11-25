@@ -481,6 +481,9 @@ public final class TestActionBuilder {
       TransitiveInfoCollection reportGeneratorTarget =
           ruleContext.getPrerequisite(":coverage_report_generator");
       reportGenerator = reportGeneratorTarget.getProvider(FilesToRunProvider.class);
+      if (reportGenerator.getExecutable() == null) {
+        ruleContext.ruleError("--coverage_report_generator does not refer to an executable target");
+      }
     }
 
     return new TestParams(
