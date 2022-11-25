@@ -79,7 +79,7 @@ The directories are laid out as follows:
                                               the bazel executable on first run (such as helper scripts and the
                                               main Java file BazelServer_deploy.jar)
     7ffd56a6e4cb724ea575aba15733d113/     <== Hash of the client's workspace directory (such as
-                                              /home/some-user/src/my-project): outputBase
+                                              /home/user/src/my-project): outputBase
       action_cache/                       <== Action cache directory hierarchy
                                               This contains the persistent record of the file
                                               metadata (timestamps, and perhaps eventually also MD5
