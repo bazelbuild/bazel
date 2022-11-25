@@ -319,15 +319,19 @@ public class StandaloneTestStrategy extends TestStrategy {
     SpawnStrategyResolver resolver = actionExecutionContext.getContext(SpawnStrategyResolver.class);
     SpawnContinuation spawnContinuation;
     try {
-      spawnContinuation =
-          resolver.beginExecution(spawn, actionExecutionContext.withFileOutErr(testOutErr));
+      ImmutableList<SpawnResult> spawnResults =
+          resolver.exec(spawn, actionExecutionContext.withFileOutErr(testOutErr));
+      spawnContinuation = SpawnContinuation.immediate(spawnResults);
     } catch (InterruptedException e) {
       if (streamed != null) {
         streamed.close();
       }
       testOutErr.close();
       throw e;
+    } catch (ExecException e) {
+      spawnContinuation = SpawnContinuation.failedWithExecException(e);
     }
+
     return new BazelTestAttemptContinuation(
         testAction,
         actionExecutionContext,
@@ -804,21 +808,44 @@ public class StandaloneTestStrategy extends TestStrategy {
           ActionExecutionContext actionExecutionContextWithCoverageFileOutErr =
               actionExecutionContext.withFileOutErr(coverageOutErr);
 
-          SpawnContinuation coveragePostProcessingContinuation =
-              spawnStrategyResolver.beginExecution(
-                  coveragePostProcessingSpawn, actionExecutionContextWithCoverageFileOutErr);
           writeOutFile(coverageOutErr.getErrorPath(), coverageOutErr.getOutputPath());
           appendCoverageLog(coverageOutErr, fileOutErr);
-          return new BazelCoveragePostProcessingContinuation(
+          try {
+            spawnStrategyResolver.exec(
+                coveragePostProcessingSpawn, actionExecutionContextWithCoverageFileOutErr);
+          } catch (SpawnExecException e) {
+            if (e.isCatastrophic()) {
+              closeSuppressed(e, streamed);
+              closeSuppressed(e, fileOutErr);
+              throw e;
+            }
+            if (!e.getSpawnResult().setupSuccess()) {
+              closeSuppressed(e, streamed);
+              closeSuppressed(e, fileOutErr);
+              // Rethrow as the test could not be run and thus there's no point in retrying.
+              throw e;
+            }
+            testResultDataBuilder
+                .setCachable(e.getSpawnResult().status().isConsideredUserError())
+                .setTestPassed(false)
+                .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
+          } catch (ExecException | InterruptedException e) {
+            closeSuppressed(e, streamed);
+            closeSuppressed(e, fileOutErr);
+            throw e;
+          }
+
+          return new BazelTestAttemptContinuation(
               testAction,
               actionExecutionContext,
               spawn,
               resolvedPaths,
               fileOutErr,
               streamed,
+              0,
+              SpawnContinuation.immediate(spawnResults),
               builder,
-              spawnResults,
-              coveragePostProcessingContinuation);
+              spawnResults);
         } else {
           this.spawnResults = spawnResults;
           this.testResultDataBuilder = builder;
@@ -833,7 +860,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
       try {
         if (!fileOutErr.hasRecordedOutput()) {
-          // Make sure that the test.log exists.
+          // Make sure that the test.log exists.Spaw
           FileSystemUtils.touchFile(fileOutErr.getOutputPath());
         }
         // Append any error output to the test.log. This is very rare.
@@ -863,9 +890,17 @@ public class StandaloneTestStrategy extends TestStrategy {
         // the test if this fails. We redirect the output to a temporary file.
         FileOutErr xmlSpawnOutErr = actionExecutionContext.getFileOutErr().childOutErr();
         try {
-          SpawnContinuation xmlContinuation =
-              spawnStrategyResolver.beginExecution(
-                  xmlGeneratingSpawn, actionExecutionContext.withFileOutErr(xmlSpawnOutErr));
+
+          SpawnContinuation xmlContinuation;
+          try {
+            ImmutableList<SpawnResult> spawnResults =
+                spawnStrategyResolver.exec(
+                    xmlGeneratingSpawn, actionExecutionContext.withFileOutErr(xmlSpawnOutErr));
+            xmlContinuation = SpawnContinuation.immediate(spawnResults);
+          } catch (ExecException e) {
+            xmlContinuation = SpawnContinuation.failedWithExecException(e);
+          }
+
           return new BazelXmlCreationContinuation(
               resolvedPaths, xmlSpawnOutErr, testResultDataBuilder, spawnResults, xmlContinuation);
         } catch (InterruptedException e) {
@@ -958,100 +993,6 @@ public class StandaloneTestStrategy extends TestStrategy {
               .setExecutionInfo(executionInfo)
               .build();
       return TestAttemptContinuation.of(standaloneTestResult);
-    }
-  }
-
-  private final class BazelCoveragePostProcessingContinuation extends TestAttemptContinuation {
-    private final ResolvedPaths resolvedPaths;
-    private final FileOutErr fileOutErr;
-    private final Closeable streamed;
-    private final TestResultData.Builder testResultDataBuilder;
-    private final ImmutableList<SpawnResult> primarySpawnResults;
-    private final SpawnContinuation spawnContinuation;
-    private final TestRunnerAction testAction;
-    private final ActionExecutionContext actionExecutionContext;
-    private final Spawn spawn;
-
-    BazelCoveragePostProcessingContinuation(
-        TestRunnerAction testAction,
-        ActionExecutionContext actionExecutionContext,
-        Spawn spawn,
-        ResolvedPaths resolvedPaths,
-        FileOutErr fileOutErr,
-        Closeable streamed,
-        TestResultData.Builder testResultDataBuilder,
-        ImmutableList<SpawnResult> primarySpawnResults,
-        SpawnContinuation spawnContinuation) {
-      this.testAction = testAction;
-      this.actionExecutionContext = actionExecutionContext;
-      this.spawn = spawn;
-      this.resolvedPaths = resolvedPaths;
-      this.fileOutErr = fileOutErr;
-      this.streamed = streamed;
-      this.testResultDataBuilder = testResultDataBuilder;
-      this.primarySpawnResults = primarySpawnResults;
-      this.spawnContinuation = spawnContinuation;
-    }
-
-    @Nullable
-    @Override
-    public ListenableFuture<?> getFuture() {
-      return spawnContinuation.getFuture();
-    }
-
-    @Override
-    public TestAttemptContinuation execute() throws InterruptedException, ExecException {
-      SpawnContinuation nextContinuation = null;
-      try {
-        nextContinuation = spawnContinuation.execute();
-        if (!nextContinuation.isDone()) {
-          return new BazelCoveragePostProcessingContinuation(
-              testAction,
-              actionExecutionContext,
-              spawn,
-              resolvedPaths,
-              fileOutErr,
-              streamed,
-              testResultDataBuilder,
-              ImmutableList.<SpawnResult>builder()
-                  .addAll(primarySpawnResults)
-                  .addAll(nextContinuation.get())
-                  .build(),
-              nextContinuation);
-        }
-      } catch (SpawnExecException e) {
-        if (e.isCatastrophic()) {
-          closeSuppressed(e, streamed);
-          closeSuppressed(e, fileOutErr);
-          throw e;
-        }
-        if (!e.getSpawnResult().setupSuccess()) {
-          closeSuppressed(e, streamed);
-          closeSuppressed(e, fileOutErr);
-          // Rethrow as the test could not be run and thus there's no point in retrying.
-          throw e;
-        }
-        testResultDataBuilder
-            .setCachable(e.getSpawnResult().status().isConsideredUserError())
-            .setTestPassed(false)
-            .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
-      } catch (ExecException | InterruptedException e) {
-        closeSuppressed(e, fileOutErr);
-        closeSuppressed(e, streamed);
-        throw e;
-      }
-
-      return new BazelTestAttemptContinuation(
-          testAction,
-          actionExecutionContext,
-          spawn,
-          resolvedPaths,
-          fileOutErr,
-          streamed,
-          /* startTimeMillis= */ 0,
-          nextContinuation,
-          testResultDataBuilder,
-          primarySpawnResults);
     }
   }
 }
