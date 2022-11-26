@@ -30,9 +30,12 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Bazel-specific Python configuration. */
 @Immutable
+@StarlarkBuiltin(name = "bazel_py")
 @RequiresOptions(options = {BazelPythonConfiguration.Options.class, PythonOptions.class})
 public class BazelPythonConfiguration extends Fragment {
 
@@ -92,9 +95,7 @@ public class BazelPythonConfiguration extends Fragment {
                 + "is less likely to experience import name collisions.")
     public boolean experimentalPythonImportAllRepositories;
 
-     /**
-     * Make Python configuration options available for host configurations as well
-     */
+    /** Make Python configuration options available for host configurations as well */
     @Override
     public FragmentOptions getHost() {
       return clone(); // host options are the same as target options
@@ -151,8 +152,11 @@ public class BazelPythonConfiguration extends Fragment {
     return options.pythonPath == null ? "python" : options.pythonPath;
   }
 
+  @StarlarkMethod(
+      name = "python_import_all_repositories",
+      structField = true,
+      doc = "The value of the --experimental_python_import_all_repositories flag.")
   public boolean getImportAllRepositories() {
     return options.experimentalPythonImportAllRepositories;
   }
-
 }

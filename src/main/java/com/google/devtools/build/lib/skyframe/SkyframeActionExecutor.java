@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionContext.ActionContextRegistry;
-import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -197,9 +195,7 @@ public final class SkyframeActionExecutor {
   private ActionOutputDirectoryHelper outputDirectoryHelper;
 
   private OptionsProvider options;
-  private boolean useAsyncExecution;
   private boolean hadExecutionError;
-  private boolean replayActionOutErr;
   private boolean freeDiscoveredInputsAfterExecution;
   private MetadataProvider perBuildFileCache;
   private ActionInputPrefetcher actionInputPrefetcher;
@@ -274,9 +270,7 @@ public final class SkyframeActionExecutor {
     // Don't cache possibly stale data from the last build.
     this.options = options;
     // Cache some option values for performance, since we consult them on every action.
-    this.useAsyncExecution = options.getOptions(BuildRequestOptions.class).useAsyncExecution;
     this.finalizeActions = options.getOptions(BuildRequestOptions.class).finalizeActions;
-    this.replayActionOutErr = options.getOptions(BuildRequestOptions.class).replayActionOutErr;
     this.outputService = outputService;
 
     this.outputDirectoryHelper =
@@ -527,24 +521,12 @@ public final class SkyframeActionExecutor {
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
-      ActionLookupData actionLookupData)
-      throws InterruptedException {
+      ActionLookupData actionLookupData) {
     boolean emitProgressEvents = shouldEmitProgressEvents(action);
     ArtifactPathResolver artifactPathResolver =
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot());
     FileOutErr fileOutErr;
-    if (replayActionOutErr) {
-      String actionKey = action.getKey(actionKeyContext, artifactExpander);
-      fileOutErr = actionLogBufferPathGenerator.persistent(actionKey, artifactPathResolver);
-      try {
-        fileOutErr.getErrorPath().delete();
-        fileOutErr.getOutputPath().delete();
-      } catch (IOException e) {
-        throw new IllegalStateException(e);
-      }
-    } else {
-      fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
-    }
+    fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
     return new ActionExecutionContext(
         executorEngine,
         createFileCache(metadataHandler, actionFileSystem),
@@ -554,9 +536,7 @@ public final class SkyframeActionExecutor {
         env.restartPermitted(),
         lostInputsCheck(actionFileSystem, action, outputService),
         fileOutErr,
-        replayActionOutErr && emitProgressEvents
-            ? env.getListener()
-            : selectEventHandler(emitProgressEvents),
+        selectEventHandler(emitProgressEvents),
         clientEnv,
         topLevelFilesets,
         artifactExpander,
@@ -634,21 +614,6 @@ public final class SkyframeActionExecutor {
       if (action.getActionType().isMiddleman()) {
         eventHandler.post(new ActionMiddlemanEvent(action, actionStartTime));
         eventPosted = true;
-      }
-
-      if (replayActionOutErr) {
-        // TODO(ulfjack): This assumes that the stdout/stderr files are unmodified. It would be
-        //  better to integrate them with the action cache and rerun the action when they change.
-        String actionKey = action.getKey(actionKeyContext, artifactExpander);
-        FileOutErr fileOutErr = actionLogBufferPathGenerator.persistent(actionKey, pathResolver);
-        // getOutputPath and getErrorPath cause the FileOutErr to be marked as "dirty" which
-        // invalidates any prior in-memory state it had. Need to do this so that hasRecordedOutput()
-        // checks for file existence again.
-        fileOutErr.getOutputPath();
-        fileOutErr.getErrorPath();
-        if (fileOutErr.hasRecordedOutput()) {
-          dumpRecordedOutErr(eventHandler, action, fileOutErr);
-        }
       }
 
       if (action instanceof NotifyOnActionCacheHit) {
@@ -903,41 +868,6 @@ public final class SkyframeActionExecutor {
         throws InterruptedException, ActionExecutionException;
   }
 
-  private static ActionContinuationOrResult begin(
-      Action action, ActionExecutionContext actionExecutionContext) {
-    return new ActionContinuationOrResult() {
-      @Nullable
-      @Override
-      public ListenableFuture<?> getFuture() {
-        return null;
-      }
-
-      @Override
-      public ActionContinuationOrResult execute()
-          throws ActionExecutionException, InterruptedException {
-        return action.beginExecution(actionExecutionContext);
-      }
-    };
-  }
-
-  /** Returns a continuation to run the specified action in a profiler task. */
-  private static ActionContinuationOrResult runFully(
-      Action action, ActionExecutionContext actionExecutionContext) {
-    return new ActionContinuationOrResult() {
-      @Nullable
-      @Override
-      public ListenableFuture<?> getFuture() {
-        return null;
-      }
-
-      @Override
-      public ActionContinuationOrResult execute()
-          throws ActionExecutionException, InterruptedException {
-        return ActionContinuationOrResult.of(action.execute(actionExecutionContext));
-      }
-    };
-  }
-
   /** Represents an action that needs to be run. */
   private final class ActionRunner extends ActionStep {
     private final Action action;
@@ -994,16 +924,9 @@ public final class SkyframeActionExecutor {
           reporter.startTask(null, prependExecPhaseStats(message));
         }
 
+        boolean lostInputs = false;
+
         try {
-          // It is vital that updateStatus and remove are called in pairs. Unfortunately, if async
-          // action execution is enabled, we cannot use a simple finally block, but have to manually
-          // ensure that any code path that finishes the state machine also removes the action from
-          // the status reporter.
-          // To complicate things, the ActionCompletionEvent must _not_ be posted when this action
-          // is rewound.
-          // TODO(ulfjack): Change the uses of ActionStartedEvent and ActionCompletionEvent such
-          // that they can be reposted when rewinding and simplify this code path. Maybe also keep
-          // track of the rewind attempt, so that listeners can use that to adjust their behavior.
           ActionStartedEvent event = new ActionStartedEvent(action, actionStartTime);
           if (statusReporter != null) {
             statusReporter.updateStatus(event);
@@ -1039,26 +962,16 @@ public final class SkyframeActionExecutor {
           } else {
             createOutputDirectories(action);
           }
+
+          return executeAction(env.getListener(), action);
+        } catch (LostInputsActionExecutionException e) {
+          lostInputs = true;
+          throw e;
         } catch (ActionExecutionException e) {
-          // This try-catch block cannot trigger rewinding, so it is safe to notify the status
-          // reporter and also post the ActionCompletionEvent.
-          notifyActionCompletion(env.getListener(), /*postActionCompletionEvent=*/ true);
           return ActionStepOrResult.of(e);
+        } finally {
+          notifyActionCompletion(env.getListener(), !lostInputs);
         }
-
-        // This is the first iteration of the async action execution framework. It is currently only
-        // implemented for SpawnAction (and subclasses), and will need to be extended for all other
-        // action types.
-        if (useAsyncExecution) {
-          // TODO(ulfjack): This causes problems in that REMOTE_EXECUTION segments now heavily
-          // overlap in the Json profile, which the renderer isn't able to handle. We should move
-          // those to some sort of 'virtual thread' to visualize the work that's happening on other
-          // machines.
-          return continueAction(
-              actionExecutionContext.getEventHandler(), begin(action, actionExecutionContext));
-        }
-
-        return continueAction(env.getListener(), runFully(action, actionExecutionContext));
       }
     }
 
@@ -1091,24 +1004,8 @@ public final class SkyframeActionExecutor {
       }
     }
 
-    /** Executes the given continuation and returns a new one or a final result. */
-    private ActionStepOrResult continueAction(
-        ExtendedEventHandler eventHandler, ActionContinuationOrResult actionContinuation)
-        throws LostInputsActionExecutionException, InterruptedException {
-      // Every code path that exits this method must call notifyActionCompletion, except for the
-      // one that returns a new ActionContinuationStep. Unfortunately, that requires some code
-      // duplication.
-      ActionContinuationOrResult nextActionContinuationOrResult;
-      try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "ActionContinuation.execute")) {
-        nextActionContinuationOrResult = actionContinuation.execute();
-
-        // An action's result (or intermediate state) may have been affected by lost inputs. If an
-        // action filesystem is used, it may know whether inputs were lost. We should fail fast if
-        // any were; rewinding may be able to fix it.
-        checkActionFileSystemForLostInputs(
-            actionExecutionContext.getActionFileSystem(), action, outputService);
-      } catch (ActionExecutionException e) {
-
+    private void maybeSignalLostInputs(ActionExecutionException e, Path primaryOutputPath)
+        throws LostInputsActionExecutionException {
         LostInputsActionExecutionException lostInputsException = null;
         // Action failures may be caused by lost inputs. Lost input failures have higher priority
         // because rewinding may be able to restore what was lost and allow the action to complete
@@ -1124,21 +1021,37 @@ public final class SkyframeActionExecutor {
           }
         }
 
+      if (lostInputsException == null) {
+        return;
+      }
+
+      // If inputs are lost, then avoid publishing ActionExecutedEvent or reporting the error.
+      // Action rewinding will rerun this failed action after trying to regenerate the lost
+      // inputs.
+      lostInputsException.setActionStartedEventAlreadyEmitted();
+      enrichLostInputsException(
+          primaryOutputPath,
+          actionLookupData,
+          actionExecutionContext.getFileOutErr(),
+          lostInputsException);
+      throw lostInputsException;
+    }
+
+    /** Executes the given action. */
+    private ActionStepOrResult executeAction(ExtendedEventHandler eventHandler, Action action)
+        throws LostInputsActionExecutionException, InterruptedException {
+      ActionResult result;
+      try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "Action.execute")) {
+        result = action.execute(actionExecutionContext);
+
+        // An action's result (or intermediate state) may have been affected by lost inputs. If an
+        // action filesystem is used, it may know whether inputs were lost. We should fail fast if
+        // any were; rewinding may be able to fix it.
+        checkActionFileSystemForLostInputs(
+            actionExecutionContext.getActionFileSystem(), action, outputService);
+      } catch (ActionExecutionException e) {
         Path primaryOutputPath = actionExecutionContext.getInputPath(action.getPrimaryOutput());
-        notifyActionCompletion(
-            eventHandler, /*postActionCompletionEvent=*/ lostInputsException == null);
-        if (lostInputsException != null) {
-          // If inputs are lost, then avoid publishing ActionExecutedEvent or reporting the error.
-          // Action rewinding will rerun this failed action after trying to regenerate the lost
-          // inputs.
-          lostInputsException.setActionStartedEventAlreadyEmitted();
-          enrichLostInputsException(
-              primaryOutputPath,
-              actionLookupData,
-              actionExecutionContext.getFileOutErr(),
-              lostInputsException);
-          throw lostInputsException;
-        }
+        maybeSignalLostInputs(e, primaryOutputPath);
         return ActionStepOrResult.of(
             processAndGetExceptionToThrow(
                 eventHandler,
@@ -1148,26 +1061,18 @@ public final class SkyframeActionExecutor {
                 actionExecutionContext.getFileOutErr(),
                 ErrorTiming.AFTER_EXECUTION));
       } catch (InterruptedException e) {
-        notifyActionCompletion(eventHandler, /*postActionCompletionEvent=*/ true);
         return ActionStepOrResult.of(e);
-      }
-
-      if (!nextActionContinuationOrResult.isDone()) {
-        return new ActionContinuationStep(nextActionContinuationOrResult);
       }
 
       try {
         ActionExecutionValue actionExecutionValue;
         try (SilentCloseable c =
             profiler.profile(ProfilerTask.ACTION_COMPLETE, "actuallyCompleteAction")) {
-          actionExecutionValue =
-              actuallyCompleteAction(eventHandler, nextActionContinuationOrResult.get());
+          actionExecutionValue = actuallyCompleteAction(eventHandler, result);
         }
         return new ActionPostprocessingStep(actionExecutionValue);
       } catch (ActionExecutionException e) {
         return ActionStepOrResult.of(e);
-      } finally {
-        notifyActionCompletion(eventHandler, /*postActionCompletionEvent=*/ true);
       }
     }
 
@@ -1185,10 +1090,7 @@ public final class SkyframeActionExecutor {
       // current implementation it uses regular expression matching.
       FileOutErr outErrBuffer = actionExecutionContext.getFileOutErr();
       if (outErrBuffer.hasRecordedOutput()) {
-        if (replayActionOutErr) {
-          dumpRecordedOutErr(actionExecutionContext.getEventHandler(), action, outErrBuffer);
-          outputAlreadyDumped = true;
-        } else if (action.showsOutputUnconditionally()
+        if (action.showsOutputUnconditionally()
             || reporter.showOutput(Label.print(action.getOwner().getLabel()))) {
           dumpRecordedOutErr(reporter, action, outErrBuffer);
           outputAlreadyDumped = true;
@@ -1305,27 +1207,6 @@ public final class SkyframeActionExecutor {
           this.metadataHandler.getOutputStore(),
           actionExecutionContext.getOutputSymlinks(),
           action);
-    }
-
-    /** A closure to continue an asynchronously running action. */
-    private class ActionContinuationStep extends ActionStep {
-      private final ActionContinuationOrResult actionContinuationOrResult;
-
-      ActionContinuationStep(ActionContinuationOrResult actionContinuationOrResult) {
-        Preconditions.checkArgument(!actionContinuationOrResult.isDone());
-        this.actionContinuationOrResult = actionContinuationOrResult;
-      }
-
-      @Override
-      public ActionStepOrResult run(Environment env)
-          throws LostInputsActionExecutionException, InterruptedException {
-        ListenableFuture<?> future = actionContinuationOrResult.getFuture();
-        if (future != null && !future.isDone()) {
-          env.dependOnFuture(future);
-          return this;
-        }
-        return continueAction(actionExecutionContext.getEventHandler(), actionContinuationOrResult);
-      }
     }
 
     /**
@@ -1700,11 +1581,7 @@ public final class SkyframeActionExecutor {
    */
   private void dumpRecordedOutErr(
       EventHandler eventHandler, Action action, FileOutErr outErrBuffer) {
-    Event event =
-        replayActionOutErr
-            // Info events are not cached in Skyframe, so we make this a warning.
-            ? Event.warn("From " + action.describe() + ":")
-            : Event.info("From " + action.describe() + ":");
+    Event event = Event.info("From " + action.describe() + ":");
     dumpRecordedOutErr(eventHandler, event, outErrBuffer);
   }
 

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -24,8 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.common.eventbus.EventBus;
@@ -72,7 +71,6 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -90,12 +88,12 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType;
 import com.google.devtools.build.lib.skyframe.SkyframeErrorProcessor.ErrorProcessingResult;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor.ConfigureTargetsResult;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.FailureToRetrieveIntrospectedValueException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.TopLevelActionConflictReport;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -340,7 +338,7 @@ public final class SkyframeBuildView {
    */
   public SkyframeAnalysisResult configureTargets(
       ExtendedEventHandler eventHandler,
-      List<ConfiguredTargetKey> ctKeys,
+      ImmutableList<ConfiguredTargetKey> ctKeys,
       ImmutableList<TopLevelAspectsKey> topLevelAspectsKeys,
       Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       TopLevelArtifactContext topLevelArtifactContextForConflictPruning,
@@ -353,7 +351,7 @@ public final class SkyframeBuildView {
       int cpuHeavySkyKeysThreadPoolSize)
       throws InterruptedException, ViewCreationFailedException {
     enableAnalysis(true);
-    EvaluationResult<ActionLookupValue> result;
+    ConfigureTargetsResult result;
     try (SilentCloseable c = Profiler.instance().profile("skyframeExecutor.configureTargets")) {
       result =
           skyframeExecutor.configureTargets(
@@ -367,50 +365,11 @@ public final class SkyframeBuildView {
       enableAnalysis(false);
     }
 
-    int numOfAspects = 0;
-    if (!topLevelAspectsKeys.isEmpty()) {
-      numOfAspects =
-          topLevelAspectsKeys.size()
-              * topLevelAspectsKeys.get(0).getTopLevelAspectsClasses().size();
-    }
-    Map<AspectKey, ConfiguredAspect> aspects = Maps.newHashMapWithExpectedSize(numOfAspects);
-    Root singleSourceRoot = skyframeExecutor.getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
-    NestedSetBuilder<Package> packages =
-        singleSourceRoot == null ? NestedSetBuilder.stableOrder() : null;
-    ImmutableList.Builder<AspectKey> aspectKeysBuilder = ImmutableList.builder();
-
-    for (TopLevelAspectsKey key : topLevelAspectsKeys) {
-      TopLevelAspectsValue value = (TopLevelAspectsValue) result.get(key);
-      if (value == null) {
-        // Skip aspects that couldn't be applied to targets.
-        continue;
-      }
-      for (SkyValue val : value.getTopLevelAspectsValues()) {
-        AspectValue aspectValue = (AspectValue) val;
-        aspects.put(aspectValue.getKey(), aspectValue.getConfiguredAspect());
-        if (packages != null) {
-          packages.addTransitive(Preconditions.checkNotNull(aspectValue.getTransitivePackages()));
-        }
-        aspectKeysBuilder.add(aspectValue.getKey());
-      }
-    }
-    ImmutableList<AspectKey> aspectKeys = aspectKeysBuilder.build();
-
-    Collection<ConfiguredTarget> cts = Lists.newArrayListWithCapacity(ctKeys.size());
-    for (ConfiguredTargetKey value : ctKeys) {
-      ConfiguredTargetValue ctValue = (ConfiguredTargetValue) result.get(value);
-      if (ctValue == null) {
-        continue;
-      }
-      cts.add(ctValue.getConfiguredTarget());
-      if (packages != null) {
-        packages.addTransitive(Preconditions.checkNotNull(ctValue.getTransitivePackages()));
-      }
-    }
-    PackageRoots packageRoots =
-        singleSourceRoot == null
-            ? new MapAsPackageRoots(collectPackageRoots(packages.build().toList()))
-            : new PackageRootsNoSymlinkCreation(singleSourceRoot);
+    ImmutableSet<ConfiguredTarget> cts = result.configuredTargets();
+    ImmutableMap<AspectKey, ConfiguredAspect> aspects = result.aspects();
+    ImmutableSet<AspectKey> aspectKeys = aspects.keySet();
+    PackageRoots packageRoots = result.packageRoots();
+    EvaluationResult<ActionLookupValue> evaluationResult = result.evaluationResult();
 
     ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts = ImmutableMap.of();
     try (SilentCloseable c =
@@ -445,20 +404,20 @@ public final class SkyframeBuildView {
     }
     foundActionConflictInLatestCheck = !actionConflicts.isEmpty();
 
-    if (!result.hasError() && !foundActionConflictInLatestCheck) {
+    if (!evaluationResult.hasError() && !foundActionConflictInLatestCheck) {
       return new SkyframeAnalysisResult(
-          /*hasLoadingError=*/ false,
-          /*hasAnalysisError=*/ false,
+          /* hasLoadingError= */ false,
+          /* hasAnalysisError= */ false,
           foundActionConflictInLatestCheck,
-          ImmutableSet.copyOf(cts),
-          result.getWalkableGraph(),
-          ImmutableMap.copyOf(aspects),
+          cts,
+          evaluationResult.getWalkableGraph(),
+          aspects,
           packageRoots);
     }
 
     ErrorProcessingResult errorProcessingResult =
         SkyframeErrorProcessor.processAnalysisErrors(
-            result,
+            evaluationResult,
             configurationLookupSupplier,
             skyframeExecutor.getCyclesReporter(),
             eventHandler,
@@ -554,23 +513,23 @@ public final class SkyframeBuildView {
               .filter(topLevelActionConflictReport::isErrorFree)
               .map(
                   k ->
-                      Preconditions.checkNotNull((ConfiguredTargetValue) result.get(k), k)
+                      Preconditions.checkNotNull((ConfiguredTargetValue) evaluationResult.get(k), k)
                           .getConfiguredTarget())
-              .collect(toImmutableList());
+              .collect(toImmutableSet());
 
       aspects =
           aspects.entrySet().stream()
               .filter(e -> topLevelActionConflictReport.isErrorFree(e.getKey()))
-              .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
+              .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     return new SkyframeAnalysisResult(
         errorProcessingResult.hasLoadingError(),
-        result.hasError() || foundActionConflictInLatestCheck,
+        evaluationResult.hasError() || foundActionConflictInLatestCheck,
         foundActionConflictInLatestCheck,
-        ImmutableSet.copyOf(cts),
-        result.getWalkableGraph(),
-        ImmutableMap.copyOf(aspects),
+        cts,
+        evaluationResult.getWalkableGraph(),
+        aspects,
         packageRoots);
   }
 
@@ -999,7 +958,7 @@ public final class SkyframeBuildView {
                 skyframeExecutor.getDoneSkyValueForIntrospection(topLevelAspectsKey);
         topLevelAspectsValue
             .getTopLevelAspectsValues()
-            .forEach((aspectValue) -> aspectKeysBuilder.add(((AspectValue) aspectValue).getKey()));
+            .forEach(aspectValue -> aspectKeysBuilder.add(aspectValue.getKey()));
       } catch (FailureToRetrieveIntrospectedValueException e) {
         // It could happen that the analysis of TopLevelAspectKey wasn't complete: either its own
         // analysis failed, or another error was raise in --nokeep_going mode. In that case, it
@@ -1054,8 +1013,7 @@ public final class SkyframeBuildView {
         continue;
       }
       TopLevelAspectsValue topLevelAspectsValue = (TopLevelAspectsValue) value.getWrappedSkyValue();
-      for (SkyValue val : topLevelAspectsValue.getTopLevelAspectsValues()) {
-        AspectValue aspectValue = (AspectValue) val;
+      for (AspectValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
         aspects.put(aspectValue.getKey(), aspectValue.getConfiguredAspect());
       }
     }
@@ -1165,19 +1123,6 @@ public final class SkyframeBuildView {
     // We only delete the old 'x' value in (5), and we don't evaluate nor dirty anything, nor was
     // (4) bad. So there's no reason to re-check just because we deleted something.
     return false;
-  }
-
-  /** Returns a map of collected package names to root paths. */
-  private static ImmutableMap<PackageIdentifier, Root> collectPackageRoots(
-      Collection<Package> packages) {
-    // Make a map of the package names to their root paths.
-    ImmutableMap.Builder<PackageIdentifier, Root> packageRoots = ImmutableMap.builder();
-    for (Package pkg : packages) {
-      if (pkg.getSourceRoot().isPresent()) {
-        packageRoots.put(pkg.getPackageIdentifier(), pkg.getSourceRoot().get());
-      }
-    }
-    return packageRoots.buildOrThrow();
   }
 
   public ArtifactFactory getArtifactFactory() {

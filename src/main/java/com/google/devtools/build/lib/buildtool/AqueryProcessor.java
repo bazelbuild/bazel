@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
@@ -122,7 +121,6 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfi
   protected PostAnalysisQueryEnvironment<KeyedConfiguredTargetValue> getQueryEnvironment(
       BuildRequest request,
       CommandEnvironment env,
-      BuildConfigurationValue hostConfiguration,
       TopLevelConfigurations topLevelConfigurations,
       Collection<SkyKey> transitiveConfigurationKeys,
       WalkableGraph walkableGraph) {
@@ -139,7 +137,6 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfi
             env.getReporter(),
             extraFunctions,
             topLevelConfigurations,
-            hostConfiguration,
             mainRepoTargetParser,
             env.getPackageManager().getPackagePath(),
             () -> walkableGraph,

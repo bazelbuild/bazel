@@ -83,7 +83,9 @@ public final class BuildConfigurationFunction implements SkyFunction {
     BuildOptions targetOptions = key.getOptions();
 
     String transitionDirectoryNameFragment;
-    if (targetOptions
+    if (targetOptions.hasNoConfig()) {
+      transitionDirectoryNameFragment = "noconfig"; // See NoConfigTransition.
+    } else if (targetOptions
         .get(CoreOptions.class)
         .outputDirectoryNamingScheme
         .equals(CoreOptions.OutputDirectoryNamingScheme.DIFF_AGAINST_BASELINE)) {

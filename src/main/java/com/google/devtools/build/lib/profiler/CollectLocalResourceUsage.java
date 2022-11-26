@@ -93,35 +93,20 @@ public class CollectLocalResourceUsage extends Thread {
     int numProcessors = Runtime.getRuntime().availableProcessors();
     stopwatch = Stopwatch.createStarted();
     synchronized (this) {
-      localCpuUsage =
-          new TimeSeries(
-              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-      localMemoryUsage =
-          new TimeSeries(
-              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-      systemCpuUsage =
-          new TimeSeries(
-              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-      systemMemoryUsage =
-          new TimeSeries(
-              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+      Duration startTime = stopwatch.elapsed();
+      localCpuUsage = new TimeSeries(startTime, BUCKET_DURATION);
+      localMemoryUsage = new TimeSeries(startTime, BUCKET_DURATION);
+      systemCpuUsage = new TimeSeries(startTime, BUCKET_DURATION);
+      systemMemoryUsage = new TimeSeries(startTime, BUCKET_DURATION);
       if (collectWorkerDataInProfiler) {
-        workersMemoryUsage =
-            new TimeSeries(
-                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+        workersMemoryUsage = new TimeSeries(startTime, BUCKET_DURATION);
       }
       if (collectLoadAverage) {
-        systemLoadAverage =
-            new TimeSeries(
-                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+        systemLoadAverage = new TimeSeries(startTime, BUCKET_DURATION);
       }
       if (collectSystemNetworkUsage) {
-        systemNetworkUpUsage =
-            new TimeSeries(
-                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-        systemNetworkDownUsage =
-            new TimeSeries(
-                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+        systemNetworkUpUsage = new TimeSeries(startTime, BUCKET_DURATION);
+        systemNetworkDownUsage = new TimeSeries(startTime, BUCKET_DURATION);
       }
     }
     OperatingSystemMXBean osBean =
@@ -199,37 +184,29 @@ public class CollectLocalResourceUsage extends Thread {
 
       synchronized (this) {
         if (localCpuUsage != null) {
-          localCpuUsage.addRange(previousElapsed.toMillis(), nextElapsed.toMillis(), cpuLevel);
+          localCpuUsage.addRange(previousElapsed, nextElapsed, cpuLevel);
         }
         if (localMemoryUsage != null && memoryUsage != -1) {
           long memoryUsageMb = memoryUsage / (1024 * 1024);
-          localMemoryUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), (double) memoryUsageMb);
+          localMemoryUsage.addRange(previousElapsed, nextElapsed, (double) memoryUsageMb);
         }
         if (systemCpuUsage != null) {
-          systemCpuUsage.addRange(previousElapsed.toMillis(), nextElapsed.toMillis(), systemUsage);
+          systemCpuUsage.addRange(previousElapsed, nextElapsed, systemUsage);
         }
         if (systemMemoryUsage != null) {
-          systemMemoryUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), (double) systemMemoryUsageMb);
+          systemMemoryUsage.addRange(previousElapsed, nextElapsed, (double) systemMemoryUsageMb);
         }
         if (collectWorkerDataInProfiler && (workersMemoryUsage != null)) {
-          workersMemoryUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), workerMemoryUsageMb);
+          workersMemoryUsage.addRange(previousElapsed, nextElapsed, workerMemoryUsageMb);
         }
         if (collectLoadAverage && (systemLoadAverage != null) && loadAverage > 0) {
-          systemLoadAverage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), loadAverage);
+          systemLoadAverage.addRange(previousElapsed, nextElapsed, loadAverage);
         }
         if (systemNetworkUsages != null) {
           systemNetworkUpUsage.addRange(
-              previousElapsed.toMillis(),
-              nextElapsed.toMillis(),
-              systemNetworkUsages.megabitsSentPerSec());
+              previousElapsed, nextElapsed, systemNetworkUsages.megabitsSentPerSec());
           systemNetworkDownUsage.addRange(
-              previousElapsed.toMillis(),
-              nextElapsed.toMillis(),
-              systemNetworkUsages.megabitsRecvPerSec());
+              previousElapsed, nextElapsed, systemNetworkUsages.megabitsRecvPerSec());
         }
       }
       previousElapsed = nextElapsed;

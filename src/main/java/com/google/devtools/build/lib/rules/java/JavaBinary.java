@@ -413,15 +413,16 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       if (!createExecutable) {
         ruleContext.ruleError("hermetic specified but create_executable is false");
       }
+
       JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext);
-      if (javaRuntime.libModules() == null) {
-        ruleContext.attributeError(
-            "hermetic", "hermetic specified but java_runtime.lib_modules is absent");
+      if (!javaRuntime.hermeticInputs().isEmpty()
+          && javaRuntime.libModules() != null
+          && !javaRuntime.hermeticStaticLibs().isEmpty()) {
+        deployArchiveBuilder
+            .setJavaHome(javaRuntime.javaHomePathFragment())
+            .setLibModules(javaRuntime.libModules())
+            .setHermeticInputs(javaRuntime.hermeticInputs());
       }
-      deployArchiveBuilder
-          .setJavaHome(javaRuntime.javaHomePathFragment())
-          .setLibModules(javaRuntime.libModules())
-          .setHermeticInputs(javaRuntime.hermeticInputs());
     }
 
     deployArchiveBuilder

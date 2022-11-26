@@ -367,8 +367,23 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     if (message == null) {
       return null;
     }
+    message = replaceProgressMessagePlaceholders(message);
     String additionalInfo = getOwner().getAdditionalProgressInfo();
     return additionalInfo == null ? message : message + " [" + additionalInfo + "]";
+  }
+
+  private String replaceProgressMessagePlaceholders(String progressMessage) {
+    if (progressMessage.contains("%{label}") && getOwner().getLabel() != null) {
+      progressMessage = progressMessage.replace("%{label}", getOwner().getLabel().toString());
+    }
+    if (progressMessage.contains("%{output}") && getPrimaryOutput() != null) {
+      progressMessage =
+          progressMessage.replace("%{output}", getPrimaryOutput().getExecPathString());
+    }
+    if (progressMessage.contains("%{input}") && getPrimaryInput() != null) {
+      progressMessage = progressMessage.replace("%{input}", getPrimaryInput().getExecPathString());
+    }
+    return progressMessage;
   }
 
   /**

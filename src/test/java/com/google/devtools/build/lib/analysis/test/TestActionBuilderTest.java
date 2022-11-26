@@ -370,4 +370,15 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     return target.getProvider(TestProvider.class).getTestParams().getTestStatusArtifacts();
   }
 
+  @Test
+  public void testNonExecutableCoverageReportGenerator() throws Exception {
+    useConfiguration(
+        "--coverage_report_generator=//bad_gen:bad_cov_gen", "--collect_code_coverage");
+    checkError(
+        "bad_gen",
+        "some_test",
+        "--coverage_report_generator does not refer to an executable target",
+        "sh_library(name = 'bad_cov_gen')",
+        "cc_test(name = 'some_test')");
+  }
 }

@@ -245,7 +245,6 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
             /*out=*/ null,
             getHelper().getSkyframeExecutor(),
             env.getAccessor(),
-            env.getHostConfiguration(),
             trimmingTransitionFactory,
             RepositoryMapping.ALWAYS_FALLBACK);
     env.evaluateQuery(env.transformParsedQuery(QueryParser.parse(queryExpression, env)), callback);

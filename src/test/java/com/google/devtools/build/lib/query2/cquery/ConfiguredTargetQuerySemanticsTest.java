@@ -360,34 +360,6 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   @Test
-  public void testConfig_noMoreHostTransition() throws Exception {
-    createConfigRulesAndBuild();
-
-    getHelper().setWholeTestUniverseScope("test:my_rule");
-
-    EvalThrowsResult targetResult = evalThrows("config(//test:target_dep, host)", true);
-    assertThat(targetResult.getMessage())
-        .isEqualTo("No target (in) //test:target_dep could be found in the 'host' configuration");
-    assertConfigurableQueryCode(
-        targetResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
-    EvalThrowsResult hostDepResult = evalThrows("config(//test:host_dep, host)", true);
-    assertThat(hostDepResult.getMessage())
-        .isEqualTo("No target (in) //test:host_dep could be found in the 'host' configuration");
-    assertConfigurableQueryCode(
-        hostDepResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
-    EvalThrowsResult execDepResult = evalThrows("config(//test:exec_dep, host)", true);
-    assertThat(execDepResult.getMessage())
-        .isEqualTo("No target (in) //test:exec_dep could be found in the 'host' configuration");
-    assertConfigurableQueryCode(
-        execDepResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
-    EvalThrowsResult hostResult = evalThrows("config(//test:dep, host)", true);
-    assertThat(hostResult.getMessage())
-        .isEqualTo("No target (in) //test:dep could be found in the 'host' configuration");
-    assertConfigurableQueryCode(
-        hostResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
-  }
-
-  @Test
   public void testConfig_nullConfig() throws Exception {
     writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
 

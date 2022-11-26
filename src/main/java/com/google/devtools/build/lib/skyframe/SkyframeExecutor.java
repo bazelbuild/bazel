@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toMap;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
@@ -68,6 +69,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -117,6 +119,8 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
@@ -220,6 +224,7 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.PrintStream;
 import java.time.Duration;
@@ -1012,11 +1017,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     ANALYSIS_REFS_ONLY,
     LOADING_NODES_ONLY;
 
-    boolean discardsAnalysis() {
+    public boolean discardsAnalysis() {
       return this != LOADING_NODES_ONLY;
     }
 
-    boolean discardsLoading() {
+    public boolean discardsLoading() {
       return this != ANALYSIS_REFS_ONLY;
     }
   }
@@ -1048,7 +1053,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               topLevelAspects, aspect -> aspect.getLabel().getPackageIdentifier()));
     }
     ImmutableSet<PackageIdentifier> topLevelPackages = packageSetBuilder.build();
-    try (SilentCloseable p = trackDiscardAnalysisCache()) {
+    try (SilentCloseable p = trackDiscardAnalysisCache(discardType)) {
       lastAnalysisDiscarded = true;
       ConcurrentHashMap<SkyKey, InMemoryNodeEntry> mutableNodeMap =
           memoizingEvaluator.getAllValuesMutable();
@@ -1126,8 +1131,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /** Tracks how long it takes to clear the analysis cache. */
-  private SilentCloseable trackDiscardAnalysisCache() {
-    AutoProfiler profiler = GoogleAutoProfilerUtils.logged("discarding analysis cache");
+  private SilentCloseable trackDiscardAnalysisCache(DiscardType discardType) {
+    AutoProfiler profiler =
+        GoogleAutoProfilerUtils.logged("discarding analysis cache " + discardType);
     return () -> {
       Duration d = Duration.ofNanos(profiler.completeAndGetElapsedTimeNanos());
       getEventBus().post(new AnalysisCacheClearEvent(d));
@@ -1410,16 +1416,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /** Sets the path for action log buffers. */
-  @Deprecated
   public void setActionOutputRoot(Path actionOutputRoot) {
-    setActionOutputRoot(actionOutputRoot, actionOutputRoot);
-  }
-
-  /** Sets the path for action log buffers. */
-  public void setActionOutputRoot(Path actionOutputRoot, Path persistentActionOutputRoot) {
     Preconditions.checkNotNull(actionOutputRoot);
-    this.actionLogBufferPathGenerator =
-        new ActionLogBufferPathGenerator(actionOutputRoot, persistentActionOutputRoot);
+    this.actionLogBufferPathGenerator = new ActionLogBufferPathGenerator(actionOutputRoot);
     this.skyframeActionExecutor.setActionLogBufferPathGenerator(actionLogBufferPathGenerator);
   }
 
@@ -2036,7 +2035,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ExtendedEventHandler eventHandler, BuildOptions referenceBuildOptions)
       throws InvalidConfigurationException {
     PathFragment platformMappingPath =
-        referenceBuildOptions.get(PlatformOptions.class).platformMappings;
+        referenceBuildOptions.hasNoConfig()
+            ? null
+            : referenceBuildOptions.get(PlatformOptions.class).platformMappings;
 
     PlatformMappingValue.Key platformMappingKey =
         PlatformMappingValue.Key.create(platformMappingPath);
@@ -2193,9 +2194,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public abstract void invalidateTransientErrors();
 
   /** Configures a given set of configured targets. */
-  EvaluationResult<ActionLookupValue> configureTargets(
+  @CanIgnoreReturnValue
+  protected ConfigureTargetsResult configureTargets(
       ExtendedEventHandler eventHandler,
-      List<ConfiguredTargetKey> configuredTargetKeys,
+      ImmutableList<ConfiguredTargetKey> configuredTargetKeys,
       ImmutableList<TopLevelAspectsKey> topLevelAspectKeys,
       boolean keepGoing,
       int numThreads,
@@ -2215,18 +2217,70 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             .build();
     EvaluationResult<ActionLookupValue> result =
         memoizingEvaluator.evaluate(
-            analysisPhaseKeys(configuredTargetKeys, topLevelAspectKeys), evaluationContext);
+            Iterables.concat(configuredTargetKeys, topLevelAspectKeys), evaluationContext);
     perCommandSyscallCache.noteAnalysisPhaseEnded();
-    return result;
+
+    ImmutableSet.Builder<ConfiguredTarget> configuredTargets = ImmutableSet.builder();
+    ImmutableMap.Builder<AspectKey, ConfiguredAspect> aspects = ImmutableMap.builder();
+    Root singleSourceRoot = getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
+    NestedSetBuilder<Package> packages =
+        singleSourceRoot == null ? NestedSetBuilder.stableOrder() : null;
+
+    for (ConfiguredTargetKey key : configuredTargetKeys) {
+      ConfiguredTargetValue value = (ConfiguredTargetValue) result.get(key);
+      if (value == null) {
+        continue;
+      }
+      configuredTargets.add(value.getConfiguredTarget());
+      if (packages != null) {
+        packages.addTransitive(value.getTransitivePackages());
+      }
+    }
+
+    for (TopLevelAspectsKey key : topLevelAspectKeys) {
+      TopLevelAspectsValue value = (TopLevelAspectsValue) result.get(key);
+      if (value == null) {
+        continue; // Skip aspects that couldn't be applied to targets.
+      }
+      for (AspectValue aspectValue : value.getTopLevelAspectsValues()) {
+        aspects.put(aspectValue.getKey(), aspectValue.getConfiguredAspect());
+        if (packages != null) {
+          packages.addTransitive(aspectValue.getTransitivePackages());
+        }
+      }
+    }
+
+    PackageRoots packageRoots =
+        singleSourceRoot == null
+            ? new MapAsPackageRoots(collectPackageRoots(packages.build()))
+            : new PackageRootsNoSymlinkCreation(singleSourceRoot);
+
+    return new AutoValue_SkyframeExecutor_ConfigureTargetsResult(
+        result, configuredTargets.build(), aspects.buildOrThrow(), packageRoots);
   }
 
-  /**
-   * Returns top-level analysis phase keys, {@link ConfiguredTargetKey} and {@link
-   * TopLevelAspectsKey}.
-   */
-  protected Iterable<? extends SkyKey> analysisPhaseKeys(
-      Iterable<ConfiguredTargetKey> ctKeys, Iterable<TopLevelAspectsKey> aspectKeys) {
-    return Iterables.concat(ctKeys, aspectKeys);
+  /** Result of a call to {@link #configureTargets}. */
+  @AutoValue
+  protected abstract static class ConfigureTargetsResult {
+    public abstract EvaluationResult<ActionLookupValue> evaluationResult();
+
+    public abstract ImmutableSet<ConfiguredTarget> configuredTargets();
+
+    public abstract ImmutableMap<AspectKey, ConfiguredAspect> aspects();
+
+    public abstract PackageRoots packageRoots();
+  }
+
+  /** Returns a map of collected package names to root paths. */
+  private static ImmutableMap<PackageIdentifier, Root> collectPackageRoots(
+      NestedSet<Package> packages) {
+    ImmutableMap.Builder<PackageIdentifier, Root> packageRoots = ImmutableMap.builder();
+    for (Package pkg : packages.toList()) {
+      if (pkg.getSourceRoot().isPresent()) {
+        packageRoots.put(pkg.getPackageIdentifier(), pkg.getSourceRoot().get());
+      }
+    }
+    return packageRoots.buildOrThrow();
   }
 
   /**
@@ -3077,7 +3131,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   final AnalysisTraversalResult getActionLookupValuesInBuild(
-      List<ConfiguredTargetKey> topLevelCtKeys, ImmutableList<AspectKey> aspectKeys)
+      List<ConfiguredTargetKey> topLevelCtKeys, ImmutableSet<AspectKey> aspectKeys)
       throws InterruptedException {
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeExecutor.getActionLookupValuesInBuild")) {

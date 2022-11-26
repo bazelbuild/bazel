@@ -232,7 +232,7 @@ function test_args_escaping() {
   create_build_file_with_many_args "$ws"
 
   ( cd "$ws"
-    bazel --batch run --verbose_failures :x &>"$TEST_log" \
+    bazel run --verbose_failures :x &>"$TEST_log" \
       || fail "expected success"
   )
   assert_good_output_of_the_program_with_many_args

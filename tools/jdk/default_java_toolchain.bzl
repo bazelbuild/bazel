@@ -139,7 +139,7 @@ NONPREBUILT_TOOLCHAIN_CONFIGURATION = dict(
     java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
 )
 
-def default_java_toolchain(name, configuration = DEFAULT_TOOLCHAIN_CONFIGURATION, toolchain_definition = True, **kwargs):
+def default_java_toolchain(name, configuration = DEFAULT_TOOLCHAIN_CONFIGURATION, toolchain_definition = True, exec_compatible_with = [], target_compatible_with = [], **kwargs):
     """Defines a remote java_toolchain with appropriate defaults for Bazel."""
 
     toolchain_args = dict(_BASE_TOOLCHAIN_CONFIGURATION)
@@ -160,6 +160,8 @@ def default_java_toolchain(name, configuration = DEFAULT_TOOLCHAIN_CONFIGURATION
             toolchain_type = "@bazel_tools//tools/jdk:toolchain_type",
             target_settings = [name + "_version_setting"],
             toolchain = name,
+            exec_compatible_with = exec_compatible_with,
+            target_compatible_with = target_compatible_with,
         )
 
 def java_runtime_files(name, srcs):

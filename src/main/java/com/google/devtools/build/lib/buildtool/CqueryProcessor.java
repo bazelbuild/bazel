@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
@@ -39,7 +38,6 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfi
   protected ConfiguredTargetQueryEnvironment getQueryEnvironment(
       BuildRequest request,
       CommandEnvironment env,
-      BuildConfigurationValue hostConfiguration,
       TopLevelConfigurations configurations,
       Collection<SkyKey> transitiveConfigurationKeys,
       WalkableGraph walkableGraph)
@@ -55,7 +53,6 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfi
         env.getReporter(),
         extraFunctions,
         configurations,
-        hostConfiguration,
         transitiveConfigurationKeys,
         mainRepoTargetParser,
         env.getPackageManager().getPackagePath(),

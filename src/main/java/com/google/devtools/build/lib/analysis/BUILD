@@ -373,7 +373,6 @@ java_library(
         ":transitive_info_provider_map",
         ":transitive_info_provider_map_builder",
         ":visibility_provider",
-        ":visibility_provider_impl",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime/build_event_streamer_utils",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -2053,6 +2052,23 @@ java_library(
 )
 
 java_library(
+    name = "config/transitions/no_config_transition",
+    srcs = ["config/transitions/NoConfigTransition.java"],
+    deps = [
+        ":config/build_options",
+        ":config/core_options",
+        ":config/fragment_options",
+        ":config/transitions/patch_transition",
+        ":config/transitions/transition_factory",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "config/transitions/patch_transition",
     srcs = ["config/transitions/PatchTransition.java"],
     deps = [
@@ -2153,7 +2169,7 @@ java_library(
     srcs = ["constraints/EnvironmentRule.java"],
     deps = [
         ":analysis_cluster",
-        ":config/host_transition",
+        ":config/transitions/no_config_transition",
         ":constraints/constraint_constants",
         ":constraints/environment",
         ":rule_definition_environment",
@@ -2589,8 +2605,15 @@ java_library(
 
 java_library(
     name = "test/test_sharding_strategy",
-    srcs = ["test/TestShardingStrategy.java"],
-    deps = ["//src/main/java/com/google/devtools/common/options"],
+    srcs = [
+        "test/TestShardingStrategy.java",
+        "test/TestShardingStrategyForced.java",
+        "test/TestShardingStrategyNotForced.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+    ],
 )
 
 java_library(

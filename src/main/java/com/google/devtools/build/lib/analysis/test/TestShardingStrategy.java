@@ -13,30 +13,48 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
-import com.google.devtools.common.options.EnumConverter;
+import com.google.common.base.Ascii;
+import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.IntegerConverter;
+import com.google.devtools.common.options.OptionsParsingException;
 
 /** A strategy for running the same tests in many processes. */
-public enum TestShardingStrategy {
-  EXPLICIT {
-    @Override
-    public int getNumberOfShards(int shardCountFromAttr) {
-      return Math.max(shardCountFromAttr, 0);
-    }
-  },
-
-  DISABLED {
-    @Override
-    public int getNumberOfShards(int shardCountFromAttr) {
-      return 0;
-    }
-  };
-
-  public abstract int getNumberOfShards(int shardCountFromAttr);
+interface TestShardingStrategy {
+  int getNumberOfShards(int shardCountFromAttr);
 
   /** Converts to {@link TestShardingStrategy}. */
-  public static final class ShardingStrategyConverter extends EnumConverter<TestShardingStrategy> {
-    public ShardingStrategyConverter() {
-      super(TestShardingStrategy.class, "test sharding strategy");
+  final class ShardingStrategyConverter extends Converter.Contextless<TestShardingStrategy> {
+    private static final String FORCED_PREFIX = "forced=";
+
+    @Override
+    public String getTypeDescription() {
+      return "explicit, disabled or forced=k where k is the number of shards to enforce";
+    }
+
+    @Override
+    public TestShardingStrategy convert(String input) throws OptionsParsingException {
+      for (TestShardingStrategy value : TestShardingStrategyNotForced.values()) {
+        if (Ascii.equalsIgnoreCase(value.toString(), input)) {
+          return value;
+        }
+      }
+
+      if (Ascii.toLowerCase(input).startsWith(FORCED_PREFIX)) {
+        int forcedShardsCount =
+            new IntegerConverter().convert(input.substring(FORCED_PREFIX.length()));
+        if (forcedShardsCount < 0) {
+          throw new OptionsParsingException("Forced shards count cannot be negative.");
+        }
+
+        return new TestShardingStrategyForced(forcedShardsCount);
+      }
+
+      throw new OptionsParsingException(
+          "Not a valid test sharding strategy: '"
+              + input
+              + "' (should be "
+              + getTypeDescription()
+              + ")");
     }
   }
 }

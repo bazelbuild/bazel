@@ -14,24 +14,25 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Collection;
+import com.google.devtools.build.lib.analysis.AspectValue;
 
 /**
  * SkyValue for {@code TopLevelAspectsKey} wraps a list of the {@code AspectValue} of the top level
  * aspects applied on the same top level target.
  */
-public class TopLevelAspectsValue implements ActionLookupValue {
-  private final ImmutableList<SkyValue> topLevelAspectsValues;
+public final class TopLevelAspectsValue implements ActionLookupValue {
+  private final ImmutableList<AspectValue> topLevelAspectsValues;
 
-  public TopLevelAspectsValue(Collection<SkyValue> topLevelAspectsValues) {
-    this.topLevelAspectsValues = ImmutableList.copyOf(topLevelAspectsValues);
+  public TopLevelAspectsValue(ImmutableList<AspectValue> topLevelAspectsValues) {
+    this.topLevelAspectsValues = checkNotNull(topLevelAspectsValues);
   }
 
-  public ImmutableList<SkyValue> getTopLevelAspectsValues() {
+  public ImmutableList<AspectValue> getTopLevelAspectsValues() {
     return topLevelAspectsValues;
   }
 

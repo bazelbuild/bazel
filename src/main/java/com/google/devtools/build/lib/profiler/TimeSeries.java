@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import java.time.Duration;
 import java.util.Arrays;
 
 /**
@@ -21,27 +22,27 @@ import java.util.Arrays;
  * range partially overlaps a bucket, then the bucket is incremented by the fraction of overlap.
  */
 public class TimeSeries {
-  private final long startTimeMillis;
+  private final Duration startTime;
   private final long bucketSizeMillis;
   private static final int INITIAL_SIZE = 100;
   private double[] data = new double[INITIAL_SIZE];
 
-  public TimeSeries(long startTimeMillis, long bucketSizeMillis) {
-    this.startTimeMillis = startTimeMillis;
-    this.bucketSizeMillis = bucketSizeMillis;
+  public TimeSeries(Duration startTime, Duration bucketDuration) {
+    this.startTime = startTime;
+    this.bucketSizeMillis = bucketDuration.toMillis();
   }
 
-  public void addRange(long startTimeMillis, long endTimeMillis) {
-    addRange(startTimeMillis, endTimeMillis, /* value= */ 1);
+  public void addRange(Duration startTime, Duration endTime) {
+    addRange(startTime, endTime, /* value= */ 1);
   }
 
   /** Adds a new range to the time series, by increasing every affected bucket by value. */
-  public void addRange(long rangeStartMillis, long rangeEndMillis, double value) {
+  public void addRange(Duration rangeStart, Duration rangeEnd, double value) {
     // Compute times relative to start and their positions in the data array.
-    rangeStartMillis -= startTimeMillis;
-    rangeEndMillis -= startTimeMillis;
-    int startPosition = (int) (rangeStartMillis / bucketSizeMillis);
-    int endPosition = (int) (rangeEndMillis / bucketSizeMillis);
+    rangeStart = rangeStart.minus(startTime);
+    rangeEnd = rangeEnd.minus(startTime);
+    int startPosition = (int) (rangeStart.toMillis() / bucketSizeMillis);
+    int endPosition = (int) (rangeEnd.toMillis() / bucketSizeMillis);
 
     // Assume we add the following range R:
     // ----------------------------------
@@ -50,9 +51,10 @@ public class TimeSeries {
     // we cannot just add value to each affected bucket but have to correct the values for the first
     // and last bucket by calculating the size of 's' and 'e'.
     double missingStartFraction =
-        ((double) (rangeStartMillis - bucketSizeMillis * startPosition)) / bucketSizeMillis;
+        ((double) rangeStart.minusMillis(bucketSizeMillis * startPosition).toMillis())
+            / bucketSizeMillis;
     double missingEndFraction =
-        ((double) (bucketSizeMillis * (endPosition + 1) - rangeEndMillis)) / bucketSizeMillis;
+        ((double) (bucketSizeMillis * (endPosition + 1) - rangeEnd.toMillis())) / bucketSizeMillis;
 
     if (startPosition < 0) {
       startPosition = 0;

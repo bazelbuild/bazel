@@ -130,6 +130,8 @@ upper_tabs:
         path: /query/quickstart
       - title: Query language
         path: /query/language
+      - title: Query guide
+        path: /query/guide
       - title: Action graph query (aquery)
         path: /query/aquery
       - title: Configurable query (cquery)

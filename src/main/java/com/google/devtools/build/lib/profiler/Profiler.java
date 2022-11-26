@@ -85,7 +85,7 @@ public final class Profiler {
 
   private static final TaskData POISON_PILL = new TaskData(0, 0, null, "poison pill");
 
-  private static final long ACTION_COUNT_BUCKET_MS = 200;
+  private static final Duration ACTION_COUNT_BUCKET_DURATION = Duration.ofMillis(200);
 
   /** File format enum. */
   public enum Format {
@@ -253,6 +253,13 @@ public final class Profiler {
     }
   }
 
+  // TODO(twerth): Make use of counterValue directly in a follow-up change.
+  private static final class CounterData extends TaskData {
+    public CounterData(long timeNanos, ProfilerTask type, double counterValue) {
+      super(/* id= */ -1, timeNanos, type, String.valueOf(counterValue));
+    }
+  }
+
   private Clock clock;
   private ImmutableSet<ProfilerTask> profiledTasks;
   private volatile long profileStartTime;
@@ -278,7 +285,7 @@ public final class Profiler {
   private CollectLocalResourceUsage resourceUsageThread;
 
   private TimeSeries actionCountTimeSeries;
-  private long actionCountStartTime;
+  private Duration actionCountStartTime;
   private boolean collectTaskHistograms;
 
   private Profiler() {
@@ -401,9 +408,8 @@ public final class Profiler {
 
     this.profiledTasks = profiledTasks;
     this.clock = clock;
-    this.actionCountStartTime = clock.nanoTime();
-    this.actionCountTimeSeries =
-        new TimeSeries(Duration.ofNanos(actionCountStartTime).toMillis(), ACTION_COUNT_BUCKET_MS);
+    this.actionCountStartTime = Duration.ofNanos(clock.nanoTime());
+    this.actionCountTimeSeries = new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
     this.collectTaskHistograms = collectTaskHistograms;
 
     // Check for current limitation on the number of supported types due to using enum.ordinal() to
@@ -479,17 +485,15 @@ public final class Profiler {
 
   private void collectActionCounts() {
     if (actionCountTimeSeries != null) {
-      long endTimeMillis = Duration.ofNanos(clock.nanoTime()).toMillis();
-      long profileStartMillis = Duration.ofNanos(actionCountStartTime).toMillis();
-      int len = (int) ((endTimeMillis - profileStartMillis) / ACTION_COUNT_BUCKET_MS) + 1;
+      Duration endTime = Duration.ofNanos(clock.nanoTime());
+      Duration profileStart = actionCountStartTime;
+      int len = (int) endTime.minus(profileStart).dividedBy(ACTION_COUNT_BUCKET_DURATION) + 1;
       double[] actionCountValues = actionCountTimeSeries.toDoubleArray(len);
-      Profiler profiler = Profiler.instance();
-      for (int i = 0; i < len; i++) {
-        long timeMillis = profileStartMillis + i * ACTION_COUNT_BUCKET_MS;
-        long timeNanos = TimeUnit.MILLISECONDS.toNanos(timeMillis);
-        profiler.logEventAtTime(
-            timeNanos, ProfilerTask.ACTION_COUNTS, String.valueOf(actionCountValues[i]));
-      }
+      instance.logCounters(
+          ProfilerTask.ACTION_COUNTS,
+          actionCountValues,
+          profileStart,
+          ACTION_COUNT_BUCKET_DURATION);
       actionCountTimeSeries = null;
     }
   }
@@ -549,6 +553,19 @@ public final class Profiler {
    */
   private boolean wasTaskSlowEnoughToRecord(ProfilerTask type, long duration) {
     return (recordAllDurations || duration >= type.minDuration);
+  }
+
+  /** Adds a whole action count series to the writer bypassing histogram and subtask creation. */
+  public void logCounters(
+      ProfilerTask type, double[] counterValues, Duration profileStart, Duration bucketDuration) {
+    FileWriter currentWriter = writerRef.get();
+    if (isActive() && isProfiling(type) && currentWriter != null) {
+      for (int i = 0; i < counterValues.length; i++) {
+        long timeNanos = profileStart.plus(bucketDuration.multipliedBy(i)).toNanos();
+        TaskData data = new CounterData(timeNanos, type, counterValues[i]);
+        currentWriter.enqueue(data);
+      }
+    }
   }
 
   /**
@@ -773,8 +790,7 @@ public final class Profiler {
         if (actionCountTimeSeries != null && countAction(data.type, data)) {
           synchronized (this) {
             actionCountTimeSeries.addRange(
-                Duration.ofNanos(data.startTimeNanos).toMillis(),
-                Duration.ofNanos(endTime).toMillis());
+                Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTime));
           }
         }
         SlowestTaskAggregator aggregator = slowestTasks[data.type.ordinal()];

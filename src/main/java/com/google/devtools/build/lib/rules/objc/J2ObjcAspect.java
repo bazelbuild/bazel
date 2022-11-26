@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
@@ -136,7 +135,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     return ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(this))
-        .requiresHostConfigurationFragments(JavaConfiguration.class)
         .originalBuilder()
         .propagateAlongAttribute("deps")
         .propagateAlongAttribute("exports")

@@ -94,7 +94,7 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
         continue;
       }
       if (file.isSourceArtifact() || includeDerivedArtifacts) {
-        stringBuilder.append(file.getExecPathString());
+        stringBuilder.append(file.getRootRelativePathString());
         stringBuilder.append("\n");
       }
     }

@@ -58,7 +58,6 @@
 
 namespace blaze {
 
-using blaze_exit_code::INTERNAL_ERROR;
 using blaze_util::GetLastErrorString;
 
 using std::set;

@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//src:__subpackages__"])
 
@@ -93,20 +93,6 @@ java_library(
         ":profiler",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//third_party:auto_value",
-        "//third_party:gson",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_binary(
-    name = "profiler-grapher",
-    srcs = glob([
-        "grapher/*.java",
-    ]),
-    main_class = "com.google.devtools.build.lib.profiler.grapher.ProfileGrapher",
-    deps = [
-        ":profiler",
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
