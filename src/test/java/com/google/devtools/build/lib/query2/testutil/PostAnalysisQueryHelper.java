@@ -346,11 +346,6 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     }
 
     @Override
-    public BuildConfigurationValue getHostConfiguration() {
-      return super.getHostConfiguration();
-    }
-
-    @Override
     protected void useRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider)
         throws Exception {
       super.useRuleClassProvider(ruleClassProvider);

@@ -120,6 +120,12 @@ public class AppleDynamicLibraryTest extends AppleBinaryStarlarkApiTest {
 
   @Override
   @Test
+  public void testAvoidDepsSubtractsImportedLibrary() throws Exception {
+    checkAvoidDepsSubtractsImportedLibrary(RULE_TYPE);
+  }
+
+  @Override
+  @Test
   public void testLipoBinaryAction() throws Exception {
     checkLipoBinaryAction(RULE_TYPE);
   }

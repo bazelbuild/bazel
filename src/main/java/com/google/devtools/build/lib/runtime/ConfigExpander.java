@@ -111,7 +111,9 @@ final class ConfigExpander {
                 configValueToExpand,
                 rcFileNotesConsumer);
         optionsParser.parseArgsAsExpansionOfOption(
-            configInstance, String.format("expanded from --%s", configValueToExpand), expansion);
+            configInstance,
+            String.format("expanded from --config=%s", configValueToExpand),
+            expansion);
       }
     }
 

@@ -3526,8 +3526,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "genrule(name='gen', cmd='', outs=['foo/bar/bin/java'])",
         "cc_import(name='libs', static_library = 'libStatic.a')",
         "cc_library(name = 'jdk_static_libs00', data = ['libStatic.a'], linkstatic = 1)",
-        "java_runtime(name='jvm', srcs=[], java='foo/bar/bin/java', hermetic_static_libs ="
-            + " ['libs'])",
+        "java_runtime(name='jvm', srcs=[], java='foo/bar/bin/java', lib_modules='lib/modules', "
+            + "hermetic_srcs = ['lib/hermetic.properties'], hermetic_static_libs = ['libs'])",
         "java_runtime_alias(name='alias')",
         "jrule(name='r')",
         "toolchain(",

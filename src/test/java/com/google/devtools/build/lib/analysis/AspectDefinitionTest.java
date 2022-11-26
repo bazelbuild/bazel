@@ -19,9 +19,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -343,20 +341,6 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testRequiresHostConfigurationFragments_propagatedToConfigurationFragmentPolicy()
-      throws Exception {
-    AspectDefinition requiresFragments =
-        ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(TEST_ASPECT_CLASS))
-            .requiresHostConfigurationFragments(FooFragment.class, BarFragment.class)
-            .originalBuilder()
-            .build();
-    assertThat(requiresFragments.getConfigurationFragmentPolicy()).isNotNull();
-    assertThat(
-        requiresFragments.getConfigurationFragmentPolicy().getRequiredConfigurationFragments())
-            .containsExactly(FooFragment.class, BarFragment.class);
-  }
-
-  @Test
   public void testRequiresConfigurationFragmentNames_propagatedToConfigurationFragmentPolicy() {
     AspectDefinition requiresFragments =
         new AspectDefinition.Builder(TEST_ASPECT_CLASS)
@@ -367,32 +351,6 @@ public class AspectDefinitionTest {
         requiresFragments.getConfigurationFragmentPolicy()
             .isLegalConfigurationFragment(TestFragment.class, NoTransition.INSTANCE))
         .isTrue();
-  }
-
-  @Test
-  public void testRequiresHostConfigurationFragmentNames_propagatedToConfigurationFragmentPolicy() {
-    AspectDefinition requiresFragments =
-        ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(TEST_ASPECT_CLASS))
-            .requiresHostConfigurationFragmentsByStarlarkBuiltinName(
-                ImmutableList.of("test_fragment"))
-            .originalBuilder()
-            .build();
-    assertThat(requiresFragments.getConfigurationFragmentPolicy()).isNotNull();
-    assertThat(
-        requiresFragments.getConfigurationFragmentPolicy()
-            .isLegalConfigurationFragment(TestFragment.class, HostTransition.INSTANCE))
-        .isTrue();
-  }
-
-  @Test
-  public void testEmptyStarlarkConfigurationFragmentPolicySetup_hasNonNullPolicy() {
-    AspectDefinition noPolicy =
-        ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(TEST_ASPECT_CLASS))
-            .requiresHostConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.of())
-            .originalBuilder()
-            .requiresConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.of())
-            .build();
-    assertThat(noPolicy.getConfigurationFragmentPolicy()).isNotNull();
   }
 
   @StarlarkBuiltin(name = "test_fragment", doc = "test fragment")

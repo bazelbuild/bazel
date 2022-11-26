@@ -82,8 +82,12 @@ public abstract class PythonVersionTransition implements PatchTransition {
             : determineNewVersion(options);
     checkArgument(newVersion.isTargetValue(), newVersion);
 
-    PythonOptions opts = options.get(PythonOptions.class);
-    if (!opts.canTransitionPythonVersion(newVersion)) {
+    // PythonOptions aren't present after NoConfigTransition. That implies rules that don't read
+    // configuration and don't produce build actions. The only time those rules trigger this code
+    // is in ExecutionTool.createConvenienceSymlinks.
+    PythonOptions opts =
+        options.underlying().hasNoConfig() ? null : options.get(PythonOptions.class);
+    if (opts == null || !opts.canTransitionPythonVersion(newVersion)) {
       return options.underlying();
     }
     return cache.applyTransition(options, newVersion);

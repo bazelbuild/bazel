@@ -345,9 +345,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     useConfiguration();
     setUpSkyframe();
     this.actionLogBufferPathGenerator =
-        new ActionLogBufferPathGenerator(
-            directories.getActionTempsDirectory(getExecRoot()),
-            directories.getPersistentActionOutsDirectory(getExecRoot()));
+        new ActionLogBufferPathGenerator(directories.getActionTempsDirectory(getExecRoot()));
   }
 
   private static void injectInliningBzlLoadFunction(

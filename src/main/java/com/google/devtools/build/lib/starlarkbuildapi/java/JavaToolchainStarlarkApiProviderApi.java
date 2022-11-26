@@ -134,4 +134,12 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
       useStarlarkThread = true,
       allowReturnNones = true)
   FileApi getDepsCheckerForStarlark(StarlarkThread thread) throws EvalException;
+
+  @Nullable
+  @StarlarkMethod(
+      name = "proguard_allowlister",
+      doc = "Return the binary to validate proguard configuration",
+      structField = true,
+      allowReturnNones = true)
+  FilesToRunProviderApi<? extends FileApi> getProguardAllowlister();
 }

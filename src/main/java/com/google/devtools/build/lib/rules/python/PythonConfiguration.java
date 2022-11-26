@@ -126,6 +126,10 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   }
 
   /** Returns whether to build the executable zip file for Python binaries. */
+  @StarlarkMethod(
+      name = "build_python_zip",
+      structField = true,
+      doc = "The effective value of --build_python_zip")
   public boolean buildPythonZip() {
     switch (buildPythonZip) {
       case YES:
@@ -157,6 +161,10 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     return useToolchains;
   }
 
+  @StarlarkMethod(
+      name = "default_to_explicit_init_py",
+      structField = true,
+      doc = "The value from the --incompatible_default_to_explicit_init_py flag")
   /**
    * Returns true if executable Python rules should only write out empty __init__ files to their
    * runfiles tree when explicitly requested via {@code legacy_create_init}.

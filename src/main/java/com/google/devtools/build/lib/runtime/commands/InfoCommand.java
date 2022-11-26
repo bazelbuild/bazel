@@ -189,16 +189,7 @@ public class InfoCommand implements BlazeCommand {
         }
       }
 
-      List<String> starlarkOptions = optionsParsingResult.getSkippedArgs();
       List<String> residue = optionsParsingResult.getResidue();
-      if (!starlarkOptions.isEmpty()) {
-        env.getReporter()
-            .handle(
-                Event.warn(
-                    "info command does not support starlark options. Ignoring options: "
-                        + starlarkOptions));
-      }
-
       env.getEventBus().post(new NoBuildEvent());
       if (!residue.isEmpty()) {
         ImmutableSet.Builder<String> unknownKeysBuilder = ImmutableSet.builder();

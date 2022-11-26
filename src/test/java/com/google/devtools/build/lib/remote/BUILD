@@ -40,6 +40,7 @@ java_test(
         exclude = NATIVE_SSL_TEST + [
             "BuildWithoutTheBytesIntegrationTest.java",
             "BuildWithoutTheBytesIntegrationTestBase.java",
+            "DiskCacheIntegrationTest.java",
         ],
     ) + NATIVE_SSL_TEST_MAYBE,
     test_class = "com.google.devtools.build.lib.AllTests",
@@ -161,5 +162,20 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "DiskCacheIntegrationTest",
+    srcs = ["DiskCacheIntegrationTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/remote",
+        "//src/main/java/com/google/devtools/build/lib/standalone",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//third_party:guava",
+        "//third_party:junit4",
     ],
 )

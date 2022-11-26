@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import java.util.Comparator;
 import javax.annotation.Nullable;
 
 /** The class responsible for creating & interning the various types of AspectKeys. */
@@ -105,12 +106,24 @@ public final class AspectKeyCreator {
         ConfiguredTargetKey baseConfiguredTargetKey,
         ImmutableList<AspectKey> baseKeys,
         AspectDescriptor aspectDescriptor) {
+      // Keep the list of {@code baseKeys} sorted to avoid running the same aspect twice because of
+      // different {@code baseKeys} order even if the {@link AspectKey} objects in the list are the
+      // same.
+      ImmutableList<AspectKey> sortedBaseKeys =
+          ImmutableList.sortedCopyOf(
+              Comparator.comparing((AspectKey k) -> k.getAspectClass().getName())
+                  // For aspects that appear more than once, comparing aspects parameters based on
+                  // their string representation to avoid adding a lot of logic for this comparison
+                  // which is expected to be not frequently needed.
+                  .thenComparing(k -> k.getParameters().toString()),
+              baseKeys);
+
       return interner.intern(
           new AspectKey(
               baseConfiguredTargetKey,
-              baseKeys,
+              sortedBaseKeys,
               aspectDescriptor,
-              Objects.hashCode(baseConfiguredTargetKey, baseKeys, aspectDescriptor)));
+              Objects.hashCode(baseConfiguredTargetKey, sortedBaseKeys, aspectDescriptor)));
     }
 
     @Override

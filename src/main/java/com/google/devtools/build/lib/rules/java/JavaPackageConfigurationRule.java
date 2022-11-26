@@ -35,7 +35,6 @@ public class JavaPackageConfigurationRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return ConfigAwareRuleClassBuilder.of(builder)
-        .requiresHostConfigurationFragments(JavaConfiguration.class)
         .originalBuilder()
         .requiresConfigurationFragments(JavaConfiguration.class)
         /* <!-- #BLAZE_RULE(java_package_configuration).ATTRIBUTE(packages) -->

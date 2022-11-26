@@ -82,7 +82,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/** Aspect to {@link DexArDchiveProvider build .dex Archives} from Jars. */
+/** Aspect to {@link DexArchiveProvider build .dex Archives} from Jars. */
 public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAspectFactory {
   public static final String NAME = "DexArchiveAspect";
 

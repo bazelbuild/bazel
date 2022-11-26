@@ -143,7 +143,7 @@ def _get_cxx_include_directories(repository_ctx, cc, lang_flag, additional_flags
 
     if _is_compiler_option_supported(repository_ctx, cc, "-print-resource-dir"):
         resource_dir = repository_ctx.execute(
-            [cc, "-print-resource-dir"],
+            [cc, "-print-resource-dir"] + additional_flags,
         ).stdout.strip() + "/share"
         inc_directories.append(_prepare_include_path(repository_ctx, resource_dir))
 

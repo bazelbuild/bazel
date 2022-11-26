@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
-import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
@@ -401,9 +400,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
     builder.requiresConfigurationFragmentsByStarlarkModuleName(
         Sequence.cast(fragments, String.class, "fragments"));
-    ConfigAwareRuleClassBuilder.of(builder)
-        .requiresHostConfigurationFragmentsByStarlarkBuiltinName(
-            Sequence.cast(hostFragments, String.class, "host_fragments"));
     builder.setConfiguredTargetFunction(implementation);
     // Obtain the rule definition environment (RDE) from the .bzl module being initialized by the
     // calling thread -- the label and transitive source digest of the .bzl module of the outermost

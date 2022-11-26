@@ -391,8 +391,7 @@ public class BuildDriverFunction implements SkyFunction {
     env.getListener().post(SomeExecutionStartedEvent.create());
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     List<SkyKey> aspectCompletionKeys = new ArrayList<>();
-    for (SkyValue value : topLevelAspectsValue.getTopLevelAspectsValues()) {
-      AspectValue aspectValue = (AspectValue) value;
+    for (AspectValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
       AspectKey aspectKey = aspectValue.getKey();
       ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
       addExtraActionsIfRequested(

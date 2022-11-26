@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.remote.disk;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
@@ -28,6 +30,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ExtensionRegistryLite;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,11 +46,20 @@ public class DiskCacheClient implements RemoteCacheClient {
 
   private final Path root;
   private final boolean verifyDownloads;
+  private final boolean checkActionResult;
   private final DigestUtil digestUtil;
 
-  public DiskCacheClient(Path root, boolean verifyDownloads, DigestUtil digestUtil) {
+  /**
+   * @param verifyDownloads whether verify the digest of downloaded content are the same as the
+   *     digest used to index that file.
+   * @param checkActionResult whether check referenced blobs exist in CAS when checking AC. If this
+   *     is {@code true} and blobs referenced by the AC are missing, ignore the AC.
+   */
+  public DiskCacheClient(
+      Path root, boolean verifyDownloads, boolean checkActionResult, DigestUtil digestUtil) {
     this.root = root;
     this.verifyDownloads = verifyDownloads;
+    this.checkActionResult = checkActionResult;
     this.digestUtil = digestUtil;
   }
 
@@ -102,13 +114,58 @@ public class DiskCacheClient implements RemoteCacheClient {
         MoreExecutors.directExecutor());
   }
 
+  private void checkDigestExists(Digest digest) throws CacheNotFoundException {
+    if (digest.getSizeBytes() == 0) {
+      return;
+    }
+
+    if (!toPath(digest.getHash(), /* actionResult= */ false).exists()) {
+      throw new CacheNotFoundException(digest);
+    }
+  }
+
+  private void checkOutputDirectory(Directory dir) throws CacheNotFoundException {
+    for (var file : dir.getFilesList()) {
+      checkDigestExists(file.getDigest());
+    }
+  }
+
+  private void checkActionResult(ActionResult actionResult) throws IOException {
+    for (var outputFile : actionResult.getOutputFilesList()) {
+      checkDigestExists(outputFile.getDigest());
+    }
+
+    for (var outputDirectory : actionResult.getOutputDirectoriesList()) {
+      var treeDigest = outputDirectory.getTreeDigest();
+      checkDigestExists(treeDigest);
+
+      var treePath = toPath(treeDigest.getHash(), /* actionResult= */ false);
+      var tree =
+          Tree.parseFrom(treePath.getInputStream(), ExtensionRegistryLite.getEmptyRegistry());
+      checkOutputDirectory(tree.getRoot());
+      for (var dir : tree.getChildrenList()) {
+        checkOutputDirectory(dir);
+      }
+    }
+  }
+
   @Override
   public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
-    return Futures.transform(
+    return Futures.transformAsync(
         Utils.downloadAsActionResult(
             actionKey, (digest, out) -> download(digest, out, /* isActionCache= */ true)),
-        CachedActionResult::disk,
+        actionResult -> {
+          if (actionResult == null) {
+            return Futures.immediateFuture(null);
+          }
+
+          if (checkActionResult) {
+            checkActionResult(actionResult);
+          }
+
+          return Futures.immediateFuture(CachedActionResult.disk(actionResult));
+        },
         MoreExecutors.directExecutor());
   }
 

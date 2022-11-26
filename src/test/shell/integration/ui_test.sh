@@ -671,7 +671,7 @@ EOF
   wait "$pid" || exit_code="$?"
   [[ "$exit_code" == 8 ]] || fail "Should have been interrupted: $exit_code"
   tr -s <"$TEST_log" '\n' '@' |
-      grep -q 'Executing genrule //foo:fail failed:[^@]*@This@is@a@multiline error message@before@failure@\[2 / 3\] Executing genrule //foo:sleep;' \
+      grep -q 'Executing genrule //foo:fail failed:[^@]*@This@is@a@multiline error message@before@failure@.*\[2 / 3\] Executing genrule //foo:sleep;' \
       || fail "Unified genrule error message not found"
   # Make sure server is still usable.
   bazel info server_pid >& "$TEST_log" || fail "Couldn't use server"

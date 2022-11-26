@@ -398,7 +398,6 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk11_linux_for_testing",
             "openjdk11_linux_archive",
-            "openjdk_linux_vanilla",
         ],
         "archive": "zulu11.56.19-ca-jdk11.0.15-linux_x64.tar.gz",
         "sha256": "e064b61d93304012351242bf0823c6a2e41d9e28add7ea7f05378b7243d34247",
@@ -412,7 +411,6 @@ DIST_DEPS = {
     "remotejdk11_linux_aarch64": {
         "aliases": [
             "remotejdk11_linux_aarch64_for_testing",
-            "openjdk_linux_aarch64_vanilla",
         ],
         "archive": "zulu11.56.19-ca-jdk11.0.15-linux_aarch64.tar.gz",
         "sha256": "fc7c41a0005180d4ca471c90d01e049469e0614cf774566d4cf383caa29d1a97",
@@ -426,7 +424,6 @@ DIST_DEPS = {
     "remotejdk11_linux_ppc64le": {
         "aliases": [
             "remotejdk11_linux_ppc64le_for_testing",
-            "openjdk_linux_ppc64le_vanilla",
         ],
         "sha256": "a8fba686f6eb8ae1d1a9566821dbd5a85a1108b96ad857fdbac5c1e4649fc56f",
         "strip_prefix": "jdk-11.0.15+10",
@@ -439,7 +436,6 @@ DIST_DEPS = {
     "remotejdk11_linux_s390x": {
         "aliases": [
             "remotejdk11_linux_s390x_for_testing",
-            "openjdk_linux_s390x_vanilla",
         ],
         "sha256": "a58fc0361966af0a5d5a31a2d8a208e3c9bb0f54f345596fd80b99ea9a39788b",
         "strip_prefix": "jdk-11.0.15+10",
@@ -452,7 +448,6 @@ DIST_DEPS = {
     "remotejdk11_macos": {
         "aliases": [
             "remotejdk11_macos_for_testing",
-            "openjdk_macos_x86_64_vanilla",
             "openjdk11_darwin_archive",
         ],
         "archive": "zulu11.56.19-ca-jdk11.0.15-macosx_x64.tar.gz",
@@ -466,7 +461,6 @@ DIST_DEPS = {
     },
     "remotejdk11_macos_aarch64": {
         "aliases": [
-            "openjdk_macos_aarch64_vanilla",
             "remotejdk11_macos_aarch64_for_testing",
             "openjdk11_darwin_aarch64_archive",
         ],
@@ -483,7 +477,6 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk11_win_for_testing",
             "openjdk11_windows_archive",
-            "openjdk_win_vanilla",
         ],
         "archive": "zulu11.56.19-ca-jdk11.0.15-win_x64.zip",
         "sha256": "a106c77389a63b6bd963a087d5f01171bd32aa3ee7377ecef87531390dcb9050",
@@ -507,7 +500,10 @@ DIST_DEPS = {
             "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip",
             "https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip",
         ],
-        "used_in": ["test_WORKSPACE_files"],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
     },
     "remotejdk11_win_arm64": {
         "aliases": [
@@ -526,19 +522,25 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk17_linux_for_testing",
             "openjdk17_linux_archive",
+            "openjdk_linux_vanilla",
         ],
+        "archive": "zulu17.32.13-ca-jdk17.0.2-linux_x64.tar.gz",
         "sha256": "73d5c4bae20325ca41b606f7eae64669db3aac638c5b3ead4a975055846ad6de",
         "strip_prefix": "zulu17.32.13-ca-jdk17.0.2-linux_x64",
         "urls": [
             "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_x64.tar.gz",
             "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_x64.tar.gz",
         ],
-        "used_in": [],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
     },
     "remotejdk17_linux_aarch64": {
         "aliases": [
             "remotejdk17_linux_aarch64_for_testing",
             "openjdk17_linux_aarch64_archive",
+            "openjdk_linux_aarch64_vanilla",
         ],
         "archive": "zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz",
         "sha256": "2b8066bbdbc5cff422bb6b6db1b8f8d362b576340cce8492f1255502af632b06",
@@ -547,46 +549,95 @@ DIST_DEPS = {
             "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz",
             "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz",
         ],
-        "used_in": ["test_WORKSPACE_files"],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
+    "remotejdk17_linux_s390x": {
+        "aliases": [
+            "remotejdk17_linux_s390x_for_testing",
+            "openjdk_linux_s390x_vanilla",
+        ],
+        "archive": "OpenJDK17U-jdk_s390x_linux_hotspot_17.0.4.1_1.tar.gz",
+        "sha256": "fdc82f4b06c880762503b0cb40e25f46cf8190d06011b3b768f4091d3334ef7f",
+        "strip_prefix": "jdk-17.0.4.1+1",
+        "urls": [
+            "https://mirror.bazel.build/github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_s390x_linux_hotspot_17.0.4.1_1.tar.gz",
+            "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_s390x_linux_hotspot_17.0.4.1_1.tar.gz",
+        ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
+    "remotejdk17_linux_ppc64le": {
+        "aliases": [
+            "remotejdk17_linux_ppc64le_for_testing",
+            "openjdk_linux_ppc64le_vanilla",
+        ],
+        "archive": "OpenJDK17U-jdk_ppc64le_linux_hotspot_17.0.4.1_1.tar.gz",
+        "sha256": "cbedd0a1428b3058d156e99e8e9bc8769e0d633736d6776a4c4d9136648f2fd1",
+        "strip_prefix": "jdk-17.0.4.1+1",
+        "urls": [
+            "https://mirror.bazel.build/github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_ppc64le_linux_hotspot_17.0.4.1_1.tar.gz",
+            "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_ppc64le_linux_hotspot_17.0.4.1_1.tar.gz",
+        ],
+        "used_in": ["additional_distfiles"],
     },
     "remotejdk17_macos": {
         "aliases": [
             "remotejdk17_macos_for_testing",
             "openjdk17_darwin_archive",
+            "openjdk_macos_x86_64_vanilla",
         ],
+        "archive": "zulu17.32.13-ca-jdk17.0.2-macosx_x64.tar.gz",
         "sha256": "89d04b2d99b05dcb25114178e65f6a1c5ca742e125cab0a63d87e7e42f3fcb80",
         "strip_prefix": "zulu17.32.13-ca-jdk17.0.2-macosx_x64",
         "urls": [
             "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-macosx_x64.tar.gz",
             "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-macosx_x64.tar.gz",
         ],
-        "used_in": [],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
     },
     "remotejdk17_macos_aarch64": {
         "aliases": [
             "remotejdk17_macos_aarch64_for_testing",
             "openjdk17_darwin_aarch64_archive",
+            "openjdk_macos_aarch64_vanilla",
         ],
+        "archive": "zulu17.32.13-ca-jdk17.0.2-macosx_aarch64.tar.gz",
         "sha256": "54247dde248ffbcd3c048675504b1c503b81daf2dc0d64a79e353c48d383c977",
         "strip_prefix": "zulu17.32.13-ca-jdk17.0.2-macosx_aarch64",
         "urls": [
             "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-macosx_aarch64.tar.gz",
             "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-macosx_aarch64.tar.gz",
         ],
-        "used_in": [],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
     },
     "remotejdk17_win": {
         "aliases": [
             "remotejdk17_win_for_testing",
             "openjdk17_windows_archive",
+            "openjdk_win_vanilla",
         ],
+        "archive": "zulu17.32.13-ca-jdk17.0.2-win_x64.zip",
         "sha256": "e965aa0ea7a0661a3446cf8f10ee00684b851f883b803315289f26b4aa907fdb",
         "strip_prefix": "zulu17.32.13-ca-jdk17.0.2-win_x64",
         "urls": [
             "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-win_x64.zip",
             "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-win_x64.zip",
         ],
-        "used_in": [],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
     },
     "remotejdk18_linux_aarch64": {
         "aliases": [

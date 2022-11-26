@@ -560,6 +560,9 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       for (Artifact libraryToAvoid : avoidProvider.getPropagable(LIBRARY).toList()) {
         avoidLibrariesSet.add(libraryToAvoid.getRunfilesPath());
       }
+      for (Artifact libraryToAvoid : avoidProvider.getPropagable(IMPORTED_LIBRARY).toList()) {
+        avoidLibrariesSet.add(libraryToAvoid.getRunfilesPath());
+      }
     }
     ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder(semantics);
     for (Key<?> key : items.keySet()) {

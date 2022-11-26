@@ -1197,4 +1197,87 @@ EOF
   expect_log "//test:defs.bzl%aspect_a: expected value of type 'int' for attribute 'p' but got 'val'"
 }
 
+function test_aspect_runs_once_with_diff_order_in_base_aspects() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+def _aspect_b_impl(target, ctx):
+  print('aspect_b on target {}, p = {}'.format(target.label, ctx.attr.p))
+  return []
+
+aspect_b = aspect(
+    implementation = _aspect_b_impl,
+    attr_aspects = ['deps'],
+    attrs = { 'p' : attr.int(values = [3, 4]) },
+)
+
+def _aspect_a_impl(target, ctx):
+  print('aspect_a on target {}, aspects_path = {}'.format(target.label, ctx.aspect_ids))
+  return []
+
+aspect_a = aspect(
+    implementation = _aspect_a_impl,
+    attr_aspects = ['deps'],
+    requires = [aspect_b],
+)
+
+def _r1_impl(ctx):
+  pass
+
+r1 = rule(
+   implementation = _r1_impl,
+   attrs = {
+     'deps' : attr.label_list(aspects=[aspect_b]),
+     'p' : attr.int(),
+   },
+)
+
+def _r2_impl(ctx):
+  pass
+
+r2 = rule(
+   implementation = _r2_impl,
+   attrs = {
+     'deps' : attr.label_list(aspects=[aspect_b]),
+     'p' : attr.int(),
+   },
+)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//test:defs.bzl', 'r1', 'r2')
+r1(
+  name = 't1',
+  p = 3,
+  # aspect b(p=3) is propagated to t2 and t3 from t1
+  # aspect a from command-line runs on t2 and t3 with basekeys = [b(p=4)]
+  # so the aspects path propagating to t3 is [b(p=3), b(p=4), a]
+  deps = [':t2', ':t3'],
+)
+r2(
+  name = 't2',
+  p = 4,
+  # aspect b(p=4) is propagated from t2 to t3
+  # the aspects path propagating to t3 will be [b(p=4), b(p=3), b(p=4), a]
+  # after aspects deduplicating the aspects path will be [b(p=4), b(p=3), a]
+  deps = [':t3'],
+)
+r1(
+  name = 't3',
+  p = 4,
+)
+EOF
+
+  bazel build "//${package}:t1" \
+      --aspects="//${package}:defs.bzl%aspect_a" \
+      --aspects_parameters="p=4" \
+      &> $TEST_log || fail "Build failed"
+
+  # check that aspect_a runs only once on t3 with the aspect path ordered as
+  # [aspect_b(p=3), aspect_b(p=4), aspect_a]
+  expect_log 'aspect_a on target @//test:t3, aspects_path = \["//test:defs.bzl%aspect_b\[p=\\\"3\\\"\]", "//test:defs.bzl%aspect_b\[p=\\\"4\\\"\]", "//test:defs.bzl%aspect_a"\]'
+  expect_not_log 'aspect_a on target @//test:t3, aspects_path = \["//test:defs.bzl%aspect_b\[p=\\\"4\\\"\]", "//test:defs.bzl%aspect_b\[p=\\\"3\\\"\]", "//test:defs.bzl%aspect_a"\]'
+}
+
 run_suite "Tests for aspects"

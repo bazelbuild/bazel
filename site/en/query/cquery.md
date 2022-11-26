@@ -82,7 +82,7 @@ The query expression `"function(//target)"` consists of the following:
     few new ones.
 *   **`//target`** is the expression fed to the function. In this example, the
     expression is a simple target. But the query language also allows nesting of functions.
-    See the [Query How-To](/query/quickstart) for examples.
+    See the [Query guide](/query/guide) for examples.
 
 
 `cquery` requires a target to run through the [loading and analysis](/rules/concepts#evaluation-model)
@@ -369,8 +369,8 @@ This option prints a list of the output files produced by each target matched
 by the query similar to the list printed at the end of a `bazel build`
 invocation. The output contains only the files advertised in the requested
 output groups as determined by the
-[`--output_groups`](/reference/command-line-reference#flag--output_groups) flag
-and never contains source files.
+[`--output_groups`](/reference/command-line-reference#flag--output_groups) flag.
+It does include source files.
 
 Note: The output of `bazel cquery --output=files //pkg:foo` contains the output
 files of `//pkg:foo` in *all* configurations that occur in the build (also see

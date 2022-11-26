@@ -225,10 +225,6 @@ public final class BlazeDirectories {
     return execRoot.getRelative(getRelativeOutputPath()).getRelative("_tmp/actions");
   }
 
-  public Path getPersistentActionOutsDirectory(Path execRoot) {
-    return execRoot.getRelative(getRelativeOutputPath()).getRelative("_actions");
-  }
-
   /** Returns the installed embedded binaries directory, under the shared installBase location. */
   public Path getEmbeddedBinariesRoot() {
     return serverDirectories.getEmbeddedBinariesRoot();
