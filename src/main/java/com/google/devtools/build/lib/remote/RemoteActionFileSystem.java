@@ -316,17 +316,18 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   // Remote files are always readable, writable and executable since we can't control their
   // permissions.
 
+  private boolean existsInMemory(PathFragment path) {
+    return remoteOutputTree.getPath(path).isDirectory() || getRemoteMetadata(path) != null;
+  }
+
   @Override
   protected boolean isReadable(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteMetadata(path);
-    return m != null || super.isReadable(path);
+    return existsInMemory(path) || super.isReadable(path);
   }
 
   @Override
   protected boolean isWritable(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteMetadata(path);
-
-    if (m != null) {
+    if (existsInMemory(path)) {
       // If path exists locally, also check whether it's writable. We need this check for the case
       // where the action need to delete their local outputs but the parent directory is not
       // writable.
@@ -343,8 +344,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   protected boolean isExecutable(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteMetadata(path);
-    return m != null || super.isExecutable(path);
+    return existsInMemory(path) || super.isExecutable(path);
   }
 
   @Override
@@ -352,8 +352,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     try {
       super.setReadable(path, readable);
     } catch (FileNotFoundException e) {
-      // in case of missing remote file, re-throw the error.
-      if (getRemoteMetadata(path) == null) {
+      // in case of missing in-memory path, re-throw the error.
+      if (!existsInMemory(path)) {
         throw e;
       }
     }
@@ -364,8 +364,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     try {
       super.setWritable(path, writable);
     } catch (FileNotFoundException e) {
-      // in case of missing remote file, re-throw the error.
-      if (getRemoteMetadata(path) == null) {
+      // in case of missing in-memory path, re-throw the error.
+      if (!existsInMemory(path)) {
         throw e;
       }
     }
@@ -376,8 +376,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     try {
       super.setExecutable(path, executable);
     } catch (FileNotFoundException e) {
-      // in case of missing remote file, re-throw the error.
-      if (getRemoteMetadata(path) == null) {
+      // in case of missing in-memory path, re-throw the error.
+      if (!existsInMemory(path)) {
         throw e;
       }
     }
@@ -388,8 +388,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     try {
       super.chmod(path, mode);
     } catch (FileNotFoundException e) {
-      // in case of missing remote file, re-throw the error.
-      if (getRemoteMetadata(path) == null) {
+      // in case of missing in-memory path, re-throw the error.
+      if (!existsInMemory(path)) {
         throw e;
       }
     }
