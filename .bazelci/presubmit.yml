@@ -20,6 +20,7 @@ tasks:
       - "//src:test_repos"
       - "//src/main/java/..."
     test_flags:
+      - "--incompatible_exclusive_test_sandboxed"
       - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
@@ -62,6 +63,7 @@ tasks:
       - "//src:test_repos"
       - "//src/main/java/..."
     test_flags:
+      - "--incompatible_exclusive_test_sandboxed"
       - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
@@ -103,6 +105,7 @@ tasks:
       - "//src:test_repos"
       - "//src/main/java/..."
     test_flags:
+      - "--incompatible_exclusive_test_sandboxed"
       - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
@@ -127,6 +130,7 @@ tasks:
       - "//src:test_repos"
       - "//src/main/java/..."
     test_flags:
+      - "--incompatible_exclusive_test_sandboxed"
       - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
@@ -167,6 +171,7 @@ tasks:
       - "//src:test_repos"
       - "//src/main/java/..."
     test_flags:
+      - "--incompatible_exclusive_test_sandboxed"
       - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
@@ -208,6 +213,7 @@ tasks:
       - "//src:test_repos"
       - "//src/main/java/..."
     test_flags:
+      - "--incompatible_exclusive_test_sandboxed"
       - "--copt=-w"
       - "--host_copt=-w"
       - "--test_tag_filters=-no_windows,-slow"
@@ -269,6 +275,7 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//src/main/java/..."
     test_flags:
+      - "--incompatible_exclusive_test_sandboxed"
       - "--config=ubuntu1804_java11"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
