@@ -195,12 +195,12 @@ class Runfiles {
       std::map<std::string, std::string> runfiles_map, std::string directory,
       std::map<std::pair<std::string, std::string>, std::string> repo_mapping,
       std::vector<std::pair<std::string, std::string> > envvars,
-      std::string source_repository_)
+      std::string source_repository)
       : runfiles_map_(std::move(runfiles_map)),
         directory_(std::move(directory)),
         repo_mapping_(std::move(repo_mapping)),
         envvars_(std::move(envvars)),
-        source_repository_(std::move(source_repository_)) {}
+        source_repository_(std::move(source_repository)) {}
   Runfiles(const Runfiles&) = delete;
   Runfiles(Runfiles&&) = delete;
   Runfiles& operator=(const Runfiles&) = delete;
