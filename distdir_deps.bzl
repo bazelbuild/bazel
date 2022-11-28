@@ -353,7 +353,7 @@ DIST_DEPS = {
         "archive": "java_tools_linux-v11.9-rc1.zip",
         "sha256": "512582cac5b7ea7974a77b0da4581b21f546c9478f206eedf54687eeac035989",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.8/java_tools_linux-v11.8.zip",
+            "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.9/java_tools_linux-v11.9-rc1.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
