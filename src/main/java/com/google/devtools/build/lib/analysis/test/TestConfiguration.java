@@ -270,7 +270,7 @@ public class TestConfiguration extends Fragment {
 
     @Option(
         name = "incompatible_exclusive_test_sandboxed",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
