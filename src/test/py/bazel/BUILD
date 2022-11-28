@@ -91,7 +91,6 @@ py_test(
     ],
     deps = [
         ":test_base",
-        "//third_party/py/six",
     ],
 )
 
