@@ -167,10 +167,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
       FragmentFactory fragmentFactory)
       throws InvalidConfigurationException {
 
-    FragmentClassSet fragmentClasses =
-        buildOptions.hasNoConfig()
-            ? FragmentClassSet.of(ImmutableSet.of())
-            : globalProvider.getFragmentRegistry().getAllFragments();
+    FragmentClassSet fragmentClasses = globalProvider.getFragmentRegistry().getAllFragments();
     ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments =
         getConfigurationFragments(buildOptions, fragmentClasses, fragmentFactory);
 
