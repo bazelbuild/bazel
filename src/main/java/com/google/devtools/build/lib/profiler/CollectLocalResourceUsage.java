@@ -228,59 +228,69 @@ public class CollectLocalResourceUsage extends Thread {
     long endTimeNanos = System.nanoTime();
     long elapsedNanos = stopwatch.elapsed(TimeUnit.NANOSECONDS);
     long startTimeNanos = endTimeNanos - elapsedNanos;
+    Duration profileStart = Duration.ofNanos(startTimeNanos);
     int len = (int) (elapsedNanos / BUCKET_DURATION.toNanos()) + 1;
     Profiler profiler = Profiler.instance();
 
-    logCollectedData(profiler, localCpuUsage, ProfilerTask.LOCAL_CPU_USAGE, startTimeNanos, len);
+    profiler.logCounters(
+        ProfilerTask.LOCAL_CPU_USAGE,
+        localCpuUsage.toDoubleArray(len),
+        profileStart,
+        BUCKET_DURATION);
     localCpuUsage = null;
 
-    logCollectedData(
-        profiler, localMemoryUsage, ProfilerTask.LOCAL_MEMORY_USAGE, startTimeNanos, len);
+    profiler.logCounters(
+        ProfilerTask.LOCAL_MEMORY_USAGE,
+        localMemoryUsage.toDoubleArray(len),
+        profileStart,
+        BUCKET_DURATION);
     localMemoryUsage = null;
 
-    logCollectedData(profiler, systemCpuUsage, ProfilerTask.SYSTEM_CPU_USAGE, startTimeNanos, len);
+    profiler.logCounters(
+        ProfilerTask.SYSTEM_CPU_USAGE,
+        systemCpuUsage.toDoubleArray(len),
+        profileStart,
+        BUCKET_DURATION);
     systemCpuUsage = null;
 
-    logCollectedData(
-        profiler, systemMemoryUsage, ProfilerTask.SYSTEM_MEMORY_USAGE, startTimeNanos, len);
+    profiler.logCounters(
+        ProfilerTask.SYSTEM_MEMORY_USAGE,
+        systemMemoryUsage.toDoubleArray(len),
+        profileStart,
+        BUCKET_DURATION);
     systemMemoryUsage = null;
 
     if (collectWorkerDataInProfiler) {
-      logCollectedData(
-          profiler, workersMemoryUsage, ProfilerTask.WORKERS_MEMORY_USAGE, startTimeNanos, len);
+      profiler.logCounters(
+          ProfilerTask.WORKERS_MEMORY_USAGE,
+          workersMemoryUsage.toDoubleArray(len),
+          profileStart,
+          BUCKET_DURATION);
     }
     workersMemoryUsage = null;
 
     if (collectLoadAverage) {
-      logCollectedData(
-          profiler, systemLoadAverage, ProfilerTask.SYSTEM_LOAD_AVERAGE, startTimeNanos, len);
+      profiler.logCounters(
+          ProfilerTask.SYSTEM_LOAD_AVERAGE,
+          systemLoadAverage.toDoubleArray(len),
+          profileStart,
+          BUCKET_DURATION);
     }
     systemLoadAverage = null;
 
     if (collectSystemNetworkUsage) {
-      logCollectedData(
-          profiler,
-          systemNetworkUpUsage,
+      profiler.logCounters(
           ProfilerTask.SYSTEM_NETWORK_UP_USAGE,
-          startTimeNanos,
-          len);
-      logCollectedData(
-          profiler,
-          systemNetworkDownUsage,
+          systemNetworkUpUsage.toDoubleArray(len),
+          profileStart,
+          BUCKET_DURATION);
+      profiler.logCounters(
           ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE,
-          startTimeNanos,
-          len);
+          systemNetworkDownUsage.toDoubleArray(len),
+          profileStart,
+          BUCKET_DURATION);
     }
     systemNetworkUpUsage = null;
     systemNetworkDownUsage = null;
-  }
-
-  private static void logCollectedData(
-      Profiler profiler, TimeSeries timeSeries, ProfilerTask type, long startTimeNanos, int len) {
-    double[] localResourceValues = timeSeries.toDoubleArray(len);
-    for (int i = 0; i < len; i++) {
-      long eventTimeNanos = startTimeNanos + i * BUCKET_DURATION.toNanos();
-      profiler.logEventAtTime(eventTimeNanos, type, String.valueOf(localResourceValues[i]));
-    }
   }
 }
