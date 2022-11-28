@@ -25,6 +25,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.util.Arrays;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 /** Unit tests for {@link MetadataCollector}. */
 @RunWith(JUnit4.class)
 public class MetadataCollectorTest {
@@ -42,65 +46,79 @@ public class MetadataCollectorTest {
     collector.assumeCompanionClass("a", "a$$CC");
 
     DesugarDepsInfo info = extractProto(collector);
-    assertThat(info.getAssumePresentList())
-        .containsExactly(
-            Dependency.newBuilder().setOrigin(wrapType("a")).setTarget(wrapType("b$$CC")).build(),
-            Dependency.newBuilder().setOrigin(wrapType("b")).setTarget(wrapType("b$$CC")).build(),
-            Dependency.newBuilder().setOrigin(wrapType("a")).setTarget(wrapType("a$$CC")).build());
+
+    assertThat(info.getAssumePresentList().get(0)).isEqualTo(dependency("a", "a$$CC"));
+    assertThat(info.getAssumePresentList().get(1)).isEqualTo(dependency("a", "b$$CC"));
+    assertThat(info.getAssumePresentList().get(2)).isEqualTo(dependency("b", "b$$CC"));
   }
 
   @Test
   public void testMissingImplementedInterface() throws Exception {
     MetadataCollector collector = new MetadataCollector(true);
     collector.missingImplementedInterface("a", "b");
-    collector.missingImplementedInterface("a", "c");
     collector.missingImplementedInterface("c", "b");
+    collector.missingImplementedInterface("a", "c");
 
     DesugarDepsInfo info = extractProto(collector);
-    assertThat(info.getMissingInterfaceList())
-        .containsExactly(
-            Dependency.newBuilder().setOrigin(wrapType("a")).setTarget(wrapType("b")).build(),
-            Dependency.newBuilder().setOrigin(wrapType("a")).setTarget(wrapType("c")).build(),
-            Dependency.newBuilder().setOrigin(wrapType("c")).setTarget(wrapType("b")).build());
+    assertThat(info.getMissingInterfaceList().get(0)).isEqualTo(dependency("a", "b"));
+    assertThat(info.getMissingInterfaceList().get(1)).isEqualTo(dependency("a", "c"));
+    assertThat(info.getMissingInterfaceList().get(2)).isEqualTo(dependency("c", "b"));
   }
 
   @Test
   public void testRecordExtendedInterfaces() throws Exception {
     MetadataCollector collector = new MetadataCollector(false);
-    collector.recordExtendedInterfaces("a", "b", "c");
-    collector.recordExtendedInterfaces("b");
     collector.recordExtendedInterfaces("c", "d");
+    collector.recordExtendedInterfaces("a", "c", "b");
+    collector.recordExtendedInterfaces("b");
 
     DesugarDepsInfo info = extractProto(collector);
-    assertThat(info.getInterfaceWithSupertypesList())
-        .containsExactly(
-            InterfaceDetails.newBuilder()
-                .setOrigin(wrapType("a"))
-                .addAllExtendedInterface(ImmutableList.of(wrapType("b"), wrapType("c")))
-                .build(),
-            InterfaceDetails.newBuilder()
-                .setOrigin(wrapType("c"))
-                .addAllExtendedInterface(ImmutableList.of(wrapType("d")))
-                .build());
+
+    assertThat(info.getInterfaceWithSupertypesList().get(0))
+        .isEqualTo(interfaceDetails("a", "b", "c"));
+    assertThat(info.getInterfaceWithSupertypesList().get(0).getExtendedInterfaceList().get(0))
+        .isEqualTo(wrapType("b"));
+    assertThat(info.getInterfaceWithSupertypesList().get(0).getExtendedInterfaceList().get(1))
+        .isEqualTo(wrapType("c"));
+
+    assertThat(info.getInterfaceWithSupertypesList().get(1)).isEqualTo(interfaceDetails("c", "d"));
   }
 
   @Test
   public void testRecordDefaultMethods() throws Exception {
     MetadataCollector collector = new MetadataCollector(false);
-    collector.recordDefaultMethods("a", 0);
     collector.recordDefaultMethods("b", 1);
+    collector.recordDefaultMethods("a", 0);
 
     DesugarDepsInfo info = extractProto(collector);
-    assertThat(info.getInterfaceWithCompanionList())
-        .containsExactly(
-            InterfaceWithCompanion.newBuilder()
-                .setOrigin(wrapType("a"))
-                .setNumDefaultMethods(0)
-                .build(),
-            InterfaceWithCompanion.newBuilder()
-                .setOrigin(wrapType("b"))
-                .setNumDefaultMethods(1)
-                .build());
+    assertThat(info.getInterfaceWithCompanionList().get(0))
+        .isEqualTo(interfaceWithCompanion("a", 0));
+    assertThat(info.getInterfaceWithCompanionList().get(1))
+        .isEqualTo(interfaceWithCompanion("b", 1));
+  }
+
+  private DesugarDeps.InterfaceWithCompanion interfaceWithCompanion(String origin, int count) {
+    return DesugarDeps.InterfaceWithCompanion.newBuilder()
+        .setOrigin(wrapType(origin))
+        .setNumDefaultMethods(count)
+        .build();
+  }
+
+  private DesugarDeps.InterfaceDetails interfaceDetails(String originName, String... interfaces) {
+    return InterfaceDetails.newBuilder()
+        .setOrigin(wrapType(originName))
+        .addAllExtendedInterface(
+            Arrays.stream(interfaces)
+                .map(MetadataCollectorTest::wrapType)
+                .collect(Collectors.toList()))
+        .build();
+  }
+
+  private DesugarDeps.Dependency dependency(String origin, String target) {
+    return DesugarDeps.Dependency.newBuilder()
+        .setOrigin(wrapType(origin))
+        .setTarget(wrapType(target))
+        .build();
   }
 
   private static DesugarDeps.Type wrapType(String name) {
