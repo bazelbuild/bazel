@@ -67,7 +67,7 @@ public final class CredentialHelper {
    * @return The response from the subprocess.
    */
   public GetCredentialsResponse getCredentials(CredentialHelperEnvironment environment, URI uri)
-      throws InterruptedException, IOException {
+      throws IOException {
     Preconditions.checkNotNull(environment);
     Preconditions.checkNotNull(uri);
 
@@ -81,7 +81,16 @@ public final class CredentialHelper {
           GSON.toJson(GetCredentialsRequest.newBuilder().setUri(uri).build(), stdin);
         }
 
-        process.waitFor();
+        try {
+          process.waitFor();
+        } catch (InterruptedException e) {
+          throw new CredentialHelperException(
+              String.format(
+                  Locale.US,
+                  "Failed to get credentials for '%s' from helper '%s': process was interrupted",
+                  uri,
+                  path));
+        }
 
         if (process.timedout()) {
           throw new CredentialHelperException(

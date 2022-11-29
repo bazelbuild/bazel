@@ -21,6 +21,7 @@ import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
+import com.github.benmanes.caffeine.cache.Cache;
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
@@ -28,6 +29,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -42,6 +44,7 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -159,6 +162,8 @@ public final class RemoteModule extends BlazeModule {
 
   private final MutableSupplier<Downloader> remoteDownloaderSupplier = new MutableSupplier<>();
 
+  private CredentialModule credentialModule;
+
   @Override
   public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
     builder.addBuildEventArtifactUploaderFactory(
@@ -211,33 +216,16 @@ public final class RemoteModule extends BlazeModule {
 
   private void initHttpAndDiskCache(
       CommandEnvironment env,
+      Credentials credentials,
       AuthAndTLSOptions authAndTlsOptions,
       RemoteOptions remoteOptions,
       DigestUtil digestUtil) {
-    Credentials creds;
-    try {
-      creds =
-          newCredentials(
-              CredentialHelperEnvironment.newBuilder()
-                  .setEventReporter(env.getReporter())
-                  .setWorkspacePath(env.getWorkspace())
-                  .setClientEnvironment(env.getClientEnv())
-                  .setHelperExecutionTimeout(authAndTlsOptions.credentialHelperTimeout)
-                  .build(),
-              env.getCommandLinePathFactory(),
-              env.getRuntime().getFileSystem(),
-              authAndTlsOptions,
-              remoteOptions);
-    } catch (IOException e) {
-      handleInitFailure(env, e, Code.CREDENTIALS_INIT_FAILURE);
-      return;
-    }
     RemoteCacheClient cacheClient;
     try {
       cacheClient =
           RemoteCacheClientFactory.create(
               remoteOptions,
-              creds,
+              credentials,
               authAndTlsOptions,
               Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
               digestUtil);
@@ -256,8 +244,10 @@ public final class RemoteModule extends BlazeModule {
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
     Preconditions.checkState(blockWaitingModule == null, "blockWaitingModule must be null");
+    Preconditions.checkState(credentialModule == null, "credentialModule must be null");
     blockWaitingModule =
         Preconditions.checkNotNull(runtime.getBlazeModule(BlockWaitingModule.class));
+    credentialModule = Preconditions.checkNotNull(runtime.getBlazeModule(CredentialModule.class));
   }
 
   @Override
@@ -358,8 +348,28 @@ public final class RemoteModule extends BlazeModule {
       executorService = Executors.newCachedThreadPool(threadFactory);
     }
 
+    Credentials credentials;
+    try {
+      credentials =
+          createCredentials(
+              CredentialHelperEnvironment.newBuilder()
+                  .setEventReporter(env.getReporter())
+                  .setWorkspacePath(env.getWorkspace())
+                  .setClientEnvironment(env.getClientEnv())
+                  .setHelperExecutionTimeout(authAndTlsOptions.credentialHelperTimeout)
+                  .build(),
+              credentialModule.getCredentialCache(),
+              env.getCommandLinePathFactory(),
+              env.getRuntime().getFileSystem(),
+              authAndTlsOptions,
+              remoteOptions);
+    } catch (IOException e) {
+      handleInitFailure(env, e, Code.CREDENTIALS_INIT_FAILURE);
+      return;
+    }
+
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
-      initHttpAndDiskCache(env, authAndTlsOptions, remoteOptions, digestUtil);
+      initHttpAndDiskCache(env, credentials, authAndTlsOptions, remoteOptions, digestUtil);
       return;
     }
 
@@ -456,27 +466,9 @@ public final class RemoteModule extends BlazeModule {
       }
     }
 
-    CallCredentialsProvider callCredentialsProvider;
-    try {
-      callCredentialsProvider =
-          GoogleAuthUtils.newCallCredentialsProvider(
-              newCredentials(
-                  CredentialHelperEnvironment.newBuilder()
-                      .setEventReporter(env.getReporter())
-                      .setWorkspacePath(env.getWorkspace())
-                      .setClientEnvironment(env.getClientEnv())
-                      .setHelperExecutionTimeout(authAndTlsOptions.credentialHelperTimeout)
-                      .build(),
-                  env.getCommandLinePathFactory(),
-                  env.getRuntime().getFileSystem(),
-                  authAndTlsOptions,
-                  remoteOptions));
-    } catch (IOException e) {
-      handleInitFailure(env, e, Code.CREDENTIALS_INIT_FAILURE);
-      return;
-    }
-
-    CallCredentials credentials = callCredentialsProvider.getCallCredentials();
+    CallCredentialsProvider callCredentialsProvider =
+        GoogleAuthUtils.newCallCredentialsProvider(credentials);
+    CallCredentials callCredentials = callCredentialsProvider.getCallCredentials();
 
     RemoteRetrier retrier =
         new RemoteRetrier(
@@ -500,7 +492,7 @@ public final class RemoteModule extends BlazeModule {
               getAndVerifyServerCapabilities(
                   remoteOptions,
                   execChannel,
-                  credentials,
+                  callCredentials,
                   retrier,
                   env,
                   digestUtil,
@@ -509,7 +501,7 @@ public final class RemoteModule extends BlazeModule {
               getAndVerifyServerCapabilities(
                   remoteOptions,
                   cacheChannel,
-                  credentials,
+                  callCredentials,
                   retrier,
                   env,
                   digestUtil,
@@ -519,7 +511,7 @@ public final class RemoteModule extends BlazeModule {
               getAndVerifyServerCapabilities(
                   remoteOptions,
                   execChannel,
-                  credentials,
+                  callCredentials,
                   retrier,
                   env,
                   digestUtil,
@@ -530,7 +522,7 @@ public final class RemoteModule extends BlazeModule {
             getAndVerifyServerCapabilities(
                 remoteOptions,
                 cacheChannel,
-                credentials,
+                callCredentials,
                 retrier,
                 env,
                 digestUtil,
@@ -683,7 +675,7 @@ public final class RemoteModule extends BlazeModule {
               buildRequestId,
               invocationId,
               downloaderChannel.retain(),
-              Optional.ofNullable(credentials),
+              Optional.ofNullable(callCredentials),
               retrier,
               cacheClient,
               remoteOptions,
@@ -1056,8 +1048,10 @@ public final class RemoteModule extends BlazeModule {
     return actionContextProvider;
   }
 
-  static Credentials newCredentials(
+  @VisibleForTesting
+  static Credentials createCredentials(
       CredentialHelperEnvironment credentialHelperEnvironment,
+      Cache<URI, ImmutableMap<String, ImmutableList<String>>> credentialCache,
       CommandLinePathFactory commandLinePathFactory,
       FileSystem fileSystem,
       AuthAndTLSOptions authAndTlsOptions,
@@ -1065,7 +1059,11 @@ public final class RemoteModule extends BlazeModule {
       throws IOException {
     Credentials credentials =
         GoogleAuthUtils.newCredentials(
-            credentialHelperEnvironment, commandLinePathFactory, fileSystem, authAndTlsOptions);
+            credentialHelperEnvironment,
+            credentialCache,
+            commandLinePathFactory,
+            fileSystem,
+            authAndTlsOptions);
 
     try {
       if (credentials != null

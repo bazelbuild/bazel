@@ -26,6 +26,8 @@ import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,6 +37,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -103,7 +106,8 @@ public final class RemoteModuleTest {
               CacheCapabilities.newBuilder().addDigestFunctions(Value.SHA256).build())
           .build();
 
-  private static CommandEnvironment createTestCommandEnvironment(RemoteOptions remoteOptions)
+  private static CommandEnvironment createTestCommandEnvironment(
+      RemoteModule remoteModule, RemoteOptions remoteOptions)
       throws IOException, AbruptExitException {
     CoreOptions coreOptions = Options.getDefaults(CoreOptions.class);
     CommonCommandOptions commonCommandOptions = Options.getDefaults(CommonCommandOptions.class);
@@ -134,6 +138,8 @@ public final class RemoteModuleTest {
             .setServerDirectories(serverDirectories)
             .setStartupOptionsProvider(
                 OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
+            .addBlazeModule(new CredentialModule())
+            .addBlazeModule(remoteModule)
             .addBlazeModule(new BlockWaitingModule())
             .build();
 
@@ -198,7 +204,7 @@ public final class RemoteModuleTest {
       RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
       remoteOptions.remoteExecutor = executionServerName;
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
+      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
 
@@ -226,7 +232,7 @@ public final class RemoteModuleTest {
       RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
       remoteOptions.remoteCache = cacheServerName;
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
+      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
 
@@ -272,7 +278,7 @@ public final class RemoteModuleTest {
       remoteOptions.remoteExecutor = executionServerName;
       remoteOptions.remoteCache = cacheServerName;
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
+      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
 
@@ -327,7 +333,7 @@ public final class RemoteModuleTest {
       remoteOptions.remoteExecutor = executionServerName;
       remoteOptions.remoteCache = cacheServerName;
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
+      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
 
@@ -365,7 +371,7 @@ public final class RemoteModuleTest {
           (target, proxy, options, interceptors) ->
               InProcessChannelBuilder.forName(target).directExecutor().build());
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
+      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       assertThrows(AbruptExitException.class, () -> remoteModule.beforeCommand(env));
     } finally {
@@ -398,7 +404,7 @@ public final class RemoteModuleTest {
           (target, proxy, options, interceptors) ->
               InProcessChannelBuilder.forName(target).directExecutor().build());
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
+      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       assertThrows(AbruptExitException.class, () -> remoteModule.beforeCommand(env));
     } finally {
@@ -430,7 +436,7 @@ public final class RemoteModuleTest {
           (target, proxy, options, interceptors) ->
               InProcessChannelBuilder.forName(target).directExecutor().build());
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
+      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
 
@@ -468,7 +474,7 @@ public final class RemoteModuleTest {
           (target, proxy, options, interceptors) ->
               InProcessChannelBuilder.forName(target).directExecutor().build());
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
+      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
 
@@ -492,14 +498,18 @@ public final class RemoteModuleTest {
     AuthAndTLSOptions authAndTLSOptions = Options.getDefaults(AuthAndTLSOptions.class);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
 
+    Cache<URI, ImmutableMap<String, ImmutableList<String>>> credentialCache =
+        Caffeine.newBuilder().build();
+
     Credentials credentials =
-        RemoteModule.newCredentials(
+        RemoteModule.createCredentials(
             CredentialHelperEnvironment.newBuilder()
                 .setEventReporter(new Reporter(new EventBus()))
                 .setWorkspacePath(fileSystem.getPath("/workspace"))
                 .setClientEnvironment(ImmutableMap.of("NETRC", netrc))
                 .setHelperExecutionTimeout(Duration.ZERO)
                 .build(),
+            credentialCache,
             new CommandLinePathFactory(fileSystem, ImmutableMap.of()),
             fileSystem,
             authAndTLSOptions,
@@ -526,7 +536,7 @@ public final class RemoteModuleTest {
       RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
       remoteOptions.remoteCache = cacheServerName;
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
+      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
 
@@ -558,7 +568,7 @@ public final class RemoteModuleTest {
       RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
       remoteOptions.remoteExecutor = executionServerName;
 
-      CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
+      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
 
       remoteModule.beforeCommand(env);
 
