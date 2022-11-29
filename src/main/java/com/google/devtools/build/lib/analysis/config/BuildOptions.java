@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
@@ -144,6 +145,22 @@ public final class BuildOptions implements Cloneable {
   /** Returns true if these options contain the given {@link FragmentOptions}. */
   public boolean contains(Class<? extends FragmentOptions> optionsClass) {
     return fragmentOptionsMap.containsKey(optionsClass);
+  }
+
+  /**
+   * Are these options "empty", meaning they contain no meaningful configuration information?
+   *
+   * <p>See {@link com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition}.
+   */
+  public boolean hasNoConfig() {
+    // Ideally the implementation is fragmentOptionsMap.isEmpty() && starlarkOptionsMap.isEmpty().
+    // See NoConfigTransition for why CoreOptions stays included.
+    return fragmentOptionsMap.size() == 1
+        && Iterables.getOnlyElement(fragmentOptionsMap.values())
+            .getClass()
+            .getSimpleName()
+            .equals("CoreOptions")
+        && starlarkOptionsMap.isEmpty();
   }
 
   /** Returns a hex digest string uniquely identifying the build options. */

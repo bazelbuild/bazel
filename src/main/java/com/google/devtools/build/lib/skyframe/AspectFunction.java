@@ -194,7 +194,12 @@ final class AspectFunction implements SkyFunction {
     // If the target is incompatible, then there's not much to do. The intent here is to create an
     // AspectValue that doesn't trigger any of the associated target's dependencies to be evaluated
     // against this aspect.
-    if (associatedTarget.get(IncompatiblePlatformProvider.PROVIDER) != null) {
+    if (associatedTarget.get(IncompatiblePlatformProvider.PROVIDER) != null
+        ||
+        // Similarly, aspects that propagate into post-NoConfigTransition targets can't access
+        // most flags or dependencies and are likely to be unsound. So make aspects propagating to
+        // these configurations no-ops.
+        (configuration != null && configuration.getOptions().hasNoConfig())) {
       return new AspectValue(
           key,
           aspect,
@@ -582,7 +587,7 @@ final class AspectFunction implements SkyFunction {
       return ConfiguredTargetFunction.computeUnloadedToolchainContexts(
           env,
           key.getLabel(),
-          true,
+          !configuration.getOptions().hasNoConfig(),
           Predicates.alwaysFalse(),
           configuration.getKey(),
           aspect.getDefinition().getToolchainTypes(),

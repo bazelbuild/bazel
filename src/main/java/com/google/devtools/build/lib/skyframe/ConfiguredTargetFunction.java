@@ -619,11 +619,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     BuildConfigurationKey toolchainConfig =
         BuildConfigurationKey.withoutPlatformMapping(toolchainOptions);
 
+    PlatformConfiguration platformConfig = configuration.getFragment(PlatformConfiguration.class);
     return computeUnloadedToolchainContexts(
         env,
         label,
-        rule.useToolchainResolution(),
-        l -> configuration.getFragment(PlatformConfiguration.class).debugToolchainResolution(l),
+        platformConfig != null && rule.useToolchainResolution(),
+        l -> platformConfig != null && platformConfig.debugToolchainResolution(l),
         toolchainConfig,
         toolchainTypes,
         defaultExecConstraintLabels,
@@ -743,6 +744,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    */
   public static ImmutableSet<Label> getExecutionPlatformConstraints(
       Rule rule, PlatformConfiguration platformConfiguration) {
+    if (platformConfiguration == null) {
+      return ImmutableSet.of(); // See NoConfigTransition.
+    }
     NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
     ImmutableSet.Builder<Label> execConstraintLabels = new ImmutableSet.Builder<>();
 

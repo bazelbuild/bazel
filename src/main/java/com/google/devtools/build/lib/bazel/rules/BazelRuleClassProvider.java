@@ -214,6 +214,9 @@ public class BazelRuleClassProvider {
 
   public static final Function<BuildOptions, ActionEnvironment> SHELL_ACTION_ENV =
       (BuildOptions options) -> {
+        if (options.hasNoConfig()) {
+          return ActionEnvironment.EMPTY;
+        }
         boolean strictActionEnv = options.get(StrictActionEnvOptions.class).useStrictActionEnv;
         OS os = OS.getCurrent();
         // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
