@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import java.io.IOException;
@@ -42,6 +43,8 @@ public final class Bazel {
           // This module needs to be registered before any module providing a SpawnCache
           // implementation.
           com.google.devtools.build.lib.runtime.NoSpawnCacheModule.class,
+          // This module needs to be registered before any module that uses the credential cache.
+          CredentialModule.class,
           com.google.devtools.build.lib.runtime.CommandLogModule.class,
           com.google.devtools.build.lib.runtime.MemoryPressureModule.class,
           com.google.devtools.build.lib.platform.SleepPreventionModule.class,

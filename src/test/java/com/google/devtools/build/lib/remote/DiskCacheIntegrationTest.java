@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.devtools.build.lib.testutil.TestUtils.tmpDirFile;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -60,6 +61,7 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
   @Override
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
+        .addBlazeModule(new CredentialModule())
         .addBlazeModule(new RemoteModule())
         .addBlazeModule(new BuildSummaryStatsModule())
         .addBlazeModule(new BlockWaitingModule());
