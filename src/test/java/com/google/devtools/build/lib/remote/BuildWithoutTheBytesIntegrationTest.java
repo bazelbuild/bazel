@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils.WorkerInstance;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -77,6 +78,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     return ImmutableList.<BlazeModule>builder()
         .addAll(super.getSpawnModules())
         .add(new StandaloneModule())
+        .add(new CredentialModule())
         .add(new RemoteModule())
         .add(new DynamicExecutionModule())
         .build();
