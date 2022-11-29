@@ -933,13 +933,6 @@ public class TestRunnerAction extends AbstractAction
     return networkAllowlist;
   }
 
-  @Nullable
-  private static TestAttemptContinuation begin(TestRunnerSpawn testRunnerSpawn)
-      throws InterruptedException, IOException {
-    TestAttemptContinuation testAttemptContinuation = testRunnerSpawn.beginExecution();
-    return testAttemptContinuation;
-  }
-
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
@@ -1183,7 +1176,8 @@ public class TestRunnerAction extends AbstractAction
               .getEventHandler()
               .post(new SpawnExecutedEvent.ChangePhase(this));
 
-          TestAttemptContinuation nextContinuation = begin(nextRunnerAndAttempts.getSpawn());
+          TestAttemptContinuation nextContinuation =
+              nextRunnerAndAttempts.getSpawn().beginExecution();
           if (nextContinuation == null) {
             testRunnerSpawn.finalizeCancelledTest(failedAttempts);
             // We need to create the mandatory output files even if we're not going to run

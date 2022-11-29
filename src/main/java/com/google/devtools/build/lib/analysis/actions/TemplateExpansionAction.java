@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -143,15 +143,12 @@ public final class TemplateExpansionAction extends AbstractAction {
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     try {
-      SpawnContinuation continuation =
+      ImmutableList<SpawnResult> result =
           actionExecutionContext
               .getContext(TemplateExpansionContext.class)
               .expandTemplate(this, actionExecutionContext);
-      while (!continuation.isDone()) {
-        continuation = continuation.execute();
-      }
 
-      return ActionResult.create(continuation.get());
+      return ActionResult.create(result);
     } catch (EvalException e) {
       DetailedExitCode exitCode =
           DetailedExitCode.of(
