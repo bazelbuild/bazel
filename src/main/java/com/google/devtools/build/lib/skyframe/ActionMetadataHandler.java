@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.RemoteFileStatus;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestUtils;
@@ -656,14 +657,20 @@ final class ActionMetadataHandler implements MetadataHandler {
       return FileArtifactValue.MISSING_FILE_MARKER;
     }
 
+    if (stat.isDirectory()) {
+      return FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime());
+    }
+
+    if (stat instanceof RemoteFileStatus) {
+      return ((RemoteFileStatus) stat).getRemoteMetadata();
+    }
+
     FileStateValue fileStateValue =
         FileStateValue.createWithStatNoFollow(
             rootedPath, stat, digestWillBeInjected, xattrProvider, tsgm);
 
-    return stat.isDirectory()
-        ? FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime())
-        : FileArtifactValue.createForNormalFile(
-            fileStateValue.getDigest(), fileStateValue.getContentsProxy(), stat.getSize());
+    return FileArtifactValue.createForNormalFile(
+        fileStateValue.getDigest(), fileStateValue.getContentsProxy(), stat.getSize());
   }
 
   private static void setPathReadOnlyAndExecutableIfFile(Path path) throws IOException {
