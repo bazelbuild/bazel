@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.BackendConfig;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -155,6 +156,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
               }
             })
         .addBlazeModule(new NoSpawnCacheModule())
+        .addBlazeModule(new CredentialModule())
         .addBlazeModule(
             new BazelBuildEventServiceModule() {
               @Override
