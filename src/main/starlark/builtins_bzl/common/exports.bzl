@@ -30,7 +30,7 @@ load("@_builtins//:common/python/py_internal.bzl", "py_internal")
 load("@_builtins//:common/python/py_library_macro.bzl", "py_library")
 load("@_builtins//:common/python/py_runtime_macro.bzl", "py_runtime")
 load("@_builtins//:common/python/py_test_macro.bzl", "py_test")
-load("@_builtins//:common/python/providers.bzl", "PyInfo", "PyRuntimeInfo")
+load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyInfo", "PyRuntimeInfo")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 load("@_builtins//:common/cc/cc_library.bzl", "cc_library")
 
@@ -41,8 +41,9 @@ exported_toplevels = {
     "_builtins_dummy": "overridden value",
     "CcSharedLibraryInfo": CcSharedLibraryInfo,
     "proto_common_do_not_use": proto_common_do_not_use,
-    "-PyRuntimeInfo": PyRuntimeInfo,
-    "-PyInfo": PyInfo,
+    "PyRuntimeInfo": PyRuntimeInfo,
+    "PyInfo": PyInfo,
+    "PyCcLinkParamsProvider": PyCcLinkParamsProvider,
     "py_internal": py_internal,
 }
 
