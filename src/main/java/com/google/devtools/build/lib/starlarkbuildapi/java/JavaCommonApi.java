@@ -17,11 +17,13 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import javax.annotation.Nullable;
@@ -703,4 +705,22 @@ public interface JavaCommonApi<
       doc = "Default value of java_proto_library.has_services")
   boolean getExperimentalJavaProtoLibraryDefaultHasServices(StarlarkSemantics starlarkSemantics)
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "collect_native_deps_dirs",
+      parameters = {@Param(name = "deps")},
+      useStarlarkThread = true,
+      documented = false)
+  Sequence<String> collectNativeLibsDirs(
+      Sequence<? extends TransitiveInfoCollectionApi> deps, StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "get_runtime_classpath_for_archive",
+      parameters = {@Param(name = "jars"), @Param(name = "excluded_jars")},
+      useStarlarkThread = true,
+      documented = false)
+  Depset getRuntimeClasspathForArchive(
+      Depset runtimeClasspath, Depset excludedArtifacts, StarlarkThread thread)
+      throws EvalException, TypeException;
 }

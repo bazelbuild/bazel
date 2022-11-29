@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -618,12 +619,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     BuildConfigurationKey toolchainConfig =
         BuildConfigurationKey.withoutPlatformMapping(toolchainOptions);
 
-    PlatformConfiguration platformConfig = configuration.getFragment(PlatformConfiguration.class);
     return computeUnloadedToolchainContexts(
         env,
         label,
-        platformConfig != null && rule.useToolchainResolution(),
-        l -> platformConfig != null && platformConfig.debugToolchainResolution(l),
+        rule.useToolchainResolution(),
+        l -> configuration.getFragment(PlatformConfiguration.class).debugToolchainResolution(l),
         toolchainConfig,
         toolchainTypes,
         defaultExecConstraintLabels,
@@ -718,6 +718,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             unloadedToolchainContextKey.getValue());
         break;
       }
+      if (unloadedToolchainContext != null && unloadedToolchainContext.errorData() != null) {
+        throw new NoMatchingPlatformException(unloadedToolchainContext.errorData());
+      }
       if (!valuesMissing) {
         String execGroup = unloadedToolchainContextKey.getKey();
         if (execGroup.equals(targetUnloadedToolchainContext)) {
@@ -740,9 +743,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    */
   public static ImmutableSet<Label> getExecutionPlatformConstraints(
       Rule rule, PlatformConfiguration platformConfiguration) {
-    if (platformConfiguration == null) {
-      return ImmutableSet.of(); // See NoConfigTransition.
-    }
     NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
     ImmutableSet.Builder<Label> execConstraintLabels = new ImmutableSet.Builder<>();
 
@@ -1314,6 +1314,17 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   private static class UnreportedException extends SkyFunctionException {
     UnreportedException(ConfiguredValueCreationException e) {
       super(e, Transience.PERSISTENT);
+    }
+  }
+
+  static class NoMatchingPlatformException extends ToolchainException {
+    NoMatchingPlatformException(NoMatchingPlatformData error) {
+      super(error.formatError());
+    }
+
+    @Override
+    protected FailureDetails.Toolchain.Code getDetailedCode() {
+      return FailureDetails.Toolchain.Code.NO_MATCHING_EXECUTION_PLATFORM;
     }
   }
 }

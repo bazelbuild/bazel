@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -23,7 +24,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 
 /**
@@ -58,15 +59,11 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
     try {
       DeterministicWriter deterministicWriter = newDeterministicWriter(actionExecutionContext);
       FileWriteActionContext context = getStrategy(actionExecutionContext);
-      SpawnContinuation continuation =
-          context.beginWriteOutputToFile(
+      ImmutableList<SpawnResult> result =
+          context.writeOutputToFile(
               this, actionExecutionContext, deterministicWriter, makeExecutable, isRemotable());
-      while (!continuation.isDone()) {
-        continuation = continuation.execute();
-      }
-
       afterWrite(actionExecutionContext);
-      return ActionResult.create(continuation.get());
+      return ActionResult.create(result);
     } catch (ExecException e) {
       throw ActionExecutionException.fromExecException(e, this);
     }

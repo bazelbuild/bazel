@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -34,23 +36,22 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
   public static LocalTemplateExpansionStrategy INSTANCE = new LocalTemplateExpansionStrategy();
 
   @Override
-  public SpawnContinuation expandTemplate(
-      TemplateExpansionAction action, ActionExecutionContext ctx) throws InterruptedException {
+  public ImmutableList<SpawnResult> expandTemplate(
+      TemplateExpansionAction action, ActionExecutionContext ctx)
+      throws InterruptedException, ExecException {
     try {
       final String expandedTemplate = getExpandedTemplateUnsafe(action, ctx.getPathResolver());
       DeterministicWriter deterministicWriter = out -> out.write(expandedTemplate.getBytes(UTF_8));
       return ctx.getContext(FileWriteActionContext.class)
-          .beginWriteOutputToFile(
-              action, ctx, deterministicWriter, action.makeExecutable(), /*isRemotable=*/ true);
+          .writeOutputToFile(
+              action, ctx, deterministicWriter, action.makeExecutable(), /* isRemotable= */ true);
     } catch (IOException | EvalException e) {
-      return SpawnContinuation.failedWithExecException(
-          new EnvironmentalExecException(
-              e,
-              FailureDetail.newBuilder()
-                  .setExecution(
-                      Execution.newBuilder()
-                          .setCode(Execution.Code.LOCAL_TEMPLATE_EXPANSION_FAILURE))
-                  .build()));
+      throw new EnvironmentalExecException(
+          e,
+          FailureDetail.newBuilder()
+              .setExecution(
+                  Execution.newBuilder().setCode(Execution.Code.LOCAL_TEMPLATE_EXPANSION_FAILURE))
+              .build());
     }
   }
 

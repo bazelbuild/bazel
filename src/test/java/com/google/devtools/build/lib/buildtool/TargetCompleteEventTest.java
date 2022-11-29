@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEvent;
@@ -71,6 +72,7 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
         .addBlazeModule(new NoSpawnCacheModule())
+        .addBlazeModule(new CredentialModule())
         .addBlazeModule(new BazelBuildEventServiceModule());
   }
 

@@ -142,7 +142,7 @@ public final class PlatformMappingValueTest {
         new PlatformMappingValue(
             ImmutableMap.of(), flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    BuildOptions options = BuildOptions.of(ImmutableList.of());
+    BuildOptions options = BuildOptions.of(ImmutableList.of(CoreOptions.class));
 
     assertThrows(IllegalArgumentException.class, () -> mappingValue.map(keyForOptions(options)));
   }

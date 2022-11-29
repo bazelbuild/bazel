@@ -14,11 +14,14 @@
 
 package com.google.devtools.build.lib.authandtls;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.google.auth.Credentials;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperCredentials;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
@@ -48,6 +51,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -248,6 +252,7 @@ public final class GoogleAuthUtils {
    */
   public static Credentials newCredentials(
       CredentialHelperEnvironment credentialHelperEnvironment,
+      Cache<URI, ImmutableMap<String, ImmutableList<String>>> credentialCache,
       CommandLinePathFactory commandLinePathFactory,
       FileSystem fileSystem,
       AuthAndTLSOptions authAndTlsOptions)
@@ -257,12 +262,12 @@ public final class GoogleAuthUtils {
     Preconditions.checkNotNull(fileSystem);
     Preconditions.checkNotNull(authAndTlsOptions);
 
-    Optional<Credentials> credentials = newGoogleCredentials(authAndTlsOptions);
+    Optional<Credentials> fallbackCredentials = newGoogleCredentials(authAndTlsOptions);
 
-    if (credentials.isEmpty()) {
+    if (fallbackCredentials.isEmpty()) {
       // Fallback to .netrc if it exists.
       try {
-        credentials =
+        fallbackCredentials =
             newCredentialsFromNetrc(credentialHelperEnvironment.getClientEnvironment(), fileSystem);
       } catch (IOException e) {
         // TODO(yannic): Make this fail the build.
@@ -276,8 +281,8 @@ public final class GoogleAuthUtils {
             commandLinePathFactory,
             authAndTlsOptions.credentialHelpers),
         credentialHelperEnvironment,
-        credentials,
-        authAndTlsOptions.credentialHelperCacheTimeout);
+        credentialCache,
+        fallbackCredentials);
   }
 
   /**

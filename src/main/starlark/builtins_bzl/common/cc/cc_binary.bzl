@@ -366,12 +366,6 @@ def _get_preloaded_deps_from_dynamic_deps(ctx):
 
     return cc_common.merge_cc_infos(direct_cc_infos = cc_infos, cc_infos = cc_infos).linking_context.linker_inputs.to_list()
 
-def _get_canonical_form(label):
-    repository = label.workspace_name
-    if repository == "@":
-        repository = ""
-    return repository + "//" + label.package + ":" + label.name
-
 def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_config):
     merged_cc_shared_library_infos = merge_cc_shared_library_infos(ctx)
     preloaded_deps = _get_preloaded_deps_from_dynamic_deps(ctx)
@@ -399,7 +393,7 @@ def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_c
             continue
         linker_inputs_seen[stringified_linker_input] = True
         owner = str(linker_input.owner)
-        if owner not in link_dynamically_labels and (owner in link_statically_labels or _get_canonical_form(ctx.label) == owner):
+        if owner not in link_dynamically_labels and (owner in link_statically_labels or str(ctx.label) == owner):
             if owner in link_once_static_libs_map:
                 linked_statically_but_not_exported.setdefault(link_once_static_libs_map[owner], []).append(owner)
             else:

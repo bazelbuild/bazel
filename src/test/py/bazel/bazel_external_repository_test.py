@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import http.server
 import os
+import socketserver
 import threading
 import unittest
-from six.moves import SimpleHTTPServer
-from six.moves import socketserver
+
 from src.test.py.bazel import test_base
 
 
@@ -34,7 +35,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     """Runs a simple http server to serve files under current directory."""
     # Port 0 means to select an arbitrary unused port
     host, port = 'localhost', 0
-    http_handler = SimpleHTTPServer.SimpleHTTPRequestHandler
+    http_handler = http.server.SimpleHTTPRequestHandler
     server = ThreadedTCPServer((host, port), http_handler)
     server_thread = threading.Thread(target=server.serve_forever)
     server_thread.daemon = True

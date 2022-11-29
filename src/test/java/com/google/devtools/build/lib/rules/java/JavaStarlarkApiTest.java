@@ -3559,4 +3559,83 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
                 .map(LibraryToLink::getLibraryIdentifier))
         .containsExactly("a/libStatic");
   }
+
+  @Test
+  public void testCollectNativeLibsDirsIsPrivateApi() throws Exception {
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  artifacts = java_common.collect_native_deps_dirs([])",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:custom");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void testGetRuntimeClasspathForArchiveIsPrivateApi() throws Exception {
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  d = depset()",
+        "  artifact = java_common.get_runtime_classpath_for_archive(d, d)",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:custom");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void testUseLegacyJavaTestIsPrivateApi() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  ctx.fragments.java.use_legacy_java_test()",
+        "  return []",
+        "myrule = rule(",
+        "  implementation=_impl,",
+        "  fragments = ['java']",
+        ")");
+    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:myrule");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void testEnforceExplicitJavaTestDepsIsPrivateApi() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  ctx.fragments.java.enforce_explicit_java_test_deps()",
+        "  return []",
+        "myrule = rule(",
+        "  implementation=_impl,",
+        "  fragments = ['java']",
+        ")");
+    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:myrule");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
 }

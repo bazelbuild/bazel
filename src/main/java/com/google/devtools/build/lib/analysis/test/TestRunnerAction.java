@@ -27,8 +27,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -53,6 +51,7 @@ import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.analysis.test.TestActionContext.AttemptGroup;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.FailedAttemptResult;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestAttemptContinuation;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestAttemptResult;
@@ -934,30 +933,6 @@ public class TestRunnerAction extends AbstractAction
     return networkAllowlist;
   }
 
-  @Nullable
-  private static TestAttemptContinuation beginIfNotCancelled(
-      TestRunnerSpawn testRunnerSpawn, @Nullable ListenableFuture<Void> cancelFuture)
-      throws InterruptedException, IOException {
-    if (cancelFuture != null && cancelFuture.isCancelled()) {
-      // Don't start another attempt if the action was cancelled. Note that there is a race
-      // between checking this and starting the test action. If we loose the race, then we get
-      // to cancel the action below when we register a callback with the cancelFuture. Note that
-      // cancellation only works with spawn runners supporting async execution, so currently does
-      // not work with local execution.
-      return null;
-    }
-    TestAttemptContinuation testAttemptContinuation = testRunnerSpawn.beginExecution();
-    if (!testAttemptContinuation.isDone() && cancelFuture != null) {
-      cancelFuture.addListener(
-          () -> {
-            // This is a noop if the future is already done.
-            testAttemptContinuation.getFuture().cancel(true);
-          },
-          MoreExecutors.directExecutor());
-    }
-    return testAttemptContinuation;
-  }
-
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
@@ -969,26 +944,40 @@ public class TestRunnerAction extends AbstractAction
   public ActionResult execute(
       ActionExecutionContext actionExecutionContext, TestActionContext testActionContext)
       throws ActionExecutionException, InterruptedException {
+
+    List<SpawnResult> spawnResults = new ArrayList<>();
+    List<FailedAttemptResult> failedAttempts = new ArrayList<>();
+    TestRunnerSpawn testRunnerSpawn = null;
+    AttemptGroup attemptGroup = null;
+
     try {
-      TestRunnerSpawn testRunnerSpawn =
-          testActionContext.createTestRunnerSpawn(this, actionExecutionContext);
-      ListenableFuture<Void> cancelFuture = null;
-      if (cancelConcurrentTestsOnSuccess) {
-        cancelFuture = testActionContext.getTestCancelFuture(getOwner(), shardNum);
-      }
-      TestAttemptContinuation testAttemptContinuation =
-          beginIfNotCancelled(testRunnerSpawn, cancelFuture);
-      if (testAttemptContinuation == null) {
-        testRunnerSpawn.finalizeCancelledTest(ImmutableList.of());
-        // We need to create the mandatory output files even if we're not going to run anything.
-        createEmptyOutputs(actionExecutionContext);
-        return ActionResult.create(ImmutableList.of());
-      } else {
-        return executeAllAttempts(
-            testRunnerSpawn,
-            testAttemptContinuation,
-            testActionContext.isTestKeepGoing(),
-            cancelFuture);
+      try {
+        testRunnerSpawn = testActionContext.createTestRunnerSpawn(this, actionExecutionContext);
+        attemptGroup =
+            cancelConcurrentTestsOnSuccess
+                ? testActionContext.getAttemptGroup(getOwner(), shardNum)
+                : AttemptGroup.NOOP;
+        try {
+          attemptGroup.register();
+          TestAttemptContinuation testAttemptContinuation = testRunnerSpawn.beginExecution();
+          return executeAllAttempts(
+              testRunnerSpawn,
+              testAttemptContinuation,
+              testActionContext.isTestKeepGoing(),
+              attemptGroup,
+              spawnResults,
+              failedAttempts);
+        } finally {
+          attemptGroup.unregister();
+        }
+      } catch (InterruptedException e) {
+        if (!attemptGroup.cancelled()) {
+          throw e;
+        }
+
+        testRunnerSpawn.finalizeCancelledTest(failedAttempts);
+        createEmptyOutputs(testRunnerSpawn.getActionExecutionContext());
+        return ActionResult.create(spawnResults);
       }
     } catch (ExecException e) {
       throw ActionExecutionException.fromExecException(e, this);
@@ -1152,106 +1141,77 @@ public class TestRunnerAction extends AbstractAction
       TestRunnerSpawn testRunnerSpawn,
       TestAttemptContinuation testContinuation,
       boolean keepGoing,
-      final ListenableFuture<Void> cancelFuture)
-      throws ActionExecutionException, InterruptedException {
+      final AttemptGroup attemptGroup,
+      List<SpawnResult> spawnResults,
+      List<FailedAttemptResult> failedAttempts)
+      throws ExecException, IOException, InterruptedException {
     int maxAttempts = 0;
-    List<SpawnResult> spawnResults = new ArrayList<>();
-    List<FailedAttemptResult> failedAttempts = new ArrayList<>();
 
-    try {
-      TestAttemptContinuation continuation = testContinuation;
-      while (true) {
-        while (!continuation.isDone()) {
-          if (cancelFuture != null) {
-            cancelFuture.addListener(
-                () -> {
-                  // This is a noop if the future is already done.
-                  testContinuation.getFuture().cancel(true);
-                },
-                MoreExecutors.directExecutor());
-          }
-
-          try {
-            continuation = continuation.execute();
-          } catch (InterruptedException e) {
-            if (cancelFuture != null && cancelFuture.isCancelled()) {
-              // Clear the interrupt bit.
-              Thread.interrupted();
-              createEmptyOutputs(testRunnerSpawn.getActionExecutionContext());
-              testRunnerSpawn.finalizeCancelledTest(failedAttempts);
-              return ActionResult.create(spawnResults);
-            }
-            throw e;
-          }
-        }
-
-        TestAttemptResult result = continuation.get();
-        int actualMaxAttempts =
-            failedAttempts.isEmpty() ? testRunnerSpawn.getMaxAttempts(result) : maxAttempts;
-        Preconditions.checkState(actualMaxAttempts != 0);
-
-        spawnResults.addAll(result.spawnResults());
-        TestAttemptResult.Result testResult = result.result();
-        if (testResult == TestAttemptResult.Result.PASSED) {
-          if (cancelFuture != null) {
-            cancelFuture.cancel(true);
-          }
-        } else {
-          TestRunnerSpawnAndMaxAttempts nextRunnerAndAttempts =
-              computeNextRunnerAndMaxAttempts(
-                  testResult, testRunnerSpawn, failedAttempts.size() + 1, actualMaxAttempts);
-          if (nextRunnerAndAttempts != null) {
-            failedAttempts.add(
-                testRunnerSpawn.finalizeFailedTestAttempt(result, failedAttempts.size() + 1));
-
-            TestAttemptContinuation nextContinuation =
-                beginIfNotCancelled(nextRunnerAndAttempts.getSpawn(), cancelFuture);
-            if (nextContinuation == null) {
-              testRunnerSpawn.finalizeCancelledTest(failedAttempts);
-              // We need to create the mandatory output files even if we're not going to run
-              // anything.
-              createEmptyOutputs(testRunnerSpawn.getActionExecutionContext());
-              return ActionResult.create(spawnResults);
-            }
-
-            // Change the phase here because we are executing a rerun of the failed attempt.
-            testRunnerSpawn
-                .getActionExecutionContext()
-                .getEventHandler()
-                .post(new SpawnExecutedEvent.ChangePhase(this));
-
-            testRunnerSpawn = nextRunnerAndAttempts.getSpawn();
-            maxAttempts = nextRunnerAndAttempts.getMaxAttempts();
-            continuation = nextContinuation;
-            continue;
-          }
-        }
-        testRunnerSpawn.finalizeTest(result, failedAttempts);
-
-        if (!keepGoing && testResult != TestAttemptResult.Result.PASSED) {
-          DetailedExitCode systemFailure = result.primarySystemFailure();
-          if (systemFailure != null) {
-            throw new TestExecException(
-                "Test failed (system error), aborting: "
-                    + systemFailure.getFailureDetail().getMessage(),
-                systemFailure.getFailureDetail());
-          }
-          String errorMessage = "Test failed, aborting";
-          throw new TestExecException(
-              errorMessage,
-              FailureDetail.newBuilder()
-                  .setTestAction(
-                      TestAction.newBuilder().setCode(TestAction.Code.NO_KEEP_GOING_TEST_FAILURE))
-                  .setMessage(errorMessage)
-                  .build());
-        }
-        return ActionResult.create(spawnResults);
+    TestAttemptContinuation continuation = testContinuation;
+    while (true) {
+      while (!continuation.isDone()) {
+        continuation = continuation.execute();
       }
-    } catch (ExecException e) {
-      throw ActionExecutionException.fromExecException(e, this);
-    } catch (IOException e) {
-      throw ActionExecutionException.fromExecException(
-          new EnvironmentalExecException(e, Code.TEST_RUNNER_IO_EXCEPTION), this);
+
+      TestAttemptResult result = continuation.get();
+      int actualMaxAttempts =
+          failedAttempts.isEmpty() ? testRunnerSpawn.getMaxAttempts(result) : maxAttempts;
+      Preconditions.checkState(actualMaxAttempts != 0);
+
+      spawnResults.addAll(result.spawnResults());
+      TestAttemptResult.Result testResult = result.result();
+      if (testResult == TestAttemptResult.Result.PASSED) {
+        attemptGroup.cancelOthers();
+      } else {
+        TestRunnerSpawnAndMaxAttempts nextRunnerAndAttempts =
+            computeNextRunnerAndMaxAttempts(
+                testResult, testRunnerSpawn, failedAttempts.size() + 1, actualMaxAttempts);
+        if (nextRunnerAndAttempts != null) {
+          failedAttempts.add(
+              testRunnerSpawn.finalizeFailedTestAttempt(result, failedAttempts.size() + 1));
+
+          // Change the phase here because we are executing a rerun of the failed attempt.
+          testRunnerSpawn
+              .getActionExecutionContext()
+              .getEventHandler()
+              .post(new SpawnExecutedEvent.ChangePhase(this));
+
+          TestAttemptContinuation nextContinuation =
+              nextRunnerAndAttempts.getSpawn().beginExecution();
+          if (nextContinuation == null) {
+            testRunnerSpawn.finalizeCancelledTest(failedAttempts);
+            // We need to create the mandatory output files even if we're not going to run
+            // anything.
+            createEmptyOutputs(testRunnerSpawn.getActionExecutionContext());
+            return ActionResult.create(spawnResults);
+          }
+
+          testRunnerSpawn = nextRunnerAndAttempts.getSpawn();
+          maxAttempts = nextRunnerAndAttempts.getMaxAttempts();
+          continuation = nextContinuation;
+          continue;
+        }
+      }
+      testRunnerSpawn.finalizeTest(result, failedAttempts);
+
+      if (!keepGoing && testResult != TestAttemptResult.Result.PASSED) {
+        DetailedExitCode systemFailure = result.primarySystemFailure();
+        if (systemFailure != null) {
+          throw new TestExecException(
+              "Test failed (system error), aborting: "
+                  + systemFailure.getFailureDetail().getMessage(),
+              systemFailure.getFailureDetail());
+        }
+        String errorMessage = "Test failed, aborting";
+        throw new TestExecException(
+            errorMessage,
+            FailureDetail.newBuilder()
+                .setTestAction(
+                    TestAction.newBuilder().setCode(TestAction.Code.NO_KEEP_GOING_TEST_FAILURE))
+                .setMessage(errorMessage)
+                .build());
+      }
+      return ActionResult.create(spawnResults);
     }
   }
 

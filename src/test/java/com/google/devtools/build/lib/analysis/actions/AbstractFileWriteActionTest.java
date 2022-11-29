@@ -21,8 +21,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -58,13 +56,13 @@ public final class AbstractFileWriteActionTest {
         createMockActionExecutionContext(fileWriteContext);
     SpawnResult success =
         new SpawnResult.Builder().setRunnerName("test").setStatus(Status.SUCCESS).build();
-    when(fileWriteContext.beginWriteOutputToFile(
+    when(fileWriteContext.writeOutputToFile(
             action,
             actionExecutionContext,
             writer,
-            /*makeExecutable=*/ false,
-            /*isRemotable=*/ false))
-        .thenReturn(SpawnContinuation.immediate(success));
+            /* makeExecutable= */ false,
+            /* isRemotable= */ false))
+        .thenReturn(ImmutableList.of(success));
 
     ActionResult result = action.execute(actionExecutionContext);
 
@@ -85,24 +83,13 @@ public final class AbstractFileWriteActionTest {
             FailureDetail.newBuilder()
                 .setExecution(Execution.newBuilder().setCode(Code.FILE_WRITE_IO_EXCEPTION).build())
                 .build());
-    when(fileWriteContext.beginWriteOutputToFile(
+    when(fileWriteContext.writeOutputToFile(
             action,
             actionExecutionContext,
             writer,
-            /*makeExecutable=*/ false,
-            /*isRemotable=*/ false))
-        .thenReturn(
-            new SpawnContinuation() {
-              @Override
-              public ListenableFuture<?> getFuture() {
-                return Futures.immediateFuture("hello");
-              }
-
-              @Override
-              public SpawnContinuation execute() throws ExecException {
-                throw failure;
-              }
-            });
+            /* makeExecutable= */ false,
+            /* isRemotable= */ false))
+        .thenThrow(failure);
 
     ActionExecutionException exception =
         assertThrows(ActionExecutionException.class, () -> action.execute(actionExecutionContext));
