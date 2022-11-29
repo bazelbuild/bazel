@@ -250,12 +250,12 @@ build --remote_upload_local_results=false
 ### Exclude specific targets from using the remote cache {:#targets-remote-cache}
 
 To exclude specific targets from using the remote cache, tag the target with
-`no-cache`. For example:
+`no-remote-cache`. For example:
 
 ```starlark
 java_library(
     name = "target",
-    tags = ["no-cache"],
+    tags = ["no-remote-cache"],
 )
 ```
 
