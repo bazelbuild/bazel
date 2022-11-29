@@ -48,6 +48,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice:buildeventservice-options",
