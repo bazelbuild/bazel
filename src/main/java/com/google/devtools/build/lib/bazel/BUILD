@@ -136,6 +136,7 @@ java_library(
         ":spawn_log_module",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/bazel/coverage",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace-rule-module",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
