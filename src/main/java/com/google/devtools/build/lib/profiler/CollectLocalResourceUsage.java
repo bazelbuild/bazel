@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.profiler.NetworkMetricsCollector.SystemNetworkUsages;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
@@ -29,6 +30,10 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -48,28 +53,7 @@ public class CollectLocalResourceUsage extends Thread {
   private volatile boolean profilingStarted;
 
   @GuardedBy("this")
-  private TimeSeries localCpuUsage;
-
-  @GuardedBy("this")
-  private TimeSeries systemCpuUsage;
-
-  @GuardedBy("this")
-  private TimeSeries localMemoryUsage;
-
-  @GuardedBy("this")
-  private TimeSeries systemMemoryUsage;
-
-  @GuardedBy("this")
-  private TimeSeries workersMemoryUsage;
-
-  @GuardedBy("this")
-  private TimeSeries systemLoadAverage;
-
-  @GuardedBy("this")
-  private TimeSeries systemNetworkUpUsage;
-
-  @GuardedBy("this")
-  private TimeSeries systemNetworkDownUsage;
+  Map<ProfilerTask, TimeSeries> timeSeries;
 
   private Stopwatch stopwatch;
 
@@ -93,20 +77,28 @@ public class CollectLocalResourceUsage extends Thread {
     int numProcessors = Runtime.getRuntime().availableProcessors();
     stopwatch = Stopwatch.createStarted();
     synchronized (this) {
+      timeSeries = new HashMap<>();
       Duration startTime = stopwatch.elapsed();
-      localCpuUsage = new TimeSeries(startTime, BUCKET_DURATION);
-      localMemoryUsage = new TimeSeries(startTime, BUCKET_DURATION);
-      systemCpuUsage = new TimeSeries(startTime, BUCKET_DURATION);
-      systemMemoryUsage = new TimeSeries(startTime, BUCKET_DURATION);
+      List<ProfilerTask> enabledCounters = new ArrayList<>();
+      enabledCounters.addAll(
+          ImmutableList.of(
+              ProfilerTask.LOCAL_CPU_USAGE,
+              ProfilerTask.LOCAL_MEMORY_USAGE,
+              ProfilerTask.SYSTEM_CPU_USAGE,
+              ProfilerTask.SYSTEM_MEMORY_USAGE));
+
       if (collectWorkerDataInProfiler) {
-        workersMemoryUsage = new TimeSeries(startTime, BUCKET_DURATION);
+        enabledCounters.add(ProfilerTask.WORKERS_MEMORY_USAGE);
       }
       if (collectLoadAverage) {
-        systemLoadAverage = new TimeSeries(startTime, BUCKET_DURATION);
+        enabledCounters.add(ProfilerTask.SYSTEM_LOAD_AVERAGE);
       }
       if (collectSystemNetworkUsage) {
-        systemNetworkUpUsage = new TimeSeries(startTime, BUCKET_DURATION);
-        systemNetworkDownUsage = new TimeSeries(startTime, BUCKET_DURATION);
+        enabledCounters.add(ProfilerTask.SYSTEM_NETWORK_UP_USAGE);
+        enabledCounters.add(ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE);
+      }
+      for (ProfilerTask counter : enabledCounters) {
+        timeSeries.put(counter, new TimeSeries(startTime, BUCKET_DURATION));
       }
     }
     OperatingSystemMXBean osBean =
@@ -183,30 +175,33 @@ public class CollectLocalResourceUsage extends Thread {
       }
 
       synchronized (this) {
-        if (localCpuUsage != null) {
-          localCpuUsage.addRange(previousElapsed, nextElapsed, cpuLevel);
+        addRange(ProfilerTask.LOCAL_CPU_USAGE, previousElapsed, nextElapsed, cpuLevel);
+        if (memoryUsage != -1) {
+          double memoryUsageMb = (double) memoryUsage / (1024 * 1024);
+          addRange(ProfilerTask.LOCAL_MEMORY_USAGE, previousElapsed, nextElapsed, memoryUsageMb);
         }
-        if (localMemoryUsage != null && memoryUsage != -1) {
-          long memoryUsageMb = memoryUsage / (1024 * 1024);
-          localMemoryUsage.addRange(previousElapsed, nextElapsed, (double) memoryUsageMb);
-        }
-        if (systemCpuUsage != null) {
-          systemCpuUsage.addRange(previousElapsed, nextElapsed, systemUsage);
-        }
-        if (systemMemoryUsage != null) {
-          systemMemoryUsage.addRange(previousElapsed, nextElapsed, (double) systemMemoryUsageMb);
-        }
-        if (collectWorkerDataInProfiler && (workersMemoryUsage != null)) {
-          workersMemoryUsage.addRange(previousElapsed, nextElapsed, workerMemoryUsageMb);
-        }
-        if (collectLoadAverage && (systemLoadAverage != null) && loadAverage > 0) {
-          systemLoadAverage.addRange(previousElapsed, nextElapsed, loadAverage);
+        addRange(ProfilerTask.SYSTEM_CPU_USAGE, previousElapsed, nextElapsed, systemUsage);
+        addRange(
+            ProfilerTask.SYSTEM_MEMORY_USAGE,
+            previousElapsed,
+            nextElapsed,
+            (double) systemMemoryUsageMb);
+        addRange(
+            ProfilerTask.WORKERS_MEMORY_USAGE, previousElapsed, nextElapsed, workerMemoryUsageMb);
+        if (loadAverage > 0) {
+          addRange(ProfilerTask.SYSTEM_LOAD_AVERAGE, previousElapsed, nextElapsed, loadAverage);
         }
         if (systemNetworkUsages != null) {
-          systemNetworkUpUsage.addRange(
-              previousElapsed, nextElapsed, systemNetworkUsages.megabitsSentPerSec());
-          systemNetworkDownUsage.addRange(
-              previousElapsed, nextElapsed, systemNetworkUsages.megabitsRecvPerSec());
+          addRange(
+              ProfilerTask.SYSTEM_NETWORK_UP_USAGE,
+              previousElapsed,
+              nextElapsed,
+              systemNetworkUsages.megabitsSentPerSec());
+          addRange(
+              ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE,
+              previousElapsed,
+              nextElapsed,
+              systemNetworkUsages.megabitsRecvPerSec());
         }
       }
       previousElapsed = nextElapsed;
@@ -232,65 +227,20 @@ public class CollectLocalResourceUsage extends Thread {
     int len = (int) (elapsedNanos / BUCKET_DURATION.toNanos()) + 1;
     Profiler profiler = Profiler.instance();
 
-    profiler.logCounters(
-        ProfilerTask.LOCAL_CPU_USAGE,
-        localCpuUsage.toDoubleArray(len),
-        profileStart,
-        BUCKET_DURATION);
-    localCpuUsage = null;
-
-    profiler.logCounters(
-        ProfilerTask.LOCAL_MEMORY_USAGE,
-        localMemoryUsage.toDoubleArray(len),
-        profileStart,
-        BUCKET_DURATION);
-    localMemoryUsage = null;
-
-    profiler.logCounters(
-        ProfilerTask.SYSTEM_CPU_USAGE,
-        systemCpuUsage.toDoubleArray(len),
-        profileStart,
-        BUCKET_DURATION);
-    systemCpuUsage = null;
-
-    profiler.logCounters(
-        ProfilerTask.SYSTEM_MEMORY_USAGE,
-        systemMemoryUsage.toDoubleArray(len),
-        profileStart,
-        BUCKET_DURATION);
-    systemMemoryUsage = null;
-
-    if (collectWorkerDataInProfiler) {
+    for (ProfilerTask task : timeSeries.keySet()) {
       profiler.logCounters(
-          ProfilerTask.WORKERS_MEMORY_USAGE,
-          workersMemoryUsage.toDoubleArray(len),
-          profileStart,
-          BUCKET_DURATION);
+          task, timeSeries.get(task).toDoubleArray(len), profileStart, BUCKET_DURATION);
     }
-    workersMemoryUsage = null;
+    timeSeries = null;
+  }
 
-    if (collectLoadAverage) {
-      profiler.logCounters(
-          ProfilerTask.SYSTEM_LOAD_AVERAGE,
-          systemLoadAverage.toDoubleArray(len),
-          profileStart,
-          BUCKET_DURATION);
+  private void addRange(
+      ProfilerTask type, Duration previousElapsed, Duration nextElapsed, double value) {
+    synchronized (this) {
+      TimeSeries series = timeSeries.get(type);
+      if (series != null) {
+        series.addRange(previousElapsed, nextElapsed, value);
+      }
     }
-    systemLoadAverage = null;
-
-    if (collectSystemNetworkUsage) {
-      profiler.logCounters(
-          ProfilerTask.SYSTEM_NETWORK_UP_USAGE,
-          systemNetworkUpUsage.toDoubleArray(len),
-          profileStart,
-          BUCKET_DURATION);
-      profiler.logCounters(
-          ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE,
-          systemNetworkDownUsage.toDoubleArray(len),
-          profileStart,
-          BUCKET_DURATION);
-    }
-    systemNetworkUpUsage = null;
-    systemNetworkDownUsage = null;
   }
 }
