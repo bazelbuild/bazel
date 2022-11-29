@@ -379,6 +379,42 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void treeOutputsFromLocalFileSystem_works() throws Exception {
+    // Disable on Windows since it fails for unknown reasons.
+    // TODO(chiwang): Enable it on windows.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return;
+    }
+
+    // Test that tree artifact generated locally can be consumed by other actions.
+    // See https://github.com/bazelbuild/bazel/issues/16789
+
+    // Disable remote execution so tree outputs are generated locally
+    addOptions("--modify_execution_info=OutputDir=+no-remote-exec");
+    setDownloadToplevel();
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  manifest = ':manifest',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo)/file-1 > $@ && echo bar >> $@',",
+        ")");
+    write("manifest", "file-1");
+
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    assertValidOutputFile("out/foobar.txt", "file-1\nbar\n");
+  }
+
+  @Test
   public void incrementalBuild_deleteOutputsInUnwritableParentDirectory() throws Exception {
     write(
         "BUILD",
@@ -513,6 +549,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "def _output_dir_impl(ctx):",
         "  output_dir = ctx.actions.declare_directory(ctx.attr.name)",
         "  ctx.actions.run_shell(",
+        "    mnemonic = 'OutputDir',",
         "    inputs = [ctx.file.manifest],",
         "    outputs = [output_dir],",
         "    arguments = [ctx.file.manifest.path, output_dir.path],",

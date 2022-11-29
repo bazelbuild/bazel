@@ -328,4 +328,502 @@ public abstract class RemoteActionFileSystemTestBase {
         path ->
             path.getDirectoryEntries().stream().map(Path::getBaseName).collect(toImmutableList()));
   }
+
+  @Test
+  public void isReadable_fileDoesNotExist_throwError() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+
+    assertThrows(FileNotFoundException.class, () -> actionFs.getPath(path).isReadable());
+  }
+
+  @Test
+  public void isReadable_onlyRemoteFile_returnsTrue() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+
+    var readable = actionFs.getPath(path).isReadable();
+
+    assertThat(readable).isTrue();
+  }
+
+  @Test
+  public void isReadable_onlyRemoteDirectory_returnsTrue() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("dir");
+    getRemoteFileSystem(actionFs).createDirectoryAndParents(path);
+
+    var readable = actionFs.getPath(path).isReadable();
+
+    assertThat(readable).isTrue();
+  }
+
+  @Test
+  public void isReadable_localReadableFile_returnsTrue() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    writeLocalFile(actionFs, path, "local-content");
+
+    var readable = actionFs.getPath(path).isReadable();
+
+    assertThat(readable).isTrue();
+  }
+
+  @Test
+  public void isReadable_localNonReadableFile_returnsFalse() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    writeLocalFile(actionFs, path, "local-content");
+    getLocalFileSystem(actionFs).getPath(path).setReadable(false);
+
+    var readable = actionFs.getPath(path).isReadable();
+
+    assertThat(readable).isFalse();
+  }
+
+  @Test
+  public void isReadable_localReadableFileAndRemoteFile_returnsTrue() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+    writeLocalFile(actionFs, path, "local-content");
+
+    var readable = actionFs.getPath(path).isReadable();
+
+    assertThat(readable).isTrue();
+  }
+
+  @Test
+  public void isReadable_localNonReadableFileAndRemoteFile_returnsTrue() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+    writeLocalFile(actionFs, path, "local-content");
+    getLocalFileSystem(actionFs).getPath(path).setReadable(false);
+
+    var readable = actionFs.getPath(path).isReadable();
+
+    assertThat(readable).isTrue();
+  }
+
+  @Test
+  public void isWritable_fileDoesNotExist_throwError() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+
+    assertThrows(FileNotFoundException.class, () -> actionFs.getPath(path).isWritable());
+  }
+
+  @Test
+  public void isWritable_onlyRemoteFile_returnsTrue() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+
+    var writable = actionFs.getPath(path).isWritable();
+
+    assertThat(writable).isTrue();
+  }
+
+  @Test
+  public void isWritable_onlyRemoteDirectory_returnsTrue() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("dir");
+    getRemoteFileSystem(actionFs).createDirectoryAndParents(path);
+
+    var writable = actionFs.getPath(path).isWritable();
+
+    assertThat(writable).isTrue();
+  }
+
+  @Test
+  public void isWritable_localWritableFile_returnsTrue() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    writeLocalFile(actionFs, path, "local-content");
+
+    var writable = actionFs.getPath(path).isWritable();
+
+    assertThat(writable).isTrue();
+  }
+
+  @Test
+  public void isWritable_localNonWritableFile_returnsFalse() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    writeLocalFile(actionFs, path, "local-content");
+    getLocalFileSystem(actionFs).getPath(path).setWritable(false);
+
+    var writable = actionFs.getPath(path).isWritable();
+
+    assertThat(writable).isFalse();
+  }
+
+  @Test
+  public void isWritable_localWritableFileAndRemoteFile_returnsTrue() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+    writeLocalFile(actionFs, path, "local-content");
+
+    var writable = actionFs.getPath(path).isWritable();
+
+    assertThat(writable).isTrue();
+  }
+
+  @Test
+  public void isWritable_localNonWritableFileAndRemoteFile_returnsFalse() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+    writeLocalFile(actionFs, path, "local-content");
+    getLocalFileSystem(actionFs).getPath(path).setWritable(false);
+
+    var writable = actionFs.getPath(path).isWritable();
+
+    assertThat(writable).isFalse();
+  }
+
+  @Test
+  public void isWritable_localNonWritableDirectoryAndRemoteDirectory_returnsFalse()
+      throws Exception {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("dir");
+    getRemoteFileSystem(actionFs).getPath(path).createDirectoryAndParents();
+    getLocalFileSystem(actionFs).getPath(path).createDirectoryAndParents();
+    getLocalFileSystem(actionFs).getPath(path).setWritable(false);
+
+    boolean writable = actionFs.getPath(path).isWritable();
+
+    assertThat(writable).isFalse();
+  }
+
+  @Test
+  public void isExecutable_fileDoesNotExist_throwError() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+
+    assertThrows(FileNotFoundException.class, () -> actionFs.getPath(path).isExecutable());
+  }
+
+  @Test
+  public void isExecutable_onlyRemoteFile_returnsTrue() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+
+    var executable = actionFs.getPath(path).isExecutable();
+
+    assertThat(executable).isTrue();
+  }
+
+  @Test
+  public void isExecutable_onlyRemoteDirecotry_returnsTrue() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("dir");
+    getRemoteFileSystem(actionFs).createDirectoryAndParents(path);
+
+    var executable = actionFs.getPath(path).isExecutable();
+
+    assertThat(executable).isTrue();
+  }
+
+  @Test
+  public void isExecutable_localExecutableFile_returnsTrue() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    writeLocalFile(actionFs, path, "local-content");
+    getLocalFileSystem(actionFs).getPath(path).setExecutable(true);
+
+    var executable = actionFs.getPath(path).isExecutable();
+
+    assertThat(executable).isTrue();
+  }
+
+  @Test
+  public void isExecutable_localNonExecutableFile_returnsFalse() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    writeLocalFile(actionFs, path, "local-content");
+
+    var executable = actionFs.getPath(path).isExecutable();
+
+    assertThat(executable).isFalse();
+  }
+
+  @Test
+  public void isExecutable_localExecutableFileAndRemoteFile_returnsTrue() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+    writeLocalFile(actionFs, path, "local-content");
+    getLocalFileSystem(actionFs).getPath(path).setExecutable(true);
+
+    var executable = actionFs.getPath(path).isExecutable();
+
+    assertThat(executable).isTrue();
+  }
+
+  @Test
+  public void isExecutable_localNonExecutableFileAndRemoteFile_returnsTrue() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+    writeLocalFile(actionFs, path, "local-content");
+
+    var executable = actionFs.getPath(path).isExecutable();
+
+    assertThat(executable).isTrue();
+  }
+
+  @Test
+  public void setReadable_fileDoesNotExist_throwError() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+
+    assertThrows(FileNotFoundException.class, () -> actionFs.getPath(path).setReadable(false));
+  }
+
+  @Test
+  public void setReadable_onlyRemoteFile_remainsReadable() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+
+    actionFs.getPath(path).setReadable(false);
+
+    assertThat(actionFs.getPath(path).isReadable()).isTrue();
+  }
+
+  @Test
+  public void setReadable_onlyRemoteDirecotry_remainsReadable() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("dir");
+    getRemoteFileSystem(actionFs).createDirectoryAndParents(path);
+
+    actionFs.getPath(path).setReadable(false);
+
+    assertThat(actionFs.getPath(path).isReadable()).isTrue();
+  }
+
+  @Test
+  public void setReadable_localFile_change() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    writeLocalFile(actionFs, path, "local-content");
+    assertThat(actionFs.getPath(path).isReadable()).isTrue();
+
+    actionFs.getPath(path).setReadable(false);
+
+    assertThat(actionFs.getPath(path).isReadable()).isFalse();
+  }
+
+  @Test
+  public void setReadable_localFileAndRemoteFile_changeLocal() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+    writeLocalFile(actionFs, path, "local-content");
+    assertThat(actionFs.getPath(path).isReadable()).isTrue();
+    assertThat(getLocalFileSystem(actionFs).getPath(path).isReadable()).isTrue();
+
+    actionFs.getPath(path).setReadable(false);
+
+    assertThat(actionFs.getPath(path).isReadable()).isTrue();
+    assertThat(getLocalFileSystem(actionFs).getPath(path).isReadable()).isFalse();
+  }
+
+  @Test
+  public void setWritable_fileDoesNotExist_throwError() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+
+    assertThrows(FileNotFoundException.class, () -> actionFs.getPath(path).setWritable(false));
+  }
+
+  @Test
+  public void setWritable_onlyRemoteFile_remainsWritable() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+
+    actionFs.getPath(path).setWritable(false);
+
+    assertThat(actionFs.getPath(path).isWritable()).isTrue();
+  }
+
+  @Test
+  public void setWritable_onlyRemoteDirecotry_remainsWritable() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("dir");
+    getRemoteFileSystem(actionFs).createDirectoryAndParents(path);
+
+    actionFs.getPath(path).setWritable(false);
+
+    assertThat(actionFs.getPath(path).isWritable()).isTrue();
+  }
+
+  @Test
+  public void setWritable_localFile_change() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    writeLocalFile(actionFs, path, "local-content");
+    assertThat(actionFs.getPath(path).isWritable()).isTrue();
+
+    actionFs.getPath(path).setWritable(false);
+
+    assertThat(actionFs.getPath(path).isWritable()).isFalse();
+  }
+
+  @Test
+  public void setWritable_localFileAndRemoteFile_changeLocal() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+    writeLocalFile(actionFs, path, "local-content");
+    assertThat(actionFs.getPath(path).isWritable()).isTrue();
+    assertThat(getLocalFileSystem(actionFs).getPath(path).isWritable()).isTrue();
+
+    actionFs.getPath(path).setWritable(false);
+
+    assertThat(actionFs.getPath(path).isWritable()).isFalse();
+    assertThat(getLocalFileSystem(actionFs).getPath(path).isWritable()).isFalse();
+  }
+
+  @Test
+  public void setExecutable_fileDoesNotExist_throwError() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+
+    assertThrows(FileNotFoundException.class, () -> actionFs.getPath(path).setExecutable(false));
+  }
+
+  @Test
+  public void setExecutable_onlyRemoteFile_remainsExecutable() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+
+    actionFs.getPath(path).setExecutable(false);
+
+    assertThat(actionFs.getPath(path).isExecutable()).isTrue();
+  }
+
+  @Test
+  public void setExecutable_onlyRemoteDirecotry_remainsExecutable() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("dir");
+    getRemoteFileSystem(actionFs).createDirectoryAndParents(path);
+
+    actionFs.getPath(path).setExecutable(false);
+
+    assertThat(actionFs.getPath(path).isExecutable()).isTrue();
+  }
+
+  @Test
+  public void setExecutable_localFile_change() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    writeLocalFile(actionFs, path, "local-content");
+    assertThat(actionFs.getPath(path).isExecutable()).isFalse();
+
+    actionFs.getPath(path).setExecutable(true);
+
+    assertThat(actionFs.getPath(path).isExecutable()).isTrue();
+  }
+
+  @Test
+  public void setExecutable_localFileAndRemoteFile_changeLocal() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+    writeLocalFile(actionFs, path, "local-content");
+    assertThat(actionFs.getPath(path).isExecutable()).isTrue();
+    assertThat(getLocalFileSystem(actionFs).getPath(path).isExecutable()).isFalse();
+
+    actionFs.getPath(path).setExecutable(true);
+
+    assertThat(actionFs.getPath(path).isExecutable()).isTrue();
+    assertThat(getLocalFileSystem(actionFs).getPath(path).isExecutable()).isTrue();
+  }
+
+  @Test
+  public void chmod_fileDoesNotExist_throwError() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+
+    assertThrows(FileNotFoundException.class, () -> actionFs.getPath(path).chmod(000));
+  }
+
+  @Test
+  public void chmod_onlyRemoteFile_remainsSame() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+    assertThat(actionFs.getPath(path).isReadable()).isTrue();
+    assertThat(actionFs.getPath(path).isWritable()).isTrue();
+    assertThat(actionFs.getPath(path).isExecutable()).isTrue();
+
+    actionFs.getPath(path).chmod(000);
+
+    assertThat(actionFs.getPath(path).isReadable()).isTrue();
+    assertThat(actionFs.getPath(path).isWritable()).isTrue();
+    assertThat(actionFs.getPath(path).isExecutable()).isTrue();
+  }
+
+  @Test
+  public void chmod_onlyRemoteDirectory_remainsSame() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("dir");
+    getRemoteFileSystem(actionFs).createDirectoryAndParents(path);
+    assertThat(actionFs.getPath(path).isReadable()).isTrue();
+    assertThat(actionFs.getPath(path).isWritable()).isTrue();
+    assertThat(actionFs.getPath(path).isExecutable()).isTrue();
+
+    actionFs.getPath(path).chmod(000);
+
+    assertThat(actionFs.getPath(path).isReadable()).isTrue();
+    assertThat(actionFs.getPath(path).isWritable()).isTrue();
+    assertThat(actionFs.getPath(path).isExecutable()).isTrue();
+  }
+
+  @Test
+  public void chmod_localFile_change() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    writeLocalFile(actionFs, path, "local-content");
+    assertThat(actionFs.getPath(path).isReadable()).isTrue();
+    assertThat(actionFs.getPath(path).isWritable()).isTrue();
+    assertThat(actionFs.getPath(path).isExecutable()).isFalse();
+
+    actionFs.getPath(path).chmod(0111);
+
+    assertThat(actionFs.getPath(path).isReadable()).isFalse();
+    assertThat(actionFs.getPath(path).isWritable()).isFalse();
+    assertThat(actionFs.getPath(path).isExecutable()).isTrue();
+  }
+
+  @Test
+  public void chmod_localFileAndRemoteFile_changeLocal() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+    writeLocalFile(actionFs, path, "local-content");
+    assertThat(actionFs.getPath(path).isReadable()).isTrue();
+    assertThat(actionFs.getPath(path).isWritable()).isTrue();
+    assertThat(actionFs.getPath(path).isExecutable()).isTrue();
+    assertThat(getLocalFileSystem(actionFs).getPath(path).isReadable()).isTrue();
+    assertThat(getLocalFileSystem(actionFs).getPath(path).isWritable()).isTrue();
+    assertThat(getLocalFileSystem(actionFs).getPath(path).isExecutable()).isFalse();
+
+    actionFs.getPath(path).chmod(0111);
+
+    assertThat(actionFs.getPath(path).isReadable()).isTrue();
+    assertThat(actionFs.getPath(path).isWritable()).isFalse();
+    assertThat(actionFs.getPath(path).isExecutable()).isTrue();
+    assertThat(getLocalFileSystem(actionFs).getPath(path).isReadable()).isFalse();
+    assertThat(getLocalFileSystem(actionFs).getPath(path).isWritable()).isFalse();
+    assertThat(getLocalFileSystem(actionFs).getPath(path).isExecutable()).isTrue();
+  }
 }
