@@ -862,7 +862,7 @@ Macros [can't](#faq-select-macro) evaluate select(s) because macros evaluate bef
 Bazel knows what the build's command line parameters are. Can they at least read
 the `select()`'s dictionary to, for example, add a suffix to each value?
 
-Conceptually this is possible, but it isn't yet a Bazel feature.
+Conceptually this is possible, but [it isn't yet a Bazel feature](https://github.com/bazelbuild/bazel/issues/8419).
 What you *can* do today is prepare a straight dictionary, then feed it into a
 `select()`:
 

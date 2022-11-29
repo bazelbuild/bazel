@@ -834,22 +834,10 @@ public class StandaloneTestStrategy extends TestStrategy {
             closeSuppressed(e, fileOutErr);
             throw e;
           }
-
-          return new BazelTestAttemptContinuation(
-              testAction,
-              actionExecutionContext,
-              spawn,
-              resolvedPaths,
-              fileOutErr,
-              streamed,
-              0,
-              SpawnContinuation.immediate(spawnResults),
-              builder,
-              spawnResults);
-        } else {
-          this.spawnResults = spawnResults;
-          this.testResultDataBuilder = builder;
         }
+
+        this.spawnResults = spawnResults;
+        this.testResultDataBuilder = builder;
       }
 
       Verify.verify(

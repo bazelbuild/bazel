@@ -57,6 +57,7 @@ java_library(
             "ResourceManager.java",
             "ResourceSet.java",
             "ResourceSetOrBuilder.java",
+            "RemoteFileStatus.java",
             "PackageRootResolver.java",
             "PackageRoots.java",
             "ThreadStateReceiver.java",
@@ -263,6 +264,7 @@ java_library(
         "FileStateType.java",
         "FileStateValue.java",
         "FileValue.java",
+        "RemoteFileStatus.java",
         "cache/MetadataDigestUtils.java",
     ],
     deps = [

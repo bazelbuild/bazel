@@ -167,10 +167,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
       FragmentFactory fragmentFactory)
       throws InvalidConfigurationException {
 
-    FragmentClassSet fragmentClasses =
-        buildOptions.hasNoConfig()
-            ? FragmentClassSet.of(ImmutableSet.of())
-            : globalProvider.getFragmentRegistry().getAllFragments();
+    FragmentClassSet fragmentClasses = globalProvider.getFragmentRegistry().getAllFragments();
     ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments =
         getConfigurationFragments(buildOptions, fragmentClasses, fragmentFactory);
 
@@ -386,13 +383,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   @Override
   public boolean hasSeparateGenfilesDirectoryForStarlark(StarlarkThread thread)
       throws EvalException {
-    RepositoryName repository =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
-            .label()
-            .getRepository();
-    if (!"@_builtins".equals(repository.getNameWithAt())) {
-      throw Starlark.errorf("private API only for use in builtins");
-    }
+    checkPrivateAccess(thread);
     return hasSeparateGenfilesDirectory();
   }
 
@@ -503,6 +494,11 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
 
   @Override
   public boolean isSiblingRepositoryLayoutForStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return isSiblingRepositoryLayout();
+  }
+
+  private static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
     RepositoryName repository =
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
             .label()
@@ -510,7 +506,6 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     if (!"@_builtins".equals(repository.getNameWithAt())) {
       throw Starlark.errorf("private API only for use in builtins");
     }
-    return isSiblingRepositoryLayout();
   }
 
   /**
@@ -634,13 +629,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
 
   @Override
   public boolean stampBinariesForStarlark(StarlarkThread thread) throws EvalException {
-    RepositoryName repository =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
-            .label()
-            .getRepository();
-    if (!"@_builtins".equals(repository.getNameWithAt())) {
-      throw Starlark.errorf("private API only for use in builtins");
-    }
+    checkPrivateAccess(thread);
     return stampBinaries();
   }
 
@@ -721,13 +710,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
 
   @Override
   public boolean isToolConfigurationForStarlark(StarlarkThread thread) throws EvalException {
-    RepositoryName repository =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
-            .label()
-            .getRepository();
-    if (!"@_builtins".equals(repository.getNameWithAt())) {
-      throw Starlark.errorf("private API only for use in builtins");
-    }
+    checkPrivateAccess(thread);
     return isToolConfiguration();
   }
 
@@ -833,6 +816,12 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   }
 
   public boolean runfilesEnabled() {
+    return runfilesEnabled(this.options);
+  }
+
+  @Override
+  public boolean runfilesEnabledForStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
     return runfilesEnabled(this.options);
   }
 

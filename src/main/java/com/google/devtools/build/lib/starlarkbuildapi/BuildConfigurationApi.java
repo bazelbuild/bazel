@@ -92,4 +92,7 @@ public interface BuildConfigurationApi extends StarlarkValue {
       documented = false,
       useStarlarkThread = true)
   boolean isSiblingRepositoryLayoutForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "runfiles_enabled", documented = false, useStarlarkThread = true)
+  boolean runfilesEnabledForStarlark(StarlarkThread thread) throws EvalException;
 }

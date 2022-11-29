@@ -582,7 +582,7 @@ final class AspectFunction implements SkyFunction {
       return ConfiguredTargetFunction.computeUnloadedToolchainContexts(
           env,
           key.getLabel(),
-          !configuration.getOptions().hasNoConfig(),
+          true,
           Predicates.alwaysFalse(),
           configuration.getKey(),
           aspect.getDefinition().getToolchainTypes(),

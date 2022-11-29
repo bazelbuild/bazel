@@ -13,12 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.SpawnResult;
 
 /**
  * The action context for {@link AbstractFileWriteAction} instances (technically instances of
@@ -26,27 +28,27 @@ import com.google.devtools.build.lib.actions.SpawnContinuation;
  */
 public interface FileWriteActionContext extends ActionContext {
 
-  SpawnContinuation beginWriteOutputToFile(
+  ImmutableList<SpawnResult> writeOutputToFile(
       AbstractAction action,
       ActionExecutionContext actionExecutionContext,
       DeterministicWriter deterministicWriter,
       boolean makeExecutable,
       boolean isRemotable,
       Artifact output)
-      throws InterruptedException;
+      throws InterruptedException, ExecException;
 
   /**
    * Writes the output created by the {@link DeterministicWriter} to the sole output of the given
    * action.
    */
-  default SpawnContinuation beginWriteOutputToFile(
+  default ImmutableList<SpawnResult> writeOutputToFile(
       AbstractAction action,
       ActionExecutionContext actionExecutionContext,
       DeterministicWriter deterministicWriter,
       boolean makeExecutable,
       boolean isRemotable)
-      throws InterruptedException {
-    return beginWriteOutputToFile(
+      throws InterruptedException, ExecException {
+    return writeOutputToFile(
         action,
         actionExecutionContext,
         deterministicWriter,

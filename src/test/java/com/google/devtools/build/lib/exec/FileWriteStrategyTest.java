@@ -68,20 +68,18 @@ public final class FileWriteStrategyTest {
   }
 
   @Test
-  public void beginWriteOutputToFile_writesCorrectOutput(
+  public void writeOutputToFile_writesCorrectOutput(
       @TestParameter({"", "hello", "hello there"}) String content) throws Exception {
     AbstractAction action = createAction("file");
 
-    var spawnContinuation =
-        fileWriteStrategy.beginWriteOutputToFile(
+    var unused =
+        fileWriteStrategy.writeOutputToFile(
             action,
             createActionExecutionContext(),
             out -> out.write(content.getBytes(UTF_8)),
-            /*makeExecutable=*/ false,
-            /*isRemotable=*/ false);
+            /* makeExecutable= */ false,
+            /* isRemotable= */ false);
 
-    assertThat(spawnContinuation.isDone()).isTrue();
-    assertThat(spawnContinuation.get()).isEmpty();
     assertThat(FileSystemUtils.readContent(action.getPrimaryOutput().getPath(), UTF_8))
         .isEqualTo(content);
   }
@@ -116,21 +114,23 @@ public final class FileWriteStrategyTest {
   }
 
   @Test
-  public void beginWriteOutputToFile_errorInWriter_returnsContinuationWithFailure(
-      @TestParameter FailureMode failureMode) throws Exception {
+  public void writeOutputToFile_errorInWriter_returnsFailure(@TestParameter FailureMode failureMode)
+      throws Exception {
     AbstractAction action = createAction("file");
     failureMode.setupFileSystem(fileSystem, action.getPrimaryOutput().getPath().asFragment());
 
-    var spawnContinuation =
-        fileWriteStrategy.beginWriteOutputToFile(
-            action,
-            createActionExecutionContext(),
-            failureMode,
-            /*makeExecutable=*/ false,
-            /*isRemotable=*/ false);
+    ExecException e =
+        assertThrows(
+            EnvironmentalExecException.class,
+            () -> {
+              fileWriteStrategy.writeOutputToFile(
+                  action,
+                  createActionExecutionContext(),
+                  failureMode,
+                  /* makeExecutable= */ false,
+                  /* isRemotable= */ false);
+            });
 
-    assertThat(spawnContinuation.isDone()).isFalse();
-    ExecException e = assertThrows(EnvironmentalExecException.class, spawnContinuation::execute);
     assertThat(e).hasCauseThat().isSameInstanceAs(INJECTED_EXCEPTION);
     var detailExitCode = getDetailExitCode(e);
     assertThat(detailExitCode.getExitCode()).isEqualTo(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);

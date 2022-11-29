@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.MoreCollectors;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -42,6 +41,7 @@ import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
+import com.google.devtools.build.lib.analysis.test.TestActionContext.AttemptGroup;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.FailedAttemptResult;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestRunnerSpawn;
 import com.google.devtools.build.lib.analysis.test.TestAttempt;
@@ -825,11 +825,11 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     TestRunnerAction actionA = testRunnerActions.get(0);
     TestRunnerAction actionB = testRunnerActions.get(1);
-    ListenableFuture<Void> cancelFuture =
-        standaloneTestStrategy.getTestCancelFuture(actionA.getOwner(), actionA.getShardNum());
-    assertThat(cancelFuture)
+    AttemptGroup attemptGroup =
+        standaloneTestStrategy.getAttemptGroup(actionA.getOwner(), actionA.getShardNum());
+    assertThat(attemptGroup)
         .isSameInstanceAs(
-            standaloneTestStrategy.getTestCancelFuture(actionB.getOwner(), actionB.getShardNum()));
+            standaloneTestStrategy.getAttemptGroup(actionB.getOwner(), actionB.getShardNum()));
 
     SpawnResult expectedSpawnResult =
         new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
@@ -844,7 +844,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
     List<SpawnResult> resultA = execute(actionA, actionExecutionContext, standaloneTestStrategy);
-    assertThat(cancelFuture.isCancelled()).isTrue();
+    assertThat(attemptGroup.cancelled()).isTrue();
     verify(spawnStrategy).exec(any(), any());
     assertThat(resultA).hasSize(1);
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
@@ -897,12 +897,12 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     TestRunnerAction actionA = testRunnerActions.get(0);
     TestRunnerAction actionB = testRunnerActions.get(1);
-    ListenableFuture<Void> cancelFuture =
-        standaloneTestStrategy.getTestCancelFuture(actionA.getOwner(), actionA.getShardNum());
-    assertThat(cancelFuture)
+    AttemptGroup attemptGroup =
+        standaloneTestStrategy.getAttemptGroup(actionA.getOwner(), actionA.getShardNum());
+    assertThat(attemptGroup)
         .isSameInstanceAs(
-            standaloneTestStrategy.getTestCancelFuture(actionB.getOwner(), actionB.getShardNum()));
-    assertThat(cancelFuture.isCancelled()).isFalse();
+            standaloneTestStrategy.getAttemptGroup(actionB.getOwner(), actionB.getShardNum()));
+    assertThat(attemptGroup.cancelled()).isFalse();
 
     SpawnResult expectedSpawnResultA =
         new SpawnResult.Builder()
@@ -931,7 +931,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
     List<SpawnResult> resultA = execute(actionA, actionExecutionContext, standaloneTestStrategy);
-    assertThat(cancelFuture.isCancelled()).isFalse();
+    assertThat(attemptGroup.cancelled()).isFalse();
     verify(spawnStrategy).exec(any(), any());
     assertThat(resultA).hasSize(1);
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
@@ -951,7 +951,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
               return ImmutableList.of(expectedSpawnResultB);
             });
     List<SpawnResult> resultB = execute(actionB, actionExecutionContext, standaloneTestStrategy);
-    assertThat(cancelFuture.isCancelled()).isTrue();
+    assertThat(attemptGroup.cancelled()).isTrue();
     assertThat(resultB).hasSize(1);
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
@@ -994,12 +994,12 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     TestRunnerAction actionA = testRunnerActions.get(0);
     TestRunnerAction actionB = testRunnerActions.get(1);
-    ListenableFuture<Void> cancelFuture =
-        standaloneTestStrategy.getTestCancelFuture(actionA.getOwner(), actionA.getShardNum());
-    assertThat(cancelFuture)
+    AttemptGroup attemptGroup =
+        standaloneTestStrategy.getAttemptGroup(actionA.getOwner(), actionA.getShardNum());
+    assertThat(attemptGroup)
         .isSameInstanceAs(
-            standaloneTestStrategy.getTestCancelFuture(actionB.getOwner(), actionB.getShardNum()));
-    assertThat(cancelFuture.isCancelled()).isFalse();
+            standaloneTestStrategy.getAttemptGroup(actionB.getOwner(), actionB.getShardNum()));
+    assertThat(attemptGroup.cancelled()).isFalse();
 
     SpawnResult expectedSpawnResult =
         new SpawnResult.Builder()
@@ -1025,7 +1025,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
     List<SpawnResult> resultA = execute(actionA, actionExecutionContext, standaloneTestStrategy);
-    assertThat(cancelFuture.isCancelled()).isFalse();
+    assertThat(attemptGroup.cancelled()).isFalse();
     verify(spawnStrategy).exec(any(), any());
     assertThat(resultA).hasSize(1);
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
@@ -1038,7 +1038,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     standaloneTestStrategy.postedResult = null;
 
     List<SpawnResult> resultB = execute(actionB, actionExecutionContext, standaloneTestStrategy);
-    assertThat(cancelFuture.isCancelled()).isFalse();
+    assertThat(attemptGroup.cancelled()).isFalse();
     assertThat(resultB).hasSize(1);
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())

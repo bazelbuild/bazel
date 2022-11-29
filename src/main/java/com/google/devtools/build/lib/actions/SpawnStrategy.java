@@ -38,19 +38,6 @@ public interface SpawnStrategy {
       throws ExecException, InterruptedException;
 
   /**
-   * Executes the given spawn, possibly asynchronously, and returns a SpawnContinuation to represent
-   * the execution. Otherwise all requirements from {@link #exec} apply.
-   */
-  default SpawnContinuation beginExecution(
-      Spawn spawn, ActionExecutionContext actionExecutionContext) throws InterruptedException {
-    try {
-      return SpawnContinuation.immediate(exec(spawn, actionExecutionContext));
-    } catch (ExecException e) {
-      return SpawnContinuation.failedWithExecException(e);
-    }
-  }
-
-  /**
    * Returns whether this SpawnActionContext supports executing the given Spawn. This does not allow
    * using the legacy fallback to local execution controlled by the {@code
    * --incompatible_legacy_local_fallback} flag.
