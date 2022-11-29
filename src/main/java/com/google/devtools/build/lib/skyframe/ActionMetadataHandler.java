@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.actions.RemoteFileStatus;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
@@ -656,13 +657,19 @@ final class ActionMetadataHandler implements MetadataHandler {
       return FileArtifactValue.MISSING_FILE_MARKER;
     }
 
+    if (stat.isDirectory()) {
+        return FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime());
+    }
+
+    if (stat instanceof RemoteFileStatus) {
+      return ((RemoteFileStatus) stat).getRemoteMetadata();
+    }
+
     FileStateValue fileStateValue =
         FileStateValue.createWithStatNoFollow(
             rootedPath, stat, digestWillBeInjected, xattrProvider, tsgm);
 
-    return stat.isDirectory()
-        ? FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime())
-        : FileArtifactValue.createForNormalFile(
+    return FileArtifactValue.createForNormalFile(
             fileStateValue.getDigest(), fileStateValue.getContentsProxy(), stat.getSize());
   }
 

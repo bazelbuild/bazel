@@ -54,6 +54,7 @@ java_library(
             "LocalHostResourceManagerDarwin.java",
             "LocalHostResourceFallback.java",
             "MiddlemanType.java",
+            "RemoteFileStatus.java",
             "ResourceManager.java",
             "ResourceSet.java",
             "ResourceSetOrBuilder.java",
@@ -263,6 +264,7 @@ java_library(
         "FileStateType.java",
         "FileStateValue.java",
         "FileValue.java",
+        "RemoteFileStatus.java",
         "cache/MetadataDigestUtils.java",
     ],
     deps = [

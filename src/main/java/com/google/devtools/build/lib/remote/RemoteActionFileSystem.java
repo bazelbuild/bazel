@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.actions.RemoteFileStatus;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.FileInfo;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryContentInfo;
@@ -128,41 +129,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       PathFragment path = execRoot.getRelative(entry.getKey());
       Artifact output = entry.getValue();
 
-      if (maybeInjectMetadataForSymlink(path, output)) {
-        continue;
-      }
-
-      if (output.isTreeArtifact()) {
-        if (remoteOutputTree.exists(path)) {
-          SpecialArtifact parent = (SpecialArtifact) output;
-          TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
-
-          // TODO: Check directory content on the local fs to support mixed tree.
-          TreeArtifactValue.visitTree(
-              remoteOutputTree.getPath(path),
-              (parentRelativePath, type) -> {
-                if (type == Dirent.Type.DIRECTORY) {
-                  return;
-                }
-                RemoteFileInfo remoteFile =
-                    remoteOutputTree.getRemoteFileInfo(
-                        path.getRelative(parentRelativePath), /* followSymlinks= */ true);
-                if (remoteFile != null) {
-                  TreeFileArtifact child =
-                      TreeFileArtifact.createTreeOutput(parent, parentRelativePath);
-                  tree.putChild(child, createRemoteMetadata(remoteFile));
-                }
-              });
-
-          metadataInjector.injectTree(parent, tree.build());
-        }
-      } else {
-        RemoteFileInfo remoteFile =
-            remoteOutputTree.getRemoteFileInfo(path, /* followSymlinks= */ true);
-        if (remoteFile != null) {
-          metadataInjector.injectFile(output, createRemoteMetadata(remoteFile));
-        }
-      }
+      maybeInjectMetadataForSymlink(path, output);
     }
   }
 
@@ -183,26 +150,24 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
    *       the output should be materialized as a symlink to the original location, which avoids
    *       fetching multiple copies when multiple symlinks to the same artifact are created in the
    *       same build.
-   *
-   * @return Whether the metadata was injected.
    */
-  private boolean maybeInjectMetadataForSymlink(PathFragment linkPath, Artifact output)
+  private void maybeInjectMetadataForSymlink(PathFragment linkPath, Artifact output)
       throws IOException {
     if (output.isSymlink()) {
-      return false;
+      return;
     }
 
     Path outputTreePath = remoteOutputTree.getPath(linkPath);
 
     if (!outputTreePath.exists(Symlinks.NOFOLLOW)) {
-      return false;
+      return;
     }
 
     PathFragment targetPath;
     try {
       targetPath = outputTreePath.readSymbolicLink();
     } catch (NotASymlinkException e) {
-      return false;
+      return;
     }
 
     checkState(
@@ -212,7 +177,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     if (output.isTreeArtifact()) {
       TreeArtifactValue metadata = getRemoteTreeMetadata(targetPath);
       if (metadata == null) {
-        return false;
+        return;
       }
 
       SpecialArtifact parent = (SpecialArtifact) output;
@@ -233,7 +198,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     } else {
       RemoteFileArtifactValue metadata = getRemoteMetadata(targetPath);
       if (metadata == null) {
-        return false;
+        return;
       }
 
       RemoteFileArtifactValue injectedMetadata =
@@ -247,8 +212,6 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
       metadataInjector.injectFile(output, injectedMetadata);
     }
-
-    return true;
   }
 
   private RemoteFileArtifactValue createRemoteMetadata(RemoteFileInfo remoteFile) {
@@ -498,7 +461,12 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   private static FileStatus statFromRemoteMetadata(RemoteFileArtifactValue m) {
-    return new FileStatus() {
+    return new RemoteFileStatus() {
+      @Override
+      public byte[] getDigest() {
+        return m.getDigest();
+      }
+
       @Override
       public boolean isFile() {
         return m.getType().isFile();
@@ -537,6 +505,11 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       @Override
       public long getNodeId() {
         throw new UnsupportedOperationException("Cannot get node id for " + m);
+      }
+
+      @Override
+      public RemoteFileArtifactValue getRemoteMetadata() {
+        return m;
       }
     };
   }
