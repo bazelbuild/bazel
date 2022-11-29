@@ -314,8 +314,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Test
   public void symlinkToNestedFile() throws Exception {
-    addOptions("--noincompatible_strict_conflict_checks");
-
     write(
         "a/defs.bzl",
         "def _impl(ctx):",
@@ -368,8 +366,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Test
   public void symlinkToNestedDirectory() throws Exception {
-    addOptions("--noincompatible_strict_conflict_checks");
-
     write(
         "a/defs.bzl",
         "def _impl(ctx):",

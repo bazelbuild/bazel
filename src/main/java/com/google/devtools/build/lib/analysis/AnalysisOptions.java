@@ -91,9 +91,8 @@ public class AnalysisOptions extends OptionsBase {
   public boolean skyframePrepareAnalysis;
 
   @Option(
-      name = "incompatible_strict_conflict_checks",
-      oldName = "experimental_strict_conflict_checks",
-      defaultValue = "true",
+      name = "experimental_strict_conflict_checks",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
