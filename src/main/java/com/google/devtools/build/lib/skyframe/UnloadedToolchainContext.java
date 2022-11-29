@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyValue;
+import javax.annotation.Nullable;
 
 /**
  * Represents the state of toolchain resolution once the specific required toolchains have been
@@ -41,4 +42,8 @@ public interface UnloadedToolchainContext extends ToolchainContext, SkyValue {
 
   @Override
   ImmutableSet<Label> resolvedToolchainLabels();
+
+  /** Returns the error, if any, that occurred in resolving this toolchain context. */
+  @Nullable
+  NoMatchingPlatformData errorData();
 }

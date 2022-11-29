@@ -49,8 +49,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -409,8 +407,10 @@ public class ToolchainResolutionFunction implements SkyFunction {
       UnloadedToolchainContextImpl.Builder builder,
       PlatformKeys platformKeys,
       boolean debugTarget)
-      throws InterruptedException, ValueMissingException, InvalidPlatformException,
-          NoMatchingPlatformException, UnresolvedToolchainsException,
+      throws InterruptedException,
+          ValueMissingException,
+          InvalidPlatformException,
+          UnresolvedToolchainsException,
           InvalidToolchainLabelException {
 
     // Find the toolchains for the requested toolchain types.
@@ -475,10 +475,16 @@ public class ToolchainResolutionFunction implements SkyFunction {
             .map(ToolchainType::toolchainTypeRequirement)
             .collect(toImmutableSet());
     if (selectedExecutionPlatformKey.isEmpty()) {
-      throw new NoMatchingPlatformException(
-          toolchainTypeRequirements,
-          platformKeys.executionPlatformKeys(),
-          platformKeys.targetPlatformKey());
+      builder.setToolchainTypes(toolchainTypeRequirements);
+      builder.setExecutionPlatform(PlatformInfo.EMPTY_PLATFORM_INFO);
+      builder.setTargetPlatform(PlatformInfo.EMPTY_PLATFORM_INFO);
+      builder.setErrorData(
+          NoMatchingPlatformData.builder()
+              .setToolchainTypes(toolchainTypeRequirements)
+              .setAvailableExecutionPlatformKeys(platformKeys.executionPlatformKeys())
+              .setTargetPlatformKey(platformKeys.targetPlatformKey())
+              .build());
+      return;
     }
 
     Map<ConfiguredTargetKey, PlatformInfo> platforms =
@@ -573,47 +579,6 @@ public class ToolchainResolutionFunction implements SkyFunction {
   private static final class ValueMissingException extends Exception {
     private ValueMissingException() {
       super();
-    }
-  }
-
-  /** Exception used when no execution platform can be found. */
-  static final class NoMatchingPlatformException extends ToolchainException {
-    NoMatchingPlatformException(
-        Set<ToolchainTypeRequirement> toolchainTypes,
-        ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys,
-        ConfiguredTargetKey targetPlatformKey) {
-      super(formatError(toolchainTypes, availableExecutionPlatformKeys, targetPlatformKey));
-    }
-
-    private static String formatError(
-        Set<ToolchainTypeRequirement> toolchainTypes,
-        ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys,
-        ConfiguredTargetKey targetPlatformKey) {
-      if (toolchainTypes.isEmpty()) {
-        return String.format(
-            "Unable to find an execution platform for target platform %s"
-                + " from available execution platforms [%s]",
-            targetPlatformKey.getLabel(),
-            availableExecutionPlatformKeys.stream()
-                .map(key -> key.getLabel().toString())
-                .collect(Collectors.joining(", ")));
-      }
-      return String.format(
-          "Unable to find an execution platform for toolchains [%s] and target platform %s"
-              + " from available execution platforms [%s]",
-          toolchainTypes.stream()
-              .map(ToolchainTypeRequirement::toolchainType)
-              .map(Label::toString)
-              .collect(joining(", ")),
-          targetPlatformKey.getLabel(),
-          availableExecutionPlatformKeys.stream()
-              .map(key -> key.getLabel().toString())
-              .collect(Collectors.joining(", ")));
-    }
-
-    @Override
-    protected Code getDetailedCode() {
-      return Code.NO_MATCHING_EXECUTION_PLATFORM;
     }
   }
 

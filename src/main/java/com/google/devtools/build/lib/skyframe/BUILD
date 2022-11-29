@@ -147,6 +147,7 @@ java_library(
         ":local_repository_lookup_value",
         ":map_as_package_roots",
         ":metadata_consumer_for_metrics",
+        ":no_matching_platform_data",
         ":output_store",
         ":package_error_function",
         ":package_error_message_function",
@@ -1631,6 +1632,18 @@ java_library(
 )
 
 java_library(
+    name = "no_matching_platform_data",
+    srcs = ["NoMatchingPlatformData.java"],
+    deps = [
+        ":configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "output_store",
     srcs = ["OutputStore.java"],
     deps = [
@@ -2856,11 +2869,13 @@ java_library(
     name = "unloaded_toolchain_context",
     srcs = ["UnloadedToolchainContext.java"],
     deps = [
+        ":no_matching_platform_data",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -2868,6 +2883,7 @@ java_library(
     name = "unloaded_toolchain_context_impl",
     srcs = ["UnloadedToolchainContextImpl.java"],
     deps = [
+        ":no_matching_platform_data",
         ":toolchain_context_key",
         ":unloaded_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
@@ -2876,6 +2892,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

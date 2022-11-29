@@ -224,6 +224,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:incremental_artifact_conflict_finder",
         "//src/main/java/com/google/devtools/build/lib/skyframe:local_repository_lookup_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:metadata_consumer_for_metrics",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:no_matching_platform_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:output_store",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_error_message_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
