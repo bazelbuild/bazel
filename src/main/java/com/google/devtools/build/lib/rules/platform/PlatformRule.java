@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -94,7 +95,7 @@ public class PlatformRule implements RuleDefinition {
         This attribute is a full replacement for the deprecated
         <code>remote_execution_properties</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .override(attr(EXEC_PROPS_ATTR, Type.STRING_DICT))
+        .add(attr(EXEC_PROPS_ATTR, Type.STRING_DICT).value(ImmutableMap.of()))
 
         // Undocumented. Indicates that this platform should auto-configure the platform constraints
         // based on the current host OS and CPU settings.
