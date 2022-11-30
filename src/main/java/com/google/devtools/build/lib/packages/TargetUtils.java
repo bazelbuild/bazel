@@ -237,15 +237,15 @@ public final class TargetUtils {
    * {@link #legalExecInfoKeys} as keys with empty values.
    */
   public static Map<String, String> getExecutionInfo(Rule rule) {
-    // tags may contain duplicate values.
-    Map<String, String> map = new HashMap<>();
+    ImmutableMap.Builder<String, String> tags = new ImmutableMap.Builder<>();
     for (String tag :
         NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Type.STRING_LIST)) {
       if (legalExecInfoKeys(tag)) {
-        map.put(tag, "");
+        tags.put(tag, "");
       }
     }
-    return ImmutableMap.copyOf(map);
+    // tags may contain duplicate values.
+    return tags.buildKeepingLast();
   }
 
   /**
@@ -284,7 +284,7 @@ public final class TargetUtils {
     Map<String, String> executionInfo =
         executionRequirementsUnchecked == null
             ? ImmutableMap.of()
-            : TargetUtils.filter(
+            : filterExecRequirements(
                 Dict.noneableCast(
                     executionRequirementsUnchecked,
                     String.class,
@@ -305,8 +305,9 @@ public final class TargetUtils {
    * Returns the execution info. These include execution requirement tags ('block-*', 'requires-*',
    * 'no-*', 'supports-*', 'disable-*', 'local', and 'cpu:*') as keys with empty values.
    */
-  private static Map<String, String> filter(Map<String, String> executionInfo) {
-    return Maps.filterKeys(executionInfo, TargetUtils::legalExecInfoKeys);
+  public static ImmutableMap<String, String> filterExecRequirements(
+      Map<String, String> executionInfo) {
+    return ImmutableMap.copyOf(Maps.filterKeys(executionInfo, TargetUtils::legalExecInfoKeys));
   }
 
   /**

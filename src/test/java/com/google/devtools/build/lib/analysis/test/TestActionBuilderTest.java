@@ -464,13 +464,13 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "load(':some_test.bzl', 'some_test')",
         "some_test(",
         "    name = 'custom_exec_group_test',",
-        "    exec_properties = {'test.key': 'bad', 'custom_group.key': 'good'},",
+        "    exec_properties = {'test.supports-key': 'bad', 'custom_group.supports-key': 'good'},",
         ")");
     ImmutableList<Artifact.DerivedArtifact> testStatusList =
         getTestStatusArtifacts("//:custom_exec_group_test");
     TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
     ImmutableMap<String, String> executionInfo = testAction.getExecutionInfo();
-    assertThat(executionInfo).containsExactly("key", "good");
+    assertThat(executionInfo).containsExactly("supports-key", "good");
   }
 
   @Test

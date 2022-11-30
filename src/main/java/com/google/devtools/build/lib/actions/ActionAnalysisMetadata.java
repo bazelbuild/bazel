@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import javax.annotation.Nullable;
@@ -231,7 +232,8 @@ public interface ActionAnalysisMetadata {
    * have access to execution requirements.
    */
   default ImmutableMap<String, String> getExecutionInfo() {
-    return getExecProperties();
+    // Use the exec properties, but filter out any disallowed property names.
+    return TargetUtils.filterExecRequirements(getExecProperties());
   }
 
   static ImmutableMap<String, String> mergeMaps(

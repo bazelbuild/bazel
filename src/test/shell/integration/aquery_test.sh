@@ -1538,8 +1538,8 @@ function test_execution_info() {
 platform(
     name = "exec",
     exec_properties = {
-        "prop1": "foo",
-        "prop2": "bar",
+        "supports-prop1": "foo",
+        "supports-prop2": "bar",
     },
 )
 
@@ -1561,7 +1561,7 @@ EOF
   assert_contains "Execution platform: //${pkg}:exec" output
 
   # Verify the execution platform's exec_properties end up as execution requirements.
-  assert_contains "ExecutionInfo: {prop1: foo, prop2: bar}" output
+  assert_contains "ExecutionInfo: {supports-prop1: foo, supports-prop2: bar}" output
 }
 
 function test_unicode_text() {

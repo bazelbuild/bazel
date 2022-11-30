@@ -145,8 +145,8 @@ public class SpawnActionTest extends BuildViewTestCase {
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
             null,
             ImmutableMap.<String, String>builder()
-                .put("prop1", "foo")
-                .put("prop2", "bar")
+                .put("supports-prop1", "foo")
+                .put("supports-prop2", "bar")
                 .buildOrThrow(),
             null);
 
@@ -156,7 +156,9 @@ public class SpawnActionTest extends BuildViewTestCase {
             .addOutput(destinationArtifact)
             .setExecutionInfo(
                 ImmutableMap.<String, String>builder()
-                    .put("prop2", "quux") // Overwrite the value from ActionOwner's exec properties.
+                    .put(
+                        "supports-prop2",
+                        "quux") // Overwrite the value from ActionOwner's exec properties.
                     .buildOrThrow())
             .setExecutable(scratch.file("/bin/xxx").asFragment())
             .setProgressMessage("hi, mom!")
@@ -164,8 +166,8 @@ public class SpawnActionTest extends BuildViewTestCase {
             .build(actionOwner, targetConfig);
 
     ImmutableMap<String, String> result = action.getExecutionInfo();
-    assertThat(result).containsEntry("prop1", "foo");
-    assertThat(result).containsEntry("prop2", "quux");
+    assertThat(result).containsEntry("supports-prop1", "foo");
+    assertThat(result).containsEntry("supports-prop2", "quux");
   }
 
   @Test
