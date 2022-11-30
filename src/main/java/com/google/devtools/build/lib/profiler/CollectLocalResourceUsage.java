@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 
 /** Thread to collect local resource usage data and log into JSON profile. */
 public class CollectLocalResourceUsage extends Thread {
@@ -53,7 +54,8 @@ public class CollectLocalResourceUsage extends Thread {
   private volatile boolean profilingStarted;
 
   @GuardedBy("this")
-  Map<ProfilerTask, TimeSeries> timeSeries;
+  @Nullable
+  private Map<ProfilerTask, TimeSeries> timeSeries;
 
   private Stopwatch stopwatch;
 
@@ -237,6 +239,9 @@ public class CollectLocalResourceUsage extends Thread {
   private void addRange(
       ProfilerTask type, Duration previousElapsed, Duration nextElapsed, double value) {
     synchronized (this) {
+      if (timeSeries == null) {
+        return;
+      }
       TimeSeries series = timeSeries.get(type);
       if (series != null) {
         series.addRange(previousElapsed, nextElapsed, value);
