@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKOPT;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -67,6 +65,7 @@ class ObjcVariablesExtension implements VariablesExtension {
   private final Set<String> frameworkNames;
   private final ImmutableList<String> libraryNames;
   private final ImmutableSet<Artifact> forceLoadArtifacts;
+  private final ImmutableList<String> depLinkopts;
   private final ImmutableList<String> attributeLinkopts;
   private final ImmutableSet<VariableCategory> activeVariableCategories;
   private final Artifact dsymSymbol;
@@ -83,6 +82,7 @@ class ObjcVariablesExtension implements VariablesExtension {
       Set<String> frameworkNames,
       ImmutableList<String> libraryNames,
       ImmutableSet<Artifact> forceLoadArtifacts,
+      ImmutableList<String> depLinkopts,
       ImmutableList<String> attributeLinkopts,
       ImmutableSet<VariableCategory> activeVariableCategories,
       Artifact dsymSymbol,
@@ -97,6 +97,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     this.frameworkNames = frameworkNames;
     this.libraryNames = libraryNames;
     this.forceLoadArtifacts = forceLoadArtifacts;
+    this.depLinkopts = depLinkopts;
     this.attributeLinkopts = attributeLinkopts;
     this.activeVariableCategories = activeVariableCategories;
     this.dsymSymbol = dsymSymbol;
@@ -184,7 +185,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     builder.addStringSequenceVariable(
         FORCE_LOAD_EXEC_PATHS_VARIABLE_NAME,
         Artifact.toExecPaths(forceLoadArtifacts));
-    builder.addStringSequenceVariable(DEP_LINKOPTS_VARIABLE_NAME, objcProvider.get(LINKOPT));
+    builder.addStringSequenceVariable(DEP_LINKOPTS_VARIABLE_NAME, depLinkopts);
     builder.addStringSequenceVariable(ATTR_LINKOPTS_VARIABLE_NAME, attributeLinkopts);
   }
 
@@ -215,6 +216,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     private Set<String> frameworkNames;
     private ImmutableSet<Artifact> forceLoadArtifacts;
     private ImmutableList<String> libraryNames;
+    private ImmutableList<String> depLinkopts;
     private ImmutableList<String> attributeLinkopts;
     private Artifact dsymSymbol;
     private Artifact linkmap;
@@ -280,6 +282,13 @@ class ObjcVariablesExtension implements VariablesExtension {
       return this;
     }
 
+    /** Sets linkopts from dependency. */
+    @CanIgnoreReturnValue
+    public Builder setDepLinkopts(ImmutableList<String> depLinkopts) {
+      this.depLinkopts = Preconditions.checkNotNull(depLinkopts);
+      return this;
+    }
+
     /** Sets linkopts arising from rule attributes. */
     @CanIgnoreReturnValue
     public Builder setAttributeLinkopts(ImmutableList<String> attributeLinkopts) {
@@ -336,6 +345,7 @@ class ObjcVariablesExtension implements VariablesExtension {
         Preconditions.checkNotNull(frameworkNames, "missing framework names");
         Preconditions.checkNotNull(libraryNames, "missing library names");
         Preconditions.checkNotNull(forceLoadArtifacts, "missing force-load artifacts");
+        Preconditions.checkNotNull(depLinkopts, "missing dep linkopts");
         Preconditions.checkNotNull(attributeLinkopts, "missing attribute linkopts");
       }
       if (activeVariableCategories.contains(VariableCategory.DSYM_VARIABLES)) {
@@ -357,6 +367,7 @@ class ObjcVariablesExtension implements VariablesExtension {
           frameworkNames,
           libraryNames,
           forceLoadArtifacts,
+          depLinkopts,
           attributeLinkopts,
           activeVariableCategories,
           dsymSymbol,

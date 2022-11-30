@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_L
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKOPT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINK_INPUTS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
@@ -539,6 +540,7 @@ public class CompilationSupport implements StarlarkValue {
             .setFrameworkSearchPath(frameworkLibrarySearchPaths(objcProvider))
             .setLibraryNames(libraryNames(objcProvider))
             .setForceLoadArtifacts(getForceLoadArtifacts(objcProvider))
+            .setDepLinkopts(objcProvider.get(LINKOPT).toList())
             .setAttributeLinkopts(attributes.linkopts())
             .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
 
