@@ -227,7 +227,8 @@ public interface TestActionContext extends ActionContext {
      * return a completed result, or it may return a continuation with a non-null future
      * representing asynchronous execution.
      */
-    TestAttemptContinuation beginExecution() throws InterruptedException, IOException;
+    TestAttemptContinuation beginExecution()
+        throws InterruptedException, IOException, ExecException;
 
     /**
      * After the first attempt has run, this method is called to determine the maximum number of
