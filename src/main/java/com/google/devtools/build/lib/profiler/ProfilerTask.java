@@ -96,9 +96,6 @@ public enum ProfilerTask {
     private static final Duration FIFTY_MILLIS = Duration.ofMillis(50);
   }
 
-  // Size of the ProfilerTask value space.
-  public static final int TASK_COUNT = ProfilerTask.values().length;
-
   /** Human readable description for the task. */
   public final String description;
   /**

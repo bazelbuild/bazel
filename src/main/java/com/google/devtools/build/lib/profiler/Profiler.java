@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import static com.google.devtools.build.lib.profiler.ProfilerTask.TASK_COUNT;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -411,12 +409,6 @@ public final class Profiler {
     this.actionCountStartTime = Duration.ofNanos(clock.nanoTime());
     this.actionCountTimeSeries = new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
     this.collectTaskHistograms = collectTaskHistograms;
-
-    // Check for current limitation on the number of supported types due to using enum.ordinal() to
-    // store them instead of EnumSet for performance reasons.
-    Preconditions.checkState(
-        TASK_COUNT < 256,
-        "The profiler implementation supports only up to 255 different ProfilerTask values.");
 
     // Reset state for the new profiling session.
     taskId.set(0);
