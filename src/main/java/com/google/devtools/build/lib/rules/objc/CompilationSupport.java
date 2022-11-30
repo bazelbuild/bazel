@@ -506,9 +506,9 @@ public class CompilationSupport implements StarlarkValue {
             toolchain,
             cppSemantics);
 
-    NestedSet<Artifact> staticRuntimes;
+    ImmutableList<Artifact> staticRuntimes;
     try {
-      staticRuntimes = toolchain.getStaticRuntimeLinkInputs(featureConfiguration);
+      staticRuntimes = toolchain.getStaticRuntimeLinkInputs(featureConfiguration).toList();
     } catch (EvalException e) {
       throw ruleContext.throwWithRuleError(e);
     }
@@ -521,8 +521,7 @@ public class CompilationSupport implements StarlarkValue {
                 Iterables.concat(
                     bazelBuiltLibraries,
                     objcProvider.get(IMPORTED_LIBRARY).toList(),
-                    objcProvider.getCcLibraries(),
-                    staticRuntimes.toList()),
+                    objcProvider.getCcLibraries()),
                 Predicates.not(Predicates.in(forceLinkArtifacts))));
 
     LinkTargetType linkType =
@@ -639,7 +638,11 @@ public class CompilationSupport implements StarlarkValue {
     // Populate the input file list with both the compiled object files and any linkstamp object
     // files.
     registerObjFilelistAction(
-        ImmutableSet.<Artifact>builder().addAll(objFiles).addAll(linkstampValues).build(),
+        ImmutableSet.<Artifact>builder()
+            .addAll(objFiles)
+            .addAll(staticRuntimes)
+            .addAll(linkstampValues)
+            .build(),
         inputFileList);
 
     if (cppConfiguration.objcShouldStripBinary()) {
