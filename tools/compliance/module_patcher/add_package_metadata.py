@@ -190,8 +190,6 @@ class BuildRewriter(object):
             target.append('    package_version = "%s",' % self.package_version)
         if self.package_url:
             target.append('    package_url = "%s",' % self.package_url)
-        if self.copyright_notice:
-            target.append('    copyright_notice = "%s",' % self.copyright_notice)
         target.append(')')
         return '\n'.join(target)
 
