@@ -76,7 +76,7 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     SpawnExecutionContextForTesting policy =
         new SpawnExecutionContextForTesting(spawn, fileOutErr, policyTimeout);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
@@ -137,7 +137,7 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     SpawnExecutionContextForTesting policy =
         new SpawnExecutionContextForTesting(spawn, fileOutErr, policyTimeout);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
@@ -208,7 +208,7 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     SpawnExecutionContextForTesting policy =
         new SpawnExecutionContextForTesting(spawn, fileOutErr, policyTimeout);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);

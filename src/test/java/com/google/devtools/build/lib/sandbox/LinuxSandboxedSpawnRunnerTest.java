@@ -60,13 +60,13 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
   }
 
   @Test
-  public void execAsync_echoCommand_executesSuccessfully() throws Exception {
+  public void exec_echoCommand_executesSuccessfully() throws Exception {
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(createCommandEnvironment());
     Spawn spawn = new SpawnBuilder("echo", "echolalia").build();
     Path stdout = testRoot.getChild("stdout");
     SpawnExecutionContext policy = createSpawnExecutionContext(spawn, stdout);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
@@ -76,7 +76,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
   }
 
   @Test
-  public void execAsync_commandWithParamFiles_executesSuccessfully() throws Exception {
+  public void exec_commandWithParamFiles_executesSuccessfully() throws Exception {
     CommandEnvironment commandEnvironment = createCommandEnvironment();
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
     Spawn spawn =
@@ -91,7 +91,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
             .build();
     SpawnExecutionContext policy = createSpawnExecutionContext(spawn);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     Path paramFile = commandEnvironment.getExecRoot().getRelative("out");
@@ -102,7 +102,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
   }
 
   @Test
-  public void execAsync_spawnRunningBinTool_executesSuccessfully() throws Exception {
+  public void exec_spawnRunningBinTool_executesSuccessfully() throws Exception {
     CommandEnvironment commandEnvironment = createCommandEnvironment();
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
     BinTools.PathActionInput pathActionInput =
@@ -121,14 +121,14 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
             .build();
     SpawnExecutionContext policy = createSpawnExecutionContext(spawn);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(FileSystemUtils.readLines(output.getPath(), UTF_8)).containsExactly("hello");
   }
 
   @Test
-  public void execAsync_collectsExecutionStatistics() throws Exception {
+  public void exec_collectsExecutionStatistics() throws Exception {
     CommandEnvironment commandEnvironment = createCommandEnvironment();
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
     Path cpuTimeSpenderPath =
@@ -148,7 +148,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
             .build();
     SpawnExecutionContextForTesting policy = createSpawnExecutionContext(spawn);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
@@ -168,7 +168,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
   }
 
   @Test
-  public void execAsync_statisticsCollectionDisabled_returnsEmptyStatistics() throws Exception {
+  public void exec_statisticsCollectionDisabled_returnsEmptyStatistics() throws Exception {
     CommandEnvironment commandEnvironment =
         getCommandEnvironmentWithExecutionStatisticsOptionDisabled("workspace");
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
@@ -187,7 +187,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
             .build();
     SpawnExecutionContext policy = createSpawnExecutionContext(spawn);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
