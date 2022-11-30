@@ -879,19 +879,15 @@ public class StandaloneTestStrategy extends TestStrategy {
         FileOutErr xmlSpawnOutErr = actionExecutionContext.getFileOutErr().childOutErr();
         try {
 
-          SpawnContinuation xmlContinuation;
-          try {
-            ImmutableList<SpawnResult> spawnResults =
-                spawnStrategyResolver.exec(
-                    xmlGeneratingSpawn, actionExecutionContext.withFileOutErr(xmlSpawnOutErr));
-            xmlContinuation = SpawnContinuation.immediate(spawnResults);
-          } catch (ExecException e) {
-            xmlContinuation = SpawnContinuation.failedWithExecException(e);
-          }
-
-          return new BazelXmlCreationContinuation(
-              resolvedPaths, xmlSpawnOutErr, testResultDataBuilder, spawnResults, xmlContinuation);
-        } catch (InterruptedException e) {
+          ImmutableList<SpawnResult> xmlSpawnResults =
+              spawnStrategyResolver.exec(
+                  xmlGeneratingSpawn, actionExecutionContext.withFileOutErr(xmlSpawnOutErr));
+          this.spawnResults =
+              ImmutableList.<SpawnResult>builder()
+                  .addAll(spawnResults)
+                  .addAll(xmlSpawnResults)
+                  .build();
+        } catch (InterruptedException | ExecException e) {
           closeSuppressed(e, xmlSpawnOutErr);
           throw e;
         }
@@ -912,72 +908,6 @@ public class StandaloneTestStrategy extends TestStrategy {
               // rerun (if it failed here _and_ is marked flaky _and_ the number of flaky attempts
               // is larger than 1).
               .setTestResultDataBuilder(testResultDataBuilder)
-              .setExecutionInfo(executionInfo)
-              .build();
-      return TestAttemptContinuation.of(standaloneTestResult);
-    }
-  }
-
-  private final class BazelXmlCreationContinuation extends TestAttemptContinuation {
-    private final ResolvedPaths resolvedPaths;
-    private final FileOutErr fileOutErr;
-    private final TestResultData.Builder builder;
-    private final List<SpawnResult> primarySpawnResults;
-    private final SpawnContinuation spawnContinuation;
-
-    BazelXmlCreationContinuation(
-        ResolvedPaths resolvedPaths,
-        FileOutErr fileOutErr,
-        TestResultData.Builder builder,
-        List<SpawnResult> primarySpawnResults,
-        SpawnContinuation spawnContinuation) {
-      this.resolvedPaths = resolvedPaths;
-      this.fileOutErr = fileOutErr;
-      this.builder = builder;
-      this.primarySpawnResults = primarySpawnResults;
-      this.spawnContinuation = spawnContinuation;
-    }
-
-    @Nullable
-    @Override
-    public ListenableFuture<?> getFuture() {
-      return spawnContinuation.getFuture();
-    }
-
-    @Override
-    public TestAttemptContinuation execute() throws InterruptedException, ExecException {
-      SpawnContinuation nextContinuation;
-      try {
-        nextContinuation = spawnContinuation.execute();
-        if (!nextContinuation.isDone()) {
-          return new BazelXmlCreationContinuation(
-              resolvedPaths, fileOutErr, builder, primarySpawnResults, nextContinuation);
-        }
-      } catch (ExecException | InterruptedException e) {
-        closeSuppressed(e, fileOutErr);
-        throw e;
-      }
-
-      ImmutableList.Builder<SpawnResult> spawnResults = ImmutableList.builder();
-      spawnResults.addAll(primarySpawnResults);
-      spawnResults.addAll(nextContinuation.get());
-
-      Path xmlOutputPath = resolvedPaths.getXmlOutputPath();
-      TestCase details = parseTestResult(xmlOutputPath);
-      if (details != null) {
-        builder.setTestCase(details);
-      }
-
-      BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo =
-          extractExecutionInfo(primarySpawnResults.get(0), builder);
-      StandaloneTestResult standaloneTestResult =
-          StandaloneTestResult.builder()
-              .setSpawnResults(spawnResults.build())
-              // We return the TestResultData.Builder rather than the finished TestResultData
-              // instance, as we may have to rename the output files in case the test needs to be
-              // rerun (if it failed here _and_ is marked flaky _and_ the number of flaky attempts
-              // is larger than 1).
-              .setTestResultDataBuilder(builder)
               .setExecutionInfo(executionInfo)
               .build();
       return TestAttemptContinuation.of(standaloneTestResult);
