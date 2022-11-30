@@ -67,7 +67,6 @@ py_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":archive",
-        "//third_party/py/abseil",
     ],
 )
 
