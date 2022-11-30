@@ -180,8 +180,7 @@ public class BazelPythonSemantics implements PythonSemantics {
             STUB_TEMPLATE,
             ImmutableList.of(
                 Substitution.of("%shebang%", getStubShebang(ruleContext, common)),
-                Substitution.of(
-                    "%main%", common.determineMainExecutableSource(/*withWorkspaceName=*/ true)),
+                Substitution.of("%main%", common.determineMainExecutableSource()),
                 Substitution.of("%python_binary%", pythonBinary),
                 Substitution.of("%coverage_tool%", coverageTool == null ? "" : coverageTool),
                 Substitution.of("%imports%", Joiner.on(":").join(common.getImports().toList())),
