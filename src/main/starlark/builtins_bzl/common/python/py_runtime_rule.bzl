@@ -75,7 +75,7 @@ def _py_runtime_impl(ctx):
             coverage_files = coverage_files,
             python_version = python_version,
             stub_shebang = ctx.attr.stub_shebang,
-            bootstrap_template = ctx.attr.bootstrap_template,
+            bootstrap_template = ctx.file.bootstrap_template,
         ),
         DefaultInfo(
             files = runtime_files,

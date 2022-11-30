@@ -217,9 +217,9 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
                       + "</code>."),
           @Param(
               name = "bootstrap_template",
-              // allowedTypes = {
-              //   @ParamType(type = FileApi.class),
-              // },
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+              },
               positional = false,
               named = true,
               defaultValue = "None",

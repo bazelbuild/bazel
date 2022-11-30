@@ -286,13 +286,7 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
       Artifact interpreter = interpreterUncast == NONE ? null : (Artifact) interpreterUncast;
       Artifact bootstrapTemplate = null;
       if (bootstrapTemplateUncast != NONE) {
-        if (bootstrapTemplateUncast instanceof InputFileConfiguredTarget) {
-          InputFileConfiguredTarget bootstrapTarget = (InputFileConfiguredTarget) bootstrapTemplateUncast;
-          bootstrapTemplate = bootstrapTarget.getArtifact();
-        } else if (bootstrapTemplateUncast instanceof Artifact) {
-          // SourceArtifact, possibly only in tests?
-          bootstrapTemplate = (Artifact) bootstrapTemplateUncast;
-        }
+        bootstrapTemplate = (Artifact) bootstrapTemplateUncast;
       }
       Depset filesDepset = null;
       if (filesUncast != NONE) {
