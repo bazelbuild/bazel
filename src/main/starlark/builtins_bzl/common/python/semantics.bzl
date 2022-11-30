@@ -12,3 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains constants that vary between Bazel and Google-internal"""
+
+PyWrapCcInfo = None  # Google-specific
+
+IMPORTS_ATTR_SUPPORTED = True
