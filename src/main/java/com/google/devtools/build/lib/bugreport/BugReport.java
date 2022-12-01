@@ -257,7 +257,8 @@ public final class BugReport {
         String crashMsg;
         String heapDumpPath;
         // Might be a wrapped OOM - the detailed exit code reflects the root cause.
-        if (crash.getDetailedExitCode().getExitCode().equals(ExitCode.OOM_ERROR)) {
+        boolean isOom = crash.getDetailedExitCode().getExitCode().equals(ExitCode.OOM_ERROR);
+        if (isOom) {
           crashMsg = constructOomExitMessage(ctx.getExtraOomInfo());
           heapDumpPath = ctx.getHeapDumpPath();
           if (heapDumpPath != null) {
@@ -275,8 +276,10 @@ public final class BugReport {
           // we are crashing, who knows if it will complete. It's more important that we write
           // exit code and failure detail information so that the crash can be handled correctly.
           emitExitData(crash, ctx, numericExitCode, heapDumpPath);
-          // Don't try to send a bug report during a crash in a test, it will throw itself.
-          if (ctx.shouldSendBugReport() && !TestType.isInTest()) {
+          // Skip sending a bug report if the crash is an OOM - attempting an RPC while out of
+          // memory can cause issues. Also, don't try to send a bug report during a crash in a test,
+          // it will throw itself.
+          if (ctx.shouldSendBugReport() && !isOom && !TestType.isInTest()) {
             sendBugReport(throwable, ctx.getArgs());
           }
         } finally {
