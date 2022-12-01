@@ -22,12 +22,16 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceGrpcClient;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
@@ -68,6 +72,15 @@ public class BazelBuildEventServiceModule
   private BuildEventServiceClient client;
   private BackendConfig config;
 
+  private CredentialModule credentialModule;
+
+  @Override
+  public void workspaceInit(
+      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+    Preconditions.checkState(credentialModule == null, "credentialModule must be null");
+    credentialModule = Preconditions.checkNotNull(runtime.getBlazeModule(CredentialModule.class));
+  }
+
   @Override
   protected Class<BuildEventServiceOptions> optionsClass() {
     return BuildEventServiceOptions.class;
@@ -93,6 +106,7 @@ public class BazelBuildEventServiceModule
                   .setClientEnvironment(env.getClientEnv())
                   .setHelperExecutionTimeout(authAndTLSOptions.credentialHelperTimeout)
                   .build(),
+              credentialModule.getCredentialCache(),
               env.getCommandLinePathFactory(),
               env.getRuntime().getFileSystem(),
               newConfig.authAndTLSOptions());

@@ -22,6 +22,7 @@ import build.bazel.remote.execution.v2.GetActionResultRequest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
@@ -59,6 +60,8 @@ final class ActionCacheServer extends ActionCacheImplBase {
 
       responseObserver.onNext(result.actionResult());
       responseObserver.onCompleted();
+    } catch (CacheNotFoundException e) {
+      responseObserver.onError(StatusUtils.notFoundError(request.getActionDigest()));
     } catch (Exception e) {
       logger.atWarning().withCause(e).log("getActionResult request failed");
       responseObserver.onError(StatusUtils.internalError(e));

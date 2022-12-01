@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.RemoteFileStatus;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -128,41 +129,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       PathFragment path = execRoot.getRelative(entry.getKey());
       Artifact output = entry.getValue();
 
-      if (maybeInjectMetadataForSymlink(path, output)) {
-        continue;
-      }
-
-      if (output.isTreeArtifact()) {
-        if (remoteOutputTree.exists(path)) {
-          SpecialArtifact parent = (SpecialArtifact) output;
-          TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
-
-          // TODO: Check directory content on the local fs to support mixed tree.
-          TreeArtifactValue.visitTree(
-              remoteOutputTree.getPath(path),
-              (parentRelativePath, type) -> {
-                if (type == Dirent.Type.DIRECTORY) {
-                  return;
-                }
-                RemoteFileInfo remoteFile =
-                    remoteOutputTree.getRemoteFileInfo(
-                        path.getRelative(parentRelativePath), /* followSymlinks= */ true);
-                if (remoteFile != null) {
-                  TreeFileArtifact child =
-                      TreeFileArtifact.createTreeOutput(parent, parentRelativePath);
-                  tree.putChild(child, createRemoteMetadata(remoteFile));
-                }
-              });
-
-          metadataInjector.injectTree(parent, tree.build());
-        }
-      } else {
-        RemoteFileInfo remoteFile =
-            remoteOutputTree.getRemoteFileInfo(path, /* followSymlinks= */ true);
-        if (remoteFile != null) {
-          metadataInjector.injectFile(output, createRemoteMetadata(remoteFile));
-        }
-      }
+      maybeInjectMetadataForSymlink(path, output);
     }
   }
 
@@ -183,26 +150,24 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
    *       the output should be materialized as a symlink to the original location, which avoids
    *       fetching multiple copies when multiple symlinks to the same artifact are created in the
    *       same build.
-   *
-   * @return Whether the metadata was injected.
    */
-  private boolean maybeInjectMetadataForSymlink(PathFragment linkPath, Artifact output)
+  private void maybeInjectMetadataForSymlink(PathFragment linkPath, Artifact output)
       throws IOException {
     if (output.isSymlink()) {
-      return false;
+      return;
     }
 
     Path outputTreePath = remoteOutputTree.getPath(linkPath);
 
     if (!outputTreePath.exists(Symlinks.NOFOLLOW)) {
-      return false;
+      return;
     }
 
     PathFragment targetPath;
     try {
       targetPath = outputTreePath.readSymbolicLink();
     } catch (NotASymlinkException e) {
-      return false;
+      return;
     }
 
     checkState(
@@ -212,7 +177,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     if (output.isTreeArtifact()) {
       TreeArtifactValue metadata = getRemoteTreeMetadata(targetPath);
       if (metadata == null) {
-        return false;
+        return;
       }
 
       SpecialArtifact parent = (SpecialArtifact) output;
@@ -233,7 +198,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     } else {
       RemoteFileArtifactValue metadata = getRemoteMetadata(targetPath);
       if (metadata == null) {
-        return false;
+        return;
       }
 
       RemoteFileArtifactValue injectedMetadata =
@@ -247,8 +212,6 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
       metadataInjector.injectFile(output, injectedMetadata);
     }
-
-    return true;
   }
 
   private RemoteFileArtifactValue createRemoteMetadata(RemoteFileInfo remoteFile) {
@@ -313,54 +276,85 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   // -------------------- File Permissions --------------------
+  // Remote files are always readable, writable and executable since we can't control their
+  // permissions.
+
+  private boolean existsInMemory(PathFragment path) {
+    return remoteOutputTree.getPath(path).isDirectory() || getRemoteMetadata(path) != null;
+  }
 
   @Override
   protected boolean isReadable(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteMetadata(path);
-    return m != null || super.isReadable(path);
+    return existsInMemory(path) || super.isReadable(path);
   }
 
   @Override
   protected boolean isWritable(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteMetadata(path);
-    return m != null || super.isWritable(path);
+    if (existsInMemory(path)) {
+      // If path exists locally, also check whether it's writable. We need this check for the case
+      // where the action need to delete their local outputs but the parent directory is not
+      // writable.
+      try {
+        return super.isWritable(path);
+      } catch (FileNotFoundException e) {
+        // Intentionally ignored
+        return true;
+      }
+    }
+
+    return super.isWritable(path);
   }
 
   @Override
   protected boolean isExecutable(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteMetadata(path);
-    return m != null || super.isExecutable(path);
+    return existsInMemory(path) || super.isExecutable(path);
   }
 
   @Override
   protected void setReadable(PathFragment path, boolean readable) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m == null) {
+    try {
       super.setReadable(path, readable);
+    } catch (FileNotFoundException e) {
+      // in case of missing in-memory path, re-throw the error.
+      if (!existsInMemory(path)) {
+        throw e;
+      }
     }
   }
 
   @Override
   public void setWritable(PathFragment path, boolean writable) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m == null) {
+    try {
       super.setWritable(path, writable);
+    } catch (FileNotFoundException e) {
+      // in case of missing in-memory path, re-throw the error.
+      if (!existsInMemory(path)) {
+        throw e;
+      }
     }
   }
 
   @Override
   protected void setExecutable(PathFragment path, boolean executable) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m == null) {
+    try {
       super.setExecutable(path, executable);
+    } catch (FileNotFoundException e) {
+      // in case of missing in-memory path, re-throw the error.
+      if (!existsInMemory(path)) {
+        throw e;
+      }
     }
   }
 
   @Override
   protected void chmod(PathFragment path, int mode) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m == null) {
+    try {
       super.chmod(path, mode);
+    } catch (FileNotFoundException e) {
+      // in case of missing in-memory path, re-throw the error.
+      if (!existsInMemory(path)) {
+        throw e;
+      }
     }
   }
 
@@ -467,7 +461,12 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   private static FileStatus statFromRemoteMetadata(RemoteFileArtifactValue m) {
-    return new FileStatus() {
+    return new RemoteFileStatus() {
+      @Override
+      public byte[] getDigest() {
+        return m.getDigest();
+      }
+
       @Override
       public boolean isFile() {
         return m.getType().isFile();
@@ -506,6 +505,11 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       @Override
       public long getNodeId() {
         throw new UnsupportedOperationException("Cannot get node id for " + m);
+      }
+
+      @Override
+      public RemoteFileArtifactValue getRemoteMetadata() {
+        return m;
       }
     };
   }
