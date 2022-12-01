@@ -577,6 +577,25 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_hardened_sandboxed_worker_test",
+    size = "large",
+    srcs = ["bazel_worker_test.sh"],
+    args = [
+        "'--worker_sandboxing --experimental_worker_sandbox_hardening'",
+        "sandboxed",
+        "proto",
+    ],
+    data = [
+        ":test-deps",
+        "//src/test/java/com/google/devtools/build/lib/worker:ExampleWorker_deploy.jar",
+    ],
+    shard_count = 3,
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "server_logging_test",
     size = "medium",
     srcs = ["server_logging_test.sh"],

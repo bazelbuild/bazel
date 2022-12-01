@@ -197,6 +197,8 @@ tasks:
       - "//tools/python/..."
       # C++ coverage is not supported on macOS yet.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
+      # MacOS does not have cgroups so it can't support hardened sandbox
+      - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
     include_json_profile:
       - build
       - test
