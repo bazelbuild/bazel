@@ -295,7 +295,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         action, clientEnv, getTimeout(action), runfilesDir.relativeTo(execRoot), relativeTmpDir);
   }
 
-  private TestAttemptContinuation beginTestAttempt(
+  private TestAttemptResult beginTestAttempt(
       TestRunnerAction testAction,
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
@@ -579,8 +579,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
 
     @Override
-    public TestAttemptContinuation beginExecution()
-        throws InterruptedException, IOException, ExecException {
+    public TestAttemptResult execute() throws InterruptedException, IOException, ExecException {
       prepareFileSystem(testAction, execRoot, tmpDir, workingDirectory);
       return beginTestAttempt(testAction, spawn, actionExecutionContext, execRoot);
     }
@@ -632,7 +631,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             .build());
   }
 
-  private TestAttemptContinuation runTestAttempt(
+  private TestAttemptResult runTestAttempt(
       TestRunnerAction testAction,
       ActionExecutionContext actionExecutionContext,
       Spawn spawn,
@@ -830,16 +829,14 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo =
         extractExecutionInfo(spawnResults.get(0), testResultDataBuilder);
-    StandaloneTestResult standaloneTestResult =
-        StandaloneTestResult.builder()
-            .setSpawnResults(spawnResults)
-            // We return the TestResultData.Builder rather than the finished TestResultData
-            // instance, as we may have to rename the output files in case the test needs to be
-            // rerun (if it failed here _and_ is marked flaky _and_ the number of flaky attempts
-            // is larger than 1).
-            .setTestResultDataBuilder(testResultDataBuilder)
-            .setExecutionInfo(executionInfo)
-            .build();
-    return TestAttemptContinuation.of(standaloneTestResult);
+    return StandaloneTestResult.builder()
+        .setSpawnResults(spawnResults)
+        // We return the TestResultData.Builder rather than the finished TestResultData
+        // instance, as we may have to rename the output files in case the test needs to be
+        // rerun (if it failed here _and_ is marked flaky _and_ the number of flaky attempts
+        // is larger than 1).
+        .setTestResultDataBuilder(testResultDataBuilder)
+        .setExecutionInfo(executionInfo)
+        .build();
   }
 }
