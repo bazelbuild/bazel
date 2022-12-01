@@ -463,7 +463,7 @@ public class CompilationSupport implements StarlarkValue {
    * -dead_strip}).
    *
    * @param objcProvider common information about this rule's attributes and its dependencies
-   * @param ccLinkingContexts the linking contexts from this rule's dependencies
+   * @param ccLinkingContext the merged linking contexts from this rule's dependencies
    * @param j2ObjcMappingFileProvider contains mapping files for j2objc transpilation
    * @param j2ObjcEntryClassProvider contains j2objc entry class information for dead code removal
    * @param extraLinkArgs any additional arguments to pass to the linker
@@ -473,7 +473,7 @@ public class CompilationSupport implements StarlarkValue {
   @CanIgnoreReturnValue
   CompilationSupport registerLinkActions(
       ObjcProvider objcProvider,
-      Iterable<CcLinkingContext> ccLinkingContexts,
+      CcLinkingContext ccLinkingContext,
       J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
       ExtraLinkArgs extraLinkArgs,
@@ -619,9 +619,7 @@ public class CompilationSupport implements StarlarkValue {
     executableLinkingHelper.addLinkerOutputs(linkerOutputs.build());
 
     CcLinkingContext.Builder linkstampsBuilder = CcLinkingContext.builder();
-    for (CcLinkingContext context : ccLinkingContexts) {
-      linkstampsBuilder.addLinkstamps(context.getLinkstamps().toList());
-    }
+    linkstampsBuilder.addLinkstamps(ccLinkingContext.getLinkstamps().toList());
     CcLinkingContext linkstamps = linkstampsBuilder.build();
     executableLinkingHelper.addCcLinkingContexts(ImmutableList.of(linkstamps));
 
