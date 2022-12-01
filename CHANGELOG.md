@@ -1,3 +1,57 @@
+## Release 7.0.0-pre.20221111.3 (2022-12-01)
+
+```
+Baseline: 455454a56e961affb041a1d4a9214f7f313a05aa
+
+Cherry picks:
+
+   + 4caae75b49e815ad2cf1d805f316bc374f03f2ae:
+     Automated rollback of commit
+     8f956511bb115c39ac683a1e78971fcf9dce5deb.
+```
+
+Important changes:
+
+  - The new path variable `$(rlocationpath ...)` and its plural form
+    `$(rlocationpaths ...)` can be used to expand labels to the paths
+    accepted by the `Rlocation` function of runfiles libraries. This
+    is the preferred way to access data dependencies at runtime and
+    works on all platforms, even when runfiles are not enabled (e.g.,
+    on Windows by default).
+
+This release contains contributions from many people at Google, as well as Ankush Goyal, Artem Zinnatullin, Christopher Peterson Sauer, Ed Schouten, Fabian Meumertzheim, Greg Magolan, keertk, Keith Smiley, nathyong, Robin Tweedie, Yannic Bonenberger, Yannic.
+
+## Release 7.0.0-pre.20221102.3 (2022-11-11)
+
+```
+Baseline: 19b8d24531fb728701a85ec050361d434600b5d2
+```
+
+Incompatible changes:
+
+  - This has the side effect of changing the message on unsuccessful
+    builds from
+    ```
+    FAILED: Build did NOT complete successfully (0 packages loaded)
+    ```
+    to
+    ```
+    ERROR: Build did NOT complete successfully
+    ```
+  - Bazel no longer increases the delay between progress updates when
+    there is no cursor control.
+  - This has the side effect of changing the message on unsuccessful
+    builds from
+    ```
+    FAILED: Build did NOT complete successfully (0 packages loaded)
+    ```
+    to
+    ```
+    ERROR: Build did NOT complete successfully
+    ```
+
+This release contains contributions from many people at Google, as well as Ed Schouten, Fabian Meumertzheim, Keith Smiley, Krzysztof Naglik, Patrick Balestra, Tom Cnops, Xdng Yng, Xiangquan Xiao.
+
 ## Release 7.0.0-pre.20221026.2 (2022-11-02)
 
 ```
