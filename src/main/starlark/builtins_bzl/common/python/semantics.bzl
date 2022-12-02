@@ -16,3 +16,10 @@
 PyWrapCcInfo = None  # Google-specific
 
 IMPORTS_ATTR_SUPPORTED = True
+
+TOOLS_REPO = "bazel_tools"
+PLATFORMS_LOCATION = "@platforms"
+
+SRCS_ATTR_ALLOW_FILES = [".py", ".py3"]
+
+DEPS_ATTR_ALLOW_RULES = None
