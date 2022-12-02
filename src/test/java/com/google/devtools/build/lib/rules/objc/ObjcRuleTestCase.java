@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputDirectoryNamingScheme;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -48,12 +50,14 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationFunction;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -176,6 +180,29 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       CompilationMode compilationMode) {
     String minOsSegment = minOsVersion == null ? "" : "-min" + minOsVersion;
     String modeSegment = compilationModeFlag(compilationMode);
+
+    String hash = "";
+    if (targetConfig.getOptions().get(CoreOptions.class).outputDirectoryNamingScheme
+        == OutputDirectoryNamingScheme.DIFF_AGAINST_BASELINE) {
+      PlatformType platformType = null;
+      switch (configurationDistinguisher) {
+        case APPLEBIN_IOS:
+          platformType = PlatformType.IOS;
+          break;
+        case APPLEBIN_WATCHOS:
+          platformType = PlatformType.WATCHOS;
+          break;
+      }
+      BuildOptions transitionedConfig = targetConfig.cloneOptions();
+      transitionedConfig.get(CoreOptions.class).cpu = platformType + "_" + arch;
+      transitionedConfig.get(
+          AppleCommandLineOptions.class).configurationDistinguisher = configurationDistinguisher;
+      transitionedConfig.get(AppleCommandLineOptions.class).applePlatformType = platformType;
+      transitionedConfig.get(AppleCommandLineOptions.class).appleSplitCpu = arch;
+      hash = "-" + BuildConfigurationFunction.computeNameFragmentWithDiff(
+          transitionedConfig, targetConfig.getOptions());
+    }
+
     switch (configurationDistinguisher) {
       case UNKNOWN:
         return String.format("%s-out/ios_%s-%s/", TestConstants.PRODUCT_NAME, arch, modeSegment);
@@ -185,20 +212,22 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             TestConstants.PRODUCT_NAME, arch, minOsSegment, modeSegment);
       case APPLEBIN_IOS:
         return String.format(
-            "%1$s-out/ios-%2$s%4$s-%3$s-ios_%2$s-%5$s/",
+            "%1$s-out/ios-%2$s%4$s-%3$s-ios_%2$s-%5$s%6$s/",
             TestConstants.PRODUCT_NAME,
             arch,
             configurationDistinguisher.toString().toLowerCase(Locale.US),
             minOsSegment,
-            modeSegment);
+            modeSegment,
+            hash);
       case APPLEBIN_WATCHOS:
         return String.format(
-            "%1$s-out/watchos-%2$s%4$s-%3$s-watchos_%2$s-%5$s/",
+            "%1$s-out/watchos-%2$s%4$s-%3$s-watchos_%2$s-%5$s%6$s/",
             TestConstants.PRODUCT_NAME,
             arch,
             configurationDistinguisher.toString().toLowerCase(Locale.US),
             minOsSegment,
-            modeSegment);
+            modeSegment,
+            hash);
       default:
         throw new AssertionError();
     }

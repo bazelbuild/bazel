@@ -140,7 +140,8 @@ public final class BuildConfigurationFunction implements SkyFunction {
    * Compute the hash for the new BuildOptions based on the names and values of all options (both
    * native and Starlark) that are different from some supplied baseline configuration.
    */
-  private static String computeNameFragmentWithDiff(
+  @VisibleForTesting
+  public static String computeNameFragmentWithDiff(
       BuildOptions toOptions, BuildOptions baselineOptions) {
     // Quick short-circuit for trivial case.
     if (toOptions.equals(baselineOptions)) {

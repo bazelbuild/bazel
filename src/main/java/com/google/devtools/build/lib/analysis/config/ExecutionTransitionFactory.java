@@ -184,7 +184,8 @@ public class ExecutionTransitionFactory
           result = result.clone();
           break;
         default:
-          // else if OFF do nothing
+          // else if OFF just mark that we are now in an exec transition
+          coreOptions.platformSuffix = "exec";
       }
 
       return result;
