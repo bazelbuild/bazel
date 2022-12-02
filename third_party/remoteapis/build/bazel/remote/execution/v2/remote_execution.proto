@@ -26,7 +26,7 @@ import "google/protobuf/wrappers.proto";
 import "google/rpc/status.proto";
 
 option csharp_namespace = "Build.Bazel.Remote.Execution.V2";
-option go_package = "remoteexecution";
+option go_package = "github.com/bazelbuild/remote-apis/build/bazel/remote/execution/v2;remoteexecution";
 option java_multiple_files = true;
 option java_outer_classname = "RemoteExecutionProto";
 option java_package = "build.bazel.remote.execution.v2";
@@ -255,10 +255,11 @@ service ActionCache {
 //
 // When attempting an upload, if another client has already completed the upload
 // (which may occur in the middle of a single upload if another client uploads
-// the same blob concurrently), the request will terminate immediately with
-// a response whose `committed_size` is the full size of the uploaded file
-// (regardless of how much data was transmitted by the client). If the client
-// completes the upload but the
+// the same blob concurrently), the request will terminate immediately without
+// error, and with a response whose `committed_size` is the value `-1` if this
+// is a compressed upload, or with the full size of the uploaded file if this is
+// an uncompressed upload (regardless of how much data was transmitted by the
+// client). If the client completes the upload but the
 // [Digest][build.bazel.remote.execution.v2.Digest] does not match, an
 // `INVALID_ARGUMENT` error will be returned. In either case, the client should
 // not attempt to retry the upload.
@@ -423,6 +424,8 @@ service Capabilities {
   //   CacheCapabilities and ExecutionCapabilities.
   // * Execution only endpoints should return ExecutionCapabilities.
   // * CAS + Action Cache only endpoints should return CacheCapabilities.
+  //
+  // There are no method-specific errors.
   rpc GetCapabilities(GetCapabilitiesRequest) returns (ServerCapabilities) {
     option (google.api.http) = {
       get: "/v2/{instance_name=**}/capabilities"
@@ -474,6 +477,14 @@ message Action {
   // the client does not specify one, however, if the client does specify a
   // timeout that is longer than the server's maximum timeout, the server MUST
   // reject the request.
+  //
+  // The timeout is only intended to cover the "execution" of the specified
+  // action and not time in queue nor any overheads before or after execution
+  // such as marshalling inputs/outputs. The server SHOULD avoid including time
+  // spent the client doesn't have control over, and MAY extend or reduce the
+  // timeout to account for delays or speedups that occur during execution
+  // itself (e.g., lazily loading data from the Content Addressable Storage,
+  // live migration of virtual machines, emulation overhead).
   //
   // The timeout is a part of the
   // [Action][build.bazel.remote.execution.v2.Action] message, and
@@ -529,9 +540,21 @@ message Command {
     string value = 2;
   }
 
-  // The arguments to the command. The first argument must be the path to the
-  // executable, which must be either a relative path, in which case it is
-  // evaluated with respect to the input root, or an absolute path.
+  // The arguments to the command.
+  //
+  // The first argument specifies the command to run, which may be either an
+  // absolute path, a path relative to the working directory, or an unqualified
+  // path (without path separators) which will be resolved using the operating
+  // system's equivalent of the PATH environment variable. Path separators
+  // native to the operating system running on the worker SHOULD be used. If the
+  // `environment_variables` list contains an entry for the PATH environment
+  // variable, it SHOULD be respected. If not, the resolution process is
+  // implementation-defined.
+  //
+  // Changed in v2.3. v2.2 and older require that no PATH lookups are performed,
+  // and that relative paths are resolved relative to the input root. This
+  // behavior can, however, not be relied upon, as most implementations already
+  // followed the rules described above.
   repeated string arguments = 1;
 
   // The environment variables to set when running the program. The worker may
@@ -605,10 +628,10 @@ message Command {
   // The type of the output (file or directory) is not specified, and will be
   // determined by the server after action execution. If the resulting path is
   // a file, it will be returned in an
-  // [OutputFile][build.bazel.remote.execution.v2.OutputFile]) typed field.
+  // [OutputFile][build.bazel.remote.execution.v2.OutputFile] typed field.
   // If the path is a directory, the entire directory structure will be returned
   // as a [Tree][build.bazel.remote.execution.v2.Tree] message digest, see
-  // [OutputDirectory][build.bazel.remote.execution.v2.OutputDirectory])
+  // [OutputDirectory][build.bazel.remote.execution.v2.OutputDirectory]
   // Other files or directories that may be created during command execution
   // are discarded.
   //
@@ -942,6 +965,25 @@ message ExecutedActionMetadata {
   // When the worker completed executing the action command.
   google.protobuf.Timestamp execution_completed_timestamp = 8;
 
+  // New in v2.3: the amount of time the worker spent executing the action
+  // command, potentially computed using a worker-specific virtual clock.
+  //
+  // The virtual execution duration is only intended to cover the "execution" of
+  // the specified action and not time in queue nor any overheads before or
+  // after execution such as marshalling inputs/outputs. The server SHOULD avoid
+  // including time spent the client doesn't have control over, and MAY extend
+  // or reduce the execution duration to account for delays or speedups that
+  // occur during execution itself (e.g., lazily loading data from the Content
+  // Addressable Storage, live migration of virtual machines, emulation
+  // overhead).
+  //
+  // The method of timekeeping used to compute the virtual execution duration
+  // MUST be consistent with what is used to enforce the
+  // [Action][[build.bazel.remote.execution.v2.Action]'s `timeout`. There is no
+  // relationship between the virtual execution duration and the values of
+  // `execution_start_timestamp` and `execution_completed_timestamp`.
+  google.protobuf.Duration virtual_execution_duration = 12;
+
   // When the worker started uploading action outputs.
   google.protobuf.Timestamp output_upload_start_timestamp = 9;
 
@@ -1105,6 +1147,7 @@ message ActionResult {
   // [GetActionResultRequest][build.bazel.remote.execution.v2.GetActionResultRequest]
   // message. The server MAY omit inlining, even if requested, and MUST do so if inlining
   // would cause the response to exceed message size limits.
+  // Clients SHOULD NOT populate this field when uploading to the cache.
   bytes stdout_raw = 5;
 
   // The digest for a blob containing the standard output of the action, which
@@ -1117,6 +1160,7 @@ message ActionResult {
   // [GetActionResultRequest][build.bazel.remote.execution.v2.GetActionResultRequest]
   // message. The server MAY omit inlining, even if requested, and MUST do so if inlining
   // would cause the response to exceed message size limits.
+  // Clients SHOULD NOT populate this field when uploading to the cache.
   bytes stderr_raw = 7;
 
   // The digest for a blob containing the standard error of the action, which
@@ -1151,6 +1195,7 @@ message OutputFile {
   // [GetActionResultRequest][build.bazel.remote.execution.v2.GetActionResultRequest]
   // message. The server MAY omit inlining, even if requested, and MUST do so if inlining
   // would cause the response to exceed message size limits.
+  // Clients SHOULD NOT populate this field when uploading to the cache.
   bytes contents = 5;
 
   // The supported node properties of the OutputFile, if requested by the Action.
@@ -1169,6 +1214,9 @@ message Tree {
   // recursively, all its children. In order to reconstruct the directory tree,
   // the client must take the digests of each of the child directories and then
   // build up a tree starting from the `root`.
+  // Servers SHOULD ensure that these are ordered consistently such that two
+  // actions producing equivalent output directories on the same server
+  // implementation also produce Tree messages with matching digests.
   repeated Directory children = 2;
 }
 
@@ -1187,6 +1235,43 @@ message OutputDirectory {
   // [Tree][build.bazel.remote.execution.v2.Tree] proto containing the
   // directory's contents.
   Digest tree_digest = 3;
+
+  // If set, consumers MAY make the following assumptions about the
+  // directories contained in the the Tree, so that it may be
+  // instantiated on a local file system by scanning through it
+  // sequentially:
+  //
+  // - All directories with the same binary representation are stored
+  //   exactly once.
+  // - All directories, apart from the root directory, are referenced by
+  //   at least one parent directory.
+  // - Directories are stored in topological order, with parents being
+  //   stored before the child. The root directory is thus the first to
+  //   be stored.
+  //
+  // Additionally, the Tree MUST be encoded as a stream of records,
+  // where each record has the following format:
+  //
+  // - A tag byte, having one of the following two values:
+  //   - (1 << 3) | 2 == 0x0a: First record (the root directory).
+  //   - (2 << 3) | 2 == 0x12: Any subsequent records (child directories).
+  // - The size of the directory, encoded as a base 128 varint.
+  // - The contents of the directory, encoded as a binary serialized
+  //   Protobuf message.
+  //
+  // This encoding is a subset of the Protobuf wire format of the Tree
+  // message. As it is only permitted to store data associated with
+  // field numbers 1 and 2, the tag MUST be encoded as a single byte.
+  // More details on the Protobuf wire format can be found here:
+  // https://developers.google.com/protocol-buffers/docs/encoding
+  //
+  // It is recommended that implementations using this feature construct
+  // Tree objects manually using the specification given above, as
+  // opposed to using a Protobuf library to marshal a full Tree message.
+  // As individual Directory messages already need to be marshaled to
+  // compute their digests, constructing the Tree object manually avoids
+  // redundant marshaling.
+  bool is_topologically_sorted = 4;
 }
 
 // An `OutputSymlink` is similar to a
@@ -1334,6 +1419,17 @@ message ExecuteResponse {
 }
 
 // The current stage of action execution.
+//
+// Even though these stages are numbered according to the order in which
+// they generally occur, there is no requirement that the remote
+// execution system reports events along this order. For example, an
+// operation MAY transition from the EXECUTING stage back to QUEUED
+// in case the hardware on which the operation executes fails.
+//
+// If and only if the remote execution system reports that an operation
+// has reached the COMPLETED stage, it MUST set the [done
+// field][google.longrunning.Operation.done] of the
+// [Operation][google.longrunning.Operation] and terminate the stream.
 message ExecutionStage {
   enum Value {
     // Invalid value.
@@ -1469,6 +1565,12 @@ message BatchUpdateBlobsRequest {
 
     // The raw binary data.
     bytes data = 2;
+
+    // The format of `data`. Must be `IDENTITY`/unspecified, or one of the
+    // compressors advertised by the 
+    // [CacheCapabilities.supported_batch_compressors][build.bazel.remote.execution.v2.CacheCapabilities.supported_batch_compressors]
+    // field.
+    Compressor.Value compressor = 3;
   }
 
   // The instance of the execution system to operate against. A server may
@@ -1510,6 +1612,10 @@ message BatchReadBlobsRequest {
 
   // The individual blob digests.
   repeated Digest digests = 2;
+
+  // A list of acceptable encodings for the returned inlined data, in no
+  // particular order. `IDENTITY` is always allowed even if not specified here.
+  repeated Compressor.Value acceptable_compressors = 3;
 }
 
 // A response message for
@@ -1522,6 +1628,10 @@ message BatchReadBlobsResponse {
 
     // The raw binary data.
     bytes data = 2;
+
+    // The format the data is encoded in. MUST be `IDENTITY`/unspecified,
+    // or one of the acceptable compressors specified in the `BatchReadBlobsRequest`.
+    Compressor.Value compressor = 4;
 
     // The result of attempting to download that blob.
     google.rpc.Status status = 3;
@@ -1724,6 +1834,11 @@ message CacheCapabilities {
   // Note that this does not imply which if any compressors are supported by
   // the server at the gRPC level.
   repeated Compressor.Value supported_compressors = 6;
+
+  // Compressors supported for inlined data in
+  // [BatchUpdateBlobs][build.bazel.remote.execution.v2.ContentAddressableStorage.BatchUpdateBlobs]
+  // requests.
+  repeated Compressor.Value supported_batch_update_compressors = 7;
 }
 
 // Capabilities of the remote execution system.
