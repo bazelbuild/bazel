@@ -169,7 +169,7 @@ upper_tabs:
         path: /remote/caching
       - heading: Troubleshooting
       - title: Docker Sandbox
-        path: /remote/sandboxing
+        path: /remote/sandbox
       - title: Non-hermetic WORKSPACE rules
         path: /remote/workspace
       - title: Remote cache hits
