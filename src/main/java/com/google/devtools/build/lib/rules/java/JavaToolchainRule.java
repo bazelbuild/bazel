@@ -153,7 +153,6 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         .add(
             attr("singlejar", LABEL_LIST)
                 .mandatory()
-                .singleArtifact()
                 // This needs to be in the execution configuration.
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
