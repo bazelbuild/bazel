@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -869,6 +870,32 @@ public final class Profiler {
     private static final long GC_THREAD_SORT_INDEX = 2;
     private static final long MAX_SORT_INDEX = 1_000_000;
 
+    // Pick acceptable counter colors manually, unfortunately we have to pick from these
+    // weird reserved names from
+    // https://github.com/catapult-project/catapult/blob/master/tracing/tracing/base/color_scheme.html
+    private static final ImmutableMap<ProfilerTask, String> COUNTER_TASK_TO_COLOR =
+        ImmutableMap.of(
+            ProfilerTask.LOCAL_CPU_USAGE, "good",
+            ProfilerTask.SYSTEM_CPU_USAGE, "rail_load",
+            ProfilerTask.LOCAL_MEMORY_USAGE, "olive",
+            ProfilerTask.SYSTEM_MEMORY_USAGE, "bad",
+            ProfilerTask.SYSTEM_NETWORK_UP_USAGE, "rail_response",
+            ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE, "rail_response",
+            ProfilerTask.WORKERS_MEMORY_USAGE, "rail_animation",
+            ProfilerTask.SYSTEM_LOAD_AVERAGE, "generic_work");
+
+    private static final ImmutableMap<ProfilerTask, String> COUNTER_TASK_TO_SERIES_NAME =
+        ImmutableMap.of(
+            ProfilerTask.ACTION_COUNTS, "action",
+            ProfilerTask.LOCAL_CPU_USAGE, "cpu",
+            ProfilerTask.SYSTEM_CPU_USAGE, "system cpu",
+            ProfilerTask.LOCAL_MEMORY_USAGE, "memory",
+            ProfilerTask.SYSTEM_MEMORY_USAGE, "system memory",
+            ProfilerTask.SYSTEM_NETWORK_UP_USAGE, "system network up (Mbps)",
+            ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE, "system network down (Mbps)",
+            ProfilerTask.WORKERS_MEMORY_USAGE, "workers memory",
+            ProfilerTask.SYSTEM_LOAD_AVERAGE, "load");
+
     JsonTraceFileWriter(
         OutputStream outStream,
         long profileStartTimeNanos,
@@ -1172,15 +1199,7 @@ public final class Profiler {
               continue;
             }
 
-            if (data.type == ProfilerTask.LOCAL_CPU_USAGE
-                || data.type == ProfilerTask.LOCAL_MEMORY_USAGE
-                || data.type == ProfilerTask.ACTION_COUNTS
-                || data.type == ProfilerTask.SYSTEM_CPU_USAGE
-                || data.type == ProfilerTask.SYSTEM_MEMORY_USAGE
-                || data.type == ProfilerTask.SYSTEM_NETWORK_UP_USAGE
-                || data.type == ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE
-                || data.type == ProfilerTask.WORKERS_MEMORY_USAGE
-                || data.type == ProfilerTask.SYSTEM_LOAD_AVERAGE) {
+            if (COUNTER_TASK_TO_SERIES_NAME.containsKey(data.type)) {
               // Skip counts equal to zero. They will show up as a thin line in the profile.
               if ("0.0".equals(data.description)) {
                 continue;
@@ -1193,31 +1212,8 @@ public final class Profiler {
               // Pick acceptable counter colors manually, unfortunately we have to pick from these
               // weird reserved names from
               // https://github.com/catapult-project/catapult/blob/master/tracing/tracing/base/color_scheme.html
-              switch (data.type) {
-                case LOCAL_CPU_USAGE:
-                  writer.name("cname").value("good");
-                  break;
-                case LOCAL_MEMORY_USAGE:
-                  writer.name("cname").value("olive");
-                  break;
-                case SYSTEM_CPU_USAGE:
-                  writer.name("cname").value("rail_load");
-                  break;
-                case SYSTEM_MEMORY_USAGE:
-                  writer.name("cname").value("bad");
-                  break;
-                case SYSTEM_NETWORK_UP_USAGE:
-                case SYSTEM_NETWORK_DOWN_USAGE:
-                  writer.name("cname").value("rail_response");
-                  break;
-                case WORKERS_MEMORY_USAGE:
-                  writer.name("cname").value("rail_animation");
-                  break;
-                case SYSTEM_LOAD_AVERAGE:
-                  writer.name("cname").value("generic_work");
-                  break;
-                default:
-                  // won't happen
+              if (COUNTER_TASK_TO_COLOR.containsKey(data.type)) {
+                writer.name("cname").value(COUNTER_TASK_TO_COLOR.get(data.type));
               }
               writer.name("ph").value("C");
               writer
@@ -1229,37 +1225,7 @@ public final class Profiler {
               writer.name("args");
 
               writer.beginObject();
-              switch (data.type) {
-                case LOCAL_CPU_USAGE:
-                  writer.name("cpu").value(data.description);
-                  break;
-                case LOCAL_MEMORY_USAGE:
-                  writer.name("memory").value(data.description);
-                  break;
-                case ACTION_COUNTS:
-                  writer.name("action").value(data.description);
-                  break;
-                case SYSTEM_CPU_USAGE:
-                  writer.name("system cpu").value(data.description);
-                  break;
-                case SYSTEM_MEMORY_USAGE:
-                  writer.name("system memory").value(data.description);
-                  break;
-                case SYSTEM_NETWORK_UP_USAGE:
-                  writer.name("system network up (Mbps)").value(data.description);
-                  break;
-                case SYSTEM_NETWORK_DOWN_USAGE:
-                  writer.name("system network down (Mbps)").value(data.description);
-                  break;
-                case WORKERS_MEMORY_USAGE:
-                  writer.name("workers memory").value(data.description);
-                  break;
-                case SYSTEM_LOAD_AVERAGE:
-                  writer.name("load").value(data.description);
-                  break;
-                default:
-                  // won't happen
-              }
+              writer.name(COUNTER_TASK_TO_SERIES_NAME.get(data.type)).value(data.description);
               writer.endObject();
 
               writer.endObject();
