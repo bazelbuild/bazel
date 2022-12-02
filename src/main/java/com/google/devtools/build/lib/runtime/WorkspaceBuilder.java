@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.vfs.SingleFileSystemSyscallCache;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -96,7 +97,8 @@ public final class WorkspaceBuilder {
   BlazeWorkspace build(
       BlazeRuntime runtime,
       PackageFactory packageFactory,
-      SubscriberExceptionHandler eventBusExceptionHandler) throws AbruptExitException {
+      SubscriberExceptionHandler eventBusExceptionHandler)
+      throws AbruptExitException {
     // Set default values if none are set.
     if (skyframeExecutorFactory == null) {
       skyframeExecutorFactory = new SequencedSkyframeExecutorFactory();
@@ -104,6 +106,9 @@ public final class WorkspaceBuilder {
     if (perCommandSyscallCache == null) {
       perCommandSyscallCache = createPerBuildSyscallCache();
     }
+
+    SingleFileSystemSyscallCache singleFsSyscallCache =
+        new SingleFileSystemSyscallCache(perCommandSyscallCache, runtime.getFileSystem());
 
     SkyframeExecutor skyframeExecutor =
         skyframeExecutorFactory.create(
@@ -114,7 +119,7 @@ public final class WorkspaceBuilder {
             workspaceStatusActionFactory,
             diffAwarenessFactories.build(),
             skyFunctions.buildOrThrow(),
-            perCommandSyscallCache,
+            singleFsSyscallCache,
             skyframeExecutorRepositoryHelpersHolder,
             skyKeyStateReceiver == null
                 ? SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE
@@ -128,7 +133,7 @@ public final class WorkspaceBuilder {
         workspaceStatusActionFactory,
         binTools,
         allocationTracker,
-        perCommandSyscallCache);
+        singleFsSyscallCache);
   }
 
   /**
