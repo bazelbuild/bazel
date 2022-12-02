@@ -239,7 +239,7 @@ def _get_coverage_config(ctx):
         manifest = manifest,
         env = {
             "JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE": manifest.path,
-            "SINGLE_JAR_TOOL": singlejar.path,
+            "SINGLE_JAR_TOOL": singlejar.executable.path,
         },
         support_files = [manifest, singlejar],
     )

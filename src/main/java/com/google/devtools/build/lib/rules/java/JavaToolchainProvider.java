@@ -112,7 +112,7 @@ public final class JavaToolchainProvider extends NativeInfo
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
-      Artifact singleJar,
+      FilesToRunProvider singleJar,
       @Nullable FilesToRunProvider oneVersion,
       @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
@@ -174,7 +174,7 @@ public final class JavaToolchainProvider extends NativeInfo
   private final ImmutableSet<String> headerCompilerBuiltinProcessors;
   private final ImmutableSet<String> reducedClasspathIncompatibleProcessors;
   private final boolean forciblyDisableHeaderCompilation;
-  private final Artifact singleJar;
+  private final FilesToRunProvider singleJar;
   @Nullable private final FilesToRunProvider oneVersion;
   @Nullable private final Artifact oneVersionAllowlist;
   private final Artifact genClass;
@@ -208,7 +208,7 @@ public final class JavaToolchainProvider extends NativeInfo
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
-      Artifact singleJar,
+      FilesToRunProvider singleJar,
       @Nullable FilesToRunProvider oneVersion,
       @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
@@ -333,14 +333,14 @@ public final class JavaToolchainProvider extends NativeInfo
     return forciblyDisableHeaderCompilation;
   }
 
-  /** Returns the {@link Artifact} of the SingleJar deploy jar */
+  /** Returns the {@link FilesToRunProvider} of the SingleJar tool. */
   @Override
-  public Artifact getSingleJar() {
+  public FilesToRunProvider getSingleJar() {
     return singleJar;
   }
 
   /**
-   * Return the {@link Artifact} of the binary that enforces one-version compliance of java
+   * Return the {@link FilesToRunProvider} of the tool that enforces one-version compliance of Java
    * binaries.
    */
   @Override

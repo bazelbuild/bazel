@@ -1958,7 +1958,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   private static SpawnAction.Builder singleJarSpawnActionBuilder(RuleContext ruleContext) {
-    Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+    FilesToRunProvider singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
     SpawnAction.Builder builder =
         createSpawnActionBuilder(ruleContext).useDefaultShellEnvironment();
     builder.setExecutable(singleJar);

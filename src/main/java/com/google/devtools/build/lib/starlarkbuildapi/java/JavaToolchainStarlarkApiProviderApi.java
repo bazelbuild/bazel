@@ -49,13 +49,13 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
   @StarlarkMethod(name = "target_version", doc = "The java target version.", structField = true)
   String getTargetVersion();
 
-  @StarlarkMethod(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
-  FileApi getSingleJar();
+  @StarlarkMethod(name = "single_jar", doc = "The SingleJar tool.", structField = true)
+  FilesToRunProviderApi<? extends FileApi> getSingleJar();
 
   @Nullable
   @StarlarkMethod(
       name = "one_version_tool",
-      doc = "The artifact that enforces One-Version compliance of java binaries.",
+      doc = "The tool that enforces One-Version compliance of java binaries.",
       structField = true,
       allowReturnNones = true)
   FilesToRunProviderApi<? extends FileApi> getOneVersionBinary();
