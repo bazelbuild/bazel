@@ -210,7 +210,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
 
-  // Internal flags (OptionMetadataTag.INTERNAL) cannot be set from the command-line, but
+  // Internal flags, such as "output directory name", cannot be set from the command-line, but
   // platform mapping needs to access them.
   @Test
   public void ableToChangeInternalOption() throws Exception {
@@ -218,7 +218,8 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         "my_mapping_file",
         "platforms:", // Force line break
         "  //platforms:one", // Force line break
-        "    --internal foo=something_new");
+        "    --internal foo=something_new",
+        "    --output directory name=updated_output_dir");
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
@@ -230,6 +231,8 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     assertThat(mapped.getOptions().get(DummyTestFragment.DummyTestOptions.class).internalFoo)
         .isEqualTo("something_new");
+    assertThat(mapped.getOptions().get(CoreOptions.class).outputDirectoryName)
+        .isEqualTo("updated_output_dir");
   }
 
   private PlatformMappingValue executeFunction(PlatformMappingValue.Key key) throws Exception {

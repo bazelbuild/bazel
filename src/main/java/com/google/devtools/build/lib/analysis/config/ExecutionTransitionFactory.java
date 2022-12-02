@@ -126,8 +126,11 @@ public class ExecutionTransitionFactory
 
       CoreOptions coreOptions = checkNotNull(execOptions.get(CoreOptions.class));
       coreOptions.isExec = true;
+
       // Disable extra actions
       coreOptions.actionListeners = ImmutableList.of();
+      coreOptions.actionListeners = null;
+      coreOptions.outputDirectoryName = null;
 
       // Then set the target to the saved execution platform if there is one.
       PlatformOptions platformOptions = execOptions.get(PlatformOptions.class);

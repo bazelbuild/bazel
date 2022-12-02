@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -137,6 +138,12 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   public void reportInvalidOptions(EventHandler reporter) {
     for (Fragment fragment : fragments.values()) {
       fragment.reportInvalidOptions(reporter, this.buildOptions);
+    }
+
+    if (options.outputDirectoryName != null) {
+      reporter.handle(
+          Event.error(
+              "The internal '--output directory name' option cannot be used on the command line"));
     }
   }
 

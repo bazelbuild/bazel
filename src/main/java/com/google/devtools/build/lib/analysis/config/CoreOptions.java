@@ -259,6 +259,23 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "'fastbuild', 'dbg', 'opt'.")
   public CompilationMode hostCompilationMode;
 
+  /**
+   * This option is used internally to set output directory name of the <i>host</i> configuration to
+   * a constant, so that the output files for the host are completely independent of those for the
+   * target, no matter what options are in force (k8/piii, opt/dbg, etc).
+   */
+  @Option(
+      name = "output directory name",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS
+      },
+      metadataTags = {OptionMetadataTag.INTERNAL})
+  public String outputDirectoryName;
+
   @Option(
       name = "experimental_enable_aspect_hints",
       defaultValue = "false",

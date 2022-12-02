@@ -109,6 +109,7 @@ public class OutputDirectories {
 
   private final BlazeDirectories directories;
   private final String mnemonic;
+  private final String outputDirName;
 
   private final ArtifactRoot outputDirectory;
   private final ArtifactRoot binDirectory;
@@ -136,20 +137,22 @@ public class OutputDirectories {
     this.directories = directories;
     this.mnemonic =
         buildMnemonic(options, platformOptions, fragments, transitionDirectoryNameFragment);
+    this.outputDirName =
+        (options.outputDirectoryName != null) ? options.outputDirectoryName : mnemonic;
 
     this.outputDirectory =
-        OutputDirectory.OUTPUT.getRoot(mnemonic, directories, mainRepositoryName);
-    this.binDirectory = OutputDirectory.BIN.getRoot(mnemonic, directories, mainRepositoryName);
+        OutputDirectory.OUTPUT.getRoot(outputDirName, directories, mainRepositoryName);
+    this.binDirectory = OutputDirectory.BIN.getRoot(outputDirName, directories, mainRepositoryName);
     this.buildInfoDirectory =
-        OutputDirectory.BUILDINFO.getRoot(mnemonic, directories, mainRepositoryName);
+        OutputDirectory.BUILDINFO.getRoot(outputDirName, directories, mainRepositoryName);
     this.genfilesDirectory =
-        OutputDirectory.GENFILES.getRoot(mnemonic, directories, mainRepositoryName);
+        OutputDirectory.GENFILES.getRoot(outputDirName, directories, mainRepositoryName);
     this.coverageDirectory =
-        OutputDirectory.COVERAGE.getRoot(mnemonic, directories, mainRepositoryName);
+        OutputDirectory.COVERAGE.getRoot(outputDirName, directories, mainRepositoryName);
     this.testlogsDirectory =
-        OutputDirectory.TESTLOGS.getRoot(mnemonic, directories, mainRepositoryName);
+        OutputDirectory.TESTLOGS.getRoot(outputDirName, directories, mainRepositoryName);
     this.middlemanDirectory =
-        OutputDirectory.MIDDLEMAN.getRoot(mnemonic, directories, mainRepositoryName);
+        OutputDirectory.MIDDLEMAN.getRoot(outputDirName, directories, mainRepositoryName);
 
     this.mergeGenfilesDirectory = options.mergeGenfilesDirectory;
     this.siblingRepositoryLayout = siblingRepositoryLayout;
