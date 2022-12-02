@@ -26,6 +26,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINK_INPUTS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.COMPILABLE_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
@@ -548,10 +549,10 @@ public class CompilationSupport implements StarlarkValue {
     ObjcVariablesExtension.Builder extensionBuilder =
         new ObjcVariablesExtension.Builder()
             .setRuleContext(ruleContext)
-            .setObjcProvider(objcProvider)
             .setConfiguration(buildConfiguration)
             .setIntermediateArtifacts(intermediateArtifacts)
             .setFrameworkNames(frameworkNames(objcProvider))
+            .setWeakFrameworkNames(objcProvider.get(WEAK_SDK_FRAMEWORK).toList())
             .setFrameworkSearchPath(frameworkLibrarySearchPaths(objcProvider))
             .setLibraryNames(libraryNames(objcProvider))
             .setForceLoadArtifacts(alwaysLinkLibrarySet)
@@ -707,12 +708,12 @@ public class CompilationSupport implements StarlarkValue {
    * paths, but this is imposed on us by clang. clang does not support passing the full path to the
    * framework, so Bazel cannot do it either.
    */
-  private Set<String> frameworkNames(ObjcProvider provider) {
+  private ImmutableList<String> frameworkNames(ObjcProvider provider) {
     Set<String> names = new LinkedHashSet<>();
     names.addAll(provider.get(SDK_FRAMEWORK).toList());
     names.addAll(provider.staticFrameworkNames().toList());
     names.addAll(provider.dynamicFrameworkNames().toList());
-    return names;
+    return ImmutableList.copyOf(names);
   }
 
   /** Returns libraries that should be passed to the linker. */
