@@ -218,7 +218,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
 
     SandboxInputs inputs =
-        helpers.processInputFiles(context.getInputMapping(PathFragment.EMPTY_FRAGMENT), execRoot);
+        helpers.processInputFiles(
+            context.getInputMapping(PathFragment.EMPTY_FRAGMENT), execRoot, execRoot, null);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
     Duration timeout = context.getTimeout();
