@@ -1752,4 +1752,68 @@ EOF
   bazel build //:main --repo_env=CC=clang || fail "Expected compiler flag to have value 'clang'"
 }
 
+function test_bazel_cxxopts() {
+  cat > BUILD.bazel <<'EOF'
+cc_binary(
+  name = "main_c",
+  srcs = ["main.c"],
+)
+cc_binary(
+  name = "main_cpp",
+  srcs = ["main.cpp"],
+)
+EOF
+  cat > main.c <<'EOF'
+#include <stdlib.h>
+int main() {
+  exit(EXIT_CODE);
+}
+EOF
+  cat > main.cpp <<'EOF'
+#include <stdlib.h>
+int main() {
+  exit(EXIT_CODE);
+}
+EOF
+
+  bazel build //:main_c \
+    --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1 \
+    --repo_env=BAZEL_CXXOPTS=-DEXIT_CODE=0 && fail "Expected C compilation to fail"
+  bazel run //:main_cpp \
+    --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1 \
+    --repo_env=BAZEL_CXXOPTS=-DEXIT_CODE=0 || fail "Expected C++ compilation to pass"
+}
+
+function test_bazel_conlyopts() {
+  cat > BUILD.bazel <<'EOF'
+cc_binary(
+  name = "main_c",
+  srcs = ["main.c"],
+)
+cc_binary(
+  name = "main_cpp",
+  srcs = ["main.cpp"],
+)
+EOF
+  cat > main.c <<'EOF'
+#include <stdlib.h>
+int main() {
+  exit(EXIT_CODE);
+}
+EOF
+  cat > main.cpp <<'EOF'
+#include <stdlib.h>
+int main() {
+  exit(EXIT_CODE);
+}
+EOF
+
+  bazel build //:main_cpp \
+    --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1 \
+    --repo_env=BAZEL_CONLYOPTS=-DEXIT_CODE=0 && fail "Expected C++ compilation to fail"
+  bazel run //:main_c \
+    --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1 \
+    --repo_env=BAZEL_CONLYOPTS=-DEXIT_CODE=0 || fail "Expected C compilation to pass"
+}
+
 run_suite "cc_integration_test"
