@@ -746,7 +746,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   }
 
   public List<Label> getActionListeners() {
-    return options.actionListeners == null ? ImmutableList.of() : options.actionListeners;
+    return options.actionListeners;
   }
 
   /**
