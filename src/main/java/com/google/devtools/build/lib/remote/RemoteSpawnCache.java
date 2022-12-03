@@ -200,7 +200,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
         private void checkForConcurrentModifications()
             throws IOException, ForbiddenActionInputException {
-          for (ActionInput input : action.getInputMap().values()) {
+          for (ActionInput input : action.getInputMap(true).values()) {
             if (input instanceof VirtualActionInput) {
               continue;
             }

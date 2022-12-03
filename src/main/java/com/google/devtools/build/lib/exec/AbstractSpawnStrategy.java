@@ -179,7 +179,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         spawnLogContext.logSpawn(
             spawn,
             actionExecutionContext.getMetadataProvider(),
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
+            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, false),
             context.getTimeout(),
             spawnResult);
       } catch (IOException | ForbiddenActionInputException e) {
@@ -240,7 +240,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         actionExecutionContext
             .getActionInputPrefetcher()
             .prefetchFiles(
-                getInputMapping(PathFragment.EMPTY_FRAGMENT).values(), getMetadataProvider());
+                getInputMapping(PathFragment.EMPTY_FRAGMENT, true).values(), getMetadataProvider());
       }
     }
 
@@ -297,22 +297,28 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory)
+    public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory, boolean willAccessRepeatedly)
         throws IOException, ForbiddenActionInputException {
-      if (lazyInputMapping == null || !inputMappingBaseDirectory.equals(baseDirectory)) {
-        try (SilentCloseable c =
-            Profiler.instance().profile("AbstractSpawnStrategy.getInputMapping")) {
-          inputMappingBaseDirectory = baseDirectory;
-          lazyInputMapping =
-              spawnInputExpander.getInputMapping(
-                  spawn,
-                  actionExecutionContext.getArtifactExpander(),
-                  baseDirectory,
-                  actionExecutionContext.getMetadataProvider());
-        }
+      if (lazyInputMapping != null && inputMappingBaseDirectory.equals(baseDirectory)) {
+        return lazyInputMapping;
       }
 
-      return lazyInputMapping;
+      SortedMap<PathFragment, ActionInput> inputMapping;
+      try (SilentCloseable c =
+          Profiler.instance().profile("AbstractSpawnStrategy.getInputMapping")) {
+        inputMapping =
+            spawnInputExpander.getInputMapping(
+                spawn,
+                actionExecutionContext.getArtifactExpander(),
+                baseDirectory,
+                actionExecutionContext.getMetadataProvider());
+      }
+
+      if (willAccessRepeatedly) {
+        inputMappingBaseDirectory = baseDirectory;
+        lazyInputMapping = inputMapping;
+      }
+      return inputMapping;
     }
 
     @Override

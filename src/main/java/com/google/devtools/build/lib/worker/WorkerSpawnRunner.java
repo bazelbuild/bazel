@@ -193,7 +193,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Setting up inputs")) {
         inputFiles =
             helpers.processInputFiles(
-                context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
+                context.getInputMapping(PathFragment.EMPTY_FRAGMENT, true),
                 spawn,
                 context.getArtifactExpander(),
                 execRoot);

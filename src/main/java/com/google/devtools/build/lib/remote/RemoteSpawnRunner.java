@@ -570,9 +570,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
   SpawnResult execLocallyAndUpload(
       RemoteAction action, Spawn spawn, SpawnExecutionContext context, boolean uploadLocalResults)
       throws ExecException, IOException, ForbiddenActionInputException, InterruptedException {
-    Map<Path, Long> ctimesBefore = getInputCtimes(action.getInputMap());
+    Map<Path, Long> ctimesBefore = getInputCtimes(action.getInputMap(true));
     SpawnResult result = execLocally(spawn, context);
-    Map<Path, Long> ctimesAfter = getInputCtimes(action.getInputMap());
+    Map<Path, Long> ctimesAfter = getInputCtimes(action.getInputMap(true));
     uploadLocalResults =
         uploadLocalResults && Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
     if (!uploadLocalResults) {

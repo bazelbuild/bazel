@@ -183,7 +183,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     SandboxInputs inputs =
         helpers.processInputFiles(
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
+            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, true),
             spawn,
             context.getArtifactExpander(),
             execRoot);
@@ -385,7 +385,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private void checkForConcurrentModifications(SpawnExecutionContext context)
       throws IOException, ForbiddenActionInputException {
-    for (ActionInput input : (context.getInputMapping(PathFragment.EMPTY_FRAGMENT).values())) {
+    for (ActionInput input : (context.getInputMapping(PathFragment.EMPTY_FRAGMENT, true).values())) {
       if (input instanceof VirtualActionInput) {
         continue;
       }

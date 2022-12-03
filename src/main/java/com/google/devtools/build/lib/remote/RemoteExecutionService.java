@@ -339,9 +339,9 @@ public class RemoteExecutionService {
      * Returns a {@link SortedMap} which maps from input paths for remote action to {@link
      * ActionInput}.
      */
-    public SortedMap<PathFragment, ActionInput> getInputMap()
+    public SortedMap<PathFragment, ActionInput> getInputMap(boolean willAccessRepeatedly)
         throws IOException, ForbiddenActionInputException {
-      return remotePathResolver.getInputMapping(spawnExecutionContext);
+      return remotePathResolver.getInputMapping(spawnExecutionContext, willAccessRepeatedly);
     }
 
     /**
@@ -418,7 +418,7 @@ public class RemoteExecutionService {
           });
       return MerkleTree.merge(subMerkleTrees, digestUtil);
     } else {
-      SortedMap<PathFragment, ActionInput> inputMap = remotePathResolver.getInputMapping(context);
+      SortedMap<PathFragment, ActionInput> inputMap = remotePathResolver.getInputMapping(context, false);
       return MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
     }
   }
