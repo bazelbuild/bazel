@@ -396,5 +396,71 @@ EOF
   expect_log_once "Runfiles must not contain middleman artifacts"
 }
 
+function test_cc_runfiles_library_in_action_with_long_path() {
+  local -r long_pkg=$(printf 'p23456789/%.0s' {1..9} | cut -c -89)
+
+  mkdir -p $long_pkg
+  cat > $long_pkg/def.bzl << 'EOF'
+def _impl(ctx):
+    ctx.actions.run(
+        outputs = [ctx.outputs.out],
+        executable = ctx.executable._tool,
+        arguments = [ctx.outputs.out.path],
+    )
+    return [DefaultInfo(files = depset([ctx.outputs.out]))]
+
+my_rule = rule(
+    implementation = _impl,
+    attrs = {
+        "out": attr.output(),
+        "_tool": attr.label(
+            executable = True,
+            cfg = "exec",
+            default = ":not_a_short_name_tool",
+        ),
+    },
+)
+EOF
+
+
+  cat > $long_pkg/BUILD.bazel <<'EOF'
+load(":def.bzl", "my_rule")
+cc_binary(
+  name = "not_a_short_name_tool",
+  srcs = ["tool.cc"],
+  data = ["data.txt"],
+  deps = ["@bazel_tools//tools/cpp/runfiles"],
+)
+
+my_rule(
+  name = "gen",
+  out = "gen.txt",
+)
+
+EOF
+
+  cat > $long_pkg/tool.cc <<EOF
+#include <cstdlib>
+#include <fstream>
+
+#include "tools/cpp/runfiles/runfiles.h"
+
+using bazel::tools::cpp::runfiles::Runfiles;
+
+int main(int argc, char** argv) {
+  Runfiles* runfiles = Runfiles::Create(argv[0], BAZEL_CURRENT_REPOSITORY);
+  std::ifstream input(runfiles->Rlocation("main/${long_pkg}/data.txt"), std::ios::binary);
+  std::ofstream output(argv[1], std::ios::binary);
+  output << input.rdbuf();
+}
+EOF
+
+  cat > $long_pkg/data.txt <<'EOF'
+hello
+EOF
+
+  bazel build -s //$long_pkg:gen || fail "Expected build to succeed"
+  assert_contains "hello" bazel-bin/$long_pkg/gen.txt
+}
 
 run_suite "runfiles"
