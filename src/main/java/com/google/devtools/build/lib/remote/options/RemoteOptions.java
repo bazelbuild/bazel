@@ -647,6 +647,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "can be used to implement remote persistent workers.")
   public boolean markToolInputs;
 
+  @Option(
+      name = "experimental_remote_discard_merkle_trees",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, discard in-memory copies of the input root's Merkle tree and associated "
+              + "input mappings during calls to GetActionResult() and Execute(). This reduces "
+              + "memory usage significantly, but does require Bazel to recompute them upon remote "
+              + "cache misses and retries.")
+  public boolean remoteDiscardMerkleTrees;
+
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
 

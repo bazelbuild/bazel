@@ -1701,7 +1701,7 @@ public class RemoteExecutionServiceTest {
                 service.uploadInputsIfNotPresent(action, /*force=*/ false);
               } catch (InterruptedException ignored) {
                 interrupted.countDown();
-              } catch (IOException ignored) {
+              } catch (Exception ignored) {
                 // intentionally ignored
               }
             });

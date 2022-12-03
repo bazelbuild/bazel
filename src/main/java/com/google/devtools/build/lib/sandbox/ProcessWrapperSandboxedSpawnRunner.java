@@ -115,7 +115,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
 
     SandboxInputs inputs =
         helpers.processInputFiles(
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
+            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly = */ true),
             execRoot,
             execRoot,
             packageRoots,

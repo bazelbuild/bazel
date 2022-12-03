@@ -225,7 +225,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     SandboxInputs inputs =
         helpers.processInputFiles(
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
+            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly = */ true),
             execRoot,
             execRoot,
             packageRoots,

@@ -2201,6 +2201,13 @@ function test_empty_tree_artifact_as_inputs() {
   bazel build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_discard_merkle_trees \
+    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree discarding"
+
+  bazel clean --expunge
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_sibling_repository_layout \
     //pkg:a &>$TEST_log || fail "expected build to succeed with sibling repository layout"
 }
@@ -2268,6 +2275,15 @@ function test_create_tree_artifact_outputs() {
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_merkle_tree_cache \
     //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
+  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
+  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
+
+  bazel clean --expunge
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_discard_merkle_trees \
+    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree discarding"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 
@@ -3094,6 +3110,15 @@ EOF
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_merkle_tree_cache \
     //pkg:b &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
+
+  bazel clean --expunge
+  bazel \
+    --windows_enable_symlinks \
+    build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_discard_merkle_trees \
+    //pkg:b &>$TEST_log || fail "expected build to succeed with Merkle tree discarding"
 
   if [[ "$(cat bazel-bin/pkg/b.txt)" != "$link_target" ]]; then
     fail "expected symlink target to be $link_target"
