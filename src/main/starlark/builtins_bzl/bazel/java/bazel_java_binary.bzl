@@ -18,6 +18,7 @@ load(":common/java/java_semantics.bzl", "semantics")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/java/java_helper.bzl", helper = "util")
 load(":common/java/java_binary.bzl", "BASIC_JAVA_BINARY_ATTRIBUTES", "basic_java_binary")
+load(":common/paths.bzl", "paths")
 
 JavaInfo = _builtins.toplevel.JavaInfo
 
@@ -177,7 +178,7 @@ def _format_classpath_entry(runfiles_enabled, workspace_prefix, file):
     if runfiles_enabled:
         return "${RUNPATH}" + file.short_path
 
-    return "$(rlocation " + workspace_prefix + file.short_path + ")"
+    return "$(rlocation " + paths.normalize(workspace_prefix + file.short_path) + ")"
 
 def _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jvm_flags_for_launcher, runfiles_enabled, executable):
     launch_info = ctx.actions.args().use_param_file("%s", use_always = True).set_param_file_format("multiline")
@@ -190,11 +191,12 @@ def _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jv
     launch_info.add_joined(jvm_flags_for_launcher, join_with = "\t", format_joined = "jvm_flags=%s")
     jar_bin_path = semantics.find_java_runtime_toolchain(ctx).java_home + "/bin/jar.exe"
     launch_info.add(jar_bin_path, format = "jar_bin_path=%s")
+    launcher_artifact = ctx.executable._launcher
     ctx.actions.run(
         executable = ctx.executable._windows_launcher_maker,
-        inputs = [ctx.file._launcher],
+        inputs = [launcher_artifact],
         outputs = [executable],
-        arguments = [ctx.file._launcher, launch_info, executable],
+        arguments = [launcher_artifact.path, launch_info, executable.path],
     )
     return executable
 

@@ -16,6 +16,7 @@
 
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/paths.bzl", "paths")
 
 cc_common = _builtins.toplevel.cc_common
 
@@ -248,7 +249,7 @@ def _get_java_executable(ctx, java_runtime_toolchain, launcher):
     java_executable = launcher.short_path if launcher else java_runtime_toolchain.java_executable_runfiles_path
     if not _is_absolute_path(ctx, java_executable):
         java_executable = ctx.workspace_name + "/" + java_executable
-    return java_executable
+    return paths.normalize(java_executable)
 
 # TODO(hvd): we should check target/exec platform and not host
 def _is_windows(ctx):

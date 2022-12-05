@@ -209,7 +209,7 @@ def basic_java_binary(
     runfiles_symlinks = {}
 
     # TODO(hvd): do we need this in bazel? if yes, fix abs path check on windows
-    if not java_runtime_toolchain.java_home.startswith("/"):
+    if not helper.is_absolute_path(ctx, java_runtime_toolchain.java_home):
         runfiles_symlinks = {
             ("_cpp_runtimes/%s" % lib.basename): lib
             for lib in cc_toolchain.dynamic_runtime_lib(
