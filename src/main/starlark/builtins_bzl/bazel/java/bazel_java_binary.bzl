@@ -145,7 +145,14 @@ def _create_stub(ctx, java_attrs, launcher, executable, jvm_flags, main_class, c
         java_bin = "JAVABIN=${JAVABIN:-$(rlocation " + java_executable + ")}"
 
     td = ctx.actions.template_dict()
-    td.add_joined()
+    td.add_joined(
+        "%classpath%",
+        classpath,
+        map_each = lambda file: _format_classpath_entry(runfiles_enabled, workspace_prefix, file),
+        join_with = ctx.configuration.host_path_separator,
+        format_joined = "\"%s\"",
+        allow_closure = True,
+    )
 
     ctx.actions.expand_template(
         template = ctx.file._stub_template,
@@ -165,6 +172,12 @@ def _create_stub(ctx, java_attrs, launcher, executable, jvm_flags, main_class, c
         is_executable = True,
     )
     return executable
+
+def _format_classpath_entry(runfiles_enabled, workspace_prefix, file):
+    if runfiles_enabled:
+        return "${RUNPATH}" + file.short_path
+
+    return "$(rlocation " + workspace_prefix + file.short_path + ")"
 
 def _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jvm_flags_for_launcher, runfiles_enabled, executable):
     launch_info = ctx.actions.args().use_param_file("%s", use_always = True).set_param_file_format("multiline")

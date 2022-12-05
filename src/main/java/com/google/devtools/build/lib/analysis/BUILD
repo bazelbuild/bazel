@@ -2324,6 +2324,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
