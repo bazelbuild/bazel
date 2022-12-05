@@ -187,8 +187,8 @@ def _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jv
     launch_info.add("1" if runfiles_enabled else "0", format = "symlink_runfiles_enabled=%s")
     launch_info.add(java_executable, format = "java_bin_path=%s")
     launch_info.add(main_class, format = "java_start_class=%s")
-    launch_info.add_joined(classpath, map_each = _short_path, join_with = ";", format_joined = "classpath=%s")
-    launch_info.add_joined(jvm_flags_for_launcher, join_with = "\t", format_joined = "jvm_flags=%s")
+    launch_info.add_joined(classpath, map_each = _short_path, join_with = ";", format_joined = "classpath=%s", omit_if_empty = False)
+    launch_info.add_joined(jvm_flags_for_launcher, join_with = "\t", format_joined = "jvm_flags=%s", omit_if_empty = False)
     jar_bin_path = semantics.find_java_runtime_toolchain(ctx).java_home + "/bin/jar.exe"
     launch_info.add(jar_bin_path, format = "jar_bin_path=%s")
     launcher_artifact = ctx.executable._launcher
