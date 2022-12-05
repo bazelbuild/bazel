@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
@@ -49,7 +50,10 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
   @StarlarkMethod(name = "target_version", doc = "The java target version.", structField = true)
   String getTargetVersion();
 
-  @StarlarkMethod(name = "single_jar", doc = "The SingleJar tool.", structField = true)
+  @StarlarkMethod(name = "label", doc = "The toolchain label.", structField = true)
+  Label getToolchainLabel();
+
+  @StarlarkMethod(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
   FilesToRunProviderApi<? extends FileApi> getSingleJar();
 
   @Nullable

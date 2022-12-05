@@ -27,9 +27,10 @@ def _check_proto_registry_collision(ctx):
     pass
 
 def _get_coverage_runner(ctx):
-    runner = ctx.attr._java_toolchain[java_common.JavaToolchainInfo].jacocorunner
+    toolchain = _find_java_toolchain(ctx)
+    runner = toolchain.jacocorunner
     if not runner:
-        fail("jacocorunner not set in java_toolchain")
+        fail("jacocorunner not set in java_toolchain: %s" % toolchain.label)
     runner_jar = runner.executable
 
     # wrap the jar in JavaInfo so we can add it to deps for java_common.compile()

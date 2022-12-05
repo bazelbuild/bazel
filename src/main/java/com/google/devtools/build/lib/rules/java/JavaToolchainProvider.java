@@ -263,6 +263,7 @@ public final class JavaToolchainProvider extends NativeInfo
   }
 
   /** Returns the label for this {@code java_toolchain}. */
+  @Override
   public Label getToolchainLabel() {
     return label;
   }
