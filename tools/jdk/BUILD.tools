@@ -470,3 +470,5 @@ java_runtime_version_alias(
     runtime_version = "8",
     visibility = ["//visibility:public"],
 )
+
+exports_files(["java_stub_template.txt"])
