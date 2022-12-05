@@ -685,6 +685,17 @@ def _bazel_java_binary_impl(ctx):
 
     if executable:
         _create_stub(ctx, java_attrs, java_runtime_toolchain, launcher_info.launcher, executable, jvm_flags, main_class, coverage_main_class, coverage_config)
+
+    runfiles = default_info.runfiles
+    if ctx.fragments.java.use_legacy_java_test and ctx.attr.create_executable and ctx.attr.use_testrunner and ctx.attr._test_support:
+        runfiles = runfiles.merge(ctx.attr._test_support[DefaultInfo].default_runfiles)
+
+    providers["DefaultInfo"] = DefaultInfo(
+        files = default_info.files,
+        runfiles = runfiles,
+        executable = default_info.executable,
+    )
+
     return providers.values()
 
 def _compute_test_support(use_testrunner):
