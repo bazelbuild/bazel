@@ -77,6 +77,7 @@ _FEATURE_NAMES = struct(
     implicit_fsafdo = "implicit_fsafdo",
     enable_fsafdo = "enable_fsafdo",
     supports_pic = "supports_pic",
+    prefer_pic_for_opt_binaries = "prefer_pic_for_opt_binaries",
     copy_dynamic_libraries_to_binary = "copy_dynamic_libraries_to_binary",
     per_object_debug_info = "per_object_debug_info",
     supports_start_end_lib = "supports_start_end_lib",
@@ -816,6 +817,11 @@ _supports_start_end_lib_feature = feature(
 
 _supports_pic_feature = feature(name = _FEATURE_NAMES.supports_pic, enabled = True)
 
+_prefer_pic_for_opt_binaries_feature = feature(
+    name = _FEATURE_NAMES.prefer_pic_for_opt_binaries,
+    enabled = True,
+)
+
 _targets_windows_feature = feature(
     name = _FEATURE_NAMES.targets_windows,
     enabled = True,
@@ -1342,6 +1348,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.copy_dynamic_libraries_to_binary: _copy_dynamic_libraries_to_binary_feature,
     _FEATURE_NAMES.supports_start_end_lib: _supports_start_end_lib_feature,
     _FEATURE_NAMES.supports_pic: _supports_pic_feature,
+    _FEATURE_NAMES.prefer_pic_for_opt_binaries: _prefer_pic_for_opt_binaries_feature,
     _FEATURE_NAMES.targets_windows: _targets_windows_feature,
     _FEATURE_NAMES.archive_param_file: _archive_param_file_feature,
     _FEATURE_NAMES.compiler_param_file: _compiler_param_file_feature,

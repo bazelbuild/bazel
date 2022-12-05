@@ -1014,6 +1014,66 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testPreferPicForOptBinaryFeature() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.NO_LEGACY_FEATURES,
+                    CppRuleClasses.SUPPORTS_PIC,
+                    CppRuleClasses.PREFER_PIC_FOR_OPT_BINARIES)
+                .withActionConfigs(
+                    CppActionNames.CPP_LINK_STATIC_LIBRARY,
+                    CppActionNames.CPP_COMPILE,
+                    CppActionNames.CPP_LINK_NODEPS_DYNAMIC_LIBRARY));
+    useConfiguration("--cpu=k8", "--compilation_mode=opt");
+
+    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
+    scratch.file("x/a.cc");
+
+    RuleConfiguredTarget ccLibrary = (RuleConfiguredTarget) getConfiguredTarget("//x:foo");
+    ImmutableList<ActionAnalysisMetadata> actions = ccLibrary.getActions();
+    ImmutableList<String> outputs =
+        actions.stream()
+            .map(ActionAnalysisMetadata::getPrimaryOutput)
+            .map(Artifact::getFilename)
+            .collect(ImmutableList.toImmutableList());
+    assertThat(outputs).doesNotContain("a.o");
+    assertThat(outputs).contains("a.pic.o");
+  }
+
+  @Test
+  public void testPreferPicForOptBinaryFeatureNeedsPicSupport() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.NO_LEGACY_FEATURES, CppRuleClasses.PREFER_PIC_FOR_OPT_BINARIES)
+                .withActionConfigs(
+                    CppActionNames.CPP_LINK_STATIC_LIBRARY,
+                    CppActionNames.CPP_COMPILE,
+                    CppActionNames.CPP_LINK_NODEPS_DYNAMIC_LIBRARY));
+    useConfiguration("--cpu=k8", "--compilation_mode=opt");
+
+    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
+    scratch.file("x/a.cc");
+
+    RuleConfiguredTarget ccLibrary = (RuleConfiguredTarget) getConfiguredTarget("//x:foo");
+    ImmutableList<ActionAnalysisMetadata> actions = ccLibrary.getActions();
+    ImmutableList<String> outputs =
+        actions.stream()
+            .map(ActionAnalysisMetadata::getPrimaryOutput)
+            .map(Artifact::getFilename)
+            .collect(ImmutableList.toImmutableList());
+    assertThat(outputs).doesNotContain("a.pic.o");
+    assertThat(outputs).contains("a.o");
+  }
+
+  @Test
   public void testWhenSupportsPicNotPresentAndForcePicPassedIsError() throws Exception {
     reporter.removeHandler(failFastHandler);
     getAnalysisMock()
