@@ -656,6 +656,9 @@ class LauncherTest(test_base.TestBase):
     long_dir_path = './' + '/'.join(
         [(c * 8 + '.' + c * 3) for c in string.ascii_lowercase])
 
+    # The 'not_short_' prefix ensures that the basenames are not already 8.3
+    # short paths. Due to the long directory path, the basename will thus be
+    # replaced with a short path such as "not_sh~1.exe" below.
     for f in [
         'not_short_bin_java.exe',
         'not_short_bin_java.exe.runfiles_manifest',
@@ -677,6 +680,7 @@ class LauncherTest(test_base.TestBase):
     self.assertEqual('helloworld', ''.join(stdout))
     # Make sure we can launch the binary with a shortened Windows 8dot3 path
     short_binary_path = win32api.GetShortPathName(long_binary_path)
+    self.assertIn('~', os.path.basename(short_binary_path))
     exit_code, stdout, stderr = self.RunProgram([short_binary_path], shell=True)
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual('helloworld', ''.join(stdout))
@@ -688,6 +692,7 @@ class LauncherTest(test_base.TestBase):
     self.assertEqual('helloworld', ''.join(stdout))
     # Make sure we can launch the binary with a shortened Windows 8dot3 path
     short_binary_path = win32api.GetShortPathName(long_binary_path)
+    self.assertIn('~', os.path.basename(short_binary_path))
     exit_code, stdout, stderr = self.RunProgram([short_binary_path], shell=True)
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual('helloworld', ''.join(stdout))
@@ -699,6 +704,7 @@ class LauncherTest(test_base.TestBase):
     self.assertEqual('helloworld', ''.join(stdout))
     # Make sure we can launch the binary with a shortened Windows 8dot3 path
     short_binary_path = win32api.GetShortPathName(long_binary_path)
+    self.assertIn('~', os.path.basename(short_binary_path))
     exit_code, stdout, stderr = self.RunProgram([short_binary_path], shell=True)
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual('helloworld', ''.join(stdout))
