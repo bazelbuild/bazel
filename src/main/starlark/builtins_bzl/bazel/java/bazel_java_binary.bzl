@@ -1,0 +1,238 @@
+# Copyright 2022 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load(":common/rule_util.bzl", "merge_attrs")
+load(":common/java/java_util.bzl", "shell_quote")
+load(":common/java/java_semantics.bzl", "semantics")
+load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/java/java_helper.bzl", helper = "util")
+load(":common/java/java_binary.bzl", "BASIC_JAVA_BINARY_ATTRIBUTES", "basic_java_binary")
+
+JavaInfo = _builtins.toplevel.JavaInfo
+
+def _bazel_java_binary_impl(ctx):
+    deps = helper.collect_all_targets_as_deps(ctx)
+
+    main_class = _check_and_get_main_class(ctx)
+    coverage_main_class = main_class
+    coverage_config = helper.get_coverage_config(ctx)
+    if coverage_config:
+        main_class = coverage_config.main_class
+
+    launcher_info = _get_launcher_info(ctx)
+
+    executable = _get_executable(ctx)
+
+    feature_config = helper.get_feature_config(ctx)
+    strip_as_default = helper.should_strip_as_default(ctx, feature_config)
+
+    providers, default_info, jvm_flags = basic_java_binary(
+        ctx,
+        deps,
+        ctx.files.resources,
+        main_class,
+        coverage_main_class,
+        coverage_config,
+        launcher_info,
+        executable,
+        feature_config,
+        strip_as_default,
+    )
+
+    java_attrs = providers["InternalDeployJarInfo"].java_attrs
+
+    if executable:
+        _create_stub(ctx, java_attrs, launcher_info.launcher, executable, jvm_flags, main_class, coverage_main_class)
+
+    runfiles = default_info.runfiles
+    if ctx.fragments.java.use_legacy_java_test() and ctx.attr.create_executable and ctx.attr.use_testrunner and ctx.attr._test_support:
+        runfiles = runfiles.merge(ctx.attr._test_support[DefaultInfo].default_runfiles)
+
+    providers["DefaultInfo"] = DefaultInfo(
+        files = default_info.files,
+        runfiles = runfiles,
+        executable = default_info.executable,
+    )
+
+    return providers.values()
+
+def _check_and_get_main_class(ctx):
+    create_executable = ctx.attr.create_executable
+    main_class = _get_main_class(ctx)
+
+    if not create_executable and main_class:
+        fail("main class must not be specified when executable is not created")
+    if create_executable and not main_class:
+        if not ctx.attr.srcs:
+            fail("need at least one of 'main_class' or Java source files")
+        main_class = helper.primary_class(ctx)
+        if main_class == None:
+            fail("main_class was not provided and cannot be inferred: " +
+                 "source path doesn't include a known root (java, javatests, src, testsrc)")
+
+    return _get_main_class(ctx)
+
+def _get_main_class(ctx):
+    if not ctx.attr.create_executable:
+        return None
+
+    main_class = ctx.attr.main_class
+    if not main_class and ctx.attr.use_testrunner:
+        main_class = "com.google.testing.junit.runner.BazelTestRunner"
+
+    if main_class == "":
+        main_class = helper.primary_class(ctx)
+    return main_class
+
+def _get_launcher_info(ctx):
+    launcher = helper.launcher_artifact_for_target(ctx)
+    return struct(
+        launcher = launcher,
+        unstripped_launcher = launcher,
+        runfiles = [],
+        runtime_jars = [],
+        jvm_flags = [],
+        classpath_resources = [],
+    )
+
+def _get_executable(ctx):
+    if not ctx.attr.create_executable:
+        return None
+    executable_name = ctx.label.name
+    if helper.is_windows(ctx):
+        executable_name = executable_name + ".exe"
+
+    return ctx.actions.declare_file(executable_name)
+
+def _create_stub(ctx, java_attrs, launcher, executable, jvm_flags, main_class, coverage_main_class):
+    java_runtime_toolchain = semantics.find_java_runtime_toolchain(ctx)
+    java_executable = helper.get_java_executable(ctx, java_runtime_toolchain, launcher)
+    workspace_name = ctx.workspace_name
+    workspace_prefix = workspace_name + ("/" if workspace_name else "")
+    runfiles_enabled = helper.runfiles_enabled(ctx)
+    coverage_enabled = ctx.configuration.coverage_enabled
+
+    test_support = ctx.attr._test_support if ctx.attr.create_executable and ctx.attr.use_testrunner else None
+    test_support_jars = test_support[JavaInfo].transitive_runtime_jars if test_support else depset()
+    classpath = depset(
+        transitive = [
+            java_attrs.runtime_classpath,
+            test_support_jars if ctx.fragments.java.enforce_explicit_java_test_deps() else depset(),
+        ],
+    )
+
+    if helper.is_windows(ctx):
+        jvm_flags_for_launcher = []
+        for flag in jvm_flags:
+            jvm_flags_for_launcher.extend(ctx.tokenize(flag))
+        return _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jvm_flags_for_launcher, runfiles_enabled, executable)
+
+    if runfiles_enabled:
+        prefix = "" if helper.is_absolute_path(ctx, java_executable) else "${JAVA_RUNFILES}/"
+        java_bin = "JAVABIN=${JAVABIN:-" + prefix + java_executable + "}"
+    else:
+        java_bin = "JAVABIN=${JAVABIN:-$(rlocation " + java_executable + ")}"
+
+    td = ctx.actions.template_dict()
+    td.add_joined()
+
+    ctx.actions.expand_template(
+        template = ctx.file._stub_template,
+        output = executable,
+        substitutions = {
+            "%runfiles_manifest_only%": "" if runfiles_enabled else "1",
+            "%workspace_prefix%": workspace_prefix,
+            "%javabin%": java_bin,
+            "%needs_runfiles%": "0" if helper.is_absolute_path(ctx, java_runtime_toolchain.java_executable_exec_path) else "1",
+            "%set_jacoco_metadata%": "",
+            "%set_jacoco_main_class%": "export JACOCO_MAIN_CLASS=" + coverage_main_class if coverage_enabled else "",
+            "%set_jacoco_java_runfiles_root%": "export JACOCO_JAVA_RUNFILES_ROOT=${JAVA_RUNFILES}/" + workspace_prefix if coverage_enabled else "",
+            "%java_start_class%": shell_quote(main_class),
+            "%jvm_flags%": " ".join(jvm_flags),
+        },
+        computed_substitutions = td,
+        is_executable = True,
+    )
+    return executable
+
+def _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jvm_flags_for_launcher, runfiles_enabled, executable):
+    launch_info = ctx.actions.args().use_param_file("%s", use_always = True).set_param_file_format("multiline")
+    launch_info.add("binary_type=Java")
+    launch_info.add(ctx.workspace_name, format = "workspace_name=%s")
+    launch_info.add("1" if runfiles_enabled else "0", format = "symlink_runfiles_enabled=%s")
+    launch_info.add(java_executable, format = "java_bin_path=%s")
+    launch_info.add(main_class, format = "java_start_class=%s")
+    launch_info.add_joined(classpath, map_each = _short_path, join_with = ";", format_joined = "classpath=%s")
+    launch_info.add_joined(jvm_flags_for_launcher, join_with = "\t", format_joined = "jvm_flags=%s")
+    jar_bin_path = semantics.find_java_runtime_toolchain(ctx).java_home + "/bin/jar.exe"
+    launch_info.add(jar_bin_path, format = "jar_bin_path=%s")
+    ctx.actions.run(
+        executable = ctx.executable._windows_launcher_maker,
+        inputs = [ctx.file._launcher],
+        outputs = [executable],
+        arguments = [ctx.file._launcher, launch_info, executable],
+    )
+    return executable
+
+def _short_path(file):
+    return file.short_path
+
+def _compute_test_support(use_testrunner):
+    return Label("@//tools/jdk:TestRunner") if use_testrunner else None
+
+def make_java_binary(executable, resolve_launcher_flag):
+    return rule(
+        _bazel_java_binary_impl,
+        attrs = merge_attrs(
+            BASIC_JAVA_BINARY_ATTRIBUTES,
+            {
+                "_java_launcher": attr.label(
+                    default = configuration_field(
+                        fragment = "java",
+                        name = "launcher",
+                    ) if resolve_launcher_flag else None,
+                ),
+                "_test_support": attr.label(default = _compute_test_support),
+                "_launcher": attr.label(
+                    cfg = "exec",
+                    executable = True,
+                    default = "@bazel_tools//tools/launcher:launcher",
+                ),
+                "_windows_launcher_maker": attr.label(
+                    default = "@bazel_tools//tools/launcher:launcher_maker",
+                    cfg = "exec",
+                    executable = True,
+                ),
+            },
+            ({} if executable else {
+                "args": attr.string_list(),
+                "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+            }),
+        ),
+        fragments = ["cpp", "java"],
+        provides = [JavaInfo],
+        toolchains = [semantics.JAVA_TOOLCHAIN, semantics.JAVA_RUNTIME_TOOLCHAIN] + cc_helper.use_cpp_toolchain(),
+        # TODO(hvd): replace with filegroups?
+        outputs = {
+            "classjar": "%{name}.jar",
+            "sourcejar": "%{name}-src.jar",
+            "deploysrcjar": "%{name}_deploy-src.jar",
+        },
+        executable = executable,
+        exec_groups = {
+            "cpp_link": exec_group(copy_from_rule = True),
+        },
+    )
+
+java_binary = make_java_binary(executable = True, resolve_launcher_flag = True)
