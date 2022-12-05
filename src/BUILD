@@ -115,6 +115,7 @@ JAVA_TOOLS = [
            }) + select({
                "//src/conditions:windows": [
                    "//src/tools/launcher:launcher",
+                   "//src/tools/launcher:launcher_maker",
                    "//third_party/def_parser:def_parser",
                ],
                "//conditions:default": [],

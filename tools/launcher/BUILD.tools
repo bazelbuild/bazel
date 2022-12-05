@@ -17,3 +17,8 @@ filegroup(
         ],
     }),
 )
+
+filegroup(
+    name = "launcher_maker",
+    srcs = ["//src/tools/launcher:launcher_maker"],
+)

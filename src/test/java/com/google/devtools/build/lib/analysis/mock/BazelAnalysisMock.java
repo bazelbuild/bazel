@@ -384,7 +384,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "embedded_tools/tools/launcher/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "load('@bazel_tools//third_party/cc_rules/macros:defs.bzl', 'cc_binary')",
-        "cc_binary(name='launcher', srcs=['launcher_main.cc'])");
+        "cc_binary(name='launcher', srcs=['launcher_main.cc'])",
+        "cc_binary(name='launcher_maker', srcs=['launcher_maker.cc'])");
 
     config.create(
         "embedded_tools/tools/def_parser/BUILD",

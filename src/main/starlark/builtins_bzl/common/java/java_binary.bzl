@@ -531,7 +531,7 @@ def _create_stub(ctx, java_attrs, java_runtime_toolchain, launcher, executable, 
         jvm_flags_for_launcher = []
         for flag in jvm_flags:
             jvm_flags_for_launcher.extend(ctx.tokenize(flag))
-        return _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jvm_flags_for_launcher, executable)
+        return _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jvm_flags_for_launcher, runfiles_enabled, executable)
 
     if runfiles_enabled:
         prefix = "" if helper.is_absolute_path(ctx, java_executable) else "${JAVA_RUNFILES}/"
@@ -561,9 +561,27 @@ def _create_stub(ctx, java_attrs, java_runtime_toolchain, launcher, executable, 
     )
     return executable
 
-def _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jvm_flags_for_launcher, executable):
-    #TODO(hvd): implement LauncherFileWriteAction
+def _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jvm_flags_for_launcher, runfiles_enabled, executable):
+    launch_info = ctx.actions.args().use_param_file("%s", use_always = True).set_param_file_format("multiline")
+    launch_info.add("binary_type=Java")
+    launch_info.add(ctx.workspace_name, format = "workspace_name=%s")
+    launch_info.add("1" if runfiles_enabled else "0", format = "symlink_runfiles_enabled=%s")
+    launch_info.add(java_executable, format = "java_bin_path=%s")
+    launch_info.add(main_class, format = "java_start_class=%s")
+    launch_info.add_joined(classpath, map_each = _short_path, join_with = ";", format_joined = "classpath=%s")
+    launch_info.add_joined(jvm_flags_for_launcher, join_with = "\t", format_joined = "jvm_flags=%s")
+    jar_bin_path = semantics.find_java_runtime_toolchain(ctx).java_home + "/bin/jar.exe"
+    launch_info.add(jar_bin_path, format = "jar_bin_path=%s")
+    ctx.actions.run(
+        executable = ctx.executable._windows_launcher_maker,
+        inputs = [ctx.file._launcher],
+        outputs = [executable],
+        arguments = [ctx.file._launcher, launch_info, executable],
+    )
     return executable
+
+def _short_path(file):
+    return file.short_path
 
 BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
     BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS,
@@ -685,6 +703,15 @@ def make_java_binary(executable, resolve_launcher_flag):
                     ) if resolve_launcher_flag else None,
                 ),
                 "_test_support": attr.label(default = _compute_test_support),
+                "_launcher": attr.label(
+                    cfg = "exec",
+                    default = "@bazel_tools//tools/launcher:launcher",
+                ),
+                "_windows_launcher_maker": attr.label(
+                    default = "@bazel_tools//tools/launcher:launcher_maker",
+                    cfg = "exec",
+                    executable = True,
+                ),
             },
             ({} if executable else {
                 "args": attr.string_list(),
