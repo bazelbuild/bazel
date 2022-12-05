@@ -32,7 +32,7 @@ public final class PythonUtils {
   /**
    * Used to get the set of empty __init__.py files to be added to a given set of files to allow the
    * Python runtime to import subdirectories potentially containing Python code to be imported as
-   * packages. Ideally this feature goes away with --incompatible_default_to_explicit_init_py as the
+   * packages. Ideally this feature goes away since we set --incompatible_default_to_explicit_init_py as the
    * long term default behavior.
    */
   public static class GetInitPyFiles implements Runfiles.EmptyFilesSupplier {

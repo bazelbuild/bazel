@@ -187,8 +187,8 @@ public final class BazelPyRuleClasses {
           Whether to implicitly create empty __init__.py files in the runfiles tree.
           These are created in every directory containing Python source code or
           shared libraries, and every parent directory of those directories, excluding the repo root
-          directory. The default, auto, means true unless
-          <code>--incompatible_default_to_explicit_init_py</code> is used. If false, the user is
+          directory. The default, auto, means false unless
+          <code>--noincompatible_default_to_explicit_init_py</code> is used. If false, the user is
           responsible for creating (possibly empty) __init__.py files and adding them to the
           <code>srcs</code> of Python targets as required.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

@@ -135,7 +135,7 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
    * If requested, creates empty __init__.py files for each manifest file.
    *
    * <p>We do this if the rule defines {@code legacy_create_init} and its value is true. Auto is
-   * treated as false iff {@code --incompatible_default_to_explicit_init_py} is given.
+   * treated as false unless {@code --noincompatible_default_to_explicit_init_py} is given.
    *
    * <p>See {@link PythonUtils#getInitPyFiles} for details about how the files are created.
    */
