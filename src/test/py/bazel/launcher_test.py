@@ -618,17 +618,17 @@ class LauncherTest(test_base.TestBase):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('bin/BUILD', [
         'java_binary(',
-        '  name = "bin_java",',
+        '  name = "not_short_bin_java",',
         '  srcs = ["Main.java"],',
         '  main_class = "Main",',
         ')',
         'sh_binary(',
-        '  name = "bin_sh",',
+        '  name = "not_short_bin_sh",',
         '  srcs = ["main.sh"],',
         ')',
         'py_binary(',
-        '  name = "bin_py",',
-        '  srcs = ["bin_py.py"],',
+        '  name = "not_short_bin_py",',
+        '  srcs = ["not_short_bin_py.py"],',
         ')',
     ])
     self.ScratchFile('bin/Main.java', [
@@ -641,7 +641,7 @@ class LauncherTest(test_base.TestBase):
     self.ScratchFile('bin/main.sh', [
         'echo "helloworld"',
     ])
-    self.ScratchFile('bin/bin_py.py', [
+    self.ScratchFile('bin/not_short_bin_py.py', [
         'print("helloworld")',
     ])
 
@@ -657,19 +657,20 @@ class LauncherTest(test_base.TestBase):
         [(c * 8 + '.' + c * 3) for c in string.ascii_lowercase])
 
     for f in [
-        'bin_java.exe',
-        'bin_java.exe.runfiles_manifest',
-        'bin_sh.exe',
-        'bin_sh',
-        'bin_sh.exe.runfiles_manifest',
-        'bin_py.exe',
-        'bin_py.zip',
-        'bin_py.exe.runfiles_manifest',
+        'not_short_bin_java.exe',
+        'not_short_bin_java.exe.runfiles_manifest',
+        'not_short_bin_sh.exe',
+        'not_short_bin_sh',
+        'not_short_bin_sh.exe.runfiles_manifest',
+        'not_short_bin_py.exe',
+        'not_short_bin_py.zip',
+        'not_short_bin_py.exe.runfiles_manifest',
     ]:
       self.CopyFile(
           os.path.join(bazel_bin, 'bin', f), os.path.join(long_dir_path, f))
 
-    long_binary_path = os.path.abspath(long_dir_path + '/bin_java.exe')
+    long_binary_path = os.path.abspath(
+      long_dir_path + '/not_short_bin_java.exe')
     # subprocess doesn't support long path without shell=True
     exit_code, stdout, stderr = self.RunProgram([long_binary_path], shell=True)
     self.AssertExitCode(exit_code, 0, stderr)
@@ -680,7 +681,7 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual('helloworld', ''.join(stdout))
 
-    long_binary_path = os.path.abspath(long_dir_path + '/bin_sh.exe')
+    long_binary_path = os.path.abspath(long_dir_path + '/not_short_bin_sh.exe')
     # subprocess doesn't support long path without shell=True
     exit_code, stdout, stderr = self.RunProgram([long_binary_path], shell=True)
     self.AssertExitCode(exit_code, 0, stderr)
@@ -691,7 +692,7 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual('helloworld', ''.join(stdout))
 
-    long_binary_path = os.path.abspath(long_dir_path + '/bin_py.exe')
+    long_binary_path = os.path.abspath(long_dir_path + '/not_short_bin_py.exe')
     # subprocess doesn't support long path without shell=True
     exit_code, stdout, stderr = self.RunProgram([long_binary_path], shell=True)
     self.AssertExitCode(exit_code, 0, stderr)
@@ -699,6 +700,61 @@ class LauncherTest(test_base.TestBase):
     # Make sure we can launch the binary with a shortened Windows 8dot3 path
     short_binary_path = win32api.GetShortPathName(long_binary_path)
     exit_code, stdout, stderr = self.RunProgram([short_binary_path], shell=True)
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertEqual('helloworld', ''.join(stdout))
+
+  def testWindowsNativeLauncherInvalidArgv0(self):
+    if not self.IsWindows():
+      return
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('bin/BUILD', [
+      'java_binary(',
+      '  name = "bin_java",',
+      '  srcs = ["Main.java"],',
+      '  main_class = "Main",',
+      ')',
+      'sh_binary(',
+      '  name = "bin_sh",',
+      '  srcs = ["main.sh"],',
+      ')',
+      'py_binary(',
+      '  name = "bin_py",',
+      '  srcs = ["bin_py.py"],',
+      ')',
+    ])
+    self.ScratchFile('bin/Main.java', [
+      'public class Main {',
+      '  public static void main(String[] args) {'
+      '    System.out.println("helloworld");',
+      '  }',
+      '}',
+    ])
+    self.ScratchFile('bin/main.sh', [
+      'echo "helloworld"',
+    ])
+    self.ScratchFile('bin/bin_py.py', [
+      'print("helloworld")',
+    ])
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+
+    exit_code, _, stderr = self.RunBazel(['build', '//bin/...'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    exit_code, stdout, stderr = self.RunProgram(
+      ['C:\Invalid'], executable=os.path.join(bazel_bin, 'bin', 'bin_java.exe'))
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertEqual('helloworld', ''.join(stdout))
+
+    exit_code, stdout, stderr = self.RunProgram(
+      ['C:\Invalid'], executable=os.path.join(bazel_bin, 'bin', 'bin_sh.exe'))
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertEqual('helloworld', ''.join(stdout))
+
+    exit_code, stdout, stderr = self.RunProgram(
+      ['C:\Invalid'], executable=os.path.join(bazel_bin, 'bin', 'bin_py.exe'))
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual('helloworld', ''.join(stdout))
 
