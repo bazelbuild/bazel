@@ -252,7 +252,7 @@ JAVA_IMPORT_ATTRS = merge_attrs(
             allow_files = True,
         ),
         # Additional attrs
-        "licenses": attr.string_list(),
+        "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
     },
 )
