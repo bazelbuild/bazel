@@ -38,3 +38,5 @@ build --tool_java_language_version=11
 try-import %workspace%/user.bazelrc
 
 build:docs --workspace_status_command=scripts/docs/get_workspace_status.sh
+
+test --test_env=RUNFILES_LIB_DEBUG=1
