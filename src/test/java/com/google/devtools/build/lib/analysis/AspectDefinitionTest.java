@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.Missin
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkValue;
@@ -84,7 +83,8 @@ public class AspectDefinitionTest {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext context,
         AspectParameters parameters,
         RepositoryName toolsRepository) {

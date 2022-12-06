@@ -75,7 +75,6 @@ import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -230,17 +229,16 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
   @Override
   public ConfiguredAspect create(
-      ConfiguredTargetAndData ctadBase,
+      Label targetLabel,
+      ConfiguredTarget ct,
       RuleContext ruleContext,
       AspectParameters parameters,
       RepositoryName toolsRepository)
       throws InterruptedException, ActionConflictException {
-    ConfiguredTarget base = ctadBase.getConfiguredTarget();
-    if (isProtoRule(base)) {
-      return proto(base, ruleContext);
-    } else {
-      return java(base, ruleContext);
+    if (isProtoRule(ct)) {
+      return proto(ct, ruleContext);
     }
+    return java(ct, ruleContext);
   }
 
   private ConfiguredAspect buildAspect(

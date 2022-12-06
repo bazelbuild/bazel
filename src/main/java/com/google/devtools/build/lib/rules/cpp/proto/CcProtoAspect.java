@@ -67,7 +67,6 @@ import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -99,16 +98,15 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
   @Override
   @Nullable
   public ConfiguredAspect create(
-      ConfiguredTargetAndData ctadBase,
+      Label targetLabel,
+      ConfiguredTarget ct,
       RuleContext ruleContext,
       AspectParameters parameters,
       RepositoryName toolsRepository)
       throws InterruptedException, ActionConflictException {
-    ConfiguredTarget protoTarget = ctadBase.getConfiguredTarget();
-
     try {
       ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(ruleContext);
-      new Impl(ruleContext, protoTarget, cppSemantics, ccToolchainType).addProviders(result);
+      new Impl(ruleContext, ct, cppSemantics, ccToolchainType).addProviders(result);
       return result.build();
     } catch (RuleErrorException e) {
       ruleContext.ruleError(e.getMessage());
