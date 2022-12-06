@@ -71,7 +71,7 @@ def _check_empty_jars_error(ctx, jars):
     if len(jars) == 0 and ctx.fragments.java.disallow_java_import_empty_jars() and hasattr(ctx.attr, "_allowlist_java_import_empty_jars") and not getattr(ctx.attr, "_allowlist_java_import_empty_jars").isAvailableFor(ctx.label):
         fail("empty java_import.jars is no longer supported " + ctx.label.package)
 
-def _create_java_info_with_dummy_output_file(ctx, srcjar, deps, exports, runtime_deps_list, neverlink, cc_info_list):
+def _create_java_info_with_dummy_output_file(ctx, srcjar, all_deps, exports, runtime_deps_list, neverlink, cc_info_list):
     dummy_jar = ctx.actions.declare_file(ctx.label.name + "_dummy.jar")
     dummy_src_jar = srcjar
     if dummy_src_jar == None:
@@ -82,7 +82,7 @@ def _create_java_info_with_dummy_output_file(ctx, srcjar, deps, exports, runtime
         output = dummy_jar,
         java_toolchain = semantics.find_java_toolchain(ctx),
         source_files = [dummy_src_jar],
-        deps = [target[JavaInfo] for target in [exports + deps] if JavaInfo in target],
+        deps = all_deps,
         runtime_deps = runtime_deps_list,
         neverlink = neverlink,
         exports = [export[JavaInfo] for export in exports if JavaInfo in export],  # Watchout, maybe you need to add them there manually.
@@ -156,7 +156,7 @@ def bazel_java_import_rule(
         java_info = java_common.merge(java_infos)
     else:
         # TODO(kotlaja): Remove next line once all java_import targets with empty jars attribute are cleaned from depot (b/246559727).
-        java_info = _create_java_info_with_dummy_output_file(ctx, srcjar, deps, exports, runtime_deps_list, neverlink, cc_info_list)
+        java_info = _create_java_info_with_dummy_output_file(ctx, srcjar, all_deps, exports, runtime_deps_list, neverlink, cc_info_list)
 
     if len(constraints):
         java_info = semantics.add_constraints(java_info, constraints)
