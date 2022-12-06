@@ -62,7 +62,7 @@ import javax.annotation.Nullable;
  * threads correctly release acquired resources, Blaze will never be fully blocked.
  */
 @ThreadSafe
-public class ResourceManager {
+public class ResourceManager implements ResourceEstimator {
 
   /**
    * A handle returned by {@link #acquireResources(ActionExecutionMetadata, ResourceSet,
@@ -129,6 +129,18 @@ public class ResourceManager {
   /** Returns singleton instance of the resource manager. */
   public static ResourceManager instance() {
     return Singleton.instance;
+  }
+
+  /** Returns prediction of RAM in Mb used by registered actions. */
+  @Override
+  public double getUsedMemoryInMb() {
+    return usedRam;
+  }
+
+  /** Returns prediction of CPUs used by registered actions. */
+  @Override
+  public double getUsedCPU() {
+    return usedCpu;
   }
 
   // Allocated resources are allowed to go "negative", but at least

@@ -402,6 +402,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             options.collectWorkerDataInProfiler,
             options.collectLoadAverageInProfiler,
             options.collectSystemNetworkUsage,
+            options.collectResourceEstimation,
+            env.getLocalResourceManager(),
             WorkerMetricsCollector.instance(),
             bugReporter);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in

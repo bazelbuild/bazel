@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import static java.util.Map.entry;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -20,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ResourceEstimator;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.Extrema;
@@ -399,6 +402,8 @@ public final class Profiler {
       boolean collectWorkerDataInProfiler,
       boolean collectLoadAverage,
       boolean collectSystemNetworkUsage,
+      boolean collectResourceEstimation,
+      ResourceEstimator resourceEstimator,
       WorkerMetricsCollector workerMetricsCollector,
       BugReporter bugReporter)
       throws IOException {
@@ -452,9 +457,11 @@ public final class Profiler {
         new CollectLocalResourceUsage(
             bugReporter,
             workerMetricsCollector,
+            resourceEstimator,
             collectWorkerDataInProfiler,
             collectLoadAverage,
-            collectSystemNetworkUsage);
+            collectSystemNetworkUsage,
+            collectResourceEstimation);
     resourceUsageThread.setDaemon(true);
     resourceUsageThread.start();
   }
@@ -874,27 +881,31 @@ public final class Profiler {
     // weird reserved names from
     // https://github.com/catapult-project/catapult/blob/master/tracing/tracing/base/color_scheme.html
     private static final ImmutableMap<ProfilerTask, String> COUNTER_TASK_TO_COLOR =
-        ImmutableMap.of(
-            ProfilerTask.LOCAL_CPU_USAGE, "good",
-            ProfilerTask.SYSTEM_CPU_USAGE, "rail_load",
-            ProfilerTask.LOCAL_MEMORY_USAGE, "olive",
-            ProfilerTask.SYSTEM_MEMORY_USAGE, "bad",
-            ProfilerTask.SYSTEM_NETWORK_UP_USAGE, "rail_response",
-            ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE, "rail_response",
-            ProfilerTask.WORKERS_MEMORY_USAGE, "rail_animation",
-            ProfilerTask.SYSTEM_LOAD_AVERAGE, "generic_work");
+        ImmutableMap.ofEntries(
+            entry(ProfilerTask.LOCAL_CPU_USAGE, "good"),
+            entry(ProfilerTask.SYSTEM_CPU_USAGE, "rail_load"),
+            entry(ProfilerTask.LOCAL_MEMORY_USAGE, "olive"),
+            entry(ProfilerTask.SYSTEM_MEMORY_USAGE, "bad"),
+            entry(ProfilerTask.SYSTEM_NETWORK_UP_USAGE, "rail_response"),
+            entry(ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE, "rail_response"),
+            entry(ProfilerTask.WORKERS_MEMORY_USAGE, "rail_animation"),
+            entry(ProfilerTask.SYSTEM_LOAD_AVERAGE, "generic_work"),
+            entry(ProfilerTask.MEMORY_USAGE_ESTIMATION, "rail_idle"),
+            entry(ProfilerTask.CPU_USAGE_ESTIMATION, "cq_build_attempt_passed"));
 
     private static final ImmutableMap<ProfilerTask, String> COUNTER_TASK_TO_SERIES_NAME =
-        ImmutableMap.of(
-            ProfilerTask.ACTION_COUNTS, "action",
-            ProfilerTask.LOCAL_CPU_USAGE, "cpu",
-            ProfilerTask.SYSTEM_CPU_USAGE, "system cpu",
-            ProfilerTask.LOCAL_MEMORY_USAGE, "memory",
-            ProfilerTask.SYSTEM_MEMORY_USAGE, "system memory",
-            ProfilerTask.SYSTEM_NETWORK_UP_USAGE, "system network up (Mbps)",
-            ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE, "system network down (Mbps)",
-            ProfilerTask.WORKERS_MEMORY_USAGE, "workers memory",
-            ProfilerTask.SYSTEM_LOAD_AVERAGE, "load");
+        ImmutableMap.ofEntries(
+            entry(ProfilerTask.ACTION_COUNTS, "action"),
+            entry(ProfilerTask.LOCAL_CPU_USAGE, "cpu"),
+            entry(ProfilerTask.SYSTEM_CPU_USAGE, "system cpu"),
+            entry(ProfilerTask.LOCAL_MEMORY_USAGE, "memory"),
+            entry(ProfilerTask.SYSTEM_MEMORY_USAGE, "system memory"),
+            entry(ProfilerTask.SYSTEM_NETWORK_UP_USAGE, "system network up (Mbps)"),
+            entry(ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE, "system network down (Mbps)"),
+            entry(ProfilerTask.WORKERS_MEMORY_USAGE, "workers memory"),
+            entry(ProfilerTask.SYSTEM_LOAD_AVERAGE, "load"),
+            entry(ProfilerTask.MEMORY_USAGE_ESTIMATION, "estimated memory"),
+            entry(ProfilerTask.CPU_USAGE_ESTIMATION, "estimated cpu"));
 
     JsonTraceFileWriter(
         OutputStream outStream,
