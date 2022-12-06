@@ -519,6 +519,7 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
         "use_testrunner": attr.bool(default = False),
         "use_launcher": attr.bool(default = True),
         "env": attr.string_dict(),
+        "classpath_resources": attr.label_list(allow_files = True),
         "_stub_template": attr.label(
             default = semantics.JAVA_STUB_TEMPLATE_LABEL,
             allow_single_file = True,
