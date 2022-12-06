@@ -312,7 +312,7 @@ package_group(
   The BUILD file for a package may only refer directly to source files belonging
   to another package if they are explicitly exported with an
   <code>exports_files()</code> statement. Read more about
-  <a href="$expander.expandRef("visibility#visibility-of-a-file")">visibility of files</a>.
+  <a href="$expander.expandRef("visibility#source-file-target-visibility")">visibility of files</a>.
 </p>
    <p>
   As a legacy behaviour, also files mentioned as input to a rule are exported
