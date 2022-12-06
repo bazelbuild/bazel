@@ -11,15 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Various things common to rules."""
+"""Various things common to Bazel and Google rule implementations."""
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(
     ":common/python/providers.bzl",
-    "PyCcLinkParamsProvider",
     "PyInfo",
 )
-load(":common/python/semantics.bzl", "IMPORTS_ATTR_SUPPORTED", "PyWrapCcInfo")
 
 py_builtins = _builtins.internal.py_builtins
 platform_common = _builtins.toplevel.platform_common
@@ -29,6 +27,128 @@ coverage_common = _builtins.toplevel.coverage_common
 
 # Extensions without the dot
 PYTHON_SOURCE_EXTENSIONS = ["py"]
+
+# Todo: rename this to "binary" and split off library-parts
+def create_binary_semantics_struct(
+        *,
+        create_executable,
+        get_cc_details_for_binary,
+        get_central_uncachable_version_file,
+        get_coverage_deps,
+        get_debugger_deps,
+        get_extra_common_runfiles_for_binary,
+        get_extra_providers,
+        get_extra_write_build_data_env,
+        get_interpreter_path,
+        get_imports,
+        get_native_deps_dso_name,
+        get_native_deps_user_link_flags,
+        get_stamp_flag,
+        maybe_precompile,
+        should_build_native_deps_dso,
+        should_create_init_files,
+        should_include_build_data):
+    """Helper to ensure a semantics struct has all necessary fields.
+
+    Call this instead of a raw call to `struct(...)`; it'll help ensure all
+    the necessary functions are being correctly provided.
+
+    Args:
+        create_executable: Callable; creates a binary's executable output. See
+            py_executable.bzl#py_executable_impl for details.
+        get_cc_details_for_binary: Callable that returns a `CcDetails` struct; see
+            `create_cc_detail_struct`.
+        get_central_uncachable_version_file: Callable that returns an optional
+            Artifact; this artifact is special: it is never cached and is a copy
+            of `ctx.version_file`; see py_builtins.copy_without_caching
+        get_coverage_deps: Callable that returns a list of Targets for making
+            coverage work; only called if coverage is enabled.
+        get_debugger_deps: Callable that returns a list of Targets that provide
+            custom debugger support; only called for target-configuration.
+        get_extra_common_runfiles_for_binary: Callable that returns a runfiles
+            object of extra runfiles a binary should include.
+        get_extra_providers: Callable that returns extra providers; see
+            py_executable.bzl#_create_providers for details.
+        get_extra_write_build_data_env: Callable that returns a dict[str, str]
+            of additional environment variable to pass to build data generation.
+        get_interpreter_path: Callable that returns an optional string, which is
+            the path to the Python interpreter to use for running the binary.
+        get_imports: Callable that returns a depset of the target's import
+            paths.
+        get_native_deps_dso_name: Callable that returns a string, which is the
+            basename (with extension) of the native deps DSO library.
+        get_native_deps_user_link_flags: Callable that returns a list of strings,
+            which are any extra linker flags to pass onto the native deps DSO
+            linking action.
+        get_stamp_flag: Callable that returns bool of if the --stamp flag was
+            enabled or not.
+        maybe_precompile: Callable that may optional precompile the input `.py`
+            sources and returns the full set of desired outputs derived from
+            the source files (e.g., both py and pyc, only one of them, etc).
+        should_build_native_deps_dso: Callable that returns bool; True if
+            building a native deps DSO is supported, False if not.
+        should_create_init_files: Callable that returns bool; True if
+            `__init__.py` files should be generated, False if not.
+        should_include_build_data: Callable that returns bool; True if
+            build data should be generated, False if not.
+    Returns:
+        A "BinarySemantics" struct.
+    """
+    return struct(
+        # keep-sorted
+        create_executable = create_executable,
+        get_cc_details_for_binary = get_cc_details_for_binary,
+        get_central_uncachable_version_file = get_central_uncachable_version_file,
+        get_coverage_deps = get_coverage_deps,
+        get_debugger_deps = get_debugger_deps,
+        get_extra_common_runfiles_for_binary = get_extra_common_runfiles_for_binary,
+        get_extra_providers = get_extra_providers,
+        get_extra_write_build_data_env = get_extra_write_build_data_env,
+        get_imports = get_imports,
+        get_interpreter_path = get_interpreter_path,
+        get_native_deps_dso_name = get_native_deps_dso_name,
+        get_native_deps_user_link_flags = get_native_deps_user_link_flags,
+        get_stamp_flag = get_stamp_flag,
+        maybe_precompile = maybe_precompile,
+        should_build_native_deps_dso = should_build_native_deps_dso,
+        should_create_init_files = should_create_init_files,
+        should_include_build_data = should_include_build_data,
+    )
+
+def create_cc_details_struct(
+        *,
+        cc_info_for_propagating,
+        cc_info_for_self_link,
+        cc_info_with_extra_link_time_libraries,
+        extra_runfiles,
+        cc_toolchain):
+    """Creates a CcDetails struct.
+
+    Args:
+        cc_info_for_propagating: CcInfo that is propagated out of the target
+            by returning it within a PyCcLinkParamsProvider object.
+        cc_info_for_self_link: CcInfo that is used when linking for the
+            binary (or its native deps DSO) itself. This may include extra
+            information that isn't propagating (e.g. a custom malloc)
+        cc_info_with_extra_link_time_libraries: CcInfo of extra link time
+            libraries that MUST come after `cc_info_for_self_link` (or possibly
+            always last; not entirely clear) when passed to
+            `link.linking_contexts`.
+        extra_runfiles: runfiles of extra files needed at runtime, usually as
+            part of `cc_info_with_extra_link_time_libraries`; should be added to
+            runfiles.
+        cc_toolchain: CcToolchain that should be used when building.
+
+    Returns:
+        A `CcDetails` struct.
+    """
+    return struct(
+        cc_info_for_propagating = cc_info_for_propagating,
+        cc_info_for_self_link = cc_info_for_self_link,
+        cc_info_with_extra_link_time_libraries = cc_info_with_extra_link_time_libraries,
+        extra_runfiles = extra_runfiles,
+        cc_toolchain = cc_toolchain,
+    )
 
 def union_attrs(*attr_dicts, allow_none = False):
     """Helper for combining and building attriute dicts for rules.
@@ -87,43 +207,6 @@ def filter_to_py_srcs(srcs):
     # elsewhere, as there may be others. e.g. Bazel recognizes .py3
     # as a valid extension.
     return [f for f in srcs if f.extension == "py"]
-
-def collect_cc_info(ctx, extra_deps = []):
-    """Collect the CcInfos from deps
-
-    Args:
-        ctx: rule context
-        extra_deps: list of additional targets to include
-
-    Returns:
-        Merged CcInfo from the targets.
-    """
-    deps = ctx.attr.deps
-    if extra_deps:
-        deps = list(deps)
-        deps.extend(extra_deps)
-    return collect_cc_info_from(deps)
-
-def collect_cc_info_from(deps):
-    """Collect the CcInfos from deps
-
-    Args:
-        deps: (list[Target]) list of all targets to include
-
-    Returns:
-        (CcInfo) Merged CcInfo from the targets.
-    """
-    cc_infos = []
-    for dep in deps:
-        if CcInfo in dep:
-            cc_infos.append(dep[CcInfo])
-        elif PyCcLinkParamsProvider in dep:
-            cc_infos.append(dep[PyCcLinkParamsProvider].cc_info)
-        elif PyWrapCcInfo and PyWrapCcInfo in dep:
-            # TODO(b/203567235): Google specific
-            cc_infos.append(dep[PyWrapCcInfo].cc_info)
-
-    return cc_common.merge_cc_infos(cc_infos = cc_infos)
 
 def collect_runfiles(ctx, files):
     """Collects the necessary files from the rule's context.
@@ -191,7 +274,7 @@ def collect_runfiles(ctx, files):
         collect_default = True,
     )
 
-def create_py_info(ctx, direct_sources):
+def create_py_info(ctx, *, direct_sources, imports):
     """Create PyInfo provider.
 
     Args:
@@ -199,6 +282,7 @@ def create_py_info(ctx, direct_sources):
         direct_sources: depset of Files; the direct, raw `.py` sources for the
             target. This should only be Python source files. It should not
             include pyc files.
+        imports: depset of strings; the import path values to propagate.
 
     Returns:
         A tuple of the PyInfo instance and a depset of the
@@ -255,8 +339,7 @@ def create_py_info(ctx, direct_sources):
         transitive_sources = depset(
             transitive = [deps_transitive_sources, direct_sources],
         ),
-        # TODO(b/203567235): Implement imports attribute
-        imports = depset() if IMPORTS_ATTR_SUPPORTED else depset(),
+        imports = imports,
         # NOTE: This isn't strictly correct, but with Python 2 gone,
         # the srcs_version logic is largely defunct, so shouldn't matter in
         # practice.
