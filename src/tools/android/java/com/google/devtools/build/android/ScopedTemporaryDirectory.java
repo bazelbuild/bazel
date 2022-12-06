@@ -29,6 +29,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.DosFileAttributeView;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.util.EnumSet;
+import java.util.UUID;
 
 /**
  * Creates a temporary directory that will be deleted once a scope closes. NOTE: errors during
@@ -42,7 +43,8 @@ final class ScopedTemporaryDirectory extends SimpleFileVisitor<Path> implements 
   private final Path path;
 
   public ScopedTemporaryDirectory(String prefix) throws IOException {
-    this.path = Files.createTempDirectory(prefix);
+    this.path = Files.createTempDirectory(
+      prefix + UUID.randomUUID().toString().substring(0,8));
   }
 
   public Path getPath() {
