@@ -189,4 +189,45 @@ EOF
   fi
 }
 
+function test_ignore_local_failures() {
+  if "$is_windows"; then
+    cat 1>&2 <<EOF
+This test is known to be broken on Windows because it does not have Posix signals
+Skipping...
+EOF
+    return 0
+  fi
+
+  cat > BUILD <<'EOF'
+genrule(
+  name = "test",
+  outs = ["test.txt"],
+  cmd = (
+      "if pwd | grep sandbox ; then "
+      + "  echo Remote branch running; "
+      + "  sleep 3; "
+      + "  echo remote | tee $(location test.txt); "
+      + "else "
+      + "  echo Local branch killing itself; "
+      + "  kill -9 $$$$; "
+      + "  echo local | tee $(location test.txt); "
+      + "fi; "
+  ),
+)
+
+EOF
+
+  bazel build --internal_spawn_scheduler --genrule_strategy=dynamic \
+    --dynamic_remote_strategy=sandboxed \
+    --dynamic_local_strategy=standalone \
+    --experimental_dynamic_ignore_local_signals=8,9,10 \
+    --experimental_local_lockfree_output \
+    --experimental_local_execution_delay=0 \
+    --verbose_failures \
+    :all &>"$TEST_log" || fail "build failed"
+
+  expect_not_log '^local$'
+  expect_log '^remote$'
+}
+
 run_suite "Tests for the execution strategy selection."

@@ -13,14 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.dynamic;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Ints;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import javax.annotation.Nullable;
 
 /** Options related to dynamic spawn execution. */
 public class DynamicExecutionOptions extends OptionsBase {
@@ -168,4 +175,48 @@ public class DynamicExecutionOptions extends OptionsBase {
               + " targets are extremely unlikely to be built incrementally and thus not worth"
               + " spending local cycles on.")
   public boolean excludeTools;
+
+  @Option(
+      name = "experimental_dynamic_ignore_local_signals",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      converter = SignalListConverter.class,
+      effectTags = {OptionEffectTag.EXECUTION},
+      defaultValue = "null",
+      help =
+          "Takes a list of OS signal numbers. If a local branch of dynamic execution"
+              + " gets killed with any of these signals, the remote branch will be allowed to"
+              + " finish instead. For persistent workers, this only affects signals that kill"
+              + " the worker process.")
+  public Set<Integer> ignoreLocalSignals;
+
+  /** Converts comma-separated lists of signal numbers into a set of signal numbers. */
+  public static class SignalListConverter implements Converter<Set<Integer>> {
+    @Override
+    public ImmutableSet<Integer> convert(String input, @Nullable Object conversionContext)
+        throws OptionsParsingException {
+      if (input == null || "null".equals(input)) {
+        return ImmutableSet.of();
+      }
+      Iterable<String> parts = Splitter.on(",").split(input);
+      if (!parts.iterator().hasNext()) {
+        throw new OptionsParsingException("Requires at least one signal number");
+      }
+      ImmutableSet.Builder<Integer> signals = new ImmutableSet.Builder<>();
+      for (String p : parts) {
+        String trimmed = p.trim();
+        Integer signalNum = Ints.tryParse(trimmed);
+        if (signalNum != null && signalNum > 0) {
+          signals.add(signalNum);
+        } else {
+          throw new OptionsParsingException(String.format("No such signal %s", trimmed));
+        }
+      }
+      return signals.build();
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a comma-separated list of signal numbers";
+    }
+  }
 }
