@@ -134,12 +134,12 @@ public class TemplateDict implements TemplateDictApi {
                     /*kwargs=*/ ImmutableMap.of());
             if (ret instanceof String) {
               parts.add((String) ret);
-              continue;
+            } else if (ret != Starlark.NONE) {
+              throw Starlark.errorf(
+                  "Function provided to map_each must return a String or None, but returned type "
+                      + "%s for key '%s' and value: %s",
+                  Starlark.type(ret), getKey(), Starlark.repr(val));
             }
-            throw Starlark.errorf(
-                "Function provided to map_each must return a String, but returned type %s for key:"
-                    + " %s",
-                Starlark.type(ret), getKey());
           } catch (InterruptedException e) {
             // Report the error to the user, but the stack trace is not of use to them
             throw Starlark.errorf(
