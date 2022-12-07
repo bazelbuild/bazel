@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.packages.StarlarkNativeAspect;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.io.Serializable;
 import java.util.List;
@@ -239,7 +238,8 @@ public class TestAspects {
     implements ConfiguredAspectFactory {
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -284,7 +284,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -315,7 +316,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -334,7 +336,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -382,7 +385,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -393,7 +397,7 @@ public class TestAspects {
         return ConfiguredAspect.builder(ruleContext).build();
       }
       return ConfiguredAspect.builder(ruleContext)
-          .addProvider(Provider.create(dep.getLabel().getCanonicalForm()))
+          .addProvider(ExtraAttributeAspect.Provider.create(dep.getLabel().getCanonicalForm()))
           .build();
     }
 
@@ -408,7 +412,7 @@ public class TestAspects {
           new AspectDefinition.Builder(this)
               .add(attr("$dep", LABEL).value(depLabel))
               .applyToFiles(applyToFiles)
-              .advertiseProvider(Provider.class);
+              .advertiseProvider(ExtraAttributeAspect.Provider.class);
 
       if (requiredAspectProviders.length > 0) {
         aspectDefinition.requireAspectsWithBuiltinProviders(requiredAspectProviders);
@@ -553,7 +557,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -587,7 +592,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -636,7 +642,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -686,12 +693,13 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
-      ruleContext.ruleWarning("Aspect warning on " + ctadBase.getTarget().getLabel());
+      ruleContext.ruleWarning("Aspect warning on " + targetLabel);
       return new ConfiguredAspect.Builder(ruleContext).build();
     }
 
@@ -715,7 +723,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters parameters,
         RepositoryName toolsRepository) {
@@ -748,7 +757,8 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext context,
         AspectParameters parameters,
         RepositoryName toolsRepository)
@@ -1020,13 +1030,14 @@ public class TestAspects {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext context,
         AspectParameters parameters,
         RepositoryName toolsRepository)
         throws InterruptedException, ActionConflictException {
       return ConfiguredAspect.builder(context)
-          .addProvider(Provider.class, new Provider(ctadBase.getConfiguredTarget().getLabel()))
+          .addProvider(Provider.class, new Provider(ct.getLabel()))
           .build();
     }
   }

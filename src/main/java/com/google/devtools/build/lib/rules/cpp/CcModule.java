@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingM
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.ExtraLinkTimeLibraryApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -89,6 +90,8 @@ import net.starlark.java.eval.Module;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
@@ -2607,6 +2610,40 @@ public abstract class CcModule
     checkPrivateStarlarkificationAllowlist(thread);
     return StarlarkList.immutableCopyOf(
         ruleContext.getRuleContext().getBuildInfo(CppBuildInfo.KEY));
+  }
+
+  @StarlarkMethod(
+      name = "create_extra_link_time_library",
+      documented = false,
+      doc =
+          "Creates a custom ExtraLinkTimeLibrary object. Extra keyword arguments are passed to the"
+              + " provided build function when build_libraries is called. Arguments that are"
+              + " depsets will be added transitively when these are combined via"
+              + " cc_common.merge_cc_infos. For arguments that are not depsets, only one copy will"
+              + " be maintained.",
+      parameters = {
+        @Param(name = "build_library_func", positional = false, named = true),
+      },
+      extraKeywords = @Param(name = "data"),
+      useStarlarkThread = true)
+  public ExtraLinkTimeLibraryApi createExtraLinkTimeLibrary(
+      StarlarkCallable buildLibraryFunc, Dict<String, Object> dataSetsMap, StarlarkThread thread)
+      throws EvalException {
+    if (!isBuiltIn(thread)) {
+      throw Starlark.errorf(
+          "Cannot use experimental ExtraLinkTimeLibrary creation API outside of builtins");
+    }
+    boolean nonGlobalFunc = false;
+    if (buildLibraryFunc instanceof StarlarkFunction) {
+      StarlarkFunction fn = (StarlarkFunction) buildLibraryFunc;
+      if (fn.getModule().getGlobal(fn.getName()) != fn) {
+        nonGlobalFunc = true;
+      }
+    }
+    if (nonGlobalFunc) {
+      throw Starlark.errorf("Passed function must be top-level functions.");
+    }
+    return new StarlarkDefinedLinkTimeLibrary(buildLibraryFunc, ImmutableMap.copyOf(dataSetsMap));
   }
 
   private ImmutableList<Pair<Artifact, Label>> convertSequenceTupleToPair(Sequence<?> sequenceTuple)

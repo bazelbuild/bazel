@@ -26,6 +26,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
@@ -61,11 +62,13 @@ public class TemplateDict implements TemplateDictApi {
       String joinWith,
       StarlarkCallable mapEach,
       Boolean uniquify,
+      Object formatJoined,
+      Boolean allowClosure,
       StarlarkThread thread)
       throws EvalException {
     if (mapEach instanceof StarlarkFunction) {
       StarlarkFunction sfn = (StarlarkFunction) mapEach;
-      if (sfn.getModule().getGlobal(sfn.getName()) != sfn) {
+      if (!allowClosure && sfn.getModule().getGlobal(sfn.getName()) != sfn) {
         throw Starlark.errorf(
             "to avoid unintended retention of analysis data structures, "
                 + "the map_each function (declared at %s) must be declared "
@@ -74,7 +77,14 @@ public class TemplateDict implements TemplateDictApi {
       }
     }
     substitutions.add(
-        new LazySubstitution(key, thread.getSemantics(), valuesSet, mapEach, uniquify, joinWith));
+        new LazySubstitution(
+            key,
+            thread.getSemantics(),
+            valuesSet,
+            mapEach,
+            uniquify,
+            joinWith,
+            formatJoined != Starlark.NONE ? (String) formatJoined : null));
     return this;
   }
 
@@ -89,6 +99,7 @@ public class TemplateDict implements TemplateDictApi {
     private final StarlarkCallable mapEach;
     private final boolean uniquify;
     private final String joinWith;
+    @Nullable private final String formatJoined;
 
     public LazySubstitution(
         String key,
@@ -96,13 +107,15 @@ public class TemplateDict implements TemplateDictApi {
         Depset valuesSet,
         StarlarkCallable mapEach,
         boolean uniquify,
-        String joinWith) {
+        String joinWith,
+        @Nullable String formatJoined) {
       super(key);
       this.semantics = semantics;
       this.valuesSet = valuesSet;
       this.mapEach = mapEach;
       this.uniquify = uniquify;
       this.joinWith = joinWith;
+      this.formatJoined = formatJoined;
     }
 
     @Override
@@ -121,12 +134,12 @@ public class TemplateDict implements TemplateDictApi {
                     /*kwargs=*/ ImmutableMap.of());
             if (ret instanceof String) {
               parts.add((String) ret);
-              continue;
+            } else if (ret != Starlark.NONE) {
+              throw Starlark.errorf(
+                  "Function provided to map_each must return a String or None, but returned type "
+                      + "%s for key '%s' and value: %s",
+                  Starlark.type(ret), getKey(), Starlark.repr(val));
             }
-            throw Starlark.errorf(
-                "Function provided to map_each must return a String, but returned type %s for key:"
-                    + " %s",
-                Starlark.type(ret), getKey());
           } catch (InterruptedException e) {
             // Report the error to the user, but the stack trace is not of use to them
             throw Starlark.errorf(
@@ -146,7 +159,11 @@ public class TemplateDict implements TemplateDictApi {
           }
           parts = parts.subList(0, addIndex);
         }
-        return Joiner.on(joinWith).join(parts);
+        String joined = Joiner.on(joinWith).join(parts);
+        if (formatJoined != null) {
+          return Starlark.format(semantics, formatJoined, joined);
+        }
+        return joined;
       }
     }
   }

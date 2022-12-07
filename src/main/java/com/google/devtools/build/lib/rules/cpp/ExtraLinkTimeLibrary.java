@@ -70,8 +70,14 @@ public interface ExtraLinkTimeLibrary extends ExtraLinkTimeLibraryApi {
   Builder getBuilder();
 
   /**
-   * The Builder interface builds an ExtraLinkTimeLibrary.
+   * Used to identify the "class" of this Library. The Java class is usually sufficient unless
+   * behaviour is controlled dynamically.
    */
+  default Object getKey() {
+    return this.getClass();
+  }
+
+  /** The Builder interface builds an ExtraLinkTimeLibrary. */
   public interface Builder {
     /**
      * Add the inputs associated with another instance of the same

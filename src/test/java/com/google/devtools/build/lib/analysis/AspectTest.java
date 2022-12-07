@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -460,7 +459,8 @@ public class AspectTest extends AnalysisTestCase {
 
       @Override
       public ConfiguredAspect create(
-          ConfiguredTargetAndData ctadBase,
+          Label targetLabel,
+          ConfiguredTarget ct,
           RuleContext ruleContext,
           AspectParameters parameters,
           RepositoryName toolsRepository)
@@ -533,7 +533,8 @@ public class AspectTest extends AnalysisTestCase {
 
       @Override
       public ConfiguredAspect create(
-          ConfiguredTargetAndData ctadBase,
+          Label targetLabel,
+          ConfiguredTarget ct,
           RuleContext ruleContext,
           AspectParameters parameters,
           RepositoryName toolsRepository)

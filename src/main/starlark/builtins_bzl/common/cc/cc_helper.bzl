@@ -14,7 +14,7 @@
 
 """Utility functions for C++ rules."""
 
-load(":common/objc/semantics.bzl", "semantics")
+load(":common/objc/semantics.bzl", objc_semantics = "semantics")
 
 CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
@@ -42,6 +42,11 @@ artifact_category = struct(
     PREPROCESSED_CPP_SOURCE = "PREPROCESSED_CPP_SOURCE",
     COVERAGE_DATA_FILE = "COVERAGE_DATA_FILE",
     CLIF_OUTPUT_PROTO = "CLIF_OUTPUT_PROTO",
+)
+
+linker_mode = struct(
+    LINKING_DYNAMIC = "dynamic_linking_mode",
+    LINKING_STATIC = "static_linking_mode",
 )
 
 SYSROOT_FLAG = "--sysroot="
@@ -169,7 +174,7 @@ def _get_dynamic_library_for_runtime_or_none(library, linking_statically):
 
     return library.dynamic_library
 
-_CPP_TOOLCHAIN_TYPE = "@" + semantics.get_repo() + "//tools/cpp:toolchain_type"
+_CPP_TOOLCHAIN_TYPE = "@" + objc_semantics.get_repo() + "//tools/cpp:toolchain_type"
 
 def _find_cpp_toolchain(ctx):
     """

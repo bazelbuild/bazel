@@ -63,7 +63,7 @@ public final class BlazeWorkspace {
 
   private final BlazeDirectories directories;
   private final SkyframeExecutor skyframeExecutor;
-  private final SyscallCache perCommandSyscallCache;
+  private final SyscallCache syscallCache;
 
   /**
    * Loaded lazily on the first build command that enables the action cache. Cleared on a build
@@ -84,7 +84,7 @@ public final class BlazeWorkspace {
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       BinTools binTools,
       @Nullable AllocationTracker allocationTracker,
-      SyscallCache perCommandSyscallCache) {
+      SyscallCache syscallCache) {
     this.runtime = runtime;
     this.eventBusExceptionHandler = Preconditions.checkNotNull(eventBusExceptionHandler);
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
@@ -93,7 +93,7 @@ public final class BlazeWorkspace {
 
     this.directories = directories;
     this.skyframeExecutor = skyframeExecutor;
-    this.perCommandSyscallCache = perCommandSyscallCache;
+    this.syscallCache = syscallCache;
 
     if (directories.inWorkspace()) {
       writeOutputBaseReadmeFile();
@@ -211,7 +211,7 @@ public final class BlazeWorkspace {
             Thread.currentThread(),
             command,
             options,
-            perCommandSyscallCache,
+            syscallCache,
             warnings,
             waitTimeInMs,
             commandStartTime,

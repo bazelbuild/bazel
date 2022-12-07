@@ -48,7 +48,9 @@ def _PyRuntimeInfo_init(
         "stub_shebang": stub_shebang,
     }
 
-PyRuntimeInfo, _unused_raw_py_runtime_info_ctor = provider(
+# TODO(#15897): Rename this to PyRuntimeInfo when we're ready to replace the Java
+# implemented provider with the Starlark one.
+Starlark_PyRuntimeInfo, _unused_raw_py_runtime_info_ctor = provider(
     doc = """Contains information about a Python runtime, as returned by the `py_runtime`
 rule.
 
@@ -99,4 +101,9 @@ the same conventions as the standard CPython interpreter.
     },
 )
 
+PyRuntimeInfo = _builtins.toplevel.PyRuntimeInfo
+
 PyInfo = _builtins.toplevel.PyInfo
+
+# TODO(b/203567235): Re-implement in Starlark
+PyCcLinkParamsProvider = _builtins.toplevel.PyCcLinkParamsProvider  # buildifier: disable=name-conventions

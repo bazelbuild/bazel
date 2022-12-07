@@ -38,6 +38,7 @@ public class LinuxSandboxCommandLineBuilder {
   private Path workingDirectory;
   private Duration timeout;
   private Duration killDelay;
+  private boolean persistentProcess;
   private Path stdoutPath;
   private Path stderrPath;
   private Set<Path> writableFilesAndDirectories = ImmutableSet.of();
@@ -94,6 +95,12 @@ public class LinuxSandboxCommandLineBuilder {
   @CanIgnoreReturnValue
   public LinuxSandboxCommandLineBuilder setKillDelay(Duration killDelay) {
     this.killDelay = killDelay;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public LinuxSandboxCommandLineBuilder setPersistentProcess(boolean persistentProcess) {
+    this.persistentProcess = persistentProcess;
     return this;
   }
 
@@ -262,6 +269,9 @@ public class LinuxSandboxCommandLineBuilder {
     }
     if (sigintSendsSigterm) {
       commandLineBuilder.add("-i");
+    }
+    if (persistentProcess) {
+      commandLineBuilder.add("-p");
     }
     commandLineBuilder.add("--");
     commandLineBuilder.addAll(commandArguments);

@@ -20,7 +20,7 @@ load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/android_lint.bzl", "android_lint_action")
 load(":common/java/compile_action.bzl", "compile_action")
 load(":common/java/java_semantics.bzl", "semantics")
-load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS", "validate_proguard_specs")
+load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
 
 java_common = _builtins.toplevel.java_common
 coverage_common = _builtins.toplevel.coverage_common
@@ -103,7 +103,7 @@ def basic_java_library(
       javacopts: (list[str])
       neverlink: (bool) Whether this library should only be used for compilation and not at runtime.
       enable_compile_jar_action: (bool) Enables header compilation or ijar creation.
-      coverage_config: (struct{runner:Target, support_files:list[File]|depset[File], env:dict[str,str]})
+      coverage_config: (struct{runner:JavaInfo, support_files:list[File]|depset[File], env:dict[str,str]})
         Coverage configuration. `runner` is added to dependencies during
         compilation, `support_files` and `env` is returned in InstrumentedFilesInfo.
       proguard_specs: (list[File]) Files to be used as Proguard specification.
@@ -133,7 +133,7 @@ def basic_java_library(
         ctx.outputs.sourcejar,
         source_files,
         source_jars,
-        collect_deps(deps + [coverage_config.runner]) if coverage_config and coverage_config.runner else collect_deps(deps),
+        collect_deps(deps) + ([coverage_config.runner] if coverage_config and coverage_config.runner else []),
         collect_deps(runtime_deps),
         plugins_javaplugininfo,
         collect_deps(exports),
@@ -272,9 +272,4 @@ BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS = merge_attrs(
             providers = [java_common.JavaToolchainInfo],
         ),
     },
-)
-
-BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS = merge_attrs(
-    BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS,
-    VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS,
 )

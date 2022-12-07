@@ -18,6 +18,11 @@ java_library(
     ],
 )
 
+java_library(
+    name = "resource_estimator",
+    srcs = ["ResourceEstimator.java"],
+)
+
 # Action graph and cache.
 java_library(
     name = "actions",
@@ -369,9 +374,7 @@ java_library(
         ":localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/worker",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_key",
         "//third_party:guava",

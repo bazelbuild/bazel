@@ -32,21 +32,6 @@ import java.util.Map.Entry;
 public class WorkerOptions extends OptionsBase {
   public static final WorkerOptions DEFAULTS = Options.getDefaults(WorkerOptions.class);
 
-  @Option(
-      name = "experimental_persistent_javac",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help = "Enable the experimental persistent Java compiler.",
-      expansion = {
-        "--strategy=Javac=worker",
-        "--strategy=JavaIjar=local",
-        "--strategy=JavaDeployJar=local",
-        "--strategy=JavaSourceJar=local",
-        "--strategy=Turbine=local"
-      })
-  public Void experimentalPersistentJavac;
-
   /**
    * Defines a resource converter for named values in the form [name=]value, where the value is
    * {@link ResourceConverter.FLAG_SYNTAX}. If no name is provided (used when setting a default),

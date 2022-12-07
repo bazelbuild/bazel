@@ -17,7 +17,10 @@ genrule(
     ],
     outs = ["java_stub_template.txt"],
     cmd = "cp $< $@",
-    visibility = ["//tools:__pkg__"],
+    visibility = [
+        "//tools:__pkg__",
+        "//tools/jdk:__pkg__",
+    ],
 )
 
 filegroup(

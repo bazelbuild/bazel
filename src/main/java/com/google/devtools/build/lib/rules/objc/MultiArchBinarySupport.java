@@ -144,12 +144,6 @@ public class MultiArchBinarySupport {
         new J2ObjcEntryClassProvider.Builder()
             .addTransitive(getTypedProviders(infoCollections, J2ObjcEntryClassProvider.PROVIDER))
             .build();
-    ImmutableList<CcLinkingContext> ccLinkingContexts =
-        getTypedProviders(infoCollections, CcInfo.PROVIDER).stream()
-            .map(CcInfo::getCcLinkingContext)
-            .collect(toImmutableList());
-
-    ObjcProvider objcProvider = dependencySpecificConfiguration.objcLinkProvider();
 
     CompilationSupport compilationSupport =
         new CompilationSupport.Builder(ruleContext, cppSemantics)
@@ -159,8 +153,8 @@ public class MultiArchBinarySupport {
 
     compilationSupport
         .registerLinkActions(
-            objcProvider,
-            ccLinkingContexts,
+            dependencySpecificConfiguration.objcLinkProvider(),
+            dependencySpecificConfiguration.ccInfoWithAvoidDepsSymbols().getCcLinkingContext(),
             j2ObjcMappingFileProvider,
             j2ObjcEntryClassProvider,
             extraLinkArgs,

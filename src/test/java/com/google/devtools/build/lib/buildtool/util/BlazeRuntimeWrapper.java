@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -311,21 +312,23 @@ public class BlazeRuntimeWrapper {
     try (OutErr.SystemPatcher systemOutErrPatcher = reporter.getOutErr().getSystemPatcher()) {
       Profiler.instance()
           .start(
-              /*profiledTasks=*/ ImmutableSet.of(),
-              /*stream=*/ null,
-              /*format=*/ null,
-              /*outputBase=*/ null,
-              /*buildID=*/ null,
-              /*recordAllDurations=*/ false,
+              /* profiledTasks= */ ImmutableSet.of(),
+              /* stream= */ null,
+              /* format= */ null,
+              /* outputBase= */ null,
+              /* buildID= */ null,
+              /* recordAllDurations= */ false,
               new JavaClock(),
-              /*execStartTimeNanos=*/ 42,
-              /*slimProfile=*/ false,
-              /*includePrimaryOutput=*/ false,
-              /*includeTargetLabel=*/ false,
-              /*collectTaskHistograms=*/ true,
-              /*collectWorkerDataInProfiler=*/ false,
-              /*collectLoadAverage=*/ false,
-              /*collectSystemNetworkUsage=*/ false,
+              /* execStartTimeNanos= */ 42,
+              /* slimProfile= */ false,
+              /* includePrimaryOutput= */ false,
+              /* includeTargetLabel= */ false,
+              /* collectTaskHistograms= */ true,
+              /* collectWorkerDataInProfiler= */ false,
+              /* collectLoadAverage= */ false,
+              /* collectSystemNetworkUsage= */ false,
+              /* collectResourceEstimation= */ false,
+              ResourceManager.instance(),
               WorkerMetricsCollector.instance(),
               runtime.getBugReporter());
 

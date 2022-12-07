@@ -216,7 +216,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .setActionKeyContext(actionKeyContext)
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
         .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-        .setPerCommandSyscallCache(delegatingSyscallCache)
+        .setSyscallCache(delegatingSyscallCache)
         .build();
   }
 

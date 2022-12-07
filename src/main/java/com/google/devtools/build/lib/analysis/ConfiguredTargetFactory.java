@@ -302,7 +302,7 @@ public final class ConfiguredTargetFactory {
         ruleClass.getConfigurationFragmentPolicy();
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext =
-        new RuleContext.Builder(env, rule, /*aspects=*/ ImmutableList.of(), configuration)
+        new RuleContext.Builder(env, rule, /* aspects= */ ImmutableList.of(), configuration)
             .setRuleClassProvider(ruleClassProvider)
             .setHostConfiguration(hostConfiguration)
             .setConfigurationFragmentPolicy(configurationFragmentPolicy)
@@ -319,7 +319,8 @@ public final class ConfiguredTargetFactory {
                     configuration,
                     ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
                     configConditions,
-                    prerequisiteMap.values()))
+                    Iterables.transform(
+                        prerequisiteMap.values(), ConfiguredTargetAndData::getConfiguredTarget)))
             .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
             .build();
 
@@ -501,7 +502,8 @@ public final class ConfiguredTargetFactory {
    */
   public ConfiguredAspect createAspect(
       AnalysisEnvironment env,
-      ConfiguredTargetAndData associatedTarget,
+      Target associatedTarget,
+      ConfiguredTarget configuredTarget,
       ImmutableList<Aspect> aspectPath,
       ConfiguredAspectFactory aspectFactory,
       Aspect aspect,
@@ -515,15 +517,14 @@ public final class ConfiguredTargetFactory {
       AspectKeyCreator.AspectKey aspectKey)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException {
     RuleContext ruleContext =
-        new RuleContext.Builder(env, associatedTarget.getTarget(), aspectPath, aspectConfiguration)
+        new RuleContext.Builder(env, associatedTarget, aspectPath, aspectConfiguration)
             .setRuleClassProvider(ruleClassProvider)
             .setHostConfiguration(hostConfiguration)
             .setConfigurationFragmentPolicy(aspect.getDefinition().getConfigurationFragmentPolicy())
             .setActionOwnerSymbol(aspectKey)
             .setMutability(Mutability.create("aspect"))
             .setVisibility(
-                convertVisibility(
-                    prerequisiteMap, env.getEventHandler(), associatedTarget.getTarget()))
+                convertVisibility(prerequisiteMap, env.getEventHandler(), associatedTarget))
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap))
             .setAspectAttributes(mergeAspectAttributes(aspectPath))
             .setConfigConditions(configConditions)
@@ -534,11 +535,14 @@ public final class ConfiguredTargetFactory {
                 RequiredFragmentsUtil.getAspectRequiredFragmentsIfEnabled(
                     aspect,
                     aspectFactory,
-                    associatedTarget.getTarget().getAssociatedRule(),
+                    associatedTarget.getAssociatedRule(),
                     aspectConfiguration,
                     ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
                     configConditions,
-                    Iterables.concat(prerequisiteMap.values(), ImmutableList.of(associatedTarget))))
+                    Iterables.concat(
+                        Iterables.transform(
+                            prerequisiteMap.values(), ConfiguredTargetAndData::getConfiguredTarget),
+                        ImmutableList.of(configuredTarget))))
             .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
             .build();
 
@@ -547,7 +551,7 @@ public final class ConfiguredTargetFactory {
     boolean allowAnalysisFailures = ruleContext.getConfiguration().allowAnalysisFailures();
 
     List<NestedSet<AnalysisFailure>> analysisFailures =
-        depAnalysisFailures(ruleContext, ImmutableList.of(associatedTarget.getConfiguredTarget()));
+        depAnalysisFailures(ruleContext, ImmutableList.of(configuredTarget));
     if (!analysisFailures.isEmpty()) {
       return erroredConfiguredAspectWithFailures(ruleContext, analysisFailures);
     }
@@ -559,7 +563,8 @@ public final class ConfiguredTargetFactory {
     try {
       configuredAspect =
           aspectFactory.create(
-              associatedTarget,
+              associatedTarget.getLabel(),
+              configuredTarget,
               ruleContext,
               aspect.getParameters(),
               ruleClassProvider.getToolsRepository());
@@ -574,7 +579,7 @@ public final class ConfiguredTargetFactory {
         configuredAspect,
         aspectKey,
         aspect.getDefinition().getAdvertisedProviders(),
-        associatedTarget.getTarget(),
+        associatedTarget,
         env.getEventHandler());
     return configuredAspect;
   }

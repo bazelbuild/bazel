@@ -865,20 +865,13 @@ public final class PyCommon {
    * {@code requiresMainFile} set to false (or there was an error in determining the main artifact).
    */
   @Nullable
-  public String determineMainExecutableSource(boolean withWorkspaceName) {
+  public String determineMainExecutableSource() {
     if (mainArtifact == null) {
       return null;
-    }
-    if (!withWorkspaceName) {
-      return mainArtifact.getRunfilesPath().getPathString();
     }
     PathFragment workspaceName =
         PathFragment.create(ruleContext.getRule().getPackage().getWorkspaceName());
     return workspaceName.getRelative(mainArtifact.getRunfilesPath()).getPathString();
-  }
-
-  public String determineMainExecutableSource() {
-    return determineMainExecutableSource(true);
   }
 
   public Artifact getExecutable() {

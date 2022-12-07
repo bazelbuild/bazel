@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -51,7 +52,8 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
       StarlarkRuleContext starlarkRuleContext,
       Sequence<?> sourceAttributes, // <String>
       Sequence<?> dependencyAttributes, // <String>
-      Object supportFiles, // Depset or Sequence of <Artifact>
+      Object
+          supportFiles, // Depset<Artifact>|Sequence<Artifact|Depset<Artifact>|FilesToRunProvider>
       Dict<?, ?> environment, // <String, String>
       Object extensions,
       StarlarkThread thread)
@@ -65,12 +67,31 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
             .map(entry -> new Pair<>(entry.getKey(), entry.getValue()))
             .collect(Collectors.toList());
     NestedSetBuilder<Artifact> supportFilesBuilder = NestedSetBuilder.stableOrder();
-    if (supportFiles instanceof Sequence) {
-      supportFilesBuilder.addAll(
-          Sequence.cast(supportFiles, Artifact.class, "coverage_support_files"));
-    } else {
+    if (supportFiles instanceof Depset) {
       supportFilesBuilder.addTransitive(
           Depset.cast(supportFiles, Artifact.class, "coverage_support_files"));
+    } else if (supportFiles instanceof Sequence) {
+      Sequence<?> supportFilesSequence = (Sequence<?>) supportFiles;
+      for (int i = 0; i < supportFilesSequence.size(); i++) {
+        Object supportFilesElement = supportFilesSequence.get(i);
+        if (supportFilesElement instanceof Depset) {
+          supportFilesBuilder.addTransitive(
+              Depset.cast(supportFilesElement, Artifact.class, "coverage_support_files"));
+        } else if (supportFilesElement instanceof Artifact) {
+          supportFilesBuilder.add((Artifact) supportFilesElement);
+        } else if (supportFilesElement instanceof FilesToRunProvider) {
+          supportFilesBuilder.addTransitive(
+              ((FilesToRunProvider) supportFilesElement).getFilesToRun());
+        } else {
+          throw Starlark.errorf(
+              "at index %d of coverage_support_files, got element of type %s, want one of depset,"
+                  + " File or FilesToRunProvider",
+              i, Starlark.type(supportFilesElement));
+        }
+      }
+    } else {
+      // Should have been verified by Starlark before this function is called
+      throw new IllegalStateException();
     }
     if (!supportFilesBuilder.isEmpty() || !environmentPairs.isEmpty()) {
       BuiltinRestriction.throwIfNotBuiltinUsage(thread);

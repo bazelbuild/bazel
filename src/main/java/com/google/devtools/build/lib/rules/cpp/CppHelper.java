@@ -603,7 +603,8 @@ public class CppHelper {
       FeatureConfiguration featureConfiguration) {
     return cppConfiguration.forcePic()
         || (toolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
-            && cppConfiguration.getCompilationMode() != CompilationMode.OPT);
+            && (cppConfiguration.getCompilationMode() != CompilationMode.OPT
+                || featureConfiguration.isEnabled(CppRuleClasses.PREFER_PIC_FOR_OPT_BINARIES)));
   }
 
   /**

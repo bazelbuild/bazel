@@ -717,8 +717,8 @@ When an executable target is run with `bazel run` (or `test`), the root of the
 runfiles directory is adjacent to the executable. The paths relate as follows:
 
 ```python
-# Given executable_file and runfile_file:
-runfiles_root = executable_file.path + ".runfiles"
+# Given launcher_path and runfile_file:
+runfiles_root = launcher_path.path + ".runfiles"
 workspace_name = ctx.workspace_name
 runfile_path = runfile_file.short_path
 execution_root_relative_path = "%s/%s/%s" % (

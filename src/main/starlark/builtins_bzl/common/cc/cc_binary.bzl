@@ -16,7 +16,7 @@
 
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "GraphNodeInfo", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "merge_cc_shared_library_infos", "throw_linked_but_not_exported_errors")
-load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 
 CcInfo = _builtins.toplevel.CcInfo
 ProtoInfo = _builtins.toplevel.ProtoInfo
@@ -27,9 +27,6 @@ StaticallyLinkedMarkerInfo = _builtins.internal.StaticallyLinkedMarkerProvider
 
 _EXECUTABLE = "executable"
 _DYNAMIC_LIBRARY = "dynamic_library"
-
-_LINKING_DYNAMIC = "dynamic_linking_mode"
-_LINKING_STATIC = "static_linking_mode"
 
 _IOS_SIMULATOR_TARGET_CPUS = ["ios_x86_64", "ios_i386", "ios_sim_arm64"]
 _IOS_DEVICE_TARGET_CPUS = ["ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s", "ios_arm64e"]
@@ -225,8 +222,8 @@ def _collect_runfiles(ctx, feature_configuration, cc_toolchain, libraries, cc_li
     builder_artifacts = []
     builder_transitive_artifacts = []
 
-    builder = ctx.runfiles(transitive_files = _add(ctx, linking_mode != _LINKING_DYNAMIC), collect_default = True)
-    coverage_runtime_objects_builder = ctx.runfiles(transitive_files = _add(ctx, linking_mode != _LINKING_DYNAMIC))
+    builder = ctx.runfiles(transitive_files = _add(ctx, linking_mode != linker_mode.LINKING_DYNAMIC), collect_default = True)
+    coverage_runtime_objects_builder = ctx.runfiles(transitive_files = _add(ctx, linking_mode != linker_mode.LINKING_DYNAMIC))
 
     runtime_objects_for_coverage.extend(coverage_runtime_objects_builder.files.to_list())
     dynamic_libraries_for_runtime = _get_dynamic_libraries_for_runtime(True, libraries)
@@ -247,7 +244,7 @@ def _collect_runfiles(ctx, feature_configuration, cc_toolchain, libraries, cc_li
         builder = builder.merge(dynamic_dep[DefaultInfo].default_runfiles)
 
     builder = builder.merge_all(runfiles_is_static + runfiles_is_not_static)
-    if linking_mode == _LINKING_DYNAMIC:
+    if linking_mode == linker_mode.LINKING_DYNAMIC:
         dynamic_runtime_lib = cc_toolchain.dynamic_runtime_lib(feature_configuration = feature_configuration)
         dynamic_runtime_lib_list = dynamic_runtime_lib.to_list()
         builder_transitive_artifacts.extend(dynamic_runtime_lib_list)
@@ -262,7 +259,7 @@ def _collect_runfiles(ctx, feature_configuration, cc_toolchain, libraries, cc_li
         _default_runfiles_function(ctx, runtime)
         for runtime in semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
     ] + [
-        ctx.runfiles(transitive_files = _runfiles_function(ctx, runtime, linking_mode != _LINKING_DYNAMIC))
+        ctx.runfiles(transitive_files = _runfiles_function(ctx, runtime, linking_mode != linker_mode.LINKING_DYNAMIC))
         for runtime in semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
     ])
 
@@ -326,7 +323,7 @@ def _collect_transitive_dwo_artifacts(cc_compilation_outputs, cc_debug_context, 
             if lto_backend_artifact.dwo_file() != None:
                 dwo_files.append(lto_backend_artifact.dwo_file())
 
-    if linking_mode != _LINKING_DYNAMIC:
+    if linking_mode != linker_mode.LINKING_DYNAMIC:
         if use_pic:
             transitive_dwo_files = cc_debug_context.pic_files
         else:
@@ -497,7 +494,7 @@ def _create_transitive_linking_actions(
     if len(ctx.attr.dynamic_deps) > 0:
         cc_linking_context, rule_impl_debug_files = _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_config)
     link_deps_statically = True
-    if linking_mode == _LINKING_DYNAMIC:
+    if linking_mode == linker_mode.LINKING_DYNAMIC:
         link_deps_statically = False
 
     cc_linking_outputs = cc_common.link(
@@ -546,11 +543,11 @@ def _get_link_staticness(ctx, cpp_config):
         linkstatic_attr = ctx.attr.linkstatic
 
     if cpp_config.dynamic_mode() == "FULLY":
-        return _LINKING_DYNAMIC
+        return linker_mode.LINKING_DYNAMIC
     elif cpp_config.dynamic_mode() == "OFF" or linkstatic_attr:
-        return _LINKING_STATIC
+        return linker_mode.LINKING_STATIC
     else:
-        return _LINKING_DYNAMIC
+        return linker_mode.LINKING_DYNAMIC
 
 def _matches(extensions, target):
     for extension in extensions:
@@ -665,7 +662,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     additional_linker_inputs = ctx.files.additional_linker_inputs
 
     # Allows the dynamic library generated for code of test targets to be linked separately.
-    link_compile_output_separately = ctx.attr._is_test and linking_mode == _LINKING_DYNAMIC and cpp_config.dynamic_mode() == "DEFAULT" and ("dynamic_link_test_srcs" in ctx.features)
+    link_compile_output_separately = ctx.attr._is_test and linking_mode == linker_mode.LINKING_DYNAMIC and cpp_config.dynamic_mode() == "DEFAULT" and ("dynamic_link_test_srcs" in ctx.features)
 
     # When linking the object files directly into the resulting binary, we do not need
     # library-level link outputs; thus, we do not let CcCompilationHelper produce link outputs
@@ -693,7 +690,7 @@ def cc_binary_impl(ctx, additional_linkopts):
             alwayslink = True,
         )
 
-    is_static_mode = linking_mode != _LINKING_DYNAMIC
+    is_static_mode = linking_mode != linker_mode.LINKING_DYNAMIC
     deps_cc_linking_context = _collect_linking_context(ctx, cpp_config)
     generated_def_file = None
     win_def_file = None
@@ -729,7 +726,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     linker_inputs_extra = depset()
     runtime_libraries_extra = depset()
     if extra_link_time_libraries != None:
-        linker_inputs_extra, runtime_libraries_extra = extra_link_time_libraries.build_libraries(ctx = ctx, static_mode = linking_mode != _LINKING_DYNAMIC, for_dynamic_library = _is_link_shared(ctx))
+        linker_inputs_extra, runtime_libraries_extra = extra_link_time_libraries.build_libraries(ctx = ctx, static_mode = linking_mode != linker_mode.LINKING_DYNAMIC, for_dynamic_library = _is_link_shared(ctx))
 
     cc_linking_outputs_binary, cc_launcher_info, rule_impl_debug_files = _create_transitive_linking_actions(
         ctx,
@@ -786,7 +783,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     explicit_dwp_file = dwp_file
     if not cc_helper.should_create_per_object_debug_info(feature_configuration, cpp_config):
         explicit_dwp_file = None
-    elif ctx.attr._is_test and linking_mode != _LINKING_DYNAMIC and cpp_config.build_test_dwp():
+    elif ctx.attr._is_test and linking_mode != linker_mode.LINKING_DYNAMIC and cpp_config.build_test_dwp():
         files_to_build_list.append(dwp_file)
 
     # If the binary is linked dynamically and COPY_DYNAMIC_LIBRARIES_TO_BINARY is enabled, collect

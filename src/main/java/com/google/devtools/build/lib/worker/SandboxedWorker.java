@@ -172,9 +172,10 @@ final class SandboxedWorker extends SingleplexWorker {
               .setWritableFilesAndDirectories(getWritableDirs(workDir))
               // Need all the sandbox options passed in here?
               .setTmpfsDirectories(ImmutableSet.copyOf(this.hardenedSandboxOptions.tmpfsPath()))
+              .setPersistentProcess(true)
               .setBindMounts(getBindMounts(workDir, sandboxTmp))
               .setUseFakeHostname(this.hardenedSandboxOptions.fakeHostname())
-              // Mostly tests require network, and some blaze run commands
+              // Mostly tests require network, and some blaze run commands, but no workers.
               .setCreateNetworkNamespace(true)
               .setUseDebugMode(hardenedSandboxOptions.debugMode());
 

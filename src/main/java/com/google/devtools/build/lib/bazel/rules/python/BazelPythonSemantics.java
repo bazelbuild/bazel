@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -109,11 +108,6 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   @Override
-  public void collectDefaultRunfiles(RuleContext ruleContext, Runfiles.Builder builder) {
-    builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
-  }
-
-  @Override
   public Collection<Artifact> precompiledPythonFiles(
       RuleContext ruleContext, Collection<Artifact> sources, PyCommon common) {
     return ImmutableList.copyOf(sources);
@@ -180,8 +174,7 @@ public class BazelPythonSemantics implements PythonSemantics {
             STUB_TEMPLATE,
             ImmutableList.of(
                 Substitution.of("%shebang%", getStubShebang(ruleContext, common)),
-                Substitution.of(
-                    "%main%", common.determineMainExecutableSource(/*withWorkspaceName=*/ true)),
+                Substitution.of("%main%", common.determineMainExecutableSource()),
                 Substitution.of("%python_binary%", pythonBinary),
                 Substitution.of("%coverage_tool%", coverageTool == null ? "" : coverageTool),
                 Substitution.of("%imports%", Joiner.on(":").join(common.getImports().toList())),

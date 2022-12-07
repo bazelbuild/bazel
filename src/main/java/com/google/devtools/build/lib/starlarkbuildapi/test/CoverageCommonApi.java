@@ -65,7 +65,9 @@ public interface CoverageCommonApi<
         @Param(
             name = "coverage_support_files",
             allowedTypes = {
-              @ParamType(type = Sequence.class, generic1 = FileApi.class),
+              // TODO(#13365): improve the @ParamType annotation once it can support multiple
+              // contained types.
+              @ParamType(type = Sequence.class),
               @ParamType(type = Depset.class, generic1 = FileApi.class)
             },
             documented = false,

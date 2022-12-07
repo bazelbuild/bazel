@@ -1369,7 +1369,7 @@ public final class LoadingPhaseRunnerTest {
               .setDirectories(directories)
               .setActionKeyContext(new ActionKeyContext())
               .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-              .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
+              .setSyscallCache(SyscallCache.NO_CACHE)
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PathPackageLocator pkgLocator =

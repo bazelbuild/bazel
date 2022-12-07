@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.AttemptGroup;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.FailedAttemptResult;
-import com.google.devtools.build.lib.analysis.test.TestActionContext.TestAttemptContinuation;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestAttemptResult;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestAttemptResult.Result;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestRunnerSpawn;
@@ -959,10 +958,8 @@ public class TestRunnerAction extends AbstractAction
                 : AttemptGroup.NOOP;
         try {
           attemptGroup.register();
-          TestAttemptContinuation testAttemptContinuation = testRunnerSpawn.beginExecution();
           return executeAllAttempts(
               testRunnerSpawn,
-              testAttemptContinuation,
               testActionContext.isTestKeepGoing(),
               attemptGroup,
               spawnResults,
@@ -1139,7 +1136,6 @@ public class TestRunnerAction extends AbstractAction
 
   public ActionResult executeAllAttempts(
       TestRunnerSpawn testRunnerSpawn,
-      TestAttemptContinuation testContinuation,
       boolean keepGoing,
       final AttemptGroup attemptGroup,
       List<SpawnResult> spawnResults,
@@ -1147,13 +1143,8 @@ public class TestRunnerAction extends AbstractAction
       throws ExecException, IOException, InterruptedException {
     int maxAttempts = 0;
 
-    TestAttemptContinuation continuation = testContinuation;
     while (true) {
-      while (!continuation.isDone()) {
-        continuation = continuation.execute();
-      }
-
-      TestAttemptResult result = continuation.get();
+      TestAttemptResult result = testRunnerSpawn.execute();
       int actualMaxAttempts =
           failedAttempts.isEmpty() ? testRunnerSpawn.getMaxAttempts(result) : maxAttempts;
       Preconditions.checkState(actualMaxAttempts != 0);
@@ -1176,19 +1167,8 @@ public class TestRunnerAction extends AbstractAction
               .getEventHandler()
               .post(new SpawnExecutedEvent.ChangePhase(this));
 
-          TestAttemptContinuation nextContinuation =
-              nextRunnerAndAttempts.getSpawn().beginExecution();
-          if (nextContinuation == null) {
-            testRunnerSpawn.finalizeCancelledTest(failedAttempts);
-            // We need to create the mandatory output files even if we're not going to run
-            // anything.
-            createEmptyOutputs(testRunnerSpawn.getActionExecutionContext());
-            return ActionResult.create(spawnResults);
-          }
-
           testRunnerSpawn = nextRunnerAndAttempts.getSpawn();
           maxAttempts = nextRunnerAndAttempts.getMaxAttempts();
-          continuation = nextContinuation;
           continue;
         }
       }

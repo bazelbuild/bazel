@@ -152,6 +152,7 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .add("-N")
             .add("-U")
             .add("-D")
+            .add("-p")
             .add("--")
             .addAll(commandArguments)
             .build();
@@ -172,6 +173,7 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .setStatisticsPath(statisticsPath)
             .setUseFakeUsername(useFakeUsername)
             .setUseDebugMode(useDebugMode)
+            .setPersistentProcess(true)
             .build();
 
     assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine).inOrder();

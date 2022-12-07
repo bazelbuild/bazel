@@ -162,8 +162,7 @@ static void WriteJarClasspath(const wstring& jar_path,
 }
 
 wstring JavaBinaryLauncher::GetJunctionBaseDir() {
-  wstring binary_base_path =
-      GetBinaryPathWithExtension(this->GetCommandlineArguments()[0]);
+  wstring binary_base_path = GetBinaryPathWithExtension(GetLauncherPath());
   wstring result;
   if (!NormalizePath(binary_base_path + L".j", &result)) {
     die(L"Failed to get normalized junction base directory.");
@@ -191,8 +190,7 @@ void JavaBinaryLauncher::DeleteJunctionBaseDir() {
 }
 
 wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
-  wstring binary_base_path =
-      GetBinaryPathWithoutExtension(this->GetCommandlineArguments()[0]);
+  wstring binary_base_path = GetBinaryPathWithoutExtension(GetLauncherPath());
   wstring abs_manifest_jar_dir_norm = GetManifestJarDir(binary_base_path);
 
   wostringstream manifest_classpath;
@@ -312,8 +310,7 @@ ExitCode JavaBinaryLauncher::Launch() {
   // Run deploy jar if needed, otherwise generate the CLASSPATH by rlocation.
   if (this->singlejar) {
     wstring deploy_jar =
-        GetBinaryPathWithoutExtension(this->GetCommandlineArguments()[0]) +
-        L"_deploy.jar";
+        GetBinaryPathWithoutExtension(GetLauncherPath()) + L"_deploy.jar";
     if (!DoesFilePathExist(deploy_jar.c_str())) {
       die(L"Option --singlejar was passed, but %s does not exist.\n  (You may "
           "need to build it explicitly.)",

@@ -320,6 +320,14 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean collectSystemNetworkUsage;
 
   @Option(
+      name = "experimental_collect_resource_estimation",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "If enabled, the profiler collects CPU and memory usage estimation for local actions.")
+  public boolean collectResourceEstimation;
+
+  @Option(
       name = "memory_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,

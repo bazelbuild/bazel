@@ -620,7 +620,9 @@ public abstract class DependencyResolver {
 
     Class<FragmentT> fragmentClass = lateBoundDefault.getFragmentClass();
     // TODO(b/65746853): remove this when nothing uses it anymore
-    if (BuildConfigurationValue.class.equals(fragmentClass)) {
+    if (BuildConfigurationValue.class.equals(fragmentClass)
+        // noconfig targets can't meaningfully parse late-bound defaults. See NoConfigTransition.
+        && !ruleConfig.getOptions().hasNoConfig()) {
       return lateBoundDefault.resolve(rule, attributeMap, fragmentClass.cast(ruleConfig));
     }
     if (Void.class.equals(fragmentClass)) {
@@ -670,6 +672,9 @@ public abstract class DependencyResolver {
     int aspectsNum = aspectsPath.size();
     ArrayList<Aspect> filteredAspectsPath = new ArrayList<>();
 
+    // `aspectsPath` is ordered bottom up. Iterating backwards traverses top-down so the following
+    // loop captures aspects that propagate along the given attribute and all their transitive
+    // requirements.
     for (int i = aspectsNum - 1; i >= 0; i--) {
       Aspect aspect = aspectsPath.get(i);
       if (aspect.getAspectClass().equals(aspectOwningAttribute)) {

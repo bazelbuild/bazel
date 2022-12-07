@@ -13,26 +13,13 @@
 # limitations under the License.
 """This tool build tar files from a list of inputs."""
 
+import argparse
 import os
+import sys
 
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
-from absl import app
-from absl import flags
 
 from tools.build_defs.pkg import archive
-
-flags.DEFINE_string('output', None, 'The output file, mandatory')
-flags.mark_flag_as_required('output')
-
-flags.DEFINE_multi_string('file', [], 'A file to add to the layer')
-
-flags.DEFINE_string('directory', None,
-                    'Directory in which to store the file inside the layer')
-
-flags.DEFINE_string('root_directory', './',
-                    'Default root directory is named "."')
-
-FLAGS = flags.FLAGS
 
 
 class TarFile(object):
@@ -103,13 +90,34 @@ def unquote_and_split(arg, c):
   return (head, '')
 
 
-def main(unused_argv):
+def main():
+  parser = argparse.ArgumentParser(
+      description='Helper for building tar packages',
+      fromfile_prefix_chars='@')
+  parser.add_argument(
+      '--output',
+      required=True,
+      help='The output file, mandatory.')
+  parser.add_argument(
+      '--file',
+      action='append',
+      help='A file to add to the layer')
+  parser.add_argument(
+      '--directory',
+      help='Directory in which to store the file inside the layer')
+  parser.add_argument(
+      '--root_directory',
+      default='./',
+      help='Default root directory is named "."')
+  opts = parser.parse_args()
+
   # Add objects to the tar file
-  with TarFile(FLAGS.output, FLAGS.directory, FLAGS.root_directory) as output:
-    for f in FLAGS.file:
+  with TarFile(opts.output, opts.directory, opts.root_directory) as output:
+    for f in opts.file:
       (inf, tof) = unquote_and_split(f, '=')
       output.add_file(inf, tof)
 
 
 if __name__ == '__main__':
-  app.run(main)
+  print(sys.argv)
+  main()
