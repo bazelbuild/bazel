@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -462,15 +463,49 @@ public final class SandboxHelpers {
   }
 
   /**
+   * Returns the appropriate {@link RootedPath} for a Fileset symlink.
+   *
+   * <p>Filesets are weird because sometimes exec paths of the {@link ActionInput}s in them are not
+   * relative, as exec paths should be, but absolute and point to under one of the package roots. In
+   * order to handle this, if we find such an absolute exec path, we iterate over the package path
+   * entries to turn it into a {@link RootedPath}.
+   *
+   * <p>The inputs to this function should be symlinks that are contained within Filesets; in
+   * particular, this is different from "unresolved symlinks" in that Fileset contents are regular
+   * files (but implemented by symlinks in the output tree) whose contents matter and unresolved
+   * symlinks are symlinks for which the important content is the result of {@code readlink()}
+   */
+  private static RootedPath processFilesetSymlink(
+      PathFragment symlink, ImmutableList<Root> packageRoots) {
+    for (Root packageRoot : packageRoots) {
+      if (packageRoot.contains(symlink)) {
+        return RootedPath.toRootedPath(packageRoot, packageRoot.relativize(symlink));
+      }
+    }
+
+    throw new IllegalStateException(
+        String.format(
+            "absolute action input path '%s' not found under package roots",
+            symlink.getPathString()));
+  }
+
+  /**
    * Returns the inputs of a Spawn as a map of PathFragments relative to an execRoot to paths in the
    * host filesystem where the input files can be found.
    *
+   * @param inputMap the map of action inputs and where they should be visible in the action
+   * @param execRootPath the exec root from the point of view of the Bazel server
+   * @param withinSandboxExecRootPath the exec root from within the sandbox (different from {@code
+   *     execRootPath} because the sandbox does magic with fiile system namespaces)
+   * @param packageRoots the package path entries during this build
+   * @param sandboxSourceRoots the directory where source roots are mapped within the sandbox
    * @throws IOException if processing symlinks fails
    */
   public SandboxInputs processInputFiles(
       Map<PathFragment, ActionInput> inputMap,
       Path execRootPath,
       Path withinSandboxExecRootPath,
+      ImmutableList<Root> packageRoots,
       Path sandboxSourceRoots)
       throws IOException {
     Root withinSandboxExecRoot = Root.fromPath(withinSandboxExecRootPath);
@@ -503,7 +538,14 @@ public final class SandboxHelpers {
         if (actionInput instanceof EmptyActionInput) {
           inputPath = null;
         } else {
-          inputPath = RootedPath.toRootedPath(execRoot, actionInput.getExecPath());
+          PathFragment execPath = actionInput.getExecPath();
+          if (execPath.isAbsolute()) {
+            // This happens for ActionInputs that are part of Filesets (see the Javadoc on
+            // processFilesetSymlink())
+            inputPath = processFilesetSymlink(actionInput.getExecPath(), packageRoots);
+          } else {
+            inputPath = RootedPath.toRootedPath(execRoot, actionInput.getExecPath());
+          }
         }
 
         inputFiles.put(pathFragment, inputPath);
