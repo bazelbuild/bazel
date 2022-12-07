@@ -751,6 +751,9 @@ public abstract class DependencyResolver {
   private static AspectCollection computeAspectCollections(
       ImmutableList<Aspect> aspects, Target toTarget) throws InconsistentAspectOrderException {
     if (toTarget instanceof OutputFile) {
+      // When applyToGeneratingRules holds, the aspect cannot have required providers so it's
+      // possible to skip the filtering that happens further below. However,
+      // apply_to_generating_rules is rare in the codebase so the optimization is not worth it.
       aspects =
           aspects.stream()
               .filter(aspect -> aspect.getDefinition().applyToGeneratingRules())
