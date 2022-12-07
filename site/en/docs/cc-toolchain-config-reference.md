@@ -568,7 +568,7 @@ within the flag value, which the compiler expands when adding the flag to the
 build command. For example:
 
     flag_group (
-        flags = ["%{output_file_path}"],
+        flags = ["%{output_execpath}"],
     )
 
 
