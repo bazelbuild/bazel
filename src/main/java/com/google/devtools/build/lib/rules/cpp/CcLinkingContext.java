@@ -609,7 +609,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @CanIgnoreReturnValue
-    Builder addNonCodeInputs(List<Artifact> nonCodeInputs) {
+    public Builder addNonCodeInputs(List<Artifact> nonCodeInputs) {
       hasDirectLinkerInput = true;
       linkerInputBuilder.addNonCodeInputs(nonCodeInputs);
       return this;
