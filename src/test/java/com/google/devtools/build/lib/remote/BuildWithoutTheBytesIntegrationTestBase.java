@@ -144,9 +144,10 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//:foo");
     waitDownloads();
 
-    assertValidOutputFile("foo/file-1", "file-1\n");
-    assertValidOutputFile("foo/file-2", "file-2\n");
-    assertValidOutputFile("foo/file-3", "file-3\n");
+    assertThat(getOutputPath("foo").exists()).isTrue();
+    assertOutputDoesNotExist("foo/file-1");
+    assertOutputDoesNotExist("foo/file-2");
+    assertOutputDoesNotExist("foo/file-3");
   }
 
   @Test

@@ -550,13 +550,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
       if (output.isTreeArtifact()) {
         var children = metadataHandler.getTreeArtifactChildren((SpecialArtifact) output);
-        if (outputMatchesPattern(output)) {
-          outputsToDownload.addAll(children);
-        } else {
-          for (var file : children) {
-            if (outputMatchesPattern(file)) {
-              outputsToDownload.add(file);
-            }
+        for (var file : children) {
+          if (outputMatchesPattern(file)) {
+            outputsToDownload.add(file);
           }
         }
       } else if (outputMatchesPattern(output)) {
