@@ -91,6 +91,7 @@ def _get_tool_paths(repository_ctx, overriden_tools):
             "objcopy",
             "objdump",
             "strip",
+            "c++filt",
         ]
     }.items())
 
@@ -329,6 +330,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         "@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl",
         "@bazel_tools//tools/cpp:unix_cc_toolchain_config.bzl",
         "@bazel_tools//tools/cpp:linux_cc_wrapper.sh.tpl",
+        "@bazel_tools//tools/cpp:validate_static_library.sh.tpl",
         "@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl",
     ])
 
@@ -397,6 +399,19 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         "local",
         False,
     ))
+
+    if "nm" in tool_paths and "c++filt" in tool_paths:
+        repository_ctx.template(
+            "validate_static_library.sh",
+            paths["@bazel_tools//tools/cpp:validate_static_library.sh.tpl"],
+            {
+                "%{nm}": escape_string(str(repository_ctx.path(tool_paths["nm"]))),
+                # Certain weak symbols are otherwise listed with type T in the output of nm on macOS.
+                "%{nm_extra_args}": "--no-weak" if darwin else "",
+                "%{c++filt}": escape_string(str(repository_ctx.path(tool_paths["c++filt"]))),
+            },
+        )
+        tool_paths["validate_static_library"] = "validate_static_library.sh"
 
     cc_wrapper_src = (
         "@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl" if darwin else "@bazel_tools//tools/cpp:linux_cc_wrapper.sh.tpl"
@@ -569,7 +584,9 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{cc_compiler_deps}": get_starlark_list([
                 ":builtin_include_directory_paths",
                 ":cc_wrapper",
-            ]),
+            ] + (
+                [":validate_static_library"] if "validate_static_library" in tool_paths else []
+            )),
             "%{compiler}": escape_string(get_env_var(
                 repository_ctx,
                 "BAZEL_COMPILER",
