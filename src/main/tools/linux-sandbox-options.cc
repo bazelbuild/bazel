@@ -74,6 +74,8 @@ static void Usage(char *program_name, const char *fmt, ...) {
           "  -U  if set, make the uid/gid be nobody\n"
           "  -P  if set, make the gid be tty and make /dev/pts writable\n"
           "  -D  if set, debug info will be printed\n"
+          "  -p  if set, the process is persistent and ignores parent thread "
+          "death signals\n"
           "  -h <sandbox-dir>  if set, chroot to sandbox-dir and only "
           " mount whats been specified with -M/-m for improved hermeticity. "
           " The working-dir should be a folder inside the sandbox-dir\n"
@@ -98,7 +100,7 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   bool source_specified = false;
 
   while ((c = getopt(args->size(), args->data(),
-                     ":W:T:t:il:L:w:e:M:m:S:h:HNRUPD")) != -1) {
+                     ":W:T:t:il:L:w:e:M:m:S:h:pHNRUPD")) != -1) {
     if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
       case 'W':
@@ -124,6 +126,9 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
         break;
       case 'i':
         opt.sigint_sends_sigterm = true;
+        break;
+      case 'p':
+        opt.persistent_process = true;
         break;
       case 'l':
         if (opt.stdout_path.empty()) {

@@ -65,7 +65,7 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   protected void prefetchVirtualActionInput(VirtualActionInput input) throws IOException {
     if (!(input instanceof EmptyActionInput)) {
       Path outputPath = execRoot.getRelative(input.getExecPath());
-      SandboxHelpers.atomicallyWriteVirtualInput(input, outputPath, ".remote");
+      SandboxHelpers.atomicallyWriteVirtualInput(input, outputPath, ".fetcher");
     }
   }
 

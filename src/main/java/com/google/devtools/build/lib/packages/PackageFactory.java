@@ -670,10 +670,10 @@ public final class PackageFactory {
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.LOADING,
               ruleClassProvider.getToolsRepository(),
-              /*fragmentNameToClass=*/ null,
+              /* fragmentNameToClass= */ null,
               new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()),
-              /*analysisRuleLabel=*/ null,
-              /*networkAllowlistForTests=*/ null)
+              /* analysisRuleLabel= */ null,
+              ruleClassProvider.getNetworkAllowlistForTests().orElse(null))
           .storeInThread(thread);
 
       // TODO(adonovan): save this as a field in BazelStarlarkContext.

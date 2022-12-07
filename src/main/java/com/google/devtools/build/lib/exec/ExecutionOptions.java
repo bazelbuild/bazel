@@ -110,7 +110,7 @@ public class ExecutionOptions extends OptionsBase {
           "Override which spawn strategy should be used to execute spawn actions that have "
               + "descriptions matching a certain regex_filter. See --per_file_copt for details on"
               + "regex_filter matching. "
-              + "The first regex_filter that matches the description is used. "
+              + "The last regex_filter that matches the description is used. "
               + "This option overrides other flags for specifying strategy. "
               + "Example: --strategy_regexp=//foo.*\\.cc,-//foo/bar=local means to run actions "
               + "using local strategy if their descriptions match //foo.*.cc but not //foo/bar. "

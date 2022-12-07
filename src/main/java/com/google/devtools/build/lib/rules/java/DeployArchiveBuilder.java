@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -420,7 +421,7 @@ public class DeployArchiveBuilder {
       inputs.add(libModules);
     }
 
-    Artifact singlejar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+    FilesToRunProvider singlejar = JavaToolchainProvider.from(ruleContext).getSingleJar();
 
     String toolchainIdentifier = null;
     try {

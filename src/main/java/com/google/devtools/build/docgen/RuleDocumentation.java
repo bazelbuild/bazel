@@ -60,6 +60,12 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
   static final String COMMON_DEFINITIONS_PAGE = "common-definitions.html";
 
   /**
+   * Name of Bazel's own workspace. This is a bit of a hack - ideally the docgen tool would pass the
+   * workspace name to this class.
+   */
+  private static final String WORKSPACE_NAME = "io_bazel";
+
+  /**
    * Creates a RuleDocumentation from the rule's name, type, family and raw html documentation
    * (meaning without expanding the variables in the doc).
    */
@@ -267,6 +273,15 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
    */
   public boolean isDeprecated() {
     return hasFlag(DocgenConsts.FLAG_DEPRECATED);
+  }
+
+  /** Returns the path of the rule's source file, relative to the workspace. */
+  public String getWorkspaceRelativeFileName() {
+    String[] parts = fileName.split(WORKSPACE_NAME, -1);
+    if (parts.length < 2) {
+      return "";
+    }
+    return parts[1].substring(1);
   }
 
   /**

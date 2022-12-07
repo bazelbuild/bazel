@@ -72,7 +72,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
@@ -231,7 +230,8 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
 
   @Override
   public ConfiguredAspect create(
-      ConfiguredTargetAndData ctadBase,
+      Label targetLabel,
+      ConfiguredTarget ct,
       RuleContext ruleContext,
       AspectParameters params,
       RepositoryName toolsRepository)
@@ -246,8 +246,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     }
 
     Function<Artifact, Artifact> desugaredJars =
-        desugarJarsIfRequested(
-            ctadBase.getConfiguredTarget(), ruleContext, minSdkVersion, result, extraToolchainJars);
+        desugarJarsIfRequested(ct, ruleContext, minSdkVersion, result, extraToolchainJars);
 
     TriState incrementalAttr =
         TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing"));
@@ -265,8 +264,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     DexArchiveProvider.Builder dexArchives =
         new DexArchiveProvider.Builder()
             .addTransitiveProviders(collectPrerequisites(ruleContext, DexArchiveProvider.class));
-    Iterable<Artifact> runtimeJars =
-        getProducedRuntimeJars(ctadBase.getConfiguredTarget(), ruleContext, extraToolchainJars);
+    Iterable<Artifact> runtimeJars = getProducedRuntimeJars(ct, ruleContext, extraToolchainJars);
     if (runtimeJars != null) {
       boolean basenameClash = checkBasenameClash(runtimeJars);
       Set<Set<String>> aspectDexopts = aspectDexopts(ruleContext);

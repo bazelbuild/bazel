@@ -25,9 +25,13 @@ import javax.annotation.Nullable;
  * operations would be cached in Skyframe, but even then, implementations of this interface may do
  * batch operations and prefetching to improve performance.
  *
+ * <p>There is typically one {@link SyscallCache} instance in effect for the lifetime of the Bazel
+ * server, set in {@link com.google.devtools.build.lib.runtime.WorkspaceBuilder}. Between commands,
+ * {@link #clear} is called to drop cached data from the previous command.
+ *
  * <p>See the note in {@link XattrProvider} about caching in implementations. Do not call the
- * methods in this interface on files that may change during this build, like outputs or external
- * repository files. Calling these methods on source files is allowed.
+ * methods in this interface on files that may change <em>during</em> a build, like outputs or
+ * external repository files. Calling these methods on source files is allowed.
  */
 public interface SyscallCache extends XattrProvider {
   SyscallCache NO_CACHE =

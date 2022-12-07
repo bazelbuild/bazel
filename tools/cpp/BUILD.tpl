@@ -85,6 +85,7 @@ cc_toolchain_config(
     compile_flags = [%{compile_flags}],
     opt_compile_flags = [%{opt_compile_flags}],
     dbg_compile_flags = [%{dbg_compile_flags}],
+    conly_flags = [%{conly_flags}],
     cxx_flags = [%{cxx_flags}],
     link_flags = [%{link_flags}],
     link_libs = [%{link_libs}],

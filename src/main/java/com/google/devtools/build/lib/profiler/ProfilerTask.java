@@ -67,8 +67,10 @@ public enum ProfilerTask {
   ACTION_COUNTS("action count"),
   LOCAL_CPU_USAGE("CPU usage (Bazel)"),
   SYSTEM_CPU_USAGE("CPU usage (total)"),
+  CPU_USAGE_ESTIMATION("CPU usage estimation"),
   LOCAL_MEMORY_USAGE("Memory usage (Bazel)"),
   SYSTEM_MEMORY_USAGE("Memory usage (total)"),
+  MEMORY_USAGE_ESTIMATION("Memory usage estimation"),
   SYSTEM_NETWORK_UP_USAGE("Network Up usage (total)"),
   SYSTEM_NETWORK_DOWN_USAGE("Network Down usage (total)"),
   WORKERS_MEMORY_USAGE("Workers memory usage"),
@@ -95,9 +97,6 @@ public enum ProfilerTask {
     private static final Duration TEN_MILLIS = Duration.ofMillis(10);
     private static final Duration FIFTY_MILLIS = Duration.ofMillis(50);
   }
-
-  // Size of the ProfilerTask value space.
-  public static final int TASK_COUNT = ProfilerTask.values().length;
 
   /** Human readable description for the task. */
   public final String description;

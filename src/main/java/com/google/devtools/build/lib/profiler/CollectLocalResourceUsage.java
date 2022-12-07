@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ResourceEstimator;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.profiler.NetworkMetricsCollector.SystemNetworkUsages;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
@@ -36,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 
 /** Thread to collect local resource usage data and log into JSON profile. */
 public class CollectLocalResourceUsage extends Thread {
@@ -48,28 +50,36 @@ public class CollectLocalResourceUsage extends Thread {
   private final boolean collectWorkerDataInProfiler;
   private final boolean collectLoadAverage;
   private final boolean collectSystemNetworkUsage;
+  private final boolean collectResourceManagerEstimation;
 
   private volatile boolean stopLocalUsageCollection;
   private volatile boolean profilingStarted;
 
   @GuardedBy("this")
-  Map<ProfilerTask, TimeSeries> timeSeries;
+  @Nullable
+  private Map<ProfilerTask, TimeSeries> timeSeries;
 
   private Stopwatch stopwatch;
 
   private final WorkerMetricsCollector workerMetricsCollector;
 
+  private final ResourceEstimator resourceEstimator;
+
   CollectLocalResourceUsage(
       BugReporter bugReporter,
       WorkerMetricsCollector workerMetricsCollector,
+      ResourceEstimator resourceEstimator,
       boolean collectWorkerDataInProfiler,
       boolean collectLoadAverage,
-      boolean collectSystemNetworkUsage) {
+      boolean collectSystemNetworkUsage,
+      boolean collectResourceManagerEstimation) {
     this.bugReporter = checkNotNull(bugReporter);
     this.collectWorkerDataInProfiler = collectWorkerDataInProfiler;
     this.workerMetricsCollector = workerMetricsCollector;
     this.collectLoadAverage = collectLoadAverage;
     this.collectSystemNetworkUsage = collectSystemNetworkUsage;
+    this.collectResourceManagerEstimation = collectResourceManagerEstimation;
+    this.resourceEstimator = resourceEstimator;
   }
 
   @Override
@@ -97,6 +107,11 @@ public class CollectLocalResourceUsage extends Thread {
         enabledCounters.add(ProfilerTask.SYSTEM_NETWORK_UP_USAGE);
         enabledCounters.add(ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE);
       }
+      if (collectResourceManagerEstimation) {
+        enabledCounters.add(ProfilerTask.MEMORY_USAGE_ESTIMATION);
+        enabledCounters.add(ProfilerTask.CPU_USAGE_ESTIMATION);
+      }
+
       for (ProfilerTask counter : enabledCounters) {
         timeSeries.put(counter, new TimeSeries(startTime, BUCKET_DURATION));
       }
@@ -174,6 +189,13 @@ public class CollectLocalResourceUsage extends Thread {
             NetworkMetricsCollector.instance().collectSystemNetworkUsages(deltaNanos);
       }
 
+      double estimatedCpuUsage = 0;
+      double estimatedMemoryUsageInMb = 0;
+      if (collectResourceManagerEstimation) {
+        estimatedCpuUsage = resourceEstimator.getUsedCPU();
+        estimatedMemoryUsageInMb = resourceEstimator.getUsedMemoryInMb();
+      }
+
       synchronized (this) {
         addRange(ProfilerTask.LOCAL_CPU_USAGE, previousElapsed, nextElapsed, cpuLevel);
         if (memoryUsage != -1) {
@@ -203,6 +225,14 @@ public class CollectLocalResourceUsage extends Thread {
               nextElapsed,
               systemNetworkUsages.megabitsRecvPerSec());
         }
+
+        addRange(
+            ProfilerTask.MEMORY_USAGE_ESTIMATION,
+            previousElapsed,
+            nextElapsed,
+            estimatedMemoryUsageInMb);
+        addRange(
+            ProfilerTask.CPU_USAGE_ESTIMATION, previousElapsed, nextElapsed, estimatedCpuUsage);
       }
       previousElapsed = nextElapsed;
       previousCpuTimeNanos = nextCpuTimeNanos;
@@ -237,6 +267,9 @@ public class CollectLocalResourceUsage extends Thread {
   private void addRange(
       ProfilerTask type, Duration previousElapsed, Duration nextElapsed, double value) {
     synchronized (this) {
+      if (timeSeries == null) {
+        return;
+      }
       TimeSeries series = timeSeries.get(type);
       if (series != null) {
         series.addRange(previousElapsed, nextElapsed, value);

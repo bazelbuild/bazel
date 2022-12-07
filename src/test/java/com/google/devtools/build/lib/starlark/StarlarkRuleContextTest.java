@@ -3626,7 +3626,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/rules.bzl",
         "def _artifact_to_basename(file):",
-        "  return file.basename",
+        "  return file.basename if file.basename != 'ignored.txt' else None",
         "",
         "def _undertest_impl(ctx):",
         "  template_dict = ctx.actions.template_dict()",
@@ -3634,6 +3634,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "  template_dict.add_joined('td_files_key', depset(ctx.files.srcs),",
         "                           map_each = _artifact_to_basename,",
         "                           join_with = '%%',",
+        "                           format_joined = 'header/%s/footer',",
         "                          )",
         "  ctx.actions.expand_template(output=ctx.outputs.out,",
         "                              template=ctx.file.template,",
@@ -3656,7 +3657,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "undertest_rule(",
         "    name = 'undertest',",
         "    template = ':template.txt',",
-        "    srcs = ['foo.txt', 'bar.txt', 'baz.txt'],",
+        "    srcs = ['foo.txt', 'bar.txt', 'baz.txt', 'ignored.txt'],",
         ")",
         "testing_rule(",
         "    name = 'testing',",
@@ -3671,7 +3672,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     Object contentUnchecked = ev.eval("action.content");
     assertThat(contentUnchecked).isInstanceOf(String.class);
-    assertThat(contentUnchecked).isEqualTo("XXXXX\nYYY-pqr\nfoo.txt%%bar.txt%%baz.txt\n");
+    assertThat(contentUnchecked)
+        .isEqualTo("XXXXX\nYYY-pqr\nheader/foo.txt%%bar.txt%%baz.txt/footer\n");
 
     Object substitutionsUnchecked = ev.eval("action.substitutions");
     assertThat(substitutionsUnchecked).isInstanceOf(Dict.class);
@@ -3680,7 +3682,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             ImmutableMap.of(
                 "a", "X",
                 "b", "Y",
-                "td_files_key", "foo.txt%%bar.txt%%baz.txt"));
+                "td_files_key", "header/foo.txt%%bar.txt%%baz.txt/footer"));
   }
 
   @Test
@@ -3912,8 +3914,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(evalException)
         .hasMessageThat()
         .isEqualTo(
-            "Function provided to map_each must return a String, but returned type Label for key:"
-                + " %files%");
+            "Function provided to map_each must return a String or None, but returned "
+                + "type Label for key '%files%' and value: <source file test/template.txt>");
   }
 
   @Test

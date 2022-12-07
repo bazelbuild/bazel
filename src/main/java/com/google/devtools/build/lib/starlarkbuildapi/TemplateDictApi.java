@@ -20,6 +20,7 @@ import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -70,9 +71,9 @@ public interface TemplateDictApi extends StarlarkValue {
             named = true,
             positional = false,
             doc =
-                "A Starlark function accepting a single argument and returning a String. This"
-                    + " function is applied to each item of the depset specified in the"
-                    + " <code>values</code> parameter"),
+                "A Starlark function accepting a single argument and returning either a String or "
+                    + "<code>None</code>. This function is applied to each item of the depset "
+                    + "specified in the <code>values</code> parameter"),
         @Param(
             name = "uniquify",
             named = true,
@@ -83,6 +84,27 @@ public interface TemplateDictApi extends StarlarkValue {
                     + "the first occurrence of each string will remain. Usually this feature is "
                     + "not needed because depsets already omit duplicates, but it can be useful "
                     + "if <code>map_each</code> emits the same string for multiple items."),
+        @Param(
+            name = "format_joined",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            doc =
+                "An optional format string pattern applied to the joined string. "
+                    + "The format string must have exactly one '%s' placeholder."),
+        @Param(
+            name = "allow_closure",
+            named = true,
+            positional = false,
+            defaultValue = "False",
+            doc =
+                "If true, allows the use of closures in function parameters like "
+                    + "<code>map_each</code>. Usually this isn't necessary and it risks retaining "
+                    + "large analysis-phase data structures into the execution phase."),
       },
       useStarlarkThread = true)
   TemplateDictApi addJoined(
@@ -91,6 +113,8 @@ public interface TemplateDictApi extends StarlarkValue {
       String joinWith,
       StarlarkCallable mapEach,
       Boolean uniquify,
+      Object formatJoined,
+      Boolean allowClosure,
       StarlarkThread thread)
       throws EvalException;
 }

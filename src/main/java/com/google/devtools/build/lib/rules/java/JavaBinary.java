@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -511,9 +512,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
       // Make single jar reachable from the coverage environment because it needs to be executed
       // by the coverage collection script.
-      Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
-      coverageEnvironment.add(new Pair<>("SINGLE_JAR_TOOL", singleJar.getExecPathString()));
-      coverageSupportFiles.add(singleJar);
+      FilesToRunProvider singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+      coverageEnvironment.add(
+          new Pair<>("SINGLE_JAR_TOOL", singleJar.getExecutable().getExecPathString()));
+      coverageSupportFiles.addTransitive(singleJar.getFilesToRun());
     }
 
     common.addTransitiveInfoProviders(

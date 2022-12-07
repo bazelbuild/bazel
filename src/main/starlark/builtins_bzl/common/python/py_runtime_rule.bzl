@@ -14,9 +14,7 @@
 """Implementation of py_runtime rule."""
 
 load(":common/paths.bzl", "paths")
-load(":common/python/providers.bzl", "DEFAULT_STUB_SHEBANG")
-
-_PyRuntimeInfo = _builtins.toplevel.PyRuntimeInfo
+load(":common/python/providers.bzl", "DEFAULT_STUB_SHEBANG", _PyRuntimeInfo = "PyRuntimeInfo")
 
 _py_builtins = _builtins.internal.py_builtins
 

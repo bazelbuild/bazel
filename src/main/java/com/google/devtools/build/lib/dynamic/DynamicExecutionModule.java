@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -41,6 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -48,6 +51,9 @@ import java.util.concurrent.Executors;
 public class DynamicExecutionModule extends BlazeModule {
 
   private ExecutorService executorService;
+  Set<Integer> ignoreLocalSignals = ImmutableSet.of();
+  protected Reporter reporter;
+  protected boolean verboseFailures;
 
   public DynamicExecutionModule() {}
 
@@ -69,6 +75,14 @@ public class DynamicExecutionModule extends BlazeModule {
         Executors.newCachedThreadPool(
             new ThreadFactoryBuilder().setNameFormat("dynamic-execution-thread-%d").build());
     env.getEventBus().register(this);
+    com.google.devtools.build.lib.exec.ExecutionOptions executionOptions =
+        env.getOptions().getOptions(com.google.devtools.build.lib.exec.ExecutionOptions.class);
+    verboseFailures = executionOptions != null && executionOptions.verboseFailures;
+    DynamicExecutionOptions dynamicOptions =
+        env.getOptions().getOptions(DynamicExecutionOptions.class);
+    ignoreLocalSignals =
+        dynamicOptions != null ? dynamicOptions.ignoreLocalSignals : ImmutableSet.of();
+    reporter = env.getReporter();
   }
 
   @VisibleForTesting
@@ -208,6 +222,21 @@ public class DynamicExecutionModule extends BlazeModule {
       String errorMessage,
       FileOutErr outErr,
       boolean isLocal) {
+    // By convention, when killed by a signal, a process gives exit code (128 + signal number).
+    // More accurate information could be had through {@code waitid(2)}, but Java does not expose
+    // that. But accuracy is not critical here, at worst we are a bit slower in getting either
+    // a success or a failure.
+    if (isLocal && ignoreLocalSignals.contains(exitCode - 128)) {
+      if (verboseFailures) {
+        reporter.handle(
+            Event.info(
+                String.format(
+                    "Local execution for %s stopped by signal %d, ignoring in favor of remote"
+                        + " execution.",
+                    spawn.getResourceOwner().prettyPrint(), exitCode - 128)));
+      }
+      return true;
+    }
     return false;
   }
 

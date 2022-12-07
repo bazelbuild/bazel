@@ -149,7 +149,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         Instant startTime =
             Instant.ofEpochMilli(actionExecutionContext.getClock().currentTimeMillis());
         // Actual execution.
-        spawnResult = spawnRunner.execAsync(spawn, context).get();
+        spawnResult = spawnRunner.exec(spawn, context);
         actionExecutionContext
             .getEventHandler()
             .post(new SpawnExecutedEvent(spawn, spawnResult, startTime));
