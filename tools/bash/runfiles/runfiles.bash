@@ -260,7 +260,7 @@ function runfiles_current_repository() {
       # The only shell script that is not executed from the runfiles directory (if it is populated)
       # is the sh_binary entrypoint. Parse its path under the execroot, using the last match to
       # allow for nested execroots (e.g. in Bazel integration tests).
-      local -r repository=$(echo "$normalized_caller_path" | __runfiles_maybe_grep -E -o '/execroot/[^/]+/bazel-out/[^/]+/bin/external/[^/]+/' | tail -1 | rev | cut -d / -f 2 | rev)
+      local -r repository=$(echo "$normalized_caller_path" | __runfiles_maybe_grep -E -o '/bazel-out/[^/]+/bin/external/[^/]+/' | tail -1 | rev | cut -d / -f 2 | rev)
       if [[ -n "$repository" ]]; then
         if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
           echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) lies in repository ($repository)"
