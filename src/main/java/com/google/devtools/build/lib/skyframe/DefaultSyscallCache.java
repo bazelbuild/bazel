@@ -30,13 +30,15 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
- * A per-build cache of filesystem operations.
+ * A basic implementation of {@link SyscallCache} that caches stat and readdir operations, used if
+ * no custom cache is set in {@link
+ * com.google.devtools.build.lib.runtime.WorkspaceBuilder#setSyscallCache}.
  *
  * <p>Allows non-Skyframe operations (like non-Skyframe globbing) to share a filesystem cache with
  * Skyframe operations, and may be able to answer questions (like the type of a file) based on
  * existing data (like the directory listing of a parent) without filesystem access.
  */
-public final class PerBuildSyscallCache implements SyscallCache {
+public final class DefaultSyscallCache implements SyscallCache {
   private final Supplier<LoadingCache<Pair<Path, Symlinks>, Object>> statCacheSupplier;
   private final Supplier<LoadingCache<Path, Object>> readdirCacheSupplier;
 
@@ -47,7 +49,7 @@ public final class PerBuildSyscallCache implements SyscallCache {
 
   private static final FileStatus NO_STATUS = new FakeFileStatus();
 
-  private PerBuildSyscallCache(
+  private DefaultSyscallCache(
       Supplier<LoadingCache<Pair<Path, Symlinks>, Object>> statCacheSupplier,
       Supplier<LoadingCache<Path, Object>> readdirCacheSupplier) {
     this.statCacheSupplier = statCacheSupplier;
@@ -89,7 +91,7 @@ public final class PerBuildSyscallCache implements SyscallCache {
       return this;
     }
 
-    public PerBuildSyscallCache build() {
+    public DefaultSyscallCache build() {
       Caffeine<Object, Object> statCacheBuilder = Caffeine.newBuilder();
       if (maxStats != UNSET) {
         statCacheBuilder.maximumSize(maxStats);
@@ -102,9 +104,9 @@ public final class PerBuildSyscallCache implements SyscallCache {
         statCacheBuilder.initialCapacity(initialCapacity);
         readdirCacheBuilder.initialCapacity(initialCapacity);
       }
-      return new PerBuildSyscallCache(
-          () -> statCacheBuilder.build(PerBuildSyscallCache::statImpl),
-          () -> readdirCacheBuilder.build(PerBuildSyscallCache::readdirImpl));
+      return new DefaultSyscallCache(
+          () -> statCacheBuilder.build(DefaultSyscallCache::statImpl),
+          () -> readdirCacheBuilder.build(DefaultSyscallCache::readdirImpl));
     }
   }
 

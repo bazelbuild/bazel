@@ -63,7 +63,7 @@ import org.junit.runner.RunWith;
 public final class FileSystemValueCheckerInferringAncestorsTest {
   private final Scratch scratch = new Scratch();
   private final List<String> statedPaths = new ArrayList<>();
-  private final PerBuildSyscallCache syscallCache = PerBuildSyscallCache.newBuilder().build();
+  private final DefaultSyscallCache syscallCache = DefaultSyscallCache.newBuilder().build();
   private Root root;
   private Root untrackedRoot;
   private Exception throwOnStat;

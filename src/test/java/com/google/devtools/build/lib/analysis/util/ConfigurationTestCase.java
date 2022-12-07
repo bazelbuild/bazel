@@ -125,7 +125,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             .setActionKeyContext(actionKeyContext)
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
+            .setSyscallCache(SyscallCache.NO_CACHE)
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(

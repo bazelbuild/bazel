@@ -459,7 +459,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/query2/query/output",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:per_build_syscall_cache",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:default_syscall_cache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
