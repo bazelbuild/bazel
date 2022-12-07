@@ -14,7 +14,7 @@
 
 """ Implementation of java_binary for bazel """
 
-load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS", "basic_java_library")
+load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library")
 load(":common/java/java_util.bzl", "create_single_jar")
 load(":common/java/java_helper.bzl", helper = "util")
 load(":common/java/java_semantics.bzl", "semantics")
@@ -465,7 +465,7 @@ def _get_validations_from_target(target):
         return depset()
 
 BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
-    BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS,
+    BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS,
     {
         "srcs": attr.label_list(
             allow_files = [".java", ".srcjar", ".properties"] + semantics.EXTRA_SRCS_TYPES,
