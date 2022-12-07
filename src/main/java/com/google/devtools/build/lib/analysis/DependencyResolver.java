@@ -672,6 +672,9 @@ public abstract class DependencyResolver {
     int aspectsNum = aspectsPath.size();
     ArrayList<Aspect> filteredAspectsPath = new ArrayList<>();
 
+    // `aspectsPath` is ordered bottom up. Iterating backwards traverses top-down so the following
+    // loop captures aspects that propagate along the given attribute and all their transitive
+    // requirements.
     for (int i = aspectsNum - 1; i >= 0; i--) {
       Aspect aspect = aspectsPath.get(i);
       if (aspect.getAspectClass().equals(aspectOwningAttribute)) {
