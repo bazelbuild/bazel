@@ -26,14 +26,14 @@ public class UtilsTest {
   @Test
   public void bytesCountToDisplayString_works() {
     assertThat(bytesCountToDisplayString(1000)).isEqualTo("1000 B");
-    assertThat(bytesCountToDisplayString(1 << 10)).isEqualTo("1 KiB");
+    assertThat(bytesCountToDisplayString(1 << 10)).isEqualTo("1.0 KiB");
     assertThat(bytesCountToDisplayString((1 << 10) + (1 << 10) / 10)).isEqualTo("1.1 KiB");
-    assertThat(bytesCountToDisplayString(1 << 20)).isEqualTo("1 MiB");
+    assertThat(bytesCountToDisplayString(1 << 20)).isEqualTo("1.0 MiB");
     assertThat(bytesCountToDisplayString((1 << 20) + (1 << 20) / 10)).isEqualTo("1.1 MiB");
-    assertThat(bytesCountToDisplayString(1 << 30)).isEqualTo("1 GiB");
+    assertThat(bytesCountToDisplayString(1 << 30)).isEqualTo("1.0 GiB");
     assertThat(bytesCountToDisplayString((1 << 30) + (1 << 30) / 10)).isEqualTo("1.1 GiB");
-    assertThat(bytesCountToDisplayString(1L << 40)).isEqualTo("1 TiB");
+    assertThat(bytesCountToDisplayString(1L << 40)).isEqualTo("1.0 TiB");
     assertThat(bytesCountToDisplayString((1L << 40) + (1L << 40) / 10)).isEqualTo("1.1 TiB");
-    assertThat(bytesCountToDisplayString(1L << 50)).isEqualTo("1024 TiB");
+    assertThat(bytesCountToDisplayString(1L << 50)).isEqualTo("1024.0 TiB");
   }
 }
