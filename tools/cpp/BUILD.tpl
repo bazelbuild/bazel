@@ -55,6 +55,11 @@ filegroup(
 )
 
 filegroup(
+    name = "validate_static_library",
+    srcs = ["validate_static_library.sh"],
+)
+
+filegroup(
     name = "compiler_deps",
     srcs = glob(["extra_tools/**"], allow_empty = True) + [%{cc_compiler_deps}],
 )
