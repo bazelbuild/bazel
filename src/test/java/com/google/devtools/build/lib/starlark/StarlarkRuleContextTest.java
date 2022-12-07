@@ -3626,7 +3626,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/rules.bzl",
         "def _artifact_to_basename(file):",
-        "  return file.basename",
+        "  return file.basename if file.basename != 'ignored.txt' else None",
         "",
         "def _undertest_impl(ctx):",
         "  template_dict = ctx.actions.template_dict()",
@@ -3657,7 +3657,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "undertest_rule(",
         "    name = 'undertest',",
         "    template = ':template.txt',",
-        "    srcs = ['foo.txt', 'bar.txt', 'baz.txt'],",
+        "    srcs = ['foo.txt', 'bar.txt', 'baz.txt', 'ignored.txt'],",
         ")",
         "testing_rule(",
         "    name = 'testing',",
@@ -3914,8 +3914,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(evalException)
         .hasMessageThat()
         .isEqualTo(
-            "Function provided to map_each must return a String, but returned type Label for key:"
-                + " %files%");
+            "Function provided to map_each must return a String or None, but returned "
+                + "type Label for key '%files%' and value: <source file test/template.txt>");
   }
 
   @Test
