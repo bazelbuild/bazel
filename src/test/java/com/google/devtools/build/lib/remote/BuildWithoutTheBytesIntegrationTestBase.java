@@ -102,6 +102,48 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void downloadOutputsWithRegex_treeOutput_regexMatchesTreeFile() throws Exception {
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  manifest = ':manifest',",
+        ")");
+    write("manifest", "file-1", "file-2", "file-3");
+    addOptions("--experimental_remote_download_regex=.*foo/file-2$");
+
+    buildTarget("//:foo");
+    waitDownloads();
+
+    assertValidOutputFile("foo/file-2", "file-2\n");
+    assertOutputDoesNotExist("foo/file-1");
+    assertOutputDoesNotExist("foo/file-3");
+  }
+
+  @Test
+  public void downloadOutputsWithRegex_treeOutput_regexMatchesTreeRoot() throws Exception {
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  manifest = ':manifest',",
+        ")");
+    write("manifest", "file-1", "file-2", "file-3");
+    addOptions("--experimental_remote_download_regex=.*foo$");
+
+    buildTarget("//:foo");
+    waitDownloads();
+
+    assertValidOutputFile("foo/file-1", "file-1\n");
+    assertValidOutputFile("foo/file-2", "file-2\n");
+    assertValidOutputFile("foo/file-3", "file-3\n");
+  }
+
+  @Test
   public void intermediateOutputsAreInputForLocalActions_prefetchIntermediateOutputs()
       throws Exception {
     // Test that a remote-only output that's an input to a local action is downloaded lazily before
