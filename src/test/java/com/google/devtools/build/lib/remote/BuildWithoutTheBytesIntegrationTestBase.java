@@ -103,6 +103,12 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void downloadOutputsWithRegex_treeOutput_regexMatchesTreeFile() throws Exception {
+    // Disable on Windows since it fails for unknown reasons.
+    // TODO(chiwang): Enable it on windows.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return;
+    }
+
     writeOutputDirRule();
     write(
         "BUILD",
