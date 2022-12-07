@@ -144,6 +144,38 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void downloadOutputsWithRegex_regexMatchParentPath_filesNotDownloaded() throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'file-1',",
+        "  srcs = [],",
+        "  outs = ['foo/file-1'],",
+        "  cmd = 'echo file-1 > $@',",
+        ")",
+        "genrule(",
+        "  name = 'file-2',",
+        "  srcs = [],",
+        "  outs = ['foo/file-2'],",
+        "  cmd = 'echo file-2 > $@',",
+        ")",
+        "genrule(",
+        "  name = 'file-3',",
+        "  srcs = [],",
+        "  outs = ['foo/file-3'],",
+        "  cmd = 'echo file-3 > $@',",
+        ")");
+    addOptions("--experimental_remote_download_regex=.*foo$");
+
+    buildTarget("//:file-1", "//:file-2", "//:file-3");
+    waitDownloads();
+
+    assertOutputDoesNotExist("foo/file-1");
+    assertOutputDoesNotExist("foo/file-2");
+    assertOutputDoesNotExist("foo/file-3");
+  }
+
+  @Test
   public void intermediateOutputsAreInputForLocalActions_prefetchIntermediateOutputs()
       throws Exception {
     // Test that a remote-only output that's an input to a local action is downloaded lazily before
