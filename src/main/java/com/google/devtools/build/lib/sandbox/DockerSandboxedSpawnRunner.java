@@ -222,7 +222,11 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     SandboxInputs inputs =
         helpers.processInputFiles(
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT), execRoot, execRoot, null);
+            context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
+            execRoot,
+            execRoot,
+            ImmutableList.of(),
+            null);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
     Duration timeout = context.getTimeout();
