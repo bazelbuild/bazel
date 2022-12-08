@@ -52,6 +52,7 @@ public class LinuxSandboxCommandLineBuilder {
   private boolean enablePseudoterminal = false;
   private boolean useDebugMode = false;
   private boolean sigintSendsSigterm = false;
+  private String cgroupsDir;
 
   private LinuxSandboxCommandLineBuilder(Path linuxSandboxPath, List<String> commandArguments) {
     this.linuxSandboxPath = linuxSandboxPath;
@@ -196,6 +197,18 @@ public class LinuxSandboxCommandLineBuilder {
     return this;
   }
 
+  /**
+   * Sets the directory to be used for cgroups. Cgroups can be used to set limits on resource usage
+   * of a subprocess tree, and to gather statistics. Requires cgroups v2 and systemd. This directory
+   * must be under {@code /sys/fs/cgroup} and the user running Bazel must have write permissions to
+   * this directory, its parent directory, and the cgroup directory for the Bazel process.
+   */
+  @CanIgnoreReturnValue
+  public LinuxSandboxCommandLineBuilder setCgroupsDir(String cgroupsDir) {
+    this.cgroupsDir = cgroupsDir;
+    return this;
+  }
+
   /** Incorporates settings from a spawn's execution info. */
   @CanIgnoreReturnValue
   public LinuxSandboxCommandLineBuilder addExecutionInfo(Map<String, String> executionInfo) {
@@ -272,6 +285,9 @@ public class LinuxSandboxCommandLineBuilder {
     }
     if (persistentProcess) {
       commandLineBuilder.add("-p");
+    }
+    if (cgroupsDir != null) {
+      commandLineBuilder.add("-C", cgroupsDir);
     }
     commandLineBuilder.add("--");
     commandLineBuilder.addAll(commandArguments);

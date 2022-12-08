@@ -63,6 +63,8 @@ struct Options {
   bool hermetic;
   // The sandbox root directory (-s)
   std::string sandbox_root;
+  // Directory to use for cgroup control
+  std::string cgroups_dir;
   // Command to run (--)
   std::vector<char *> args;
 };

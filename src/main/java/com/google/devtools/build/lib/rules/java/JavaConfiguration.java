@@ -456,6 +456,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return jplPropagateCcLinkParamsStore;
   }
 
+  @Override
   public boolean addTestSupportToCompileTimeDeps() {
     return addTestSupportToCompileTimeDeps;
   }

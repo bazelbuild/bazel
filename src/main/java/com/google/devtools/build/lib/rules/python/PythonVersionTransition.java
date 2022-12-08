@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -69,17 +68,12 @@ public abstract class PythonVersionTransition implements PatchTransition {
 
   @Override
   public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
-    return ImmutableSet.of(PythonOptions.class, CoreOptions.class);
+    return ImmutableSet.of(PythonOptions.class);
   }
 
   @Override
   public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
-    // If this happens after exec transition, keep the same version (to reproduce and keep behaviour
-    // of the host transition, that happens after this one)
-    PythonVersion newVersion =
-        options.get(CoreOptions.class).isExec
-            ? options.get(PythonOptions.class).getPythonVersion()
-            : determineNewVersion(options);
+    PythonVersion newVersion = determineNewVersion(options);
     checkArgument(newVersion.isTargetValue(), newVersion);
 
     // PythonOptions aren't present after NoConfigTransition. That implies rules that don't read

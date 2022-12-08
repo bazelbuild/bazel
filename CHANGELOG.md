@@ -1,3 +1,29 @@
+## Release 7.0.0-pre.20221123.2 (2022-12-08)
+
+```
+Baseline: 14e32e7f5d1492f7ca4ffc17c40b913ec5799603
+```
+
+Incompatible changes:
+
+  - the --experimental_async_execution flag is now a no-op.
+
+New features:
+
+  - The `aquery` and `cquery` commands now respect the
+    `--query_file` flag just like the `query` command.
+
+Important changes:
+
+  - Starlark `print()` statements are now emitted iff the line of
+    code is executed. They are no longer replayed on subsequent
+    invocations unless the Starlark code is re-executed.
+    Additionally, multiple identical `print()` statements (same
+    string from the same line of code, e.g. from a loop) are all
+    emitted and no longer deduplicated.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Christopher Sauer, Daniel KT, Fabian Meumertzheim, Matt Mackay.
+
 ## Release 7.0.0-pre.20221111.3 (2022-12-01)
 
 ```

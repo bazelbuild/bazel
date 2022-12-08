@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -52,12 +54,15 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.Nullable;
 
 /** Spawn runner that uses linux sandboxing APIs to execute a local subprocess. */
@@ -130,6 +135,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final TreeDeleter treeDeleter;
   private final Reporter reporter;
   private final ImmutableList<Root> packageRoots;
+  /** If non-null, this is a cgroups directory that sandboxes can put their directories into. */
+  @Nullable private static java.nio.file.Path cgroupsBlazeDir;
+
+  private static final ReentrantLock cgroupsBlazeDirLock = new ReentrantLock();
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
@@ -192,14 +201,15 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     sandboxExecRoot.createDirectory();
 
     Path sandboxTmp = null;
-    if (getSandboxOptions().sandboxHermeticTmp) {
+    SandboxOptions sandboxOptions = getSandboxOptions();
+    if (sandboxOptions.sandboxHermeticTmp) {
       PathFragment tmpRoot = PathFragment.create("/tmp");
       // With a tmpfs on /tmp, mounting a disk-based hermetic /tmp isn't necessary.
-      if (!getSandboxOptions().sandboxTmpfsPath.contains(tmpRoot)) {
+      if (!sandboxOptions.sandboxTmpfsPath.contains(tmpRoot)) {
         // Mounting a tmpfs strictly below the hermetic /tmp isn't supported. We fall back to
         // non-hermetic /tmp in that case, but print a warning mentioning the problematic mount.
         Optional<PathFragment> tmpfsPathUnderTmp =
-            getSandboxOptions().sandboxTmpfsPath.stream()
+            sandboxOptions.sandboxTmpfsPath.stream()
                 .filter(path -> path.startsWith(tmpRoot))
                 .findFirst();
         if (tmpfsPathUnderTmp.isEmpty()) {
@@ -235,16 +245,24 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandbox, spawn.getArguments())
             .addExecutionInfo(spawn.getExecutionInfo())
             .setWritableFilesAndDirectories(writableDirs)
-            .setTmpfsDirectories(ImmutableSet.copyOf(getSandboxOptions().sandboxTmpfsPath))
+            .setTmpfsDirectories(ImmutableSet.copyOf(sandboxOptions.sandboxTmpfsPath))
             .setBindMounts(getBindMounts(blazeDirs, sandboxExecRoot, sandboxTmp))
-            .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
-            .setEnablePseudoterminal(getSandboxOptions().sandboxExplicitPseudoterminal)
+            .setUseFakeHostname(sandboxOptions.sandboxFakeHostname)
+            .setEnablePseudoterminal(sandboxOptions.sandboxExplicitPseudoterminal)
             .setCreateNetworkNamespace(
                 !(allowNetwork
-                    || Spawns.requiresNetwork(
-                        spawn, getSandboxOptions().defaultSandboxAllowNetwork)))
-            .setUseDebugMode(getSandboxOptions().sandboxDebug)
+                    || Spawns.requiresNetwork(spawn, sandboxOptions.defaultSandboxAllowNetwork)))
+            .setUseDebugMode(sandboxOptions.sandboxDebug)
             .setKillDelay(timeoutKillDelay);
+
+    if (sandboxOptions.memoryLimit > 0) {
+      String cgroupsDir = createCgroupsDir(context.getId());
+      commandLineBuilder.setCgroupsDir(cgroupsDir);
+      Files.writeString(
+          Paths.get(cgroupsDir).resolve("memory.max"),
+          Integer.toString(sandboxOptions.memoryLimit),
+          UTF_8);
+    }
 
     if (!timeout.isZero()) {
       commandLineBuilder.setTimeout(timeout);
@@ -252,12 +270,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     if (spawn.getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_FAKEROOT)) {
       commandLineBuilder.setUseFakeRoot(true);
-    } else if (getSandboxOptions().sandboxFakeUsername) {
+    } else if (sandboxOptions.sandboxFakeUsername) {
       commandLineBuilder.setUseFakeUsername(true);
     }
 
     Path statisticsPath = null;
-    if (getSandboxOptions().collectLocalSandboxExecutionStatistics) {
+    if (sandboxOptions.collectLocalSandboxExecutionStatistics) {
       statisticsPath = sandboxPath.getRelative("stats.out");
       commandLineBuilder.setStatisticsPath(statisticsPath);
     }
@@ -275,7 +293,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           sandboxfsMapSymlinkTargets,
           treeDeleter,
           statisticsPath);
-    } else if (getSandboxOptions().useHermetic) {
+    } else if (sandboxOptions.useHermetic) {
       commandLineBuilder.setHermeticSandboxPath(sandboxPath);
       return new HardlinkedSandboxedSpawn(
           sandboxPath,
@@ -287,7 +305,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           writableDirs,
           treeDeleter,
           statisticsPath,
-          getSandboxOptions().sandboxDebug);
+          sandboxOptions.sandboxDebug);
     } else {
       return new SymlinkedSandboxedSpawn(
           sandboxPath,
@@ -299,7 +317,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           writableDirs,
           treeDeleter,
           statisticsPath,
-          getSandboxOptions().reuseSandboxDirectories,
+          sandboxOptions.reuseSandboxDirectories,
           sandboxBase,
           spawn.getMnemonic());
     }
@@ -432,6 +450,47 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
                 Code.MOUNT_TARGET_DOES_NOT_EXIST));
       }
     }
+  }
+
+  /** Creates a cgroups directory to control this sandbox. */
+  private String createCgroupsDir(int id) throws IOException, InterruptedException {
+    java.nio.file.Path blazeCgroupsDir = getCgroupsBlazeDir();
+    var cgroupsDir = blazeCgroupsDir.resolve("sandbox_" + id + ".scope");
+    Files.createDirectories(cgroupsDir);
+    Files.write(
+        blazeCgroupsDir.resolve("cgroup.subtree_control"), ImmutableList.of("+memory"), UTF_8);
+    Files.write(cgroupsDir.resolve("memory.oom.group"), ImmutableList.of("1"), UTF_8);
+    return cgroupsDir.toString();
+  }
+
+  /**
+   * Gets the common cgroups dir that all sandbox cgroups dirs should live under.
+   *
+   * @return A Path for a cgroups node we can create more nodes in.
+   * @throws IOException If the cgroups setup doesn't allow making our own cgroups.
+   */
+  private static java.nio.file.Path getCgroupsBlazeDir() throws IOException, InterruptedException {
+    if (cgroupsBlazeDir == null) {
+      cgroupsBlazeDirLock.lockInterruptibly();
+      try {
+        if (cgroupsBlazeDir == null) {
+          // Using java.nio.Paths in here because we need a truly absolute path.
+          var procSelfCgroupContents = Files.readAllLines(Paths.get("/proc/self/cgroup"), UTF_8);
+          if (procSelfCgroupContents.isEmpty()
+              || !procSelfCgroupContents.get(0).startsWith("0::")) {
+            throw new IOException(
+                "Cgroups v2 requested, but /proc/self/cgroup does not start with 0::");
+          }
+          String cgroupsProcPath = procSelfCgroupContents.get(0).trim().substring(3);
+          var cgroupsNode = Paths.get("/sys/fs/cgroup" + cgroupsProcPath).getParent();
+          cgroupsBlazeDir =
+              cgroupsNode.resolve("blaze_" + ProcessHandle.current().pid() + ".slice");
+        }
+      } finally {
+        cgroupsBlazeDirLock.unlock();
+      }
+    }
+    return cgroupsBlazeDir;
   }
 
   @Override
