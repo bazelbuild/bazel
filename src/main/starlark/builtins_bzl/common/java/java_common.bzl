@@ -20,7 +20,7 @@ load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/android_lint.bzl", "android_lint_action")
 load(":common/java/compile_action.bzl", "compile_action")
 load(":common/java/java_semantics.bzl", "semantics")
-load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS", "validate_proguard_specs")
+load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
 
 java_common = _builtins.toplevel.java_common
 coverage_common = _builtins.toplevel.coverage_common
@@ -272,9 +272,4 @@ BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS = merge_attrs(
             providers = [java_common.JavaToolchainInfo],
         ),
     },
-)
-
-BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS = merge_attrs(
-    BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS,
-    VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS,
 )

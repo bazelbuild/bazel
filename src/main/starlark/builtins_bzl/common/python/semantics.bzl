@@ -13,8 +13,6 @@
 # limitations under the License.
 """Contains constants that vary between Bazel and Google-internal"""
 
-PyWrapCcInfo = None  # Google-specific
-
 IMPORTS_ATTR_SUPPORTED = True
 
 TOOLS_REPO = "bazel_tools"
@@ -23,3 +21,9 @@ PLATFORMS_LOCATION = "@platforms"
 SRCS_ATTR_ALLOW_FILES = [".py", ".py3"]
 
 DEPS_ATTR_ALLOW_RULES = None
+
+PY_RUNTIME_ATTR_NAME = "_py_interpreter"
+PY_RUNTIME_FRAGMENT_NAME = "py"
+PY_RUNTIME_FRAGMENT_ATTR_NAME = "python_path"
+
+BUILD_DATA_SYMLINK_PATH = "pyglib/build_data.txt"

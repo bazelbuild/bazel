@@ -29,9 +29,10 @@ static const int MAX_ARG_STRLEN = 7000;
 
 class JavaBinaryLauncher : public BinaryLauncherBase {
  public:
-  JavaBinaryLauncher(const LaunchDataParser::LaunchInfo& launch_info, int argc,
+  JavaBinaryLauncher(const LaunchDataParser::LaunchInfo& launch_info,
+                     const std::wstring& launcher_path, int argc,
                      wchar_t* argv[])
-      : BinaryLauncherBase(launch_info, argc, argv),
+      : BinaryLauncherBase(launch_info, launcher_path, argc, argv),
         singlejar(false),
         print_javabin(false),
         classpath_limit(MAX_ARG_STRLEN) {}

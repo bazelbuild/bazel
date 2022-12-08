@@ -89,12 +89,6 @@ public final class SingleFileSystemSyscallCache implements SyscallCache {
     delegate.clear();
   }
 
-  /** Returns the underlying {@link SyscallCache} used for eligible paths. */
-  // TODO(b/245929310): This shouldn't be exposed.
-  public SyscallCache getUnderlyingCache() {
-    return delegate;
-  }
-
   private SyscallCache delegateFor(Path path) {
     return path.getFileSystem().equals(fs) ? delegate : SyscallCache.NO_CACHE;
   }

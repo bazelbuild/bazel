@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -187,7 +188,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
           Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Setting up inputs")) {
         inputFiles =
             helpers.processInputFiles(
-                context.getInputMapping(PathFragment.EMPTY_FRAGMENT), execRoot, execRoot, null);
+                context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
+                execRoot,
+                execRoot,
+                ImmutableList.of(),
+                null);
       }
       SandboxOutputs outputs = helpers.getOutputs(spawn);
 

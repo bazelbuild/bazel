@@ -1814,8 +1814,8 @@ java_library(
 )
 
 java_library(
-    name = "per_build_syscall_cache",
-    srcs = ["PerBuildSyscallCache.java"],
+    name = "default_syscall_cache",
+    srcs = ["DefaultSyscallCache.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",

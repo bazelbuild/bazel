@@ -672,6 +672,9 @@ public abstract class DependencyResolver {
     int aspectsNum = aspectsPath.size();
     ArrayList<Aspect> filteredAspectsPath = new ArrayList<>();
 
+    // `aspectsPath` is ordered bottom up. Iterating backwards traverses top-down so the following
+    // loop captures aspects that propagate along the given attribute and all their transitive
+    // requirements.
     for (int i = aspectsNum - 1; i >= 0; i--) {
       Aspect aspect = aspectsPath.get(i);
       if (aspect.getAspectClass().equals(aspectOwningAttribute)) {
@@ -748,6 +751,9 @@ public abstract class DependencyResolver {
   private static AspectCollection computeAspectCollections(
       ImmutableList<Aspect> aspects, Target toTarget) throws InconsistentAspectOrderException {
     if (toTarget instanceof OutputFile) {
+      // When applyToGeneratingRules holds, the aspect cannot have required providers so it's
+      // possible to skip the filtering that happens further below. However,
+      // apply_to_generating_rules is rare in the codebase so the optimization is not worth it.
       aspects =
           aspects.stream()
               .filter(aspect -> aspect.getDefinition().applyToGeneratingRules())

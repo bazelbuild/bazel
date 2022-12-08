@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.skyframe.BzlCompileFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
+import com.google.devtools.build.lib.skyframe.DefaultSyscallCache;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.ExternalPackageFunction;
@@ -72,7 +73,6 @@ import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageValue;
-import com.google.devtools.build.lib.skyframe.PerBuildSyscallCache;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
@@ -442,8 +442,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
   private ImmutableMap<SkyFunctionName, SkyFunction> makeFreshSkyFunctions() {
     TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
-    PerBuildSyscallCache syscallCache =
-        PerBuildSyscallCache.newBuilder().setInitialCapacity(nonSkyframeGlobbingThreads).build();
+    DefaultSyscallCache syscallCache =
+        DefaultSyscallCache.newBuilder().setInitialCapacity(nonSkyframeGlobbingThreads).build();
     pkgFactory.setSyscallCache(syscallCache);
     pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
         MAX_DIRECTORIES_TO_EAGERLY_VISIT_IN_GLOBBING);

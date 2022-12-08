@@ -118,7 +118,7 @@ def _cxx_inc_convert(path):
         path = path[:-_OSX_FRAMEWORK_SUFFIX_LEN].strip()
     return path
 
-def _get_cxx_include_directories(repository_ctx, cc, lang_flag, additional_flags = []):
+def _get_cxx_include_directories(repository_ctx, print_resource_dir_supported, cc, lang_flag, additional_flags = []):
     """Compute the list of C++ include directories."""
     result = repository_ctx.execute([cc, "-E", lang_flag, "-", "-v"] + additional_flags)
     index1 = result.stderr.find(_INC_DIR_MARKER_BEGIN)
@@ -141,7 +141,7 @@ def _get_cxx_include_directories(repository_ctx, cc, lang_flag, additional_flags
         for p in inc_dirs.split("\n")
     ]
 
-    if _is_compiler_option_supported(repository_ctx, cc, "-print-resource-dir"):
+    if print_resource_dir_supported:
         resource_dir = repository_ctx.execute(
             [cc, "-print-resource-dir"] + additional_flags,
         ).stdout.strip() + "/share"
@@ -452,32 +452,42 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         if ld_path.dirname != cc_path.dirname:
             bin_search_flags.append("-B" + str(ld_path.dirname))
     coverage_compile_flags, coverage_link_flags = _coverage_flags(repository_ctx, darwin)
+    print_resource_dir_supported = _is_compiler_option_supported(
+        repository_ctx,
+        cc,
+        "-print-resource-dir",
+    )
+    no_canonical_prefixes_opt = _get_no_canonical_prefixes_opt(repository_ctx, cc)
     builtin_include_directories = _uniq(
-        _get_cxx_include_directories(repository_ctx, cc, "-xc", conly_opts) +
-        _get_cxx_include_directories(repository_ctx, cc, "-xc++", cxx_opts) +
+        _get_cxx_include_directories(repository_ctx, print_resource_dir_supported, cc, "-xc", conly_opts) +
+        _get_cxx_include_directories(repository_ctx, print_resource_dir_supported, cc, "-xc++", cxx_opts) +
         _get_cxx_include_directories(
             repository_ctx,
+            print_resource_dir_supported,
             cc,
             "-xc++",
             cxx_opts + ["-stdlib=libc++"],
         ) +
         _get_cxx_include_directories(
             repository_ctx,
+            print_resource_dir_supported,
             cc,
             "-xc",
-            _get_no_canonical_prefixes_opt(repository_ctx, cc),
+            no_canonical_prefixes_opt,
         ) +
         _get_cxx_include_directories(
             repository_ctx,
+            print_resource_dir_supported,
             cc,
             "-xc++",
-            cxx_opts + _get_no_canonical_prefixes_opt(repository_ctx, cc),
+            cxx_opts + no_canonical_prefixes_opt,
         ) +
         _get_cxx_include_directories(
             repository_ctx,
+            print_resource_dir_supported,
             cc,
             "-xc++",
-            cxx_opts + _get_no_canonical_prefixes_opt(repository_ctx, cc) + ["-stdlib=libc++"],
+            cxx_opts + no_canonical_prefixes_opt + ["-stdlib=libc++"],
         ),
     )
 

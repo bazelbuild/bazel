@@ -172,7 +172,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
-      SyscallCache perCommandSyscallCache,
+      SyscallCache syscallCache,
       SkyFunction ignoredPackagePrefixesFunction,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       ImmutableList<BuildFileName> buildFilesByPriority,
@@ -189,14 +189,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         actionKeyContext,
         workspaceStatusActionFactory,
         extraSkyFunctions,
-        perCommandSyscallCache,
+        syscallCache,
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
         ignoredPackagePrefixesFunction,
         crossRepositoryLabelViolationStrategy,
         buildFilesByPriority,
         externalPackageHelper,
         actionOnIOExceptionReadingBuildFile,
-        /*shouldUnblockCpuWorkWhenFetchingDeps=*/ false,
+        /* shouldUnblockCpuWorkWhenFetchingDeps= */ false,
         new PackageProgressReceiver(),
         new ConfiguredTargetProgressReceiver(),
         skyKeyStateReceiver,
@@ -487,8 +487,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               .build();
       memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);
 
-      FilesystemValueChecker fsvc =
-          new FilesystemValueChecker(tsgm, perCommandSyscallCache, fsvcThreads);
+      FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, syscallCache, fsvcThreads);
       // We need to manually check for changes to known files. This entails finding all dirty file
       // system values under package roots for which we don't have diff information. If at least
       // one path entry doesn't have diff information, then we're going to have to iterate over
@@ -558,8 +557,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       logger.atInfo().log(
           "About to scan %d external files",
           externalFilesKnowledge.nonOutputExternalFilesSeen.size());
-      FilesystemValueChecker fsvc =
-          new FilesystemValueChecker(tsgm, perCommandSyscallCache, fsvcThreads);
+      FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, syscallCache, fsvcThreads);
       ImmutableBatchDirtyResult batchDirtyResult;
       try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyExternalKeys")) {
         Map<SkyKey, SkyValue> externalDirtyNodes = new ConcurrentHashMap<>();
@@ -730,7 +728,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     Differencer.Diff diff;
     if (modifiedFileSet.treatEverythingAsModified()) {
       diff =
-          new FilesystemValueChecker(tsgm, perCommandSyscallCache, /*numThreads=*/ 200)
+          new FilesystemValueChecker(tsgm, syscallCache, /* numThreads= */ 200)
               .getDirtyKeys(memoizingEvaluator.getValues(), new BasicFilesystemDirtinessChecker());
     } else {
       diff = getDiff(tsgm, modifiedFileSet, pathEntry, /* fsvcThreads= */ 200);
@@ -757,7 +755,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     long startTime = System.nanoTime();
     FilesystemValueChecker fsvc =
         new FilesystemValueChecker(
-            Preconditions.checkNotNull(tsgm.get()), perCommandSyscallCache, fsvcThreads);
+            Preconditions.checkNotNull(tsgm.get()), syscallCache, fsvcThreads);
     BatchStat batchStatter = outputService == null ? null : outputService.getBatchStatter();
     recordingDiffer.invalidate(
         fsvc.getDirtyActionValues(
@@ -977,7 +975,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     private SkyFunction ignoredPackagePrefixesFunction;
     private BugReporter bugReporter = BugReporter.defaultInstance();
     private SkyKeyStateReceiver skyKeyStateReceiver = SkyKeyStateReceiver.NULL_INSTANCE;
-    private SyscallCache perCommandSyscallCache = null;
+    private SyscallCache syscallCache = null;
 
     private Builder() {}
 
@@ -1004,7 +1002,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               diffAwarenessFactories,
               workspaceInfoFromDiffReceiver,
               extraSkyFunctions,
-              Preconditions.checkNotNull(perCommandSyscallCache),
+              Preconditions.checkNotNull(syscallCache),
               ignoredPackagePrefixesFunction,
               crossRepositoryLabelViolationStrategy,
               buildFilesByPriority,
@@ -1127,8 +1125,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
 
     @CanIgnoreReturnValue
-    public Builder setPerCommandSyscallCache(SyscallCache perCommandSyscallCache) {
-      this.perCommandSyscallCache = perCommandSyscallCache;
+    public Builder setSyscallCache(SyscallCache syscallCache) {
+      this.syscallCache = syscallCache;
       return this;
     }
   }

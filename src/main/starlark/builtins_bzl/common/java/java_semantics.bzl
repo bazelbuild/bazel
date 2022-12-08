@@ -54,7 +54,6 @@ semantics = struct(
     JAVA_RUNTIME_TOOLCHAIN = _builtins.toplevel.config_common.toolchain_type("@bazel_tools//tools/jdk:runtime_toolchain_type", mandatory = True),
     find_java_runtime_toolchain = _find_java_runtime_toolchain,
     JAVA_PLUGINS_FLAG_ALIAS_LABEL = "@bazel_tools//tools/jdk:java_plugins_flag_alias",
-    PROGUARD_ALLOWLISTER_LABEL = "@bazel_tools//tools/jdk:proguard_whitelister",
     EXTRA_SRCS_TYPES = [],
     ALLOWED_RULES_IN_DEPS = [
         "cc_binary",  # NB: linkshared=1

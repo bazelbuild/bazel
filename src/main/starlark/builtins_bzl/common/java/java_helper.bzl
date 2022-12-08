@@ -20,11 +20,9 @@ load(":common/paths.bzl", "paths")
 
 cc_common = _builtins.toplevel.cc_common
 
-def _collect_all_targets_as_deps(ctx):
-    deps = []
-    deps.extend(ctx.attr.deps or [])
+def _collect_all_targets_as_runtime_deps(ctx):
+    deps = _collect_all_targets_as_compile_deps(ctx)
 
-    # TODO(hvd): check for persistent test runner, ctx.fragments.java.addTestSupportToCompileTimeDeps
     if hasattr(ctx.attr, "_test_support") and ctx.attr._test_support:
         deps.append(ctx.attr._test_support)
 
@@ -32,6 +30,18 @@ def _collect_all_targets_as_deps(ctx):
         deps.extend(ctx.attr.runtime_deps)
     if hasattr(ctx.attr, "exports"):
         deps.extend(ctx.attr.exports)
+
+    return deps
+
+def _collect_all_targets_as_compile_deps(ctx):
+    deps = []
+    deps.extend(ctx.attr.deps or [])
+
+    if (
+        ctx.fragments.java.add_test_support_to_compile_deps and
+        hasattr(ctx.attr, "_test_support") and ctx.attr._test_support
+    ):
+        deps.append(ctx.attr._test_support)
 
     launcher = _filter_launcher_for_target(ctx)
     if launcher:
@@ -264,7 +274,8 @@ def _runfiles_enabled(ctx):
     return ctx.configuration.runfiles_enabled()
 
 util = struct(
-    collect_all_targets_as_deps = _collect_all_targets_as_deps,
+    collect_all_targets_as_runtime_deps = _collect_all_targets_as_runtime_deps,
+    collect_all_targets_as_compile_deps = _collect_all_targets_as_compile_deps,
     filter_launcher_for_target = _filter_launcher_for_target,
     launcher_artifact_for_target = _launcher_artifact_for_target,
     check_and_get_main_class = _check_and_get_main_class,
