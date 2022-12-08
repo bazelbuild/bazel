@@ -23,7 +23,8 @@ load(":common/paths.bzl", "paths")
 JavaInfo = _builtins.toplevel.JavaInfo
 
 def _bazel_java_binary_impl(ctx):
-    deps = helper.collect_all_targets_as_deps(ctx)
+    deps = helper.collect_all_targets_as_compile_deps(ctx)
+    runtime_deps = helper.collect_all_targets_as_runtime_deps(ctx)
 
     main_class = _check_and_get_main_class(ctx)
     coverage_main_class = main_class
@@ -41,6 +42,7 @@ def _bazel_java_binary_impl(ctx):
     providers, default_info, jvm_flags = basic_java_binary(
         ctx,
         deps,
+        runtime_deps,
         ctx.files.resources,
         main_class,
         coverage_main_class,

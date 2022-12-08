@@ -52,6 +52,7 @@ JavaRuntimeClasspathInfo = provider(
 def basic_java_binary(
         ctx,
         deps,
+        runtime_deps,
         resources,
         main_class,
         coverage_main_class,
@@ -65,7 +66,8 @@ def basic_java_binary(
 
     Args:
         ctx: (RuleContext) The rule context
-        deps: (list[Target]) The list of other targets to be linked in
+        deps: (list[Target]) The list of other targets to be compiled with
+        runtime_deps: (list[Target]) The list of other targets to be linked in
         resources: (list[File]) The list of data files to be included in the class jar
         main_class: (String) FQN of the java main class
         coverage_main_class: (String) FQN of the actual main class if coverage is enabled
@@ -96,7 +98,7 @@ def basic_java_binary(
     if not ctx.attr.srcs and ctx.attr.deps:
         fail("deps not allowed without srcs; move to runtime_deps?")
 
-    module_flags = [dep[JavaInfo].module_flags_info for dep in deps if JavaInfo in dep]
+    module_flags = [dep[JavaInfo].module_flags_info for dep in runtime_deps if JavaInfo in dep]
     add_exports = depset(ctx.attr.add_exports, transitive = [m.add_exports for m in module_flags])
     add_opens = depset(ctx.attr.add_opens, transitive = [m.add_opens for m in module_flags])
 
@@ -110,9 +112,8 @@ def basic_java_binary(
     target, common_info = basic_java_library(
         ctx,
         srcs = ctx.files.srcs,
-        deps = ctx.attr.deps,
-        # TODO(b/213551463): There seems to be duplication of deps.
-        runtime_deps = ctx.attr.runtime_deps + deps,
+        deps = deps,
+        runtime_deps = runtime_deps,
         plugins = ctx.attr.plugins,
         resources = resources,
         resource_jars = timezone_data,
@@ -141,7 +142,7 @@ def basic_java_binary(
 
     jvm_flags.extend(launcher_info.jvm_flags)
 
-    native_libs_dirs = java_common.collect_native_deps_dirs(deps)
+    native_libs_dirs = java_common.collect_native_deps_dirs(runtime_deps)
     if native_libs_dirs:
         prefix = "${JAVA_RUNFILES}/" + ctx.workspace_name + "/"
         jvm_flags.append("-Djava.library.path=%s" % (
