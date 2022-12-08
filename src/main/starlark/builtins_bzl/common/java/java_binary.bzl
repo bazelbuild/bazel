@@ -49,7 +49,6 @@ JavaRuntimeClasspathInfo = provider(
     fields = ["runtime_classpath"],
 )
 
-# TODO(hvd): inline implicit deps, toolchains
 def basic_java_binary(
         ctx,
         deps,
@@ -89,11 +88,6 @@ def basic_java_binary(
           )
 
     """
-    toolchain = semantics.find_java_toolchain(ctx)
-    java_runtime_toolchain = semantics.find_java_runtime_toolchain(ctx)
-    cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
-
-    # TODO(hvd): add docstring once signature is finalized
     if not ctx.attr.create_executable and ctx.attr.launcher:
         fail("launcher specified but create_executable is false")
     if not ctx.attr.use_launcher and ctx.attr.launcher:
@@ -111,6 +105,8 @@ def basic_java_binary(
     if hasattr(ctx.files, "classpath_resources"):
         classpath_resources.extend(ctx.files.classpath_resources)
 
+    toolchain = semantics.find_java_toolchain(ctx)
+    timezone_data = [toolchain.timezone_data()] if toolchain.timezone_data() else []
     target, common_info = basic_java_library(
         ctx,
         srcs = ctx.files.srcs,
@@ -119,7 +115,7 @@ def basic_java_binary(
         runtime_deps = ctx.attr.runtime_deps + deps,
         plugins = ctx.attr.plugins,
         resources = resources,
-        resource_jars = ([toolchain.timezone_data()] if toolchain.timezone_data() else []),
+        resource_jars = timezone_data,
         classpath_resources = classpath_resources,
         javacopts = ctx.attr.javacopts,
         neverlink = ctx.attr.neverlink,
@@ -177,7 +173,7 @@ def basic_java_binary(
         _generate_coverage_manifest(ctx, coverage_config.manifest, java_attrs.runtime_classpath)
         files_to_build.append(coverage_config.manifest)
 
-    shared_archive = _create_shared_archive(ctx, java_runtime_toolchain, java_attrs)
+    shared_archive = _create_shared_archive(ctx, java_attrs)
 
     if extension_registry_provider:
         files_to_build.append(extension_registry_provider.class_jar)
@@ -196,6 +192,7 @@ def basic_java_binary(
 
     files = depset(files_to_build + common_info.files_to_build)
 
+    java_runtime_toolchain = semantics.find_java_runtime_toolchain(ctx)
     transitive_runfiles_artifacts = depset(transitive = [
         files,
         java_attrs.runtime_classpath,
@@ -212,7 +209,7 @@ def basic_java_binary(
     if not helper.is_absolute_path(ctx, java_runtime_toolchain.java_home):
         runfiles_symlinks = {
             ("_cpp_runtimes/%s" % lib.basename): lib
-            for lib in cc_toolchain.dynamic_runtime_lib(
+            for lib in cc_helper.find_cpp_toolchain(ctx).dynamic_runtime_lib(
                 feature_configuration = feature_config,
             ).to_list()
         }
@@ -295,7 +292,8 @@ def _collect_attrs(ctx, java_info, classpath_resources):
     deploy_env_jars = depset(transitive = [
         dep[JavaRuntimeClasspathInfo].runtime_classpath
         for dep in ctx.attr.deploy_env
-    ])
+    ]) if hasattr(ctx.attr, "deploy_env") else depset()
+
     runtime_classpath_for_archive = java_common.get_runtime_classpath_for_archive(java_info.transitive_runtime_jars, deploy_env_jars)
     runtime_jars = depset([ctx.outputs.classjar])
 
@@ -327,7 +325,8 @@ def _generate_coverage_manifest(ctx, output, runtime_classpath):
     )
 
 #TODO(hvd): not needed in bazel
-def _create_shared_archive(ctx, runtime, java_attrs):
+def _create_shared_archive(ctx, java_attrs):
+    runtime = semantics.find_java_runtime_toolchain(ctx)
     classlist = ctx.file.classlist if hasattr(ctx.file, "classlist") else None
     if not classlist:
         return None
@@ -419,7 +418,7 @@ def _filter_validation_output_group(ctx, output_group):
         dep[OutputGroupInfo]._validation
         for dep in ctx.attr.deploy_env
         if OutputGroupInfo in dep and hasattr(dep[OutputGroupInfo], "_validation")
-    ])
+    ]) if hasattr(ctx.attr, "deploy_env") else depset()
     if to_exclude:
         transitive_validations = depset(transitive = [
             _get_validations_from_attr(ctx, attr_name)
