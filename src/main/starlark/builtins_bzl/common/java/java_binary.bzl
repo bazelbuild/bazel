@@ -520,6 +520,7 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
         "use_launcher": attr.bool(default = True),
         "env": attr.string_dict(),
         "classpath_resources": attr.label_list(allow_files = True),
+        "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         "_stub_template": attr.label(
             default = semantics.JAVA_STUB_TEMPLATE_LABEL,
             allow_single_file = True,
