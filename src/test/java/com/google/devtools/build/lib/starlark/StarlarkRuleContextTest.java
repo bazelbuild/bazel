@@ -1727,7 +1727,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(
             (List)
                 getConfiguredTargetAndData("@foo//:baz")
-                    .getTarget()
+                    .getTargetForTesting()
                     .getAssociatedRule()
                     .getAttr("srcs"))
         .contains(Label.parseCanonical("@foo//:baz.txt"));

@@ -1538,7 +1538,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
     ConfiguredTargetAndData ct = getConfiguredTargetAndData("//test");
     assertNoEvents();
-    Rule testTarget = (Rule) ct.getTarget();
+    Rule testTarget = (Rule) ct.getTargetForTesting();
     ConfigurationTransition ruleTransition =
         testTarget
             .getRuleClassObject()

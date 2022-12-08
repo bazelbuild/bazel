@@ -213,7 +213,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   private Rule getRuleForTarget(String targetName) throws Exception {
     ConfiguredTargetAndData target = getConfiguredTargetAndData("//test/starlark:" + targetName);
-    return target.getTarget().getAssociatedRule();
+    return target.getTargetForTesting().getAssociatedRule();
   }
 
   @Test

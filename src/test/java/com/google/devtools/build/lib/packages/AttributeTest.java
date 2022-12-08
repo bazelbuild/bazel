@@ -199,7 +199,8 @@ public class AttributeTest {
       Attribute childAttr1 = parentAttr.cloneBuilder().build();
       assertThat(childAttr1.getName()).isEqualTo("x");
       assertThat(childAttr1.getAllowedFileTypesPredicate()).isEqualTo(txtFiles);
-      assertThat(childAttr1.getAllowedRuleClassesPredicate()).isEqualTo(Predicates.alwaysTrue());
+      assertThat(childAttr1.getAllowedRuleClassObjectPredicate())
+          .isEqualTo(Predicates.alwaysTrue());
       assertThat(childAttr1.isMandatory()).isTrue();
       assertThat(childAttr1.isNonEmpty()).isFalse();
       assertThat(childAttr1.getAspects(/* rule= */ null)).hasSize(1);
@@ -215,8 +216,8 @@ public class AttributeTest {
               .build();
       assertThat(childAttr2.getName()).isEqualTo("x");
       assertThat(childAttr2.getAllowedFileTypesPredicate()).isEqualTo(txtFiles);
-      assertThat(childAttr2.getAllowedRuleClassesPredicate())
-          .isEqualTo(ruleClasses.asPredicateOfRuleClass());
+      assertThat(childAttr2.getAllowedRuleClassObjectPredicate())
+          .isEqualTo(ruleClasses.asPredicateOfRuleClassObject());
       assertThat(childAttr2.isMandatory()).isTrue();
       assertThat(childAttr2.isNonEmpty()).isTrue();
       assertThat(childAttr2.getAspects(/* rule= */ null)).hasSize(2);
@@ -224,7 +225,7 @@ public class AttributeTest {
 
     // Check if the parent attribute is unchanged
     assertThat(parentAttr.isNonEmpty()).isFalse();
-    assertThat(parentAttr.getAllowedRuleClassesPredicate()).isEqualTo(Predicates.alwaysTrue());
+    assertThat(parentAttr.getAllowedRuleClassObjectPredicate()).isEqualTo(Predicates.alwaysTrue());
   }
 
   /**

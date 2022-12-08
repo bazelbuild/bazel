@@ -124,7 +124,7 @@ public class SdkMavenRepositoryTest extends AndroidBuildViewTestCase {
     sdkMavenRepository.writeBuildFiles(workspaceDir);
     Rule aarImport =
         getConfiguredTargetAndData("//com.google.android:bar-1.0.0")
-            .getTarget()
+            .getTargetForTesting()
             .getAssociatedRule();
     assertThat(aarImport.getRuleClass()).isEqualTo("aar_import");
     AttributeMap attributes = RawAttributeMapper.of(aarImport);
@@ -139,7 +139,7 @@ public class SdkMavenRepositoryTest extends AndroidBuildViewTestCase {
     sdkMavenRepository.writeBuildFiles(workspaceDir);
     Rule javaImport =
         getConfiguredTargetAndData("//com.google.android:foo-1.0.0")
-            .getTarget()
+            .getTargetForTesting()
             .getAssociatedRule();
     assertThat(javaImport.getRuleClass()).isEqualTo("java_import");
     AttributeMap attributes = RawAttributeMapper.of(javaImport);
@@ -153,7 +153,7 @@ public class SdkMavenRepositoryTest extends AndroidBuildViewTestCase {
     sdkMavenRepository.writeBuildFiles(workspaceDir);
     Rule invalidPackagingGenrule =
         getConfiguredTargetAndData("//com.google.android:baz-1.0.0")
-            .getTarget()
+            .getTargetForTesting()
             .getAssociatedRule();
     assertThat(invalidPackagingGenrule.getRuleClass()).isEqualTo("genrule");
     assertThat(RawAttributeMapper.of(invalidPackagingGenrule).get("cmd", Type.STRING))

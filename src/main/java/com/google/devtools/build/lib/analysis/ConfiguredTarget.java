@@ -95,4 +95,17 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
   default ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions() {
     return ImmutableMap.of();
   }
+
+  default boolean isRuleConfiguredTarget() {
+    return false;
+  }
+
+  /**
+   * The base configured target if it has been merged with aspects otherwise the current value.
+   *
+   * <p>Unwrapping is recursive if there are multiple layers.
+   */
+  default ConfiguredTarget unwrapIfMerged() {
+    return this;
+  }
 }

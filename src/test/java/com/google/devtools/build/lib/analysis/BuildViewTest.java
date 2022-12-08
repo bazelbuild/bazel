@@ -98,7 +98,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
     ConfiguredTargetAndData ruleCTAT = getConfiguredTargetAndTarget("//pkg:foo");
 
-    assertThat(ruleCTAT.getTarget()).isSameInstanceAs(ruleTarget);
+    assertThat(ruleCTAT.getTargetForTesting()).isSameInstanceAs(ruleTarget);
   }
 
   @Test
@@ -134,8 +134,7 @@ public class BuildViewTest extends BuildViewTestBase {
     targets =
         Lists.newArrayList(
             BuildView.filterTestsByTargets(
-                targets,
-                Sets.newHashSet(test1.getTarget().getLabel(), suite.getTarget().getLabel())));
+                targets, Sets.newHashSet(test1.getTargetLabel(), suite.getTargetLabel())));
     assertThat(targets).containsExactlyElementsIn(Sets.newHashSet(test1CT, suiteCT));
   }
 
