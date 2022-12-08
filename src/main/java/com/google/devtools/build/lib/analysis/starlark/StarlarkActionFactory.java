@@ -375,7 +375,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object inputManifestsUnchecked,
       Object execGroupUnchecked,
       Object shadowedActionUnchecked,
-      Object resourceSetUnchecked)
+      Object resourceSetUnchecked,
+      Object toolchainUnchecked)
       throws EvalException {
     context.checkMutable("actions.run");
 
@@ -486,7 +487,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object inputManifestsUnchecked,
       Object execGroupUnchecked,
       Object shadowedActionUnchecked,
-      Object resourceSetUnchecked)
+      Object resourceSetUnchecked,
+      Object toolchainUnchecked)
       throws EvalException {
     context.checkMutable("actions.run_shell");
     RuleContext ruleContext = getRuleContext();
