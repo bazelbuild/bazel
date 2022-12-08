@@ -395,6 +395,16 @@ public class SandboxOptions extends OptionsBase {
               + " --sandbox_add_mount_pair=/tmp to keep seeing the host's /tmp in all sandboxes.")
   public boolean sandboxHermeticTmp;
 
+  @Option(
+      name = "experimental_sandbox_memory_limit",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If set to true, each Linux sandbox will be limited to the given amount of memory."
+              + " Requires cgroups v2 and permissions for the users to the cgroups dir.")
+  public int memoryLimit;
+
   /** Converter for the number of threads used for asynchronous tree deletion. */
   public static final class AsyncTreeDeletesConverter extends ResourceConverter {
     public AsyncTreeDeletesConverter() {

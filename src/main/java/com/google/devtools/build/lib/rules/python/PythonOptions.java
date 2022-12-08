@@ -248,6 +248,9 @@ public class PythonOptions extends FragmentOptions {
               + "https://github.com/bazelbuild/bazel/issues/10076.")
   public boolean incompatibleDefaultToExplicitInitPy;
 
+  // Helper field to store hostForcePython in exec configuration
+  private PythonVersion defaultPythonVersion = null;
+
   @Override
   public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
     // TODO(brandjon): Instead of referencing the python_version target, whose path depends on the
@@ -256,7 +259,7 @@ public class PythonOptions extends FragmentOptions {
     restrictions.put(
         PYTHON_VERSION_DEFINITION,
         new SelectRestriction(
-            /*visibleWithinToolsPackage=*/ true,
+            /* visibleWithinToolsPackage= */ true,
             "Use @bazel_tools//python/tools:python_version instead."));
     restrictions.put(
         FORCE_PYTHON_DEFINITION,
@@ -276,6 +279,9 @@ public class PythonOptions extends FragmentOptions {
    * a version should be built for.
    */
   public PythonVersion getDefaultPythonVersion() {
+    if (defaultPythonVersion != null) {
+      return defaultPythonVersion;
+    }
     return incompatiblePy3IsDefault ? PythonVersion.PY3 : PythonVersion.PY2;
   }
 
@@ -320,8 +326,11 @@ public class PythonOptions extends FragmentOptions {
   @Override
   public FragmentOptions getHost() {
     PythonOptions hostPythonOptions = (PythonOptions) getDefault();
-    PythonVersion hostVersion =
-        (hostForcePython != null) ? hostForcePython : getDefaultPythonVersion();
+    PythonVersion hostVersion = getDefaultPythonVersion();
+    if (hostForcePython != null) {
+      hostVersion = hostForcePython;
+      hostPythonOptions.defaultPythonVersion = hostForcePython;
+    }
     hostPythonOptions.setPythonVersion(hostVersion);
     hostPythonOptions.incompatiblePy3IsDefault = incompatiblePy3IsDefault;
     hostPythonOptions.incompatiblePy2OutputsAreSuffixed = incompatiblePy2OutputsAreSuffixed;

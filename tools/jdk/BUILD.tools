@@ -395,9 +395,6 @@ py_binary(
     srcs = [
         "proguard_whitelister.py",
     ],
-    deps = [
-        "//third_party/py/abseil",
-    ],
 )
 
 py_test(

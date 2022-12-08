@@ -343,6 +343,10 @@ static bool ShouldBeWritable(const std::string &mnt_dir) {
     return true;
   }
 
+  if (mnt_dir == "/sys/fs/cgroup" && !opt.cgroups_dir.empty()) {
+    return true;
+  }
+
   for (const std::string &writable_file : opt.writable_files) {
     if (mnt_dir == writable_file) {
       return true;
@@ -558,6 +562,13 @@ static int WaitForChild() {
   }
 }
 
+static void AddProcessToCgroup() {
+  if (!opt.cgroups_dir.empty()) {
+    PRINT_DEBUG("Adding process to cgroups dir %s", opt.cgroups_dir.c_str());
+    WriteFile(opt.cgroups_dir + "/cgroup.procs", "1");
+  }
+}
+
 static void MountSandboxAndGoThere() {
   if (mount(opt.sandbox_root.c_str(), opt.sandbox_root.c_str(), nullptr,
             MS_BIND | MS_NOSUID, nullptr) < 0) {
@@ -710,6 +721,7 @@ int Pid1Main(void *sync_pipe_param) {
   }
   SetupNetworking();
   EnterWorkingDirectory();
+  AddProcessToCgroup();
 
   // Ignore terminal signals; we hand off the terminal to the child in
   // SpawnChild below.
