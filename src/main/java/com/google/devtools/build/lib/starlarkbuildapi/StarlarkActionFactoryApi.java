@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
@@ -464,6 +465,25 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + " <code>--experimental_action_resource_set</code> is false, the default"
                     + " values are used.<p>The callback must be top-level (lambda and nested"
                     + " functions aren't allowed)."),
+        @Param(
+            name = "toolchain",
+            allowedTypes = {
+              @ParamType(type = Label.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "<p>Toolchain type of the executable or tools used in this action. The parameter"
+                    + " must be set, so that, the action executes on the correct execution"
+                    + " platform. </p><p>It's a no-op right now, but we recommend to set it when a"
+                    + " toolchain is used, because it will be required in the future Bazel"
+                    + " releases.</p><p>Note that the rule which creates this action needs to"
+                    + " define this toolchain inside its 'rule()' function.</p><p>When `toolchain`"
+                    + " and `exec_group` parameters are both set, `exec_group` will be used. An"
+                    + " error is raised in case the `exec_group` doesn't specify the same."),
       })
   void run(
       Sequence<?> outputs,
@@ -480,7 +500,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object inputManifestsUnchecked,
       Object execGroupUnchecked,
       Object shadowedAction,
-      Object resourceSetUnchecked)
+      Object resourceSetUnchecked,
+      Object toolchainUnchecked)
       throws EvalException;
 
   @StarlarkMethod(
@@ -681,6 +702,26 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             doc =
                 "A callback function for estimating resource usage if run locally. See"
                     + "<a href=\"#run.resource_set\"><code>ctx.actions.run()</code></a>."),
+        @Param(
+            name = "toolchain",
+            allowedTypes = {
+              @ParamType(type = Label.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "<p>Toolchain type of the executable or tools used in this action. The parameter"
+                    + " must be set, so that, the action executes on the correct execution"
+                    + " platform. </p><p>It's a no-op right now, but we recommend to set it when a"
+                    + " toolchain is used, because it will be required in the future Bazel"
+                    + " releases.</p><p>Note that the rule which creates this action needs to"
+                    + " define this toolchain inside its 'rule()' function.</p><p>When `toolchain`"
+                    + " and `exec_group` parameters are both set, `exec_group` will be used. An"
+                    + " error is raised in case the `exec_group` doesn't specify the same."
+                    + " toolchain.</p>"),
       })
   void runShell(
       Sequence<?> outputs,
@@ -696,7 +737,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object inputManifestsUnchecked,
       Object execGroupUnchecked,
       Object shadowedAction,
-      Object resourceSetUnchecked)
+      Object resourceSetUnchecked,
+      Object toolchainUnchecked)
       throws EvalException;
 
   @StarlarkMethod(
