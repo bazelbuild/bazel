@@ -2874,7 +2874,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "workspace_name",
           "label",
           "fragments",
-          "host_fragments",
           "configuration",
           "host_configuration",
           "coverage_instrumented(dep)",
