@@ -548,11 +548,15 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         inputsToDownload.add(output);
       }
 
-      for (Pattern pattern : patternsToDownload) {
-        if (pattern.matcher(output.getExecPathString()).matches()) {
-          outputsToDownload.add(output);
-          break;
+      if (output.isTreeArtifact()) {
+        var children = metadataHandler.getTreeArtifactChildren((SpecialArtifact) output);
+        for (var file : children) {
+          if (outputMatchesPattern(file)) {
+            outputsToDownload.add(file);
+          }
         }
+      } else if (outputMatchesPattern(output)) {
+        outputsToDownload.add(output);
       }
     }
 
@@ -563,6 +567,15 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     if (!outputsToDownload.isEmpty()) {
       prefetchFiles(outputsToDownload, metadataHandler, Priority.LOW);
     }
+  }
+
+  private boolean outputMatchesPattern(Artifact output) {
+    for (var pattern : patternsToDownload) {
+      if (pattern.matcher(output.getExecPathString()).matches()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public void flushOutputTree() throws InterruptedException {
