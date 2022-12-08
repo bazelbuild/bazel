@@ -126,6 +126,7 @@ function rlocation() {
     fi
     # If the path is absolute, print it as-is.
     echo "$1"
+    return 0
   elif [[ "$1" == ../* || "$1" == */.. || "$1" == ./* || "$1" == */./* || "$1" == "*/." || "$1" == *//* ]]; then
     if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
       echo >&2 "ERROR[runfiles.bash]: rlocation($1): path is not normalized"
@@ -234,7 +235,7 @@ function runfiles_current_repository() {
     rlocation_path=$(__runfiles_maybe_grep -m1 "^[^ ]* ${escaped_caller_path}$" "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 1)
     if [[ -z "$rlocation_path" ]]; then
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
-        echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) is not the target of an entry in the runfiles manifest ($RUNFILES_MANIFEST_FILE)"
+        echo >&2 "ERROR[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) is not the target of an entry in the runfiles manifest ($RUNFILES_MANIFEST_FILE)"
       fi
       return 1
     else
@@ -302,6 +303,9 @@ function runfiles_current_repository() {
 export -f runfiles_current_repository
 
 function runfiles_rlocation_checked() {
+  # FIXME: If the runfiles lookup fails, the exit code of this function is 0 if
+  #  and only if the runfiles manifest exists. In particular, the exit code
+  #  behavior is not consistent across platforms.
   if [[ -e "${RUNFILES_DIR:-/dev/null}/$1" ]]; then
     if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
       echo >&2 "INFO[runfiles.bash]: rlocation($1): found under RUNFILES_DIR ($RUNFILES_DIR), return"
@@ -344,6 +348,9 @@ function runfiles_rlocation_checked() {
         #    existence and would have returned the non-existent path. It seems
         #    better to return no path rather than a potentially different,
         #    non-empty path.
+        if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+          echo >&2 "INFO[runfiles.bash]: rlocation($1): found in manifest as ($candidate) via prefix ($prefix), but file does not exist"
+        fi
         break
       done
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
@@ -356,6 +363,11 @@ function runfiles_rlocation_checked() {
           echo >&2 "INFO[runfiles.bash]: rlocation($1): found in manifest as ($result)"
         fi
         echo "$result"
+      else
+        if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+          echo >&2 "INFO[runfiles.bash]: rlocation($1): found in manifest as ($result), but file does not exist"
+        fi
+        echo ""
       fi
     fi
   else
