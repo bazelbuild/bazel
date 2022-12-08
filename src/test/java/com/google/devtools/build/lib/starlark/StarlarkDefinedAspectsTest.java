@@ -1594,8 +1594,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "   pass",
         "my_rule = rule(_main_rule_impl,",
         "   attrs = { ",
-        "      'exe1' : attr.label(executable = True, allow_files = True, cfg = 'host'),",
-        "      'exe2' : attr.label(executable = True, allow_files = True, cfg = 'host'),",
+        "      'exe1' : attr.label(executable = True, allow_files = True, cfg = 'exec'),",
+        "      'exe2' : attr.label(executable = True, allow_files = True, cfg = 'exec'),",
         "   },",
         ")");
 
@@ -6617,7 +6617,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "aspect_b = aspect(",
         "  implementation = _aspect_b,",
         "  required_aspect_providers = [AInfo],",
-        "  attrs = {'_attr': attr.label(default=':bin', executable=True, cfg='host')},",
+        "  attrs = {'_attr': attr.label(default=':bin', executable=True, cfg='exec')},",
         ")");
     scratch.file("test/bin.sh").setExecutable(true);
 

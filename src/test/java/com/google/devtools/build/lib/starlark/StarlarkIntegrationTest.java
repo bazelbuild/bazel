@@ -703,7 +703,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "   return [info]",
         "r = rule(_impl,",
         "         attrs = {",
-        "            'dep' : attr.label(executable = True, mandatory = True, cfg = 'host'),",
+        "            'dep' : attr.label(executable = True, mandatory = True, cfg = 'exec'),",
         "         }",
         ")");
 
@@ -1221,7 +1221,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "        'wrapped_list': attr.label_list(),",
         // Host deps aren't forwarded by default, since they don't provide code/binaries executed
         // at runtime.
-        "        'tool': attr.label(cfg = 'host', executable = True, mandatory = True),",
+        "        'tool': attr.label(cfg = 'exec', executable = True, mandatory = True),",
         "    })");
 
     scratch.file(
@@ -2274,7 +2274,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "r = rule(_impl,",
         "         executable = True,",
         "         attrs = {",
-        "            'runme' : attr.label(executable = True, mandatory = True, cfg = 'host'),",
+        "            'runme' : attr.label(executable = True, mandatory = True, cfg = 'exec'),",
         "         }",
         ")");
 

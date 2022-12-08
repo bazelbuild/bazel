@@ -483,7 +483,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "my_rule = rule(",
         "  _main_rule_impl,",
         "  attrs = { ",
-        "    'exe' : attr.label(executable = True, allow_files = True, cfg='host'),",
+        "    'exe' : attr.label(executable = True, allow_files = True, cfg='exec'),",
         "  },",
         ")");
     scratch.file("bar/bar.bzl", lines.build().toArray(new String[] {}));

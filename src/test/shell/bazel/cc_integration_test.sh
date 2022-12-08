@@ -209,7 +209,7 @@ mygen = rule(
   attrs={
     "srcs": attr.label_list(allow_files=True),
     "_mygen": attr.label(
-      cfg="host",
+      cfg="exec",
       executable=True,
       allow_files=True,
       default=":mygen_sh",

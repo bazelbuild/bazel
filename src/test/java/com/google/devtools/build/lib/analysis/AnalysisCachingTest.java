@@ -749,7 +749,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "    fragments = ['test_diff_fragment'],",
         "    attrs = {",
         "        'deps': attr.label_list(),",
-        "        'host_deps': attr.label_list(cfg='host'),",
+        "        'host_deps': attr.label_list(cfg='exec'),",
         "    },",
         ")",
         "uses_irrelevant = rule(",
@@ -757,7 +757,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "    fragments = ['test_diff_fragment'],",
         "    attrs = {",
         "        'deps': attr.label_list(),",
-        "        'host_deps': attr.label_list(cfg='host'),",
+        "        'host_deps': attr.label_list(cfg='exec'),",
         "    },",
         ")");
     update();
