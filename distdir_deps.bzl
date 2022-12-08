@@ -35,6 +35,7 @@ DIST_DEPS = {
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+        "package_version": "0.0.5",
     },
     "bazelci_rules": {
         "archive": "bazelci_rules-1.0.0.tar.gz",
@@ -47,6 +48,7 @@ DIST_DEPS = {
         "used_in": [
             "additional_distfiles",
         ],
+        "package_version": "1.0.0",
     },
     # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/cc_configure.WORKSPACE.
     # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
@@ -59,6 +61,7 @@ DIST_DEPS = {
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+        "package_version": "0.0.2",
     },
     "rules_java": {
         "archive": "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
@@ -72,6 +75,11 @@ DIST_DEPS = {
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+        "license_kinds": [
+            "@rules_license//licenses/spdx:Apache-2.0",
+        ],
+        # TODO(bazel-team): Update to a newer version
+        "package_version": "2019-06-28",
     },
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_proto": {
@@ -110,6 +118,11 @@ DIST_DEPS = {
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+        "license_kinds": [
+            "@rules_license//licenses/generic:notice",
+        ],
+        "license_text": "LICENSE",
+        "package_version": "3.19.6",
     },
     "com_github_grpc_grpc": {
         "archive": "v1.47.0.tar.gz",
@@ -128,6 +141,7 @@ DIST_DEPS = {
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+        "package_version": "1.47.0",
     },
     "com_github_cncf_udpa": {
         "archive": "cb28da3451f158a947dfc45090fe92b07b243bc1.tar.gz",
@@ -174,6 +188,7 @@ DIST_DEPS = {
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+        "package_version": "0.24.0",
     },
     "com_google_googleapis": {
         "archive": "2f9af297c84c55c8b871ba4495e01ade42476c92.tar.gz",
@@ -187,6 +202,10 @@ DIST_DEPS = {
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+        "license_kinds": [
+            "@rules_license//licenses/spdx:Apache-2.0",
+        ],
+        "license_text": "LICENSE",
     },
     "upb": {
         "archive": "a5477045acaa34586420942098f5fecd3570f577.tar.gz",
@@ -203,6 +222,7 @@ DIST_DEPS = {
         "license_kinds": [
             "@rules_license//licenses/generic:notice",
         ],
+        "license_text": "LICENSE",
     },
     "c-ares": {
         "archive": "6654436a307a5a686b008c1d4c93b0085da6e6d8.tar.gz",
@@ -240,6 +260,11 @@ DIST_DEPS = {
             "test_WORKSPACE_files",
         ],
         "strip_prefix": "abseil-cpp-20211102.0",
+        "license_kinds": [
+            "@rules_license//licenses/generic:notice",
+        ],
+        "license_text": "LICENSE",
+        "package_version": "2021-11-02.0",
     },
     "zstd-jni": {
         "archive": "v1.5.2-3.zip",
@@ -255,6 +280,11 @@ DIST_DEPS = {
         "used_in": [
             "additional_distfiles",
         ],
+        "license_kinds": [
+            "@rules_license//licenses/spdx:BSD-2-Clause",
+        ],
+        "license_text": "LICENSE",
+        "package_version": "1.5.2-3",
     },
     ###################################################
     #
@@ -272,6 +302,7 @@ DIST_DEPS = {
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+        "package_version": "1.0.3",
     },
     "io_bazel_skydoc": {
         "archive": "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
@@ -296,6 +327,7 @@ DIST_DEPS = {
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+        "package_version": "0.0.3",
     },
     "rules_pkg": {
         "archive": "rules_pkg-0.8.0.tar.gz",
@@ -307,6 +339,7 @@ DIST_DEPS = {
         "used_in": [
             "additional_distfiles",
         ],
+        "package_version": "0.8.0",
     },
     "desugar_jdk_libs": {
         # Commit 5847d6a06302136d95a14b4cbd4b55a9c9f1436e of 2021-03-10
@@ -330,6 +363,7 @@ DIST_DEPS = {
         "used_in": [
             "test_WORKSPACE_files",
         ],
+        "package_version": "2.6",
     },
     "remote_java_tools": {
         "aliases": [
@@ -345,6 +379,7 @@ DIST_DEPS = {
         "used_in": [
             "test_WORKSPACE_files",
         ],
+        "package_version": "11.9",
     },
     "remote_java_tools_linux": {
         "aliases": [
@@ -360,6 +395,7 @@ DIST_DEPS = {
         "used_in": [
             "test_WORKSPACE_files",
         ],
+        "package_version": "11.9",
     },
     "remote_java_tools_windows": {
         "aliases": [
@@ -375,6 +411,7 @@ DIST_DEPS = {
         "used_in": [
             "test_WORKSPACE_files",
         ],
+        "package_version": "11.9",
     },
     "remote_java_tools_darwin": {
         "aliases": [
@@ -390,6 +427,7 @@ DIST_DEPS = {
         "used_in": [
             "test_WORKSPACE_files",
         ],
+        "package_version": "11.9",
     },
     "remotejdk11_linux": {
         "aliases": [
