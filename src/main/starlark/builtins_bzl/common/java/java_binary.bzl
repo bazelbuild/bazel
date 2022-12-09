@@ -61,7 +61,8 @@ def basic_java_binary(
         executable,
         feature_config,
         strip_as_default,
-        extension_registry_provider = None):
+        extension_registry_provider = None,
+        is_test_rule_class = False):
     """Creates actions for compiling and linting java sources, coverage support, and sources jar (_deploy-src.jar).
 
     Args:
@@ -77,6 +78,7 @@ def basic_java_binary(
         feature_config: (FeatureConfiguration) The result of cc_common.configure_features()
         strip_as_default: (bool) Whether this target outputs a stripped launcher and deploy jar
         extension_registry_provider: (GeneratedExtensionRegistryProvider) internal param, do not use
+        is_test_rule_class: (bool) Whether this rule is a test rule
 
     Returns:
         Tuple(
@@ -186,7 +188,9 @@ def basic_java_binary(
             transitive = [output_groups["_source_jars"]],
         )
 
-    one_version_output = _create_one_version_check(ctx, java_info.transitive_runtime_jars)
+    one_version_output = _create_one_version_check(ctx, java_info.transitive_runtime_jars) if (
+        ctx.fragments.java.one_version_enforcement_on_java_tests or not is_test_rule_class
+    ) else None
     validation_outputs = [one_version_output] if one_version_output else []
 
     _create_deploy_sources_jar(ctx, output_groups["_source_jars"])
