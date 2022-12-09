@@ -86,12 +86,6 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
 
   @Override
   @Test
-  public void testDefaultCopts() {
-    // There's no default_copts attribute in Bazel.
-  }
-
-  @Override
-  @Test
   public void testHdrsCheck() throws Exception {
     // There's no hdrs_check attribute in Bazel.
   }

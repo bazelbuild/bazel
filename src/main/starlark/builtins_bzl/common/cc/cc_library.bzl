@@ -53,7 +53,7 @@ def _cc_library_impl(ctx):
         name = ctx.label.name,
         cc_toolchain = cc_toolchain,
         feature_configuration = feature_configuration,
-        user_compile_flags = cc_helper.get_copts(ctx, common, feature_configuration, additional_make_variable_substitutions),
+        user_compile_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions),
         defines = common.defines,
         local_defines = common.local_defines + cc_helper.get_local_defines_for_runfiles_lookup(ctx),
         loose_includes = common.loose_include_dirs,
@@ -584,7 +584,6 @@ attrs = {
     "includes": attr.string_list(),
     "defines": attr.string_list(),
     "copts": attr.string_list(),
-    "_default_copts": attr.string_list(default = cc_internal.default_copts_computed_default()),
     "hdrs_check": attr.string(default = cc_internal.default_hdrs_check_computed_default()),
     "local_defines": attr.string_list(),
     "deps": attr.label_list(

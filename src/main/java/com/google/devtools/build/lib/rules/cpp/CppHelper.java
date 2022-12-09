@@ -159,12 +159,6 @@ public class CppHelper {
     return ImmutableList.copyOf(expandMakeVariables(ruleContext, attr, unexpanded));
   }
 
-  // Called from CcCommon.
-  static ImmutableList<String> getPackageCopts(RuleContext ruleContext) {
-    List<String> unexpanded = ruleContext.getRule().getPackage().getDefaultCopts();
-    return ImmutableList.copyOf(expandMakeVariables(ruleContext, "copts", unexpanded));
-  }
-
   /** Tokenizes and expands make variables. */
   public static List<String> expandLinkopts(
       RuleContext ruleContext, String attrName, Iterable<String> values) {

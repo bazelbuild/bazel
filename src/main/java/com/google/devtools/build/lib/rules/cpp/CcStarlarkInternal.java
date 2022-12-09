@@ -129,24 +129,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     }
   }
 
-  static class DefaultCoptsBuiltinComputedDefault extends ComputedDefault
-      implements NativeComputedDefaultApi {
-    @Override
-    public Object getDefault(AttributeMap rule) {
-      return rule.getPackageDefaultCopts();
-    }
-
-    @Override
-    public boolean resolvableWithRawAttributes() {
-      return true;
-    }
-  }
-
-  @StarlarkMethod(name = "default_copts_computed_default", documented = false)
-  public ComputedDefault getDefaultCoptsComputedDefault() {
-    return new DefaultCoptsBuiltinComputedDefault();
-  }
-
   static class DefaultHdrsCheckBuiltinComputedDefault extends ComputedDefault
       implements NativeComputedDefaultApi {
     @Override

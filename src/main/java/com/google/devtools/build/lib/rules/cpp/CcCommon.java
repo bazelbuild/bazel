@@ -262,18 +262,7 @@ public final class CcCommon implements StarlarkValue {
               Preconditions.checkNotNull(getNoCoptsPattern(ruleContext))));
     }
 
-    return ImmutableList.<String>builder()
-        .addAll(CppHelper.getPackageCopts(ruleContext))
-        .addAll(CppHelper.getAttributeCopts(ruleContext))
-        .build();
-  }
-
-  // TODO(gnish): Delete this method once package default copts are gone.
-  // All of the package default copts will be included in rule attribute
-  // after the migration.
-  @StarlarkMethod(name = "unexpanded_package_copts", structField = true, documented = false)
-  public Sequence<String> getUnexpandedPackageCoptsForStarlark() {
-    return StarlarkList.immutableCopyOf(ruleContext.getRule().getPackage().getDefaultCopts());
+    return ImmutableList.copyOf(CppHelper.getAttributeCopts(ruleContext));
   }
 
   private boolean hasAttribute(String name, Type<?> type) {
