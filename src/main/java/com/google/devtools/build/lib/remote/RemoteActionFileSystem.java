@@ -250,11 +250,26 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m == null) {
-      super.setLastModifiedTime(path, newTime);
+    FileNotFoundException remoteException = null;
+    try {
+      remoteOutputTree.setLastModifiedTime(path, newTime);
+    } catch (FileNotFoundException e) {
+      remoteException = e;
     }
-    remoteOutputTree.setLastModifiedTime(path, newTime);
+
+    FileNotFoundException localException = null;
+    try {
+      super.setLastModifiedTime(path, newTime);
+    } catch (FileNotFoundException e) {
+      localException = e;
+    }
+
+    if (remoteException == null || localException == null) {
+      return;
+    }
+
+    localException.addSuppressed(remoteException);
+    throw localException;
   }
 
   @Override

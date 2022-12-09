@@ -77,6 +77,27 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void disableRunfiles_buildSuccessfully() throws Exception {
+    write("BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  cmd = 'echo foo > $@',",
+        "  outs = ['foo.data'],",
+        ")",
+        "sh_test(",
+        "  name = 'foobar',",
+        "  srcs = ['test.sh'],",
+        "  data = [':foo'],",
+        ")"
+    );
+    write("test.sh");
+    getWorkspace().getRelative("test.sh").setExecutable(true);
+    addOptions("--build_runfile_links", "--enable_runfiles=no");
+
+    buildTarget("//:foobar");
+  }
+
+  @Test
   public void downloadOutputsWithRegex() throws Exception {
     write(
         "BUILD",
