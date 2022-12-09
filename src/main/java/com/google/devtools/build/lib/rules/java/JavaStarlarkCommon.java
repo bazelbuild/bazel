@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
@@ -434,7 +435,23 @@ public class JavaStarlarkCommon
     checkPrivateAccess(thread);
     ImmutableList<Artifact> nativeLibs =
         JavaCommon.collectNativeLibraries(
-            Sequence.cast(deps, TransitiveInfoCollection.class, "deps"));
+                Sequence.cast(deps, TransitiveInfoCollection.class, "deps"))
+            .stream()
+            .filter(
+                nativeLibrary -> {
+                  String name = nativeLibrary.getFilename();
+                  if (CppFileTypes.INTERFACE_SHARED_LIBRARY.matches(name)) {
+                    return false;
+                  }
+                  if (!(CppFileTypes.SHARED_LIBRARY.matches(name)
+                      || CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name))) {
+                    throw new IllegalArgumentException(
+                        "not a shared library :" + nativeLibrary.prettyPrint());
+                  }
+                  return true;
+                })
+            .collect(toImmutableList());
+
     Set<String> uniqueDirs = new LinkedHashSet<>();
     for (Artifact nativeLib : nativeLibs) {
       uniqueDirs.add(nativeLib.getRootRelativePath().getParentDirectory().getPathString());
