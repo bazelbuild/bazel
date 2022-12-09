@@ -42,7 +42,7 @@ def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_de
     else:
         rule_exec(**kwargs)
 
-    if "nodeployjar" not in kwargs.get("tags", []):
+    if not kwargs.get("tags", []) or "nodeployjar" not in kwargs.get("tags", []):
         deploy_jar_args = _filtered_dict(kwargs, _DEPLOY_JAR_RULE_ATTRS)
         if is_test_rule_class:
             deploy_jar_args["testonly"] = True
