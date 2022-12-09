@@ -81,7 +81,9 @@ public class DynamicExecutionModule extends BlazeModule {
     DynamicExecutionOptions dynamicOptions =
         env.getOptions().getOptions(DynamicExecutionOptions.class);
     ignoreLocalSignals =
-        dynamicOptions != null ? dynamicOptions.ignoreLocalSignals : ImmutableSet.of();
+        dynamicOptions != null && dynamicOptions.ignoreLocalSignals != null
+            ? dynamicOptions.ignoreLocalSignals
+            : ImmutableSet.of();
     reporter = env.getReporter();
   }
 
