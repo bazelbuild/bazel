@@ -38,6 +38,9 @@ BASE_JDK9_JVM_OPTS = [
     # TODO(b/64485048): Disable this option in persistent worker mode only.
     # Disable symlinks resolution cache since symlinks in exec root change
     "-Dsun.io.useCanonCaches=false",
+
+    # Compact strings make JavaBuilder slightly slower.
+    "-XX:-CompactStrings",
 ]
 
 JDK9_JVM_OPTS = BASE_JDK9_JVM_OPTS
@@ -51,8 +54,7 @@ DEFAULT_JAVACOPTS = [
     "-Xep:ReturnValueIgnored:OFF",
 ]
 
-# java_toolchain parameters without specifying javac, java.compiler,
-# jdk.compiler module, and jvm_opts
+# Default java_toolchain parameters
 _BASE_TOOLCHAIN_CONFIGURATION = dict(
     forcibly_disable_header_compilation = False,
     genclass = ["@remote_java_tools//:GenClass"],
@@ -63,6 +65,10 @@ _BASE_TOOLCHAIN_CONFIGURATION = dict(
     javac_supports_workers = True,
     jacocorunner = "@remote_java_tools//:jacoco_coverage_runner_filegroup",
     jvm_opts = BASE_JDK9_JVM_OPTS,
+    turbine_jvm_opts = [
+        # Turbine is not a worker and parallel GC is faster for short-lived programs.
+        "-XX:+UseParallelGC",
+    ],
     misc = DEFAULT_JAVACOPTS,
     singlejar = ["@bazel_tools//tools/jdk:singlejar"],
     # Code to enumerate target JVM boot classpath uses host JVM. Because
@@ -73,19 +79,10 @@ _BASE_TOOLCHAIN_CONFIGURATION = dict(
     reduced_classpath_incompatible_processors = [
         "dagger.hilt.processor.internal.root.RootProcessor",  # see b/21307381
     ],
+    java_runtime = "@bazel_tools//tools/jdk:remotejdk_17",
 )
 
-DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
-    jvm_opts = [
-        # Compact strings make JavaBuilder slightly slower.
-        "-XX:-CompactStrings",
-    ] + JDK9_JVM_OPTS,
-    turbine_jvm_opts = [
-        # Turbine is not a worker and parallel GC is faster for short-lived programs.
-        "-XX:+UseParallelGC",
-    ],
-    java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
-)
+DEFAULT_TOOLCHAIN_CONFIGURATION = _BASE_TOOLCHAIN_CONFIGURATION
 
 # The 'vanilla' toolchain is an unsupported alternative to the default.
 #
@@ -103,6 +100,7 @@ DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
 VANILLA_TOOLCHAIN_CONFIGURATION = dict(
     javabuilder = ["@remote_java_tools//:VanillaJavaBuilder"],
     jvm_opts = [],
+    java_runtime = None,
 )
 
 # The new toolchain is using all the pre-built tools, including
@@ -111,32 +109,14 @@ VANILLA_TOOLCHAIN_CONFIGURATION = dict(
 # same, otherwise the binaries will not work on the execution
 # platform.
 PREBUILT_TOOLCHAIN_CONFIGURATION = dict(
-    jvm_opts = [
-        # Compact strings make JavaBuilder slightly slower.
-        "-XX:-CompactStrings",
-    ] + JDK9_JVM_OPTS,
-    turbine_jvm_opts = [
-        # Turbine is not a worker and parallel GC is faster for short-lived programs.
-        "-XX:+UseParallelGC",
-    ],
     ijar = ["@bazel_tools//tools/jdk:ijar_prebuilt_binary"],
     singlejar = ["@bazel_tools//tools/jdk:prebuilt_singlejar"],
-    java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
 )
 
 # The new toolchain is using all the tools from sources.
 NONPREBUILT_TOOLCHAIN_CONFIGURATION = dict(
-    jvm_opts = [
-        # Compact strings make JavaBuilder slightly slower.
-        "-XX:-CompactStrings",
-    ] + JDK9_JVM_OPTS,
-    turbine_jvm_opts = [
-        # Turbine is not a worker and parallel GC is faster for short-lived programs.
-        "-XX:+UseParallelGC",
-    ],
     ijar = ["@remote_java_tools//:ijar_cc_binary"],
     singlejar = ["@remote_java_tools//:singlejar_cc_bin"],
-    java_runtime = "@bazel_tools//tools/jdk:remote_jdk11",
 )
 
 def default_java_toolchain(name, configuration = DEFAULT_TOOLCHAIN_CONFIGURATION, toolchain_definition = True, exec_compatible_with = [], target_compatible_with = [], **kwargs):
@@ -191,8 +171,6 @@ def _bootclasspath_impl(ctx):
     args.add("-target")
     args.add("8")
     args.add("-Xlint:-options")
-    args.add("-cp")
-    args.add("%s/lib/tools.jar" % host_javabase.java_home)
     args.add("-d")
     args.add_all([class_dir], expand_directories = False)
     args.add(ctx.file.src)
@@ -214,12 +192,7 @@ def _bootclasspath_impl(ctx):
     args.add("--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED")
     args.add("--add-exports=jdk.compiler/com.sun.tools.javac.platform=ALL-UNNAMED")
     args.add("--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED")
-    args.add_joined(
-        "-cp",
-        [class_dir, "%s/lib/tools.jar" % host_javabase.java_home],
-        join_with = ctx.configuration.host_path_separator,
-        expand_directories = False,
-    )
+    args.add("-cp", class_dir.path)
     args.add("DumpPlatformClassPath")
     args.add(bootclasspath)
 
