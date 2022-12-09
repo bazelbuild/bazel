@@ -100,7 +100,7 @@ differences include:
     details on how we denote backwards compatibility.)
 
 Any valid SemVer version is a valid Bazel module version. Additionally, two
-SemVer versions `a` and `b` compare `a < b` iff the same holds when they're
+SemVer versions `a` and `b` compare `a < b` if the same holds when they're
 compared as Bazel module versions.
 
 ### Version resolution {:#version-resolution}
