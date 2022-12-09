@@ -20,7 +20,7 @@ the supplied value of the `create_executable` attribute.
 
 load(":common/java/java_binary_deploy_jar.bzl", "DEPLOY_JAR_RULE_NAME_SUFFIX")
 
-def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_deploy_jars, **kwargs):
+def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_deploy_jars, is_test_rule_class = False, **kwargs):
     """Registers the correct java_binary rule and deploy jar rule
 
     Args:
@@ -28,6 +28,7 @@ def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_de
         rule_nonexec: (Rule) The non-executable java_binary rule
         rule_nolauncher: (Rule) The executable java_binary rule without launcher flag resolution
         rule_deploy_jars: (Rule) The auxiliary deploy jars rule
+        is_test_rule_class: (bool) If this is a test rule
         **kwargs: Actual args to instantiate the rule
     """
 
@@ -42,10 +43,13 @@ def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_de
         rule_exec(**kwargs)
 
     if "nodeployjar" not in kwargs.get("tags", []):
+        deploy_jar_args = _filtered_dict(kwargs, _DEPLOY_JAR_RULE_ATTRS)
+        if is_test_rule_class:
+            deploy_jar_args["testonly"] = True
         rule_deploy_jars(
             name = kwargs["name"] + DEPLOY_JAR_RULE_NAME_SUFFIX,  # to avoid collision
             binary = kwargs["name"],
-            **_filtered_dict(kwargs, _DEPLOY_JAR_RULE_ATTRS)
+            **deploy_jar_args
         )
 
 _DEPLOY_JAR_RULE_ATTRS = {key: None for key in [
