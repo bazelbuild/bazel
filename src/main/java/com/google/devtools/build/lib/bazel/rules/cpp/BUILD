@@ -53,6 +53,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
