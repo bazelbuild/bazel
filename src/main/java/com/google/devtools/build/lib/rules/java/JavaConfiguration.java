@@ -112,6 +112,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean multiReleaseDeployJars;
   private final boolean disallowJavaImportExports;
   private final boolean disallowJavaImportEmptyJars;
+  private final boolean experimentalPruneTransitiveDeps;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
@@ -154,6 +155,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.multiReleaseDeployJars = javaOptions.multiReleaseDeployJars;
     this.disallowJavaImportExports = javaOptions.disallowJavaImportExports;
     this.disallowJavaImportEmptyJars = javaOptions.disallowJavaImportEmptyJars;
+    this.experimentalPruneTransitiveDeps = javaOptions.experimentalPruneTransitiveDeps;
 
     Map<String, Label> optimizers = javaOptions.bytecodeOptimizers;
     if (optimizers.size() > 1) {
@@ -490,5 +492,9 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean requireJavaPluginInfo() {
     return requireJavaPluginInfo;
+  }
+
+  public boolean experimentalPruneTransitiveDeps() {
+    return experimentalPruneTransitiveDeps;
   }
 }

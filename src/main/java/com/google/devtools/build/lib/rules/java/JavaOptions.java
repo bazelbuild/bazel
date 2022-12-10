@@ -610,6 +610,21 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Enable experimental jspecify integration.")
   public boolean experimentalEnableJspecify;
+
+  @Option(
+      name = "experimental_prune_transitive_deps",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.EXECUTION,
+          OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If enabled, compilation is performed against only direct dependencies. Transitive deps "
+              + "required for compilation must be explicitly added")
+  public boolean experimentalPruneTransitiveDeps;
+
   @Override
   public FragmentOptions getHost() {
     // Note validation actions don't run in host config, so no need copying flags related to that.
