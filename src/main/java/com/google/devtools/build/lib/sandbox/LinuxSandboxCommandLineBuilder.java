@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.vfs.Path;
@@ -32,6 +32,20 @@ import java.util.Set;
  * linux-sandbox} tool.
  */
 public class LinuxSandboxCommandLineBuilder {
+  /** A bind mount that needs to be present when the sandboxed command runs. */
+  @AutoValue
+  public abstract static class BindMount {
+    public static BindMount of(Path mountPoint, Path source) {
+      return new AutoValue_LinuxSandboxCommandLineBuilder_BindMount(mountPoint, source);
+    }
+
+    /** "target" in mount(2) */
+    public abstract Path getMountPoint();
+
+    /** "source" in mount(2) */
+    public abstract Path getContent();
+  }
+
   private final Path linuxSandboxPath;
   private final List<String> commandArguments;
   private Path hermeticSandboxPath;
@@ -43,7 +57,7 @@ public class LinuxSandboxCommandLineBuilder {
   private Path stderrPath;
   private Set<Path> writableFilesAndDirectories = ImmutableSet.of();
   private ImmutableSet<PathFragment> tmpfsDirectories = ImmutableSet.of();
-  private Map<Path, Path> bindMounts = ImmutableMap.of();
+  private List<BindMount> bindMounts = ImmutableList.of();
   private Path statisticsPath;
   private boolean useFakeHostname = false;
   private boolean createNetworkNamespace = false;
@@ -140,7 +154,7 @@ public class LinuxSandboxCommandLineBuilder {
    * if any.
    */
   @CanIgnoreReturnValue
-  public LinuxSandboxCommandLineBuilder setBindMounts(Map<Path, Path> bindMounts) {
+  public LinuxSandboxCommandLineBuilder setBindMounts(List<BindMount> bindMounts) {
     this.bindMounts = bindMounts;
     return this;
   }
@@ -248,12 +262,11 @@ public class LinuxSandboxCommandLineBuilder {
     for (PathFragment tmpfsPath : tmpfsDirectories) {
       commandLineBuilder.add("-e", tmpfsPath.getPathString());
     }
-    for (Path bindMountTarget : bindMounts.keySet()) {
-      Path bindMountSource = bindMounts.get(bindMountTarget);
-      commandLineBuilder.add("-M", bindMountSource.getPathString());
+    for (BindMount bindMount : bindMounts) {
+      commandLineBuilder.add("-M", bindMount.getContent().getPathString());
       // The file is mounted in a custom location inside the sandbox.
-      if (!bindMountSource.equals(bindMountTarget)) {
-        commandLineBuilder.add("-m", bindMountTarget.getPathString());
+      if (!bindMount.getContent().equals(bindMount.getMountPoint())) {
+        commandLineBuilder.add("-m", bindMount.getMountPoint().getPathString());
       }
     }
     if (statisticsPath != null) {
