@@ -58,9 +58,16 @@ def _get_licenses_attr():
 def _get_loose_mode_in_hdrs_check_allowed_attr():
     return {}
 
+def _def_parser_computed_default(name, tags):
+    # This is needed to break the dependency cycle.
+    if "__DONT_DEPEND_ON_DEF_PARSER__" in tags or "def_parser" in name:
+        return None
+    else:
+        return Label("@bazel_tools//tools/def_parser:def_parser")
+
 def _get_def_parser():
     return attr.label(
-        default = _builtins.internal.cc_internal.def_parser_computed_default(),
+        default = _def_parser_computed_default,
         allow_single_file = True,
         cfg = "exec",
     )

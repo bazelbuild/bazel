@@ -63,6 +63,7 @@ cc_libc_top_alias(name = "current_libc_top")
 
 cc_library(
     name = "malloc",
+    tags = ["__DONT_DEPEND_ON_DEF_PARSER__"],
 )
 
 filegroup(
