@@ -199,11 +199,6 @@ java_library(
     ],
 )
 
-java_library(
-    name = "java-implicit-attributes",
-    srcs = ["JavaImplicitAttributes.java"],
-)
-
 # A library with the utilities required for determining java roots.
 
 java_library(
