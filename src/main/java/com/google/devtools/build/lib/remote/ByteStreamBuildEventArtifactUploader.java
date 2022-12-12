@@ -212,14 +212,15 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   }
 
   private boolean shouldUpload(PathMetadata path) {
-    boolean result =
-        path.getDigest() != null && !path.isRemote() && !path.isDirectory() && !path.isOmitted();
+    return path.getDigest() != null && !path.isRemote() && !path.isDirectory() && !path.isOmitted();
+  }
 
+  private boolean shouldUploadBasedOnUploadMode(PathMetadata path) {
     if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL) {
-      result = result && (isTestLog(path) || isProfile(path));
+      return isTestLog(path) || isProfile(path);
     }
 
-    return result;
+    return true;
   }
 
   private boolean isTestLog(PathMetadata path) {
@@ -236,7 +237,9 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     List<PathMetadata> filesToQuery = new ArrayList<>();
     Set<Digest> digestsToQuery = new HashSet<>();
     for (PathMetadata path : paths) {
-      if (shouldQuery(path)) {
+      if (!shouldUploadBasedOnUploadMode(path)) {
+        continue;
+      } else if (shouldQuery(path)) {
         filesToQuery.add(path);
         digestsToQuery.add(path.getDigest());
       } else {
