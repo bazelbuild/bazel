@@ -280,10 +280,6 @@ static void MountFilesystems() {
     }
   }
 
-  // Make sure that our working directory is a mount point. The easiest way to
-  // do this is by bind-mounting it upon itself.
-  PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
-
   // An attempt to mount the sandbox in tmpfs will always fail, so this block is
   // slightly redundant with the next mount() check, but dumping the mount()
   // syscall is incredibly cryptic, so we explicitly check against and warn
@@ -325,6 +321,10 @@ static void MountFilesystems() {
           writable_file.c_str(), writable_file.c_str());
     }
   }
+
+  // Make sure that our working directory is a mount point. The easiest way to
+  // do this is by bind-mounting it upon itself.
+  PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
 
   if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
             nullptr) < 0) {
