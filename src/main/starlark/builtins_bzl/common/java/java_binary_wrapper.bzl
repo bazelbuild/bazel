@@ -20,13 +20,14 @@ the supplied value of the `create_executable` attribute.
 
 load(":common/java/java_binary_deploy_jar.bzl", "DEPLOY_JAR_RULE_NAME_SUFFIX")
 
-def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_deploy_jars, is_test_rule_class = False, **kwargs):
+def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_customlauncher, rule_deploy_jars, is_test_rule_class = False, **kwargs):
     """Registers the correct java_binary rule and deploy jar rule
 
     Args:
         rule_exec: (Rule) The executable java_binary rule
         rule_nonexec: (Rule) The non-executable java_binary rule
         rule_nolauncher: (Rule) The executable java_binary rule without launcher flag resolution
+        rule_customlauncher: (Rule) The executable java_binary rule with a custom launcher attr set
         rule_deploy_jars: (Rule) The auxiliary deploy jars rule
         is_test_rule_class: (bool) If this is a test rule
         **kwargs: Actual args to instantiate the rule
@@ -37,8 +38,10 @@ def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_de
         kwargs["stamp"] = 1 if kwargs["stamp"] else 0
     if "create_executable" in kwargs and not kwargs["create_executable"]:
         rule_nonexec(**kwargs)
-    elif ("launcher" in kwargs and kwargs["launcher"]) or ("use_launcher" in kwargs and not kwargs["use_launcher"]):
+    elif "use_launcher" in kwargs and not kwargs["use_launcher"]:
         rule_nolauncher(**kwargs)
+    elif "launcher" in kwargs and kwargs["launcher"]:
+        rule_customlauncher(**kwargs)
     else:
         rule_exec(**kwargs)
 
