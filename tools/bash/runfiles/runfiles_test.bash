@@ -126,10 +126,10 @@ function test_rlocation_abs_path() {
   source "$runfiles_lib_path"
 
   if is_windows; then
-    [[ "$(rlocation "c:/Foo")" == "c:/Foo" ]] || fail
-    [[ "$(rlocation "c:\\Foo")" == "c:\\Foo" ]] || fail
+    [[ "$(rlocation "c:/Foo" || echo failed)" == "c:/Foo" ]] || fail
+    [[ "$(rlocation "c:\\Foo" || echo failed)" == "c:\\Foo" ]] || fail
   else
-    [[ "$(rlocation "/Foo")" == "/Foo" ]] || fail
+    [[ "$(rlocation "/Foo" || echo failed)" == "/Foo" ]] || fail
   fi
 }
 
@@ -140,35 +140,40 @@ a/b $tmpdir/c/d
 e/f $tmpdir/g h
 y $tmpdir/y
 c/dir $tmpdir/dir
+unresolved $tmpdir/unresolved
 EOF
   mkdir "${tmpdir}/c"
   mkdir "${tmpdir}/y"
   mkdir -p "${tmpdir}/dir/deeply/nested"
   touch "${tmpdir}/c/d" "${tmpdir}/g h"
   touch "${tmpdir}/dir/file"
+  ln -s /does/not/exist "${tmpdir}/dir/unresolved"
   touch "${tmpdir}/dir/deeply/nested/file"
+  ln -s /does/not/exist "${tmpdir}/unresolved"
 
   export RUNFILES_DIR=
   export RUNFILES_MANIFEST_FILE=$tmpdir/foo.runfiles_manifest
   source "$runfiles_lib_path"
 
-  [[ -z "$(rlocation a)" ]] || fail
-  [[ -z "$(rlocation c/d)" ]] || fail
-  [[ "$(rlocation a/b)" == "$tmpdir/c/d" ]] || fail
-  [[ "$(rlocation e/f)" == "$tmpdir/g h" ]] || fail
-  [[ "$(rlocation y)" == "$tmpdir/y" ]] || fail
-  [[ "$(rlocation c)" == "" ]] || fail
-  [[ "$(rlocation c/di)" == "" ]] || fail
-  [[ "$(rlocation c/dir)" == "$tmpdir/dir" ]] || fail
-  [[ "$(rlocation c/dir/file)" == "$tmpdir/dir/file" ]] || fail
-  [[ "$(rlocation c/dir/deeply/nested/file)" == "$tmpdir/dir/deeply/nested/file" ]] || fail
-  rm -r "$tmpdir/c/d" "$tmpdir/g h" "$tmpdir/y" "$tmpdir/dir"
-  [[ -z "$(rlocation a/b)" ]] || fail
-  [[ -z "$(rlocation e/f)" ]] || fail
-  [[ -z "$(rlocation y)" ]] || fail
-  [[ -z "$(rlocation c/dir)" ]] || fail
-  [[ -z "$(rlocation c/dir/file)" ]] || fail
-  [[ -z "$(rlocation c/dir/deeply/nested/file)" ]] || fail
+  [[ -z "$(rlocation a || echo failed)" ]] || fail
+  [[ -z "$(rlocation c/d || echo failed)" ]] || fail
+  [[ "$(rlocation a/b || echo failed)" == "$tmpdir/c/d" ]] || fail
+  [[ "$(rlocation e/f || echo failed)" == "$tmpdir/g h" ]] || fail
+  [[ "$(rlocation y || echo failed)" == "$tmpdir/y" ]] || fail
+  [[ -z "$(rlocation c || echo failed)" ]] || fail
+  [[ -z "$(rlocation c/di || echo failed)" ]] || fail
+  [[ "$(rlocation c/dir || echo failed)" == "$tmpdir/dir" ]] || fail
+  [[ "$(rlocation c/dir/file || echo failed)" == "$tmpdir/dir/file" ]] || fail
+  [[ -z "$(rlocation c/dir/unresolved || echo failed)" ]] || fail
+  [[ "$(rlocation c/dir/deeply/nested/file || echo failed)" == "$tmpdir/dir/deeply/nested/file" ]] || fail
+  [[ -z "$(rlocation unresolved || echo failed)" ]] || fail
+  rm -r "$tmpdir/c/d" "$tmpdir/g h" "$tmpdir/y" "$tmpdir/dir" "$tmpdir/unresolved"
+  [[ -z "$(rlocation a/b || echo failed)" ]] || fail
+  [[ -z "$(rlocation e/f || echo failed)" ]] || fail
+  [[ -z "$(rlocation y || echo failed)" ]] || fail
+  [[ -z "$(rlocation c/dir || echo failed)" ]] || fail
+  [[ -z "$(rlocation c/dir/file || echo failed)" ]] || fail
+  [[ -z "$(rlocation c/dir/deeply/nested/file || echo failed)" ]] || fail
 }
 
 function test_manifest_based_envvars() {
@@ -194,15 +199,15 @@ function test_init_directory_based_runfiles() {
 
   mkdir -p "$RUNFILES_DIR/a"
   touch "$RUNFILES_DIR/a/b" "$RUNFILES_DIR/c d"
-  [[ "$(rlocation a)" == "$RUNFILES_DIR/a" ]] || fail
-  [[ -z "$(rlocation c/d)" ]] || fail
-  [[ "$(rlocation a/b)" == "$RUNFILES_DIR/a/b" ]] || fail
-  [[ "$(rlocation "c d")" == "$RUNFILES_DIR/c d" ]] || fail
-  [[ -z "$(rlocation "c")" ]] || fail
+  [[ "$(rlocation a || echo failed)" == "$RUNFILES_DIR/a" ]] || fail
+  [[ "$(rlocation c/d || echo failed)" == failed ]] || fail
+  [[ "$(rlocation a/b || echo failed)" == "$RUNFILES_DIR/a/b" ]] || fail
+  [[ "$(rlocation "c d" || echo failed)" == "$RUNFILES_DIR/c d" ]] || fail
+  [[ "$(rlocation "c" || echo failed)" == failed ]] || fail
   rm -r "$RUNFILES_DIR/a" "$RUNFILES_DIR/c d"
-  [[ -z "$(rlocation a)" ]] || fail
-  [[ -z "$(rlocation a/b)" ]] || fail
-  [[ -z "$(rlocation "c d")" ]] || fail
+  [[ "$(rlocation a || echo failed)" == failed ]] || fail
+  [[ "$(rlocation a/b || echo failed)" == failed ]] || fail
+  [[ "$(rlocation "c d" || echo failed)" == failed ]] || fail
 }
 
 function test_directory_based_runfiles_with_repo_mapping_from_main() {
@@ -228,23 +233,23 @@ EOF
   touch "$RUNFILES_DIR/protobuf~3.19.2/foo/runfile"
   touch "$RUNFILES_DIR/config.json"
 
-  [[ "$(rlocation "my_module/bar/runfile" "")" == "$RUNFILES_DIR/_main/bar/runfile" ]] || fail
-  [[ "$(rlocation "my_workspace/bar/runfile" "")" == "$RUNFILES_DIR/_main/bar/runfile" ]] || fail
-  [[ "$(rlocation "my_protobuf/foo/runfile" "")" == "$RUNFILES_DIR/protobuf~3.19.2/foo/runfile" ]] || fail
-  [[ "$(rlocation "my_protobuf/bar/dir" "")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir" ]] || fail
-  [[ "$(rlocation "my_protobuf/bar/dir/file" "")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/file" ]] || fail
-  [[ "$(rlocation "my_protobuf/bar/dir/de eply/nes ted/fi~le" "")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
+  [[ "$(rlocation "my_module/bar/runfile" "" || echo failed)" == "$RUNFILES_DIR/_main/bar/runfile" ]] || fail
+  [[ "$(rlocation "my_workspace/bar/runfile" "" || echo failed)" == "$RUNFILES_DIR/_main/bar/runfile" ]] || fail
+  [[ "$(rlocation "my_protobuf/foo/runfile" "" || echo failed)" == "$RUNFILES_DIR/protobuf~3.19.2/foo/runfile" ]] || fail
+  [[ "$(rlocation "my_protobuf/bar/dir" "" || echo failed)" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir" ]] || fail
+  [[ "$(rlocation "my_protobuf/bar/dir/file" "" || echo failed)" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/file" ]] || fail
+  [[ "$(rlocation "my_protobuf/bar/dir/de eply/nes ted/fi~le" "" || echo failed)" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
 
-  [[ -z "$(rlocation "protobuf/foo/runfile" "")" ]] || fail
-  [[ -z "$(rlocation "protobuf/bar/dir/dir/de eply/nes ted/fi~le" "")" ]] || fail
+  [[ "$(rlocation "protobuf/foo/runfile" "" || echo failed)" == failed ]] || fail
+  [[ "$(rlocation "protobuf/bar/dir/dir/de eply/nes ted/fi~le" "" || echo failed)" == failed ]] || fail
 
-  [[ "$(rlocation "_main/bar/runfile" "")" == "$RUNFILES_DIR/_main/bar/runfile" ]] || fail
-  [[ "$(rlocation "protobuf~3.19.2/foo/runfile" "")" == "$RUNFILES_DIR/protobuf~3.19.2/foo/runfile" ]] || fail
-  [[ "$(rlocation "protobuf~3.19.2/bar/dir" "")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir" ]] || fail
-  [[ "$(rlocation "protobuf~3.19.2/bar/dir/file" "")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/file" ]] || fail
-  [[ "$(rlocation "protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" "")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
+  [[ "$(rlocation "_main/bar/runfile" "" || echo failed)" == "$RUNFILES_DIR/_main/bar/runfile" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/foo/runfile" "" || echo failed)" == "$RUNFILES_DIR/protobuf~3.19.2/foo/runfile" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir" "" || echo failed)" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir/file" "" || echo failed)" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/file" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" "" || echo failed)" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
 
-  [[ "$(rlocation "config.json" "")" == "$RUNFILES_DIR/config.json" ]] || fail
+  [[ "$(rlocation "config.json" "" || echo failed)" == "$RUNFILES_DIR/config.json" ]] || fail
 }
 
 function test_directory_based_runfiles_with_repo_mapping_from_other_repo() {
@@ -270,21 +275,21 @@ EOF
   touch "$RUNFILES_DIR/protobuf~3.19.2/foo/runfile"
   touch "$RUNFILES_DIR/config.json"
 
-  [[ "$(rlocation "protobuf/foo/runfile" "protobuf~3.19.2")" == "$RUNFILES_DIR/protobuf~3.19.2/foo/runfile" ]] || fail
-  [[ "$(rlocation "protobuf/bar/dir" "protobuf~3.19.2")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir" ]] || fail
-  [[ "$(rlocation "protobuf/bar/dir/file" "protobuf~3.19.2")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/file" ]] || fail
-  [[ "$(rlocation "protobuf/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
+  [[ "$(rlocation "protobuf/foo/runfile" "protobuf~3.19.2" || echo failed)" == "$RUNFILES_DIR/protobuf~3.19.2/foo/runfile" ]] || fail
+  [[ "$(rlocation "protobuf/bar/dir" "protobuf~3.19.2" || echo failed)" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir" ]] || fail
+  [[ "$(rlocation "protobuf/bar/dir/file" "protobuf~3.19.2" || echo failed)" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/file" ]] || fail
+  [[ "$(rlocation "protobuf/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2" || echo failed)" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
 
-  [[ -z "$(rlocation "my_module/bar/runfile" "protobuf~3.19.2")" ]] || fail
-  [[ -z "$(rlocation "my_protobuf/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2")" ]] || fail
+  [[ "$(rlocation "my_module/bar/runfile" "protobuf~3.19.2" || echo failed)" == failed ]] || fail
+  [[ "$(rlocation "my_protobuf/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2" || echo failed)" == failed ]] || fail
 
-  [[ "$(rlocation "_main/bar/runfile" "protobuf~3.19.2")" == "$RUNFILES_DIR/_main/bar/runfile" ]] || fail
-  [[ "$(rlocation "protobuf~3.19.2/foo/runfile" "protobuf~3.19.2")" == "$RUNFILES_DIR/protobuf~3.19.2/foo/runfile" ]] || fail
-  [[ "$(rlocation "protobuf~3.19.2/bar/dir" "protobuf~3.19.2")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir" ]] || fail
-  [[ "$(rlocation "protobuf~3.19.2/bar/dir/file" "protobuf~3.19.2")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/file" ]] || fail
-  [[ "$(rlocation "protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2")" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
+  [[ "$(rlocation "_main/bar/runfile" "protobuf~3.19.2" || echo failed)" == "$RUNFILES_DIR/_main/bar/runfile" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/foo/runfile" "protobuf~3.19.2" || echo failed)" == "$RUNFILES_DIR/protobuf~3.19.2/foo/runfile" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir" "protobuf~3.19.2" || echo failed)" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir/file" "protobuf~3.19.2" || echo failed)" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/file" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2" || echo failed)" == "$RUNFILES_DIR/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
 
-  [[ "$(rlocation "config.json" "protobuf~3.19.2")" == "$RUNFILES_DIR/config.json" ]] || fail
+  [[ "$(rlocation "config.json" "protobuf~3.19.2" || echo failed)" == "$RUNFILES_DIR/config.json" ]] || fail
 }
 
 function test_manifest_based_runfiles_with_repo_mapping_from_main() {
@@ -316,23 +321,23 @@ EOF
   touch "$tmpdir/protobuf~3.19.2/foo/runfile"
   touch "$tmpdir/config.json"
 
-  [[ "$(rlocation "my_module/bar/runfile" "")" == "$tmpdir/_main/bar/runfile" ]] || fail
-  [[ "$(rlocation "my_workspace/bar/runfile" "")" == "$tmpdir/_main/bar/runfile" ]] || fail
-  [[ "$(rlocation "my_protobuf/foo/runfile" "")" == "$tmpdir/protobuf~3.19.2/foo/runfile" ]] || fail
-  [[ "$(rlocation "my_protobuf/bar/dir" "")" == "$tmpdir/protobuf~3.19.2/bar/dir" ]] || fail
-  [[ "$(rlocation "my_protobuf/bar/dir/file" "")" == "$tmpdir/protobuf~3.19.2/bar/dir/file" ]] || fail
-  [[ "$(rlocation "my_protobuf/bar/dir/de eply/nes ted/fi~le" "")" == "$tmpdir/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
+  [[ "$(rlocation "my_module/bar/runfile" "" || echo failed)" == "$tmpdir/_main/bar/runfile" ]] || fail
+  [[ "$(rlocation "my_workspace/bar/runfile" "" || echo failed)" == "$tmpdir/_main/bar/runfile" ]] || fail
+  [[ "$(rlocation "my_protobuf/foo/runfile" "" || echo failed)" == "$tmpdir/protobuf~3.19.2/foo/runfile" ]] || fail
+  [[ "$(rlocation "my_protobuf/bar/dir" "" || echo failed)" == "$tmpdir/protobuf~3.19.2/bar/dir" ]] || fail
+  [[ "$(rlocation "my_protobuf/bar/dir/file" "" || echo failed)" == "$tmpdir/protobuf~3.19.2/bar/dir/file" ]] || fail
+  [[ "$(rlocation "my_protobuf/bar/dir/de eply/nes ted/fi~le" "" || echo failed)" == "$tmpdir/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
 
-  [[ -z "$(rlocation "protobuf/foo/runfile" "")" ]] || fail
-  [[ -z "$(rlocation "protobuf/bar/dir/dir/de eply/nes ted/fi~le" "")" ]] || fail
+  [[ -z "$(rlocation "protobuf/foo/runfile" "" || echo failed)" ]] || fail
+  [[ -z "$(rlocation "protobuf/bar/dir/dir/de eply/nes ted/fi~le" "" || echo failed)" ]] || fail
 
-  [[ "$(rlocation "_main/bar/runfile" "")" == "$tmpdir/_main/bar/runfile" ]] || fail
-  [[ "$(rlocation "protobuf~3.19.2/foo/runfile" "")" == "$tmpdir/protobuf~3.19.2/foo/runfile" ]] || fail
-  [[ "$(rlocation "protobuf~3.19.2/bar/dir" "")" == "$tmpdir/protobuf~3.19.2/bar/dir" ]] || fail
-  [[ "$(rlocation "protobuf~3.19.2/bar/dir/file" "")" == "$tmpdir/protobuf~3.19.2/bar/dir/file" ]] || fail
-  [[ "$(rlocation "protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" "")" == "$tmpdir/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
+  [[ "$(rlocation "_main/bar/runfile" "" || echo failed)" == "$tmpdir/_main/bar/runfile" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/foo/runfile" "" || echo failed)" == "$tmpdir/protobuf~3.19.2/foo/runfile" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir" "" || echo failed)" == "$tmpdir/protobuf~3.19.2/bar/dir" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir/file" "" || echo failed)" == "$tmpdir/protobuf~3.19.2/bar/dir/file" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" "" || echo failed)" == "$tmpdir/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
 
-  [[ "$(rlocation "config.json" "")" == "$tmpdir/config.json" ]] || fail
+  [[ "$(rlocation "config.json" "" || echo failed)" == "$tmpdir/config.json" ]] || fail
 }
 
 function test_manifest_based_runfiles_with_repo_mapping_from_other_repo() {
@@ -364,21 +369,21 @@ EOF
   touch "$tmpdir/protobuf~3.19.2/foo/runfile"
   touch "$tmpdir/config.json"
 
-  [[ "$(rlocation "protobuf/foo/runfile" "protobuf~3.19.2")" == "$tmpdir/protobuf~3.19.2/foo/runfile" ]] || fail
-  [[ "$(rlocation "protobuf/bar/dir" "protobuf~3.19.2")" == "$tmpdir/protobuf~3.19.2/bar/dir" ]] || fail
-  [[ "$(rlocation "protobuf/bar/dir/file" "protobuf~3.19.2")" == "$tmpdir/protobuf~3.19.2/bar/dir/file" ]] || fail
-  [[ "$(rlocation "protobuf/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2")" == "$tmpdir/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
+  [[ "$(rlocation "protobuf/foo/runfile" "protobuf~3.19.2" || echo failed)" == "$tmpdir/protobuf~3.19.2/foo/runfile" ]] || fail
+  [[ "$(rlocation "protobuf/bar/dir" "protobuf~3.19.2" || echo failed)" == "$tmpdir/protobuf~3.19.2/bar/dir" ]] || fail
+  [[ "$(rlocation "protobuf/bar/dir/file" "protobuf~3.19.2" || echo failed)" == "$tmpdir/protobuf~3.19.2/bar/dir/file" ]] || fail
+  [[ "$(rlocation "protobuf/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2" || echo failed)" == "$tmpdir/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
 
-  [[ -z "$(rlocation "my_module/bar/runfile" "protobuf~3.19.2")" ]] || fail
-  [[ -z "$(rlocation "my_protobuf/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2")" ]] || fail
+  [[ -z "$(rlocation "my_module/bar/runfile" "protobuf~3.19.2" || echo failed)" ]] || fail
+  [[ -z "$(rlocation "my_protobuf/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2" || echo failed)" ]] || fail
 
-  [[ "$(rlocation "_main/bar/runfile" "protobuf~3.19.2")" == "$tmpdir/_main/bar/runfile" ]] || fail
-  [[ "$(rlocation "protobuf~3.19.2/foo/runfile" "protobuf~3.19.2")" == "$tmpdir/protobuf~3.19.2/foo/runfile" ]] || fail
-  [[ "$(rlocation "protobuf~3.19.2/bar/dir" "protobuf~3.19.2")" == "$tmpdir/protobuf~3.19.2/bar/dir" ]] || fail
-  [[ "$(rlocation "protobuf~3.19.2/bar/dir/file" "protobuf~3.19.2")" == "$tmpdir/protobuf~3.19.2/bar/dir/file" ]] || fail
-  [[ "$(rlocation "protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2")" == "$tmpdir/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
+  [[ "$(rlocation "_main/bar/runfile" "protobuf~3.19.2" || echo failed)" == "$tmpdir/_main/bar/runfile" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/foo/runfile" "protobuf~3.19.2" || echo failed)" == "$tmpdir/protobuf~3.19.2/foo/runfile" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir" "protobuf~3.19.2" || echo failed)" == "$tmpdir/protobuf~3.19.2/bar/dir" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir/file" "protobuf~3.19.2" || echo failed)" == "$tmpdir/protobuf~3.19.2/bar/dir/file" ]] || fail
+  [[ "$(rlocation "protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" "protobuf~3.19.2" || echo failed)" == "$tmpdir/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le" ]] || fail
 
-  [[ "$(rlocation "config.json" "protobuf~3.19.2")" == "$tmpdir/config.json" ]] || fail
+  [[ "$(rlocation "config.json" "protobuf~3.19.2" || echo failed)" == "$tmpdir/config.json" ]] || fail
 }
 
 function test_directory_based_envvars() {
