@@ -142,14 +142,16 @@ public class BaseRuleClasses {
   public static final String DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE =
       "//tools/test:coverage_report_generator";
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
-  static final Resolver<TestConfiguration, Label> COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER =
-      (rule, attributes, configuration) -> configuration.getCoverageReportGenerator();
+  @SerializationConstant
+  @AutoCodec.VisibleForSerialization
+  static final Resolver<CoverageConfiguration, Label> COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER =
+      (rule, attributes, configuration) -> configuration.reportGenerator();
 
-  public static LabelLateBoundDefault<TestConfiguration> coverageReportGeneratorAttribute(
+  public static LabelLateBoundDefault<CoverageConfiguration> coverageReportGeneratorAttribute(
       Label defaultValue) {
     return LabelLateBoundDefault.fromTargetConfiguration(
-        TestConfiguration.class, defaultValue, COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER);
+        CoverageConfiguration.class, defaultValue,
+        COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER);
   }
 
   public static LabelLateBoundDefault<CoverageConfiguration> getCoverageOutputGeneratorLabel() {

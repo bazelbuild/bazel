@@ -52,6 +52,23 @@ public class CoverageConfiguration extends Fragment implements CoverageConfigura
                 + "currently be a filegroup that contains a single file, the binary. Defaults to "
                 + "'//tools/test:lcov_merger'.")
     public Label coverageOutputGenerator;
+
+    @Option(
+        name = "coverage_report_generator",
+        converter = LabelConverter.class,
+        defaultValue = "@bazel_tools//tools/test:coverage_report_generator",
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        effectTags = {
+            OptionEffectTag.CHANGES_INPUTS,
+            OptionEffectTag.AFFECTS_OUTPUTS,
+            OptionEffectTag.LOADING_AND_ANALYSIS
+        },
+        help =
+            "Location of the binary that is used to generate coverage reports. This must "
+                + "currently be a filegroup that contains a single file, the binary. Defaults to "
+                + "'//tools/test:coverage_report_generator'."
+    )
+    public Label coverageReportGenerator;
   }
 
   private final CoverageOptions coverageOptions;
@@ -74,5 +91,12 @@ public class CoverageConfiguration extends Fragment implements CoverageConfigura
       return null;
     }
     return coverageOptions.coverageOutputGenerator;
+  }
+
+  public Label reportGenerator() {
+    if (coverageOptions == null) {
+      return null;
+    }
+    return coverageOptions.coverageReportGenerator;
   }
 }
