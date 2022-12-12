@@ -137,7 +137,7 @@ def make_cc_test(with_linkstatic = False, with_aspects = False):
             "stripped_binary": "%{name}.stripped",
             "dwp_file": "%{name}.dwp",
         },
-        fragments = ["google_cpp", "cpp"],
+        fragments = ["google_cpp", "cpp", "coverage"],
         exec_groups = {
             "cpp_link": exec_group(copy_from_rule = True),
         },
