@@ -212,7 +212,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
 
     Path sandboxPath =
         sandboxedSpawn.getSandboxExecRoot().getParentDirectory().getParentDirectory();
-    Path hermeticTmpPath = sandboxPath.getRelative("_tmp");
+    Path hermeticTmpPath = sandboxPath.getRelative("_hermetic_tmp");
     assertThat(hermeticTmpPath.isDirectory()).isTrue();
 
     assertThat(sandboxedSpawn).isInstanceOf(SymlinkedSandboxedSpawn.class);
@@ -231,7 +231,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
 
     Path sandboxPath =
         sandboxedSpawn.getSandboxExecRoot().getParentDirectory().getParentDirectory();
-    Path hermeticTmpPath = sandboxPath.getRelative("_tmp");
+    Path hermeticTmpPath = sandboxPath.getRelative("_hermetic_tmp");
     assertThat(hermeticTmpPath.isDirectory()).isFalse();
 
     assertThat(sandboxedSpawn).isInstanceOf(SymlinkedSandboxedSpawn.class);
@@ -252,7 +252,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
 
     Path sandboxPath =
         sandboxedSpawn.getSandboxExecRoot().getParentDirectory().getParentDirectory();
-    Path hermeticTmpPath = sandboxPath.getRelative("_tmp");
+    Path hermeticTmpPath = sandboxPath.getRelative("_hermetic_tmp");
     assertThat(hermeticTmpPath.isDirectory()).isFalse();
 
     assertThat(sandboxedSpawn).isInstanceOf(SymlinkedSandboxedSpawn.class);

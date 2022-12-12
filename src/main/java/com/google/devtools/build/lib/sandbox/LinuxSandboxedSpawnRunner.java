@@ -286,7 +286,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     boolean useHermeticTmp = useHermeticTmp();
 
     if (useHermeticTmp) {
-      sandboxTmp = sandboxPath.getRelative("_tmp");
+      // The directory which will be mounted at /tmp in the sandbox
+      sandboxTmp = sandboxPath.getRelative("_hermetic_tmp");
       withinSandboxSourceRoots = fileSystem.getPath(SLASH_TMP.getRelative(BAZEL_SOURCE_ROOTS));
       withinSandboxWorkingDirectory =
           fileSystem
