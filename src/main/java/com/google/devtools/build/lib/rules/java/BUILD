@@ -13,7 +13,6 @@ java_library(
     srcs = [
         "GenericBuildInfoPropertiesTranslator.java",
         "JavaBinary.java",
-        "JavaImport.java",
         "JavaImportBaseRule.java",
         "JavaInfo.java",
         "JavaPackageConfiguration.java",
