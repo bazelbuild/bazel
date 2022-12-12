@@ -1,4 +1,4 @@
-# Copyright 2017 The Bazel Authors. All rights reserved.
+# Copyright 2022 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Bazel rules for creating Java toolchains."""
+"""Rules for defining default_java_toolchain"""
 
 # JVM options, without patching java.compiler and jdk.compiler modules.
 BASE_JDK9_JVM_OPTS = [
@@ -120,7 +120,18 @@ NONPREBUILT_TOOLCHAIN_CONFIGURATION = dict(
 )
 
 def default_java_toolchain(name, configuration = DEFAULT_TOOLCHAIN_CONFIGURATION, toolchain_definition = True, exec_compatible_with = [], target_compatible_with = [], **kwargs):
-    """Defines a remote java_toolchain with appropriate defaults for Bazel."""
+    """Defines a remote java_toolchain with appropriate defaults for Bazel.
+
+    Args:
+        name: The name of the toolchain
+        configuration: Toolchain configuration
+        toolchain_definition: Whether to define toolchain target and its config setting
+        exec_compatible_with: A list of constraint values that must be
+            satisifed for the exec platform.
+        target_compatible_with: A list of constraint values that must be
+            satisifed for the target platform.
+        **kwargs: More arguments for the java_toolchain target
+    """
 
     toolchain_args = dict(_BASE_TOOLCHAIN_CONFIGURATION)
     toolchain_args.update(configuration)
@@ -150,6 +161,7 @@ def java_runtime_files(name, srcs):
     native.filegroup(
         name = name,
         srcs = srcs,
+        tags = ["manual"],
     )
     for src in srcs:
         native.genrule(
@@ -158,6 +170,7 @@ def java_runtime_files(name, srcs):
             toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
             cmd = "cp $(JAVABASE)/%s $@" % src,
             outs = [src],
+            tags = ["manual"],
         )
 
 def _bootclasspath_impl(ctx):
@@ -219,6 +232,7 @@ _bootclasspath = rule(
             cfg = "exec",
             providers = [java_common.JavaRuntimeInfo],
         ),
+        "output_jar": attr.output(mandatory = True),
         "src": attr.label(
             cfg = "exec",
             allow_single_file = True,
@@ -226,7 +240,6 @@ _bootclasspath = rule(
         "target_javabase": attr.label(
             providers = [java_common.JavaRuntimeInfo],
         ),
-        "output_jar": attr.output(mandatory = True),
     },
 )
 
