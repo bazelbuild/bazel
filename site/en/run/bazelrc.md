@@ -41,8 +41,8 @@ before the command (`build`, `test`, etc).
     This flag is optional but can also be specified multiple times.
 
     `/dev/null` indicates that all further `--low_priority_bazelrc`s will
-    be ignored, which is useful to disable the search for a user rc file,
-    such as in release builds.
+    be ignored, which is useful to disable the search for user-supplied
+    low-priority rc files, such as in release builds.
 
     For example:
 
