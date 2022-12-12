@@ -163,6 +163,15 @@ public abstract class PyBuiltins implements StarlarkValue {
     return inputManifest.buildImmutable();
   }
 
+  @StarlarkMethod(
+      name = "get_label_repo_runfiles_path",
+      doc = "Given a label, return a runfiles path that includes the repository directory",
+      parameters = {
+        @Param(name = "label", positional = true, named = true, defaultValue = "unbound"),
+      })
+  public String getLabelRepoRunfilesPath(Label label) {
+    return label.getPackageIdentifier().getRunfilesPath().getPathString();
+  }
   // TODO(bazel-team): Remove this once rules are switched to using execpath semanatics for the
   // $(location) function. See https://github.com/bazelbuild/bazel/issues/15294
   @StarlarkMethod(
