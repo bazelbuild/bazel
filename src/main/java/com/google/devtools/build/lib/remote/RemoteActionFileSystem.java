@@ -250,11 +250,27 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m == null) {
-      super.setLastModifiedTime(path, newTime);
+    FileNotFoundException remoteException = null;
+    try {
+      // We can't set mtime for a remote file, set mtime of in-memory file node instead.
+      remoteOutputTree.setLastModifiedTime(path, newTime);
+    } catch (FileNotFoundException e) {
+      remoteException = e;
     }
-    remoteOutputTree.setLastModifiedTime(path, newTime);
+
+    FileNotFoundException localException = null;
+    try {
+      super.setLastModifiedTime(path, newTime);
+    } catch (FileNotFoundException e) {
+      localException = e;
+    }
+
+    if (remoteException == null || localException == null) {
+      return;
+    }
+
+    localException.addSuppressed(remoteException);
+    throw localException;
   }
 
   @Override
@@ -383,8 +399,16 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   protected long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    FileStatus stat = stat(path, followSymlinks);
-    return stat.getLastModifiedTime();
+    try {
+      // We can't get mtime for a remote file, use mtime of in-memory file node instead.
+      return remoteOutputTree
+          .getPath(path)
+          .getLastModifiedTime(followSymlinks ? Symlinks.FOLLOW : Symlinks.NOFOLLOW);
+    } catch (FileNotFoundException e) {
+      // Intentionally ignored
+    }
+
+    return super.getLastModifiedTime(path, followSymlinks);
   }
 
   @Override
