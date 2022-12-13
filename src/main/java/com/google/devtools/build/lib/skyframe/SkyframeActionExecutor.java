@@ -314,6 +314,10 @@ public final class SkyframeActionExecutor {
         .test(action.getMnemonic());
   }
 
+  boolean supportsPartialTreeArtifactInputs() {
+    return actionInputPrefetcher.supportsPartialTreeArtifactInputs();
+  }
+
   boolean publishTargetSummaries() {
     return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
   }
@@ -322,7 +326,9 @@ public final class SkyframeActionExecutor {
     return syscallCache;
   }
 
-  /** REQUIRES: {@link #actionFileSystemType()} to be not {@code DISABLED}. */
+  /**
+   * REQUIRES: {@link #actionFileSystemType()} to be not {@code DISABLED}.
+   */
   FileSystem createActionFileSystem(
       String relativeOutputPath,
       ActionInputMap inputArtifactData,

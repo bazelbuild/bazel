@@ -62,6 +62,12 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   }
 
   @Override
+  public boolean supportsPartialTreeArtifactInputs() {
+    // This prefetcher is unable to fetch only individual files inside a tree artifact.
+    return false;
+  }
+
+  @Override
   protected void prefetchVirtualActionInput(VirtualActionInput input) throws IOException {
     if (!(input instanceof EmptyActionInput)) {
       Path outputPath = execRoot.getRelative(input.getExecPath());
