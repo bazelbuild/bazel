@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
@@ -166,16 +165,22 @@ public final class AspectResolver {
     return aspectKey;
   }
 
-  public static boolean aspectMatchesConfiguredTarget(ConfiguredTargetAndData dep, Aspect aspect) {
+  public static boolean aspectMatchesConfiguredTarget(
+      ConfiguredTarget ct, boolean isRule, boolean isInputFile, Aspect aspect) {
     if (!aspect.getDefinition().applyToFiles()
         && !aspect.getDefinition().applyToGeneratingRules()
-        && !(dep.getTarget() instanceof Rule)) {
+        && !isRule) {
       return false;
     }
-    if (dep.getTarget().getAssociatedRule() == null) {
+    if (isInputFile) {
       // even aspects that 'apply to files' cannot apply to input files.
       return false;
     }
-    return dep.getConfiguredTarget().satisfies(aspect.getDefinition().getRequiredProviders());
+    return ct.satisfies(aspect.getDefinition().getRequiredProviders());
+  }
+
+  public static boolean aspectMatchesConfiguredTarget(ConfiguredTargetAndData ctad, Aspect aspect) {
+    return aspectMatchesConfiguredTarget(
+        ctad.getConfiguredTarget(), ctad.isTargetRule(), ctad.isTargetInputFile(), aspect);
   }
 }

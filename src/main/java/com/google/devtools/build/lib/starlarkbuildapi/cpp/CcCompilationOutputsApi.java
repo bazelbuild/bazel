@@ -82,4 +82,10 @@ public interface CcCompilationOutputsApi<FileT extends FileApi> extends Starlark
 
   @StarlarkMethod(name = "pic_dwo_files", documented = false, useStarlarkThread = true)
   Sequence<FileT> getStarlarkPicDwoFiles(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "gcno_files", documented = false, useStarlarkThread = true)
+  Sequence<FileT> getStarlarkGcnoFiles(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "pic_gcno_files", documented = false, useStarlarkThread = true)
+  Sequence<FileT> getStarlarkPicGcnoFiles(StarlarkThread thread) throws EvalException;
 }

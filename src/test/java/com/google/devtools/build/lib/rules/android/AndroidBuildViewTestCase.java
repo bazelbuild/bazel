@@ -241,7 +241,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
               return javaOutput
                   .getClassJar()
                   .getFilename()
-                  .equals(target.getTarget().getName() + "_resources.jar");
+                  .equals(target.getTargetForTesting().getName() + "_resources.jar");
             })
         .getClassJar();
   }

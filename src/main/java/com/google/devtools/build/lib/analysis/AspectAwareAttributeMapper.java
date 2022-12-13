@@ -165,11 +165,6 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public ImmutableList<String> getPackageDefaultCopts() {
-    return ruleAttributes.getPackageDefaultCopts();
-  }
-
-  @Override
   public boolean has(String attrName) {
     if (ruleAttributes.has(attrName)) {
       return true;

@@ -66,6 +66,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final boolean debugWithGlibcxx;
   private final boolean deviceDebugEntitlements;
   private final boolean avoidHardcodedCompilationFlags;
+  private final boolean linkingInfoMigration;
 
   public ObjcConfiguration(BuildOptions buildOptions) {
     CoreOptions options = buildOptions.get(CoreOptions.class);
@@ -89,6 +90,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
     this.avoidHardcodedCompilationFlags =
         objcOptions.incompatibleAvoidHardcodedObjcCompilationFlags;
+    this.linkingInfoMigration = objcOptions.incompatibleObjcLinkingInfoMigration;
   }
 
   /**
@@ -216,5 +218,14 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Override
   public boolean useDeviceDebugEntitlements() {
     return deviceDebugEntitlements && compilationMode != CompilationMode.OPT;
+  }
+
+  /**
+   * Returns whether Objective C builtin rules should get their linking info from CcInfo instead of
+   * ObjcProvider.
+   */
+  @Override
+  public boolean linkingInfoMigration() {
+    return linkingInfoMigration;
   }
 }

@@ -98,7 +98,7 @@ public class BuildViewTest extends BuildViewTestBase {
 
     ConfiguredTargetAndData ruleCTAT = getConfiguredTargetAndTarget("//pkg:foo");
 
-    assertThat(ruleCTAT.getTarget()).isSameInstanceAs(ruleTarget);
+    assertThat(ruleCTAT.getTargetForTesting()).isSameInstanceAs(ruleTarget);
   }
 
   @Test
@@ -134,8 +134,7 @@ public class BuildViewTest extends BuildViewTestBase {
     targets =
         Lists.newArrayList(
             BuildView.filterTestsByTargets(
-                targets,
-                Sets.newHashSet(test1.getTarget().getLabel(), suite.getTarget().getLabel())));
+                targets, Sets.newHashSet(test1.getTargetLabel(), suite.getTargetLabel())));
     assertThat(targets).containsExactlyElementsIn(Sets.newHashSet(test1CT, suiteCT));
   }
 
@@ -747,11 +746,12 @@ public class BuildViewTest extends BuildViewTestBase {
         "          srcs = glob(['A*.java']))",
         "java_test(name = 'B',",
         "          srcs = ['B.java'])");
+    useConfiguration("--experimental_google_legacy_api");
     ConfiguredTarget ct = Iterables.getOnlyElement(update("//java/a:A").getTargetsToBuild());
     scratch.deleteFile("java/a/C.java");
     update("//java/a:B");
     update("//java/a:A");
-    assertThat(getGeneratingAction(getBinArtifact("A_deploy.jar", ct))).isNotNull();
+    assertThat(getGeneratingAction(getBinArtifact("A.jar", ct))).isNotNull();
   }
 
   /** Regression test for b/14248208. */

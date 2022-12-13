@@ -1594,8 +1594,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "   pass",
         "my_rule = rule(_main_rule_impl,",
         "   attrs = { ",
-        "      'exe1' : attr.label(executable = True, allow_files = True, cfg = 'host'),",
-        "      'exe2' : attr.label(executable = True, allow_files = True, cfg = 'host'),",
+        "      'exe1' : attr.label(executable = True, allow_files = True, cfg = 'exec'),",
+        "      'exe2' : attr.label(executable = True, allow_files = True, cfg = 'exec'),",
         "   },",
         ")");
 
@@ -1620,13 +1620,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
-  public void aspectHostFragmentAccessSuccess() throws Exception {
-    analyzeConfiguredTargetForAspectFragment(
-        "ctx.host_fragments.java.strict_java_deps", "", "'java'", "", "");
-    assertNoEvents();
-  }
-
-  @Test
   public void aspectFragmentAccessError() {
     reporter.removeHandler(failFastHandler);
     assertThrows(
@@ -1639,21 +1632,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             + "required fragment in target configuration in order to access it. Please update the "
             + "'fragments' argument of the rule definition "
             + "(for example: fragments = [\"java\"])");
-  }
-
-  @Test
-  public void aspectHostFragmentAccessError() {
-    reporter.removeHandler(failFastHandler);
-    assertThrows(
-        ViewCreationFailedException.class,
-        () ->
-            analyzeConfiguredTargetForAspectFragment(
-                "ctx.host_fragments.java.java_strict_deps", "'java'", "'cpp'", "", "'java'"));
-    assertContainsEvent(
-        "//test:aspect.bzl%MyAspect aspect on my_rule has to declare 'java' as a "
-            + "required fragment in host configuration in order to access it. Please update the "
-            + "'host_fragments' argument of the rule definition "
-            + "(for example: host_fragments = [\"java\"])");
   }
 
   private void analyzeConfiguredTargetForAspectFragment(
@@ -6617,7 +6595,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "aspect_b = aspect(",
         "  implementation = _aspect_b,",
         "  required_aspect_providers = [AInfo],",
-        "  attrs = {'_attr': attr.label(default=':bin', executable=True, cfg='host')},",
+        "  attrs = {'_attr': attr.label(default=':bin', executable=True, cfg='exec')},",
         ")");
     scratch.file("test/bin.sh").setExecutable(true);
 

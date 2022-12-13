@@ -12,11 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Builds the Objective-C provider"""
+"""Common functionality for Objc rules."""
 
 objc_internal = _builtins.internal.objc_internal
 CcInfo = _builtins.toplevel.CcInfo
 apple_common = _builtins.toplevel.apple_common
+
+CPP_SOURCES = [".cc", ".cpp", ".mm", ".cxx", ".C"]
+NON_CPP_SOURCES = [".m", ".c"]
+ASSEMBLY_SOURCES = [".s", ".S", ".asm"]
+OBJECT_FILE_SOURCES = [".o"]
+HEADERS = [".h", ".inc", ".hpp", ".hh"]
+
+extensions = struct(
+    CPP_SOURCES = CPP_SOURCES,
+    NON_CPP_SOURCES = NON_CPP_SOURCES,
+    ASSEMBLY_SOURCES = ASSEMBLY_SOURCES,
+    OBJECT_FILE_SOURCES = OBJECT_FILE_SOURCES,
+    HEADERS = HEADERS,
+)
 
 def _create_context_and_provider(
         ctx,
@@ -239,7 +253,7 @@ def _create_context_and_provider(
     )
 
 def _is_cpp_source(source_file):
-    return source_file.extension in ["cc", "cpp", "mm", "cxx", "C"]
+    return "." + source_file.extension in CPP_SOURCES
 
 def _add_linkopts(objc_provider_kwargs, linkopts):
     non_sdk_linkopts = []

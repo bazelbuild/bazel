@@ -163,11 +163,6 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public ImmutableList<String> getPackageDefaultCopts() {
-    return rule.getPackage().getDefaultCopts();
-  }
-
-  @Override
   public final void visitAllLabels(BiConsumer<Attribute, Label> consumer) {
     visitLabels(DependencyFilter.ALL_DEPS, consumer);
   }

@@ -140,7 +140,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
           environment,
           inputs,
           outputs,
-          getWritableDirs(sandboxExecRoot, environment),
+          getWritableDirs(sandboxExecRoot, sandboxExecRoot, environment),
           treeDeleter,
           statisticsPath,
           getSandboxOptions().reuseSandboxDirectories,

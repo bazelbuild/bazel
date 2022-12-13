@@ -329,25 +329,28 @@ class LauncherTest(test_base.TestBase):
 
   def testPyBinaryLauncher(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('foo/foo.bzl', [
-        'def _impl(ctx):',
-        '  ctx.actions.run(',
-        '      arguments=[ctx.outputs.out.path],',
-        '      outputs=[ctx.outputs.out],',
-        '      executable=ctx.executable._hello_world,',
-        '      use_default_shell_env=True)',
-        '',
-        'helloworld = rule(',
-        '  implementation=_impl,',
-        '  attrs={',
-        '      "srcs": attr.label_list(allow_files=True),',
-        '      "out": attr.output(mandatory=True),',
-        '      "_hello_world": attr.label(executable=True, cfg="host",',
-        '                                 allow_files=True,',
-        '                                 default=Label("//foo:foo"))',
-        '  }',
-        ')',
-    ])
+    self.ScratchFile(
+        'foo/foo.bzl',
+        [
+            'def _impl(ctx):',
+            '  ctx.actions.run(',
+            '      arguments=[ctx.outputs.out.path],',
+            '      outputs=[ctx.outputs.out],',
+            '      executable=ctx.executable._hello_world,',
+            '      use_default_shell_env=True)',
+            '',
+            'helloworld = rule(',
+            '  implementation=_impl,',
+            '  attrs={',
+            '      "srcs": attr.label_list(allow_files=True),',
+            '      "out": attr.output(mandatory=True),',
+            '      "_hello_world": attr.label(executable=True, cfg="exec",',
+            '                                 allow_files=True,',
+            '                                 default=Label("//foo:foo"))',
+            '  }',
+            ')',
+        ],
+    )
     self.ScratchFile('foo/BUILD', [
         'load(":foo.bzl", "helloworld")', '', 'py_binary(', '  name = "foo",',
         '  srcs = ["foo.py"],', '  data = ["//bar:bar.txt"],', ')', '',

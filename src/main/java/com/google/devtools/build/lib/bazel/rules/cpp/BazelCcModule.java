@@ -40,9 +40,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
-import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.Tuple;
 
 /**
  * A module that contains Starlark utilities for C++ support.
@@ -77,90 +75,6 @@ public class BazelCcModule extends CcModule
   @Override
   public CppSemantics getSemantics(Language language) {
     return (language == Language.CPP) ? BazelCppSemantics.CPP : BazelCppSemantics.OBJC;
-  }
-
-  @Override
-  public Tuple compile(
-      StarlarkActionFactory starlarkActionFactoryApi,
-      FeatureConfigurationForStarlark starlarkFeatureConfiguration,
-      CcToolchainProvider starlarkCcToolchainProvider,
-      Sequence<?> sources, // <Artifact> expected
-      Sequence<?> publicHeaders, // <Artifact> expected
-      Sequence<?> privateHeaders, // <Artifact> expected
-      Object textualHeaders,
-      Object additionalExportedHeaders,
-      Object starlarkIncludes,
-      Object looseIncludes,
-      Sequence<?> quoteIncludes, // <String> expected
-      Sequence<?> systemIncludes, // <String> expected
-      Sequence<?> frameworkIncludes, // <String> expected
-      Sequence<?> defines, // <String> expected
-      Sequence<?> localDefines, // <String> expected
-      String includePrefix,
-      String stripIncludePrefix,
-      Sequence<?> userCompileFlags, // <String> expected
-      Sequence<?> ccCompilationContexts, // <CcCompilationContext> expected
-      Object implementationCcCompilationContexts,
-      String name,
-      boolean disallowPicOutputs,
-      boolean disallowNopicOutputs,
-      Sequence<?> additionalIncludeScanningRoots, // <Artifact> expected
-      Sequence<?> additionalInputs, // <Artifact> expected
-      Object moduleMap,
-      Object additionalModuleMaps,
-      Object propagateModuleMapToCompileAction,
-      Object doNotGenerateModuleMap,
-      Object codeCoverageEnabled,
-      Object hdrsCheckingMode,
-      Object variablesExtension,
-      Object language,
-      Object purpose,
-      Object grepIncludes,
-      Object coptsFilter,
-      Object separateModuleHeaders,
-      Object nonCompilationAdditionalInputs,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    return super.compile(
-        starlarkActionFactoryApi,
-        starlarkFeatureConfiguration,
-        starlarkCcToolchainProvider,
-        sources,
-        publicHeaders,
-        privateHeaders,
-        textualHeaders,
-        additionalExportedHeaders,
-        starlarkIncludes,
-        looseIncludes,
-        quoteIncludes,
-        systemIncludes,
-        frameworkIncludes,
-        defines,
-        localDefines,
-        includePrefix,
-        stripIncludePrefix,
-        userCompileFlags,
-        ccCompilationContexts,
-        implementationCcCompilationContexts,
-        name,
-        disallowPicOutputs,
-        disallowNopicOutputs,
-        /* grepIncludes= */ null,
-        /* additionalIncludeScanningRoots= */ StarlarkList.empty(),
-        additionalInputs,
-        moduleMap,
-        additionalModuleMaps,
-        propagateModuleMapToCompileAction,
-        doNotGenerateModuleMap,
-        codeCoverageEnabled,
-        hdrsCheckingMode,
-        variablesExtension,
-        language,
-        purpose,
-        coptsFilter,
-        separateModuleHeaders,
-        nonCompilationAdditionalInputs,
-        thread);
   }
 
   @Override

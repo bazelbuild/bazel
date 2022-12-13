@@ -114,7 +114,7 @@ foo_binary = rule(
         "srcs": attr.label_list(allow_files=True),
         "deps": attr.label_list(),
         "_foocc": attr.label(default=Label("//foo:foocc"),
-                             allow_files=True, executable=True, cfg="host")
+                             allow_files=True, executable=True, cfg="exec")
     },
     outputs = {"out": "%{name}.out"},
 )

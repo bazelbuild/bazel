@@ -224,7 +224,7 @@ def _implicit_outputs(name):
         "unstrippeddeployjar": "%s_deploy.jar.unstripped" % actual_name,
     }
 
-def make_deploy_jars_rule(implementation, test = False):
+def make_deploy_jars_rule(implementation):
     """Creates the deploy jar auxiliary rule for java_binary
 
     Args:
@@ -251,5 +251,4 @@ def make_deploy_jars_rule(implementation, test = False):
         outputs = _implicit_outputs,
         fragments = ["java"],
         toolchains = [semantics.JAVA_TOOLCHAIN, semantics.JAVA_RUNTIME_TOOLCHAIN] + cc_helper.use_cpp_toolchain(),
-        test = test,
     )

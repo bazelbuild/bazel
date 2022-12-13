@@ -70,7 +70,7 @@ class TargetCompletor
     ConfiguredTargetAndData configuredTargetAndData =
         ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(ctValue.getConfiguredTarget(), env);
     return Event.error(
-        configuredTargetAndData == null ? null : configuredTargetAndData.getTarget().getLocation(),
+        configuredTargetAndData == null ? null : configuredTargetAndData.getLocation(),
         String.format("%s: %s", key.actionLookupKey().getLabel(), rootCause.getMessage()));
   }
 
@@ -81,9 +81,7 @@ class TargetCompletor
       throws InterruptedException {
     ConfiguredTargetAndData configuredTargetAndData =
         ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(value.getConfiguredTarget(), env);
-    return configuredTargetAndData == null
-        ? null
-        : configuredTargetAndData.getTarget().getLocation();
+    return configuredTargetAndData == null ? null : configuredTargetAndData.getLocation();
   }
 
   @Override
@@ -142,7 +140,7 @@ class TargetCompletor
         env.getListener()
             .handle(
                 Event.warn(
-                    configuredTargetAndData.getTarget().getLocation(),
+                    configuredTargetAndData.getLocation(),
                     target.getLabel()
                         + " is a source file, nothing will be built for it. If you want to build a"
                         + " target that consumes this file, try --compile_one_dependency"));

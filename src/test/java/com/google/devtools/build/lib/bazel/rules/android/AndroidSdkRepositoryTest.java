@@ -123,7 +123,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
     ConfiguredTargetAndData aarImportTarget =
         getConfiguredTargetAndData("@androidsdk//com.google.android:foo-1.0.0");
     assertThat(aarImportTarget).isNotNull();
-    assertThat(aarImportTarget.getTarget().getAssociatedRule().getRuleClass())
+    assertThat(aarImportTarget.getTargetForTesting().getAssociatedRule().getRuleClass())
         .isEqualTo("aar_import");
   }
 

@@ -77,6 +77,32 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void disableRunfiles_buildSuccessfully() throws Exception {
+    // Disable on Windows since it fails for unknown reasons.
+    // TODO(chiwang): Enable it on windows.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return;
+    }
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  cmd = 'echo foo > $@',",
+        "  outs = ['foo.data'],",
+        ")",
+        "sh_test(",
+        "  name = 'foobar',",
+        "  srcs = ['test.sh'],",
+        "  data = [':foo'],",
+        ")");
+    write("test.sh");
+    getWorkspace().getRelative("test.sh").setExecutable(true);
+    addOptions("--build_runfile_links", "--enable_runfiles=no");
+
+    buildTarget("//:foobar");
+  }
+
+  @Test
   public void downloadOutputsWithRegex() throws Exception {
     write(
         "BUILD",
@@ -108,7 +134,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     if (OS.getCurrent() == OS.WINDOWS) {
       return;
     }
-
     writeOutputDirRule();
     write(
         "BUILD",
@@ -331,7 +356,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     if (OS.getCurrent() == OS.WINDOWS) {
       return;
     }
-
     addOptions("--internal_spawn_scheduler");
     addOptions("--strategy=Genrule=dynamic");
     addOptions("--experimental_local_execution_delay=9999999");
@@ -527,7 +551,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     if (OS.getCurrent() == OS.WINDOWS) {
       return;
     }
-
     // Test that tree artifact generated locally can be consumed by other actions.
     // See https://github.com/bazelbuild/bazel/issues/16789
 
@@ -554,6 +577,33 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     waitDownloads();
 
     assertValidOutputFile("out/foobar.txt", "file-1\nbar\n");
+  }
+
+  @Test
+  public void multiplePackagePaths_buildsSuccessfully() throws Exception {
+    write(
+        "../a/src/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")");
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = ['//src:foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location //src:foo) > $@ && echo bar >> $@',",
+        ")");
+    addOptions("--package_path=%workspace%:%workspace%/../a");
+    setDownloadToplevel();
+
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
   }
 
   @Test

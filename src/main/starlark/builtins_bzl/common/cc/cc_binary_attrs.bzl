@@ -90,7 +90,6 @@ cc_binary_attrs_with_aspects = {
     "_stl": semantics.get_stl(),
     "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
     "_cc_toolchain_type": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:toolchain_type"),
-    "_default_copts": attr.string_list(default = cc_internal.default_copts_computed_default()),
     "_def_parser": semantics.get_def_parser(),
 }
 

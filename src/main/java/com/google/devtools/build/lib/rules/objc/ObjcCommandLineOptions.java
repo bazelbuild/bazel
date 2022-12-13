@@ -169,6 +169,18 @@ public class ObjcCommandLineOptions extends FragmentOptions {
               + " set in the crosstool are still applied.")
   public boolean incompatibleAvoidHardcodedObjcCompilationFlags;
 
+  @Option(
+      name = "incompatible_objc_linking_info_migration",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, ObjC builtin rules will get their linking info from CcInfo instead of "
+              + "ObjcProvider.  See https://github.com/bazelbuild/bazel/issues/16939 for "
+              + "details and migration information")
+  public boolean incompatibleObjcLinkingInfoMigration;
+
   /** @deprecated delete when we are sure it's not used anywhere. */
   @Deprecated
   @Option(
@@ -188,6 +200,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     host.enableCcDeps = enableCcDeps;
     host.incompatibleAvoidHardcodedObjcCompilationFlags =
         incompatibleAvoidHardcodedObjcCompilationFlags;
+    host.incompatibleObjcLinkingInfoMigration = incompatibleObjcLinkingInfoMigration;
     return host;
   }
 }

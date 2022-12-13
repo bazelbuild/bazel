@@ -826,4 +826,93 @@ public abstract class RemoteActionFileSystemTestBase {
     assertThat(getLocalFileSystem(actionFs).getPath(path).isWritable()).isFalse();
     assertThat(getLocalFileSystem(actionFs).getPath(path).isExecutable()).isTrue();
   }
+
+  @Test
+  public void getLastModifiedTime_fileDoesNotExist_throwError() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+
+    assertThrows(FileNotFoundException.class, () -> actionFs.getPath(path).getLastModifiedTime());
+  }
+
+  @Test
+  public void getLastModifiedTime_onlyRemoteFile_returnRemote() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+
+    var mtime = actionFs.getPath(path).getLastModifiedTime();
+
+    assertThat(mtime).isEqualTo(getRemoteFileSystem(actionFs).getPath(path).getLastModifiedTime());
+  }
+
+  @Test
+  public void getLastModifiedTime_onlyLocalFile_returnLocal() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    writeLocalFile(actionFs, path, "local-content");
+
+    var mtime = actionFs.getPath(path).getLastModifiedTime();
+
+    assertThat(mtime).isEqualTo(getLocalFileSystem(actionFs).getPath(path).getLastModifiedTime());
+  }
+
+  @Test
+  public void getLastModifiedTime_localAndRemoteFile_returnRemote() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+    writeLocalFile(actionFs, path, "local-content");
+
+    var mtime = actionFs.getPath(path).getLastModifiedTime();
+
+    assertThat(mtime).isEqualTo(getRemoteFileSystem(actionFs).getPath(path).getLastModifiedTime());
+  }
+
+  @Test
+  public void setLastModifiedTime_fileDoesNotExist_throwError() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+
+    assertThrows(FileNotFoundException.class, () -> actionFs.getPath(path).setLastModifiedTime(0));
+  }
+
+  @Test
+  public void setLastModifiedTime_onlyRemoteFile_successfullySet() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+    assertThat(actionFs.getPath(path).getLastModifiedTime()).isNotEqualTo(0);
+
+    actionFs.getPath(path).setLastModifiedTime(0);
+
+    assertThat(actionFs.getPath(path).getLastModifiedTime()).isEqualTo(0);
+  }
+
+  @Test
+  public void setLastModifiedTime_onlyLocalFile_successfullySet() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    writeLocalFile(actionFs, path, "local-content");
+    assertThat(actionFs.getPath(path).getLastModifiedTime()).isNotEqualTo(0);
+
+    actionFs.getPath(path).setLastModifiedTime(0);
+
+    assertThat(actionFs.getPath(path).getLastModifiedTime()).isEqualTo(0);
+  }
+
+  @Test
+  public void setLastModifiedTime_localAndRemoteFile_changeBoth() throws IOException {
+    var actionFs = createActionFileSystem();
+    var path = getOutputPath("file");
+    injectRemoteFile(actionFs, path, "remote-content");
+    writeLocalFile(actionFs, path, "local-content");
+    assertThat(getLocalFileSystem(actionFs).getPath(path).getLastModifiedTime()).isNotEqualTo(0);
+    assertThat(getRemoteFileSystem(actionFs).getPath(path).getLastModifiedTime()).isNotEqualTo(0);
+
+    actionFs.getPath(path).setLastModifiedTime(0);
+
+    assertThat(getLocalFileSystem(actionFs).getPath(path).getLastModifiedTime()).isEqualTo(0);
+    assertThat(getRemoteFileSystem(actionFs).getPath(path).getLastModifiedTime()).isEqualTo(0);
+  }
 }

@@ -95,6 +95,15 @@ public interface CoverageCommonApi<
             positional = false,
             named = true,
             defaultValue = "None"),
+        @Param(
+            name = "metadata_files",
+            named = true,
+            positional = false,
+            documented = false,
+            defaultValue = "[]",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = FileApi.class),
+            })
       },
       useStarlarkThread = true)
   InstrumentedFilesInfoApi instrumentedFilesInfo(
@@ -104,6 +113,7 @@ public interface CoverageCommonApi<
       Object supportFiles, // Sequence or Depset of <FileApi> expected
       Dict<?, ?> environment, // <String, String>
       Object extensions,
+      Sequence<?> metadataFiles,
       StarlarkThread thread)
       throws EvalException, TypeException;
 }

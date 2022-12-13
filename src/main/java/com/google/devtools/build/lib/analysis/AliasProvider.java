@@ -107,11 +107,10 @@ public final class AliasProvider implements TransitiveInfoProvider {
    */
   public static String describeTargetWithAliases(
       ConfiguredTargetAndData target, TargetMode targetMode) {
-    String kind = targetMode == TargetMode.WITH_KIND
-        ? target.getTarget().getTargetKind() : "target";
+    String kind = targetMode == TargetMode.WITH_KIND ? target.getTargetKind() : "target";
     AliasProvider aliasProvider = target.getConfiguredTarget().getProvider(AliasProvider.class);
     if (aliasProvider == null) {
-      return kind + " '" + target.getTarget().getLabel() + "'";
+      return kind + " '" + target.getTargetLabel() + "'";
     }
 
     ImmutableList<Label> aliasChain = aliasProvider.aliasChain;
@@ -121,7 +120,7 @@ public final class AliasProvider implements TransitiveInfoProvider {
         .append(" referring to ")
         .append(kind)
         .append(" '")
-        .append(target.getTarget().getLabel())
+        .append(target.getTargetLabel())
         .append("'");
     if (aliasChain.size() > 1) {
       result
