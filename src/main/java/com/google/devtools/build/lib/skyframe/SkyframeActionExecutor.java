@@ -314,6 +314,10 @@ public final class SkyframeActionExecutor {
         .test(action.getMnemonic());
   }
 
+  boolean supportsPartialTreeArtifactInputs() {
+    return actionInputPrefetcher.supportsPartialTreeArtifactInputs();
+  }
+
   boolean publishTargetSummaries() {
     return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
   }

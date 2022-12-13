@@ -70,14 +70,7 @@ else
   declare -r EXE_EXT=""
 fi
 
-function test_cc_tree() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
+function setup_cc_tree() {
   mkdir -p a
   cat > a/BUILD <<EOF
 load(":tree.bzl", "mytree")
@@ -93,11 +86,40 @@ def _tree_impl(ctx):
 
 mytree = rule(implementation = _tree_impl)
 EOF
+}
+
+function test_cc_tree_remote_executor() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  setup_cc_tree
+
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
       //a:tree_cc >& "$TEST_log" \
-      || fail "Failed to build //a:tree_cc with minimal downloads"
+      || fail "Failed to build //a:tree_cc with remote executor and minimal downloads"
+}
+
+function test_cc_tree_remote_cache() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  setup_cc_tree
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:tree_cc >& "$TEST_log" \
+      || fail "Failed to build //a:tree_cc with remote cache and minimal downloads"
 }
 
 function test_cc_include_scanning_and_minimal_downloads() {
