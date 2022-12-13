@@ -218,7 +218,8 @@ public final class CompletionFunction<
                 input,
                 artifactValue,
                 env,
-                currentConsumer);
+                currentConsumer,
+                skyframeActionExecutor.supportsPartialTreeArtifactInputs());
             if (!allArtifactsAreImportant && importantArtifactSet.contains(input)) {
               // Calling #addToMap a second time with `input` and `artifactValue` will perform no-op
               // updates to the secondary collections passed in (eg. expandedArtifacts,
@@ -233,7 +234,8 @@ public final class CompletionFunction<
                   input,
                   artifactValue,
                   env,
-                  MetadataConsumerForMetrics.NO_OP);
+                  MetadataConsumerForMetrics.NO_OP,
+                  skyframeActionExecutor.supportsPartialTreeArtifactInputs());
             }
           }
         }

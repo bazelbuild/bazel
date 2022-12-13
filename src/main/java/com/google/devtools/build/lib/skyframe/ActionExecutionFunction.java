@@ -1253,7 +1253,8 @@ public final class ActionExecutionFunction implements SkyFunction {
           topLevelFilesets,
           input,
           value,
-          env);
+          env,
+          skyframeActionExecutor.supportsPartialTreeArtifactInputs());
     }
 
     if (actionExecutionFunctionExceptionHandler != null) {
