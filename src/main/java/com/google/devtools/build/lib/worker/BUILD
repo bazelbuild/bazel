@@ -8,53 +8,6 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-# Do not depend on this target when making a worker. To use WorkRequestHandler, depend on :work_request_handlers.
-java_library(
-    name = "worker",
-    srcs = glob(
-        ["*.java"],
-        exclude = [
-            "WorkerFilesHash.java",
-            "WorkerSpawnRunner.java",
-            "WorkerModule.java",
-            "WorkerParser.java",
-            "WorkerSpawnStrategy.java",
-            "WorkerKey.java",
-            "WorkerMetricsCollector.java",
-            "WorkerMetric.java",
-            "WorkerMetricsEvent.java",
-            "WorkerOptions.java",
-            "WorkerLifecycleManager.java",
-            "JsonWorkerMessageProtocol.java",
-            "JsonWorkerProtocol.java",
-            "ProtoWorkerMessageProtocol.java",
-            "ProtoWorkerProtocol.java",
-            "WorkerProtocolImpl.java",
-        ],
-    ),
-    deps = [
-        ":worker_key",
-        ":worker_protocol",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_command_line_builder",
-        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
-        "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//src/main/protobuf:worker_protocol_java_proto",
-        "//third_party:apache_commons_pool2",
-        "//third_party:auto_value",
-        "//third_party:flogger",
-        "//third_party:gson",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
-    ],
-)
-
 java_library(
     name = "worker_protocol",
     srcs = [
@@ -63,11 +16,8 @@ java_library(
         "WorkerProtocolImpl.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:gson",
-        "//third_party:guava",
-        "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
     ],
 )
@@ -94,7 +44,9 @@ java_library(
         "WorkerSpawnRunner.java",
     ],
     deps = [
+        ":error_message",
         ":worker",
+        ":worker_factory",
         ":worker_files_hash",
         ":worker_key",
         ":worker_metric",
@@ -133,7 +85,9 @@ java_library(
         "WorkerSpawnStrategy.java",
     ],
     deps = [
-        ":worker",
+        ":multiplex_worker",
+        ":singleplex_worker",
+        ":worker_factory",
         ":worker_metric",
         ":worker_options",
         ":worker_spawn_runner",
@@ -164,6 +118,7 @@ java_library(
     ],
     deps = [
         "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:error_prone_annotations",
         "//third_party:gson",
         "//third_party:guava",
         "//third_party/protobuf:protobuf_java",
@@ -211,4 +166,122 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
     ],
+)
+
+java_library(
+    name = "worker_factory",
+    srcs = [
+        "SimpleWorkerPool.java",
+        "WorkerFactory.java",
+        "WorkerPool.java",
+    ],
+    deps = [
+        ":error_message",
+        ":multiplex_worker",
+        ":singleplex_worker",
+        ":worker",
+        ":worker_key",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:apache_commons_pool2",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "worker",
+    srcs = ["Worker.java"],
+    deps = [
+        ":worker_key",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "singleplex_worker",
+    srcs = [
+        "SandboxedWorker.java",
+        "SingleplexWorker.java",
+    ],
+    deps = [
+        ":recording_input_stream",
+        ":worker",
+        ":worker_exec_root",
+        ":worker_key",
+        ":worker_protocol",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_command_line_builder",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:auto_value",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "multiplex_worker",
+    srcs = [
+        "SandboxedWorkerProxy.java",
+        "WorkerMultiplexer.java",
+        "WorkerMultiplexerManager.java",
+        "WorkerProxy.java",
+    ],
+    deps = [
+        ":recording_input_stream",
+        ":worker",
+        ":worker_exec_root",
+        ":worker_key",
+        ":worker_protocol",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "worker_exec_root",
+    srcs = ["WorkerExecRoot.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "error_message",
+    srcs = ["ErrorMessage.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:auto_value",
+        "//third_party:flogger",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "recording_input_stream",
+    srcs = ["RecordingInputStream.java"],
+    deps = ["//third_party:guava"],
 )
