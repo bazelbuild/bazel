@@ -80,14 +80,14 @@ def _get_test_malloc_attr():
 def _get_coverage_attrs():
     return {
         "_lcov_merger": attr.label(
-            default = "@bazel_tools//tools/test:lcov_merger",
+            default = configuration_field(fragment = "coverage", name = "output_generator"),
             executable = True,
-            cfg = "target",
+            cfg = "exec",
         ),
         "_collect_cc_coverage": attr.label(
             default = "@bazel_tools//tools/test:collect_cc_coverage",
             executable = True,
-            cfg = "target",
+            cfg = "exec",
         ),
     }
 
