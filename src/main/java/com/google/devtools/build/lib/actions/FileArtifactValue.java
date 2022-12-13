@@ -246,7 +246,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         stat.isFile(),
         stat.getSize(),
         FileContentsProxy.create(stat),
-        /*digest=*/ null,
+        /* digest= */ null,
         xattrProvider);
   }
 
@@ -272,7 +272,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   public static FileArtifactValue createForVirtualActionInput(byte[] digest, long size) {
-    return new RegularFileArtifactValue(digest, /*proxy=*/ null, size);
+    return new RegularFileArtifactValue(digest, /* proxy= */ null, size);
   }
 
   public static FileArtifactValue createForUnresolvedSymlink(Path symlink) throws IOException {
@@ -305,7 +305,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    */
   public static FileArtifactValue createForNormalFileUsingPath(
       Path path, long size, XattrProvider xattrProvider) throws IOException {
-    return create(path, /*isFile=*/ true, size, /*proxy=*/ null, /*digest=*/ null, xattrProvider);
+    return create(
+        path, /* isFile= */ true, size, /* proxy= */ null, /* digest= */ null, xattrProvider);
   }
 
   public static FileArtifactValue createForDirectoryWithHash(byte[] digest) {
@@ -322,7 +323,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    */
   public static FileArtifactValue createProxy(byte[] digest) {
     Preconditions.checkNotNull(digest);
-    return createForNormalFile(digest, /*proxy=*/ null, /*size=*/ 0);
+    return createForNormalFile(digest, /* proxy= */ null, /* size= */ 0);
   }
 
   private static String bytesToString(byte[] bytes) {
@@ -830,11 +831,17 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    * required to resolve the content.
    */
   public static final class SourceFileArtifactValue extends FileArtifactValue {
+    private final PathFragment path;
     private final PathFragment execPath;
     private final byte[] digest;
     private final long size;
 
-    public SourceFileArtifactValue(PathFragment execPath, byte[] digest, long size) {
+    public SourceFileArtifactValue(
+        PathFragment path, PathFragment execPath, byte[] digest, long size) {
+      Preconditions.checkArgument(path.isAbsolute(), "path %s isn't absolute", path);
+      Preconditions.checkArgument(
+          path.endsWith(execPath), "path %s doesn't end with execPath %s", path, execPath);
+      this.path = path;
       this.execPath = Preconditions.checkNotNull(execPath);
       this.digest = Preconditions.checkNotNull(digest);
       this.size = size;
@@ -847,14 +854,19 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       }
 
       SourceFileArtifactValue that = (SourceFileArtifactValue) o;
-      return Objects.equals(execPath, that.execPath)
+      return Objects.equals(path, that.path)
+          && Objects.equals(execPath, that.execPath)
           && Arrays.equals(digest, that.digest)
           && size == that.size;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(execPath, Arrays.hashCode(digest), size);
+      return Objects.hash(path, execPath, Arrays.hashCode(digest), size);
+    }
+
+    public PathFragment getPath() {
+      return path;
     }
 
     public PathFragment getExecPath() {

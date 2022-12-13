@@ -580,6 +580,33 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void multiplePackagePaths_buildsSuccessfully() throws Exception {
+    write(
+        "../a/src/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")");
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = ['//src:foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location //src:foo) > $@ && echo bar >> $@',",
+        ")");
+    addOptions("--package_path=%workspace%:%workspace%/../a");
+    setDownloadToplevel();
+
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+  }
+
+  @Test
   public void incrementalBuild_deleteOutputsInUnwritableParentDirectory() throws Exception {
     write(
         "BUILD",
