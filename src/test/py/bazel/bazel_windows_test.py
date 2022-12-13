@@ -434,9 +434,7 @@ class BazelWindowsTest(test_base.TestBase):
         ],
     )
     self.AssertExitCode(exit_code, 0, stderr)
-    # FIXME: The Windows test runner does not delete the undeclared outputs
-    #  after zipping, which differs from the behavior on other platforms.
-    self.assertTrue(os.path.exists(output_file))
+    self.assertFalse(os.path.exists(output_file))
     self.assertTrue(os.path.exists(output_zip))
 
     # Run the test without undeclared outputs zipping.
