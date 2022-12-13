@@ -50,4 +50,21 @@ public final class SimpleSkyframeLookupResult implements SkyframeLookupResult {
     valuesMissingCallback.run();
     return null;
   }
+
+  @Override
+  public boolean queryDep(SkyKey key, QueryDepCallback resultCallback) {
+    ValueOrUntypedException voe =
+        checkNotNull(valuesOrExceptions.apply(key), "Missing value for %s", key);
+    SkyValue value = voe.getValue();
+    if (value != null) {
+      resultCallback.acceptValue(key, value);
+      return true;
+    }
+    Exception exception = voe.getException();
+    if (exception != null && resultCallback.tryHandleException(key, exception)) {
+      return true;
+    }
+    valuesMissingCallback.run();
+    return false;
+  }
 }

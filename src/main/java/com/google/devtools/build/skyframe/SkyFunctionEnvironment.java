@@ -602,6 +602,40 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
         null);
   }
 
+  @Override // SkyframeLookupResult implementation.
+  public boolean queryDep(SkyKey key, QueryDepCallback resultCallback) {
+    SkyValue maybeWrappedValue = maybeGetValueFromErrorOrDeps(key);
+    if (maybeWrappedValue == null) {
+      BugReport.sendBugReport("Value for %s was missing, this should never happen", key);
+      return false;
+    }
+    if (maybeWrappedValue == NULL_MARKER) {
+      valuesMissing = true;
+      return false;
+    }
+    if (!(maybeWrappedValue instanceof ValueWithMetadata)) {
+      resultCallback.acceptValue(key, maybeWrappedValue);
+      return true;
+    }
+    ValueWithMetadata wrappedValue = (ValueWithMetadata) maybeWrappedValue;
+    if (!wrappedValue.hasError()) {
+      resultCallback.acceptValue(key, wrappedValue.getValue());
+      return true;
+    }
+
+    // Otherwise, there's an error.
+    @Nullable Object result = handleError(key, wrappedValue);
+    if (result instanceof SkyValue) {
+      resultCallback.acceptValue(key, (SkyValue) result);
+      return true;
+    }
+    if (result instanceof Exception && resultCallback.tryHandleException(key, (Exception) result)) {
+      return true;
+    }
+    valuesMissing = true;
+    return false;
+  }
+
   @Nullable
   private <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
       SkyValue unwrapOrThrow(

@@ -84,6 +84,7 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Assume;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -93,6 +94,8 @@ public class ParallelEvaluatorTest {
   private static final SkyFunctionName CHILD_TYPE = SkyFunctionName.createHermetic("child");
   private static final SkyFunctionName PARENT_TYPE = SkyFunctionName.createHermetic("parent");
 
+  @TestParameter private boolean useQueryDep;
+
   protected ProcessableGraph graph;
   protected IntVersion graphVersion = IntVersion.of(0);
   protected GraphTester tester = new GraphTester();
@@ -101,6 +104,11 @@ public class ParallelEvaluatorTest {
 
   private DirtyTrackingProgressReceiver revalidationReceiver =
       new DirtyTrackingProgressReceiver(null);
+
+  @Before
+  public void configureTesterUseLookup() {
+    tester.setUseQueryDep(useQueryDep);
+  }
 
   @After
   public void assertNoTrackedErrors() {
