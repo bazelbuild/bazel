@@ -1319,11 +1319,15 @@ bool ArchiveUndeclaredOutputs(const UndeclaredOutputs& undecl) {
   }
 
   std::vector<FileInfo> files;
-  return GetFileListRelativeTo(undecl.root, &files) &&
-         (files.empty() ||
-          (CreateZip(undecl.root, files, undecl.zip) &&
-           CreateUndeclaredOutputsManifest(files, undecl.manifest) &&
-           RemoveRelativeRecursively(undecl.root, files)));
+  if (!GetFileListRelativeTo(undecl.root, &files)) {
+    return false;
+  }
+  if (files.empty()) {
+    return true;
+  }
+  return CreateZip(undecl.root, files, undecl.zip)
+      && CreateUndeclaredOutputsManifest(files, undecl.manifest)
+      && RemoveRelativeRecursively(undecl.root, files);
 }
 
 // Creates the Undeclared Outputs Annotations file.
