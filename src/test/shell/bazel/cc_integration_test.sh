@@ -1752,4 +1752,46 @@ EOF
   bazel build //:main --repo_env=CC=clang || fail "Expected compiler flag to have value 'clang'"
 }
 
+function test_cc_test_no_target_coverage_dep() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/16961
+  local package="${FUNCNAME[0]}"
+  mkdir -p "${package}"
+
+  cat > "${package}"/BUILD.bazel <<'EOF'
+cc_test(
+  name = "test",
+  srcs = ["test.cc"],
+)
+EOF
+  touch "${package}"/test.cc
+
+  out=$(bazel cquery --collect_code_coverage \
+   "deps(//${package}:test) intersect config(@remote_coverage_tools//:all, target)")
+  if [[ -n "$out" ]]; then
+    fail "Expected no dependency on lcov_merger in the target configuration, but got: $out"
+  fi
+}
+
+function test_cc_test_no_lcov_merger_dep_without_coverage() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/16961
+  local package="${FUNCNAME[0]}"
+  mkdir -p "${package}"
+
+  cat > "${package}"/BUILD.bazel <<'EOF'
+cc_test(
+  name = "test",
+  srcs = ["test.cc"],
+)
+EOF
+  touch "${package}"/test.cc
+
+  # FIXME: cc_test still unconditionally depends on the LCOV merger binary through
+  #  @remote_coverage_tools//:coverage_output_generator, which is also unnecessary:
+  #  https://github.com/bazelbuild/bazel/issues/15088
+  out=$(bazel cquery "somepath(//${package}:test,@remote_coverage_tools//:lcov_merger)")
+  if [[ -n "$out" ]]; then
+    fail "Expected no dependency on lcov_merger, but got: $out"
+  fi
+}
+
 run_suite "cc_integration_test"
