@@ -256,12 +256,11 @@ def _cc_library_impl(ctx):
             elif artifacts_to_build.interface_library != None:
                 files_builder.append(artifacts_to_build.interface_library)
 
-    instrumented_object_files = []
-    instrumented_object_files.extend(compilation_outputs.objects)
-    instrumented_object_files.extend(compilation_outputs.pic_objects)
-    instrumented_files_info = common.instrumented_files_info(
-        files = instrumented_object_files,
-        with_base_line_coverage = True,
+    instrumented_files_info = cc_helper.create_cc_instrumented_files_info(
+        ctx = ctx,
+        cc_config = ctx.fragments.cpp,
+        cc_toolchain = cc_toolchain,
+        metadata_files = compilation_outputs.gcno_files() + compilation_outputs.pic_gcno_files(),
     )
 
     runfiles_list = []

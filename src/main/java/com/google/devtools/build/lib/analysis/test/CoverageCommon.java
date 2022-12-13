@@ -56,6 +56,7 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
           supportFiles, // Depset<Artifact>|Sequence<Artifact|Depset<Artifact>|FilesToRunProvider>
       Dict<?, ?> environment, // <String, String>
       Object extensions,
+      Sequence<?> metadataFiles, // Sequence<Artifact>
       StarlarkThread thread)
       throws EvalException, TypeException {
     List<String> extensionsList =
@@ -96,13 +97,17 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
     if (!supportFilesBuilder.isEmpty() || !environmentPairs.isEmpty()) {
       BuiltinRestriction.throwIfNotBuiltinUsage(thread);
     }
+    if (!metadataFiles.isEmpty()) {
+      BuiltinRestriction.throwIfNotBuiltinUsage(thread);
+    }
     return createInstrumentedFilesInfo(
         starlarkRuleContext.getRuleContext(),
         Sequence.cast(sourceAttributes, String.class, "source_attributes"),
         Sequence.cast(dependencyAttributes, String.class, "dependency_attributes"),
         supportFilesBuilder.build(),
         NestedSetBuilder.wrap(Order.COMPILE_ORDER, environmentPairs),
-        extensionsList);
+        extensionsList,
+        Sequence.cast(metadataFiles, Artifact.class, "metadata_files"));
   }
 
   /**
@@ -130,7 +135,8 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         dependencyAttributes,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        extensions);
+        extensions,
+        null);
   }
 
   private static InstrumentedFilesInfo createInstrumentedFilesInfo(
@@ -139,7 +145,8 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
       List<String> dependencyAttributes,
       NestedSet<Artifact> supportFiles,
       NestedSet<Pair<String, String>> environment,
-      @Nullable List<String> extensions) {
+      @Nullable List<String> extensions,
+      @Nullable List<Artifact> metadataFiles) {
     FileTypeSet fileTypeSet = FileTypeSet.ANY_FILE;
     if (extensions != null) {
       if (extensions.isEmpty()) {
@@ -158,11 +165,12 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         ruleContext,
         instrumentationSpec,
         InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
-        /* rootFiles = */ ImmutableList.of(),
-        /* coverageSupportFiles = */ supportFiles,
-        /* coverageEnvironment = */ environment,
-        /* withBaselineCoverage = */ !TargetUtils.isTestRule(ruleContext.getTarget()),
-        /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
+        /* rootFiles= */ ImmutableList.of(),
+        /* coverageSupportFiles= */ supportFiles,
+        /* coverageEnvironment= */ environment,
+        /* withBaselineCoverage= */ !TargetUtils.isTestRule(ruleContext.getTarget()),
+        /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER),
+        /* additionalMetadata= */ metadataFiles);
   }
 
   @Override

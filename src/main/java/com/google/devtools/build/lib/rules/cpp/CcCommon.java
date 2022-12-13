@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -780,23 +779,6 @@ public final class CcCommon implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "instrumented_files_info",
-      documented = false,
-      parameters = {
-        @Param(name = "files", positional = false, named = true),
-        @Param(name = "with_base_line_coverage", positional = false, named = true),
-      })
-  public InstrumentedFilesInfo getInstrumentedFilesProviderForStarlark(
-      Sequence<?> files, boolean withBaselineCoverage) throws EvalException {
-    try {
-      return getInstrumentedFilesProvider(
-          Sequence.cast(files, Artifact.class, "files"), withBaselineCoverage);
-    } catch (RuleErrorException e) {
-      throw new EvalException(e);
-    }
-  }
-
-  @StarlarkMethod(
       name = "instrumented_files_info_from_compilation_context",
       documented = false,
       parameters = {
@@ -825,16 +807,6 @@ public final class CcCommon implements StarlarkValue {
     } catch (RuleErrorException e) {
       throw new EvalException(e);
     }
-  }
-
-  /** Provides support for instrumentation. */
-  public InstrumentedFilesInfo getInstrumentedFilesProvider(
-      Iterable<Artifact> files, boolean withBaselineCoverage) throws RuleErrorException {
-    return getInstrumentedFilesProvider(
-        files,
-        withBaselineCoverage,
-        /* virtualToOriginalHeaders= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* additionalMetadata= */ null);
   }
 
   public InstrumentedFilesInfo getInstrumentedFilesProvider(
