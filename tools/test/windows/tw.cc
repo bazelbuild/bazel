@@ -1297,6 +1297,19 @@ bool StartSubprocess(const Path& path, const std::wstring& args,
   return true;
 }
 
+bool RemoveRelativeRecursively(const Path& root,
+                               const std::vector<FileInfo>& files) {
+  Path path;
+  for (const auto& file : files) {
+    if (!(path.Set(file.RelativePath()) && path.Absolutize(root) &&
+          blaze_util::RemoveRecursively(
+              blaze_util::WstringToCstring(path.Get())))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool ArchiveUndeclaredOutputs(const UndeclaredOutputs& undecl) {
   if (undecl.root.Get().empty() || undecl.zip.Get().empty()) {
     // TEST_UNDECLARED_OUTPUTS_DIR was undefined, so there's nothing to archive,
@@ -1306,10 +1319,15 @@ bool ArchiveUndeclaredOutputs(const UndeclaredOutputs& undecl) {
   }
 
   std::vector<FileInfo> files;
-  return GetFileListRelativeTo(undecl.root, &files) &&
-         (files.empty() ||
-          (CreateZip(undecl.root, files, undecl.zip) &&
-           CreateUndeclaredOutputsManifest(files, undecl.manifest)));
+  if (!GetFileListRelativeTo(undecl.root, &files)) {
+    return false;
+  }
+  if (files.empty()) {
+    return true;
+  }
+  return CreateZip(undecl.root, files, undecl.zip) &&
+         CreateUndeclaredOutputsManifest(files, undecl.manifest) &&
+         RemoveRelativeRecursively(undecl.root, files);
 }
 
 // Creates the Undeclared Outputs Annotations file.
