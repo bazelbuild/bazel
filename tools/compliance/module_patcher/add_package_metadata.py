@@ -7,7 +7,7 @@ The resulting structure will normally be
 
 - A license target in the workspace root BUILD file
 - All other build files point to the root license target via
-  package.default_applicable_licenses.
+  package.default_package_metadata.
 
 The intended use is to modify a repository after downloading, but before
 returning from the repository rule defining it.
@@ -138,7 +138,7 @@ class BuildRewriter(object):
         # Points the BUILD file at a path to the top level liceense declaration
         with open(build_file, 'r', encoding='utf-8') as inp:
             content = inp.read()
-        new_content = add_default_applicable_licenses(content, "//:license", "//:package_info")
+        new_content = add_default_package_metadata(content, "//:license", "//:package_info")
         if content != new_content:
             os.remove(build_file)
             with open(build_file, 'w', encoding='utf-8') as out:
@@ -197,22 +197,25 @@ class BuildRewriter(object):
         add_license(self.top_build, fallback_license, fallback_info)
 
 
-def add_default_applicable_licenses(
+def add_default_package_metadata(
     content: str,
     license_label: str,
     package_info_label: str) -> str:
-    """Add a default_applicable_licenses clause to the package().
+    """Add a default_package_metadata clause to the package().
 
     Do not add if there already is one.
     Move package() to the first non-load statement.
     """
     # Build what the package statement should contain
-    dal = 'default_applicable_licenses=["%s", "%s"],' % (
+    dal = 'default_package_metadata=["%s", "%s"],' % (
         license_label, package_info_label)
     m = PACKAGE_RE.search(content)
     if m:
         decls = m.group('decls')
         if decls.find('default_applicable_licenses') >= 0:
+            # Do nothing
+            return content
+        if decls.find('default_package_metadata') >= 0:
             # Do nothing
             return content
 
@@ -263,7 +266,7 @@ def add_license(build_file: str, license_target: str, info_target: str):
     info_load = """load("@rules_license//rules:package_info.bzl", "package_info")"""
     must_add_info_load = not info_load in content
 
-    new_content = add_default_applicable_licenses(content, "//:license", "//:package_info")
+    new_content = add_default_package_metadata(content, "//:license", "//:package_info")
     # Now splice it into the correct place. That is always before
     # any existing rules.
     ret = []

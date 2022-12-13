@@ -20,7 +20,6 @@ license(
 
 package_info(
     name = "package_info",
-    copyright_notice = "Copyright © 2014 The Bazel Authors. All rights reserved.",
     package_name = "bazel",
     package_url = "https://github.com/bazelbuild/bazel",
     package_version = "7.0",
