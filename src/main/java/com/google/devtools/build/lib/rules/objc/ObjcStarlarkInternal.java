@@ -24,14 +24,10 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -222,32 +218,6 @@ public class ObjcStarlarkInternal implements StarlarkValue {
 
     return StarlarkList.immutableCopyOf(
         ImmutableList.of(j2ObjcEntryClassProvider, j2ObjcMappingFileProvider));
-  }
-
-  @StarlarkMethod(
-      name = "instrumented_files_info",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true),
-        @Param(name = "config", positional = false, named = true),
-        @Param(name = "object_files", positional = false, defaultValue = "[]", named = true),
-      })
-  public InstrumentedFilesInfo createInstrumentedFilesInfo(
-      StarlarkRuleContext starlarkRuleContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfigurationValue config,
-      Sequence<?> objectFiles)
-      throws EvalException {
-    try {
-      return CompilationSupport.getInstrumentedFilesProvider(
-          starlarkRuleContext.getRuleContext(),
-          ccToolchain,
-          config,
-          Sequence.cast(objectFiles, Artifact.class, "object_files").getImmutableList());
-    } catch (RuleErrorException e) {
-      throw new EvalException(e);
-    }
   }
 
   @StarlarkMethod(
