@@ -52,7 +52,7 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         "  implementation = _impl,",
         "  attrs = {",
         "    'deps': attr.label_list(allow_files = True),",
-        "    'host_deps': attr.label_list(cfg = 'host')",
+        "    'host_deps': attr.label_list(cfg = 'exec')",
         "  }",
         ")");
     writeFile("defs/BUILD");

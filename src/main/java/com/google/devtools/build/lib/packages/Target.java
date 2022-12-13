@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.starlarkbuildapi.TargetApi;
 import java.util.Set;
@@ -78,4 +79,14 @@ public interface Target extends TargetApi {
    * Returns whether this target type can be configured (e.g. accepts non-null configurations).
    */
   boolean isConfigurable();
+
+  /** Returns the rule class name if the target is a rule and {@code ""} otherwise. */
+  default String getRuleClass() {
+    return "";
+  }
+
+  /** Returns the rule tags if the target is a rule and an empty set otherwise. */
+  default Set<String> getRuleTags() {
+    return ImmutableSet.of();
+  }
 }

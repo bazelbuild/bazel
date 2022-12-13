@@ -609,9 +609,6 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   public void testEqualityOfOrderedThreadSafeImmutableSet() {}
 
   @Override
-  public void testDefaultCopts() {}
-
-  @Override
   public void testHdrsCheck() {}
 
   @Override

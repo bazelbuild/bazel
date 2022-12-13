@@ -938,6 +938,7 @@ EOF
   # Darwin and Windows only produce 1 CppCompileActionTemplate with PIC,
   # while Linux has both PIC and non-PIC CppCompileActionTemplates
   bazel aquery -c opt --output=text ${QUERY} > output 2> "$TEST_log" \
+    --features=-prefer_pic_for_opt_binaries \
     || fail "Expected success"
   cat output >> "$TEST_log"
   if (is_darwin || $is_windows); then

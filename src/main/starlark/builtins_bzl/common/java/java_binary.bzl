@@ -61,7 +61,8 @@ def basic_java_binary(
         executable,
         feature_config,
         strip_as_default,
-        extension_registry_provider = None):
+        extension_registry_provider = None,
+        is_test_rule_class = False):
     """Creates actions for compiling and linting java sources, coverage support, and sources jar (_deploy-src.jar).
 
     Args:
@@ -77,6 +78,7 @@ def basic_java_binary(
         feature_config: (FeatureConfiguration) The result of cc_common.configure_features()
         strip_as_default: (bool) Whether this target outputs a stripped launcher and deploy jar
         extension_registry_provider: (GeneratedExtensionRegistryProvider) internal param, do not use
+        is_test_rule_class: (bool) Whether this rule is a test rule
 
     Returns:
         Tuple(
@@ -126,17 +128,21 @@ def basic_java_binary(
         add_opens = ctx.attr.add_opens,
     )
     java_info = target["JavaInfo"]
+    runtime_classpath = java_info.compilation_info.runtime_classpath
     if extension_registry_provider:
+        runtime_classpath = depset(order = "preorder", direct = [extension_registry_provider.class_jar], transitive = [runtime_classpath])
         java_info = java_common.merge(
             [
-                java_info,
                 JavaInfo(
                     output_jar = extension_registry_provider.class_jar,
                     compile_jar = None,
                     source_jar = extension_registry_provider.src_jar,
                 ),
+                java_info,
             ],
         )
+
+    java_attrs = _collect_attrs(ctx, runtime_classpath, classpath_resources)
 
     jvm_flags = []
 
@@ -163,8 +169,6 @@ def basic_java_binary(
 
     files_to_build = []
 
-    java_attrs = _collect_attrs(ctx, java_info, classpath_resources)
-
     if executable:
         files_to_build.append(executable)
 
@@ -186,7 +190,9 @@ def basic_java_binary(
             transitive = [output_groups["_source_jars"]],
         )
 
-    one_version_output = _create_one_version_check(ctx, java_info.transitive_runtime_jars)
+    one_version_output = _create_one_version_check(ctx, java_info.transitive_runtime_jars) if (
+        ctx.fragments.java.one_version_enforcement_on_java_tests or not is_test_rule_class
+    ) else None
     validation_outputs = [one_version_output] if one_version_output else []
 
     _create_deploy_sources_jar(ctx, output_groups["_source_jars"])
@@ -289,14 +295,14 @@ def basic_java_binary(
         ),
     }, default_info, jvm_flags
 
-def _collect_attrs(ctx, java_info, classpath_resources):
+def _collect_attrs(ctx, runtime_classpath, classpath_resources):
     deploy_env_jars = depset(transitive = [
         dep[JavaRuntimeClasspathInfo].runtime_classpath
         for dep in ctx.attr.deploy_env
     ]) if hasattr(ctx.attr, "deploy_env") else depset()
 
-    runtime_classpath_for_archive = java_common.get_runtime_classpath_for_archive(java_info.transitive_runtime_jars, deploy_env_jars)
-    runtime_jars = depset([ctx.outputs.classjar])
+    runtime_classpath_for_archive = java_common.get_runtime_classpath_for_archive(runtime_classpath, deploy_env_jars)
+    runtime_jars = [ctx.outputs.classjar]
 
     resources = [p for p in ctx.files.srcs if p.extension == "properties"]
     transitive_resources = []
@@ -312,10 +318,10 @@ def _collect_attrs(ctx, java_info, classpath_resources):
         resource_names[r.basename] = None
 
     return struct(
-        runtime_jars = runtime_jars,
+        runtime_jars = depset(runtime_jars),
         runtime_classpath_for_archive = runtime_classpath_for_archive,
         classpath_resources = depset(classpath_resources),
-        runtime_classpath = depset(transitive = [runtime_jars, java_info.transitive_runtime_jars]),
+        runtime_classpath = depset(order = "preorder", direct = runtime_jars, transitive = [runtime_classpath]),
         resources = depset(resources, transitive = transitive_resources),
     )
 

@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -54,11 +53,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TestTimeout;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -190,25 +185,7 @@ public final class TargetCompleteEvent
         this.baselineCoverageArtifacts = null;
       }
     }
-    // For tags, we are only interested in targets that are rules.
-    if (!(targetAndData.getConfiguredTarget() instanceof RuleConfiguredTarget)) {
-      this.tags = ImmutableList.of();
-    } else {
-      AttributeMap attributes =
-          ConfiguredAttributeMapper.of(
-              (Rule) targetAndData.getTarget(),
-              targetAndData.getConfiguredTarget().getConfigConditions(),
-              configuration);
-      // Every build rule (implicitly) has a "tags" attribute. However other rule configured targets
-      // are repository rules (which don't have a tags attribute); morevoer, thanks to the virtual
-      // "external" package, they are user visible as targets and can create a completed event as
-      // well.
-      if (attributes.has("tags", Type.STRING_LIST)) {
-        this.tags = attributes.get("tags", Type.STRING_LIST);
-      } else {
-        this.tags = ImmutableList.of();
-      }
-    }
+    this.tags = targetAndData.getRuleTags();
   }
 
   /** Construct a successful target completion event. */
@@ -574,8 +551,7 @@ public final class TargetCompleteEvent
    */
   private static Long getTestTimeoutSeconds(ConfiguredTargetAndData targetAndData) {
     BuildConfigurationValue configuration = targetAndData.getConfiguration();
-    Rule associatedRule = targetAndData.getTarget().getAssociatedRule();
-    TestTimeout categoricalTimeout = TestTimeout.getTestTimeout(associatedRule);
+    TestTimeout categoricalTimeout = targetAndData.getTestTimeout();
     return configuration
         .getFragment(TestConfiguration.class)
         .getTestTimeout()

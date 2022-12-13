@@ -94,7 +94,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
         "  return [DefaultInfo(files = files)]",
         "host_transition = rule(",
         "  implementation = _host_transition_impl,",
-        "  attrs = {'srcs': attr.label_list(cfg='host')},",
+        "  attrs = {'srcs': attr.label_list(cfg='exec')},",
         ")");
   }
 

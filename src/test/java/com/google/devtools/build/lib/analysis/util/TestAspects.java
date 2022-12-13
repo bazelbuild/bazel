@@ -17,7 +17,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
@@ -48,7 +47,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
-import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -443,17 +441,7 @@ public class TestAspects {
   public static final ComputedAttributeAspect COMPUTED_ATTRIBUTE_ASPECT =
       new ComputedAttributeAspect();
   private static final AspectDefinition COMPUTED_ATTRIBUTE_ASPECT_DEFINITION =
-      new AspectDefinition.Builder(COMPUTED_ATTRIBUTE_ASPECT)
-          .add(
-              attr("$default_copts", STRING_LIST)
-                  .value(
-                      new ComputedDefault() {
-                        @Override
-                        public Object getDefault(AttributeMap rule) {
-                          return rule.getPackageDefaultCopts();
-                        }
-                      }))
-          .build();
+      new AspectDefinition.Builder(COMPUTED_ATTRIBUTE_ASPECT).build();
 
   /** An aspect that defines its own computed default attribute. */
   public static class ComputedAttributeAspect extends BaseAspect {

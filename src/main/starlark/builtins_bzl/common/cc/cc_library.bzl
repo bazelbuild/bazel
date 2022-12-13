@@ -53,7 +53,7 @@ def _cc_library_impl(ctx):
         name = ctx.label.name,
         cc_toolchain = cc_toolchain,
         feature_configuration = feature_configuration,
-        user_compile_flags = cc_helper.get_copts(ctx, common, feature_configuration, additional_make_variable_substitutions),
+        user_compile_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions),
         defines = common.defines,
         local_defines = common.local_defines + cc_helper.get_local_defines_for_runfiles_lookup(ctx),
         loose_includes = common.loose_include_dirs,
@@ -256,12 +256,11 @@ def _cc_library_impl(ctx):
             elif artifacts_to_build.interface_library != None:
                 files_builder.append(artifacts_to_build.interface_library)
 
-    instrumented_object_files = []
-    instrumented_object_files.extend(compilation_outputs.objects)
-    instrumented_object_files.extend(compilation_outputs.pic_objects)
-    instrumented_files_info = common.instrumented_files_info(
-        files = instrumented_object_files,
-        with_base_line_coverage = True,
+    instrumented_files_info = cc_helper.create_cc_instrumented_files_info(
+        ctx = ctx,
+        cc_config = ctx.fragments.cpp,
+        cc_toolchain = cc_toolchain,
+        metadata_files = compilation_outputs.gcno_files() + compilation_outputs.pic_gcno_files(),
     )
 
     runfiles_list = []
@@ -584,7 +583,6 @@ attrs = {
     "includes": attr.string_list(),
     "defines": attr.string_list(),
     "copts": attr.string_list(),
-    "_default_copts": attr.string_list(default = cc_internal.default_copts_computed_default()),
     "hdrs_check": attr.string(default = cc_internal.default_hdrs_check_computed_default()),
     "local_defines": attr.string_list(),
     "deps": attr.label_list(

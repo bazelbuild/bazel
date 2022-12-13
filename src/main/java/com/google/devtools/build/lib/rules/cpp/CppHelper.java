@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
@@ -156,12 +157,6 @@ public class CppHelper {
     Preconditions.checkArgument(ruleContext.getRule().isAttrDefined(attr, Type.STRING_LIST));
     List<String> unexpanded = ruleContext.attributes().get(attr, Type.STRING_LIST);
     return ImmutableList.copyOf(expandMakeVariables(ruleContext, attr, unexpanded));
-  }
-
-  // Called from CcCommon.
-  static ImmutableList<String> getPackageCopts(RuleContext ruleContext) {
-    List<String> unexpanded = ruleContext.getRule().getPackage().getDefaultCopts();
-    return ImmutableList.copyOf(expandMakeVariables(ruleContext, "copts", unexpanded));
   }
 
   /** Tokenizes and expands make variables. */
@@ -373,11 +368,17 @@ public class CppHelper {
 
   private static CcToolchainProvider getToolchainFromPlatformConstraints(
       RuleContext ruleContext, Label toolchainType) throws RuleErrorException {
-    ToolchainInfo toolchainInfo = ruleContext.getToolchainContext().forToolchainType(toolchainType);
+    ResolvedToolchainContext toolchainContext = ruleContext.getToolchainContext();
+    ToolchainInfo toolchainInfo = toolchainContext.forToolchainType(toolchainType);
     if (toolchainInfo == null) {
       throw ruleContext.throwWithRuleError(
-          "Unable to find a CC toolchain using toolchain resolution. Did you properly set"
-              + " --platforms?");
+          String.format(
+              "Unable to find a CC toolchain using toolchain resolution"
+                  + " (target %s, target platform %s, exec platform %s)."
+                  + " Did you properly set --platforms?",
+              ruleContext.getLabel(),
+              toolchainContext.targetPlatform().label(),
+              toolchainContext.executionPlatform().label()));
     }
     try {
       return (CcToolchainProvider) toolchainInfo.getValue("cc");

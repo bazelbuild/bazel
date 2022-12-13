@@ -16,6 +16,7 @@
 
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/attrs.bzl", "common_attrs")
+load("@_builtins//:common/objc/objc_common.bzl", "extensions")
 load("@_builtins//:common/objc/transitions.bzl", "apple_crosstool_transition")
 load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
 
@@ -63,6 +64,16 @@ def _objc_library_impl(ctx):
 
     objc_provider = common_variables.objc_provider
 
+    instrumented_files_info = coverage_common.instrumented_files_info(
+        ctx = ctx,
+        source_attributes = ["srcs", "non_arc_srcs", "hdrs"],
+        dependency_attributes = ["deps", "data", "binary", "xctest_app"],
+        extensions = extensions.NON_CPP_SOURCES + extensions.CPP_SOURCES + extensions.HEADERS,
+        coverage_environment = cc_helper.get_coverage_environment(ctx, ctx.fragments.cpp, cc_toolchain),
+        coverage_support_files = cc_toolchain.coverage_files() if ctx.coverage_instrumented() else depset([]),
+        metadata_files = compilation_outputs.gcno_files() + compilation_outputs.pic_gcno_files(),
+    )
+
     return [
         DefaultInfo(
             files = depset(files),
@@ -75,12 +86,7 @@ def _objc_library_impl(ctx):
         objc_provider,
         j2objc_providers[0],
         j2objc_providers[1],
-        objc_internal.instrumented_files_info(
-            ctx = ctx,
-            cc_toolchain = cc_toolchain,
-            config = ctx.configuration,
-            object_files = compilation_outputs.objects,
-        ),
+        instrumented_files_info,
         OutputGroupInfo(**output_groups),
     ]
 

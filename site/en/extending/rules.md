@@ -896,10 +896,6 @@ my_rule = rule(
 )
 ```
 
-`ctx.fragments` only provides configuration fragments for the target
-configuration. If you want to access fragments for the host configuration, use
-`ctx.host_fragments` instead.
-
 ### Runfiles symlinks
 
 Normally, the relative path of a file in the runfiles tree is the same as the

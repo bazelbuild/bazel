@@ -112,7 +112,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
       }
       label = getDummyFileLabel(rulePkg, filePkg, extension, attrType);
     } else {
-      Predicate<RuleClass> allowedRuleClasses = attribute.getAllowedRuleClassesPredicate();
+      Predicate<RuleClass> allowedRuleClasses = attribute.getAllowedRuleClassObjectPredicate();
       if (allowedRuleClasses != Predicates.<RuleClass>alwaysFalse()) {
         // See if there is an applicable rule among the already enqueued rules
         BuildRuleBuilder referencedRuleBuilder = getFirstApplicableRule(attribute);
@@ -140,7 +140,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
 
   private boolean doesRuleClassMatch(Attribute attribute, RuleClass ruleClass) {
     // The rule class isn't in the allowed list.
-    if (!attribute.getAllowedRuleClassesPredicate().apply(ruleClass)) {
+    if (!attribute.getAllowedRuleClassObjectPredicate().apply(ruleClass)) {
       return false;
     }
 

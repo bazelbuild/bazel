@@ -159,23 +159,26 @@ class ActionTempTest(test_base.TestBase):
 
     self.ScratchFile('WORKSPACE')
     self.ScratchFile('foo/' + toolname, toolsrc, executable=True)
-    self.ScratchFile('foo/foo.bzl', [
-        'def _impl(ctx):',
-        '  ctx.actions.run(',
-        '      executable=ctx.executable.tool,',
-        '      arguments=[ctx.outputs.out.path, ctx.file.src.path],',
-        '      inputs=[ctx.file.src],',
-        '      outputs=[ctx.outputs.out])',
-        '  return [DefaultInfo(files=depset([ctx.outputs.out]))]',
-        '',
-        'foorule = rule(',
-        '    implementation=_impl,',
-        '    attrs={"tool": attr.label(executable=True, cfg="host",',
-        '                              allow_single_file=True),',
-        '           "src": attr.label(allow_single_file=True)},',
-        '    outputs={"out": "%{name}.txt"},',
-        ')',
-    ])
+    self.ScratchFile(
+        'foo/foo.bzl',
+        [
+            'def _impl(ctx):',
+            '  ctx.actions.run(',
+            '      executable=ctx.executable.tool,',
+            '      arguments=[ctx.outputs.out.path, ctx.file.src.path],',
+            '      inputs=[ctx.file.src],',
+            '      outputs=[ctx.outputs.out])',
+            '  return [DefaultInfo(files=depset([ctx.outputs.out]))]',
+            '',
+            'foorule = rule(',
+            '    implementation=_impl,',
+            '    attrs={"tool": attr.label(executable=True, cfg="exec",',
+            '                              allow_single_file=True),',
+            '           "src": attr.label(allow_single_file=True)},',
+            '    outputs={"out": "%{name}.txt"},',
+            ')',
+        ],
+    )
 
     self.ScratchFile('foo/BUILD', [
         'load("//foo:foo.bzl", "foorule")',

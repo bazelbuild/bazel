@@ -156,8 +156,7 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap, Label label) {
     for (ConfiguredTargetAndData prerequisite :
         prerequisiteMap.get(DependencyKind.VISIBILITY_DEPENDENCY)) {
-      if (prerequisite.getTarget().getLabel().equals(label)
-          && prerequisite.getConfiguration() == null) {
+      if (prerequisite.getTargetLabel().equals(label) && prerequisite.getConfiguration() == null) {
         return prerequisite.getConfiguredTarget();
       }
     }

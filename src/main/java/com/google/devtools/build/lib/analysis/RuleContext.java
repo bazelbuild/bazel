@@ -71,10 +71,8 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
@@ -843,7 +841,7 @@ public final class RuleContext extends TargetContext
     Map<String, Label> dict = attributes().get(attributeName, BuildType.LABEL_DICT_UNARY);
     Map<Label, ConfiguredTarget> labelToDep = new HashMap<>();
     for (ConfiguredTargetAndData dep : targetMap.get(attributeName)) {
-      labelToDep.put(dep.getTarget().getLabel(), dep.getConfiguredTarget());
+      labelToDep.put(dep.getTargetLabel(), dep.getConfiguredTarget());
     }
 
     for (Map.Entry<String, Label> entry : dict.entrySet()) {
@@ -1947,11 +1945,9 @@ public final class RuleContext extends TargetContext
         }
 
         if (attribute.isSilentRuleClassFilter()) {
-          Predicate<RuleClass> filter = attribute.getAllowedRuleClassesPredicate();
+          Predicate<String> filter = attribute.getAllowedRuleClassPredicate();
           for (ConfiguredTargetAndData configuredTarget : entry.getValue()) {
-            Target prerequisiteTarget = configuredTarget.getTarget();
-            if ((prerequisiteTarget instanceof Rule)
-                && filter.apply(((Rule) prerequisiteTarget).getRuleClassObject())) {
+            if (filter.apply(configuredTarget.getRuleClass())) {
               validateDirectPrerequisite(attribute, configuredTarget);
               mapBuilder.put(attribute.getName(), configuredTarget);
             }
@@ -2019,52 +2015,45 @@ public final class RuleContext extends TargetContext
 
     private void validateDirectPrerequisiteType(
         ConfiguredTargetAndData prerequisite, Attribute attribute) {
-      Target prerequisiteTarget = prerequisite.getTarget();
-      Label prerequisiteLabel = prerequisiteTarget.getLabel();
-
-      if (prerequisiteTarget instanceof Rule) {
-        Rule prerequisiteRule = (Rule) prerequisiteTarget;
-
+      String ruleClass = prerequisite.getRuleClass();
+      if (!ruleClass.isEmpty()) {
         String reason =
             attribute
                 .getValidityPredicate()
-                .checkValid(target.getAssociatedRule(), prerequisiteRule);
+                .checkValid(target.getAssociatedRule(), ruleClass, prerequisite.getRuleTags());
         if (reason != null) {
           reportBadPrerequisite(attribute, prerequisite, reason, false);
         }
+        validateRuleDependency(prerequisite, attribute);
+        return;
       }
 
-      if (prerequisiteTarget instanceof Rule) {
-        validateRuleDependency(prerequisite, attribute);
-      } else if (prerequisiteTarget instanceof FileTarget) {
-        if (attribute.isStrictLabelCheckingEnabled()) {
-          if (!attribute
-              .getAllowedFileTypesPredicate()
-              .apply(((FileTarget) prerequisiteTarget).getFilename())) {
-            if (prerequisiteTarget instanceof InputFile
-                && !((InputFile) prerequisiteTarget).getPath().exists()) {
-              // Misplaced labels, no corresponding target exists
-              if (attribute.getAllowedFileTypesPredicate().isNone()
-                  && !((InputFile) prerequisiteTarget).getFilename().contains(".")) {
-                // There are no allowed files in the attribute but it's not a valid rule,
-                // and the filename doesn't contain a dot --> probably a misspelled rule
-                attributeError(
-                    attribute.getName(), "rule '" + prerequisiteLabel + "' does not exist");
-              } else {
-                attributeError(
-                    attribute.getName(), "target '" + prerequisiteLabel + "' does not exist");
-              }
-            } else {
-              // The file exists but has a bad extension
-              reportBadPrerequisite(
-                  attribute,
-                  prerequisite,
-                  "expected " + attribute.getAllowedFileTypesPredicate(),
-                  false);
-            }
-          }
-        }
+      if (!(prerequisite.isTargetFile() && attribute.isStrictLabelCheckingEnabled())) {
+        return;
       }
+
+      Label prerequisiteTargetLabel = prerequisite.getTargetLabel();
+      if (attribute.getAllowedFileTypesPredicate().apply(prerequisiteTargetLabel.getName())) {
+        return;
+      }
+
+      if (prerequisite.isTargetInputFile() && !prerequisite.getInputPath().exists()) {
+        // Misplaced labels, no corresponding target exists
+        if (attribute.getAllowedFileTypesPredicate().isNone()
+            && !prerequisiteTargetLabel.getName().contains(".")) {
+          // There are no allowed files in the attribute but it's not a valid rule,
+          // and the filename doesn't contain a dot --> probably a misspelled rule
+          attributeError(
+              attribute.getName(), "rule '" + prerequisiteTargetLabel + "' does not exist");
+        } else {
+          attributeError(
+              attribute.getName(), "target '" + prerequisiteTargetLabel + "' does not exist");
+        }
+        return;
+      }
+      // The file exists but has a bad extension
+      reportBadPrerequisite(
+          attribute, prerequisite, "expected " + attribute.getAllowedFileTypesPredicate(), false);
     }
 
     /** Returns whether the context being constructed is for the evaluation of an aspect. */
@@ -2140,7 +2129,7 @@ public final class RuleContext extends TargetContext
         if (attribute.isSingleArtifact() && !artifacts.isSingleton()) {
           attributeError(
               attribute.getName(),
-              "'" + prerequisite.getTarget().getLabel() + "' must produce a single file");
+              "'" + prerequisite.getTargetLabel() + "' must produce a single file");
           return;
         }
         for (Artifact sourceArtifact : artifacts.toList()) {
@@ -2154,7 +2143,7 @@ public final class RuleContext extends TargetContext
         attributeError(
             attribute.getName(),
             "'"
-                + prerequisite.getTarget().getLabel()
+                + prerequisite.getTargetLabel()
                 + "' does not produce any "
                 + getRuleClassNameForLogging()
                 + " "
@@ -2197,19 +2186,21 @@ public final class RuleContext extends TargetContext
         ConfiguredTargetAndData prerequisite,
         Attribute attribute,
         Set<String> unfulfilledRequirements) {
-      if (attribute.getAllowedRuleClassesPredicate() != Predicates.<RuleClass>alwaysTrue()) {
-        if (attribute
-            .getAllowedRuleClassesPredicate()
-            .apply(((Rule) prerequisite.getTarget()).getRuleClassObject())) {
-          // prerequisite has an allowed rule class => accept.
-          return true;
-        }
-        // remember that the rule class that was not allowed;
-        // but maybe prerequisite provides required providers? do not reject yet.
-        unfulfilledRequirements.add(
-            badPrerequisiteMessage(
-                prerequisite, "expected " + attribute.getAllowedRuleClassesPredicate(), false));
+      var predicate = attribute.getAllowedRuleClassPredicate();
+      if (predicate == Predicates.<String>alwaysTrue()) {
+        // alwaysTrue is a special sentinel value. See
+        // RuleClass.Builder.RuleClassNamePredicate.unspecified.
+        return false;
       }
+
+      if (predicate.apply(prerequisite.getRuleClass())) {
+        // prerequisite has an allowed rule class => accept.
+        return true;
+      }
+      // remember that the rule class that was not allowed;
+      // but maybe prerequisite provides required providers? do not reject yet.
+      unfulfilledRequirements.add(
+          badPrerequisiteMessage(prerequisite, "expected " + predicate, false));
       return false;
     }
 
@@ -2220,21 +2211,20 @@ public final class RuleContext extends TargetContext
      */
     private boolean checkRuleDependencyClassWarnings(
         ConfiguredTargetAndData prerequisite, Attribute attribute) {
-      if (attribute
-          .getAllowedRuleClassesWarningPredicate()
-          .apply(((Rule) prerequisite.getTarget()).getRuleClassObject())) {
-        Predicate<RuleClass> allowedRuleClasses = attribute.getAllowedRuleClassesPredicate();
-        reportBadPrerequisite(
-            attribute,
-            prerequisite,
-            allowedRuleClasses == Predicates.<RuleClass>alwaysTrue()
-                ? null
-                : "expected " + allowedRuleClasses,
-            true);
-        // prerequisite has a rule class allowed with a warning => accept, emitting a warning.
-        return true;
+      if (!attribute.getAllowedRuleClassWarningPredicate().apply(prerequisite.getRuleClass())) {
+        return false;
       }
-      return false;
+
+      Predicate<String> allowedRuleClasses = attribute.getAllowedRuleClassPredicate();
+      reportBadPrerequisite(
+          attribute,
+          prerequisite,
+          allowedRuleClasses == Predicates.<String>alwaysTrue()
+              ? null
+              : "expected " + allowedRuleClasses,
+          true);
+      // prerequisite has a rule class allowed with a warning => accept, emitting a warning.
+      return true;
     }
 
     /** Check if prerequisite should be allowed based on required providers on the attribute. */
@@ -2256,7 +2246,7 @@ public final class RuleContext extends TargetContext
       unfulfilledRequirements.add(
           String.format(
               "'%s' does not have mandatory providers: %s",
-              prerequisite.getTarget().getLabel(),
+              prerequisite.getTargetLabel(),
               prerequisite
                   .getConfiguredTarget()
                   .missingProviders(requiredProviders)

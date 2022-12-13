@@ -546,7 +546,15 @@ public class RuleClass {
       protected abstract void checkAttributes(Map<String, Attribute> attributes);
     }
 
-    /** A predicate that filters rule classes based on their names. */
+    /**
+     * A predicate that filters rule classes based on their names.
+     *
+     * <p>In {@link Rule}, {@code ruleClass} refers to the string name of the rule class while
+     * {@code ruleClassObject} refers to the actual instance of {@link RuleClass}. Here, {@code
+     * RuleClassName} emphasizes that the underlying logic of the predicate is based only on the
+     * {@code String} name. The public methods, {@link #asPredicateOfRuleClass} and {@link
+     * #asPredicateOfRuleClassObject} revert to the common convention used in {@link Rule}.
+     */
     @AutoCodec
     public static class RuleClassNamePredicate {
 
@@ -578,7 +586,7 @@ public class RuleClass {
 
         switch (predicateType) {
           case All_EXCEPT:
-            Predicate<String> containing = only(ruleClassNames).asPredicateOfRuleClassName();
+            Predicate<String> containing = only(ruleClassNames).asPredicateOfRuleClass();
             ruleClassNamePredicate =
                 new DescribedPredicate<>(
                     Predicates.not(containing), "all but " + containing.toString());
@@ -632,11 +640,11 @@ public class RuleClass {
         return UNSPECIFIED_INSTANCE;
       }
 
-      public final Predicate<String> asPredicateOfRuleClassName() {
+      public final Predicate<String> asPredicateOfRuleClass() {
         return ruleClassNamePredicate;
       }
 
-      public final Predicate<RuleClass> asPredicateOfRuleClass() {
+      public final Predicate<RuleClass> asPredicateOfRuleClassObject() {
         return ruleClassPredicate;
       }
 

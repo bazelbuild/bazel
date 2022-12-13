@@ -1473,12 +1473,6 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  public void testDefaultCopts() throws Exception {
-    writeFile("x/BUILD", "package(default_copts=['-a'])", "cc_library(name='a')");
-    assertThat(eval("attr('$default_copts', '\\[-a\\]', //x:all)")).isEqualTo(eval("//x:a"));
-  }
-
-  @Test
   public void testTestSuiteWithFile() throws Exception {
     // Note that test_suite does not restrict the set of targets that can appear here.
     writeFile("x/BUILD", "test_suite(name='a', tests=['a.txt'])");

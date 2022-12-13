@@ -91,22 +91,22 @@ public class PackageOptions extends OptionsBase {
   public boolean showLoadingProgress;
 
   @Option(
-    name = "deleted_packages",
-    defaultValue = "",
-    converter = CommaSeparatedPackageNameListConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "A comma-separated list of names of packages which the "
-            + "build system will consider non-existent, even if they are "
-            + "visible somewhere on the package path.\n"
-            + "Use this option when deleting a subpackage 'x/y' of an "
-            + "existing package 'x'.  For example, after deleting x/y/BUILD "
-            + "in your client, the build system may complain if it "
-            + "encounters a label '//x:y/z' if that is still provided by another "
-            + "package_path entry.  Specifying --deleted_packages x/y avoids this "
-            + "problem."
-  )
+      name = "deleted_packages",
+      allowMultiple = true,
+      defaultValue = "null",
+      converter = CommaSeparatedPackageNameListConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A comma-separated list of names of packages which the "
+              + "build system will consider non-existent, even if they are "
+              + "visible somewhere on the package path.\n"
+              + "Use this option when deleting a subpackage 'x/y' of an "
+              + "existing package 'x'.  For example, after deleting x/y/BUILD "
+              + "in your client, the build system may complain if it "
+              + "encounters a label '//x:y/z' if that is still provided by another "
+              + "package_path entry.  Specifying --deleted_packages x/y avoids this "
+              + "problem.")
   public List<PackageIdentifier> deletedPackages;
 
   @Option(

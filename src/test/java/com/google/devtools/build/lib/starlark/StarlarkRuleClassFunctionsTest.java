@@ -709,8 +709,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testAttrAllowedRuleClassesSpecificRuleClasses() throws Exception {
     Attribute attr = buildAttribute("a",
         "attr.label_list(allow_rules = ['java_binary'], allow_files = True)");
-    assertThat(attr.getAllowedRuleClassesPredicate().apply(ruleClass("java_binary"))).isTrue();
-    assertThat(attr.getAllowedRuleClassesPredicate().apply(ruleClass("genrule"))).isFalse();
+    assertThat(attr.getAllowedRuleClassObjectPredicate().apply(ruleClass("java_binary"))).isTrue();
+    assertThat(attr.getAllowedRuleClassObjectPredicate().apply(ruleClass("genrule"))).isFalse();
   }
 
   @Test

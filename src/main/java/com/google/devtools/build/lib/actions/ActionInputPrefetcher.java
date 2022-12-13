@@ -28,6 +28,11 @@ public interface ActionInputPrefetcher {
           // Do nothing.
           return immediateVoidFuture();
         }
+
+        @Override
+        public boolean supportsPartialTreeArtifactInputs() {
+          return true;
+        }
       };
 
   /**
@@ -39,4 +44,10 @@ public interface ActionInputPrefetcher {
    */
   ListenableFuture<Void> prefetchFiles(
       Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider);
+
+  /**
+   * Whether the prefetcher is able to fetch individual files in a tree artifact without fetching
+   * the entire tree artifact.
+   */
+  boolean supportsPartialTreeArtifactInputs();
 }

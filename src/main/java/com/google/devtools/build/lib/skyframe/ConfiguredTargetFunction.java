@@ -1013,7 +1013,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         String message =
             String.format(
                     "%s is not a valid select() condition for %s.\n",
-                    selectKeyTarget.getTarget().getLabel(), target.getLabel())
+                    selectKeyTarget.getTargetLabel(), target.getLabel())
                 + String.format(
                     "To inspect the select(), run: bazel query --output=build %s.\n",
                     target.getLabel())

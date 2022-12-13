@@ -21,20 +21,19 @@ load(":common/paths.bzl", "paths")
 cc_common = _builtins.toplevel.cc_common
 
 def _collect_all_targets_as_runtime_deps(ctx):
-    deps = _collect_all_targets_as_compile_deps(ctx)
-
-    if hasattr(ctx.attr, "_test_support") and ctx.attr._test_support:
-        deps.append(ctx.attr._test_support)
-
-    if hasattr(ctx.attr, "runtime_deps"):
-        deps.extend(ctx.attr.runtime_deps)
-    if hasattr(ctx.attr, "exports"):
-        deps.extend(ctx.attr.exports)
-
-    return deps
+    return _collect_all_targets_as_deps(ctx)
 
 def _collect_all_targets_as_compile_deps(ctx):
+    return _collect_all_targets_as_deps(ctx, classpath_type = "compile_only")
+
+def _collect_all_targets_as_deps(ctx, classpath_type = "all"):
     deps = []
+    if not classpath_type == "compile_only":
+        if hasattr(ctx.attr, "runtime_deps"):
+            deps.extend(ctx.attr.runtime_deps)
+        if hasattr(ctx.attr, "exports"):
+            deps.extend(ctx.attr.exports)
+
     deps.extend(ctx.attr.deps or [])
 
     if (
@@ -46,6 +45,7 @@ def _collect_all_targets_as_compile_deps(ctx):
     launcher = _filter_launcher_for_target(ctx)
     if launcher:
         deps.append(launcher)
+
     return deps
 
 def _filter_launcher_for_target(ctx):

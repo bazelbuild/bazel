@@ -238,7 +238,7 @@ public class AndroidNdkRepositoryTest extends AndroidBuildViewTestCase {
 
     ConfiguredTargetAndData cpufeatures = getConfiguredTargetAndData("@androidndk//:cpufeatures");
     assertThat(cpufeatures).isNotNull();
-    Rule rule = cpufeatures.getTarget().getAssociatedRule();
+    Rule rule = cpufeatures.getTargetForTesting().getAssociatedRule();
     assertThat(rule.isAttributeValueExplicitlySpecified("srcs")).isTrue();
     assertThat(rule.getAttr("srcs").toString())
         .isEqualTo("[@androidndk//:ndk/sources/android/cpufeatures/cpu-features.c]");

@@ -21,6 +21,7 @@ cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
 CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
 config_common = _builtins.toplevel.config_common
+coverage_common = _builtins.toplevel.coverage_common
 platform_common = _builtins.toplevel.platform_common
 
 artifact_category = struct(
@@ -895,17 +896,13 @@ def _expand_make_variables_for_copts(ctx, tokenization, unexpanded_tokens, addit
                 tokens.append(_expand(ctx, token, additional_make_variable_substitutions))
     return tokens
 
-def _get_copts(ctx, common, feature_configuration, additional_make_variable_substitutions):
+def _get_copts(ctx, feature_configuration, additional_make_variable_substitutions):
     if not hasattr(ctx.attr, "copts"):
         fail("could not find rule attribute named: 'copts'")
-    package_copts = []
-    if common:
-        package_copts = common.unexpanded_package_copts
     attribute_copts = ctx.attr.copts
     tokenization = not (cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "no_copts_tokenization") or "no_copts_tokenization" in ctx.features)
-    expanded_package_copts = _expand_make_variables_for_copts(ctx, tokenization, package_copts, additional_make_variable_substitutions)
     expanded_attribute_copts = _expand_make_variables_for_copts(ctx, tokenization, attribute_copts, additional_make_variable_substitutions)
-    return expanded_package_copts + expanded_attribute_copts
+    return expanded_attribute_copts
 
 def _get_expanded_env(ctx, additional_make_variable_substitutions):
     if not hasattr(ctx.attr, "env"):
@@ -1169,6 +1166,43 @@ def _system_include_dirs(ctx, additional_make_variable_substitutions):
         result.append(_get_relative(ctx.bin_dir.path, out_includes_path))
     return result
 
+def _get_coverage_environment(ctx, cc_config, cc_toolchain):
+    if not ctx.configuration.coverage_enabled:
+        return {}
+    env = {
+        "COVERAGE_GCOV_PATH": cc_toolchain.tool_path(tool = "GCOV"),
+        "LLVM_COV": cc_toolchain.tool_path(tool = "LLVM_COV"),
+        "LLVM_PROFDATA": cc_toolchain.tool_path(tool = "LLVM_PROFDATA"),
+        "GENERATE_LLVM_LCOV": "1" if cc_config.generate_llvm_lcov() else "0",
+    }
+    for k in list(env.keys()):
+        if env[k] == None:
+            env[k] = ""
+    if cc_config.fdo_instrument():
+        env["FDO_DIR"] = cc_config.fdo_instrument()
+    return env
+
+def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_files):
+    extensions = CC_SOURCE + \
+                 C_SOURCE + \
+                 CC_HEADER + \
+                 ASSESMBLER_WITH_C_PREPROCESSOR + \
+                 ASSEMBLER
+    coverage_environment = {}
+    if ctx.coverage_instrumented():
+        coverage_environment = _get_coverage_environment(ctx, cc_config, cc_toolchain)
+    coverage_support_files = cc_toolchain.coverage_files() if ctx.coverage_instrumented() else depset([])
+    info = coverage_common.instrumented_files_info(
+        ctx = ctx,
+        source_attributes = ["srcs", "hdrs"],
+        dependency_attributes = ["implementation_deps", "deps", "data"],
+        extensions = extensions,
+        metadata_files = metadata_files,
+        coverage_support_files = coverage_support_files,
+        coverage_environment = coverage_environment,
+    )
+    return info
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -1221,4 +1255,6 @@ cc_helper = struct(
     get_public_hdrs = _get_public_hdrs,
     report_invalid_options = _report_invalid_options,
     system_include_dirs = _system_include_dirs,
+    get_coverage_environment = _get_coverage_environment,
+    create_cc_instrumented_files_info = _create_cc_instrumented_files_info,
 )
