@@ -5,8 +5,9 @@ Book: /_book.yaml
 
 {% include "_buttons.html" %}
 
-This page explains the basics and benefits of using aspects and provides
-simple and advanced examples.
+This page explains the basics and benefits of using
+[aspects](/rules/lib/globals#aspect) and provides simple and advanced
+examples.
 
 Aspects allow augmenting build dependency graphs with additional information
 and actions. Some typical scenarios when aspects can be useful:
@@ -397,3 +398,7 @@ rule implementation, ``extension`` would be considered an optional parameter.
 
 When the ``file_count`` target is built, our aspect will be evaluated for
 itself, and all of the targets accessible recursively via ``deps``.
+
+## References
+
+* [`aspect` API reference](/rules/lib/globals#aspect)
