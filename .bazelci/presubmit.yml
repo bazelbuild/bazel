@@ -261,6 +261,8 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/remote:BuildWithoutTheBytesIntegrationTest"
       # https://github.com/bazelbuild/bazel/issues/17007
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
+      # https://github.com/bazelbuild/bazel/issues/17016
+      - "-//src/test/java/com/google/devtools/build/lib/skyframe/serialization:SerializationTests"
   windows:
     shards: 4
     batch_commands:
