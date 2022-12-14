@@ -52,7 +52,7 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
             "    linkstatic = select({'//conditions:default': 1}))");
 
     RuleConfiguredTarget ct = (RuleConfiguredTarget) ctad.getConfiguredTarget();
-    rule = (Rule) ctad.getTarget();
+    rule = (Rule) ctad.getTargetForTesting();
     Attribute aspectAttr = new Attribute.Builder<Label>("fromaspect", BuildType.LABEL)
         .allowedFileTypes(FileTypeSet.ANY_FILE)
         .build();

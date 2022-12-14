@@ -83,7 +83,8 @@ Example: Building from an empty client
 This option specifies a comma-separated list of packages which Bazel
 should consider deleted, and not attempt to load from any directory
 on the package path. This can be used to simulate the deletion of packages without
-actually deleting them.
+actually deleting them. This option can be passed multiple times, in which case
+the individual lists are concatenated.
 
 ### Error checking {:#error-checking}
 

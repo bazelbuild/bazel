@@ -19,7 +19,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.BindMount;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -123,12 +123,13 @@ public final class LinuxSandboxCommandLineBuilderTest {
 
     ImmutableSet<PathFragment> tmpfsDirectories = ImmutableSet.of(tmpfsDir1, tmpfsDir2);
 
-    ImmutableSortedMap<Path, Path> bindMounts =
-        ImmutableSortedMap.<Path, Path>naturalOrder()
-            .put(bindMountTarget1, bindMountSource1)
-            .put(bindMountTarget2, bindMountSource2)
-            .put(bindMountSameSourceAndTarget, bindMountSameSourceAndTarget)
-            .buildOrThrow();
+    ImmutableList<BindMount> bindMounts =
+        ImmutableList.of(
+            BindMount.of(bindMountSameSourceAndTarget, bindMountSameSourceAndTarget),
+            BindMount.of(bindMountTarget1, bindMountSource1),
+            BindMount.of(bindMountTarget2, bindMountSource2));
+
+    String cgroupsDir = "/sys/fs/cgroups/something";
 
     ImmutableList<String> expectedCommandLine =
         ImmutableList.<String>builder()
@@ -153,6 +154,7 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .add("-U")
             .add("-D")
             .add("-p")
+            .add("-C", cgroupsDir)
             .add("--")
             .addAll(commandArguments)
             .build();
@@ -174,6 +176,7 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .setUseFakeUsername(useFakeUsername)
             .setUseDebugMode(useDebugMode)
             .setPersistentProcess(true)
+            .setCgroupsDir(cgroupsDir)
             .build();
 
     assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine).inOrder();

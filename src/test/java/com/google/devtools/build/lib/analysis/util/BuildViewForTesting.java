@@ -354,7 +354,7 @@ public class BuildViewForTesting {
       Multimap<Label, DependencyKey> dependencyKeys, ConfiguredTargetAndData configuredTarget) {
     // TODO(blaze-configurability): Figure out how to map the ConfiguredTarget back to the correct
     // DependencyKey when there are more than one.
-    return Iterables.getFirst(dependencyKeys.get(configuredTarget.getTarget().getLabel()), null);
+    return Iterables.getFirst(dependencyKeys.get(configuredTarget.getTargetLabel()), null);
   }
 
   // Helper method to find the aspects needed for a target and merge them.

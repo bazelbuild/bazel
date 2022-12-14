@@ -126,4 +126,12 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
           "Returns whether device debug entitlements should be included when signing an "
               + "application.")
   boolean useDeviceDebugEntitlements();
+
+  @StarlarkMethod(
+      name = "linking_info_migration",
+      structField = true,
+      doc =
+          "Returns whether Objective C builtin rules should get their linking info from CcInfo "
+              + "instead of ObjcProvider.")
+  boolean linkingInfoMigration();
 }

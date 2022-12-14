@@ -19,14 +19,11 @@ load(
     "PyInfo",
 )
 
-py_builtins = _builtins.internal.py_builtins
-platform_common = _builtins.toplevel.platform_common
-CcInfo = _builtins.toplevel.CcInfo
-cc_common = _builtins.toplevel.cc_common
-coverage_common = _builtins.toplevel.coverage_common
+_platform_common = _builtins.toplevel.platform_common
+_coverage_common = _builtins.toplevel.coverage_common
 
 # Extensions without the dot
-PYTHON_SOURCE_EXTENSIONS = ["py"]
+_PYTHON_SOURCE_EXTENSIONS = ["py"]
 
 # Todo: rename this to "binary" and split off library-parts
 def create_binary_semantics_struct(
@@ -113,6 +110,31 @@ def create_binary_semantics_struct(
         should_build_native_deps_dso = should_build_native_deps_dso,
         should_create_init_files = should_create_init_files,
         should_include_build_data = should_include_build_data,
+    )
+
+def create_library_semantics_struct(
+        *,
+        get_cc_info_for_library,
+        get_imports,
+        maybe_precompile):
+    """Create a `LibrarySemantics` struct.
+
+    Call this instead of a raw call to `struct(...)`; it'll help ensure all
+    the necessary functions are being correctly provided.
+
+    Args:
+        get_cc_info_for_library: Callable that returns a CcInfo for the library;
+            see py_library_impl for arg details.
+        get_imports: Callable; see create_binary_semantics_struct.
+        maybe_precompile: Callable; see create_binary_semantics_struct.
+    Returns:
+        a `LibrarySemantics` struct.
+    """
+    return struct(
+        # keep sorted
+        get_cc_info_for_library = get_cc_info_for_library,
+        get_imports = get_imports,
+        maybe_precompile = maybe_precompile,
     )
 
 def create_cc_details_struct(
@@ -350,11 +372,11 @@ def create_py_info(ctx, *, direct_sources, imports):
     return py_info, deps_transitive_sources
 
 def create_instrumented_files_info(ctx):
-    return coverage_common.instrumented_files_info(
+    return _coverage_common.instrumented_files_info(
         ctx,
         source_attributes = ["srcs"],
         dependency_attributes = ["deps", "data"],
-        extensions = PYTHON_SOURCE_EXTENSIONS,
+        extensions = _PYTHON_SOURCE_EXTENSIONS,
     )
 
 def create_output_group_info(transitive_sources):
@@ -379,7 +401,7 @@ def target_platform_has_any_constraint(ctx, constraints):
       True if target platform has at least one of the constraints.
     """
     for constraint in constraints:
-        constraint_value = constraint[platform_common.ConstraintValueInfo]
+        constraint_value = constraint[_platform_common.ConstraintValueInfo]
         if ctx.target_platform_has_constraint(constraint_value):
             return True
     return False

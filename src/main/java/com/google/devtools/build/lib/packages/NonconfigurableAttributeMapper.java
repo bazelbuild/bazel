@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
+import javax.annotation.Nullable;
 
 /**
  * {@link AttributeMap} implementation that triggers an {@link IllegalStateException} if called
@@ -35,7 +36,7 @@ public class NonconfigurableAttributeMapper extends AbstractAttributeMapper {
    *   Label fooLabel = NonconfigurableAttributeMapper.of(rule).get("foo", Type.LABEL);
    * </pre>
    */
-  public static NonconfigurableAttributeMapper of (Rule rule) {
+  public static NonconfigurableAttributeMapper of(Rule rule) {
     return new NonconfigurableAttributeMapper(rule);
   }
 
@@ -45,5 +46,15 @@ public class NonconfigurableAttributeMapper extends AbstractAttributeMapper {
     Preconditions.checkState(!getAttributeDefinition(attributeName).isConfigurable(),
         "Attribute '%s' is potentially configurable - not allowed here", attributeName);
     return attr;
+  }
+
+  @Nullable
+  public static <T> T attributeOrNull(
+      Rule rule, String attributeName, com.google.devtools.build.lib.packages.Type<T> type) {
+    var mapper = NonconfigurableAttributeMapper.of(rule);
+    if (!mapper.has(attributeName, type)) {
+      return null;
+    }
+    return mapper.get(attributeName, type);
   }
 }

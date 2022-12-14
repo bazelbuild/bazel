@@ -1,3 +1,64 @@
+## Release 7.0.0-pre.20221204.2 (2022-12-09)
+
+```
+Baseline: de7b26acfdfcd9c36ec957305a889ac29f0da30e
+
+Cherry picks:
+
+   + 40846718e4f54c28fddc063b80b5ea30a82988c1:
+     Add support for crosstool feature to prefer PIC compiles even
+     for optimized binaries. This can have performance penalty, but
+     in configurations where dynamic linking is used for tests can
+     lead to a substantially better sharing of artifacts between
+     tests and binaries. In contrast to the existing --force_pic,
+     this can be enabled per crosstool and respects whether PIC is
+     available for the used crosstool.
+```
+
+Incompatible changes:
+
+  - --experimental_replay_action_out_err is not a no-op.
+  - `cquery --output=files` also outputs source files.
+  - `--incompatible_strict_conflict_checks` is flipped to true. See
+    https://github.com/bazelbuild/bazel/issues/16729 for details.
+  - `--incompatible_strict_conflict_checks` is flipped to true. See
+    https://github.com/bazelbuild/bazel/issues/16729 for details.
+  - `--incompatible_always_include_files_in_data` is flipped to true.
+    See https://github.com/bazelbuild/bazel/issues/16654 for details.
+
+Important changes:
+
+  - Fixes a bug where some compilation flags would not be applied to
+    a cc_test
+
+This release contains contributions from many people at Google, as well as Alex Eagle, aryeh, Christopher Sauer, Fabian Meumertzheim, hvadehra, Keith Smiley, Roger Hu, Ulrik Falklof, Xavier Bonaventura.
+
+## Release 7.0.0-pre.20221123.2 (2022-12-08)
+
+```
+Baseline: 14e32e7f5d1492f7ca4ffc17c40b913ec5799603
+```
+
+Incompatible changes:
+
+  - the --experimental_async_execution flag is now a no-op.
+
+New features:
+
+  - The `aquery` and `cquery` commands now respect the
+    `--query_file` flag just like the `query` command.
+
+Important changes:
+
+  - Starlark `print()` statements are now emitted iff the line of
+    code is executed. They are no longer replayed on subsequent
+    invocations unless the Starlark code is re-executed.
+    Additionally, multiple identical `print()` statements (same
+    string from the same line of code, e.g. from a loop) are all
+    emitted and no longer deduplicated.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Christopher Sauer, Daniel KT, Fabian Meumertzheim, Matt Mackay.
+
 ## Release 7.0.0-pre.20221111.3 (2022-12-01)
 
 ```

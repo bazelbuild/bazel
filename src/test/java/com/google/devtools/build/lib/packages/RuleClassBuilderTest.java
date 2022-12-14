@@ -301,7 +301,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
 
   @Test
   public void testBasicRuleNamePredicates() throws Exception {
-    Predicate<String> abcdef = nothingBut("abc", "def").asPredicateOfRuleClassName();
+    Predicate<String> abcdef = nothingBut("abc", "def").asPredicateOfRuleClass();
     assertThat(abcdef.test("abc")).isTrue();
     assertThat(abcdef.test("def")).isTrue();
     assertThat(abcdef.test("ghi")).isFalse();
@@ -311,13 +311,13 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
   public void testTwoRuleNamePredicateFactoriesEquivalent() throws Exception {
     RuleClassNamePredicate a = nothingBut("abc", "def");
     RuleClassNamePredicate b = RuleClassNamePredicate.only(ImmutableList.of("abc", "def"));
-    assertThat(a.asPredicateOfRuleClassName()).isEqualTo(b.asPredicateOfRuleClassName());
     assertThat(a.asPredicateOfRuleClass()).isEqualTo(b.asPredicateOfRuleClass());
+    assertThat(a.asPredicateOfRuleClassObject()).isEqualTo(b.asPredicateOfRuleClassObject());
   }
 
   @Test
   public void testEverythingButRuleNamePredicates() throws Exception {
-    Predicate<String> abcdef = allBut("abc", "def").asPredicateOfRuleClassName();
+    Predicate<String> abcdef = allBut("abc", "def").asPredicateOfRuleClass();
     assertThat(abcdef.test("abc")).isFalse();
     assertThat(abcdef.test("def")).isFalse();
     assertThat(abcdef.test("ghi")).isTrue();

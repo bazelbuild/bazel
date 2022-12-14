@@ -432,6 +432,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return oneVersionEnforcementLevel().name();
   }
 
+  @Override
   public boolean enforceOneVersionOnJavaTests() {
     return enforceOneVersionOnJavaTests;
   }

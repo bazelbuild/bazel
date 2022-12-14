@@ -203,12 +203,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   FragmentCollectionApi getFragments() throws EvalException;
 
   @StarlarkMethod(
-      name = "host_fragments",
-      structField = true,
-      doc = "Allows access to configuration fragments in host configuration.")
-  FragmentCollectionApi getHostFragments() throws EvalException;
-
-  @StarlarkMethod(
       name = "configuration",
       structField = true,
       doc =

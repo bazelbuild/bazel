@@ -733,7 +733,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "my_rule = rule(",
         "    implementation = _impl,",
         "    attrs = {",
-        "        'tool': attr.label(cfg = 'host',),",
+        "        'tool': attr.label(cfg = 'exec',),",
         "    },",
         ")");
     scratch.file(

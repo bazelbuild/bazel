@@ -119,7 +119,7 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
         "        allow_single_file = True,",
         "        default = Label(\"//validation_actions:validation_tool\"),",
         "        executable = True,",
-        "        cfg = \"host\"),",
+        "        cfg = \"exec\"),",
         "  }",
         ")");
     write("validation_actions/validation_tool", "#!/bin/bash", "echo \"validation output\" > $1")

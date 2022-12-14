@@ -32,9 +32,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkstampApi;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -114,7 +112,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   public static final class Linkstamp implements LinkstampApi<Artifact> {
     private final Artifact artifact;
     private final NestedSet<Artifact> declaredIncludeSrcs;
-    private final byte[] nestedDigest;
+    private final int nestedDigest;
 
     public static final Depset.ElementType TYPE = Depset.ElementType.of(Linkstamp.class);
 
@@ -130,9 +128,11 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
         throws CommandLineExpansionException, InterruptedException {
       this.artifact = Preconditions.checkNotNull(artifact);
       this.declaredIncludeSrcs = Preconditions.checkNotNull(declaredIncludeSrcs);
-      Fingerprint fp = new Fingerprint();
-      actionKeyContext.addNestedSetToFingerprint(fp, this.declaredIncludeSrcs);
-      nestedDigest = fp.digestAndReset();
+      StringBuilder nestedDigestBuilder = new StringBuilder();
+      for (Artifact declaredIncludeSrc : declaredIncludeSrcs.toList()) {
+        nestedDigestBuilder.append(declaredIncludeSrc.getExecPathString());
+      }
+      nestedDigest = nestedDigestBuilder.toString().hashCode();
     }
 
     /** Returns the linkstamp artifact. */
@@ -177,8 +177,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
         return false;
       }
       Linkstamp other = (Linkstamp) obj;
-      return artifact.equals(other.artifact)
-          && Arrays.equals(this.nestedDigest, other.nestedDigest);
+      return artifact.equals(other.artifact) && nestedDigest == other.nestedDigest;
     }
   }
 

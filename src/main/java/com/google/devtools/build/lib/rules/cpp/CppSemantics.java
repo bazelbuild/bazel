@@ -19,11 +19,15 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Pluggable C++ compilation semantics. */
@@ -80,4 +84,12 @@ public interface CppSemantics extends StarlarkValue {
   boolean createEmptyArchive();
 
   void checkCanUseImplementationDeps(RuleContext ruleContext);
+
+  void validateStarlarkCompileApiCall(
+      StarlarkActionFactory actionFactory,
+      StarlarkThread thread,
+      String includePrefix,
+      String stripIncludePrefix,
+      Sequence<?> additionalIncludeScanningRoots)
+      throws EvalException;
 }

@@ -788,7 +788,11 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         "    srcs = ['JavaTest.java'],",
         "    test_class = 'test.JavaTest',",
         ")");
-    useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
+    useConfiguration(
+        "--trim_test_configuration",
+        "--noexpand_test_suites",
+        "--test_arg=TypeA",
+        "--experimental_google_legacy_api");
     update("//test:starlark_dep");
     assertThat(getAnalysisResult().getTargetsToBuild()).isNotEmpty();
   }

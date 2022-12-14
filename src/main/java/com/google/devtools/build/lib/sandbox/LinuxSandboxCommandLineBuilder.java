@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.vfs.Path;
@@ -32,6 +32,20 @@ import java.util.Set;
  * linux-sandbox} tool.
  */
 public class LinuxSandboxCommandLineBuilder {
+  /** A bind mount that needs to be present when the sandboxed command runs. */
+  @AutoValue
+  public abstract static class BindMount {
+    public static BindMount of(Path mountPoint, Path source) {
+      return new AutoValue_LinuxSandboxCommandLineBuilder_BindMount(mountPoint, source);
+    }
+
+    /** "target" in mount(2) */
+    public abstract Path getMountPoint();
+
+    /** "source" in mount(2) */
+    public abstract Path getContent();
+  }
+
   private final Path linuxSandboxPath;
   private final List<String> commandArguments;
   private Path hermeticSandboxPath;
@@ -43,7 +57,7 @@ public class LinuxSandboxCommandLineBuilder {
   private Path stderrPath;
   private Set<Path> writableFilesAndDirectories = ImmutableSet.of();
   private ImmutableSet<PathFragment> tmpfsDirectories = ImmutableSet.of();
-  private Map<Path, Path> bindMounts = ImmutableMap.of();
+  private List<BindMount> bindMounts = ImmutableList.of();
   private Path statisticsPath;
   private boolean useFakeHostname = false;
   private boolean createNetworkNamespace = false;
@@ -52,6 +66,7 @@ public class LinuxSandboxCommandLineBuilder {
   private boolean enablePseudoterminal = false;
   private boolean useDebugMode = false;
   private boolean sigintSendsSigterm = false;
+  private String cgroupsDir;
 
   private LinuxSandboxCommandLineBuilder(Path linuxSandboxPath, List<String> commandArguments) {
     this.linuxSandboxPath = linuxSandboxPath;
@@ -139,7 +154,7 @@ public class LinuxSandboxCommandLineBuilder {
    * if any.
    */
   @CanIgnoreReturnValue
-  public LinuxSandboxCommandLineBuilder setBindMounts(Map<Path, Path> bindMounts) {
+  public LinuxSandboxCommandLineBuilder setBindMounts(List<BindMount> bindMounts) {
     this.bindMounts = bindMounts;
     return this;
   }
@@ -196,6 +211,18 @@ public class LinuxSandboxCommandLineBuilder {
     return this;
   }
 
+  /**
+   * Sets the directory to be used for cgroups. Cgroups can be used to set limits on resource usage
+   * of a subprocess tree, and to gather statistics. Requires cgroups v2 and systemd. This directory
+   * must be under {@code /sys/fs/cgroup} and the user running Bazel must have write permissions to
+   * this directory, its parent directory, and the cgroup directory for the Bazel process.
+   */
+  @CanIgnoreReturnValue
+  public LinuxSandboxCommandLineBuilder setCgroupsDir(String cgroupsDir) {
+    this.cgroupsDir = cgroupsDir;
+    return this;
+  }
+
   /** Incorporates settings from a spawn's execution info. */
   @CanIgnoreReturnValue
   public LinuxSandboxCommandLineBuilder addExecutionInfo(Map<String, String> executionInfo) {
@@ -235,12 +262,11 @@ public class LinuxSandboxCommandLineBuilder {
     for (PathFragment tmpfsPath : tmpfsDirectories) {
       commandLineBuilder.add("-e", tmpfsPath.getPathString());
     }
-    for (Path bindMountTarget : bindMounts.keySet()) {
-      Path bindMountSource = bindMounts.get(bindMountTarget);
-      commandLineBuilder.add("-M", bindMountSource.getPathString());
+    for (BindMount bindMount : bindMounts) {
+      commandLineBuilder.add("-M", bindMount.getContent().getPathString());
       // The file is mounted in a custom location inside the sandbox.
-      if (!bindMountSource.equals(bindMountTarget)) {
-        commandLineBuilder.add("-m", bindMountTarget.getPathString());
+      if (!bindMount.getContent().equals(bindMount.getMountPoint())) {
+        commandLineBuilder.add("-m", bindMount.getMountPoint().getPathString());
       }
     }
     if (statisticsPath != null) {
@@ -272,6 +298,9 @@ public class LinuxSandboxCommandLineBuilder {
     }
     if (persistentProcess) {
       commandLineBuilder.add("-p");
+    }
+    if (cgroupsDir != null) {
+      commandLineBuilder.add("-C", cgroupsDir);
     }
     commandLineBuilder.add("--");
     commandLineBuilder.addAll(commandArguments);

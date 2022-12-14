@@ -602,6 +602,40 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
         null);
   }
 
+  @Override // SkyframeLookupResult implementation.
+  public boolean queryDep(SkyKey key, QueryDepCallback resultCallback) {
+    SkyValue maybeWrappedValue = maybeGetValueFromErrorOrDeps(key);
+    if (maybeWrappedValue == null) {
+      BugReport.sendBugReport("Value for %s was missing, this should never happen", key);
+      return false;
+    }
+    if (maybeWrappedValue == NULL_MARKER) {
+      valuesMissing = true;
+      return false;
+    }
+    if (!(maybeWrappedValue instanceof ValueWithMetadata)) {
+      resultCallback.acceptValue(key, maybeWrappedValue);
+      return true;
+    }
+    ValueWithMetadata wrappedValue = (ValueWithMetadata) maybeWrappedValue;
+    if (!wrappedValue.hasError()) {
+      resultCallback.acceptValue(key, wrappedValue.getValue());
+      return true;
+    }
+
+    // Otherwise, there's an error.
+    @Nullable Object result = handleError(key, wrappedValue);
+    if (result instanceof SkyValue) {
+      resultCallback.acceptValue(key, (SkyValue) result);
+      return true;
+    }
+    if (result instanceof Exception && resultCallback.tryHandleException(key, (Exception) result)) {
+      return true;
+    }
+    valuesMissing = true;
+    return false;
+  }
+
   @Nullable
   private <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
       SkyValue unwrapOrThrow(
@@ -620,38 +654,61 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       valuesMissing = true;
       return null;
     }
-    SkyValue justValue = ValueWithMetadata.justValue(maybeWrappedValue);
-    ErrorInfo errorInfo = ValueWithMetadata.getMaybeErrorInfo(maybeWrappedValue);
-
-    if (justValue != null && (evaluatorContext.keepGoing() || errorInfo == null)) {
-      // If the dep did compute a value, it is given to the caller if we are in keepGoing mode or if
-      // we are in noKeepGoingMode and there were no errors computing it.
-      return justValue;
+    if (!(maybeWrappedValue instanceof ValueWithMetadata)) {
+      return maybeWrappedValue;
+    }
+    ValueWithMetadata wrappedValue = (ValueWithMetadata) maybeWrappedValue;
+    if (!wrappedValue.hasError()) {
+      return wrappedValue.getValue();
     }
 
-    // There was an error building the value, which we will either report by throwing an exception
-    // or insulate the caller from by returning null.
-    checkNotNull(errorInfo, "%s %s", skyKey, maybeWrappedValue);
-    Exception exception = errorInfo.getException();
-
-    if (!evaluatorContext.keepGoing() && exception != null && bubbleErrorInfo == null) {
-      // Child errors should not be propagated in noKeepGoing mode (except during error bubbling).
-      // Instead we should fail fast.
-      valuesMissing = true;
-      return null;
+    // Otherwise, there's an error.
+    @Nullable Object result = handleError(skyKey, wrappedValue);
+    if (result instanceof SkyValue) {
+      return (SkyValue) result;
     }
-
-    SkyFunctionException.throwIfInstanceOf(
-        exception, exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
-
-    // Either an undeclared exception type or in a cycle.
-    checkState(
-        exception != null || !errorInfo.getCycleInfo().isEmpty(),
-        "%s %s %s",
-        skyKey,
-        errorInfo,
-        maybeWrappedValue);
+    if (result instanceof Exception) {
+      SkyFunctionException.throwIfInstanceOf(
+          (Exception) result, exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
+    }
     valuesMissing = true;
+    return null;
+  }
+
+  /**
+   * Processes wrapped values containing errors.
+   *
+   * @param depKey the dependency key, used only for error messages.
+   * @param wrappedError an instance of ValueWithMetadata containing an error.
+   * @return A {@code SkyValue} when a value is available in keepGoing mode, an {@code Exception}
+   *     when one should be propagated or null otherwise.
+   */
+  @Nullable
+  private Object handleError(SkyKey depKey, ValueWithMetadata wrappedError) {
+    if (evaluatorContext.keepGoing()) {
+      // In keepGoing mode, returns any computed value to the caller.
+      SkyValue justValue = wrappedError.getValue();
+      if (justValue != null) {
+        return justValue;
+      }
+    }
+
+    ErrorInfo errorInfo = wrappedError.getErrorInfo();
+    @Nullable Exception exception = errorInfo.getException();
+
+    if (exception == null) {
+      // If there's no exception, there must be a cycle.
+      checkState(
+          !errorInfo.getCycleInfo().isEmpty(),
+          "%s %s %s %s",
+          skyKey,
+          depKey,
+          errorInfo,
+          wrappedError);
+    } else if (evaluatorContext.keepGoing() || bubbleErrorInfo != null) {
+      // The exception may only propagate in keepGoing mode or during error bubbling.
+      return exception;
+    }
     return null;
   }
 

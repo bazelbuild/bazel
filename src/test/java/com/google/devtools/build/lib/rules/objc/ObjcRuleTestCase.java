@@ -583,7 +583,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        '_dummy_lib': attr.label(",
         "            default = Label('" + toolsLoc + "/dummy:dummy_lib'),),",
         "        '_grep_includes': attr.label(",
-        "            cfg = 'host',",
+        "            cfg = 'exec',",
         "            allow_single_file = True,",
         "            executable = True,",
         "            default = Label('" + toolsRepo + "//tools/cpp:grep-includes'),",

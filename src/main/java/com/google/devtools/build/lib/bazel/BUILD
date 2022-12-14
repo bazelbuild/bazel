@@ -156,7 +156,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker_module",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/runtime/mobileinstall",
-        "//src/main/java/com/google/devtools/build/lib/sandbox",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_module",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_module",

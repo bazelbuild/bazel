@@ -227,7 +227,7 @@ my_rule = rule(
     attrs = {
       "src_dep": attr.label(allow_single_file = True),
       "target_dep": attr.label(cfg = 'target'),
-      "host_dep": attr.label(cfg = 'host'),
+      "host_dep": attr.label(cfg = 'exec'),
     },
 )
 EOF

@@ -793,7 +793,7 @@ sample_bin = rule(
         '_dep': attr.label(
             default=Label("@other//:a/b"),
             executable=True,
-            cfg="host",
+            cfg="exec",
             allow_single_file=True)
     },
     outputs = {'sh': "%{name}.sh"},

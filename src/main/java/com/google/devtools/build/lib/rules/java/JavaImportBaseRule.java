@@ -28,7 +28,11 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
-/** A base rule for building the java_import rule. */
+/**
+ * A base rule for building the java_import rule.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
+ */
 public class JavaImportBaseRule implements RuleDefinition {
 
   @Override

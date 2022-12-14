@@ -70,7 +70,7 @@ public class TargetContext {
     this.target = target;
     this.configuration = configuration;
     this.directPrerequisites =
-        Multimaps.index(directPrerequisites, prereq -> prereq.getTarget().getLabel());
+        Multimaps.index(directPrerequisites, ConfiguredTargetAndData::getTargetLabel);
     this.visibility = visibility;
   }
 

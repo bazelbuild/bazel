@@ -439,7 +439,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testTestSuitesImplicitlyDependOnAllRulesInPackage() throws Exception {
     scratch.file(
         "x/BUILD",
-        "java_test(name='j')",
+        "java_test(name='j', tags = ['nodeployjar'])",
         "test_suite(name='t1')",
         "test_suite(name='t2', tests=[])",
         "test_suite(name='t3', tests=['//foo'])",

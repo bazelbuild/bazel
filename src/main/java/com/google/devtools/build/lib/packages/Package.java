@@ -194,9 +194,6 @@ public class Package {
    */
   private String defaultHdrsCheck;
 
-  /** Default copts for cc_* rules. The rules' individual copts will append to this value. */
-  private ImmutableList<String> defaultCopts;
-
   /**
    * The InputFile target corresponding to this package's BUILD file.
    */
@@ -469,11 +466,6 @@ public class Package {
     this.defaultVisibility = builder.defaultVisibility;
     this.defaultVisibilitySet = builder.defaultVisibilitySet;
     this.configSettingVisibilityPolicy = builder.configSettingVisibilityPolicy;
-    if (builder.defaultCopts == null) {
-      this.defaultCopts = ImmutableList.of();
-    } else {
-      this.defaultCopts = ImmutableList.copyOf(builder.defaultCopts);
-    }
     this.buildFile = builder.buildFile;
     this.containsErrors = builder.containsErrors;
     this.failureDetail = builder.getFailureDetail();
@@ -780,14 +772,6 @@ public class Package {
   }
 
   /**
-   * Returns the default copts value, to which rules should append their
-   * specific copts.
-   */
-  public ImmutableList<String> getDefaultCopts() {
-    return defaultCopts;
-  }
-
-  /**
    * Returns whether the default header checking mode has been set or it is the
    * default value.
    */
@@ -1004,7 +988,6 @@ public class Package {
     private RuleVisibility defaultVisibility = ConstantRuleVisibility.PRIVATE;
     private ConfigSettingVisibilityPolicy configSettingVisibilityPolicy;
     private boolean defaultVisibilitySet;
-    private List<String> defaultCopts = null;
     private final List<String> features = new ArrayList<>();
     private final List<Event> events = Lists.newArrayList();
     private final List<Postable> posts = Lists.newArrayList();
@@ -1327,13 +1310,6 @@ public class Package {
       // other code needs the ability to read this info directly from the
       // under-construction package. See {@link Package#setDefaultHdrsCheck}.
       pkg.setDefaultHdrsCheck(hdrsCheck);
-      return this;
-    }
-
-    /** Sets the default value of copts. Rule-level copts will append to this. */
-    @CanIgnoreReturnValue
-    public Builder setDefaultCopts(List<String> defaultCopts) {
-      this.defaultCopts = defaultCopts;
       return this;
     }
 

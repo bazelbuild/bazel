@@ -72,7 +72,10 @@ import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppModuleMapApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.ExtraLinkTimeLibraryApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -83,6 +86,7 @@ import com.google.errorprone.annotations.FormatMethod;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -2003,8 +2007,302 @@ public abstract class CcModule
     return false;
   }
 
+  @StarlarkMethod(
+      name = "compile",
+      doc =
+          "Should be used for C++ compilation. Returns tuple of "
+              + "(<code>CompilationContext</code>, <code>CcCompilationOutputs</code>).",
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "actions",
+            positional = false,
+            named = true,
+            doc = "<code>actions</code> object."),
+        @Param(
+            name = "feature_configuration",
+            doc = "<code>feature_configuration</code> to be queried.",
+            positional = false,
+            named = true),
+        @Param(
+            name = "cc_toolchain",
+            doc = "<code>CcToolchainInfo</code> provider to be used.",
+            positional = false,
+            named = true),
+        @Param(
+            name = "srcs",
+            doc = "The list of source files to be compiled.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "public_hdrs",
+            doc =
+                "List of headers needed for compilation of srcs and may be included by dependent "
+                    + "rules transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "private_hdrs",
+            doc =
+                "List of headers needed for compilation of srcs and NOT to be included by"
+                    + " dependent rules.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "textual_hdrs",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = FileApi.class),
+              @ParamType(type = Depset.class)
+            },
+            documented = false,
+            defaultValue = "[]"),
+        @Param(
+            name = "additional_exported_hdrs",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "includes",
+            doc =
+                "Search paths for header files referenced both by angle bracket and quotes. "
+                    + "Usually passed with -I. Propagated to dependents transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            allowedTypes = {@ParamType(type = Sequence.class), @ParamType(type = Depset.class)}),
+        @Param(
+            name = "loose_includes",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound",
+            allowedTypes = {@ParamType(type = Sequence.class), @ParamType(type = NoneType.class)}),
+        @Param(
+            name = "quote_includes",
+            doc =
+                "Search paths for header files referenced by quotes, "
+                    + "e.g. #include \"foo/bar/header.h\". They can be either relative to the exec "
+                    + "root or absolute. Usually passed with -iquote. Propagated to dependents "
+                    + "transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "system_includes",
+            doc =
+                "Search paths for header files referenced by angle brackets, e.g. #include"
+                    + " &lt;foo/bar/header.h&gt;. They can be either relative to the exec root or"
+                    + " absolute. Usually passed with -isystem. Propagated to dependents "
+                    + "transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "framework_includes",
+            doc =
+                "Search paths for header files from Apple frameworks. They can be either relative "
+                    + "to the exec root or absolute. Usually passed with -F. Propagated to "
+                    + "dependents transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "defines",
+            doc =
+                "Set of defines needed to compile this target. Each define is a string. Propagated"
+                    + " to dependents transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "local_defines",
+            doc =
+                "Set of defines needed to compile this target. Each define is a string. Not"
+                    + " propagated to dependents transitively.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "include_prefix",
+            doc =
+                "The prefix to add to the paths of the headers of this rule. When set, the "
+                    + "headers in the hdrs attribute of this rule are accessible at is the "
+                    + "value of this attribute prepended to their repository-relative path. "
+                    + "The prefix in the strip_include_prefix attribute is removed before this "
+                    + "prefix is added.",
+            positional = false,
+            named = true,
+            defaultValue = "''"),
+        @Param(
+            name = "strip_include_prefix",
+            doc =
+                "The prefix to strip from the paths of the headers of this rule. When set, the"
+                    + " headers in the hdrs attribute of this rule are accessible at their path"
+                    + " with this prefix cut off. If it's a relative path, it's taken as a"
+                    + " package-relative one. If it's an absolute one, it's understood as a"
+                    + " repository-relative path. The prefix in the include_prefix attribute is"
+                    + " added after this prefix is stripped.",
+            positional = false,
+            named = true,
+            defaultValue = "''"),
+        @Param(
+            name = "user_compile_flags",
+            doc = "Additional list of compilation options.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "compilation_contexts",
+            doc = "Headers from dependencies used for compilation.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "implementation_compilation_contexts",
+            documented = false,
+            positional = false,
+            defaultValue = "unbound",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = CcCompilationContextApi.class),
+              @ParamType(type = NoneType.class)
+            },
+            named = true),
+        @Param(
+            name = "name",
+            doc =
+                "This is used for naming the output artifacts of actions created by this "
+                    + "method. See also the `main_output` arg.",
+            positional = false,
+            named = true),
+        @Param(
+            name = "disallow_pic_outputs",
+            doc = "Whether PIC outputs should be created.",
+            positional = false,
+            named = true,
+            defaultValue = "False"),
+        @Param(
+            name = "disallow_nopic_outputs",
+            doc = "Whether NOPIC outputs should be created.",
+            positional = false,
+            named = true,
+            defaultValue = "False"),
+        @Param(
+            name = "additional_include_scanning_roots",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "additional_inputs",
+            doc = "List of additional files needed for compilation of srcs",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "module_map",
+            positional = false,
+            documented = false,
+            defaultValue = "unbound",
+            allowedTypes = {
+              @ParamType(type = CppModuleMapApi.class),
+              @ParamType(type = NoneType.class)
+            },
+            named = true),
+        @Param(
+            name = "additional_module_maps",
+            positional = false,
+            documented = false,
+            defaultValue = "unbound",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = CppModuleMapApi.class)},
+            named = true),
+        @Param(
+            name = "propagate_module_map_to_compile_action",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "do_not_generate_module_map",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "code_coverage_enabled",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "hdrs_checking_mode",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = String.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "variables_extension",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Dict.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "language",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = String.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "purpose",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "grep_includes",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            }),
+        @Param(
+            name = "copts_filter",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "separate_module_headers",
+            documented = false,
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "non_compilation_additional_inputs",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = Artifact.class)},
+            documented = false,
+            defaultValue = "unbound"),
+      })
   @SuppressWarnings("unchecked")
-  protected Tuple compile(
+  public Tuple compile(
       StarlarkActionFactory starlarkActionFactoryApi,
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
       CcToolchainProvider starlarkCcToolchainProvider,
@@ -2028,7 +2326,6 @@ public abstract class CcModule
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
-      Artifact grepIncludes,
       Sequence<?> additionalIncludeScanningRoots, // <Artifact> expected
       Sequence<?> additionalInputs, // <Artifact> expected
       Object moduleMapNoneable,
@@ -2040,6 +2337,7 @@ public abstract class CcModule
       Object variablesExtension,
       Object languageObject,
       Object purposeObject,
+      Object grepIncludesObject,
       Object coptsFilterObject,
       Object separateModuleHeadersObject,
       Object nonCompilationAdditionalInputsObject,
@@ -2061,6 +2359,15 @@ public abstract class CcModule
         nonCompilationAdditionalInputsObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
+
+    Artifact grepIncludes = convertFromNoneable(grepIncludesObject, /* defaultValue= */ null);
+    getSemantics()
+        .validateStarlarkCompileApiCall(
+            starlarkActionFactoryApi,
+            thread,
+            includePrefix,
+            stripIncludePrefix,
+            additionalIncludeScanningRoots);
 
     List<Artifact> includeScanningRoots =
         getAdditionalIncludeScanningRoots(additionalIncludeScanningRoots, thread);

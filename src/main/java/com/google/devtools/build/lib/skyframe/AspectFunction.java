@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -378,8 +379,8 @@ final class AspectFunction implements SkyFunction {
           topologicalAspectPath,
           aspect,
           aspectFactory,
-          new ConfiguredTargetAndData(
-              associatedTarget, target, configuration, /*transitionKeys=*/ null),
+          target,
+          associatedTarget,
           configuration,
           configConditions,
           toolchainContexts,
@@ -830,7 +831,8 @@ final class AspectFunction implements SkyFunction {
       ImmutableList<Aspect> topologicalAspectPath,
       Aspect aspect,
       ConfiguredAspectFactory aspectFactory,
-      ConfiguredTargetAndData associatedTarget,
+      Target associatedTarget,
+      ConfiguredTarget associatedConfiguredTarget,
       BuildConfigurationValue configuration,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
@@ -852,21 +854,24 @@ final class AspectFunction implements SkyFunction {
         view.createAnalysisEnvironment(key, events, env, configuration, starlarkBuiltinsValue);
 
     ConfiguredAspect configuredAspect;
-    if (aspect.getDefinition().applyToGeneratingRules()
-        && associatedTarget.getTarget() instanceof OutputFile) {
-      OutputFile outputFile = (OutputFile) associatedTarget.getTarget();
+    if (aspect.getDefinition().applyToGeneratingRules() && associatedTarget instanceof OutputFile) {
+      OutputFile outputFile = (OutputFile) associatedTarget;
       Label label = outputFile.getGeneratingRule().getLabel();
       return createAliasAspect(
-          env, associatedTarget.getTarget(), key, aspect, key.withLabel(label), transitivePackages);
-    } else if (AspectResolver.aspectMatchesConfiguredTarget(associatedTarget, aspect)) {
+          env, associatedTarget, key, aspect, key.withLabel(label), transitivePackages);
+    } else if (AspectResolver.aspectMatchesConfiguredTarget(
+        associatedConfiguredTarget,
+        associatedTarget instanceof Rule,
+        associatedTarget instanceof InputFile,
+        aspect)) {
       try {
         CurrentRuleTracker.beginConfiguredAspect(aspect.getAspectClass());
         configuredAspect =
             view.getConfiguredTargetFactory()
                 .createAspect(
                     analysisEnvironment,
-                    associatedTarget.getTarget(),
-                    associatedTarget.getConfiguredTarget(),
+                    associatedTarget,
+                    associatedConfiguredTarget,
                     topologicalAspectPath,
                     aspectFactory,
                     aspect,
@@ -894,8 +899,8 @@ final class AspectFunction implements SkyFunction {
 
     events.replayOn(env.getListener());
     if (events.hasErrors()) {
-      analysisEnvironment.disable(associatedTarget.getTarget());
-      String msg = "Analysis of target '" + associatedTarget.getTarget().getLabel() + "' failed";
+      analysisEnvironment.disable(associatedTarget);
+      String msg = "Analysis of target '" + associatedTarget.getLabel() + "' failed";
       throw new AspectFunctionException(
           new AspectCreationException(msg, key.getLabel(), configuration));
     }
@@ -906,13 +911,13 @@ final class AspectFunction implements SkyFunction {
       return null;
     }
 
-    analysisEnvironment.disable(associatedTarget.getTarget());
+    analysisEnvironment.disable(associatedTarget);
     Preconditions.checkNotNull(configuredAspect);
 
     return new AspectValue(
         key,
         aspect,
-        associatedTarget.getTarget().getLocation(),
+        associatedTarget.getLocation(),
         configuredAspect,
         transitivePackages == null ? null : transitivePackages.build());
   }
