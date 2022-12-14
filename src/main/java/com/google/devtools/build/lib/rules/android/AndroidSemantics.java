@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.ProguardHelper.ProguardOutput;
+import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
@@ -156,5 +158,23 @@ public interface AndroidSemantics {
    */
   default boolean deterministicSigning() {
     return false;
+  }
+
+  default BootClassPathInfo getBootClassPathInfo(RuleContext ruleContext)
+      throws RuleErrorException {
+    BootClassPathInfo bootClassPathInfo;
+    AndroidSdkProvider androidSdkProvider = AndroidSdkProvider.fromRuleContext(ruleContext);
+    if (androidSdkProvider.getSystem() != null) {
+      bootClassPathInfo = androidSdkProvider.getSystem();
+    } else {
+      NestedSetBuilder<Artifact> bootclasspath = NestedSetBuilder.<Artifact>stableOrder();
+      if (ruleContext.getConfiguration().getFragment(AndroidConfiguration.class).desugarJava8()) {
+        bootclasspath.addTransitive(
+            PrerequisiteArtifacts.nestedSet(ruleContext, "$desugar_java8_extra_bootclasspath"));
+      }
+      bootclasspath.add(androidSdkProvider.getAndroidJar());
+      bootClassPathInfo = BootClassPathInfo.create(bootclasspath.build());
+    }
+    return bootClassPathInfo;
   }
 }
