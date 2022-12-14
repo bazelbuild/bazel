@@ -105,10 +105,12 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   }
 
   public void omitFile(Path file) {
+    Preconditions.checkState(remoteBuildEventUploadMode != RemoteBuildEventUploadMode.MINIMAL, "Cannot omit file in MINIMAL mode");
     omittedFiles.add(file.asFragment());
   }
 
   public void omitTree(Path treeRoot) {
+    Preconditions.checkState(remoteBuildEventUploadMode != RemoteBuildEventUploadMode.MINIMAL, "Cannot omit tree in MINIMAL mode");
     omittedTreeRoots.add(treeRoot.asFragment());
   }
 
@@ -207,10 +209,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     }
   }
 
-  private boolean shouldQuery(PathMetadata path) {
-    return path.getDigest() != null && !path.isRemote() && !path.isDirectory();
-  }
-
   private boolean shouldUpload(PathMetadata path) {
     boolean result =
         path.getDigest() != null && !path.isRemote() && !path.isDirectory() && !path.isOmitted();
@@ -236,7 +234,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     List<PathMetadata> filesToQuery = new ArrayList<>();
     Set<Digest> digestsToQuery = new HashSet<>();
     for (PathMetadata path : paths) {
-      if (shouldQuery(path)) {
+      // Query remote cache for files even if omitted from uploading
+      if (shouldUpload(path) || path.isOmitted()) {
         filesToQuery.add(path);
         digestsToQuery.add(path.getDigest());
       } else {
@@ -335,7 +334,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                 .collect(Collectors.toList())
                 .flatMap(paths -> queryRemoteCache(remoteCache, context, paths))
                 .flatMap(paths -> uploadLocalFiles(remoteCache, context, paths))
-                .map(paths -> new PathConverterImpl(remoteServerInstanceName, paths)),
+                .map(paths -> new PathConverterImpl(remoteServerInstanceName, paths, remoteBuildEventUploadMode)),
         RemoteCache::release);
   }
 
@@ -374,7 +373,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     private final Set<Path> skippedPaths;
     private final Set<Path> localPaths;
 
-    PathConverterImpl(String remoteServerInstanceName, List<PathMetadata> uploads) {
+    PathConverterImpl(String remoteServerInstanceName, List<PathMetadata> uploads, RemoteBuildEventUploadMode remoteBuildEventUploadMode) {
       Preconditions.checkNotNull(uploads);
       this.remoteServerInstanceName = remoteServerInstanceName;
       pathToDigest = new HashMap<>(uploads.size());
@@ -384,7 +383,10 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         Path path = pair.getPath();
         Digest digest = pair.getDigest();
         if (digest != null) {
-          if (pair.isRemote()) {
+          // Always use bytestream:// in MINIMAL mode
+          if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL) {
+            pathToDigest.put(path, digest);
+          } else if (pair.isRemote()) {
             pathToDigest.put(path, digest);
           } else {
             localPaths.add(path);
