@@ -262,8 +262,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
       # https://github.com/bazelbuild/bazel/issues/16975
       - "-//scripts/docs:rewriter_test"
-      # https://github.com/bazelbuild/bazel/issues/17005
-      - "-//src/test/java/net/starlark/java/eval:ScriptTest"
       # https://github.com/bazelbuild/bazel/issues/17006
       - "-//src/test/java/com/google/devtools/build/lib/remote:BuildWithoutTheBytesIntegrationTest"
       # https://github.com/bazelbuild/bazel/issues/17007
