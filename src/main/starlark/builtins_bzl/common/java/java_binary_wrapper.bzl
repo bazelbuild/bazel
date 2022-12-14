@@ -40,7 +40,7 @@ def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_cu
         rule_nonexec(**kwargs)
     elif "use_launcher" in kwargs and not kwargs["use_launcher"]:
         rule_nolauncher(**kwargs)
-    elif "launcher" in kwargs and kwargs["launcher"]:
+    elif "launcher" in kwargs and type(kwargs["launcher"]) == type(""):
         rule_customlauncher(**kwargs)
     else:
         rule_exec(**kwargs)
