@@ -192,6 +192,44 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   }
 
   @Test
+  public void resolve_max_optional_on_second_platform() throws Exception {
+    // This should select platform mac, toolchain extra_toolchain_mac, independent of platform order
+    // and independent of non-existence of the second optional toolchain
+    addOptionalToolchain(
+        "extra",
+        "extra_toolchain_mac",
+        ImmutableList.of("//constraints:mac"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    scratch.appendFile("toolchain/BUILD", "toolchain_type(name = 'extra_optional_toolchain')");
+    Label extraOptionalToolchainTypeLabel =
+        Label.parseAbsoluteUnchecked("//toolchain:extra_optional_toolchain");
+    ToolchainTypeRequirement extraOptionalToolchainType =
+        ToolchainTypeRequirement.builder(extraOptionalToolchainTypeLabel).mandatory(false).build();
+    rewriteWorkspace(
+        "register_toolchains('//extra:extra_toolchain_mac')",
+        "register_execution_platforms('//platforms:linux', '//platforms:mac')");
+
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(optionalToolchainType, extraOptionalToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    assertThat(unloadedToolchainContext).hasToolchainType(optionalToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//extra:extra_toolchain_mac_impl");
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:mac");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
+  }
+
+  @Test
   public void resolve_multiple() throws Exception {
     Label secondToolchainTypeLabel = Label.parseAbsoluteUnchecked("//second:toolchain_type");
     ToolchainTypeRequirement secondToolchainTypeRequirement =
