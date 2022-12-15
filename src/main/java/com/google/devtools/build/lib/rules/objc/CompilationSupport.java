@@ -70,7 +70,10 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -80,15 +83,19 @@ import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.objc.ObjcVariablesExtension.VariableCategory;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
@@ -408,11 +415,9 @@ public class CompilationSupport implements StarlarkValue {
   }
 
   private static Pair<ImmutableSet<Artifact>, ImmutableSet<Artifact>>
-      getLibrarySetsFromObjcProvider(ObjcProvider objcProvider) {
+      classifyLibrariesFromObjcProvider(ObjcProvider objcProvider) {
     ImmutableSet<Artifact> alwaysLinkLibraries = getForceLoadArtifacts(objcProvider);
 
-    // Clang loads archives specified in filelists and also specified as -force_load twice,
-    // resulting in duplicate symbol errors unless they are deduped.
     ImmutableSet<Artifact> asNeededlibraries =
         ImmutableSet.copyOf(
             Iterables.filter(
@@ -426,6 +431,104 @@ public class CompilationSupport implements StarlarkValue {
   }
 
   /**
+   * Returns the preferred static library for linking, or {@code null} if there is no static
+   * library.
+   *
+   * @param library the input library.
+   */
+  @Nullable
+  public static Artifact getStaticLibraryForLinking(LibraryToLink library) {
+    if (library.getStaticLibrary() != null) {
+      return library.getStaticLibrary();
+    } else if (library.getPicStaticLibrary() != null) {
+      return library.getPicStaticLibrary();
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Returns the preferred variant of the library for linking.
+   *
+   * @param library the input library.
+   */
+  public static Artifact getLibraryForLinking(LibraryToLink library) {
+    if (library.getStaticLibrary() != null) {
+      return library.getStaticLibrary();
+    } else if (library.getPicStaticLibrary() != null) {
+      return library.getPicStaticLibrary();
+    } else if (library.getInterfaceLibrary() != null) {
+      return library.getInterfaceLibrary();
+    } else {
+      return library.getDynamicLibrary();
+    }
+  }
+
+  private static Pair<ImmutableSet<Artifact>, ImmutableSet<Artifact>>
+      classifyLibrariesFromCcLinkingContext(CcLinkingContext ccLinkingContext) {
+    ImmutableList<LinkerInput> linkerInputs = ccLinkingContext.getLinkerInputs().toList();
+    ImmutableSet.Builder<Artifact> alwaysLinkLibrariesBuilder = ImmutableSet.builder();
+    for (LinkerInput linkerInput : linkerInputs) {
+      for (LibraryToLink libraryToLink : linkerInput.getLibraries()) {
+        if (libraryToLink.getAlwayslink()) {
+          Artifact library = getLibraryForLinking(libraryToLink);
+          alwaysLinkLibrariesBuilder.add(library);
+        }
+      }
+    }
+    ImmutableSet<Artifact> alwaysLinkLibraries = alwaysLinkLibrariesBuilder.build();
+
+    ImmutableSet.Builder<Artifact> asNeededlibrariesBuilder = ImmutableSet.builder();
+    for (LinkerInput linkerInput : linkerInputs) {
+      for (LibraryToLink libraryToLink : linkerInput.getLibraries()) {
+        if (!libraryToLink.getAlwayslink()) {
+          Artifact library = getLibraryForLinking(libraryToLink);
+          if (!alwaysLinkLibraries.contains(library)) {
+            asNeededlibrariesBuilder.add(library);
+          }
+        }
+      }
+    }
+    return Pair.of(asNeededlibrariesBuilder.build(), alwaysLinkLibraries);
+  }
+
+  private static ImmutableList<String> dedupSdkLinkopts(NestedSet<LinkOptions> linkopts) {
+    HashSet<String> duplicates = new HashSet<>();
+    ImmutableList.Builder<String> finalLinkopts = ImmutableList.builder();
+
+    for (LinkOptions linkOptions : linkopts.toList()) {
+      ImmutableList<String> args = linkOptions.get();
+      for (Iterator<String> iterator = args.iterator(); iterator.hasNext(); ) {
+        String arg = iterator.next();
+        if (iterator.hasNext() && (arg.equals("-framework") || arg.equals("-weak_framework"))) {
+          String framework = iterator.next();
+          String key = arg.charAt(1) + framework;
+          if (!duplicates.contains(key)) {
+            finalLinkopts.add(arg, framework);
+            duplicates.add(key);
+          }
+        } else if (arg.startsWith("-Wl,-framework,") || arg.startsWith("-Wl,-weak_framework,")) {
+          String framework = arg.split(",", -1)[2];
+          String key = arg.charAt(5) + framework;
+          if (!duplicates.contains(key)) {
+            finalLinkopts.add(arg.split(",", -1)[1], framework);
+            duplicates.add(key);
+          }
+        } else if (arg.startsWith("-l")) {
+          if (!duplicates.contains(arg)) {
+            finalLinkopts.add(arg);
+            duplicates.add(arg);
+          }
+        } else {
+          finalLinkopts.add(arg);
+        }
+      }
+    }
+
+    return finalLinkopts.build();
+  }
+
+  /**
    * Registers any actions necessary to link this rule and its dependencies. Automatically infers
    * the toolchain from the configuration of this CompilationSupport.
    *
@@ -436,8 +539,10 @@ public class CompilationSupport implements StarlarkValue {
    * stripping (using {@code /usr/bin/strip}) and dead-code stripping (using linker flags: {@code
    * -dead_strip}).
    *
-   * @param objcProvider common information about this rule's attributes and its dependencies
-   * @param ccLinkingContext the merged linking contexts from this rule's dependencies
+   * @param linkingInfoProvider the ObjcProvider or CcLinkingContext with most of the dependency
+   *     information required for linking.
+   * @param secondaryObjcProvider the ObjcProvider that provides secondary linking info.
+   * @param secondaryCcLinkingContext the CcLinkingContext that provides secondary linking info.
    * @param j2ObjcMappingFileProvider contains mapping files for j2objc transpilation
    * @param j2ObjcEntryClassProvider contains j2objc entry class information for dead code removal
    * @param extraLinkArgs any additional arguments to pass to the linker
@@ -445,28 +550,47 @@ public class CompilationSupport implements StarlarkValue {
    * @return this compilation support
    */
   @CanIgnoreReturnValue
-  CompilationSupport registerLinkActions(
-      ObjcProvider objcProvider,
-      CcLinkingContext ccLinkingContext,
+  public CompilationSupport registerLinkActions(
+      Object linkingInfoProvider,
+      ObjcProvider secondaryObjcProvider,
+      CcLinkingContext secondaryCcLinkingContext,
       J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
       boolean isStampingEnabled)
       throws InterruptedException, RuleErrorException {
+    ObjcProvider objcProviderWithLinkingInfo = null;
+    CcLinkingContext ccLinkingContextWithLinkingInfo = null;
+    checkState(
+        linkingInfoProvider instanceof ObjcProvider
+            || linkingInfoProvider instanceof CcLinkingContext);
+    if (linkingInfoProvider instanceof ObjcProvider) {
+      objcProviderWithLinkingInfo = (ObjcProvider) linkingInfoProvider;
+    } else {
+      ccLinkingContextWithLinkingInfo = (CcLinkingContext) linkingInfoProvider;
+    }
 
-    Pair<ImmutableSet<Artifact>, ImmutableSet<Artifact>> inputLibrarySet =
-        getLibrarySetsFromObjcProvider(objcProvider);
+    // We need to split input libraries into those that require -force_load and those that don't.
+    // Clang loads archives specified in filelists and also specified as -force_load twice,
+    // resulting in duplicate symbol errors unless they are deduped.
+    Pair<ImmutableSet<Artifact>, ImmutableSet<Artifact>> inputLibrarySet;
+    if (objcProviderWithLinkingInfo != null) {
+      inputLibrarySet = classifyLibrariesFromObjcProvider(objcProviderWithLinkingInfo);
+    } else {
+      inputLibrarySet = classifyLibrariesFromCcLinkingContext(ccLinkingContextWithLinkingInfo);
+    }
+
     ImmutableSet<Artifact> asNeededLibrarySet = inputLibrarySet.first;
     ImmutableSet<Artifact> alwaysLinkLibrarySet = inputLibrarySet.second;
 
     Iterable<Artifact> prunedJ2ObjcArchives =
         computeAndStripPrunedJ2ObjcArchives(
-            j2ObjcEntryClassProvider, j2ObjcMappingFileProvider, objcProvider);
+            j2ObjcEntryClassProvider, j2ObjcMappingFileProvider, secondaryObjcProvider);
     asNeededLibrarySet =
         Iterables.isEmpty(prunedJ2ObjcArchives)
             ? asNeededLibrarySet
-            : substituteJ2ObjcPrunedLibraries(asNeededLibrarySet, objcProvider);
+            : substituteJ2ObjcPrunedLibraries(asNeededLibrarySet, secondaryObjcProvider);
 
     ImmutableList<Artifact> asNeededLibraryList = asNeededLibrarySet.asList();
     ImmutableList<Artifact> alwaysLinkLibraryList = alwaysLinkLibrarySet.asList();
@@ -496,7 +620,7 @@ public class CompilationSupport implements StarlarkValue {
     }
 
     LinkTargetType linkType =
-        objcProvider.flagIs(USES_CPP)
+        secondaryObjcProvider.flagIs(USES_CPP)
             ? LinkTargetType.OBJCPP_EXECUTABLE
             : LinkTargetType.OBJC_EXECUTABLE;
 
@@ -505,14 +629,25 @@ public class CompilationSupport implements StarlarkValue {
             .setRuleContext(ruleContext)
             .setConfiguration(buildConfiguration)
             .setIntermediateArtifacts(intermediateArtifacts)
-            .setFrameworkNames(frameworkNames(objcProvider))
-            .setWeakFrameworkNames(objcProvider.get(WEAK_SDK_FRAMEWORK).toList())
-            .setFrameworkSearchPath(frameworkLibrarySearchPaths(objcProvider))
-            .setLibraryNames(libraryNames(objcProvider))
             .setForceLoadArtifacts(alwaysLinkLibrarySet)
-            .setDepLinkopts(objcProvider.get(LINKOPT).toList())
             .setAttributeLinkopts(attributes.linkopts())
             .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
+
+    if (objcProviderWithLinkingInfo != null) {
+      extensionBuilder
+          .setDepLinkopts(objcProviderWithLinkingInfo.get(LINKOPT).toList())
+          .setFrameworkNames(frameworkNames(objcProviderWithLinkingInfo))
+          .setFrameworkSearchPath(frameworkLibrarySearchPaths(objcProviderWithLinkingInfo))
+          .setLibraryNames(libraryNames(objcProviderWithLinkingInfo))
+          .setWeakFrameworkNames(objcProviderWithLinkingInfo.get(WEAK_SDK_FRAMEWORK).toList());
+    } else {
+      extensionBuilder
+          .setDepLinkopts(dedupSdkLinkopts(ccLinkingContextWithLinkingInfo.getUserLinkFlags()))
+          .setFrameworkNames(ImmutableList.<String>of())
+          .setFrameworkSearchPath(ImmutableList.<String>of())
+          .setLibraryNames(ImmutableList.<String>of())
+          .setWeakFrameworkNames(ImmutableList.<String>of());
+    }
 
     Artifact binaryToLink = getBinaryToLink();
 
@@ -548,13 +683,22 @@ public class CompilationSupport implements StarlarkValue {
             .addNonCodeLinkerInputs(ImmutableList.copyOf(extraLinkInputs))
             .addNonCodeLinkerInputs(ImmutableList.copyOf(attributes.linkInputs()))
             .addNonCodeLinkerInputs(ImmutableList.of(inputFileList))
-            .addTransitiveAdditionalLinkerInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
-            .addTransitiveAdditionalLinkerInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
-            .addTransitiveAdditionalLinkerInputs(objcProvider.get(LINK_INPUTS))
             .setShouldCreateStaticLibraries(false)
             .setDynamicLinkType(linkType)
             .setLinkingMode(LinkingMode.STATIC)
             .addLinkopts(ImmutableList.copyOf(extraLinkArgs));
+
+    if (objcProviderWithLinkingInfo != null) {
+      executableLinkingHelper
+          .addTransitiveAdditionalLinkerInputs(
+              objcProviderWithLinkingInfo.get(STATIC_FRAMEWORK_FILE))
+          .addTransitiveAdditionalLinkerInputs(
+              objcProviderWithLinkingInfo.get(DYNAMIC_FRAMEWORK_FILE))
+          .addTransitiveAdditionalLinkerInputs(objcProviderWithLinkingInfo.get(LINK_INPUTS));
+    } else {
+      executableLinkingHelper.addNonCodeLinkerInputs(
+          ccLinkingContextWithLinkingInfo.getNonCodeInputs().toList());
+    }
 
     ImmutableList.Builder<Artifact> linkerOutputs = ImmutableList.builder();
 
@@ -588,7 +732,7 @@ public class CompilationSupport implements StarlarkValue {
     executableLinkingHelper.addLinkerOutputs(linkerOutputs.build());
 
     CcLinkingContext.Builder linkstampsBuilder = CcLinkingContext.builder();
-    linkstampsBuilder.addLinkstamps(ccLinkingContext.getLinkstamps().toList());
+    linkstampsBuilder.addLinkstamps(secondaryCcLinkingContext.getLinkstamps().toList());
     CcLinkingContext linkstamps = linkstampsBuilder.build();
     executableLinkingHelper.addCcLinkingContexts(ImmutableList.of(linkstamps));
 
@@ -720,6 +864,8 @@ public class CompilationSupport implements StarlarkValue {
       ObjcProvider objcProvider,
       J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider) {
+    ObjcConfiguration objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
+
     NestedSet<String> entryClasses = j2ObjcEntryClassProvider.getEntryClasses();
     NestedSet<Artifact> j2ObjcDependencyMappingFiles =
         j2ObjcMappingFileProvider.getDependencyMappingFiles();
@@ -730,11 +876,22 @@ public class CompilationSupport implements StarlarkValue {
 
     for (Artifact j2objcArchive : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toList()) {
       Artifact prunedJ2ObjcArchive = intermediateArtifacts.j2objcPrunedArchive(j2objcArchive);
-      Artifact dummyArchive =
-          ruleContext
-              .getPrerequisite("$dummy_lib", ObjcProvider.STARLARK_CONSTRUCTOR)
-              .get(LIBRARY)
-              .getSingleton();
+      Artifact dummyArchive;
+      if (!objcConfiguration.linkingInfoMigration()) {
+        dummyArchive =
+            ruleContext
+                .getPrerequisite("$dummy_lib", ObjcProvider.STARLARK_CONSTRUCTOR)
+                .get(LIBRARY)
+                .getSingleton();
+      } else {
+        dummyArchive =
+            getLibraryForLinking(
+                ruleContext
+                    .getPrerequisite("$dummy_lib", CcInfo.PROVIDER)
+                    .getCcLinkingContext()
+                    .getLibraries()
+                    .getSingleton());
+      }
 
       CustomCommandLine commandLine =
           CustomCommandLine.builder()
