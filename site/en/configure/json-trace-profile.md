@@ -125,8 +125,9 @@ profile was created, and may be customized by different flags.
 Figure 1 shows a profile created with Bazel v5.3.1 and includes these rows:
 
 *   `action count`: Displays how many concurrent actions were in flight. Click
-    on it to see the actual value. Should go up to the value of `--jobs` in
-    clean builds.
+    on it to see the actual value. Should go up to the value of
+    [`--jobs`](/docs/reference/command-line-reference#flag--jobs) in clean
+    builds.
 *   `CPU usage (Bazel)`: For each second of the build, displays the amount of
     CPU that was used by Bazel (a value of 1 equals one core being 100% busy).
 *   `Critical Path`: Displays one block for each action on the critical path.

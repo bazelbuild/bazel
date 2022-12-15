@@ -56,7 +56,7 @@ metrics as proxy metrics for work done at each phase:
   each additional BUILD file in the loading phase.
    - This is often due to the addition of dependencies and having to load their
      transitive closure.
-   - Use [query](/docs/query/quickstart)) / [cquery](/docs/query/cquery) to find
+   - Use [query](/docs/query/quickstart) / [cquery](/docs/query/cquery) to find
      where new dependencies might have been added.
 
 2. `TargetMetrics.targets_configured`: representing the number of targets and
@@ -71,16 +71,18 @@ metrics as proxy metrics for work done at each phase:
   and a regression represents more work in constructing the action graph. Note
   that this also includes unused actions that might not have been executed.
    - Use [aquery](/docs/query/aquery) for debugging regressions;
-     we suggest starting with `--output=summary` before further drilling down
-     with `--skyframe_state`.
+     we suggest starting with
+     [`--output=summary`](/docs/reference/command-line-reference#flag--output)
+     before further drilling down with
+     [`--skyframe_state`](/docs/reference/command-line-reference#flag--skyframe_state).
 
 4. `ActionSummary.actions_executed`: the number of actions executed, a
   regression directly represents more work in executing these actions.
    - The [BEP](/docs/remote/bep) writes out the action statistics
      `ActionData` that shows the most executed action types. By default, it
      collects the top 20 action types, but you can pass in the
-     `--experimental_record_metrics_for_all_mnemonics` to collect this data for
-     all action types that were executed.
+     [`--experimental_record_metrics_for_all_mnemonics`](/docs/reference/command-line-reference#flag--experimental_record_metrics_for_all_mnemonics)
+     to collect this data for all action types that were executed.
    - This should help you to figure out what kind of actions were executed
      (additionally).
 
@@ -108,7 +110,7 @@ build, and also other tasks.
 
 Perhaps the metrics most susceptible to noise (and can vary greatly from build
 to build) is time; in particular - wall time, cpu time and system time. You can
-use [bazel-bench](https://github.com/bazelbuild/bazel-bench){: .external} to get
+use [bazel-bench](https://github.com/bazelbuild/bazel-bench) to get
 a benchmark for these metrics, and with a sufficient number of `--runs`, you can
 increase the statistical significance of your measurement.
 
@@ -140,8 +142,10 @@ load average during the invocation.
 
 A high load during a Bazel invocation can be an indication that Bazel schedules
 too many local actions in parallel for your machine. You might want to look into
-adjusting `--local_cpu_resources` and `--local_ram_resources`, especially in
-container environments (at least until
+adjusting
+[`--local_cpu_resources`](/docs/reference/command-line-reference#flag--local_cpu_resources)
+and [`--local_ram_resources`](/docs/reference/command-line-reference#flag--local_ram_resources),
+especially in container environments (at least until
 [#16512](https://github.com/bazelbuild/bazel/pull/16512) is merged).
 
 
@@ -152,7 +156,7 @@ There are two main sources to get Bazel’s memory usage, Bazel `info` and the
 
 - `bazel info used-heap-size-after-gc`: The amount of used memory in bytes after
   a call to `System.gc()`.
-   - [Bazel bench](https://github.com/bazelbuild/bazel-bench){: .external}
+   - [Bazel bench](https://github.com/bazelbuild/bazel-bench)
      provides benchmarks for this metric as well.
    - Additionally, there are `peak-heap-size`, `max-heap-size`, `used-heap-size`
      and `committed-heap-size` (see
@@ -161,8 +165,9 @@ There are two main sources to get Bazel’s memory usage, Bazel `info` and the
 
 - [BEP](/docs/remote/bep)’s
   `MemoryMetrics.peak_post_gc_heap_size`: Size of the peak JVM heap size in
-  bytes post GC (requires setting `--memory_profile` that attempts to force a
-  full GC).
+  bytes post GC (requires setting
+  [`--memory_profile`](/docs/reference/command-line-reference#flag--memory_profile)
+  that attempts to force a full GC).
 
 A regression in memory usage is usually a result of a regression in
 [build request size metrics](#deterministic-build-metrics-as-a-proxy-for-build-performance),
@@ -189,7 +194,9 @@ persistent worker memory usage during the invocation by passing in the
 
 **Figure 2.** Profile that includes workers memory usage.
 
-Lowering the value of `--worker_max_instances` (default 4) might help to reduce
+Lowering the value of
+[`--worker_max_instances`](/docs/reference/command-line-reference#flag--worker_max_instances)
+(default 4) might help to reduce
 the amount of memory used by persistent workers. We are actively working on
 making Bazel’s resource manager and scheduler smarter so that such fine tuning
 will be required less often in the future.
@@ -216,8 +223,8 @@ the `--experimental_collect_system_network_usage` flag (new in Bazel 6.0).
 A high but rather flat network usage when using remote execution might indicate
 that network is the bottleneck in your build; if you are not using it already,
 consider turning on Build without the Bytes by passing
-`--remote_download_minimal`. This will speed up your builds by avoiding the
-download of unnecessary intermediate artifacts.
+[`--remote_download_minimal`](/docs/reference/command-line-reference#flag--remote_download_minimal).
+This will speed up your builds by avoiding the download of unnecessary intermediate artifacts.
 
 Another option is to configure a local
 [disk cache](/docs/reference/command-line-reference#flag--disk_cache) to save on
