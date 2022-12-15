@@ -112,7 +112,7 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(defaultRunfiles, dataRunfiles);
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
-    common.addCommonTransitiveInfoProviders(builder, common.getFilesToBuild());
+    common.addCommonTransitiveInfoProviders(builder);
 
     semantics.postInitExecutable(ruleContext, runfilesSupport, common, builder);
 
