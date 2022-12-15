@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.TestOptions;
@@ -48,7 +49,8 @@ public final class FlagAliasTest {
             optionsClasses,
             /* allowResidue= */ true,
             /* aliasFlag= */ BLAZE_ALIASING_FLAG,
-            /* skipStarlarkPrefixes= */ true);
+            /* skipStarlarkPrefixes= */ true,
+            InvocationPolicyOuterClass.InvocationPolicy.getDefaultInstance());
     eventHandler = helper.getEventHandler();
     parser = helper.getOptionsParser();
     optionHandler = helper.getOptionHandler();
@@ -123,10 +125,7 @@ public final class FlagAliasTest {
   public void useAliasWithNoBooleanSyntax() {
     ImmutableList<String> args =
         ImmutableList.of(
-            "c0",
-            "--rc_source=/somewhere/.blazerc",
-            "--flag_alias=foo=//bar",
-            "--nofoo");
+            "c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=//bar", "--nofoo");
     optionHandler.parseOptions(args, eventHandler);
     assertThat(eventHandler.getEvents())
         .contains(Event.error("--nofoo :: Unrecognized option: --nofoo").withTag(BAD_OPTION_TAG));

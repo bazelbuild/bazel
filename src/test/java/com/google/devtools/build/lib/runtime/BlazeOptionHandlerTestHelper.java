@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.ParentOptions;
 import com.google.devtools.common.options.TestOptions;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -40,7 +41,8 @@ class BlazeOptionHandlerTestHelper {
       List<Class<? extends OptionsBase>> optionsClasses,
       boolean allowResidue,
       @Nullable String aliasFlag,
-      boolean skipStarlarkPrefixes)
+      boolean skipStarlarkPrefixes,
+      InvocationPolicy invocationPolicy)
       throws Exception {
     parser = createOptionsParser(optionsClasses, allowResidue, aliasFlag, skipStarlarkPrefixes);
 
@@ -58,7 +60,7 @@ class BlazeOptionHandlerTestHelper {
                 OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
             .addBlazeModule(new BazelRulesModule())
             .build();
-    runtime.overrideCommands(ImmutableList.of(new C0Command()));
+    runtime.overrideCommands(ImmutableList.of(new C0Command(), new ParentCommand()));
 
     BlazeDirectories directories =
         new BlazeDirectories(
@@ -75,12 +77,7 @@ class BlazeOptionHandlerTestHelper {
             new C0Command(),
             C0Command.class.getAnnotation(Command.class),
             parser,
-            InvocationPolicy.getDefaultInstance());
-  }
-
-  public BlazeOptionHandlerTestHelper(
-      List<Class<? extends OptionsBase>> optionsClasses, boolean allowResidue) throws Exception {
-    this(optionsClasses, allowResidue, /* aliasFlag= */ null, /* skipStarlarkPrefixes= */ false);
+            invocationPolicy);
   }
 
   private static OptionsParser createOptionsParser(
@@ -119,8 +116,25 @@ class BlazeOptionHandlerTestHelper {
       name = "c0",
       shortDescription = "c0 desc",
       help = "c0 help",
-      options = {TestOptions.class})
+      options = {TestOptions.class},
+      inherits = ParentCommand.class)
   protected static class C0Command implements BlazeCommand {
+    @Override
+    public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void editOptions(OptionsParser optionsParser) {}
+  }
+
+  /** Custom command for testing. */
+  @Command(
+      name = "parent",
+      shortDescription = "parent desc",
+      help = "parent help",
+      options = {ParentOptions.class})
+  protected static class ParentCommand implements BlazeCommand {
     @Override
     public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
       throw new UnsupportedOperationException();
