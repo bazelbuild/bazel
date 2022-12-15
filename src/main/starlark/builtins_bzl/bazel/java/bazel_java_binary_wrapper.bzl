@@ -24,11 +24,13 @@ load(":bazel/java/bazel_java_binary_nonexec.bzl", java_bin_nonexec = "java_binar
 load(":bazel/java/bazel_java_binary_deploy_jar.bzl", "deploy_jars")
 load(":common/java/java_binary_wrapper.bzl", "register_java_binary_rules")
 
+# TODO(hvd): add custom launcher rule if needed
 def java_binary(**kwargs):
     register_java_binary_rules(
         java_bin_exec,
         java_bin_nonexec,
         java_bin_exec_no_launcher_flag,
+        java_bin_exec,
         deploy_jars,
         **kwargs
     )
