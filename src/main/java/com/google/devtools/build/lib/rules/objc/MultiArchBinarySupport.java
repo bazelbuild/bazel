@@ -141,8 +141,7 @@ public class MultiArchBinarySupport {
       Map<String, NestedSet<Artifact>> outputMapCollector)
       throws RuleErrorException, InterruptedException {
     IntermediateArtifacts intermediateArtifacts =
-        ObjcRuleClasses.intermediateArtifacts(
-            ruleContext, dependencySpecificConfiguration.config());
+        new IntermediateArtifacts(ruleContext, dependencySpecificConfiguration.config());
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
         J2ObjcMappingFileProvider.union(
             getTypedProviders(infoCollections, J2ObjcMappingFileProvider.PROVIDER));
@@ -258,7 +257,7 @@ public class MultiArchBinarySupport {
           Iterables.getOnlyElement(splitToolchains.get(splitTransitionKey));
       BuildConfigurationValue childToolchainConfig = ctad.getConfiguration();
       IntermediateArtifacts intermediateArtifacts =
-          ObjcRuleClasses.intermediateArtifacts(ruleContext, childToolchainConfig);
+          new IntermediateArtifacts(ruleContext, childToolchainConfig);
 
       List<? extends TransitiveInfoCollection> propagatedDeps =
           getProvidersFromCtads(splitDeps.get(splitTransitionKey));

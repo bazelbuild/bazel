@@ -169,7 +169,7 @@ public class ObjcStarlarkInternal implements StarlarkValue {
       })
   public IntermediateArtifacts createIntermediateArtifacts(
       StarlarkRuleContext starlarkRuleContext) {
-    return ObjcRuleClasses.intermediateArtifacts(starlarkRuleContext.getRuleContext());
+    return new IntermediateArtifacts(starlarkRuleContext.getRuleContext());
   }
 
   @StarlarkMethod(

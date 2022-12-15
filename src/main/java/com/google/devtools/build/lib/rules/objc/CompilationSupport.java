@@ -188,7 +188,7 @@ public class CompilationSupport implements StarlarkValue {
   /** Returns information about the given rule's compilation artifacts. */
   // TODO(bazel-team): Remove this information from ObjcCommon and move it internal to this class.
   static CompilationArtifacts compilationArtifacts(RuleContext ruleContext) {
-    return compilationArtifacts(ruleContext, ObjcRuleClasses.intermediateArtifacts(ruleContext));
+    return compilationArtifacts(ruleContext, new IntermediateArtifacts(ruleContext));
   }
 
   /**
@@ -338,8 +338,7 @@ public class CompilationSupport implements StarlarkValue {
       }
 
       if (intermediateArtifacts == null) {
-        intermediateArtifacts =
-            ObjcRuleClasses.intermediateArtifacts(ruleContext, buildConfiguration);
+        intermediateArtifacts = new IntermediateArtifacts(ruleContext, buildConfiguration);
       }
 
       if (compilationAttributes == null) {
