@@ -1,11 +1,14 @@
 Project: /_project.yaml
 Book: /_book.yaml
 
-# Running Bazel with Limited RAM
+
+# Optimize Memory
 
 {% include "_buttons.html" %}
 
-This page describes how to use flags to run Bazel with limited RAM.
+This page describes how to limit and reduce the memory Bazel uses.
+
+## Running Bazel with Limited RAM
 
 In certain situations, you may want Bazel to use minimal memory. You can set the
 maximum heap via the startup flag
@@ -34,3 +37,11 @@ prevent most re-execution).
  * `--nokeep_state_after_build` will discard all data after the build, so that
  incremental builds have to build from scratch (except for the on-disk action
  cache). Alone, it does not affect the high-water mark of the current build.
+
+## Memory Profiling
+
+Bazel comes with a built-in memory profiler that can help you check your rule’s
+memory use. Read more about this process on the
+[Memory Profiling section](/rules/performance#memory-profiling) of our
+documentation on how to improve the performance of custom rules.
+
