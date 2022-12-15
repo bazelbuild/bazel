@@ -418,8 +418,7 @@ abstract class AbstractParallelEvaluator {
         for (int i = 0; i < directDepsToCheck.size() - unknownStatusDeps.size(); i++) {
           // Since all of these nodes were done at an earlier version than this one, we may safely
           // signal with the minimal version, since they cannot trigger a re-evaluation.
-          needsScheduling =
-              nodeEntry.signalDep(MinimalVersion.INSTANCE, /*childForDebugging=*/ null);
+          needsScheduling = nodeEntry.signalDep(Version.minimal(), /* childForDebugging= */ null);
         }
         if (needsScheduling) {
           checkState(
@@ -873,7 +872,7 @@ abstract class AbstractParallelEvaluator {
           reverseDepDump.append(", ");
         }
         reverseDepDump.append("'");
-        reverseDepDump.append(key.toString());
+        reverseDepDump.append(key);
         reverseDepDump.append("'");
       }
 

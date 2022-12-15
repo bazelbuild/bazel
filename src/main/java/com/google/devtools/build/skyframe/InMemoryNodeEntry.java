@@ -80,7 +80,7 @@ public class InMemoryNodeEntry implements NodeEntry {
    * the already-stored value. In that case, the version will remain the same. The version can be
    * thought of as the latest timestamp at which this value was changed.
    */
-  protected volatile Version lastChangedVersion = MinimalVersion.INSTANCE;
+  protected volatile Version lastChangedVersion = Version.minimal();
 
   /**
    * Returns the last version this entry was evaluated at, even if it re-evaluated to the same
@@ -90,7 +90,7 @@ public class InMemoryNodeEntry implements NodeEntry {
    *
    * @see #signalDep(Version, SkyKey)
    */
-  protected Version lastEvaluatedVersion = MinimalVersion.INSTANCE;
+  protected Version lastEvaluatedVersion = Version.minimal();
 
   /**
    * This object represents the direct deps of the node, in groups if the {@code SkyFunction}

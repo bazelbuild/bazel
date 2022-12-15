@@ -41,4 +41,20 @@ public interface Version {
   default boolean lowerThan(Version other) {
     return atMost(other) && !equals(other);
   }
+
+  static MinimalVersion minimal() {
+    return MinimalVersion.INSTANCE;
+  }
+
+  /** A version {@link #lowerThan} all other versions, other than itself. */
+  final class MinimalVersion implements Version {
+    private static final MinimalVersion INSTANCE = new MinimalVersion();
+
+    private MinimalVersion() {}
+
+    @Override
+    public boolean atMost(Version other) {
+      return true;
+    }
+  }
 }
