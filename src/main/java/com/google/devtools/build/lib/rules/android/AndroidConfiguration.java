@@ -1480,6 +1480,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     return alwaysFilterDuplicateClassesFromAndroidTest;
   }
 
+  @Override
   public boolean filterLibraryJarWithProgramJar() {
     return filterLibraryJarWithProgramJar;
   }

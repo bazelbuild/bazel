@@ -164,7 +164,7 @@ public class AndroidCommon {
       NestedSet<Artifact> runtimeJars) {
     NestedSetBuilder<Artifact> neverlinkedRuntimeJars = NestedSetBuilder.naiveLinkOrder();
     for (AndroidNeverLinkLibrariesProvider provider :
-        AnalysisUtils.getProviders(deps, AndroidNeverLinkLibrariesProvider.class)) {
+        AnalysisUtils.getProviders(deps, AndroidNeverLinkLibrariesProvider.PROVIDER)) {
       neverlinkedRuntimeJars.addTransitive(provider.getTransitiveNeverLinkLibraries());
     }
 

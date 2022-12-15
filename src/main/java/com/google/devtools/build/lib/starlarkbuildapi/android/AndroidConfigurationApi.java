@@ -247,4 +247,11 @@ public interface AndroidConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "hwasan", structField = true, doc = "", documented = false)
   boolean isHwasan();
+
+  @StarlarkMethod(
+      name = "filter_library_jar_with_program_jar",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean filterLibraryJarWithProgramJar();
 }
