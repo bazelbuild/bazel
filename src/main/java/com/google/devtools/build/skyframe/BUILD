@@ -11,6 +11,7 @@ package(
 SKYFRAME_OBJECT_SRCS = [
     "AbstractSkyKey.java",
     "FunctionHermeticity.java",
+    "NodeVersion.java",
     "SkyFunctionName.java",
     "SkyKey.java",
     "SkyValue.java",
