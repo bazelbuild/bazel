@@ -133,7 +133,7 @@ increase the statistical significance of your measurement.
 #### System-wide load profiling
 
 Using the
-[`--experimental_collect_load_average_in_profiler`](https://github.com/bazelbuild/bazel/blob/release-6.0.0/src/main/java/com/google/devtools/build/lib/runtime/CommonCommandOptions.java#L306-L312)
+[`--experimental_collect_load_average_in_profiler`](https://github.com/bazelbuild/bazel/blob/6.0.0/src/main/java/com/google/devtools/build/lib/runtime/CommonCommandOptions.java#L306-L312)
 flag introduced in Bazel 6.0, the [JSON trace profiler](/docs/configure/json-trace-profile) collects the
 system load average during the invocation.
 
@@ -189,7 +189,7 @@ workers use (by mnemonic).
 
 The [JSON trace profiler](/docs/configure/json-trace-profile) also collects
 persistent worker memory usage during the invocation by passing in the
-[`--experimental_collect_system_network_usage`](https://github.com/bazelbuild/bazel/blob/release-6.0.0/src/main/java/com/google/devtools/build/lib/runtime/CommonCommandOptions.java#L314-L320)
+[`--experimental_collect_system_network_usage`](https://github.com/bazelbuild/bazel/blob/6.0.0/src/main/java/com/google/devtools/build/lib/runtime/CommonCommandOptions.java#L314-L320)
 flag (new in Bazel 6.0).
 
 ![Profile that includes workers memory usage](/docs/images/json-trace-profile-workers-memory-usage.png "Profile that includes workers memory usage")
