@@ -1,3 +1,19 @@
+## Release 7.0.0-pre.20221207.2 (2022-12-14)
+
+```
+Baseline: 2a88c8da7783490ef6192336b091910cd662cc67
+
+Cherry picks:
+
+   + 70691f2b76be0b9530e49c3df18356925843b465:
+     Make the Linux sandbox work with ActionInputs with absolute
+     "exec paths".
+   + 40b340722a97bd3ce1692047f173547203bb7452:
+     Fix NPE in signal ignoring logic.
+```
+
+This release contains contributions from many people at Google, as well as aryeh, Fabian Meumertzheim, Gaspare Vitta, John Hinnegan, Roger Hu, Yi Cheng.
+
 ## Release 7.0.0-pre.20221204.2 (2022-12-09)
 
 ```

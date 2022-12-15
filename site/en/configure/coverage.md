@@ -201,7 +201,7 @@ Instead, add in your `WORKSPACE` e.g.
 
 ```starlark
 http_archive(
-    name = "coverage_linux_x86_64"",
+    name = "coverage_linux_x86_64",
     build_file_content = """
 py_library(
     name = "coverage",

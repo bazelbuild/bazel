@@ -314,7 +314,9 @@ public final class ObjcCommon implements StarlarkValue {
 
       for (CcLinkingContext ccLinkingContext : ccLinkingContextsForMerging) {
         ImmutableList<String> linkOpts = ccLinkingContext.getFlattenedUserLinkFlags();
-        addLinkoptsToObjcProvider(linkOpts, objcProvider);
+        if (!buildConfiguration.getFragment(ObjcConfiguration.class).linkingInfoMigration()) {
+          addLinkoptsToObjcProvider(linkOpts, objcProvider);
+        }
         objcProvider.addTransitiveAndPropagate(
             CC_LIBRARY,
             NestedSetBuilder.<LibraryToLink>linkOrder()

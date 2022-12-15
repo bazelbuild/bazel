@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.time.Duration;
 import javax.annotation.Nullable;
@@ -42,6 +43,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
   private final SandboxHelpers helpers;
   private final ProcessWrapper processWrapper;
   private final Path execRoot;
+  private final ImmutableList<Root> packageRoots;
   private final Path sandboxBase;
   private final LocalEnvProvider localEnvProvider;
   @Nullable private final SandboxfsProcess sandboxfsProcess;
@@ -69,6 +71,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     this.helpers = helpers;
     this.processWrapper = ProcessWrapper.fromCommandEnvironment(cmdEnv);
     this.execRoot = cmdEnv.getExecRoot();
+    this.packageRoots = cmdEnv.getPackageLocator().getPathEntries();
     this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
     this.sandboxBase = sandboxBase;
     this.sandboxfsProcess = sandboxfsProcess;
@@ -115,7 +118,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
             execRoot,
             execRoot,
-            ImmutableList.of(),
+            packageRoots,
             null);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
