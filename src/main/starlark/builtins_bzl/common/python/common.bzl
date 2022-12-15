@@ -19,6 +19,7 @@ load(
     "PyInfo",
 )
 
+_testing = _builtins.toplevel.testing
 _platform_common = _builtins.toplevel.platform_common
 _coverage_common = _builtins.toplevel.coverage_common
 
@@ -52,7 +53,7 @@ def create_binary_semantics_struct(
 
     Args:
         create_executable: Callable; creates a binary's executable output. See
-            py_executable.bzl#py_executable_impl for details.
+            py_executable.bzl#py_executable_base_impl for details.
         get_cc_details_for_binary: Callable that returns a `CcDetails` struct; see
             `create_cc_detail_struct`.
         get_central_uncachable_version_file: Callable that returns an optional
@@ -170,6 +171,25 @@ def create_cc_details_struct(
         cc_info_with_extra_link_time_libraries = cc_info_with_extra_link_time_libraries,
         extra_runfiles = extra_runfiles,
         cc_toolchain = cc_toolchain,
+    )
+
+def create_executable_result_struct(*, extra_files_to_build, output_groups):
+    """Creates a `CreateExecutableResult` struct.
+
+    This is the return value type of the semantics create_executable function.
+
+    Args:
+        extra_files_to_build: depset of File; additional files that should be
+            included as default outputs.
+        output_groups: dict[str, depset[File]]; additional output groups that
+            should be returned.
+
+    Returns:
+        A `CreateExecutableResult` struct.
+    """
+    return struct(
+        extra_files_to_build = extra_files_to_build,
+        output_groups = output_groups,
     )
 
 def union_attrs(*attr_dicts, allow_none = False):
@@ -384,6 +404,20 @@ def create_output_group_info(transitive_sources):
         compilation_prerequisites_INTERNAL_ = transitive_sources,
         compilation_outputs = transitive_sources,
     )
+
+def maybe_add_test_execution_info(providers, ctx):
+    """Adds ExecutionInfo, if necessary for proper test execution.
+
+    Args:
+        providers: Mutable list of providers; may have ExecutionInfo
+            provider appended.
+        ctx: Rule ctx.
+    """
+
+    # When built for Apple platforms, require the execution to be on a Mac.
+    # TODO(b/176993122): Remove when bazel automatically knows to run on darwin.
+    if target_platform_has_any_constraint(ctx, ctx.attr._apple_constraints):
+        providers.append(_testing.ExecutionInfo({"requires-darwin": ""}))
 
 _BOOL_TYPE = type(True)
 

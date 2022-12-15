@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -106,6 +107,24 @@ public abstract class PyBuiltins implements StarlarkValue {
     return new PyCcLinkParamsProvider(ccInfo);
   }
 
+  @StarlarkMethod(
+      name = "get_legacy_external_runfiles",
+      doc = "Get the --legacy_external_runfiles flag value",
+      parameters = {
+        @Param(name = "ctx", positional = true, named = true, defaultValue = "unbound")
+      })
+  public boolean getLegacyExternalRunfiles(StarlarkRuleContext starlarkCtx) throws EvalException {
+    return starlarkCtx.getConfiguration().legacyExternalRunfiles();
+  }
+
+  @StarlarkMethod(
+      name = "get_current_os_name",
+      doc = "Get the name of the OS Bazel itself is running on.",
+      parameters = {})
+  public String getCurrentOsName() {
+    return OS.getCurrent().getCanonicalName();
+  }
+
   // TODO(b/69113360): Remove once par-generation is moved out of the py_binary rule itself.
   @StarlarkMethod(
       name = "new_runfiles_supplier",
@@ -120,8 +139,8 @@ public abstract class PyBuiltins implements StarlarkValue {
     return new SingleRunfilesSupplier(
         PathFragment.create(runfilesStr),
         runfiles,
-        /*manifest=*/ null,
-        /*repoMappingManifest=*/ null,
+        /* manifest= */ null,
+        /* repoMappingManifest= */ null,
         ruleContext.getConfiguration().buildRunfileLinks(),
         ruleContext.getConfiguration().runfilesEnabled());
   }
@@ -341,7 +360,7 @@ public abstract class PyBuiltins implements StarlarkValue {
                 ruleContext.getActionOwner(),
                 output,
                 runfiles,
-                /*repoMappingManifest=*/ null,
+                /* repoMappingManifest= */ null,
                 ruleContext.getConfiguration().remotableSourceManifestActions()));
   }
 
@@ -370,7 +389,7 @@ public abstract class PyBuiltins implements StarlarkValue {
           owner,
           NestedSetBuilder.create(Order.STABLE_ORDER, readFrom),
           writeTo,
-          /* makeExecutable=*/ false);
+          /* makeExecutable= */ false);
     }
 
     @Override
