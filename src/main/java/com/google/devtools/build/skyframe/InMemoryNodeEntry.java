@@ -406,12 +406,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     checkState(
         !isDone(), "Value must not be done in signalDep %s child=%s", this, childForDebugging);
     checkNotNull(dirtyBuildingState, "%s %s", this, childForDebugging);
-    checkState(dirtyBuildingState.isEvaluating(), "%s %s", this, childForDebugging);
-    dirtyBuildingState.signalDep();
-
-    // childVersion > version.lastEvaluated() means the child has changed since the last evaluation.
-    boolean childChanged = !childVersion.atMost(version.lastEvaluated());
-    dirtyBuildingState.signalDepPostProcess(childChanged, getNumTemporaryDirectDeps());
+    dirtyBuildingState.signalDep(this, childVersion, childForDebugging);
     return isReady();
   }
 
@@ -566,7 +561,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     return (GroupedList<SkyKey>) directDeps;
   }
 
-  private synchronized int getNumTemporaryDirectDeps() {
+  final synchronized int getNumTemporaryDirectDeps() {
     return directDeps == null ? 0 : getTemporaryDirectDeps().numElements();
   }
 
