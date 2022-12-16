@@ -255,7 +255,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     // We need to #iclude all the headers in an umbrella header and then declare the umbrella header
     // in the module map.
     return new IntermediateArtifacts(
-        ruleContext, /* archiveFileNameSuffix= */ "_j2objc", UmbrellaHeaderStrategy.GENERATE);
+        ruleContext,
+        /* archiveFileNameSuffix= */ "_j2objc",
+        UmbrellaHeaderStrategy.GENERATE,
+        /* alwaysLinkLibraryExtension= */ false);
   }
 
   private ConfiguredAspect buildAspect(

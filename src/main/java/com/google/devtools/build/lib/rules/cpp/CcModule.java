@@ -1849,16 +1849,11 @@ public abstract class CcModule
     Label label = getCallerLabel(actions, name);
     FdoContext fdoContext = ccToolchainProvider.getFdoContext();
     LinkTargetType staticLinkTargetType = null;
-    if (language == Language.CPP) {
-      if (alwayslink
-          && !actions.getRuleContext().getRule().getRuleClass().equals("swift_library")) {
-        // TODO(b/202252560): Fix for swift_library's implicit output.
-        staticLinkTargetType = LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY;
-      } else {
-        staticLinkTargetType = LinkTargetType.STATIC_LIBRARY;
-      }
+    if (alwayslink && !actions.getRuleContext().getRule().getRuleClass().equals("swift_library")) {
+      // TODO(b/202252560): Fix for swift_library's implicit output.
+      staticLinkTargetType = LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY;
     } else {
-      staticLinkTargetType = LinkTargetType.OBJC_ARCHIVE;
+      staticLinkTargetType = LinkTargetType.STATIC_LIBRARY;
     }
     Artifact winDefFile = convertFromNoneable(winDefFileObject, /* defaultValue= */ null);
     List<CcLinkingContext> ccLinkingContexts =
