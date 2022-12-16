@@ -24,6 +24,7 @@ java_library(
     visibility = ["//visibility:public"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )
