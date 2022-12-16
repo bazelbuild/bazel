@@ -77,9 +77,9 @@ public class CommonCommandOptions extends OptionsBase {
       help =
           "Selects additional config sections from the rc files; for every <command>, it "
               + "also pulls in the options from <command>:<config> if such a section exists; "
-              + "if this section doesn't exist in any .rc file, Blaze fails with an error. "
+              + "if this section doesn't exist in any .rc file, Bazel fails with an error. "
               + "The config sections and flag combinations they are equivalent to are "
-              + "located in the tools/*.blazerc config files.")
+              + "located in the tools/*.bazelrc config files.")
   public List<String> configs;
 
   @Option(
@@ -472,7 +472,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
-          "If false, Blaze will not persist data that allows for invalidation and re-evaluation "
+          "If false, Bazel will not persist data that allows for invalidation and re-evaluation "
               + "on incremental builds in order to save memory on this build. Subsequent builds "
               + "will not have any incrementality with respect to this one. Usually you will want "
               + "to specify --batch when setting this to false.")
@@ -484,7 +484,7 @@ public class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
-          "If false, Blaze will discard the inmemory state from this build when the build "
+          "If false, Bazel will discard the inmemory state from this build when the build "
               + "finishes. Subsequent builds will not have any incrementality with respect to this "
               + "one.")
   public boolean keepStateAfterBuild;
