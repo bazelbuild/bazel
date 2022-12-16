@@ -42,7 +42,7 @@ public class ArrayCodecTest {
 
   @Test
   public void stackOverflowTransformedIntoSerializationException() {
-    int depth = 4000;
+    int depth = 40000;
     Object[] obj = new Object[1];
     Object[] cur = obj;
     for (int i = 0; i < depth; i++) {
