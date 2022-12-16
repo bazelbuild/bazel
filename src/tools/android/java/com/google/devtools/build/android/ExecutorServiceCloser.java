@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -36,11 +37,12 @@ final class ExecutorServiceCloser implements Closeable, ListeningExecutorService
   }
 
   @Override
-  public void close() throws IOException {
+  public void close() {
     List<Runnable> unfinishedTasks = executorService.shutdownNow();
     if (!unfinishedTasks.isEmpty()) {
-      throw new IOException(
-          "Shutting down the executor with unfinished tasks:" + unfinishedTasks.size());
+      throw new UncheckedIOException(
+          new IOException(
+              "Shutting down the executor with unfinished tasks:" + unfinishedTasks.size()));
     }
   }
 
