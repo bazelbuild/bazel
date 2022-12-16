@@ -17,7 +17,7 @@ compressed with GZIP. Use the flag
 [`--experimental_announce_profile_path`](/reference/command-line-reference#flag--experimental_announce_profile_path)
 to print the path to this file to the log.
 
-## Tools 
+## Tools
 
 You can load this profile into `chrome://tracing` or analyze and
 post-process it with other tools.

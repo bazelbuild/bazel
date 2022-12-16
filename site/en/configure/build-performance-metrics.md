@@ -20,8 +20,7 @@ for targets with significant impact, such as:
 An important step to improving the performance of builds is to understand where
 resources are spent. This page lists different metrics you can collect.
 [Breaking down build performance](/build-performance-breakdown) showcases
-how you can use these metrics to detect and fix build performance issues. 
-
+how you can use these metrics to detect and fix build performance issues.
 
 There are a few main ways to extract metrics from your Bazel builds, namely:
 
@@ -47,7 +46,7 @@ query modes, that allows you to customize your queries according to your needs.
 
 For every build-like Bazel invocation, Bazel writes a trace profile in JSON
 format. The [JSON trace profile](/configure/json-trace-profile) can be very
-useful to quickly understand what Bazel spent time on during the invocation. 
+useful to quickly understand what Bazel spent time on during the invocation.
 
 ## Execution Log {:#execution-log}
 
