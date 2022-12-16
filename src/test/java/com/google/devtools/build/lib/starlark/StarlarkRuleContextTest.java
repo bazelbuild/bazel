@@ -1019,14 +1019,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testHostConfiguration() throws Exception {
-    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    setRuleContext(ruleContext);
-    Object result = ev.eval("ruleContext.host_configuration");
-    assertThat(ruleContext.getRuleContext().getHostConfiguration()).isSameInstanceAs(result);
-  }
-
-  @Test
   public void testWorkspaceName() throws Exception {
     assertThat(ruleClassProvider.getRunfilesPrefix()).isNotNull();
     assertThat(ruleClassProvider.getRunfilesPrefix()).isNotEmpty();
@@ -2875,7 +2867,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "label",
           "fragments",
           "configuration",
-          "host_configuration",
           "coverage_instrumented(dep)",
           "features",
           "bin_dir",

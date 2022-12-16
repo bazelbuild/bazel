@@ -614,12 +614,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public BuildConfigurationValue getHostConfiguration() throws EvalException {
-    checkMutable("host_configuration");
-    return ruleContext.getHostConfiguration();
-  }
-
-  @Override
   @Nullable
   public Object getBuildSettingValue() throws EvalException {
     if (ruleContext.getRule().getRuleClassObject().getBuildSetting() == null) {
