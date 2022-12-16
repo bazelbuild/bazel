@@ -71,6 +71,8 @@ import javax.annotation.Nullable;
  */
 public class InMemoryNodeEntry implements NodeEntry {
 
+  private final SkyKey key;
+
   /** Actual data stored in this entry when it is done. */
   protected volatile SkyValue value = null;
 
@@ -126,8 +128,13 @@ public class InMemoryNodeEntry implements NodeEntry {
    */
   @Nullable protected volatile DirtyBuildingState dirtyBuildingState = null;
 
-  /** Construct a InMemoryNodeEntry. Use ONLY in Skyframe evaluation and graph implementations. */
-  public InMemoryNodeEntry() {}
+  public InMemoryNodeEntry(SkyKey key) {
+    this.key = checkNotNull(key);
+  }
+
+  public final SkyKey getKey() {
+    return key;
+  }
 
   /** Whether this node stores edges (deps and rdeps). */
   boolean keepsEdges() {
@@ -646,6 +653,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   protected synchronized MoreObjects.ToStringHelper toStringHelper() {
     return MoreObjects.toStringHelper(this)
+        .add("key", key)
         .add("identity", System.identityHashCode(this))
         .add("value", value)
         .add("version", version)
@@ -682,6 +690,6 @@ public class InMemoryNodeEntry implements NodeEntry {
    * <p>Clones a InMemoryMutableNodeEntry iff it is a done node. Otherwise it fails.
    */
   public synchronized InMemoryNodeEntry cloneNodeEntry() {
-    return cloneNodeEntry(new InMemoryNodeEntry());
+    return cloneNodeEntry(new InMemoryNodeEntry(key));
   }
 }
