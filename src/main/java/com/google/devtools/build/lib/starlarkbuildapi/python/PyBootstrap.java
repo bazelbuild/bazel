@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.python.PyInfoApi.PyInfoProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyCcLinkParamsProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.python.PyRuntimeInfoApi.PyRuntimeInfoProviderApi;
 import net.starlark.java.eval.FlagGuardedValue;
 
@@ -36,14 +37,17 @@ public class PyBootstrap implements Bootstrap {
   private final PyInfoProviderApi pyInfoProviderApi;
   private final PyRuntimeInfoProviderApi pyRuntimeInfoProviderApi;
   private final PyStarlarkTransitionsApi pyStarlarkTransitionsApi;
+  private final PyCcLinkParamsProviderApi.Provider pyCcLinkInfoParamsInfoProvider;
 
   public PyBootstrap(
       PyInfoProviderApi pyInfoProviderApi,
       PyRuntimeInfoProviderApi pyRuntimeInfoProviderApi,
-      PyStarlarkTransitionsApi pyStarlarkTransitionsApi) {
+      PyStarlarkTransitionsApi pyStarlarkTransitionsApi,
+      PyCcLinkParamsProviderApi.Provider pyCcLinkInfoParamsInfoProvider) {
     this.pyInfoProviderApi = pyInfoProviderApi;
     this.pyRuntimeInfoProviderApi = pyRuntimeInfoProviderApi;
     this.pyStarlarkTransitionsApi = pyStarlarkTransitionsApi;
+    this.pyCcLinkInfoParamsInfoProvider = pyCcLinkInfoParamsInfoProvider;
   }
 
   @Override
@@ -65,5 +69,12 @@ public class PyBootstrap implements Bootstrap {
         "py_transitions",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
             BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, pyStarlarkTransitionsApi));
+
+    builder.put(
+        "PyCcLinkParamsProvider",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            pyCcLinkInfoParamsInfoProvider,
+            PyBootstrap.allowedRepositories));
   }
 }

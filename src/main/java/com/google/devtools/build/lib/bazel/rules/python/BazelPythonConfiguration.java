@@ -148,6 +148,10 @@ public class BazelPythonConfiguration extends Fragment {
     return options.pythonTop;
   }
 
+  @StarlarkMethod(
+      name = "python_path",
+      structField = true,
+      doc = "The value of the --python_path flag.")
   public String getPythonPath() {
     return options.pythonPath == null ? "python" : options.pythonPath;
   }

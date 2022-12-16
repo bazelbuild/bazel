@@ -67,9 +67,9 @@ exported_rules = {
     "+cc_library": cc_library,
     "proto_lang_toolchain": proto_lang_toolchain,
     "+py_runtime": py_runtime,
-    "-py_binary": py_binary,
-    "-py_test": py_test,
-    "-py_library": py_library,
+    "+py_binary": py_binary,
+    "+py_test": py_test,
+    "+py_library": py_library,
     "+cc_toolchain_alias": cc_toolchain_alias,
 }
 

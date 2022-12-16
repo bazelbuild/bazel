@@ -13,6 +13,7 @@
 # limitations under the License.
 """Implementation of macro-half of py_binary rule."""
 
+load(":common/python/py_binary_bazel.bzl", py_binary_rule = "py_binary")
+
 def py_binary(**kwargs):
-    _ = kwargs  # @unused
-    pass
+    py_binary_rule(**kwargs)

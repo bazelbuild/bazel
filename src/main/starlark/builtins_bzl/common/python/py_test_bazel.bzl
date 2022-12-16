@@ -13,11 +13,13 @@
 # limitations under the License.
 """Rule implementation of py_test for Bazel."""
 
+load(":common/python/semantics.bzl", "TOOLS_REPO")
 load(
     ":common/python/py_executable_bazel.bzl",
     "create_executable_rule",
-    "py_executable_impl",
+    "py_executable_bazel_impl",
 )
+load(":common/python/common.bzl", "maybe_add_test_execution_info")
 load(":common/python/attributes.bzl", "AGNOSTIC_TEST_ATTRS")
 
 _BAZEL_PY_TEST_ATTRS = {
@@ -38,7 +40,7 @@ _BAZEL_PY_TEST_ATTRS = {
 }
 
 def _py_test_impl(ctx):
-    providers = py_executable_impl(
+    providers = py_executable_bazel_impl(
         ctx = ctx,
         is_test = True,
         inherited_environment = ctx.attr.env_inherit,

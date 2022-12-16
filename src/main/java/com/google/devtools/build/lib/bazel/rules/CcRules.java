@@ -97,10 +97,8 @@ public class CcRules implements RuleSet {
             new BazelCcModule(),
             CcInfo.PROVIDER,
             DebugPackageProvider.PROVIDER,
-            CcToolchainConfigInfo.PROVIDER,
-            new GoogleLegacyStubs.PyWrapCcHelper(),
-            new GoogleLegacyStubs.PyWrapCcInfoProvider(),
-            new GoogleLegacyStubs.PyCcLinkParamsProvider()));
+            CcToolchainConfigInfo.PROVIDER
+            ));
 
     try {
       builder.addWorkspaceFileSuffix(

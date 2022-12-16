@@ -23,6 +23,7 @@ load(
 )
 load(
     ":common/python/common.bzl",
+    "collect_imports",
     "collect_runfiles",
     "create_instrumented_files_info",
     "create_output_group_info",
@@ -58,7 +59,7 @@ def py_library_impl(ctx, *, semantics):
     py_info, deps_transitive_sources = create_py_info(
         ctx,
         direct_sources = depset(direct_sources),
-        imports = semantics.get_imports(ctx),
+        imports = collect_imports(ctx, semantics),
     )
 
     # TODO(b/253059598): Remove support for extra actions; https://github.com/bazelbuild/bazel/issues/16455
