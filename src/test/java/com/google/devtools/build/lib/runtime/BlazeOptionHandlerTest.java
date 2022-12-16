@@ -423,7 +423,7 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_argless() {
-    optionHandler.parseOptions(ImmutableList.of("c0"), eventHandler);
+    optionHandler.parseOptions(ImmutableList.of("c0"), eventHandler, eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes()).isEmpty();
@@ -431,7 +431,7 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_residue() {
-    optionHandler.parseOptions(ImmutableList.of("c0", "res"), eventHandler);
+    optionHandler.parseOptions(ImmutableList.of("c0", "res"), eventHandler, eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).contains("res");
     assertThat(optionHandler.getRcfileNotes()).isEmpty();
@@ -458,7 +458,7 @@ public class BlazeOptionHandlerTest {
   @Test
   public void testParseOptions_explicitOption() {
     optionHandler.parseOptions(
-        ImmutableList.of("c0", "--test_multiple_string=explicit"), eventHandler);
+        ImmutableList.of("c0", "--test_multiple_string=explicit"), eventHandler, eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes()).isEmpty();
@@ -475,6 +475,7 @@ public class BlazeOptionHandlerTest {
             "--default_override=0:c0=--test_multiple_string=rc_a",
             "--default_override=0:c0=--test_multiple_string=rc_b",
             "--rc_source=/somewhere/.blazerc"),
+        eventHandler,
         eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
@@ -498,6 +499,7 @@ public class BlazeOptionHandlerTest {
             "--default_override=0:c0=--test_multiple_string=rc1_b",
             "--rc_source=/somewhere/.blazerc",
             "--rc_source=/some/other/.blazerc"),
+        eventHandler,
         eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
@@ -526,6 +528,7 @@ public class BlazeOptionHandlerTest {
             "--default_override=0:common=--test_multiple_string=rc1_common",
             "--rc_source=/somewhere/.blazerc",
             "--rc_source=/some/other/.blazerc"),
+        eventHandler,
         eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
@@ -556,6 +559,7 @@ public class BlazeOptionHandlerTest {
             "--default_override=0:c0=--test_multiple_string=rc",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
+        eventHandler,
         eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
@@ -578,6 +582,7 @@ public class BlazeOptionHandlerTest {
             "--default_override=0:c0=--test_multiple_string=rc_c0_2",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
+        eventHandler,
         eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
@@ -607,6 +612,7 @@ public class BlazeOptionHandlerTest {
             "--default_override=0:common=--test_multiple_string=rc1_common",
             "--rc_source=/somewhere/.blazerc",
             "--rc_source=/some/other/.blazerc"),
+        eventHandler,
         eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
@@ -639,6 +645,7 @@ public class BlazeOptionHandlerTest {
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit",
             "--config=conf"),
+        eventHandler,
         eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
@@ -665,6 +672,7 @@ public class BlazeOptionHandlerTest {
             "--default_override=0:c0:conf=--test_multiple_string=config",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
+        eventHandler,
         eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
@@ -694,6 +702,7 @@ public class BlazeOptionHandlerTest {
             "--default_override=0:common:other=--test_multiple_string=othercommon",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
+        eventHandler,
         eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
@@ -728,6 +737,7 @@ public class BlazeOptionHandlerTest {
             "--default_override=0:c0:conf=other",
             "--rc_source=/somewhere/.blazerc",
             "--config=conf"),
+        eventHandler,
         eventHandler);
 
     assertThat(eventHandler.getEvents())
@@ -760,6 +770,7 @@ public class BlazeOptionHandlerTest {
             "--test_multiple_string=explicit1",
             "--config=baz",
             "--test_multiple_string=explicit2"),
+        eventHandler,
         eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
@@ -811,6 +822,7 @@ public class BlazeOptionHandlerTest {
             "--default_override=0:c0:bar=--test_multiple_string=bar",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
+        eventHandler,
         eventHandler);
     assertThat(parser.getResidue()).isEmpty();
     assertThat(eventHandler.getEvents())
@@ -850,6 +862,7 @@ public class BlazeOptionHandlerTest {
             "--config=baz",
             "--config=foo",
             "--config=bar"),
+        eventHandler,
         eventHandler);
     assertThat(parser.getResidue()).isEmpty();
     assertThat(eventHandler.getEvents())
@@ -890,6 +903,7 @@ public class BlazeOptionHandlerTest {
             "--default_override=0:c0:foo=--config=foo",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
+        eventHandler,
         eventHandler);
     assertThat(eventHandler.getEvents())
         .contains(
@@ -911,6 +925,7 @@ public class BlazeOptionHandlerTest {
             "--default_override=0:c0:bar=--config=foo",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
+        eventHandler,
         eventHandler);
     assertThat(eventHandler.getEvents())
         .contains(
@@ -933,6 +948,7 @@ public class BlazeOptionHandlerTest {
             "--default_override=0:common:other=--test_multiple_string=othercommon",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
+        eventHandler,
         eventHandler);
     assertThat(parser.getResidue()).isEmpty();
     assertThat(eventHandler.getEvents())
@@ -1001,7 +1017,7 @@ public class BlazeOptionHandlerTest {
             .add("--config=alpha")
             .build();
 
-    optionHandler.parseOptions(args, eventHandler);
+    optionHandler.parseOptions(args, eventHandler, eventHandler);
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
@@ -1056,7 +1072,7 @@ public class BlazeOptionHandlerTest {
             .add("--config=gamma")
             .build();
 
-    optionHandler.parseOptions(args, eventHandler);
+    optionHandler.parseOptions(args, eventHandler, eventHandler);
     assertThat(parser.getResidue()).isEmpty();
 
     // Expect the second --config=gamma to have started a second chain, and get warnings about both.
@@ -1091,6 +1107,7 @@ public class BlazeOptionHandlerTest {
             "c0",
             "--unconditional_warning",
             "You are forcing this warning to print for no apparent reason"),
+        eventHandler,
         eventHandler);
     assertThat(eventHandler.getEvents())
         .containsExactly(
@@ -1107,6 +1124,7 @@ public class BlazeOptionHandlerTest {
             "--default_override=0:c0:conf=--unconditional_warning="
                 + "config \"conf\" is deprecated, please stop using!",
             "--rc_source=/somewhere/.blazerc"),
+        eventHandler,
         eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
@@ -1122,6 +1140,7 @@ public class BlazeOptionHandlerTest {
             "--default_override=0:c0:conf=--unconditional_warning="
                 + "config \"conf\" is deprecated, please stop using!",
             "--rc_source=/somewhere/.blazerc"),
+        eventHandler,
         eventHandler);
     assertThat(eventHandler.getEvents())
         .containsExactly(Event.warn("config \"conf\" is deprecated, please stop using!"));
@@ -1141,6 +1160,7 @@ public class BlazeOptionHandlerTest {
             "--config=conf",
             "--default_override=0:c0:conf=--test_string=fromConf",
             "--rc_source=/somewhere/.blazerc"),
+        eventHandler,
         eventHandler);
     TestOptions parseResult = parser.getOptions(TestOptions.class);
     // In the in-place expansion, the config's expansion has precedence, but issues a warning since
@@ -1167,6 +1187,7 @@ public class BlazeOptionHandlerTest {
             "--test_string=explicitValue",
             "--default_override=0:c0:conf=--test_string=fromConf",
             "--rc_source=/somewhere/.blazerc"),
+        eventHandler,
         eventHandler);
     TestOptions parseResult = parser.getOptions(TestOptions.class);
     assertThat(eventHandler.getEvents()).isEmpty();

@@ -58,7 +58,7 @@ public final class FlagAliasTest {
   public void useAliasWithNonStarlarkFlag() {
     ImmutableList<String> args =
         ImmutableList.of("c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=bar");
-    optionHandler.parseOptions(args, eventHandler);
+    optionHandler.parseOptions(args, eventHandler, eventHandler);
     assertThat(eventHandler.getEvents())
         .contains(
             Event.error(
@@ -70,7 +70,7 @@ public final class FlagAliasTest {
   public void useAliasWithValueAssignment() {
     ImmutableList<String> args =
         ImmutableList.of("c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=//bar=7");
-    optionHandler.parseOptions(args, eventHandler);
+    optionHandler.parseOptions(args, eventHandler, eventHandler);
     assertThat(eventHandler.getEvents())
         .contains(
             Event.error(
@@ -82,7 +82,7 @@ public final class FlagAliasTest {
   public void useAliasWithInvalidName() {
     ImmutableList<String> args =
         ImmutableList.of("c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=bad$foo=//bar");
-    optionHandler.parseOptions(args, eventHandler);
+    optionHandler.parseOptions(args, eventHandler, eventHandler);
     assertThat(eventHandler.getEvents())
         .contains(
             Event.error(
@@ -94,7 +94,7 @@ public final class FlagAliasTest {
   public void useAliasWithoutEqualsInValue() {
     ImmutableList<String> args =
         ImmutableList.of("c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo");
-    optionHandler.parseOptions(args, eventHandler);
+    optionHandler.parseOptions(args, eventHandler, eventHandler);
     assertThat(eventHandler.getEvents())
         .contains(
             Event.error(
@@ -106,7 +106,7 @@ public final class FlagAliasTest {
   public void useAliasWithoutEqualsInArg() {
     ImmutableList<String> args =
         ImmutableList.of("c0", "--rc_source=/somewhere/.blazerc", "--flag_alias", "foo=//bar");
-    optionHandler.parseOptions(args, eventHandler);
+    optionHandler.parseOptions(args, eventHandler, eventHandler);
     assertThat(eventHandler.hasErrors()).isFalse();
   }
 
@@ -115,7 +115,7 @@ public final class FlagAliasTest {
     ImmutableList<String> args =
         ImmutableList.of(
             "c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=//bar", "--foo");
-    optionHandler.parseOptions(args, eventHandler);
+    optionHandler.parseOptions(args, eventHandler, eventHandler);
     assertThat(parser.getSkippedArgs()).contains("--//bar");
   }
 
@@ -127,7 +127,7 @@ public final class FlagAliasTest {
             "--rc_source=/somewhere/.blazerc",
             "--flag_alias=foo=//bar",
             "--nofoo");
-    optionHandler.parseOptions(args, eventHandler);
+    optionHandler.parseOptions(args, eventHandler, eventHandler);
     assertThat(eventHandler.getEvents())
         .contains(Event.error("--nofoo :: Unrecognized option: --nofoo").withTag(BAD_OPTION_TAG));
   }
@@ -143,7 +143,7 @@ public final class FlagAliasTest {
             "--flag_alias=foo=//baz",
             "--foo");
     ImmutableList<String> expectedSkippedArgs = ImmutableList.of("--//bar", "--//baz");
-    optionHandler.parseOptions(args, eventHandler);
+    optionHandler.parseOptions(args, eventHandler, eventHandler);
     assertThat(parser.getSkippedArgs()).isEqualTo(expectedSkippedArgs);
   }
 
@@ -156,7 +156,7 @@ public final class FlagAliasTest {
             "--default_override=0:c0=--foo",
             "--rc_source=/somewhere/.blazerc");
     ImmutableList<String> expectedSkippedArgs = ImmutableList.of("--//bar");
-    optionHandler.parseOptions(args, eventHandler);
+    optionHandler.parseOptions(args, eventHandler, eventHandler);
     assertThat(parser.getSkippedArgs()).isEqualTo(expectedSkippedArgs);
   }
 
@@ -169,7 +169,7 @@ public final class FlagAliasTest {
             "--rc_source=/somewhere/.blazerc",
             "--foo");
     ImmutableList<String> expectedSkippedArgs = ImmutableList.of("--//bar");
-    optionHandler.parseOptions(args, eventHandler);
+    optionHandler.parseOptions(args, eventHandler, eventHandler);
     assertThat(parser.getSkippedArgs()).isEqualTo(expectedSkippedArgs);
   }
 
@@ -179,7 +179,7 @@ public final class FlagAliasTest {
         ImmutableList.of(
             "c0", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=//bar", "--foo=7");
     ImmutableList<String> expectedSkippedArgs = ImmutableList.of("--//bar=7");
-    optionHandler.parseOptions(args, eventHandler);
+    optionHandler.parseOptions(args, eventHandler, eventHandler);
     assertThat(parser.getSkippedArgs()).isEqualTo(expectedSkippedArgs);
   }
 
@@ -187,7 +187,7 @@ public final class FlagAliasTest {
   @Test
   public void aliasLogicSkipsNonDoubleDashArgs() {
     ImmutableList<String> args = ImmutableList.of("c0", "--rc_source=/somewhere/.blazerc", "-=");
-    optionHandler.parseOptions(args, eventHandler);
+    optionHandler.parseOptions(args, eventHandler, eventHandler);
     assertThat(eventHandler.getEvents())
         .contains(Event.error("-= :: Unrecognized option: -=").withTag(BAD_OPTION_TAG));
   }
@@ -200,7 +200,7 @@ public final class FlagAliasTest {
             "--default_override=0:c0=--foo=7",
             "--rc_source=/somewhere/.blazerc",
             "--flag_alias=foo=//bar");
-    optionHandler.parseOptions(args, eventHandler);
+    optionHandler.parseOptions(args, eventHandler, eventHandler);
     assertThat(eventHandler.getEvents())
         .contains(Event.error("--foo=7 :: Unrecognized option: --foo=7").withTag(BAD_OPTION_TAG));
   }
@@ -210,7 +210,7 @@ public final class FlagAliasTest {
     ImmutableList<String> args =
         ImmutableList.of(
             "c0", "--rc_source=/somewhere/.blazerc", "--foo=7", "--flag_alias=foo=//bar");
-    optionHandler.parseOptions(args, eventHandler);
+    optionHandler.parseOptions(args, eventHandler, eventHandler);
     assertThat(eventHandler.getEvents())
         .contains(Event.error("--foo=7 :: Unrecognized option: --foo=7").withTag(BAD_OPTION_TAG));
   }
