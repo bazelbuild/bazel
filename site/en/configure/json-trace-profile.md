@@ -10,11 +10,11 @@ time on during the invocation.
 
 By default, for all build-like commands and query Bazel writes such a profile to
 `command.profile.gz`. You can configure whether a profile is written with the
-[`--generate_json_trace_profile`](/docs/reference/command-line-reference#flag--generate_json_trace_profile)
+[`--generate_json_trace_profile`](/reference/command-line-reference#flag--generate_json_trace_profile)
 flag, and the location it is written to with the
-[`--profile`](/docs/user-manual#profile) flag. Locations ending with `.gz` are
+[`--profile`](/user-manual#profile) flag. Locations ending with `.gz` are
 compressed with GZIP. Use the flag
-[`--experimental_announce_profile_path`](/docs/reference/command-line-reference#flag--experimental_announce_profile_path)
+[`--experimental_announce_profile_path`](/reference/command-line-reference#flag--experimental_announce_profile_path)
 to print the path to this file to the log.
 
 ## Tools 
@@ -30,7 +30,7 @@ detailed results, click the boxes in the lower left corner.
 
 Example profile:
 
-![Example profile](/docs/images/json-trace-profile.png "Example profile")
+![Example profile](/images/json-trace-profile.png "Example profile")
 
 **Figure 1.** Example profile.
 
@@ -49,7 +49,7 @@ You can use these keyboard controls to navigate:
 
 ## `bazel analyze-profile`
 
-The Bazel subcommand [`analyze-profile`](/docs/user-manual#analyze-profile)
+The Bazel subcommand [`analyze-profile`](/user-manual#analyze-profile)
 consumes a profile format and prints cumulative statistics for
 different task types for each build phase and an analysis of the critical path.
 
@@ -126,7 +126,7 @@ Figure 1 shows a profile created with Bazel v5.3.1 and includes these rows:
 
 *   `action count`: Displays how many concurrent actions were in flight. Click
     on it to see the actual value. Should go up to the value of
-    [`--jobs`](/docs/reference/command-line-reference#flag--jobs) in clean
+    [`--jobs`](/reference/command-line-reference#flag--jobs) in clean
     builds.
 *   `CPU usage (Bazel)`: For each second of the build, displays the amount of
     CPU that was used by Bazel (a value of 1 equals one core being 100% busy).
@@ -189,7 +189,7 @@ Timestamps (`ts`) and durations (`dur`) in the trace events are given in
 microseconds. The category (`cat`) is one of enum values of `ProfilerTask`.
 Note that some events are merged together if they are very short and close to
 each other; pass
-[`--noslim_json_profile`](/docs/reference/command-line-reference#flag--slim_profile)
+[`--noslim_json_profile`](/reference/command-line-reference#flag--slim_profile)
 if you would like to prevent event merging.
 
 See also the

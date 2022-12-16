@@ -9,7 +9,7 @@ Bazel is complex and does a lot of different things over the course of a build,
 some of which can have an impact on build performance. This page attempts to map
 some of these Bazel concepts to their implications on build performance. While
 not extensive, we have included some examples of how to detect build performance
-issues through [extracting metrics](/docs/configure/build-performance-metrics)
+issues through [extracting metrics](/configure/build-performance-metrics)
 and what you can do to fix them. With this, we hope you can apply these concepts
 when investigating build performance regressions.
 
@@ -56,7 +56,7 @@ metrics as proxy metrics for work done at each phase:
   each additional BUILD file in the loading phase.
    - This is often due to the addition of dependencies and having to load their
      transitive closure.
-   - Use [query](/docs/query/quickstart) / [cquery](/docs/query/cquery) to find
+   - Use [query](/query/quickstart) / [cquery](/query/cquery) to find
      where new dependencies might have been added.
 
 2. `TargetMetrics.targets_configured`: representing the number of targets and
@@ -64,24 +64,24 @@ metrics as proxy metrics for work done at each phase:
   constructing and traversing the configured target graph.
    - This is often due to the addition of dependencies and having to construct
      the graph of their transitive closure.
-   - Use [cquery](/docs/query/cquery) to find where new
+   - Use [cquery](/query/cquery) to find where new
      dependencies might have been added.
 
 3. `ActionSummary.actions_created`: represents the actions created in the build,
   and a regression represents more work in constructing the action graph. Note
   that this also includes unused actions that might not have been executed.
-   - Use [aquery](/docs/query/aquery) for debugging regressions;
+   - Use [aquery](/query/aquery) for debugging regressions;
      we suggest starting with
-     [`--output=summary`](/docs/reference/command-line-reference#flag--output)
+     [`--output=summary`](/reference/command-line-reference#flag--output)
      before further drilling down with
-     [`--skyframe_state`](/docs/reference/command-line-reference#flag--skyframe_state).
+     [`--skyframe_state`](/reference/command-line-reference#flag--skyframe_state).
 
 4. `ActionSummary.actions_executed`: the number of actions executed, a
   regression directly represents more work in executing these actions.
-   - The [BEP](/docs/remote/bep) writes out the action statistics
+   - The [BEP](/remote/bep) writes out the action statistics
      `ActionData` that shows the most executed action types. By default, it
      collects the top 20 action types, but you can pass in the
-     [`--experimental_record_metrics_for_all_mnemonics`](/docs/reference/command-line-reference#flag--experimental_record_metrics_for_all_mnemonics)
+     [`--experimental_record_metrics_for_all_mnemonics`](/reference/command-line-reference#flag--experimental_record_metrics_for_all_mnemonics)
      to collect this data for all action types that were executed.
    - This should help you to figure out what kind of actions were executed
      (additionally).
@@ -116,7 +116,7 @@ increase the statistical significance of your measurement.
 
 - **Wall time** is the real world time elapsed.
    - If _only_ wall time regresses, we suggest collecting a
-     [JSON trace profile](/docs/configure/json-trace-profile) and looking for
+     [JSON trace profile](/configure/json-trace-profile) and looking for
      differences. Otherwise, it would likely be more efficient to investigate
      other regressed metrics as they could have affected the wall time.
 
@@ -134,18 +134,18 @@ increase the statistical significance of your measurement.
 
 Using the
 [`--experimental_collect_load_average_in_profiler`](https://github.com/bazelbuild/bazel/blob/6.0.0/src/main/java/com/google/devtools/build/lib/runtime/CommonCommandOptions.java#L306-L312)
-flag introduced in Bazel 6.0, the [JSON trace profiler](/docs/configure/json-trace-profile) collects the
+flag introduced in Bazel 6.0, the [JSON trace profiler](/configure/json-trace-profile) collects the
 system load average during the invocation.
 
-![Profile that includes system load average](/docs/images/json-trace-profile-system-load-average.png "Profile that includes system load average")
+![Profile that includes system load average](/images/json-trace-profile-system-load-average.png "Profile that includes system load average")
 
 **Figure 1.** Profile that includes system load average.
 
 A high load during a Bazel invocation can be an indication that Bazel schedules
 too many local actions in parallel for your machine. You might want to look into
 adjusting
-[`--local_cpu_resources`](/docs/reference/command-line-reference#flag--local_cpu_resources)
-and [`--local_ram_resources`](/docs/reference/command-line-reference#flag--local_ram_resources),
+[`--local_cpu_resources`](/reference/command-line-reference#flag--local_cpu_resources)
+and [`--local_ram_resources`](/reference/command-line-reference#flag--local_ram_resources),
 especially in container environments (at least until
 [#16512](https://github.com/bazelbuild/bazel/pull/16512) is merged).
 
@@ -153,7 +153,7 @@ especially in container environments (at least until
 #### Monitoring Bazel memory usage
 
 There are two main sources to get Bazel’s memory usage, Bazel `info` and the
-[BEP](/docs/remote/bep).
+[BEP](/remote/bep).
 
 - `bazel info used-heap-size-after-gc`: The amount of used memory in bytes after
   a call to `System.gc()`.
@@ -161,13 +161,13 @@ There are two main sources to get Bazel’s memory usage, Bazel `info` and the
      provides benchmarks for this metric as well.
    - Additionally, there are `peak-heap-size`, `max-heap-size`, `used-heap-size`
      and `committed-heap-size` (see
-     [documentation](/docs/user-manual#configuration-independent-data)), but are
+     [documentation](/user-manual#configuration-independent-data)), but are
      less relevant.
 
-- [BEP](/docs/remote/bep)’s
+- [BEP](/remote/bep)’s
   `MemoryMetrics.peak_post_gc_heap_size`: Size of the peak JVM heap size in
   bytes post GC (requires setting
-  [`--memory_profile`](/docs/reference/command-line-reference#flag--memory_profile)
+  [`--memory_profile`](/reference/command-line-reference#flag--memory_profile)
   that attempts to force a full GC).
 
 A regression in memory usage is usually a result of a regression in
@@ -176,28 +176,28 @@ which are often due to addition of dependencies or a change in the rule
 implementation.
 
 To analyze Bazel’s memory footprint on a more granular level, we recommend using
-the [built-in memory profiler](/docs/rules/performance#memory-profiling)
+the [built-in memory profiler](/rules/performance#memory-profiling)
 for rules.
 
 #### Memory profiling of persistent workers
 
-While [persistent workers](/docs/remote/persistent) can help to speed up builds
+While [persistent workers](/remote/persistent) can help to speed up builds
 significantly (especially for interpreted languages) their memory footprint can
 be problematic. Bazel collects metrics on its workers, in particular, the
 `WorkerMetrics.WorkerStats.worker_memory_in_kb` field tells how much memory
 workers use (by mnemonic).
 
-The [JSON trace profiler](/docs/configure/json-trace-profile) also collects
+The [JSON trace profiler](/configure/json-trace-profile) also collects
 persistent worker memory usage during the invocation by passing in the
 [`--experimental_collect_system_network_usage`](https://github.com/bazelbuild/bazel/blob/6.0.0/src/main/java/com/google/devtools/build/lib/runtime/CommonCommandOptions.java#L314-L320)
 flag (new in Bazel 6.0).
 
-![Profile that includes workers memory usage](/docs/images/json-trace-profile-workers-memory-usage.png "Profile that includes workers memory usage")
+![Profile that includes workers memory usage](/images/json-trace-profile-workers-memory-usage.png "Profile that includes workers memory usage")
 
 **Figure 2.** Profile that includes workers memory usage.
 
 Lowering the value of
-[`--worker_max_instances`](/docs/reference/command-line-reference#flag--worker_max_instances)
+[`--worker_max_instances`](/reference/command-line-reference#flag--worker_max_instances)
 (default 4) might help to reduce
 the amount of memory used by persistent workers. We are actively working on
 making Bazel’s resource manager and scheduler smarter so that such fine tuning
@@ -211,23 +211,23 @@ of your build.
 
 If you are using remote execution for your builds, you might want to consider
 monitoring the network traffic during the invocation using the
-`NetworkMetrics.SystemNetworkStats` proto from the [BEP](/docs/remote/bep)
+`NetworkMetrics.SystemNetworkStats` proto from the [BEP](/remote/bep)
 (requires passing `--experimental_collect_system_network_usage`).
 
-Furthermore, [JSON trace profiles](/docs/configure/json-trace-profile) allow you
+Furthermore, [JSON trace profiles](/configure/json-trace-profile) allow you
 to view system-wide network usage throughout the course of the build by passing
 the `--experimental_collect_system_network_usage` flag (new in Bazel 6.0).
 
-![Profile that includes system-wide network usage](/docs/images/json-trace-profile-network-usage.png "Profile that includes system-wide network usage")
+![Profile that includes system-wide network usage](/images/json-trace-profile-network-usage.png "Profile that includes system-wide network usage")
 
 **Figure 3.** Profile that includes system-wide network usage.
 
 A high but rather flat network usage when using remote execution might indicate
 that network is the bottleneck in your build; if you are not using it already,
 consider turning on Build without the Bytes by passing
-[`--remote_download_minimal`](/docs/reference/command-line-reference#flag--remote_download_minimal).
+[`--remote_download_minimal`](/reference/command-line-reference#flag--remote_download_minimal).
 This will speed up your builds by avoiding the download of unnecessary intermediate artifacts.
 
 Another option is to configure a local
-[disk cache](/docs/reference/command-line-reference#flag--disk_cache) to save on
+[disk cache](/reference/command-line-reference#flag--disk_cache) to save on
 download bandwidth.

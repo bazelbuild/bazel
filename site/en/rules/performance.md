@@ -203,7 +203,7 @@ symlink in your workspace directory.
 
 ## Performance profiling {:#performance-profiling}
 
-The [JSON trace profile](/docs/configure/json-trace-profile) can be very useful
+The [JSON trace profile](/configure/json-trace-profile) can be very useful
 to quickly understand what Bazel spent time on during the invocation.
 
 ## Memory profiling {:#memory-profiling}
