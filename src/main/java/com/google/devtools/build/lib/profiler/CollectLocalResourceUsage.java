@@ -132,6 +132,12 @@ public class CollectLocalResourceUsage extends Thread {
       long nextCpuTimeNanos = osBean.getProcessCpuTime();
 
       double systemCpuLoad = osBean.getSystemCpuLoad();
+      if (Double.isNaN(systemCpuLoad)) {
+        // Unlike advertised, on Mac the system CPU load is NaN sometimes.
+        // There is no good way to handle this, so to avoid any downstream method crashing on this,
+        // we reset the CPU value here.
+        systemCpuLoad = 0;
+      }
       double systemUsage = systemCpuLoad * numProcessors;
 
       long systemMemoryUsageMb = -1;
