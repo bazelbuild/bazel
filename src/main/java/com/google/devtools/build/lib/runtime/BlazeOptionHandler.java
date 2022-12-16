@@ -288,7 +288,10 @@ public final class BlazeOptionHandler {
    *
    * @return {@code DetailedExitCode.success()} if everything went well, or some other value if not
    */
-  DetailedExitCode parseOptions(List<String> args, ExtendedEventHandler eventHandler) {
+  DetailedExitCode parseOptions(
+      List<String> args,
+      ExtendedEventHandler eventHandler,
+      EventHandler invocationPolicyEventHandler) {
     // The initialization code here was carefully written to parse the options early before we call
     // into the BlazeModule APIs, which means we must not generate any output to outErr, return, or
     // throw an exception. All the events happening here are instead stored in a temporary event
@@ -327,7 +330,10 @@ public final class BlazeOptionHandler {
               .build();
       InvocationPolicyEnforcer optionsPolicyEnforcer =
           new InvocationPolicyEnforcer(
-              combinedPolicy, Level.INFO, optionsParser.getConversionContext());
+              combinedPolicy,
+              invocationPolicyEventHandler,
+              Level.INFO,
+              optionsParser.getConversionContext());
       // Enforce the invocation policy. It is intentional that this is the last step in preparing
       // the options. The invocation policy is used in security-critical contexts, and may be used
       // as a last resort to override flags. That means that the policy can override flags set in

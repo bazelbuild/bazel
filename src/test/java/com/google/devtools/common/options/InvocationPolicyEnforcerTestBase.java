@@ -16,6 +16,7 @@ package com.google.devtools.common.options;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import java.io.ByteArrayOutputStream;
@@ -64,6 +65,7 @@ public class InvocationPolicyEnforcerTestBase {
     return new InvocationPolicyEnforcer(
         InvocationPolicyParser.parsePolicy(
             startupOptionsParser.getOptions(BlazeServerStartupOptions.class).invocationPolicy),
+            NullEventHandler.INSTANCE,
         Level.INFO,
         /*conversionContext=*/ null);
   }

@@ -221,7 +221,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
 
     try {
       InvocationPolicyEnforcer invocationPolicyEnforcer =
-          new InvocationPolicyEnforcer(policy, Level.INFO, mainRepoMapping);
+          new InvocationPolicyEnforcer(policy, env.getReporter(), Level.INFO, mainRepoMapping);
       invocationPolicyEnforcer.enforce(parser, commandName);
 
       if (canonicalizeOptions.showWarnings) {
@@ -233,8 +233,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
       // Print out the canonical invocation policy if requested.
       if (canonicalizeOptions.canonicalizePolicy) {
         InvocationPolicy effectivePolicy =
-            InvocationPolicyEnforcer.getEffectiveInvocationPolicy(
-                policy, parser, commandName, Level.INFO);
+            invocationPolicyEnforcer.getEffectiveInvocationPolicy(policy, parser, commandName);
         env.getReporter().getOutErr().printOutLn(effectivePolicy.toString());
       } else {
         // Otherwise, print out the canonical command line

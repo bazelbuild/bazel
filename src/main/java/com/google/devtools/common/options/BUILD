@@ -22,6 +22,7 @@ java_library(
     ],
     deps = [
         ":options_internal",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//third_party:flogger",
         "//third_party:guava",
