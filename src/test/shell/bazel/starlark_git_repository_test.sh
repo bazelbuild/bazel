@@ -314,6 +314,10 @@ EOF
 # planets has a dependency on targets in the $TEST_TMPDIR/outer_planets Git
 # repository.
 function test_new_git_repository_submodules() {
+  # Temporarily disable on Windows due to https://github.com/bazelbuild/bazel/issues/17040
+  if $is_windows; then
+    return
+  fi
   local outer_planets_repo_dir=$TEST_TMPDIR/repos/outer-planets
 
   # Create a workspace that clones the outer_planets repository.
@@ -372,6 +376,10 @@ EOF
 }
 
 function test_new_git_repository_submodules() {
+  # Temporarily disable on Windows due to https://github.com/bazelbuild/bazel/issues/17040
+  if $is_windows; then
+    return
+  fi
   local outer_planets_repo_dir=$TEST_TMPDIR/repos/outer-planets
 
   # Create a workspace that clones the outer_planets repository.
