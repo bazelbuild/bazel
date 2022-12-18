@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.ExecutionProgressReceiver;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.runtime.SkymeldUiStateTracker.BuildStatus;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
@@ -74,7 +75,8 @@ public class SkymeldUiStateTrackerTest extends FoundationTestCase {
     uiStateTracker.buildStatus = BuildStatus.TARGET_PATTERN_PARSING;
 
     uiStateTracker.loadingComplete(
-        new LoadingPhaseCompleteEvent(ImmutableSet.of(), ImmutableSet.of()));
+        new LoadingPhaseCompleteEvent(ImmutableSet.of(), ImmutableSet.of(),
+            RepositoryMapping.ALWAYS_FALLBACK));
 
     assertThat(uiStateTracker.buildStatus).isEqualTo(BuildStatus.LOADING_COMPLETE);
   }

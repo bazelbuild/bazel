@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import javax.annotation.Nullable;
 
@@ -32,6 +33,19 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
    */
   @Nullable
   String getProgressMessage();
+
+  /**
+   * A variant of {@link #getProgressMessage} that additionally takes the {@link RepositoryMapping}
+   * of the main repository, which can be used by the implementation to emit labels with apparent
+   * instead of canonical repository names. A return value of {@code null} indicates no
+   * message should be reported.
+   *
+   * <p>The default implementation simply returns the result of {@link #getProgressMessage}.
+   */
+  @Nullable
+  default String getProgressMessage(RepositoryMapping mainRepositoryMapping) {
+    return getProgressMessage();
+  }
 
   /**
    * Returns a human-readable description of the inputs to {@link #getKey(ActionKeyContext)}. Used

@@ -18,7 +18,10 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -54,6 +57,8 @@ import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressRecei
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.runtime.SkymeldUiStateTracker.BuildStatus;
@@ -83,12 +88,18 @@ import java.util.concurrent.TimeUnit;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.AdditionalMatchers;
 
-/** Tests {@link UiStateTracker}. */
+/**
+ * Tests {@link UiStateTracker}.
+ */
 @RunWith(TestParameterInjector.class)
 public class UiStateTrackerTest extends FoundationTestCase {
 
-  @TestParameter boolean isSkymeld;
+  @TestParameter
+  boolean isSkymeld;
+  static final RepositoryMapping MOCK_REPO_MAPPING = RepositoryMapping.createAllowingFallback(
+      ImmutableMap.of("main", RepositoryName.MAIN));
 
   private UiStateTracker getUiStateTracker(ManualClock clock) {
     if (isSkymeld) {
@@ -186,8 +197,11 @@ public class UiStateTrackerTest extends FoundationTestCase {
         ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path);
 
     Action action = mock(Action.class);
-    when(action.getProgressMessage()).thenReturn(progressMessage);
+    when(action.getProgressMessage(eq(MOCK_REPO_MAPPING))).thenReturn(progressMessage);
     when(action.getPrimaryOutput()).thenReturn(artifact);
+
+    verify(action, never()).getProgressMessage(AdditionalMatchers.not(eq(MOCK_REPO_MAPPING)));
+    verify(action, never()).getProgressMessage();
     return action;
   }
 
@@ -208,9 +222,13 @@ public class UiStateTrackerTest extends FoundationTestCase {
   }
 
   private void simulateExecutionPhase(UiStateTracker uiStateTracker) {
+    uiStateTracker.loadingComplete(
+        new LoadingPhaseCompleteEvent(ImmutableSet.of(), ImmutableSet.of(), MOCK_REPO_MAPPING));
     if (this.isSkymeld) {
       // SkymeldUiStateTracker needs to be in the configuration phase before the execution phase.
       ((SkymeldUiStateTracker) uiStateTracker).buildStatus = BuildStatus.ANALYSIS_COMPLETE;
+    } else {
+      uiStateTracker.analysisComplete();
     }
     uiStateTracker.progressReceiverAvailable(
         new ExecutionProgressReceiverAvailableEvent(dummyExecutionProgressReceiver()));
@@ -253,8 +271,8 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(loadingOutput).contains(loadingActivity);
 
     // When it is configuring targets.
-    stateTracker.loadingComplete(
-        new LoadingPhaseCompleteEvent(ImmutableSet.of(), ImmutableSet.of()));
+    stateTracker.loadingComplete(new LoadingPhaseCompleteEvent(ImmutableSet.of(), ImmutableSet.of(),
+        MOCK_REPO_MAPPING));
     String additionalMessage = "5 targets";
     stateTracker.additionalMessage = additionalMessage;
     String configuredTargetProgressString = "5 targets configured";
