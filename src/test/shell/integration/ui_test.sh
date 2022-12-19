@@ -671,7 +671,7 @@ EOF
   wait "$pid" || exit_code="$?"
   [[ "$exit_code" == 8 ]] || fail "Should have been interrupted: $exit_code"
   tr -s <"$TEST_log" '\n' '@' |
-      grep -q 'Executing genrule //foo:fail failed:[^@]*@This@is@a@multiline error message@before@failure@.*\[2 / 3\] Executing genrule //foo:sleep;' \
+      grep -q 'Executing genrule //foo:fail failed:[^@]*@This@is@a@multiline error message@before@failure@.*Executing genrule //foo:sleep;' \
       || fail "Unified genrule error message not found"
   # Make sure server is still usable.
   bazel info server_pid >& "$TEST_log" || fail "Couldn't use server"
@@ -688,11 +688,8 @@ EOF
   # Build event file needed so UI considers build to continue after failure.
   ! bazel test --build_event_json_file=bep.json --curses=yes --color=yes \
       //foo:foo &> "$TEST_log" || fail "Expected failure"
-  # Expect to see a failure message with an "erase line" control code prepended.
-  expect_log $'\e'"\[K"$'\e'"\[31m"$'\e'"\[1mFAILED:"$'\e'"\[0m Build did NOT complete successfully"
-  # We should not see a build failure message without an "erase line" to start.
-  # TODO(janakr): Fix the excessive printing of this failure message.
-  expect_log_n "^"$'\e'"\[31m"$'\e'"\[1mFAILED:"$'\e'"\[0m Build did NOT complete successfully" 4
+  # Expect to see exactly one failure message.
+  expect_log_n '\[31m\[1mERROR: \[0mBuild did NOT complete successfully' 1
 }
 
 function test_bazel_run_error_visible() {
