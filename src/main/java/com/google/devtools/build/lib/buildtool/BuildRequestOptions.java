@@ -468,7 +468,7 @@ public class BuildRequestOptions extends OptionsBase {
               + "line. It is an error to specify a file here as well as command-line patterns.")
   public String targetPatternFile;
 
-  /** Do not use directly. Instead use {@link shouldMergeSkyframeAnalysisExecution}. */
+  /** Do not use directly. Instead use {@link #shouldMergeSkyframeAnalysisExecution}. */
   @Option(
       name = "experimental_merged_skyframe_analysis_execution",
       defaultValue = "false",
