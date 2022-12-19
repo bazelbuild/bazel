@@ -33,6 +33,15 @@ cc_common = _builtins.toplevel.cc_common
 # used sparingly after making sure it's safe to use.
 LINKABLE_MORE_THAN_ONCE = "LINKABLE_MORE_THAN_ONCE"
 
+# Add this as a tag to any static lib target that doesn't export any symbols,
+# thus can be statically linked more than once. This is useful in some cases,
+# for example, a static lib has a constructor that needs to be run during
+# loading time of the shared lib that has it linked into, which is how the
+# code gets called by the OS. This static lib might need to be linked as a
+# whole archive dep for multiple shared libs, otherwise this static lib will
+# be dropped by the linker since there are no incoming symbol references.
+NO_EXPORTING = "NO_EXPORTING"
+
 CcSharedLibraryPermissionsInfo = provider(
     "Permissions for a cc shared library.",
     fields = {
@@ -45,6 +54,7 @@ GraphNodeInfo = provider(
         "children": "Other GraphNodeInfo from dependencies of this target",
         "label": "Label of the target visited",
         "linkable_more_than_once": "Linkable into more than a single cc_shared_library",
+        "no_exporting": "The static lib doesn't export any symbols so don't export it",
     },
 )
 CcSharedLibraryInfo = provider(
@@ -532,7 +542,12 @@ def _cc_shared_library_impl(ctx):
     runfiles = runfiles.merge(ctx.runfiles(files = precompiled_only_dynamic_libraries_runfiles))
 
     for export in ctx.attr.roots:
-        exports[str(export.label)] = True
+        export_label = str(export.label)
+        if GraphNodeInfo in export and export[GraphNodeInfo].no_exporting:
+            if export_label in link_once_static_libs:
+                link_once_static_libs.remove(export_label)
+            continue
+        exports[export_label] = True
 
     debug_files = []
     exports_debug_file = ctx.actions.declare_file(ctx.label.name + "_exports.txt")
@@ -595,15 +610,19 @@ def _graph_structure_aspect_impl(target, ctx):
     # TODO(bazel-team): Add flag to Bazel that can toggle the initialization of
     # linkable_more_than_once.
     linkable_more_than_once = False
+    no_exporting = False
     if hasattr(ctx.rule.attr, "tags"):
         for tag in ctx.rule.attr.tags:
             if tag == LINKABLE_MORE_THAN_ONCE:
                 linkable_more_than_once = True
+            elif tag == NO_EXPORTING:
+                no_exporting = True
 
     return [GraphNodeInfo(
         label = ctx.label,
         children = children,
         linkable_more_than_once = linkable_more_than_once,
+        no_exporting = no_exporting,
     )]
 
 def _cc_shared_library_permissions_impl(ctx):
