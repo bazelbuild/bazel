@@ -118,7 +118,7 @@ public final class Starlark {
    * Reports whether the argument is a legal Starlark value: a string, boolean, or StarlarkValue.
    */
   public static boolean valid(Object x) {
-    return x instanceof StarlarkValue || x instanceof String || x instanceof Boolean;
+    return x instanceof String || x instanceof Boolean || x instanceof StarlarkValue;
   }
 
   /**
@@ -167,11 +167,14 @@ public final class Starlark {
    * @throws EvalException otherwise.
    */
   public static void checkHashable(Object x) throws EvalException {
-    if (x instanceof StarlarkValue) {
+    if (x instanceof String) {
+      // Strings are the most common dict keys. Check them first, since `instanceof StarlarkValue`
+      // (an interface) is slower than `instanceof String` (a final class).
+    } else if (x instanceof StarlarkValue) {
       ((StarlarkValue) x).checkHashable();
     } else {
+      // Throw if the type is bad. Otherwise it's a Boolean, which is hashable.
       Starlark.checkValid(x);
-      // String and Boolean are hashable.
     }
   }
 
