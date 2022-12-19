@@ -137,7 +137,7 @@ Using the
 flag introduced in Bazel 6.0, the [JSON trace profiler](/configure/json-trace-profile) collects the
 system load average during the invocation.
 
-![Profile that includes system load average](/images/json-trace-profile-system-load-average.png "Profile that includes system load average")
+![Profile that includes system load average](/docs/images/json-trace-profile-system-load-average.png "Profile that includes system load average")
 
 **Figure 1.** Profile that includes system load average.
 
@@ -171,7 +171,7 @@ There are two main sources to get Bazel’s memory usage, Bazel `info` and the
   that attempts to force a full GC).
 
 A regression in memory usage is usually a result of a regression in
-[build request size metrics](#deterministic-build-metrics-as-a-proxy-for-build-performance),
+[build request size metrics](#deterministic_build_metrics_as_a_proxy_for_build_performance),
 which are often due to addition of dependencies or a change in the rule
 implementation.
 
@@ -192,7 +192,7 @@ persistent worker memory usage during the invocation by passing in the
 [`--experimental_collect_system_network_usage`](https://github.com/bazelbuild/bazel/blob/6.0.0/src/main/java/com/google/devtools/build/lib/runtime/CommonCommandOptions.java#L314-L320)
 flag (new in Bazel 6.0).
 
-![Profile that includes workers memory usage](/images/json-trace-profile-workers-memory-usage.png "Profile that includes workers memory usage")
+![Profile that includes workers memory usage](/docs/images/json-trace-profile-workers-memory-usage.png "Profile that includes workers memory usage")
 
 **Figure 2.** Profile that includes workers memory usage.
 
@@ -218,7 +218,7 @@ Furthermore, [JSON trace profiles](/configure/json-trace-profile) allow you
 to view system-wide network usage throughout the course of the build by passing
 the `--experimental_collect_system_network_usage` flag (new in Bazel 6.0).
 
-![Profile that includes system-wide network usage](/images/json-trace-profile-network-usage.png "Profile that includes system-wide network usage")
+![Profile that includes system-wide network usage](/docs/images/json-trace-profile-network-usage.png "Profile that includes system-wide network usage")
 
 **Figure 3.** Profile that includes system-wide network usage.
 

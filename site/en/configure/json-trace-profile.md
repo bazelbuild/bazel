@@ -30,7 +30,7 @@ detailed results, click the boxes in the lower left corner.
 
 Example profile:
 
-![Example profile](/images/json-trace-profile.png "Example profile")
+![Example profile](/docs/images/json-trace-profile.png "Example profile")
 
 **Figure 1.** Example profile.
 

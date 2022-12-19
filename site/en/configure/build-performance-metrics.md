@@ -19,7 +19,7 @@ for targets with significant impact, such as:
 
 An important step to improving the performance of builds is to understand where
 resources are spent. This page lists different metrics you can collect.
-[Breaking down build performance](/build-performance-breakdown) showcases
+[Breaking down build performance](/configure/build-performance-breakdown) showcases
 how you can use these metrics to detect and fix build performance issues.
 
 There are a few main ways to extract metrics from your Bazel builds, namely:
