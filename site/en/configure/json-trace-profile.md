@@ -12,7 +12,7 @@ By default, for all build-like commands and query Bazel writes such a profile to
 `command.profile.gz`. You can configure whether a profile is written with the
 [`--generate_json_trace_profile`](/reference/command-line-reference#flag--generate_json_trace_profile)
 flag, and the location it is written to with the
-[`--profile`](/user-manual#profile) flag. Locations ending with `.gz` are
+[`--profile`](/docs/user-manual#profile) flag. Locations ending with `.gz` are
 compressed with GZIP. Use the flag
 [`--experimental_announce_profile_path`](/reference/command-line-reference#flag--experimental_announce_profile_path)
 to print the path to this file to the log.
@@ -49,7 +49,7 @@ You can use these keyboard controls to navigate:
 
 ## `bazel analyze-profile`
 
-The Bazel subcommand [`analyze-profile`](/user-manual#analyze-profile)
+The Bazel subcommand [`analyze-profile`](/docs/user-manual#analyze-profile)
 consumes a profile format and prints cumulative statistics for
 different task types for each build phase and an analysis of the critical path.
 

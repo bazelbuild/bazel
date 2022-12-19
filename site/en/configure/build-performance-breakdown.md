@@ -161,7 +161,7 @@ There are two main sources to get Bazel’s memory usage, Bazel `info` and the
      provides benchmarks for this metric as well.
    - Additionally, there are `peak-heap-size`, `max-heap-size`, `used-heap-size`
      and `committed-heap-size` (see
-     [documentation](/user-manual#configuration-independent-data)), but are
+     [documentation](/docs/user-manual#configuration-independent-data)), but are
      less relevant.
 
 - [BEP](/remote/bep)’s
