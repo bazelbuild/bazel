@@ -785,7 +785,7 @@ public abstract class DependencyResolver {
     try {
       return AspectCollection.create(filteredAspectPath);
     } catch (AspectCycleOnPathException e) {
-      throw new InconsistentAspectOrderException(toTarget, e);
+      throw new InconsistentAspectOrderException(toTarget.getLabel(), toTarget.getLocation(), e);
     }
   }
 

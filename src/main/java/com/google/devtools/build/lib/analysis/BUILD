@@ -834,7 +834,7 @@ java_library(
     srcs = ["InconsistentAspectOrderException.java"],
     deps = [
         ":aspect_collection",
-        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/net/starlark/java/syntax",
     ],
 )
