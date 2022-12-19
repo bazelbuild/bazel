@@ -687,6 +687,16 @@ def _get_toolchain_global_make_variables(cc_toolchain):
     else:
         result["GLIBC_VERSION"] = libc
 
+    abi_glibc_version = cc_toolchain.get_abi_glibc_version()
+    if abi_glibc_version != None:
+        result["ABI_GLIBC_VERSION"] = abi_glibc_version
+
+    abi = cc_toolchain.get_abi()
+    if abi != None:
+        result["ABI"] = abi
+
+    result["CROSSTOOLTOP"] = cc_toolchain.get_crosstool_top_path()
+
     return result
 
 def _contains_sysroot(original_cc_flags, feature_config_cc_flags):

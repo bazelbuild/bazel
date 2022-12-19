@@ -71,9 +71,9 @@ public interface TemplateDictApi extends StarlarkValue {
             named = true,
             positional = false,
             doc =
-                "A Starlark function accepting a single argument and returning either a String or "
-                    + "<code>None</code>. This function is applied to each item of the depset "
-                    + "specified in the <code>values</code> parameter"),
+                "A Starlark function accepting a single argument and returning either a string, "
+                    + "<code>None</code>, or a list of strings. This function is applied to each "
+                    + "item of the depset specified in the <code>values</code> parameter"),
         @Param(
             name = "uniquify",
             named = true,

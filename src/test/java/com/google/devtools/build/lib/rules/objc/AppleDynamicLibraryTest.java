@@ -167,12 +167,6 @@ public class AppleDynamicLibraryTest extends AppleBinaryStarlarkApiTest {
     checkLipoBinaryAction(RULE_TYPE);
   }
 
-  @Override
-  @Test
-  public void testWatchSimulatorDepCompile() throws Exception {
-    checkWatchSimulatorDepCompile(RULE_TYPE);
-  }
-
   @Test
   public void testMultiarchCcDepPreMigration() throws Exception {
     checkMultiarchCcDep(RULE_TYPE, /* linkingInfoMigration= */ false);

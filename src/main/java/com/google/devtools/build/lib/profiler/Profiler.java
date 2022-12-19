@@ -255,10 +255,16 @@ public final class Profiler {
     }
   }
 
-  // TODO(twerth): Make use of counterValue directly in a follow-up change.
   private static final class CounterData extends TaskData {
+    private final double counterValue;
+
     public CounterData(long timeNanos, ProfilerTask type, double counterValue) {
       super(/* id= */ -1, timeNanos, type, String.valueOf(counterValue));
+      this.counterValue = counterValue;
+    }
+
+    public double getCounterValue() {
+      return counterValue;
     }
   }
 
@@ -1211,8 +1217,10 @@ public final class Profiler {
             }
 
             if (COUNTER_TASK_TO_SERIES_NAME.containsKey(data.type)) {
+              Preconditions.checkArgument(data instanceof CounterData);
+              CounterData counterData = (CounterData) data;
               // Skip counts equal to zero. They will show up as a thin line in the profile.
-              if ("0.0".equals(data.description)) {
+              if (Math.abs(counterData.getCounterValue()) <= 0.00001) {
                 continue;
               }
               writer.setIndent("  ");
@@ -1236,7 +1244,9 @@ public final class Profiler {
               writer.name("args");
 
               writer.beginObject();
-              writer.name(COUNTER_TASK_TO_SERIES_NAME.get(data.type)).value(data.description);
+              writer
+                  .name(COUNTER_TASK_TO_SERIES_NAME.get(data.type))
+                  .value(counterData.getCounterValue());
               writer.endObject();
 
               writer.endObject();

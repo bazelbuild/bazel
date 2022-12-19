@@ -86,8 +86,11 @@ filename in `srcs`, `main` must be specified.
     allow_none = True,
 )
 
-def py_executable_impl(ctx, *, semantics, is_test, inherited_environment = []):
-    """Rule implementation for a Python executable.
+def py_executable_base_impl(ctx, *, semantics, is_test, inherited_environment = []):
+    """Base rule implementation for a Python executable.
+
+    Google and Bazel call this common base and apply customizations using the
+    semantics object.
 
     Args:
         ctx: The rule ctx
@@ -126,7 +129,7 @@ def py_executable_impl(ctx, *, semantics, is_test, inherited_environment = []):
         cc_details = cc_details,
         is_test = is_test,
     )
-    runfiles_details = _get_runfiles_for_binary(
+    runfiles_details = _get_base_runfiles_for_binary(
         ctx,
         executable = executable,
         extra_deps = extra_deps,
@@ -139,7 +142,7 @@ def py_executable_impl(ctx, *, semantics, is_test, inherited_environment = []):
         ],
         semantics = semantics,
     )
-    semantics.create_executable(
+    exec_result = semantics.create_executable(
         ctx,
         executable = executable,
         main_py = main_py,
@@ -150,6 +153,16 @@ def py_executable_impl(ctx, *, semantics, is_test, inherited_environment = []):
         native_deps_details = native_deps_details,
         runfiles_details = runfiles_details,
     )
+    files_to_build = depset(transitive = [
+        exec_result.extra_files_to_build,
+        files_to_build,
+    ])
+    extra_exec_runfiles = ctx.runfiles(transitive_files = files_to_build)
+    runfiles_details = struct(
+        default_runfiles = runfiles_details.default_runfiles.merge(extra_exec_runfiles),
+        data_runfiles = runfiles_details.data_runfiles.merge(extra_exec_runfiles),
+    )
+
     legacy_providers, modern_providers = _create_providers(
         ctx = ctx,
         executable = executable,
@@ -162,6 +175,7 @@ def py_executable_impl(ctx, *, semantics, is_test, inherited_environment = []):
         cc_info = cc_details.cc_info_for_propagating,
         inherited_environment = inherited_environment,
         semantics = semantics,
+        output_groups = exec_result.output_groups,
     )
     return struct(
         legacy_providers = legacy_providers,
@@ -173,16 +187,29 @@ def _validate_executable(ctx):
         fail("It is not allowed to use Python 2")
 
 def _compute_outputs(ctx, output_sources):
-    # TODO: Use .exe suffixed name for Windows
-    # TODO: Handle --build_python_zip flag
-    executable = ctx.actions.declare_file(ctx.label.name)
+    # TODO: This should use the configuration instead of the Bazel OS.
+    if _py_builtins.get_current_os_name() == "windows":
+        executable = ctx.actions.declare_file(ctx.label.name + ".exe")
+    else:
+        executable = ctx.actions.declare_file(ctx.label.name)
 
     # TODO(b/208657718): Remove output_sources from the default outputs
     # once the depot is cleaned up.
-    files_to_build = depset(direct = [executable] + output_sources)
-    return executable, files_to_build
+    return executable, depset([executable] + output_sources)
 
 def _get_runtime_details(ctx, semantics):
+    """Gets various information about the Python runtime to use.
+
+    While most information comes from the toolchain, various legacy and
+    compatibility behaviors require computing some other information.
+
+    Args:
+        ctx: Rule ctx
+        semantics: A `BinarySemantics` struct; see `create_binary_semantics_struct`
+
+    Returns:
+        A struct; see inline-field comments of the return value for details.
+    """
     # TODO: Google and Bazel have approximately the same logic, but Google gives
     # preferences to the flag value, while Bazel gives preference to the
     # toolchain value.
@@ -220,13 +247,27 @@ def _get_runtime_details(ctx, semantics):
     )
 
     return struct(
+        # Optional PyRuntimeInfo: The runtime found from toolchain resolution.
+        # This may be None because, within Google, toolchain resolution isn't
+        # yet enabled.
         toolchain_runtime = None,  # TODO: implement toolchain lookup
+        # Optional PyRuntimeInfo: The runtime that should be used. When
+        # toolchain resolution is enabled, this is the same as
+        # `toolchain_resolution`. Otherwise, this probably came from the
+        # `_python_top` attribute that the Google implementation still uses.
         effective_runtime = effective_runtime,
+        # str; Path to the Python interpreter to use for running the executable
+        # itself (not the bootstrap script). Either an absolute path (which
+        # means it is platform-specific), or a runfiles-relative path (which
+        # means the interpreter should be within `runtime_files`)
         executable_interpreter_path = executable_interpreter_path,
+        # runfiles: Additional runfiles specific to the runtime that should
+        # be included. For in-build runtimes, this shold include the interpreter
+        # and any supporting files.
         runfiles = ctx.runfiles(transitive_files = runtime_files),
     )
 
-def _get_runfiles_for_binary(
+def _get_base_runfiles_for_binary(
         ctx,
         *,
         executable,
@@ -234,6 +275,26 @@ def _get_runfiles_for_binary(
         files_to_build,
         extra_common_runfiles,
         semantics):
+    """Returns the set of runfiles necessary prior to executable creation.
+
+    NOTE: The term "common runfiles" refers to the runfiles that both the
+    default and data runfiles have in common.
+
+    Args:
+        ctx: The rule ctx.
+        executable: The main executable output.
+        extra_deps: List of Targets; additional targets whose runfiles
+            will be added to the common runfiles.
+        files_to_build: depset of File of the default outputs to add into runfiles.
+        extra_common_runfiles: List of runfiles; additional runfiles that
+            will be added to the common runfiles.
+        semantics: A `BinarySemantics` struct; see `create_binary_semantics_struct`.
+
+    Returns:
+        struct with attributes:
+        * default_runfiles: The default runfiles
+        * data_runfiles: The data runfiles
+    """
     common_runfiles = collect_runfiles(ctx, depset(
         direct = [executable],
         transitive = [files_to_build],
@@ -254,7 +315,7 @@ def _get_runfiles_for_binary(
     # Don't include build_data.txt in data runfiles. This allows binaries to
     # contain other binaries while still using the same fixed location symlink
     # for the build_data.txt file. Really, the fixed location symlink should be
-    # removed and another way found to location the underlying build data file.
+    # removed and another way found to locate the underlying build data file.
     data_runfiles = common_runfiles
 
     if is_stamping_enabled(ctx, semantics) and semantics.should_include_build_data(ctx):
@@ -316,7 +377,7 @@ def _write_build_data(ctx, central_uncachable_version_file, extra_write_build_da
     #   * Passing the transitive dependencies into the action requires passing
     #     the runfiles, but actions don't directly accept runfiles. While
     #     flattening the depsets can be deferred, accessing the
-    #     `runfiles.empty_filesnames` attribute will will invoke the empty
+    #     `runfiles.empty_filenames` attribute will will invoke the empty
     #     file supplier a second time, which is too much of a memory and CPU
     #     performance hit.
     #   * Some targets specify a directory in `data`, which is unsound, but
@@ -573,9 +634,10 @@ def _create_providers(
         files_to_build,
         runfiles_details,
         imports,
-        cc_info = None,
+        cc_info,
         inherited_environment,
         runtime_details,
+        output_groups,
         semantics):
     """Creates the providers an executable should return.
 
@@ -596,6 +658,7 @@ def _create_providers(
             that should be inherited from the environment the executuble
             is run within.
         runtime_details: struct of runtime information; see _get_runtime_details()
+        output_groups: dict[str, depset[File]]; used to create OutputGroupInfo
         semantics: BinarySemantics struct; see create_binary_semantics()
 
     Returns:
@@ -643,6 +706,8 @@ def _create_providers(
         runtime_details = runtime_details,
     )
     providers.extend(extra_providers)
+    if output_groups:
+        providers.append(OutputGroupInfo(**output_groups))
 
     return extra_legacy_providers, providers
 
@@ -660,7 +725,7 @@ def _create_run_environment_info(ctx, inherited_environment):
         inherited_environment = inherited_environment,
     )
 
-def create_executable_rule(*, attrs, **kwargs):
+def create_base_executable_rule(*, attrs, **kwargs):
     """Create a function for defining for Python binary/test targets.
 
     Args:

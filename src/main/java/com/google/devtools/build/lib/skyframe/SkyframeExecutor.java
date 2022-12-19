@@ -401,6 +401,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // Reset while preparing for execution in each build.
   private Optional<IncrementalPackageRoots> incrementalPackageRoots = Optional.empty();
 
+  // This boolean controls whether FILE_STATE or DIRECTORY_LISTING_STATE nodes are dropped after the
+  // corresponding FILE or DIRECTORY_LISTING nodes are evaluated.
+  // See b/261019506.
+  protected boolean heuristicallyDropNodes = false;
+
   class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
     public boolean shouldCreatePathResolverForArtifactValues() {
@@ -948,6 +953,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       boolean batch,
       boolean keepStateAfterBuild,
       boolean trackIncrementalState,
+      boolean heuristicallyDropNodes,
       boolean discardAnalysisCache,
       EventHandler eventHandler) {
     // Assume incrementality.
@@ -3100,6 +3106,26 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         @Nullable ErrorInfo newError,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
         EvaluationState state) {
+      if (heuristicallyDropNodes) {
+        Object argument = skyKey.argument();
+        if (skyKey.functionName().equals(FileValue.FILE)) {
+          Preconditions.checkArgument(
+              argument instanceof RootedPath,
+              "FILE SkyKey (%s) does not have a RootedPath typed argument (%s)",
+              skyKey,
+              argument);
+          memoizingEvaluator.getAllValuesMutable().remove(argument);
+        } else if (skyKey.functionName().equals(SkyFunctions.DIRECTORY_LISTING)) {
+          Preconditions.checkArgument(
+              argument instanceof RootedPath,
+              "DIRECTORY_LISTING SkyKey (%s) does not have a RootedPath typed argument (%s)",
+              skyKey,
+              argument);
+          SkyKey directoryListingStateKey = DirectoryListingStateValue.key((RootedPath) argument);
+          memoizingEvaluator.getAllValuesMutable().remove(directoryListingStateKey);
+        }
+      }
+
       if (EvaluationState.BUILT.equals(state)) {
         skyKeyStateReceiver.evaluated(skyKey);
       }

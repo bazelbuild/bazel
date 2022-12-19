@@ -24,6 +24,11 @@ package com.google.devtools.build.skyframe;
  * graph. Any attempt to access the edges once the node is done will fail the build fast.
  */
 public class EdgelessInMemoryNodeEntry extends InMemoryNodeEntry {
+
+  public EdgelessInMemoryNodeEntry(SkyKey key) {
+    super(key);
+  }
+
   @Override
   public final boolean keepsEdges() {
     return false;

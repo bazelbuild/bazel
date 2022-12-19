@@ -83,7 +83,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   @ForOverride
   protected InMemoryNodeEntry newNodeEntry(SkyKey key) {
-    return new InMemoryNodeEntry();
+    return new InMemoryNodeEntry(key);
   }
 
   /**
@@ -125,7 +125,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   static final class EdgelessInMemoryGraphImpl extends InMemoryGraphImpl {
     @Override
     protected InMemoryNodeEntry newNodeEntry(SkyKey key) {
-      return new EdgelessInMemoryNodeEntry();
+      return new EdgelessInMemoryNodeEntry(key);
     }
   }
 }

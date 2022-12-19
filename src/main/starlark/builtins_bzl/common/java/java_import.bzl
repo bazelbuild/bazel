@@ -52,6 +52,7 @@ def _process_with_ijars_if_needed(jars, ctx):
             interface_jar = ctx.actions.declare_file(interface_jar_directory)
             java_common.run_ijar(
                 ctx.actions,
+                target_label = ctx.label,
                 jar = jar,
                 output = interface_jar,
                 java_toolchain = semantics.find_java_toolchain(ctx),

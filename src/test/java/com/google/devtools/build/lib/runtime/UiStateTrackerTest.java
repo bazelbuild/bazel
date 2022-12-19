@@ -1360,7 +1360,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
         new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport1, transport2)));
     stateTracker.buildEventTransportsAnnounced(
         new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport3)));
-    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    var unused = stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(true);
 
@@ -1371,8 +1371,6 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(output, containsString("BuildEventTransport1"));
     assertThat(output, containsString("BuildEventTransport2"));
     assertThat(output, containsString("BuildEventTransport3"));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
 
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     stateTracker.buildEventTransportClosed(new BuildEventTransportClosedEvent(transport1));
@@ -1383,8 +1381,6 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(output, not(containsString("BuildEventTransport1")));
     assertThat(output, containsString("BuildEventTransport2"));
     assertThat(output, containsString("BuildEventTransport3"));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
 
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     stateTracker.buildEventTransportClosed(new BuildEventTransportClosedEvent(transport3));
@@ -1395,8 +1391,6 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(output, not(containsString("BuildEventTransport1")));
     assertThat(output, containsString("BuildEventTransport2"));
     assertThat(output, not(containsString("BuildEventTransport3")));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
 
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     stateTracker.buildEventTransportClosed(new BuildEventTransportClosedEvent(transport2));
@@ -1407,8 +1401,6 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(output, not(containsString("BuildEventTransport1")));
     assertThat(output, not(containsString("BuildEventTransport2")));
     assertThat(output, not(containsString("BuildEventTransport3")));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
     assertThat(output.split("\\n")).hasLength(1);
   }
 
@@ -1426,7 +1418,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.buildStarted();
     stateTracker.buildEventTransportsAnnounced(
         new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport1, transport2)));
-    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    var unused = stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
@@ -1434,8 +1426,6 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(output, containsString("1s"));
     assertThat(output, containsString("A".repeat(30) + "..."));
     assertThat(output, containsString("BuildEventTransport"));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
 
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     stateTracker.buildEventTransportClosed(new BuildEventTransportClosedEvent(transport2));
@@ -1446,8 +1436,6 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(output, containsString("2s"));
     assertThat(output, containsString("A".repeat(30) + "..."));
     assertThat(output, not(containsString("BuildEventTransport")));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
     assertThat(output.split("\\n")).hasLength(2);
   }
 
@@ -1526,7 +1514,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
     buildResult.setStopTime(clock.currentTimeMillis());
-    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    var unused = stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
     clock.advanceMillis(Duration.ofSeconds(2).toMillis());
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
 
@@ -1545,7 +1533,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
     buildResult.setStopTime(clock.currentTimeMillis());
-    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    var unused = stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
     stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "b"));
     stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "c"));
     stateTracker.actionUploadFinished(ActionUploadFinishedEvent.create(action, "a"));

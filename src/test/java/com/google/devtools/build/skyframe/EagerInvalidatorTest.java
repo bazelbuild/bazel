@@ -138,7 +138,7 @@ public class EagerInvalidatorTest {
         new ParallelEvaluator(
             graph,
             graphVersion,
-            MinimalVersion.INSTANCE,
+            Version.minimal(),
             tester.getSkyFunctionMap(),
             reporter,
             new NestedSetVisitor.VisitedState(),
@@ -149,8 +149,8 @@ public class EagerInvalidatorTest {
             GraphInconsistencyReceiver.THROWING,
             () -> AbstractQueueVisitor.createExecutorService(200, "test-pool"),
             new SimpleCycleDetector(),
-            /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
-            /*executionJobsThreadPoolSize=*/ 0,
+            /* cpuHeavySkyKeysThreadPoolSize= */ 0,
+            /* executionJobsThreadPoolSize= */ 0,
             UnnecessaryTemporaryStateDropperReceiver.NULL);
     graphVersion = graphVersion.next();
     return evaluator.eval(ImmutableList.copyOf(keys));

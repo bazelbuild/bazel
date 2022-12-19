@@ -652,11 +652,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
     checkLinkMinimumOSVersion("-miphoneos-version-min=8.0");
   }
 
-  @Test
-  public void testWatchSimulatorDepCompile() throws Exception {
-    checkWatchSimulatorDepCompile(getRuleType());
-  }
-
   private void checkDylibBinaryType() throws Exception {
     getRuleType().scratchTarget(scratch, "binary_type", "'dylib'");
 

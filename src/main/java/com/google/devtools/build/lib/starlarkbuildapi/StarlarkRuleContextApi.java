@@ -211,14 +211,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   BuildConfigurationApi getConfiguration() throws EvalException;
 
   @StarlarkMethod(
-      name = "host_configuration",
-      structField = true,
-      doc =
-          "The host configuration. See the <a href=\"configuration.html\">"
-              + "configuration</a> type for more details.")
-  BuildConfigurationApi getHostConfiguration() throws EvalException;
-
-  @StarlarkMethod(
       name = "build_setting_value",
       structField = true,
       doc =

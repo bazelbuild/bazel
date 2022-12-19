@@ -44,6 +44,7 @@ public final class InMemoryNodeEntryTest {
 
   private static final NestedSet<Reportable> NO_EVENTS =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  private static final SkyKey KEY = key("KEY");
 
   private static SkyKey key(String name) {
     return GraphTester.toSkyKey(name);
@@ -51,7 +52,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void createEntry() {
-    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    InMemoryNodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     assertThat(entry.isDone()).isFalse();
     assertThat(entry.isReady()).isTrue();
@@ -65,7 +66,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void signalEntry() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     SkyKey dep1 = key("dep1");
@@ -92,7 +93,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void signalExternalDep() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     entry.addExternalDep();
@@ -108,7 +109,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void reverseDeps() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     SkyKey mother = key("mother");
     SkyKey father = key("father");
     assertThat(entry.addReverseDepAndCheckIfDone(mother))
@@ -128,7 +129,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void errorValue() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     ReifiedSkyFunctionException exception =
@@ -143,7 +144,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void errorAndValue() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     ReifiedSkyFunctionException exception =
@@ -157,7 +158,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void crashOnNullErrorAndValue() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     assertThrows(
@@ -167,7 +168,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void crashOnTooManySignals() {
-    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    InMemoryNodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     assertThrows(IllegalStateException.class, () -> entry.signalDep(ZERO_VERSION, null));
@@ -175,7 +176,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void crashOnSetValueWhenDone() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     setValue(entry, new SkyValue() {}, /*errorInfo=*/ null, /*graphVersion=*/ 0L);
@@ -187,7 +188,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void dirtyLifecycle() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     SkyKey dep = key("dep");
@@ -220,7 +221,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void changedLifecycle() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     SkyKey dep = key("dep");
@@ -250,7 +251,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void forceRebuildLifecycle() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     SkyKey dep = key("dep");
@@ -286,7 +287,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void markDirtyThenChanged() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     SkyKey dep = key("dep");
@@ -312,7 +313,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void markChangedThenDirty() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     SkyKey dep = key("dep");
@@ -337,7 +338,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void crashOnTwiceMarkedChanged() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     setValue(entry, new SkyValue() {}, /*errorInfo=*/ null, /*graphVersion=*/ 0L);
@@ -352,7 +353,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void crashOnTwiceMarkedDirty() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     SkyKey dep = key("dep");
@@ -368,7 +369,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void allowTwiceMarkedForceRebuild() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     setValue(entry, new SkyValue() {}, /*errorInfo=*/ null, /*graphVersion=*/ 0L);
@@ -383,7 +384,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void crashOnAddReverseDepTwice() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     SkyKey parent = key("parent");
     assertThat(entry.addReverseDepAndCheckIfDone(parent))
         .isEqualTo(DependencyState.NEEDS_SCHEDULING);
@@ -399,7 +400,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void crashOnAddReverseDepTwiceAfterDone() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
@@ -415,7 +416,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void crashOnAddReverseDepBeforeAfterDone() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     SkyKey parent = key("parent");
     assertThat(entry.addReverseDepAndCheckIfDone(parent))
         .isEqualTo(DependencyState.NEEDS_SCHEDULING);
@@ -431,7 +432,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void pruneBeforeBuild() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     SkyKey dep = key("dep");
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
@@ -480,7 +481,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void pruneAfterBuild() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     SkyKey dep = key("dep");
@@ -504,7 +505,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void noPruneWhenDetailsChange() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     SkyKey dep = key("dep");
@@ -546,7 +547,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void pruneWhenDepGroupReordered() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     SkyKey dep = key("dep");
@@ -588,7 +589,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void errorInfoCannotBePruned() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     SkyKey dep = key("dep");
@@ -616,7 +617,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void getDependencyGroup() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     SkyKey dep = key("dep");
@@ -641,7 +642,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void maintainDependencyGroupAfterRemoval() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     SkyKey dep = key("dep");
@@ -672,7 +673,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void pruneWhenDepsChange() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     SkyKey dep = key("dep");
@@ -697,7 +698,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void checkDepsOneByOne() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
     List<SkyKey> deps = new ArrayList<>();
@@ -725,7 +726,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void signalOnlyNewParents() throws InterruptedException {
-    NodeEntry entry = new InMemoryNodeEntry();
+    NodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addReverseDepAndCheckIfDone(key("parent"));
     entry.markRebuilding();
     setValue(entry, new SkyValue() {}, /*errorInfo=*/null, /*graphVersion=*/0L);
@@ -741,7 +742,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void testClone() throws InterruptedException {
-    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    InMemoryNodeEntry entry = new InMemoryNodeEntry(KEY);
     IntVersion version = IntVersion.of(0);
     IntegerValue originalValue = new IntegerValue(42);
     SkyKey originalChild = key("child");
@@ -786,7 +787,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void getCompressedDirectDepsForDoneEntry() throws InterruptedException {
-    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    InMemoryNodeEntry entry = new InMemoryNodeEntry(KEY);
     ImmutableList<ImmutableList<SkyKey>> groupedDirectDeps =
         ImmutableList.of(
             ImmutableList.of(key("1A")),
@@ -812,7 +813,7 @@ public final class InMemoryNodeEntryTest {
   @Test
   public void hasAtLeastOneDep_true() throws Exception {
     SkyKey dep = key("dep");
-    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    InMemoryNodeEntry entry = new InMemoryNodeEntry(KEY);
     assertThatNodeEntry(entry)
         .addReverseDepAndCheckIfDone(null)
         .isEqualTo(DependencyState.NEEDS_SCHEDULING);
@@ -825,7 +826,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void hasAtLeastOneDep_false() throws Exception {
-    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    InMemoryNodeEntry entry = new InMemoryNodeEntry(KEY);
     assertThatNodeEntry(entry)
         .addReverseDepAndCheckIfDone(null)
         .isEqualTo(DependencyState.NEEDS_SCHEDULING);
@@ -837,7 +838,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void addTemporaryDirectDepsInGroups() {
-    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    InMemoryNodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addTemporaryDirectDepsInGroups(
         ImmutableSet.of(
             key("1A"), key("2A"), key("2B"), key("3A"), key("3B"), key("3C"), key("4A"), key("4B"),
@@ -854,21 +855,21 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void addTemporaryDirectDepsInGroups_toleratesEmpty() {
-    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    InMemoryNodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addTemporaryDirectDepsInGroups(ImmutableSet.of(), ImmutableList.of());
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
   }
 
   @Test
   public void addTemporaryDirectDepsInGroups_toleratesGroupSizeOfZero() {
-    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    InMemoryNodeEntry entry = new InMemoryNodeEntry(KEY);
     entry.addTemporaryDirectDepsInGroups(ImmutableSet.of(key("dep")), ImmutableList.of(0, 1, 0));
     assertThat(entry.getTemporaryDirectDeps()).containsExactly(ImmutableList.of(key("dep")));
   }
 
   @Test
   public void addTemporaryDirectDepsInGroups_notEnoughGroups_throws() {
-    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    InMemoryNodeEntry entry = new InMemoryNodeEntry(KEY);
     assertThrows(
         RuntimeException.class,
         () ->
@@ -877,7 +878,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void addTemporaryDirectDepsInGroups_tooManyGroups_throws() {
-    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    InMemoryNodeEntry entry = new InMemoryNodeEntry(KEY);
     assertThrows(
         RuntimeException.class,
         () -> entry.addTemporaryDirectDepsInGroups(ImmutableSet.of(), ImmutableList.of(1)));
@@ -885,7 +886,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void addTemporaryDirectDepsInGroups_depsLeftOver_throws() {
-    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    InMemoryNodeEntry entry = new InMemoryNodeEntry(KEY);
     assertThrows(
         RuntimeException.class,
         () ->
@@ -895,7 +896,7 @@ public final class InMemoryNodeEntryTest {
 
   @Test
   public void addTemporaryDirectDepsInGroups_depsExhausted_throws() {
-    InMemoryNodeEntry entry = new InMemoryNodeEntry();
+    InMemoryNodeEntry entry = new InMemoryNodeEntry(KEY);
     assertThrows(
         RuntimeException.class,
         () ->

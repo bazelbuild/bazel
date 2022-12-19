@@ -29,6 +29,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
@@ -134,11 +135,22 @@ public class TemplateDict implements TemplateDictApi {
                     /*kwargs=*/ ImmutableMap.of());
             if (ret instanceof String) {
               parts.add((String) ret);
+            } else if (ret instanceof Sequence) {
+              for (Object v : ((Sequence) ret)) {
+                if (!(v instanceof String)) {
+                  throw Starlark.errorf(
+                      "Function provided to map_each must return string, None, or list of strings,"
+                          + " but returned list containing element '%s' of type %s for key '%s' and"
+                          + " value: %s",
+                      v, Starlark.type(v), getKey(), val);
+                }
+                parts.add((String) v);
+              }
             } else if (ret != Starlark.NONE) {
               throw Starlark.errorf(
-                  "Function provided to map_each must return a String or None, but returned type "
-                      + "%s for key '%s' and value: %s",
-                  Starlark.type(ret), getKey(), Starlark.repr(val));
+                  "Function provided to map_each must return string, None, or list of strings, but "
+                      + "returned type %s for key '%s' and value: %s",
+                  Starlark.type(ret), getKey(), val);
             }
           } catch (InterruptedException e) {
             // Report the error to the user, but the stack trace is not of use to them

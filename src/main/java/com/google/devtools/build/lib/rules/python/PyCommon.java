@@ -200,7 +200,7 @@ public final class PyCommon {
     this.mainArtifact = requiresMainFile ? initMainArtifact(ruleContext) : null;
     this.directPythonSources =
         initAndMaybeValidateDirectPythonSources(
-            ruleContext, semantics, /*validate=*/ validateSources, this.mainArtifact);
+            ruleContext, semantics, /* validate= */ validateSources, this.mainArtifact);
     this.usesSharedLibraries = initUsesSharedLibraries(ruleContext);
     this.imports = initImports(ruleContext, semantics);
     this.hasPy2OnlySources = initHasPy2OnlySources(ruleContext, this.sourcesVersion);
@@ -736,8 +736,7 @@ public final class PyCommon {
             .build());
   }
 
-  public void addCommonTransitiveInfoProviders(
-      RuleConfiguredTargetBuilder builder, NestedSet<Artifact> filesToBuild) {
+  public void addCommonTransitiveInfoProviders(RuleConfiguredTargetBuilder builder) {
     addPyInfoProvider(builder);
 
     // Add PyRuntimeInfo if this is an executable rule.

@@ -74,15 +74,15 @@ EOF
 
 function test_metrics() {
   helper "" ""
-  expect_log 'CPU usage (Bazel).*"cpu":"[0-9.]\+"'
-  expect_log 'CPU usage (total).*"system cpu":"[0-9.]\+"'
-  expect_log 'Memory usage (Bazel).*"memory":"[0-9.]\+"'
-  expect_log 'Memory usage (total).*"system memory":"[0-9.]\+"'
+  expect_log 'CPU usage (Bazel).*"cpu":[0-9.]\+'
+  expect_log 'CPU usage (total).*"system cpu":[0-9.]\+'
+  expect_log 'Memory usage (Bazel).*"memory":[0-9.]\+'
+  expect_log 'Memory usage (total).*"system memory":[0-9.]\+'
 }
 
 function test_metrics_with_load_average() {
   helper "" "--experimental_collect_load_average_in_profiler"
-  expect_log 'System load average.*"load":"[0-9.]\+"'
+  expect_log 'System load average.*"load":[0-9.]\+'
 }
 
 run_suite "Integration tests for profiler data."
