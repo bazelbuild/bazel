@@ -17,7 +17,7 @@ This page describes how to enable, tune, and debug dynamic execution. If you
 have both local and remote execution set up and are trying to adjust Bazel
 settings for better performance, this page is for you. If you don't already have
 remote execution set up, go to the Bazel
-[Remote Execution Overview](/docs/remote-execution) first.
+[Remote Execution Overview](/remote/rbe) first.
 
 ## Enabling dynamic execution? {:#enabling-dynamic-execution}
 
@@ -53,9 +53,9 @@ away to add roundtrip latency. You can use the
 to look at how long typical cache hits take.
 
 Dynamic execution can be used with local sandboxed strategy as well as with
-[persistent workers](/docs/persistent-workers). Persistent workers will
+[persistent workers](/remote/persistent). Persistent workers will
 automatically run with sandboxing when used with dynamic execution, and cannot
-use [multiplex workers](/docs/multiplex-worker). On Darwin and Windows systems,
+use [multiplex workers](/remote/multiplex). On Darwin and Windows systems,
 the sandboxed strategy can be slow; you can pass
 `--reuse_sandbox_directories` to reduce overhead of creating sandboxes on these systems.
 
@@ -77,13 +77,13 @@ Merino's excellent
 ## When should I use dynamic execution? {:#when-to-use}
 
 Dynamic execution requires some form of
-[remote execution system](/docs/remote-execution). It is not currently
+[remote execution system](/remote/rbe). It is not currently
 possible to use a cache-only remote system, as a cache miss would be considered
 a failed action.
 
 Not all types of actions are well suited for remote execution. The best
 candidates are those that are inherently faster locally, for instance through
-the use of [persistent workers](/docs/persistent-workers), or those that run
+the use of [persistent workers](/remote/persistent), or those that run
 fast enough that the overhead of remote execution dominates execution time.
 Since each locally executed action locks some amount of CPU and memory
 resources, running actions that don't fall into those categories merely delays

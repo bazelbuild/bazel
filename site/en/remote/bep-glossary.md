@@ -401,7 +401,7 @@ differentiate `FLAKY` tests from `FAILED` tests.
 
 Unlike [CommandLine](#commandline), this event carries the unparsed commandline
 flags in string form as encountered by the build tool after expanding all
-[`.bazelrc`](/docs/bazelrc) files and
+[`.bazelrc`](/run/bazelrc) files and
 considering the `--config` flag.
 
 The `UnstructuredCommandLine` event may be relied upon to precisely reproduce a

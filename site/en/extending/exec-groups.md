@@ -6,8 +6,8 @@ Book: /_book.yaml
 {% include "_buttons.html" %}
 
 Execution groups allow for multiple execution platforms within a single target.
-Each execution group has its own [toolchain](/docs/toolchains) dependencies and
-performs its own [toolchain resolution](/docs/toolchains#toolchain-resolution).
+Each execution group has its own [toolchain](/extending/toolchains) dependencies and
+performs its own [toolchain resolution](/extending/toolchains#toolchain-resolution).
 
 ## Background {:#background}
 
@@ -122,7 +122,7 @@ def _impl(ctx):
   )
 ```
 
-Rule authors will also be able to access the [resolved toolchains](/docs/toolchains#toolchain-resolution)
+Rule authors will also be able to access the [resolved toolchains](/extending/toolchains#toolchain-resolution)
 of execution groups, similarly to how you
 can access the resolved toolchain of a target:
 

@@ -24,9 +24,9 @@ inputs to a rule, but also all of the tools and libraries required to execute
 the actions.
 
 Before creating or modifying any rule, ensure you are familiar with Bazel's
-[build phases](/rules/concepts). It is important to understand the three
+[build phases](/extending/concepts). It is important to understand the three
 phases of a build (loading, analysis, and execution). It is also useful to
-learn about [macros](/rules/macros) to understand the difference between rules and
+learn about [macros](/extending/macros) to understand the difference between rules and
 macros. To get started, first review the [Rules Tutorial](/rules/rules-tutorial).
 Then, use this page as a reference.
 
@@ -43,7 +43,7 @@ When defining your own rule, you get to decide what attributes it supports and
 how it generates its outputs.
 
 The rule's `implementation` function defines its exact behavior during the
-[analysis phase](/rules/concepts#evaluation-model). This function does not run any
+[analysis phase](/extending/concepts#evaluation-model). This function does not run any
 external commands. Rather, it registers [actions](#actions) that will be used
 later during the execution phase to build the rule's outputs, if they are
 needed.
@@ -65,7 +65,7 @@ example_library = rule(
 )
 ```
 
-This defines a [kind of rule](/reference/query#kind) named `example_library`.
+This defines a [kind of rule](/query/language#kind) named `example_library`.
 
 The call to `rule` also must specify if the rule creates an
 [executable](#executable-rules) output (with `executable=True`), or specifically
@@ -91,9 +91,9 @@ a target. This is called *instantiating* the rule. This specifies a name for the
 new target and values for the target's [attributes](#attributes).
 
 Rules can also be called from Starlark functions and loaded in `.bzl` files.
-Starlark functions that call rules are called [Starlark macros](/rules/macros).
+Starlark functions that call rules are called [Starlark macros](/extending/macros).
 Starlark macros must ultimately be called from `BUILD` files, and can only be
-called during the [loading phase](/rules/concepts#evaluation-model), when `BUILD`
+called during the [loading phase](/extending/concepts#evaluation-model), when `BUILD`
 files are evaluated to instantiate targets.
 
 ## Attributes
@@ -215,8 +215,8 @@ label.
 
 Implicit dependencies are generally used for tools that reside in the same
 repository as the rule implementation. If the tool comes from the
-[execution platform](/docs/platforms) or a different repository instead, the
-rule should obtain that tool from a [toolchain](/docs/toolchains).
+[execution platform](/extending/platforms) or a different repository instead, the
+rule should obtain that tool from a [toolchain](/extending/toolchains).
 
 ### Output attributes
 
@@ -240,7 +240,7 @@ can be specifically depended upon or
 ## Implementation function
 
 Every rule requires an `implementation` function. These functions are executed
-strictly in the [analysis phase](/rules/concepts#evaluation-model) and transform the
+strictly in the [analysis phase](/extending/concepts#evaluation-model) and transform the
 graph of targets generated in the loading phase into a graph of
 [actions](#actions) to be performed during the execution phase. As such,
 implementation functions can not actually read or write files.
@@ -400,7 +400,7 @@ def _example_library_impl(ctx):
 
 Actions take a list or depset of input files and generate a (non-empty) list of
 output files. The set of input and output files must be known during the
-[analysis phase](/rules/concepts#evaluation-model). It might depend on the value of
+[analysis phase](/extending/concepts#evaluation-model). It might depend on the value of
 attributes, including providers from dependencies, but it cannot depend on the
 result of the execution. For example, if your action runs the unzip command, you
 must specify which files you expect to be inflated (before running unzip).
@@ -478,7 +478,7 @@ reproduce the failure.
 #### Runfiles
 
 Runfiles are a set of files used by a target at runtime (as opposed to build
-time). During the [execution phase](/rules/concepts#evaluation-model), Bazel creates
+time). During the [execution phase](/extending/concepts#evaluation-model), Bazel creates
 a directory tree containing symlinks pointing to the runfiles. This stages the
 environment for the binary so it can access the runfiles during runtime.
 
@@ -699,7 +699,7 @@ and a
 attributes implicitly defined, in addition to those added for
 [all rules](/reference/be/common-definitions#common-attributes). The defaults of
 implicitly-added attributes cannot be changed, though this can be worked around
-by wrapping a private rule in a [Starlark macro](/rules/macros) which alters the
+by wrapping a private rule in a [Starlark macro](/extending/macros) which alters the
 default:
 
 ```python
@@ -786,7 +786,7 @@ def _example_library_impl(ctx):
 ```
 
 Also unlike most providers, `OutputGroupInfo` can be returned by both an
-[aspect](/rules/aspects) and the rule target to which that aspect is applied, as
+[aspect](/extending/aspects) and the rule target to which that aspect is applied, as
 long as they do not define the same output groups. In that case, the resulting
 providers are merged.
 
@@ -799,7 +799,7 @@ of files from a target to the actions of its consumers. Define
 Imagine that you want to build a C++ binary for a different architecture. The
 build can be complex and involve multiple steps. Some of the intermediate
 binaries, like compilers and code generators, have to run on
-[the execution platform](/docs/platforms#overview) (which could be your host,
+[the execution platform](/extending/platforms#overview) (which could be your host,
 or a remote executor). Some binaries like the final output must be built for the
 target architecture.
 

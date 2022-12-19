@@ -13,7 +13,7 @@ Java projects with Bazel.
 
 The following resources will help you work with Bazel on Java projects:
 
-*   [Tutorial: Building a Java Project](/tutorials/java)
+*   [Tutorial: Building a Java Project](/start/java)
 *   [Java rules](/reference/be/java)
 
 ## Migrating to Bazel {:#migrating-to-bazel}
@@ -86,7 +86,7 @@ For more details, see
 
 ## Best practices {:#best-practices}
 
-In addition to [general Bazel best practices](/docs/best-practices), below are
+In addition to [general Bazel best practices](/configure/best-practices), below are
 best practices specific to Java projects.
 
 ### Directory structure {:#directory-structure}
@@ -128,7 +128,7 @@ Follow these guidelines when creating your `BUILD` files:
 not need it when getting started with Bazel.
 
 The following modules, configuration fragments, and providers will help you
-[extend Bazel's capabilities](/rules/concepts) when building your Java
+[extend Bazel's capabilities](/extending/concepts) when building your Java
 projects:
 
 *   Main Java provider: [`java_common`](/rules/lib/java_common)

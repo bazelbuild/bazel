@@ -7,13 +7,13 @@ Book: /_book.yaml
 
 This page covers the options that are available with various Bazel commands,
 such as `bazel build`, `bazel run`, and `bazel test`. This page is a companion
-to the list of Bazel's commands in [Build with Bazel](/docs/build).
+to the list of Bazel's commands in [Build with Bazel](/run/build).
 
 ## Target syntax {:#target-syntax}
 
 Some commands, like `build` or `test`, can operate on a list of targets. They
 use a syntax more flexible than labels, which is documented in
-[Specifying targets to build](/docs/build#specifying-build-targets).
+[Specifying targets to build](/run/build#specifying-build-targets).
 
 ## Options {:#build-options}
 
@@ -62,7 +62,7 @@ Package path elements may be specified in three formats:
     `/home/bob/clients/bob_client/bazel/foo` directory.
 
 If you use a non-default package path, specify it in your
-[Bazel configuration file](/docs/bazelrc) for convenience.
+[Bazel configuration file](/run/bazelrc) for convenience.
 
 _Bazel doesn't require any packages to be in the
 current directory_, so you can do a build from an empty bazel
@@ -455,7 +455,7 @@ variable across multiple `--action_env` flags, the latest assignment wins.
 #### `--experimental_action_listener={{ "<var>" }}label{{ "</var>" }}` {:#experimental-action-listener}
 
 Warning: Extra actions are deprecated. Use
-[aspects](/rules/aspects)
+[aspects](/extending/aspects)
 instead.
 
 The `experimental_action_listener` option instructs Bazel to use
@@ -465,7 +465,7 @@ insert [`extra_actions`](/reference/be/extra-actions#extra_action) into the buil
 #### `--[no]experimental_extra_action_top_level_only` {:experimental-extra-action-top-level-only}
 
 Warning: Extra actions are deprecated. Use
-[aspects](/rules/aspects) instead.
+[aspects](/extending/aspects) instead.
 
 If this option is set to true, extra actions specified by the
 [ `--experimental_action_listener`](#experimental-action-listener) command
@@ -474,7 +474,7 @@ line option will only be scheduled for top level targets.
 #### `--experimental_extra_action_filter={{ "<var>" }}regex{{ "</var>" }}` {:#experimental-extra-action-filter}
 
 Warning: Extra actions are deprecated. Use
-[aspects](/rules/aspects) instead.
+[aspects](/extending/aspects) instead.
 
 The `experimental_extra_action_filter` option instructs Bazel to
 filter the set of targets to schedule `extra_actions` for.
@@ -829,7 +829,7 @@ be created remotely from in-memory manifests.
 
 When this option is enabled, Bazel will discard the analysis cache
 right before execution starts, thus freeing up additional memory
-(around 10%) for the [execution phase](/docs/build#execution).
+(around 10%) for the [execution phase](/run/build#execution).
 The drawback is that further incremental builds will be slower. See also
 [memory-saving mode](/docs/memory-saving-mode).
 
@@ -1155,7 +1155,7 @@ during the compile-edit-test cycle) and a large group of targets
 regression tests). In the former case, the result information is
 very useful whereas in the latter case it is less so. As with all
 options, this can be specified implicitly via
-the [`.bazelrc`](/docs/bazelrc) file.
+the [`.bazelrc`](/run/bazelrc) file.
 
 The files are printed so as to make it easy to copy and paste the
 filename to the shell, to run built executables. The "up-to-date"
@@ -1309,7 +1309,7 @@ reduces input volatility and maximizes build caching.
 Use these options to control the host and target platforms that configure how builds work, and to
 control what execution platforms and toolchains are available to Bazel rules.
 
-Please see background information on [Platforms](/docs/platforms) and [Toolchains](/docs/toolchains).
+Please see background information on [Platforms](/extending/platforms) and [Toolchains](/extending/toolchains).
 
 #### `--platforms={{ "<var>" }}labels{{ "</var>" }}` {:#platforms}
 
@@ -1432,10 +1432,10 @@ engineers using Bazel.
 
 When using Bazel for release builds, the same issues arise as for other scripts
 that perform a build. For more details, see
-[Call Bazel from scripts](/docs/scripts). In particular, the following options
+[Call Bazel from scripts](/run/scripts). In particular, the following options
 are strongly recommended:
 
-*   [`--bazelrc=/dev/null`](/docs/bazelrc)
+*   [`--bazelrc=/dev/null`](/run/bazelrc)
 *   [`--nokeep_state_after_build`](/reference/command-line-reference#flag--keep_state_after_build)
 
 These options are also important:
@@ -1708,7 +1708,7 @@ filter args to the test runner.
 #### Other options for `bazel test` {:#bazel-test-other-options}
 
 The syntax and the remaining options are exactly like
-[`bazel build`](/docs/build).
+[`bazel build`](/run/build).
 
 ## Running executables {:#running-executables}
 
@@ -1841,14 +1841,14 @@ rather than using `clean`.
 Bazel includes a query language for asking questions about the
 dependency graph used during the build. The query language is used
 by two commands: query and cquery. The major difference between the
-two commands is that query runs after the [loading phase](/docs/build#loading)
-and cquery runs after the [analysis phase](/docs/build#analysis). These tools are an
+two commands is that query runs after the [loading phase](/run/build#loading)
+and cquery runs after the [analysis phase](/run/build#analysis). These tools are an
 invaluable aid to many software engineering tasks.
 
 The query language is based on the idea of
 algebraic operations over graphs; it is documented in detail in
 
-[Bazel Query Reference](/reference/query).
+[Bazel Query Reference](/query/language).
 Please refer to that document for reference, for
 examples, and for query-specific command-line options.
 
@@ -1901,7 +1901,7 @@ For more details, see [Action Graph Query](/docs/aquery).
 
 The `help` command provides on-line help. By default, it
 shows a summary of available commands and help topics, as shown in
-[Building with Bazel](/docs/build#quickstart).
+[Building with Bazel](/run/build#quickstart).
 Specifying an argument displays detailed help for a particular
 topic. Most topics are Bazel commands, such as `build`
 or `query`, but there are some additional help topics
@@ -1920,7 +1920,7 @@ Bazel server processes may be stopped by using the `shutdown`
 command. This command causes the Bazel server to exit as soon as it
 becomes idle (for example, after the completion of any builds or other
 commands that are currently in progress). For more details, see
-[Client/server implementation](/docs/client-server).
+[Client/server implementation](/run/client-server).
 
 Bazel servers stop themselves after an idle timeout, so this command
 is rarely necessary; however, it can be useful in scripts when it is
@@ -2383,7 +2383,7 @@ run Bazel with.
 #### `--batch` {:#batch}
 
 Batch mode causes Bazel to not use the
-[standard client/server mode](/docs/client-server), but instead runs a bazel
+[standard client/server mode](/run/client-server), but instead runs a bazel
 java process for a single command, which has been used for more predictable
 semantics with respect to signal handling, job control, and environment
 variable inheritance, and is necessary for running bazel in a chroot jail.
@@ -2489,7 +2489,7 @@ of the setting of the TERM environment variable.
 #### `--config={{ "<var>" }}name{{ "</var>" }}` {:#config}
 
 Selects additional config section from
-[the rc files](/docs/bazelrc#bazelrc-file-locations); for the current `command`,
+[the rc files](/run/bazelrc#bazelrc-file-locations); for the current `command`,
 it also pulls in the options from `command:name` if such a section exists. Can be
 specified multiple times to add flags from several config sections. Expansions can refer to other
 definitions (for example, expansions can be chained).

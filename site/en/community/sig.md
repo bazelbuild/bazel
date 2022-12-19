@@ -7,7 +7,7 @@ Book: /_book.yaml
 
 Bazel hosts Special Interest Groups (SIGs) to focus collaboration on particular
 areas and to support communication and coordination between [Bazel owners,
-maintainers, and contributors](/contribute/contribution-policy). This policy
+maintainers, and contributors](/contribute/policy). This policy
 applies to [`bazelbuild`](http://github.com/bazelbuild){: .external}.
 
 SIGs do their work in public. The ideal scope for a SIG covers a well-defined

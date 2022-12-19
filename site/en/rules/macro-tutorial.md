@@ -11,7 +11,7 @@ tutorial, you are going to create a macro that resizes an image.
 
 Macros are suitable for simple tasks. If you want to do anything more
 complicated, for example add support for a new programming language, consider
-creating a [rule](/rules/rules). Rules give you more control and flexibility.
+creating a [rule](/extending/rules). Rules give you more control and flexibility.
 
 The easiest way to create a macro that resizes an image is to use a `genrule`:
 

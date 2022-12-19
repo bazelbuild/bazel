@@ -107,7 +107,7 @@ or opt in early depends on your specific value / cost needs:
   flags on the command line.
 * Simpler language design. All languages share a common API for defining
   toolchains, using toolchains, and selecting the right toolchain for a platform.
-* Targets can be [skipped](/docs/platforms#skipping-incompatible-targets) in the
+* Targets can be [skipped](/extending/platforms#skipping-incompatible-targets) in the
   build and test phase if they are incompatible with the target platform.
 
 ### Costs {:#costs}
@@ -299,7 +299,7 @@ platforms
 
 If you're designing rules for a new language, use platforms
 to select your language's toolchains. See the
-[toolchains documentation](/docs/toolchains) for a good walkthrough.
+[toolchains documentation](/extending/toolchains) for a good walkthrough.
 
 ### `select()` {:#select}
 
@@ -438,8 +438,8 @@ contact
 * [`hlopko/bazel_platforms_examples`](https://github.com/hlopko/bazel_platforms_examples){: .external}
 * [Example C++ custom toolchain](https://github.com/gregestren/snippets/tree/master/custom_cc_toolchain_with_platforms){: .external}
 
-[Platforms]: /docs/platforms
-[Toolchains]: /docs/toolchains
+[Platforms]: /extending/platforms
+[Toolchains]: /extending/toolchains
 [Inspiration]: https://blog.bazel.build/2019/02/11/configurable-builds-part-1.html
 [C++ Rules]: /docs/bazel-and-cpp
 [Android Rules]: /docs/bazel-and-android
@@ -451,11 +451,11 @@ contact
 [constraint_value Rule]: /reference/be/platform#constraint_value
 [constraint_setting Rule]: /reference/be/platform#constraint_setting
 [Starlark rule]: /rules/rules
-[Starlark provider]: /rules/rules#providers
+[Starlark provider]: /extending/rules#providers
 [target_compatible_with Attribute]: /reference/be/platform#toolchain.target_compatible_with
 [exec_compatible_with Attribute]: /reference/be/platform#toolchain.exec_compatible_with
 [register_toolchains Function]: /rules/lib/globals#register_toolchains
 [extra_toolchains Flag]: /reference/command-line-reference#flag--extra_toolchains
 [Starlark transitions]: /rules/config#user-defined-transitions
-[Defining Constraints and Platforms]: /docs/platforms#constraints-platforms
-[Configuring C++ toolchains]: /tutorials/cc-toolchain-config
+[Defining Constraints and Platforms]: /extending/platforms#constraints-platforms
+[Configuring C++ toolchains]: /tutorials/ccp-toolchain-config

@@ -31,4 +31,4 @@ self-service tools, see
 
 Remote execution of Bazel builds imposes a set of mandatory configuration
 constraints on the build. For more information, see
-[Adapting Bazel Rules for Remote Execution](/docs/remote-execution-rules).
+[Adapting Bazel Rules for Remote Execution](/remote/rules).

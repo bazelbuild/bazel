@@ -265,7 +265,7 @@ For even clearer errors, you can set custom messages with `select()`'s
 While the ability to specify multiple flags on the command line provides
 flexibility, it can also be burdensome to individually set each one every time
 you want to build a target.
-   [Platforms](/docs/platforms)
+   [Platforms](/extending/platforms)
 let you consolidate these into simple bundles.
 
 ```python
@@ -360,7 +360,7 @@ This saves the need for boilerplate `config_setting`s when you only need to
 check against single values.
 
 Platforms are still under development. See the
-[documentation](/concepts/platforms-intro) for details.
+[documentation](/concepts/platforms) for details.
 
 ## Combining `select()`s {:#combining-selects}
 
@@ -627,7 +627,7 @@ select({"foo": "val_with_suffix"}, ...)
 This is for two reasons.
 
 First, macros that need to know which path a `select` will choose *cannot work*
-because macros are evaluated in Bazel's [loading phase](/docs/build#loading),
+because macros are evaluated in Bazel's [loading phase](/run/build#loading),
 which occurs before flag values are known.
 This is a core Bazel design restriction that's unlikely to change any time soon.
 
@@ -637,14 +637,14 @@ this.
 
 ## Bazel query and cquery {:#query-and-cquery}
 
-Bazel [`query`](/docs/query-how-to) operates over Bazel's
+Bazel [`query`](//query/guide) operates over Bazel's
 [loading phase](/reference/glossary#loading-phase).
 This means it doesn't know what command line flags a target uses since those
 flags aren't evaluated until later in the build (in the
 [analysis phase](/reference/glossary#analysis-phase)).
 So it can't determine which `select()` branches are chosen.
 
-Bazel [`cquery`](/docs/cquery) operates after Bazel's analysis phase, so it has
+Bazel [`cquery`](/query/cquery) operates after Bazel's analysis phase, so it has
 all this information and can accurately resolve `select()`s.
 
 Consider:
@@ -705,7 +705,7 @@ details.
 
 The key issue this question usually means is that select() doesn't work in
 *macros*. These are different than *rules*. See the
-documentation on [rules](/rules/rules) and [macros](/rules/macros)
+documentation on [rules](/extending/rules) and [macros](/extending/macros)
 to understand the difference.
 Here's an end-to-end example:
 
@@ -958,7 +958,7 @@ located at `@alternative//:ssl`.
 ### Why doesn't my select() choose what I expect? {:#faq-select-choose-condition}
 
 If `//myapp:foo` has a `select()` that doesn't choose the condition you expect,
-use [cquery](/docs/cquery) and `bazel config` to debug:
+use [cquery](/query/cquery) and `bazel config` to debug:
 
 If `//myapp:foo` is the top-level target you're building, run:
 
@@ -999,7 +999,7 @@ Fragment com.google.devtools.build.lib.rules.cpp.CppOptions {
 Then compare this output against the settings expected by each `config_setting`.
 
 `//myapp:foo` may exist in different configurations in the same build. See the
-[cquery docs](/docs/cquery) for guidance on using `somepath` to get the right
+[cquery docs](/query/cquery) for guidance on using `somepath` to get the right
 one.
 
 Caution: To prevent restarting the Bazel server, invoke `bazel config` with the

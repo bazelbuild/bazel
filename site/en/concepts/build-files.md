@@ -36,7 +36,7 @@ allowed in `BUILD` files; instead list all the arguments explicitly.
 Crucially, programs in Starlark can't perform arbitrary I/O. This invariant
 makes the interpretation of `BUILD` files hermetic — dependent only on a known
 set of inputs, which is essential for ensuring that builds are reproducible.
-For more details, see [Hermeticity](/concepts/hermeticity).
+For more details, see [Hermeticity](/basics/hermeticity).
 
 `BUILD` files should be written using only ASCII characters, although
 technically they are interpreted using the Latin-1 character set.

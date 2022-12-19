@@ -9,7 +9,7 @@ This page is the reference manual for the _Bazel Query Language_ used
 when you use `bazel query` to analyze build dependencies. It also
 describes the output formats `bazel query` supports.
 
-For practical use cases, see the [Bazel Query How-To](/docs/query-how-to).
+For practical use cases, see the [Bazel Query How-To](//query/guide).
 
 ## Additional query reference
 
@@ -35,7 +35,7 @@ and instead returns all possible resolutions of selects. However, the
 configurable query environment, `cquery`, properly handles configurations but
 doesn't provide all of the functionality of this original query.
 
-For more details, see the [cquery reference](/docs/cquery).
+For more details, see the [cquery reference](/query/cquery).
 
 
 ## Examples {:#examples}

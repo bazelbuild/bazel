@@ -68,7 +68,7 @@ then the `BUILD` files are misleading.
 ## Using the `.bazelrc` file {:#bazelrc-file}
 
 For project-specific options, use the configuration file your
-`{{ '<var>' }}workspace{{ '</var>' }}/.bazelrc` (see [bazelrc format](/docs/bazelrc)).
+`{{ '<var>' }}workspace{{ '</var>' }}/.bazelrc` (see [bazelrc format](/run/bazelrc)).
 
 If you want to support per-user options for your project that you **do not**
 want to check into source control, include the line:

@@ -27,13 +27,13 @@ Usage: bazel {{ "<var>" }}command{{ "</var>" }} {{ "<var>" }}options{{ "</var>" 
 * [`build`](#bazel-build): Builds the specified targets.
 * [`canonicalize-flags`](/docs/user-manual#canonicalize-flags): Canonicalize Bazel flags.
 * [`clean`](/docs/user-manual#clean): Removes output files and optionally stops the server.
-* [`cquery`](/docs/cquery): Executes a [post-analysis](#analysis) dependency graph query.
+* [`cquery`](/query/cquery): Executes a [post-analysis](#analysis) dependency graph query.
 * [`dump`](/docs/user-manual#dump): Dumps the internal state of the Bazel server process.
 * [`help`](/docs/user-manual#help): Prints help for commands, or the index.
 * [`info`](/docs/user-manual#info): Displays runtime info about the bazel server.
 * [`fetch`](#fetching-external-dependencies): Fetches all external dependencies of a target.
 * [`mobile-install`](/docs/user-manual#mobile-install): Installs apps on mobile devices.
-* [`query`](/docs/query-how-to): Executes a dependency graph query.
+* [`query`](//query/guide): Executes a dependency graph query.
 * [`run`](/docs/user-manual#running-executables): Runs the specified target.
 * [`shutdown`](/docs/user-manual#shutdown): Stops the Bazel server.
 * [`test`](/docs/user-manual#running-tests): Builds and runs the specified test targets.
@@ -612,7 +612,7 @@ the host system in unknown ways. To disable this warning you can pass the
 
 Note: Hermeticity means that the action only uses its declared input
 files and no other files in the filesystem, and it only produces its declared
-output files. See [Hermeticity](/concepts/hermeticity) for more details.
+output files. See [Hermeticity](/basics/hermeticity) for more details.
 
 On some platforms such as [Google Kubernetes
 Engine](https://cloud.google.com/kubernetes-engine/){: .external} cluster nodes or Debian,
@@ -668,7 +668,7 @@ inputs to a rule, and all rule-specific error messages.
 The loading and analysis phases are fast because Bazel avoids unnecessary file
 I/O at this stage, reading only BUILD files in order to determine the work to be
 done. This is by design, and makes Bazel a good foundation for analysis tools,
-such as Bazel's [query](/docs/query-how-to) command, which is implemented atop the loading
+such as Bazel's [query](//query/guide) command, which is implemented atop the loading
 phase.
 
 #### Execution phase {:#execution}

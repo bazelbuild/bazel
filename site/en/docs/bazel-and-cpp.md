@@ -13,7 +13,7 @@ projects with Bazel.
 
 The following resources will help you work with Bazel on C++ projects:
 
-*  [Tutorial: Building a C++ project](/tutorials/cpp)
+*  [Tutorial: Building a C++ project](/start/cpp)
 *  [C++ common use cases](/tutorials/cpp-use-cases)
 *  [C/C++ rules](/reference/be/c-cpp)
 *  Essential Libraries
@@ -21,12 +21,12 @@ The following resources will help you work with Bazel on C++ projects:
    -  [Boost](https://github.com/nelhage/rules_boost){: .external}
    -  [HTTPS Requests: CPR and libcurl](https://github.com/hedronvision/bazel-make-cc-https-easy){: .external}
 *  [C++ toolchain configuration](/docs/cc-toolchain-config-reference)
-*  [Tutorial: Configuring C++ toolchains](/tutorials/cc-toolchain-config)
-*  [Integrating with C++ rules](/docs/integrating-with-rules-cc)
+*  [Tutorial: Configuring C++ toolchains](/tutorials/ccp-toolchain-config)
+*  [Integrating with C++ rules](/configure/integrate-cpp)
 
 ## Best practices {:#best-practices}
 
-In addition to [general Bazel best practices](/docs/best-practices), below are
+In addition to [general Bazel best practices](/configure/best-practices), below are
 best practices specific to C++ projects.
 
 ### BUILD files {:#build-files}

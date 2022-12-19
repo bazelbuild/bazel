@@ -5,7 +5,7 @@ Book: /_book.yaml
 
 This tutorial covers how to work with Bazel to trace dependencies in your code using a premade Bazel project.
 
-For language and `--output` flag details, see the [Bazel query reference](/reference/query) and [Bazel cquery reference](/docs/cquery) manuals. Get help in your IDE by typing `bazel help query` or `bazel help cquery` on the command line.
+For language and `--output` flag details, see the [Bazel query reference](/query/language) and [Bazel cquery reference](/query/cquery) manuals. Get help in your IDE by typing `bazel help query` or `bazel help cquery` on the command line.
 
 ## Objective
 

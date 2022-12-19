@@ -104,7 +104,7 @@ built.
 ## Aspect Results in BEP {:#aspect-results}
 
 Ordinary builds evaluate actions associated with `(target, configuration)`
-pairs. When building with [aspects](/rules/aspects) enabled, Bazel
+pairs. When building with [aspects](/extending/aspects) enabled, Bazel
 additionally evaluates targets associated with `(target, configuration,
 aspect)` triples, for each target affected by a given enabled aspect.
 
