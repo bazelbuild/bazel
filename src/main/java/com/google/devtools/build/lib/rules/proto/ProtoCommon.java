@@ -206,7 +206,8 @@ public class ProtoCommon {
       StarlarkInfo protoLangToolchainInfo,
       Iterable<Artifact> generatedFiles,
       @Nullable Object pluginOutput,
-      String progressMessage)
+      String progressMessage,
+      String execGroup)
       throws RuleErrorException, InterruptedException {
     StarlarkFunction compile =
         (StarlarkFunction) ruleContext.getStarlarkDefinedBuiltin("proto_common_compile");
@@ -219,7 +220,11 @@ public class ProtoCommon {
             /* proto_lang_toolchain_info */ protoLangToolchainInfo,
             /* generated_files */ StarlarkList.immutableCopyOf(generatedFiles),
             /* plugin_output */ pluginOutput == null ? Starlark.NONE : pluginOutput),
-        ImmutableMap.of("experimental_progress_message", progressMessage));
+        ImmutableMap.of(
+            "experimental_progress_message",
+            progressMessage,
+            "experimental_exec_group",
+            execGroup));
   }
 
   public static boolean shouldGenerateCode(

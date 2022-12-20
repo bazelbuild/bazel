@@ -11,8 +11,8 @@ This page describes how to integrate with C++ rules on various levels.
 
 Because of
 [ongoing migration of C++ rules](https://github.com/bazelbuild/bazel/issues/6516){: .external}
-to [platforms](/docs/platforms) and
-[toolchains](/docs/toolchains), you
+to [platforms](/extending/platforms) and
+[toolchains](/extending/toolchains), you
 should use the helper function available at
 [@bazel_tools//tools/cpp:toolchain_utils.bzl](https://source.bazel.build/bazel/+/main:tools/cpp/toolchain_utils.bzl;l=23),
 which works both when toolchains are disabled and enabled. To depend on a C++

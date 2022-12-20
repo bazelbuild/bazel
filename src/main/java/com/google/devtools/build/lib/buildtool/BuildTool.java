@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
@@ -317,7 +318,7 @@ public class BuildTool {
           AnalysisAndExecutionPhaseRunner.evaluateTargetPatterns(env, request, validator);
     }
     env.setWorkspaceName(loadingResult.getWorkspaceName());
-    boolean catastrophe = false;
+    boolean hasCatastrophe = false;
 
     if (request.getBuildOptions().performAnalysisPhase) {
       ExecutionTool executionTool = new ExecutionTool(env, request);
@@ -350,11 +351,17 @@ public class BuildTool {
         throw e;
       } catch (Error | RuntimeException e) {
         // These are catastrophic.
-        catastrophe = true;
+        hasCatastrophe = true;
         throw e;
       } finally {
         executionTool.unconditionalExecutionPhaseFinalizations(timer, env.getSkyframeExecutor());
-        if (!catastrophe) {
+
+        // For the --noskymeld code path, this is done after the analysis phase.
+        BuildResultListener buildResultListener = env.getBuildResultListener();
+        result.setActualTargets(buildResultListener.getAnalyzedTargets());
+        result.setTestTargets(buildResultListener.getAnalyzedTests());
+
+        if (!hasCatastrophe) {
           executionTool.nonCatastrophicFinalizations(
               result,
               env.getBlazeWorkspace().getInUseActionCacheWithoutFurtherLoading(),

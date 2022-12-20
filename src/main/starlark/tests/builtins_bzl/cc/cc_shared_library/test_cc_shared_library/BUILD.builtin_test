@@ -1,4 +1,14 @@
-load(":starlark_tests.bzl", "additional_inputs_test", "build_failure_test", "debug_files_test", "interface_library_output_group_test", "linking_suffix_test", "paths_test", "runfiles_test")
+load(
+    ":starlark_tests.bzl",
+    "additional_inputs_test",
+    "build_failure_test",
+    "debug_files_test",
+    "interface_library_output_group_test",
+    "linking_suffix_test",
+    "paths_test",
+    "runfiles_test",
+    "no_exporting_static_lib_test",
+)
 
 LINKABLE_MORE_THAN_ONCE = "LINKABLE_MORE_THAN_ONCE"
 
@@ -391,6 +401,51 @@ cc_shared_library_permissions(
     ],
 )
 
+cc_library(
+    name = "static_lib_no_exporting",
+    srcs = [
+        "bar.cc",
+        "bar.h",
+    ],
+    tags = ["NO_EXPORTING"],
+)
+
+cc_library(
+    name = "static_lib_exporting",
+    srcs = [
+        "bar2.cc",
+        "bar2.h",
+    ],
+)
+
+cc_shared_library(
+    name = "lib_with_no_exporting_roots_1",
+    roots = [":static_lib_no_exporting"],
+)
+
+cc_shared_library(
+    name = "lib_with_no_exporting_roots_2",
+    roots = [":static_lib_no_exporting"],
+    dynamic_deps = [":lib_with_no_exporting_roots_3"],
+)
+
+cc_shared_library(
+    name = "lib_with_no_exporting_roots_3",
+    roots = [":static_lib_no_exporting"],
+)
+
+cc_shared_library(
+    name = "lib_with_no_exporting_roots",
+    roots = [
+        ":static_lib_no_exporting",
+        ":static_lib_exporting",
+    ],
+    dynamic_deps = [
+        ":lib_with_no_exporting_roots_1",
+        ":lib_with_no_exporting_roots_2",
+    ],
+)
+
 build_failure_test(
     name = "two_dynamic_deps_same_export_in_so_test",
     message = "Two shared libraries in dependencies export the same symbols",
@@ -438,4 +493,9 @@ build_failure_test(
         ],
     }),
     target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:unaccounted_for_libs_so",
+)
+
+no_exporting_static_lib_test(
+    name = "no_exporting_static_lib_test",
+    target_under_test = ":lib_with_no_exporting_roots",
 )

@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.PositionAwareAnsiTerminalWriter;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
-import java.time.Instant;
 
 /** Tracks the state of Skymeld builds and determines what to display at each state in the UI. */
 final class SkymeldUiStateTracker extends UiStateTracker {
@@ -219,30 +219,9 @@ final class SkymeldUiStateTracker extends UiStateTracker {
   }
 
   @Override
-  void buildComplete(BuildCompleteEvent event) {
+  Event buildComplete(BuildCompleteEvent event) {
     buildStatus = BuildStatus.BUILD_COMPLETED;
-    buildCompleteAt = Instant.ofEpochMilli(clock.currentTimeMillis());
-
-    if (event.getResult().getSuccess()) {
-      int actionsCompleted = this.actionsCompleted.get();
-      if (failedTests == 0) {
-        additionalMessage =
-            "Build completed successfully, "
-                + actionsCompleted
-                + pluralize(" total action", actionsCompleted);
-      } else {
-        additionalMessage =
-            "Build completed, "
-                + failedTests
-                + pluralize(" test", failedTests)
-                + " FAILED, "
-                + actionsCompleted
-                + pluralize(" total action", actionsCompleted);
-      }
-    } else {
-      ok = false;
-      additionalMessage = "Build did NOT complete successfully";
-    }
+    return super.buildComplete(event);
   }
 
   @Override

@@ -160,7 +160,7 @@ For Android builds, see details at the
 
 ## Implementing persistent workers {:#implementation}
 
-See the [creating persistent workers](/docs/creating-workers) page for more
+See the [creating persistent workers](/remote/creating) page for more
 information on how to make a worker.
 
 This example shows a Starlark configuration for a worker that uses JSON:
@@ -224,7 +224,7 @@ be spawned for each value used. This can lead to excessive memory consumption if
 too many variations are used.
 
 Each worker can currently only process one request at a time. The experimental
-[multiplex workers](/docs/multiplex-worker) feature allows using multiple
+[multiplex workers](/remote/multiplex) feature allows using multiple
 threads, if the underlying tool is multithreaded and the wrapper is set up to
 understand this.
 

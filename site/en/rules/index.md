@@ -8,7 +8,7 @@ Book: /_book.yaml
 
 The Bazel ecosystem has a growing and evolving set of rules to support popular
 languages and packages. Much of Bazel's strength comes from the ability to
-[define new rules](/rules/concepts) that can be used by others.
+[define new rules](/extending/concepts) that can be used by others.
 
 This page describes the recommended, native, and non-native Bazel rules.
 
@@ -38,7 +38,7 @@ additional functions that can be useful when writing new rules and new
 macros.
 
 The rules above were reviewed and follow our
-[requirements for recommended rules](/contribute/recommended-rules){: .external}.
+[requirements for recommended rules](/community/recommended-rules){: .external}.
 Contact the respective rule set's maintainers regarding issues and feature
 requests.
 

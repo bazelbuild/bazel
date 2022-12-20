@@ -211,3 +211,21 @@ interface_library_output_group_test = analysistest.make(
         "is_windows": attr.bool(),
     },
 )
+
+def _no_exporting_static_lib_test_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    target_under_test = analysistest.target_under_test(env)
+
+    # There should be only one exported file
+    actual_file = target_under_test[CcSharedLibraryInfo].exports[0]
+
+    # Sometimes "@" is prefixed in some test environments
+    expected = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:static_lib_exporting"
+    asserts.true(env, actual_file.endswith(expected))
+
+    return analysistest.end(env)
+
+no_exporting_static_lib_test = analysistest.make(
+    _no_exporting_static_lib_test_impl,
+)

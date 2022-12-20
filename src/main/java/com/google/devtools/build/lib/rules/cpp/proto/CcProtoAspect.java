@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
@@ -457,7 +458,8 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
             getStarlarkProtoToolchainProvider(),
             outputs,
             genfilesPath,
-            "Generating C++ proto_library %{label}");
+            "Generating C++ proto_library %{label}",
+            ExecGroup.DEFAULT_EXEC_GROUP_NAME);
       }
     }
 

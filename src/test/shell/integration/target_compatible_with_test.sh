@@ -451,7 +451,7 @@ function test_failure_on_incompatible_top_level_target() {
       && fail "Bazel passed unexpectedly."
 
     expect_log 'ERROR: Target //target_skipping:pass_on_foo1_bar2 is incompatible and cannot be built'
-    expect_log '^FAILED: Build did NOT complete successfully'
+    expect_log '^ERROR: Build did NOT complete successfully'
 
     # Now look at the build event log.
     mv "${TEST_log}".build.json "${TEST_log}"
@@ -472,7 +472,7 @@ function test_failure_on_incompatible_top_level_target() {
 
   expect_log '^//target_skipping:pass_on_foo1  *  PASSED in'
   expect_log '^ERROR: command succeeded, but not all targets were analyzed'
-  expect_log '^FAILED: Build did NOT complete successfully'
+  expect_log '^ERROR: Build did NOT complete successfully'
 }
 
 # Crudely validates that the build event protocol contains useful information
@@ -531,7 +531,7 @@ EOF
     --platforms=@//target_skipping:foo2_bar1_platform \
     //target_skipping:sh_foo2 &> "${TEST_log}" && fail "Bazel passed unexpectedly."
   expect_log 'ERROR: Target //target_skipping:sh_foo2 is incompatible and cannot be built, but was explicitly requested'
-  expect_log 'FAILED: Build did NOT complete successfully'
+  expect_log 'ERROR: Build did NOT complete successfully'
 
   bazel build \
     --show_result=10 \
@@ -539,7 +539,7 @@ EOF
     --platforms=@//target_skipping:foo2_bar1_platform \
     //target_skipping:foo_test &> "${TEST_log}" && fail "Bazel passed unexpectedly."
   expect_log 'ERROR: Target //target_skipping:foo_test is incompatible and cannot be built, but was explicitly requested'
-  expect_log 'FAILED: Build did NOT complete successfully'
+  expect_log 'ERROR: Build did NOT complete successfully'
 }
 
 # Validate that targets are skipped when the implementation is in Starlark
@@ -592,7 +592,7 @@ EOF
     --platforms=@//target_skipping:foo3_platform \
     //target_skipping:hello_world_bin &> "${TEST_log}" && fail "Bazel passed unexpectedly."
   expect_log 'ERROR: Target //target_skipping:hello_world_bin is incompatible and cannot be built, but was explicitly requested'
-  expect_log 'FAILED: Build did NOT complete successfully'
+  expect_log 'ERROR: Build did NOT complete successfully'
 }
 
 # Validates that rules with custom providers are skipped when incompatible.
@@ -726,7 +726,7 @@ EOF
   expect_log '^Dependency chain:$'
   expect_log '^    //target_skipping:generate_with_tool (.*)$'
   expect_log "^    //target_skipping:generator_tool (.*)   <-- target platform (//target_skipping:foo2_bar1_platform) didn't satisfy constraint //target_skipping:foo1"
-  expect_log 'FAILED: Build did NOT complete successfully'
+  expect_log 'ERROR: Build did NOT complete successfully'
 
   # Validate the test.
   bazel test \
@@ -741,7 +741,7 @@ EOF
   expect_log '^    //target_skipping:generated_test (.*)$'
   expect_log '^    //target_skipping:generate_with_tool (.*)$'
   expect_log "^    //target_skipping:generator_tool (.*)   <-- target platform (//target_skipping:foo2_bar1_platform) didn't satisfy constraint //target_skipping:foo1"
-  expect_log 'FAILED: Build did NOT complete successfully'
+  expect_log 'ERROR: Build did NOT complete successfully'
 }
 
 # Validates the same thing as test_cc_test, but with multiple violated
@@ -789,7 +789,7 @@ EOF
   expect_log '^    //target_skipping:generated_test (.*)$'
   expect_log '^    //target_skipping:generate_with_tool (.*)$'
   expect_log "^    //target_skipping:generator_tool (.*)   <-- target platform (//target_skipping:foo2_bar1_platform) didn't satisfy constraints \[//target_skipping:bar2, //target_skipping:foo1\]"
-  expect_log 'FAILED: Build did NOT complete successfully'
+  expect_log 'ERROR: Build did NOT complete successfully'
 }
 
 # Validates that we can express targets being compatible with A _or_ B.
@@ -834,7 +834,7 @@ EOF
     && fail "Bazel passed unexpectedly."
 
   expect_log 'ERROR: Target //target_skipping:pass_on_foo1_or_foo2_but_not_on_foo3 is incompatible and cannot be built, but was explicitly requested'
-  expect_log 'FAILED: Build did NOT complete successfully'
+  expect_log 'ERROR: Build did NOT complete successfully'
 }
 
 # Validates that we can express targets being compatible with everything _but_
@@ -866,7 +866,7 @@ EOF
     //target_skipping:pass_on_everything_but_foo1_and_foo2  &> "${TEST_log}" \
     && fail "Bazel passed unexpectedly."
   expect_log 'ERROR: Target //target_skipping:pass_on_everything_but_foo1_and_foo2 is incompatible and cannot be built, but was explicitly requested'
-  expect_log 'FAILED: Build did NOT complete successfully'
+  expect_log 'ERROR: Build did NOT complete successfully'
 
   # Try with :foo2. This should fail.
   bazel test \
@@ -876,7 +876,7 @@ EOF
     //target_skipping:pass_on_everything_but_foo1_and_foo2 &> "${TEST_log}" \
     && fail "Bazel passed unexpectedly."
   expect_log 'ERROR: Target //target_skipping:pass_on_everything_but_foo1_and_foo2 is incompatible and cannot be built, but was explicitly requested'
-  expect_log 'FAILED: Build did NOT complete successfully'
+  expect_log 'ERROR: Build did NOT complete successfully'
 
   # Now with :foo3. This should pass.
   bazel test \
@@ -933,7 +933,7 @@ EOF
 
   expect_log 'ERROR: Target //target_skipping:pass_on_foo3_and_bar2 is incompatible and cannot be built, but was explicitly requested'
   expect_log "^    //target_skipping:pass_on_foo3_and_bar2 (.*)   <-- target platform (//target_skipping:foo1_bar1_platform) didn't satisfy constraint //target_skipping:not_compatible$"
-  expect_log 'FAILED: Build did NOT complete successfully'
+  expect_log 'ERROR: Build did NOT complete successfully'
 }
 
 function test_incompatible_with_aliased_constraint() {
@@ -984,7 +984,7 @@ EOF
     //target_skipping:also_some_foo3_target  &> "${TEST_log}" \
     && fail "Bazel passed unexpectedly."
   expect_log 'ERROR: Target //target_skipping:also_some_foo3_target is incompatible and cannot be built, but was explicitly requested'
-  expect_log 'FAILED: Build did NOT complete successfully'
+  expect_log 'ERROR: Build did NOT complete successfully'
 }
 
 # Validate that an incompatible target with a toolchain not available for the
@@ -1120,7 +1120,7 @@ EOF
     --platforms=@//target_skipping:foo2_bar1_platform \
     //target_skipping:host_tool &> "${TEST_log}" && fail "Bazel passed unexpectedly."
   expect_log 'ERROR: Target //target_skipping:host_tool is incompatible and cannot be built, but was explicitly requested'
-  expect_log 'FAILED: Build did NOT complete successfully'
+  expect_log 'ERROR: Build did NOT complete successfully'
 
   # Run with :foo1 in the host platform, but with :foo2 in the target platform.
   # This should work fine because we're not asking for any constraints to be
@@ -1511,7 +1511,7 @@ EOF
   expect_log_once '^    //target_skipping:aliased_other_basic_target '
   expect_log_once '^    //target_skipping:other_basic_target '
   expect_log_once "    //target_skipping:basic_foo3_target .*  <-- target platform (//target_skipping:foo1_bar1_platform) didn't satisfy constraint //target_skipping:foo3$"
-  expect_log 'FAILED: Build did NOT complete successfully'
+  expect_log 'ERROR: Build did NOT complete successfully'
   expect_not_log "${debug_message1}"
   expect_not_log "${debug_message2}"
   expect_not_log "${debug_message3}"

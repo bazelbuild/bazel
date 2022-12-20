@@ -17,7 +17,7 @@ The objectives of this page are to:
 1. Set expectations between the community contributors and the project
    maintainers.
 
-Bazel's [core group of contributors](/contribute/contribution-policy) has dedicated
+Bazel's [core group of contributors](/contribute/policy) has dedicated
 subteams to manage aspects of the open source project. These are:
 
 * **Release Process**: Manage Bazel's release process.

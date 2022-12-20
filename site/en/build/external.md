@@ -10,7 +10,7 @@ projects are called _external dependencies_.
 
 Note: Bazel 5.0 and newer has a new external dependency system, codenamed
 "Bzlmod", which renders a lot of the content on this page obsolete. See [Bzlmod
-user guide](/docs/bzlmod) for more information.
+user guide](/build/bzlmod) for more information.
 
 The `WORKSPACE` file (or `WORKSPACE.bazel` file) in the
 [workspace directory](/concepts/build-ref#workspace)
@@ -257,7 +257,7 @@ Specifically:
 * Use `--host_jvm_args=-Djava.net.preferIPv6Addresses=true`
   [startup option](/docs/user-manual#startup-options),
   for example by adding the following line in your
-  [`.bazelrc` file](/docs/bazelrc):
+  [`.bazelrc` file](/run/bazelrc):
 
   `startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true`
 
@@ -265,7 +265,7 @@ Specifically:
   as well (integration tests sometimes needs that), also use
   `--jvmopt=-Djava.net.preferIPv6Addresses=true`
   [tool flag](/docs/user-manual#jvmopt), for example by having the
-  following line in your [`.bazelrc` file](/docs/bazelrc):
+  following line in your [`.bazelrc` file](/run/bazelrc):
 
   `build --jvmopt=-Djava.net.preferIPv6Addresses`
 
@@ -361,7 +361,7 @@ Prefer [`http_archive`](/rules/lib/repo/http#http_archive) to `git_repository` a
   into Bazel and has no system dependencies.
 * `http_archive` supports a list of `urls` as mirrors, and `git_repository` supports only
   a single `remote`.
-* `http_archive` works with the [repository cache](/docs/build#repository-cache), but not
+* `http_archive` works with the [repository cache](/run/build#repository-cache), but not
   `git_repository`. See
    [#5116](https://github.com/bazelbuild/bazel/issues/5116){: .external} for more information.
 

@@ -348,8 +348,8 @@ and Bazel must rebuild it before using the remote cache.
 * **Faster Bazel builds with remote caching: a benchmark:** Nicolò Valigi wrote a [blog post](https://nicolovaligi.com/faster-bazel-remote-caching-benchmark.html){: .external}
 in which he benchmarks remote caching in Bazel.
 
-* [Adapting Rules for Remote Execution](/docs/remote-execution-rules)
-* [Troubleshooting Remote Execution](/docs/remote-execution-sandbox)
+* [Adapting Rules for Remote Execution](/remote/rules)
+* [Troubleshooting Remote Execution](/remote/sandbox)
 * [WebDAV module](https://nginx.org/en/docs/http/ngx_http_dav_module.html){: .external}
 * [Docker image](https://hub.docker.com/r/buchgr/bazel-remote-cache/){: .external}
 * [bazel-remote](https://github.com/buchgr/bazel-remote/){: .external}

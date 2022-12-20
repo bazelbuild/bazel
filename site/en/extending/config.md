@@ -27,7 +27,7 @@ and more, all completely from .bzl files (no Bazel release required). See the
 ## User-defined build settings {:#user-defined-build-settings}
 
 A build setting is a single piece of
-[configuration](/rules/rules#configurations)
+[configuration](/extending/rules#configurations)
 information. Think of a configuration as a key/value map. Setting `--cpu=ppc`
 and `--copt="-DFoo"` produces a configuration that looks like
 `{cpu: ppc, copt: "-DFoo"}`. Each entry is a build setting.
@@ -77,7 +77,7 @@ feature inside other non-test rules.
 
 #### Using ctx.build_setting_value {:#ctx-build-setting-value}
 
-Like all rules, build setting rules have [implementation functions](/rules/rules#implementation-function).
+Like all rules, build setting rules have [implementation functions](/extending/rules#implementation-function).
 The basic Starlark-type value of the build settings can be accessed via the
 `ctx.build_setting_value` method. This method is only available to
 [`ctx`](/rules/lib/ctx) objects of build setting rules. These implementation
@@ -744,7 +744,7 @@ here.
 Many native flags today, like `--cpu` and `--crosstool_top` are related to
 toolchain resolution. In the future, explicit transitions on these types of
 flags will likely be replaced by transitioning on the
-[target platform](/docs/platforms).
+[target platform](/extending/platforms).
 
 ## Memory and performance considerations {:#memory-performance-considerations}
 
@@ -810,5 +810,5 @@ TODO: Add strategies for measurement and mitigation of these issues.
 For more details on modifying build configurations, see:
 
  * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing){: .external}
- * [Bazel Configurability Roadmap](https://bazel.build/roadmaps/configuration.html){: .external}
+ * [Bazel Configurability Roadmap](https://bazel.build/community/roadmaps-configurability){: .external}
  * Full [set](https://github.com/bazelbuild/examples/tree/HEAD/configurations){: .external} of end to end examples

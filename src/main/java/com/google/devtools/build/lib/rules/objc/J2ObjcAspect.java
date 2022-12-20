@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolver;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
@@ -225,6 +227,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .add(
             attr(JavaRuleClasses.JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)
                 .value(javaToolchainTypeRequirement.toolchainType()))
+        .execGroups(ImmutableMap.of("proto_compiler", ExecGroup.builder().build()))
         .build();
   }
 
@@ -686,7 +689,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         checkNotNull(protoToolchain),
         outputs,
         bindirPath,
-        "Generating j2objc proto_library %{label}");
+        "Generating j2objc proto_library %{label}",
+        "proto_compiler");
 
     return new J2ObjcMappingFileProvider(
         NestedSetBuilder.<Artifact>stableOrder().addAll(outputHeaderMappingFiles).build(),

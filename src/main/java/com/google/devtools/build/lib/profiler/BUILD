@@ -13,6 +13,7 @@ java_library(
     srcs = [
         "AutoProfiler.java",
         "CollectLocalResourceUsage.java",
+        "JsonTraceFileWriter.java",
         "MemoryProfiler.java",
         "MetricData.java",
         "MnemonicData.java",

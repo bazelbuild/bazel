@@ -70,7 +70,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   String OUTPUT_ATTR_TEXT =
       LABEL_PARAGRAPH
           + "<p>At analysis time, the corresponding <a href='File.html'><code>File</code></a> can "
-          + "be retrieved using <code>ctx.outputs</code>.";
+          + "be retrieved using <a href='../ctx.$DOC_EXT#outputs'><code>ctx.outputs</code></a>.";
 
   String ALLOW_FILES_ARG = "allow_files";
   String ALLOW_FILES_DOC =
@@ -147,7 +147,9 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       name = "int",
       doc =
           "Creates a schema for an integer attribute. The value must be in the signed 32-bit"
-              + " range.",
+              + " range. The corresponding "
+              + "<a href='../ctx.$DOC_EXT#attr'><code>ctx.attr</code></a> attribute will be of "
+              + "type <a href='../int.$DOC_EXT'><code>int</code></a>.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -186,7 +188,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "string",
-      doc = "Creates a schema for a string attribute.",
+      doc = "Creates a schema for a <a href='../string.$DOC_EXT#attr'>string</a> attribute.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -414,7 +416,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "label_list",
       doc =
-          "<p>Creates a schema for a list-of-labels attribute. This is a dependency attribute.</p>"
+          "<p>Creates a schema for a list-of-labels attribute. This is a dependency attribute. "
+              + "The corresponding <a href='../ctx.$DOC_EXT#attr'><code>ctx.attr</code></a> "
+              + "attribute will be of type <a href='../list.$DOC_EXT'>list</a> of "
+              + "<a href='Target.$DOC_EXT'><code>Target</code>s</a>.</p>"
               + DEPENDENCY_ATTR_TEXT,
       parameters = {
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
@@ -607,7 +612,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "bool",
-      doc = "Creates a schema for a boolean attribute.",
+      doc =
+          "Creates a schema for a boolean attribute. The corresponding <a"
+              + " href='../ctx.$DOC_EXT#attr'><code>ctx.attr</code></a> attribute will be of type"
+              + " <a href='../bool.$DOC_EXT'><code>bool</code></a>.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -659,7 +667,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       doc = "Creates a schema for a list-of-outputs attribute." + OUTPUT_ATTR_TEXT,
       parameters = {
         @Param(
-            name = ALLOW_EMPTY_ARG,
+            name = ALLOW_EMPTY_ARG, //
             defaultValue = "True",
             doc = ALLOW_EMPTY_DOC,
             named = true),
@@ -688,7 +696,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               + "strings.",
       parameters = {
         @Param(
-            name = ALLOW_EMPTY_ARG,
+            name = ALLOW_EMPTY_ARG, //
             defaultValue = "True",
             doc = ALLOW_EMPTY_DOC,
             named = true),
@@ -727,7 +735,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               + "the values are lists of strings.",
       parameters = {
         @Param(
-            name = ALLOW_EMPTY_ARG,
+            name = ALLOW_EMPTY_ARG, //
             defaultValue = "True",
             doc = ALLOW_EMPTY_DOC,
             named = true),

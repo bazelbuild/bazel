@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -106,6 +107,87 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
         "--platforms=//platform:platform_1",
         "--extra_execution_platforms=//platform:platform_1,//platform:platform_2");
+  }
+
+  @Test
+  public void testDirectExecTransitionWithToolchains() throws Exception {
+    // toolchain_2 is available on platform_2, so exec transition also needs to be to platform_2
+    createToolchainsAndPlatforms();
+
+    scratch.file(
+        "test/defs.bzl",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "  return [MyInfo(dep = ctx.attr.dep)]",
+        "with_transition = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = 'exec'),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_2'],",
+        ")",
+        "def _impl2(ctx):",
+        "  return []",
+        "simple_rule = rule(implementation = _impl2)");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'with_transition', 'simple_rule')",
+        "with_transition(name = 'parent', dep = ':child')",
+        "simple_rule(name = 'child')");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:parent");
+    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "MyInfo");
+    BuildConfigurationValue dep =
+        getConfiguration((ConfiguredTarget) ((StructImpl) target.get(key)).getValue("dep"));
+
+    assertThat(dep.getFragment(PlatformConfiguration.class).getTargetPlatform())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//platform:platform_2"));
+  }
+
+  @Test
+  @Ignore("b/243148290")
+  public void testIndirectExecTransitionWithToolchains() throws Exception {
+    // toolchain_2 is available on platform_2, so a passed through tool also needs to be on
+    // platform_2
+    createToolchainsAndPlatforms();
+
+    scratch.file(
+        "test/defs.bzl",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "  return [MyInfo(dep = ctx.attr.dep)]",
+        "parent_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_2'],",
+        ")",
+        "pass_thru = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = 'exec'),",
+        "  },",
+        ")",
+        "def _impl2(ctx):",
+        "  return []",
+        "simple_rule = rule(implementation = _impl2)");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'parent_rule', 'pass_thru', 'simple_rule')",
+        "parent_rule(name = 'parent', dep = ':passthru')",
+        "pass_thru(name = 'passthru', dep = ':child')",
+        "simple_rule(name = 'child')",
+        "simple_rule(name = 'other-child')");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:parent");
+    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "MyInfo");
+    ConfiguredTarget dep = (ConfiguredTarget) ((StructImpl) target.get(key)).getValue("dep");
+    BuildConfigurationValue passthruDepConfig =
+        getConfiguration((ConfiguredTarget) ((StructImpl) dep.get(key)).getValue("dep"));
+
+    assertThat(passthruDepConfig.getFragment(PlatformConfiguration.class).getTargetPlatform())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//platform:platform_2"));
   }
 
   @Test

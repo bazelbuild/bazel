@@ -51,7 +51,7 @@ Before you begin, do the following:
 1.  [Install Bazel](/install) if you have not already done so.
 
 2.  If you're not familiar with Bazel and its concepts, complete the
-    [iOS app tutorial](/tutorials/ios-app). You should understand the Bazel
+    [iOS app tutorial](/start/ios-app)). You should understand the Bazel
     workspace, including the `WORKSPACE` and `BUILD` files, as well as the
     concepts of targets, build rules, and Bazel packages.
 
