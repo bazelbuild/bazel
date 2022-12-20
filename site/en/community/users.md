@@ -545,6 +545,12 @@ seamlessly from normal Java code.
 Heron is a realtime, distributed, fault-tolerant stream processing engine from
 Twitter.
 
+### [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer){: .external}
+
+<img src="https://www.code-intelligence.com/hubfs/Logos/CI%20Logos/Jazzer_einfach.png" width="120" align="right">
+
+Jazzer is a fuzzer for Java and other JVM-based languages that integrates with JUnit 5.
+
 ### [JGit](https://eclipse.org/jgit/){: .external}
 
 JGit is a lightweight, pure Java library implementing the Git version control
