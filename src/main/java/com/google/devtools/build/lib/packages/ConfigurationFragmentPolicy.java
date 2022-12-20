@@ -228,37 +228,12 @@ public final class ConfigurationFragmentPolicy {
   }
 
   /**
-   * Checks if the configuration fragment may be accessed (i.e., if it's declared) in the specified
-   * configuration (target or host).
-   *
-   * <p>Note that, currently, all native fragments are included regardless of whether they were
-   * specified in the same configuration that was passed.
-   */
-  public boolean isLegalConfigurationFragment(
-      Class<?> configurationFragment, ConfigurationTransition config) {
-    return requiredConfigurationFragments.contains(configurationFragment)
-        || hasLegalFragmentName(configurationFragment, config);
-  }
-
-  /**
    * Checks if the configuration fragment may be accessed (i.e., if it's declared) in any
    * configuration.
    */
   public boolean isLegalConfigurationFragment(Class<?> configurationFragment) {
     return requiredConfigurationFragments.contains(configurationFragment)
         || hasLegalFragmentName(configurationFragment);
-  }
-
-  /**
-   * Checks whether the name of the given fragment class was declared as required in the
-   * specified configuration (target or host).
-   */
-  private boolean hasLegalFragmentName(
-      Class<?> configurationFragment, ConfigurationTransition transition) {
-    StarlarkBuiltin fragmentModule = StarlarkAnnotations.getStarlarkBuiltin(configurationFragment);
-
-    return fragmentModule != null
-        && starlarkRequiredConfigurationFragments.containsEntry(transition, fragmentModule.name());
   }
 
   /**

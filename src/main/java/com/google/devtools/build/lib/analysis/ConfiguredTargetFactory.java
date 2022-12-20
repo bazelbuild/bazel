@@ -192,7 +192,6 @@ public final class ConfiguredTargetFactory {
             analysisEnvironment,
             (Rule) target,
             config,
-            hostConfig,
             configuredTargetKey,
             prerequisiteMap,
             configConditions,
@@ -287,14 +286,15 @@ public final class ConfiguredTargetFactory {
       AnalysisEnvironment env,
       Rule rule,
       BuildConfigurationValue configuration,
-      BuildConfigurationValue hostConfiguration,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder)
-      throws InterruptedException, ActionConflictException, InvalidExecGroupException,
+      throws InterruptedException,
+          ActionConflictException,
+          InvalidExecGroupException,
           AnalysisFailurePropagationException {
     RuleClass ruleClass = rule.getRuleClassObject();
     ConfigurationFragmentPolicy configurationFragmentPolicy =
@@ -303,7 +303,6 @@ public final class ConfiguredTargetFactory {
     RuleContext ruleContext =
         new RuleContext.Builder(env, rule, /* aspects= */ ImmutableList.of(), configuration)
             .setRuleClassProvider(ruleClassProvider)
-            .setHostConfiguration(hostConfiguration)
             .setConfigurationFragmentPolicy(configurationFragmentPolicy)
             .setActionOwnerSymbol(configuredTargetKey)
             .setMutability(Mutability.create("configured target"))
@@ -518,7 +517,6 @@ public final class ConfiguredTargetFactory {
     RuleContext ruleContext =
         new RuleContext.Builder(env, associatedTarget, aspectPath, aspectConfiguration)
             .setRuleClassProvider(ruleClassProvider)
-            .setHostConfiguration(hostConfiguration)
             .setConfigurationFragmentPolicy(aspect.getDefinition().getConfigurationFragmentPolicy())
             .setActionOwnerSymbol(aspectKey)
             .setMutability(Mutability.create("aspect"))

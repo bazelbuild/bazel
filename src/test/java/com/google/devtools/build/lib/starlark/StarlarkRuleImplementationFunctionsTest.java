@@ -2696,8 +2696,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
 
-    assertThat(expected).hasMessageThat()
-        .contains("has to declare 'apple' as a required fragment in target configuration");
+    assertThat(expected).hasMessageThat().contains("has to declare 'apple' as a required fragment");
   }
 
   @Test

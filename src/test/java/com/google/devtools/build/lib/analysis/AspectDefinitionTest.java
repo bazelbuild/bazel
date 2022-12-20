@@ -20,7 +20,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
@@ -348,8 +347,9 @@ public class AspectDefinitionTest {
             .build();
     assertThat(requiresFragments.getConfigurationFragmentPolicy()).isNotNull();
     assertThat(
-        requiresFragments.getConfigurationFragmentPolicy()
-            .isLegalConfigurationFragment(TestFragment.class, NoTransition.INSTANCE))
+            requiresFragments
+                .getConfigurationFragmentPolicy()
+                .isLegalConfigurationFragment(TestFragment.class))
         .isTrue();
   }
 
