@@ -198,7 +198,7 @@ Bazel learns about option classes in the following ways:
 3.  From `ConfiguredRuleClassProvider` (these are command line options related
     to individual programming languages)
 4.  Starlark rules can also define their own options (see
-    [here](/rules/config))
+    [here](/extending/config))
 
 Each option (excluding Starlark-defined options) is a member variable of a
 `FragmentOptions` subclass that has the `@Option` annotation, which specifies
@@ -539,7 +539,7 @@ If a configuration transition results in multiple configurations, it's called a
 _split transition._
 
 Configuration transitions can also be implemented in Starlark (documentation
-[here](/rules/config))
+[here](/extending/config))
 
 ### Transitive info providers {:#transitive-info-providers}
 
@@ -1375,7 +1375,7 @@ attribute of the first test that is executed.
 ## The query engine {:#query-engine}
 
 Bazel has a
-[little language](//query/guide)
+[little language](/query/guide)
 used to ask it various things about various graphs. The following query kinds
 are provided:
 

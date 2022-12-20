@@ -148,7 +148,7 @@ files by target may conflate target outputs with aspect outputs.
 Determining the artifacts produced by a given target (or aspect) is a common
 BEP use-case that can be done efficiently with some preparation. This section
 discusses the recursive, shared structure offered by the `NamedSetOfFiles`
-event, which matches the structure of a Starlark [Depset](/rules/depsets).
+event, which matches the structure of a Starlark [Depset](/extending/depsets).
 
 Consumers must take care to avoid quadratic algorithms when processing
 `NamedSetOfFiles` events because large builds can contain tens of thousands of

@@ -54,14 +54,14 @@ network transport, some announced build events may never be posted.
 The event graph's structure reflects the lifecycle of a command. Every BEP
 graph has the following characteristic shape:
 
-1. The root event is always a [`BuildStarted`](/docs/bep-glossary#buildstarted)
+1. The root event is always a [`BuildStarted`](/remote/bep-glossary#buildstarted)
    event. All other events are its descendants.
 1. Immediate children of the BuildStarted event contain metadata about the
    command.
 1. Events containing data produced by the command, such as files built and test
-   results, appear before the [`BuildFinished`](/docs/bep-glossary#buildfinished)
+   results, appear before the [`BuildFinished`](/remote/bep-glossary#buildfinished)
    event.
-1. The [`BuildFinished`](/docs/bep-glossary#buildfinished) event *may* be followed
+1. The [`BuildFinished`](/remote/bep-glossary#buildfinished) event *may* be followed
    by events containing summary information about the build (for example, metric
    or profiling data).
 

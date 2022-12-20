@@ -637,7 +637,7 @@ this.
 
 ## Bazel query and cquery {:#query-and-cquery}
 
-Bazel [`query`](//query/guide) operates over Bazel's
+Bazel [`query`](/query/guide) operates over Bazel's
 [loading phase](/reference/glossary#loading-phase).
 This means it doesn't know what command line flags a target uses since those
 flags aren't evaluated until later in the build (in the
@@ -1090,4 +1090,4 @@ cc_library(
 The Bazel team doesn't endorse doing this; it overly constrains your build and
 confuses users when the expected condition does not match.
 
-[BuildSettings]: /rules/config#user-defined-build-settings
+[BuildSettings]: /extending/config#user-defined-build-settings

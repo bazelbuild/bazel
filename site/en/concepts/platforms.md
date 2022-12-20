@@ -450,12 +450,12 @@ contact
 [platform Rule]: /reference/be/platform#platform
 [constraint_value Rule]: /reference/be/platform#constraint_value
 [constraint_setting Rule]: /reference/be/platform#constraint_setting
-[Starlark rule]: /rules/rules
+[Starlark rule]: /extending/rules
 [Starlark provider]: /extending/rules#providers
 [target_compatible_with Attribute]: /reference/be/platform#toolchain.target_compatible_with
 [exec_compatible_with Attribute]: /reference/be/platform#toolchain.exec_compatible_with
 [register_toolchains Function]: /rules/lib/globals#register_toolchains
 [extra_toolchains Flag]: /reference/command-line-reference#flag--extra_toolchains
-[Starlark transitions]: /rules/config#user-defined-transitions
+[Starlark transitions]: /extending/config#user-defined-transitions
 [Defining Constraints and Platforms]: /extending/platforms#constraints-platforms
 [Configuring C++ toolchains]: /tutorials/ccp-toolchain-config

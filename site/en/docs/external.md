@@ -44,10 +44,11 @@ If `project1` wanted to depend on a target, `:foo`, defined in
 The `WORKSPACE` file allows users to depend on targets from other parts of the
 filesystem or downloaded from the internet. It uses the same syntax as `BUILD`
 files, but allows a different set of rules called _repository rules_ (sometimes
-also known as _workspace rules_). Bazel comes with a few [built-in repository
-rules](/reference/be/workspace) and a set of [embedded Starlark repository
-rules](/rules/lib/repo/index). Users can also write [custom repository
-rules](/rules/repository_rules) to get more complex behavior.
+also known as _workspace rules_). Bazel comes with a few
+[built-in repository rules](/reference/be/workspace) and a set of
+[embedded Starlark repository rules](/rules/lib/repo/index).
+Users can also write [custom repository rules](/extending/repo)
+to get more complex behavior.
 
 ## Supported types of external dependencies {:#types}
 

@@ -71,7 +71,7 @@ def _impl(ctx):
   )]
 ```
 
-See the [depset overview](/rules/depsets) page for more information.
+See the [depset overview](/extending/depsets) page for more information.
 
 ### Avoid calling `depset.to_list()` {:#avoid-depset-to-list}
 

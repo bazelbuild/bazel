@@ -33,7 +33,7 @@ Usage: bazel {{ "<var>" }}command{{ "</var>" }} {{ "<var>" }}options{{ "</var>" 
 * [`info`](/docs/user-manual#info): Displays runtime info about the bazel server.
 * [`fetch`](#fetching-external-dependencies): Fetches all external dependencies of a target.
 * [`mobile-install`](/docs/user-manual#mobile-install): Installs apps on mobile devices.
-* [`query`](//query/guide): Executes a dependency graph query.
+* [`query`](/query/guide): Executes a dependency graph query.
 * [`run`](/docs/user-manual#running-executables): Runs the specified target.
 * [`shutdown`](/docs/user-manual#shutdown): Stops the Bazel server.
 * [`test`](/docs/user-manual#running-tests): Builds and runs the specified test targets.
@@ -668,7 +668,7 @@ inputs to a rule, and all rule-specific error messages.
 The loading and analysis phases are fast because Bazel avoids unnecessary file
 I/O at this stage, reading only BUILD files in order to determine the work to be
 done. This is by design, and makes Bazel a good foundation for analysis tools,
-such as Bazel's [query](//query/guide) command, which is implemented atop the loading
+such as Bazel's [query](/query/guide) command, which is implemented atop the loading
 phase.
 
 #### Execution phase {:#execution}

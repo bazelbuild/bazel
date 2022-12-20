@@ -69,7 +69,7 @@ To build or test a project with Bazel, you typically do the following:
    places your outputs within the workspace.
 
 In addition to building, you can also use Bazel to run
-[tests](/reference/test-encyclopedia) and [query](//query/guide) the build
+[tests](/reference/test-encyclopedia) and [query](/query/guide) the build
 to trace dependencies in your code.
 
 ## Bazel build process {:#bazel-build-process}
@@ -99,7 +99,7 @@ and the build actions that Bazel will perform. Thanks to this graph, Bazel can
 [track](/run/build#build-consistency) changes to
 file content as well as changes to actions, such as build or test commands, and
 know what build work has previously been done. The graph also enables you to
-easily [trace dependencies](//query/guide) in your code.
+easily [trace dependencies](/query/guide) in your code.
 
 ## Getting started tutorials {:#getting-started-tutorials}
 

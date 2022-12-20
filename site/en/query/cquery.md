@@ -66,7 +66,7 @@ target is built with.
 
 Since `cquery` runs over the configured target graph. it doesn't have insight
 into artifacts like build actions nor access to `[test_suite](/reference/be/general#test_suite)`
-rules as they are not configured targets. For the former, see `[aquery](/docs/aquery)`.
+rules as they are not configured targets. For the former, see `[aquery](/query/aquery)`.
 
 ## Basic syntax {:#basic-syntax}
 
@@ -403,7 +403,7 @@ plus a few cquery-specific ones described below, but not (for example) `glob`,
 ##### build_options(target) {:#build-options}
 
 `build_options(target)` returns a map whose keys are build option identifiers (see
-[Configurations](/rules/config))
+[Configurations](/extending/config))
 and whose values are their Starlark values. Build options whose values are not legal Starlark
 values are omitted from this map.
 
@@ -552,7 +552,7 @@ must have the same configuration.
 
 While these generally share the top-level "target" configuration,
 rules can change their own configuration with
-[incoming edge transitions](/rules/config#incoming-edge-transitions).
+[incoming edge transitions](/extending/config#incoming-edge-transitions).
 This is where `cquery` falls short.
 
 Workaround: If possible, set `--universe_scope` to a stricter

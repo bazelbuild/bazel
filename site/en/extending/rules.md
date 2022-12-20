@@ -841,10 +841,10 @@ help rule designers be explicit about their intentions. When `executable=False`,
 which means `cfg` is optional, only set this when it truly helps readability.
 
 You can also use `cfg=my_transition` to use
-[user-defined transitions](/rules/config#user-defined-transitions), which allow
+[user-defined transitions](/extending/config#user-defined-transitions), which allow
 rule authors a great deal of flexibility in changing configurations, with the
 drawback of
-[making the build graph larger and less comprehensible](/rules/config#memory-and-performance-considerations).
+[making the build graph larger and less comprehensible](/extending/config#memory-and-performance-considerations).
 
 **Note**: Historically, Bazel didn't have the concept of execution platforms,
 and instead all build actions were considered to run on the host machine.

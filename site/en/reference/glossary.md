@@ -243,7 +243,7 @@ the rule is at the top level of the build graph. Flattening large depsets incurs
 huge memory consumption. Also known as *nested sets* in Bazel's internal
 implementation.
 
-**See also:** [Depset documentation](/rules/depsets)
+**See also:** [Depset documentation](/extending/depsets)
 
 ### Disk cache {:#disk-cache}
 
@@ -420,7 +420,7 @@ phase](#loading-phase) [target graph](#target-graph). This is relatively fast,
 but can't analyze the effects of `select()`, [build flags](#command-flags),
 [artifacts](#artifact), or build [actions](#action).
 
-**See also:** [Query how-to](//query/guide), [Query reference](/query/language)
+**See also:** [Query how-to](/query/guide), [Query reference](/query/language)
 
 ### Repository cache {:#repo-cache}
 
@@ -598,7 +598,7 @@ the [target graph](#target-graph) is forked with distinct configurations for
 each fork. For example, one can build an Android APK with native binaries
 compiled for ARM and x86 using split transitions in a single build.
 
-**See also:** [User-defined transitions](/rules/config#user-defined-transitions)
+**See also:** [User-defined transitions](/extending/config#user-defined-transitions)
 
 ### Tree artifact {:#tree-artifact}
 

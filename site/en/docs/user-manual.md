@@ -831,7 +831,7 @@ When this option is enabled, Bazel will discard the analysis cache
 right before execution starts, thus freeing up additional memory
 (around 10%) for the [execution phase](/run/build#execution).
 The drawback is that further incremental builds will be slower. See also
-[memory-saving mode](/docs/memory-saving-mode).
+[memory-saving mode](/configure/memory).
 
 #### `--[no]keep_going`  (-k) {:#keep-going}
 
@@ -1347,7 +1347,7 @@ of Bazel or Starlark rules with debugging failures due to missing toolchains.
 
 A convenience flag used to bind longer Starlark build settings to a shorter name. For more
 details, see the
-[Starlark Configurations](/rules/config#using-build-setting-aliases).
+[Starlark Configurations](/extending/config#using-build-setting-aliases).
 
 #### `--symlink_prefix={{ "<var>" }}string{{ "</var>" }}` {:#symlink-prefix}
 
@@ -1893,7 +1893,7 @@ It supports the same set of functions that is also available to traditional
 `query` but `siblings`, `buildfiles` and
 `tests`.
 
-For more details, see [Action Graph Query](/docs/aquery).
+For more details, see [Action Graph Query](/query/aquery).
 
 ## Miscellaneous commands and options {:#misc-commands-options}
 

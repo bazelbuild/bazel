@@ -215,7 +215,7 @@ the build.
 
 This directed acyclic graph over targets is called the _target graph_ or
 _build dependency graph_, and is the domain over which the
-[Bazel Query tool](//query/guide) operates.
+[Bazel Query tool](/query/guide) operates.
 
 <table class="columns">
   <tr>

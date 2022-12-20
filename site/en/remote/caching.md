@@ -37,7 +37,7 @@ The remote cache stores two types of data:
 
 Note that the remote cache additionally stores the stdout and stderr for every
 action. Inspecting the stdout/stderr of Bazel thus is not a good signal for
-[estimating cache hits](/docs/remote-caching-debug).
+[estimating cache hits](/remote/cache-local).
 
 ### How a build uses remote caching {:#remote-caching}
 

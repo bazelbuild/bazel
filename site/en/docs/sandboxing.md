@@ -54,7 +54,7 @@ You can choose which kind of sandboxing to use, if any, with the
 [strategy flags](user-manual.html#strategy-options). Using the `sandboxed`
 strategy makes Bazel pick one of the sandbox implementations listed below,
 preferring an OS-specific sandbox to the less hermetic generic one.
-[Persistent workers](persistent-workers.md) run in a generic sandbox if you pass
+[Persistent workers](/remote/persistent) run in a generic sandbox if you pass
 the `--worker_sandboxing` flag.
 
 The `local` (a.k.a. `standalone`) strategy does not do any kind of sandboxing.
@@ -99,7 +99,7 @@ strategies that Bazel tries to use (for example, `bazel build
 
 Dynamic execution usually requires sandboxing for local execution. To opt out,
 pass the `--experimental_local_lockfree_output` flag. Dynamic execution silently
-sandboxes [persistent workers](persistent-workers.md).
+sandboxes [persistent workers](/remote/persistent).
 
 ## Downsides to sandboxing {:#sandboxing_downsides}
 
@@ -110,10 +110,10 @@ sandboxes [persistent workers](persistent-workers.md).
     mitigate the setup and teardown cost.
 
 -   Sandboxing effectively disables any cache the tool may have. You can
-    mitigate this by using [persistent workers](persistent-workers.md), at
+    mitigate this by using [persistent workers](/remote/persistent), at
     the cost of weaker sandbox guarantees.
 
--   [Multiplex workers](multiplex-worker.md) require explicit worker support
+-   [Multiplex workers](/remote/multiplex) require explicit worker support
     to be sandboxed. Workers that do not support multiplex sandboxing run as
     singleplex workers under dynamic execution, which can cost extra memory.
 

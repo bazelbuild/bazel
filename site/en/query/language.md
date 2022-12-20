@@ -9,7 +9,7 @@ This page is the reference manual for the _Bazel Query Language_ used
 when you use `bazel query` to analyze build dependencies. It also
 describes the output formats `bazel query` supports.
 
-For practical use cases, see the [Bazel Query How-To](//query/guide).
+For practical use cases, see the [Bazel Query How-To](/query/guide).
 
 ## Additional query reference
 
@@ -24,7 +24,7 @@ their relationships. `aquery` is useful when you are interested in the
 properties of the Actions/Artifacts generated from the Configured Target Graph.
 For example, the actual commands run and their inputs, outputs, and mnemonics.
 
-For more details, see the [aquery reference](/docs/aquery).
+For more details, see the [aquery reference](/query/aquery).
 
 ### Configurable query {:#cquery}
 

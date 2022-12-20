@@ -56,7 +56,7 @@ Book: /_book.yaml
 
 We also support
 [`cquery`](https://bazel.build/query/cquery), [`Starlark
-configuration`](https://bazel.build/rules/config),
+configuration`](https://bazel.build/extending/config),
 and
 [`select()`](https://bazel.build/docs/configurable-attributes).
 
