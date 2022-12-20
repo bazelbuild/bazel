@@ -527,8 +527,6 @@ public class ExecutionTool {
               buildResultListener.getAnalyzedAspects().keySet(),
               buildResultListener.getBuiltAspects()));
       buildResult.setSkippedTargets(buildResultListener.getSkippedTargets());
-      buildResult.setActualTargets(buildResultListener.getAnalyzedTargets());
-      buildResult.setTestTargets(buildResultListener.getAnalyzedTests());
       BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
       buildResultPrinter.showBuildResult(
           request,
