@@ -17,8 +17,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
@@ -29,13 +29,15 @@ import java.util.function.Consumer;
 /**
  * This class drives a {@link StateMachine} instance.
  *
- * <p>It is possible, but not necessary to use this as {@link SkyKeyComputeState}. Depending on the
- * the computation, it may be better to include this as a component of a larger state object.
+ * <p>One recommended usage pattern for this class is to embed an instance within a top level {@link
+ * StateMachine} implementation and from there, re-export the {@link #drive} method. Then the
+ * results from the {@link StateMachine} will be readily retrievable from the {@link SkyFunction}
+ * state.
  */
 // TODO(shahan); this is incompatible with partial re-evaluation, which causes the assumption that
 // an unavailable previously requested dependency implies an error to no longer be true. This can be
 // fixed by integrating with the partial re-evaluation mailbox.
-public final class Driver implements SkyKeyComputeState {
+public final class Driver {
   // TODO(shahan): tune this parameter.
   private static final int DEFAULT_LIST_CAPACITY = 128;
 

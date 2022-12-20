@@ -15,6 +15,8 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
@@ -23,10 +25,15 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropperReceiver;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.state.Driver;
 import com.google.devtools.build.skyframe.state.StateMachine;
+import com.google.devtools.build.skyframe.state.ValueOrException2Producer;
+import com.google.devtools.build.skyframe.state.ValueOrExceptionProducer;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -85,6 +92,7 @@ public final class StateMachineTest {
 
   private static final SkyKey ROOT_KEY = GraphTester.toSkyKey("root");
   private static final SkyValue DONE_VALUE = new StringValue("DONE");
+  private static final StringValue SUCCESS_VALUE = new StringValue("SUCCESS");
 
   @Before
   public void predefineCommonEntries() {
@@ -94,6 +102,19 @@ public final class StateMachineTest {
     tester.getOrCreate(KEY_B1).setConstantValue(VALUE_B1);
     tester.getOrCreate(KEY_B2).setConstantValue(VALUE_B2);
     tester.getOrCreate(KEY_B3).setConstantValue(VALUE_B3);
+  }
+
+  private static class StateMachineWrapper implements SkyKeyComputeState {
+    private final Driver driver;
+
+    private StateMachineWrapper(StateMachine machine) {
+      this.driver = new Driver(machine);
+    }
+
+    private boolean drive(Environment env, ExtendedEventHandler listener)
+        throws InterruptedException {
+      return driver.drive(env, listener);
+    }
   }
 
   /**
@@ -110,7 +131,7 @@ public final class StateMachineTest {
         .getOrCreate(ROOT_KEY)
         .setBuilder(
             (k, env) -> {
-              if (!env.getState(() -> new Driver(rootMachineSupplier.get()))
+              if (!env.getState(() -> new StateMachineWrapper(rootMachineSupplier.get()))
                   .drive(env, env.getListener())) {
                 restartCount.getAndIncrement();
                 return null;
@@ -163,7 +184,7 @@ public final class StateMachineTest {
   }
 
   /** Example modeled after the one described in the documentation of {@link StateMachine}. */
-  private static class ExampleWithSubmachines implements StateMachine {
+  private static class ExampleWithSubmachines implements StateMachine, SkyKeyComputeState {
     private final Consumer<SkyValue> sinkA1;
     private final Consumer<SkyValue> sinkA2;
     private final Consumer<SkyValue> sinkA3;
@@ -354,6 +375,174 @@ public final class StateMachineTest {
     assertThat(restartCount.get()).isEqualTo(1);
     assertThat(a1Sink.get()).isNull();
     assertThat(errorSink.get()).isNotNull();
+  }
+
+  private static class StringOrExceptionProducer
+      extends ValueOrExceptionProducer.WithDriver<StringValue, SomeErrorException>
+      implements SkyKeyComputeState {
+    @Override
+    @Nullable
+    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+      tasks.lookUp(
+          KEY_A1,
+          SomeErrorException.class,
+          (v, e) -> {
+            if (v != null) {
+              setValue((StringValue) v);
+              return;
+            }
+            setException(e);
+          });
+      return null;
+    }
+  }
+
+  @Test
+  public void valueOrExceptionProducer_propagatesValues() throws InterruptedException {
+    tester
+        .getOrCreate(ROOT_KEY)
+        .setBuilder(
+            (k, env) -> {
+              var producer = env.getState(StringOrExceptionProducer::new);
+              if (!producer.drive(env, env.getListener())) {
+                return null;
+              }
+              assertThat(producer.hasResult()).isTrue();
+              assertThat(producer.hasValue()).isTrue();
+              assertThat(producer.getValue()).isEqualTo(VALUE_A1);
+              assertThat(producer.hasException()).isFalse();
+              try {
+                assertThat(producer.getValueOrThrow()).isEqualTo(VALUE_A1);
+              } catch (SomeErrorException e) {
+                fail("Unexpecteded exception: " + e);
+              }
+              return DONE_VALUE;
+            });
+    assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+  }
+
+  @Test
+  public void valueOrExceptionProducer_propagatesExceptions(@TestParameter boolean keepGoing)
+      throws InterruptedException {
+    tester.getOrCreate(KEY_A1).unsetConstantValue().setHasError(true);
+    tester
+        .getOrCreate(ROOT_KEY)
+        .setBuilder(
+            (k, env) -> {
+              var producer = env.getState(StringOrExceptionProducer::new);
+              if (!producer.drive(env, env.getListener())) {
+                return null;
+              }
+              assertThat(producer.hasResult()).isTrue();
+              assertThat(producer.hasValue()).isFalse();
+              assertThat(producer.hasException()).isTrue();
+              assertThrows(SomeErrorException.class, producer::getValueOrThrow);
+              assertThat(producer.getException()).isNotNull();
+              return DONE_VALUE;
+            });
+    var result = eval(ROOT_KEY, keepGoing);
+    if (keepGoing) {
+      assertThat(result.get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+      assertThat(result.hasError()).isFalse();
+    } else {
+      assertThat(result.get(ROOT_KEY)).isNull();
+      assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A1);
+    }
+  }
+
+  private static class StringOrException2Producer
+      extends ValueOrException2Producer.WithDriver<
+          StringValue, SomeErrorException, ExecutionException>
+      implements SkyKeyComputeState {
+    @Override
+    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+      tasks.lookUp(
+          KEY_A1,
+          SomeErrorException.class,
+          (v, e) -> {
+            if (e != null) {
+              setException1(e);
+            }
+          });
+      tasks.lookUp(
+          KEY_B1,
+          SomeErrorException.class,
+          (v, e) -> {
+            if (e != null) {
+              setException2(new ExecutionException(e));
+            }
+          });
+      return (t, l) -> {
+        if (!hasResult()) {
+          setValue(SUCCESS_VALUE);
+        }
+        return null;
+      };
+    }
+  }
+
+  @Test
+  public void valueOrException2Producer_propagatesValues() throws InterruptedException {
+    tester
+        .getOrCreate(ROOT_KEY)
+        .setBuilder(
+            (k, env) -> {
+              var producer = env.getState(StringOrException2Producer::new);
+              if (!producer.drive(env, env.getListener())) {
+                return null;
+              }
+              assertThat(producer.hasResult()).isTrue();
+              assertThat(producer.hasValue()).isTrue();
+              assertThat(producer.getValue()).isEqualTo(SUCCESS_VALUE);
+              assertThat(producer.hasException1()).isFalse();
+              assertThat(producer.hasException2()).isFalse();
+              try {
+                assertThat(producer.getValueOrThrow()).isEqualTo(SUCCESS_VALUE);
+              } catch (SomeErrorException | ExecutionException e) {
+                fail("Unexpecteded exception: " + e);
+              }
+              return DONE_VALUE;
+            });
+    assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+  }
+
+  @Test
+  public void valueOrException2Producer_propagatesExceptions(
+      @TestParameter boolean trueForException1, @TestParameter boolean keepGoing)
+      throws InterruptedException {
+    SkyKey errorKey = trueForException1 ? KEY_A1 : KEY_B1;
+    tester.getOrCreate(errorKey).unsetConstantValue().setHasError(true);
+    tester
+        .getOrCreate(ROOT_KEY)
+        .setBuilder(
+            (k, env) -> {
+              var producer = env.getState(StringOrException2Producer::new);
+              if (!producer.drive(env, env.getListener())) {
+                return null;
+              }
+              assertThat(producer.hasResult()).isTrue();
+              assertThat(producer.hasValue()).isFalse();
+              if (trueForException1) {
+                assertThat(producer.hasException1()).isTrue();
+                assertThrows(SomeErrorException.class, producer::getValueOrThrow);
+                assertThat(producer.getException1()).isNotNull();
+                assertThat(producer.hasException2()).isFalse();
+              } else {
+                assertThat(producer.hasException1()).isFalse();
+                assertThat(producer.hasException2()).isTrue();
+                assertThrows(ExecutionException.class, producer::getValueOrThrow);
+                assertThat(producer.getException2()).isNotNull();
+              }
+              return DONE_VALUE;
+            });
+    var result = eval(ROOT_KEY, keepGoing);
+    if (keepGoing) {
+      assertThat(result.get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+      assertThat(result.hasError()).isFalse();
+    } else {
+      assertThat(result.get(ROOT_KEY)).isNull();
+      assertThatEvaluationResult(result).hasSingletonErrorThat(errorKey);
+    }
   }
 
   /**
