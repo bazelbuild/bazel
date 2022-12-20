@@ -338,7 +338,7 @@ in 2020 ([source](https://twitter.com/wew/status/1326957862816509953){: .externa
 details about their process, see their [engineering blog](https://eng.snap.com/blog/){: .external}.
 
 ### [Stripe](https://stripe.com){: .external}
-<img src="https://upload.wikimedia.org/wikipedia/en/thumb/e/eb/Stripe_logo%2C_revised_2016.png/320px-Stripe_logo%2C_revised_2016.png" width="150" align="right">
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Stripe_Logo%2C_revised_2016.svg/1024px-Stripe_Logo%2C_revised_2016.svg.png" width="150" align="right">
 
 Stripe provides mobile payment solutions.  They are the main maintainers of the
 [Bazel Scala rules](https://github.com/bazelbuild/rules_scala){: .external}.
