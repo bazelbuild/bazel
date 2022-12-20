@@ -47,8 +47,6 @@ class JsonTraceFileWriter implements Runnable {
   private final long profileStartTimeNanos;
   private final ThreadLocal<Boolean> metadataPosted = ThreadLocal.withInitial(() -> Boolean.FALSE);
   private final boolean slimProfile;
-  private final boolean includePrimaryOutput;
-  private final boolean includeTargetLabel;
   private final UUID buildID;
   private final String outputBase;
 
@@ -112,9 +110,7 @@ class JsonTraceFileWriter implements Runnable {
       long profileStartTimeNanos,
       boolean slimProfile,
       String outputBase,
-      UUID buildID,
-      boolean includePrimaryOutput,
-      boolean includeTargetLabel) {
+      UUID buildID) {
     this.queue = new LinkedBlockingQueue<>();
     this.thread = new Thread(this, "profile-writer-thread");
     this.outStream = outStream;
@@ -122,8 +118,6 @@ class JsonTraceFileWriter implements Runnable {
     this.slimProfile = slimProfile;
     this.buildID = buildID;
     this.outputBase = outputBase;
-    this.includePrimaryOutput = includePrimaryOutput;
-    this.includeTargetLabel = includeTargetLabel;
   }
 
   public void shutdown() throws IOException {
@@ -246,24 +240,29 @@ class JsonTraceFileWriter implements Runnable {
     }
     writer.name("pid").value(1);
 
-    // Primary outputs are non-mergeable, thus incompatible with slim profiles.
-    if (includePrimaryOutput && data instanceof ActionTaskData) {
-      writer.name("out").value(((ActionTaskData) data).primaryOutputPath);
-    }
-    if (includeTargetLabel && data instanceof ActionTaskData) {
-      writer.name("args");
-      writer.beginObject();
-      writer.name("target").value(((ActionTaskData) data).targetLabel);
-      if (data.mnemonic.hasBeenSet()) {
-        writer.name("mnemonic").value(data.mnemonic.getValueForJson());
+    if (data instanceof ActionTaskData) {
+      ActionTaskData actionTaskData = (ActionTaskData) data;
+      if (actionTaskData.primaryOutputPath != null) {
+        // Primary outputs are non-mergeable, thus incompatible with slim profiles.
+        writer.name("out").value(actionTaskData.primaryOutputPath);
       }
-      writer.endObject();
-    } else if (data.mnemonic.hasBeenSet() && data instanceof ActionTaskData) {
-      writer.name("args");
-      writer.beginObject();
-      writer.name("mnemonic").value(data.mnemonic.getValueForJson());
-      writer.endObject();
-    } else if (data.type == ProfilerTask.CRITICAL_PATH_COMPONENT) {
+      if (actionTaskData.targetLabel != null) {
+        writer.name("args");
+        writer.beginObject();
+        writer.name("target").value(actionTaskData.targetLabel);
+        if (data.mnemonic.hasBeenSet()) {
+          writer.name("mnemonic").value(data.mnemonic.getValueForJson());
+        }
+        writer.endObject();
+      }
+      if (data.mnemonic.hasBeenSet()) {
+        writer.name("args");
+        writer.beginObject();
+        writer.name("mnemonic").value(data.mnemonic.getValueForJson());
+        writer.endObject();
+      }
+    }
+    if (data.type == ProfilerTask.CRITICAL_PATH_COMPONENT) {
       writer.name("args");
       writer.beginObject();
       writer.name("tid").value(data.threadId);

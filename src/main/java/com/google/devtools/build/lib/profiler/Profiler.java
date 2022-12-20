@@ -167,9 +167,14 @@ public final class Profiler {
     }
   }
 
+  /**
+   * Similar to TaskData, specific for profiled actions. Depending on options, adds additional
+   * action specific information such as primary output path and target label. This is only meant to
+   * be used for ProfilerTask.ACTION.
+   */
   static final class ActionTaskData extends TaskData {
-    final String primaryOutputPath;
-    final String targetLabel;
+    @Nullable final String primaryOutputPath;
+    @Nullable final String targetLabel;
 
     ActionTaskData(
         int id,
@@ -177,8 +182,8 @@ public final class Profiler {
         ProfilerTask eventType,
         MnemonicData mnemonic,
         String description,
-        String primaryOutputPath,
-        String targetLabel) {
+        @Nullable String primaryOutputPath,
+        @Nullable String targetLabel) {
       super(id, startTimeNanos, eventType, mnemonic, description);
       this.primaryOutputPath = primaryOutputPath;
       this.targetLabel = targetLabel;
@@ -280,6 +285,8 @@ public final class Profiler {
   private TimeSeries actionCountTimeSeries;
   private Duration actionCountStartTime;
   private boolean collectTaskHistograms;
+  private boolean includePrimaryOutput;
+  private boolean includeTargetLabel;
 
   private Profiler() {
     initHistograms();
@@ -406,6 +413,8 @@ public final class Profiler {
     this.actionCountStartTime = Duration.ofNanos(clock.nanoTime());
     this.actionCountTimeSeries = new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
     this.collectTaskHistograms = collectTaskHistograms;
+    this.includePrimaryOutput = includePrimaryOutput;
+    this.includeTargetLabel = includeTargetLabel;
 
     // Reset state for the new profiling session.
     taskId.set(0);
@@ -415,14 +424,7 @@ public final class Profiler {
       switch (format) {
         case JSON_TRACE_FILE_FORMAT:
           writer =
-              new JsonTraceFileWriter(
-                  stream,
-                  execStartTimeNanos,
-                  slimProfile,
-                  outputBase,
-                  buildID,
-                  includePrimaryOutput,
-                  includeTargetLabel);
+              new JsonTraceFileWriter(stream, execStartTimeNanos, slimProfile, outputBase, buildID);
           break;
         case JSON_TRACE_FILE_COMPRESSED_FORMAT:
           writer =
@@ -431,9 +433,7 @@ public final class Profiler {
                   execStartTimeNanos,
                   slimProfile,
                   outputBase,
-                  buildID,
-                  includePrimaryOutput,
-                  includeTargetLabel);
+                  buildID);
       }
       writer.start();
     }
@@ -746,8 +746,8 @@ public final class Profiler {
               type,
               new MnemonicData(mnemonic),
               description,
-              primaryOutput,
-              targetLabel);
+              includePrimaryOutput ? primaryOutput : null,
+              includeTargetLabel ? targetLabel : null);
       return () -> completeTask(taskData);
     } else {
       return NOP;
