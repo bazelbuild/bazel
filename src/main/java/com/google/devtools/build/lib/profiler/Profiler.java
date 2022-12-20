@@ -281,7 +281,7 @@ public final class Profiler {
    * The reference to the current writer, if any. If the referenced writer is null, then disk writes
    * are disabled. This can happen when slowest task recording is enabled.
    */
-  private AtomicReference<FileWriter> writerRef = new AtomicReference<>();
+  private final AtomicReference<JsonTraceFileWriter> writerRef = new AtomicReference<>();
 
   private final SlowestTaskAggregator[] slowestTasks =
       new SlowestTaskAggregator[ProfilerTask.values().length];
@@ -425,7 +425,7 @@ public final class Profiler {
     // Reset state for the new profiling session.
     taskId.set(0);
     this.recordAllDurations = recordAllDurations;
-    FileWriter writer = null;
+    JsonTraceFileWriter writer = null;
     if (stream != null && format != null) {
       switch (format) {
         case JSON_TRACE_FILE_FORMAT:
@@ -528,7 +528,7 @@ public final class Profiler {
 
     // Log a final event to update the duration of ProfilePhase.FINISH.
     logEvent(ProfilerTask.INFO, "Finishing");
-    FileWriter writer = writerRef.getAndSet(null);
+    JsonTraceFileWriter writer = writerRef.getAndSet(null);
     if (writer != null) {
       writer.shutdown();
       writer = null;
@@ -564,7 +564,7 @@ public final class Profiler {
   /** Adds a whole action count series to the writer bypassing histogram and subtask creation. */
   public void logCounters(
       ProfilerTask type, double[] counterValues, Duration profileStart, Duration bucketDuration) {
-    FileWriter currentWriter = writerRef.get();
+    JsonTraceFileWriter currentWriter = writerRef.get();
     if (isActive() && isProfiling(type) && currentWriter != null) {
       for (int i = 0; i < counterValues.length; i++) {
         long timeNanos = profileStart.plus(bucketDuration.multipliedBy(i)).toNanos();
@@ -599,7 +599,7 @@ public final class Profiler {
     if (isActive() && startTimeNanos >= 0 && isProfiling(type)) {
       // Store instance fields as local variables so they are not nulled out from under us by
       // #clear.
-      FileWriter currentWriter = writerRef.get();
+      JsonTraceFileWriter currentWriter = writerRef.get();
       if (wasTaskSlowEnoughToRecord(type, duration)) {
         TaskData data = new TaskData(taskId.incrementAndGet(), startTimeNanos, type, description);
         data.duration = duration;
@@ -787,7 +787,7 @@ public final class Profiler {
       long endTime = clock.nanoTime();
       data.duration = endTime - data.startTimeNanos;
       boolean shouldRecordTask = wasTaskSlowEnoughToRecord(data.type, data.duration);
-      FileWriter writer = writerRef.get();
+      JsonTraceFileWriter writer = writerRef.get();
       if (shouldRecordTask && writer != null) {
         writer.enqueue(data);
       }
@@ -815,41 +815,12 @@ public final class Profiler {
     }
   }
 
-  private abstract static class FileWriter implements Runnable {
+  /** Writes the profile in Json Trace file format. */
+  private static class JsonTraceFileWriter implements Runnable {
     protected final BlockingQueue<TaskData> queue;
     protected final Thread thread;
     protected IOException savedException;
 
-    FileWriter() {
-      this.queue = new LinkedBlockingQueue<>();
-      this.thread = new Thread(this, "profile-writer-thread");
-    }
-
-    public void shutdown() throws IOException {
-      // Add poison pill to queue and then wait for writer thread to shut down.
-      queue.add(POISON_PILL);
-      try {
-        thread.join();
-      } catch (InterruptedException e) {
-        thread.interrupt();
-        Thread.currentThread().interrupt();
-      }
-      if (savedException != null) {
-        throw savedException;
-      }
-    }
-
-    public void start() {
-      thread.start();
-    }
-
-    public void enqueue(TaskData data) {
-      queue.add(data);
-    }
-  }
-
-  /** Writes the profile in Json Trace file format. */
-  private static class JsonTraceFileWriter extends FileWriter {
     private final OutputStream outStream;
     private final long profileStartTimeNanos;
     private final ThreadLocal<Boolean> metadataPosted =
@@ -921,6 +892,8 @@ public final class Profiler {
         UUID buildID,
         boolean includePrimaryOutput,
         boolean includeTargetLabel) {
+      this.queue = new LinkedBlockingQueue<>();
+      this.thread = new Thread(this, "profile-writer-thread");
       this.outStream = outStream;
       this.profileStartTimeNanos = profileStartTimeNanos;
       this.slimProfile = slimProfile;
@@ -930,7 +903,24 @@ public final class Profiler {
       this.includeTargetLabel = includeTargetLabel;
     }
 
-    @Override
+    public void shutdown() throws IOException {
+      // Add poison pill to queue and then wait for writer thread to shut down.
+      queue.add(POISON_PILL);
+      try {
+        thread.join();
+      } catch (InterruptedException e) {
+        thread.interrupt();
+        Thread.currentThread().interrupt();
+      }
+      if (savedException != null) {
+        throw savedException;
+      }
+    }
+
+    public void start() {
+      thread.start();
+    }
+
     public void enqueue(TaskData data) {
       if (!metadataPosted.get()) {
         metadataPosted.set(Boolean.TRUE);
