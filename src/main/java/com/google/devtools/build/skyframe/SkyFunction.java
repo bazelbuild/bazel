@@ -349,6 +349,15 @@ public interface SkyFunction {
     boolean restartPermitted();
 
     /**
+     * Returns a lookup result containing previously requested dependencies.
+     *
+     * <p>NB: this may contain fewer dependencies than expected if the node is restarted before all
+     * its dependencies have signaled. The two known cases are error bubbling and partial
+     * re-evaluation. In error bubbling, an error should be present.
+     */
+    SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps();
+
+    /**
      * Container for data stored in between calls to {@link #compute} for the same {@link SkyKey}.
      *
      * <p>See the javadoc of {@link #getState} for motivation and an example.

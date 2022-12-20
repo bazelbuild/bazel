@@ -986,6 +986,12 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     return evaluatorContext.restartPermitted();
   }
 
+  @Override
+  public SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps() {
+    checkActive();
+    return this;
+  }
+
   @SuppressWarnings("unchecked")
   @Override
   public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
