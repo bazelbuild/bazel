@@ -34,7 +34,8 @@ public interface CoverageConfigurationApi extends StarlarkValue {
       structField = true,
       doc =
           "Returns the label pointed to by the"
-              + " <a href=\"../../user-manual.html#flag--coverage_output_generator\">"
+              + " <a href=\"https://bazel.build/reference/command-line-reference"
+              + "#flag--coverage_output_generator\">"
               + "<code>--coverage_output_generator</code></a> option if coverage collection is"
               + " enabled, otherwise returns <code>None</code>. Can be accessed with"
               + " <a href=\"globals.html#configuration_field\"><code>configuration_field"

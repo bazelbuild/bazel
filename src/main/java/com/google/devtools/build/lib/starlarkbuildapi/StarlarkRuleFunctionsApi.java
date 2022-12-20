@@ -65,15 +65,15 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
               + "    # my_info.x == 2\n"
               + "    # my_info.y == 3\n"
               + "    ..." //
-              + "</pre><p>See <a href='https://bazel.build/rules/rules#providers'>Rules"
+              + "</pre><p>See <a href='https://bazel.build/extending/rules#providers'>Rules"
               + " (Providers)</a> for a comprehensive guide on how to use providers." //
               + "<p>Returns a <a href='Provider.html#Provider'><code>Provider</code></a> callable "
               + "value if <code>init</code> is not specified." //
               + "<p>If <code>init</code> is specified, returns a tuple of 2 elements: a <a"
               + " href='Provider.html#Provider'><code>Provider</code></a> callable value and a"
               + " <em>raw constructor</em> callable value. See <a"
-              + " href='https://bazel.build/rules/rules#custom_initialization_of_providers'>Rules"
-              + " (Custom initialization of custom providers)</a> and the discussion of the"
+              + " href='https://bazel.build/extending/rules#custom_initialization_of_providers'>"
+              + " Rules (Custom initialization of custom providers)</a> and the discussion of the"
               + " <code>init</code> parameter below for details.",
       parameters = {
         @Param(
@@ -108,8 +108,8 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " during instantiation. If <code>init</code> is specified,"
                     + " <code>provider()</code> returns a tuple of 2 elements: the normal provider"
                     + " symbol and a <em>raw constructor</em>." //
-                    + "<p>A precise description follows; see <a"
-                    + " href='https://bazel.build/rules/rules#custom_initialization_of_providers'>"
+                    + "<p>A precise description follows; see <a href='"
+                    + "https://bazel.build/extending/rules#custom_initialization_of_providers'>"
                     + "Rules (Custom initialization of providers)</a>"
                     + " for an intuitive discussion and use cases." //
                     + "<p>Let <code>P</code> be the provider symbol created by calling"
@@ -209,7 +209,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " considered <a href='#rule.executable'>executable</a>; it is unnecessary"
                     + " (and discouraged) to explicitly set <code>executable = True</code> for a"
                     + " test rule. See the <a"
-                    + " href='https://bazel.build/rules/rules#executable_rules_and_test_rules'>"
+                    + " href='https://bazel.build/extending/rules#executable_rules_and_test_rules'>"
                     + " Rules page</a> for more information."),
         @Param(
             name = "attrs",
@@ -248,7 +248,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " href='attr.html#output'><code>output</code></a> and <a"
                     + " href='attr.html#output_list'><code>output_list</code></a> attributes, the"
                     + " user does not specify the labels for these files. See the <a"
-                    + " href='https://bazel.build/rules/rules#files'>Rules page</a> for more on"
+                    + " href='https://bazel.build/extending/rules#files'>Rules page</a> for more on"
                     + " predeclared outputs.<p>The value of this argument is either a dictionary or"
                     + " a callback function that produces a dictionary. The callback works similar"
                     + " to computed dependency attributes: The function's parameter names are"
@@ -293,7 +293,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             doc =
                 "Whether this rule is considered executable, that is, whether it may be the subject"
                     + " of a <code>blaze run</code> command. See the <a"
-                    + " href='https://bazel.build/rules/rules#executable_rules_and_test_rules'>"
+                    + " href='https://bazel.build/extending/rules#executable_rules_and_test_rules'>"
                     + " Rules page</a> for more information."),
         @Param(
             name = "output_to_genfiles",

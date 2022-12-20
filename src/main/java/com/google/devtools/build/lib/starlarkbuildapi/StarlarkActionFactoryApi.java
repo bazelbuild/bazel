@@ -36,7 +36,7 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.BUILTIN,
     doc =
         "Module providing functions to create actions. "
-            + "Access this module using <a href=\"ctx.html#actions\"><code>ctx.actions</code></a>.")
+            + "Access this module using <a href=\"ctx#actions\"><code>ctx.actions</code></a>.")
 public interface StarlarkActionFactoryApi extends StarlarkValue {
 
   @StarlarkMethod(
@@ -49,9 +49,9 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
               + " addition to declaring a file, you must separately create an action that emits the"
               + " file. Creating that action will require passing the returned <code>File</code>"
               + " object to the action's construction function.<p>Note that <a"
-              + " href='https://bazel.build/rules/rules#files'>predeclared output files</a> do not"
-              + " need to be (and cannot be) declared using this function. You can obtain their"
-              + " <code>File</code> objects from <a"
+              + " href='https://bazel.build/extending/rules#files'>predeclared output files</a> do"
+              + " not need to be (and cannot be) declared using this function."
+              + " You can obtain their <code>File</code> objects from <a"
               + " href=\"ctx.html#outputs\"><code>ctx.outputs</code></a> instead. <a"
               + " href=\"https://github.com/bazelbuild/examples/tree/main/rules/computed_dependencies/hash.bzl\">See"
               + " example of use</a>.",

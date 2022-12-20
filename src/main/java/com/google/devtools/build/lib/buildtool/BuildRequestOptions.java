@@ -166,7 +166,7 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Whether to run validation actions as part of the build. See"
-              + " https://bazel.build/rules/rules#validation_actions")
+              + " https://bazel.build/extending/rules#validation_actions")
   public boolean runValidationActions;
 
   @Option(

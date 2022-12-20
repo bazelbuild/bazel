@@ -258,7 +258,7 @@ public final class StarlarkLibrary {
                 + " a list of depsets whose elements become indirect elements of the created"
                 + " depset. The order in which elements are returned when the depset is converted"
                 + " to a list is specified by the <code>order</code> parameter. See the <a"
-                + " href=\"https://bazel.build/rules/depsets\">Depsets overview</a> for more"
+                + " href=\"https://bazel.build/extending/depsets\">Depsets overview</a> for more"
                 + " information.\n" //
                 + "<p>All"
                 + " elements (direct and indirect) of a depset must be of the same type, as"
