@@ -23,14 +23,14 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
-/** Declaration part of cc_proto_library. */
+/**
+ * Rule definition for cc_proto_library rule.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
+ */
 public class CcProtoLibraryRule implements RuleDefinition {
 
-  private final CcProtoAspect ccProtoAspect;
-
-  public CcProtoLibraryRule(CcProtoAspect ccProtoAspect) {
-    this.ccProtoAspect = ccProtoAspect;
-  }
+  public CcProtoLibraryRule() {}
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
@@ -40,11 +40,7 @@ public class CcProtoLibraryRule implements RuleDefinition {
         The list of <a href="protocol-buffer.html#proto_library"><code>proto_library</code></a>
         rules to generate C++ code for.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .override(
-            attr("deps", LABEL_LIST)
-                .allowedRuleClasses("proto_library")
-                .allowedFileTypes()
-                .aspect(ccProtoAspect))
+        .override(attr("deps", LABEL_LIST).allowedRuleClasses("proto_library").allowedFileTypes())
         .build();
   }
 
@@ -52,7 +48,7 @@ public class CcProtoLibraryRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("cc_proto_library")
-        .factoryClass(CcProtoLibrary.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
         .build();
   }
