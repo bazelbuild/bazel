@@ -302,8 +302,15 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     BlazeOptionHandler optionHandler =
         new BlazeOptionHandler(
             runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
+    EventHandler invocationPolicyEventHandler =
+        runtime
+                .getStartupOptionsProvider()
+                .getOptions(BlazeServerStartupOptions.class)
+                .warnOnInvocationPolicyOverrides
+            ? storedEventHandler
+            : NullEventHandler.INSTANCE;
     DetailedExitCode earlyExitCode =
-        optionHandler.parseOptions(args, storedEventHandler, storedEventHandler);
+        optionHandler.parseOptions(args, storedEventHandler, invocationPolicyEventHandler);
     OptionsParsingResult options = optionHandler.getOptionsResult();
 
     // The initCommand call also records the start time for the timestamp granularity monitor.

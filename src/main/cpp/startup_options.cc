@@ -85,6 +85,7 @@ StartupOptions::StartupOptions(const string &product_name,
       connect_timeout_secs(30),
       local_startup_timeout_secs(120),
       have_invocation_policy_(false),
+      warn_on_invocation_policy_overrides(true),
       client_debug(false),
       preemptible(false),
       java_logging_formatter(
@@ -157,6 +158,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("host_jvm_args");
   RegisterUnaryStartupFlag("host_jvm_profile");
   RegisterUnaryStartupFlag("invocation_policy");
+  RegisterNullaryStartupFlagNoRc("warn_on_invocation_policy_overrides", &warn_on_invocation_policy_overrides);
   RegisterUnaryStartupFlag("io_nice_level");
   RegisterUnaryStartupFlag("install_base");
   RegisterUnaryStartupFlag("macos_qos_class");

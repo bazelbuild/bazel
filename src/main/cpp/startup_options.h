@@ -244,6 +244,9 @@ class StartupOptions {
   // Invocation policy can only be specified once.
   bool have_invocation_policy_;
 
+  // Whether to emit warn events on invocation policy overrides.
+  bool warn_on_invocation_policy_overrides;
+
   // Whether to output addition debugging information in the client.
   bool client_debug;
 

@@ -333,6 +333,16 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public String invocationPolicy;
 
   @Option(
+      name = "warn_on_invocation_policy_overrides",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Whether to emit a warning event if a flag's value is overridden by an invocation"
+              + " policy.")
+  public boolean warnOnInvocationPolicyOverrides;
+
+  @Option(
       name = "command_port",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

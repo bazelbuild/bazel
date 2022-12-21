@@ -546,6 +546,11 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
     result.push_back("--invocation_policy=" +
                      startup_options.invocation_policy);
   }
+  if (startup_options.warn_on_invocation_policy_overrides) {
+    result.push_back("--warn_on_invocation_policy_overrides=true");
+  } else {
+    result.push_back("--warn_on_invocation_policy_overrides=false");
+  }
 
   result.push_back("--product_name=" + startup_options.product_name);
 
