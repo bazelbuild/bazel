@@ -176,7 +176,6 @@ public final class ConfiguredTargetFactory {
       ArtifactFactory artifactFactory,
       Target target,
       BuildConfigurationValue config,
-      BuildConfigurationValue hostConfig,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
@@ -510,7 +509,6 @@ public final class ConfiguredTargetFactory {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable ExecGroupCollection.Builder execGroupCollectionBuilder,
       BuildConfigurationValue aspectConfiguration,
-      BuildConfigurationValue hostConfiguration,
       @Nullable NestedSet<Package> transitivePackages,
       AspectKeyCreator.AspectKey aspectKey)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException {

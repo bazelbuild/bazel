@@ -140,9 +140,6 @@ public final class SkyframeBuildView {
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
-  // The host configuration containing all fragments used by this build's transitive closure.
-  private BuildConfigurationValue topLevelHostConfiguration;
-
   private BuildConfigurationCollection configurations;
 
   /**
@@ -297,23 +294,12 @@ public final class SkyframeBuildView {
 
     skyframeAnalysisWasDiscarded = false;
     this.configurations = configurations;
-    setTopLevelHostConfiguration(configurations.getHostConfiguration());
     skyframeExecutor.setTopLevelConfiguration(configurations);
   }
 
   @VisibleForTesting
   public BuildConfigurationCollection getBuildConfigurationCollection() {
     return configurations;
-  }
-
-  /**
-   * Sets the host configuration consisting of all fragments that will be used by the top level
-   * targets' transitive closures.
-   */
-  private void setTopLevelHostConfiguration(BuildConfigurationValue topLevelHostConfiguration) {
-    if (!topLevelHostConfiguration.equals(this.topLevelHostConfiguration)) {
-      this.topLevelHostConfiguration = topLevelHostConfiguration;
-    }
   }
 
   /**
@@ -1202,23 +1188,12 @@ public final class SkyframeBuildView {
         artifactFactory,
         target,
         configuration,
-        topLevelHostConfiguration,
         configuredTargetKey,
         prerequisiteMap,
         configConditions,
         toolchainContexts,
         transitivePackages,
         execGroupCollectionBuilder);
-  }
-
-  /**
-   * Returns the top-level host configuration.
-   *
-   * <p>This may only be called after {@link #setTopLevelHostConfiguration} has set the correct host
-   * configuration at the top-level.
-   */
-  public BuildConfigurationValue getHostConfiguration() {
-    return topLevelHostConfiguration;
   }
 
   /**

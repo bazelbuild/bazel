@@ -696,7 +696,6 @@ final class AspectFunction implements SkyFunction {
           new ConfigurationResolver(
               env,
               originalTargetAndAspectConfiguration,
-              buildViewProvider.getSkyframeBuildView().getHostConfiguration(),
               configConditions.asProviders(),
               buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache());
       ImmutableList<Dependency> deps =
@@ -880,7 +879,6 @@ final class AspectFunction implements SkyFunction {
                     toolchainContexts,
                     execGroupCollectionBuilder,
                     configuration,
-                    view.getHostConfiguration(),
                     transitivePackages == null ? null : transitivePackages.build(),
                     key);
       } catch (MissingDepException e) {
