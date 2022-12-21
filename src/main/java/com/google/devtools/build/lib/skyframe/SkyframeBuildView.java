@@ -104,6 +104,7 @@ import com.google.devtools.common.options.OptionDefinition;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -555,6 +556,7 @@ public final class SkyframeBuildView {
       BugReporter bugReporter,
       ResourceManager resourceManager,
       BuildResultListener buildResultListener,
+      CoverageReportActionsWrapperSupplier coverageReportActionsWrapperSupplier,
       boolean keepGoing,
       boolean strictConflictCheck,
       boolean checkForActionConflicts,
@@ -562,7 +564,9 @@ public final class SkyframeBuildView {
       int cpuHeavySkyKeysThreadPoolSize,
       int mergedPhasesExecutionJobsCount,
       boolean shouldDiscardAnalysisCache)
-      throws InterruptedException, ViewCreationFailedException, BuildFailedException,
+      throws InterruptedException,
+          ViewCreationFailedException,
+          BuildFailedException,
           TestExecException {
     Stopwatch analysisWorkTimer = Stopwatch.createStarted();
     EvaluationResult<BuildDriverValue> evaluationResult;
@@ -623,7 +627,7 @@ public final class SkyframeBuildView {
 
       try {
         resourceManager.resetResourceUsage();
-        EvaluationResult<SkyValue> workspaceStatusResult;
+        EvaluationResult<SkyValue> additionalArtifactsResult;
         try (SilentCloseable c =
             Profiler.instance().profile("skyframeExecutor.evaluateBuildDriverKeys")) {
           // Will be disabled later by the AnalysisOperationWatcher upon conclusion of analysis.
@@ -643,26 +647,34 @@ public final class SkyframeBuildView {
           // in case of --nokeep_going & analysis error, the analysis phase is never finished.
           skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
 
+          Set<Artifact> additionalArtifacts = new HashSet<>();
+
           // Unconditionally create build-info.txt and build-changelist.txt.
           // No action conflict expected here.
+          additionalArtifacts.addAll(workspaceStatusArtifacts);
+          // Coverage.
+          additionalArtifacts.addAll(
+              coverageReportActionsWrapperSupplier.getCoverageArtifacts(
+                  buildResultListener.getAnalyzedTargets(),
+                  buildResultListener.getAnalyzedTests()));
           // This evaluation involves action executions, and hence has to be done after the first
           // SomeExecutionStartedEvent (which is posted from BuildDriverFunction). The most
           // straightforward solution is to perform this here, after
           // SkyframeExecutor#evaluateBuildDriverKeys.
-          workspaceStatusResult =
+          additionalArtifactsResult =
               skyframeExecutor.evaluateSkyKeys(
-                  eventHandler, Artifact.keys(workspaceStatusArtifacts), keepGoing);
-          if (workspaceStatusResult.hasError()) {
+                  eventHandler, Artifact.keys(additionalArtifacts), keepGoing);
+          if (additionalArtifactsResult.hasError()) {
             detailedExitCodes.add(
                 SkyframeErrorProcessor.processErrors(
-                        workspaceStatusResult,
+                        additionalArtifactsResult,
                         configurationLookupSupplier,
                         skyframeExecutor.getCyclesReporter(),
                         eventHandler,
                         keepGoing,
                         eventBus,
                         bugReporter,
-                        /*includeExecutionPhase=*/ true)
+                        /* includeExecutionPhase= */ true)
                     .executionDetailedExitCode());
           }
         }
@@ -670,7 +682,7 @@ public final class SkyframeBuildView {
         // The exclusive tests whose analysis succeeded i.e. those that can be run.
         ImmutableSet<ConfiguredTarget> exclusiveTestsToRun = getExclusiveTests(evaluationResult);
         boolean continueWithExclusiveTests =
-            (!evaluationResult.hasError() && !workspaceStatusResult.hasError()) || keepGoing;
+            (!evaluationResult.hasError() && !additionalArtifactsResult.hasError()) || keepGoing;
 
         if (continueWithExclusiveTests && !exclusiveTestsToRun.isEmpty()) {
           // Run exclusive tests sequentially.
@@ -1321,5 +1333,13 @@ public final class SkyframeBuildView {
       configuredTargetCount.set(0);
       configuredTargetActionCount.set(0);
     }
+  }
+
+  /** Provides the list of coverage artifacts to be built. */
+  @FunctionalInterface
+  public interface CoverageReportActionsWrapperSupplier {
+    ImmutableSet<Artifact> getCoverageArtifacts(
+        Set<ConfiguredTarget> configuredTargets, Set<ConfiguredTarget> allTargetsToTest)
+        throws InterruptedException;
   }
 }
