@@ -205,7 +205,7 @@ bar_binary = rule(
 ```
 
 When an optional toolchain type cannot be resolved, analysis continues, and the
-result of `ctx.toolchains[""//bar_tools:toolchain_type"]` is `None`.
+result of `ctx.toolchains["//bar_tools:toolchain_type"]` is `None`.
 
 The [`config_common.toolchain_type`](/rules/lib/config_common#toolchain_type)
 function defaults to mandatory.
