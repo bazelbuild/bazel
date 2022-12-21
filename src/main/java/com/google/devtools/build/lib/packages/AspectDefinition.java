@@ -303,6 +303,17 @@ public final class AspectDefinition {
     }
 
     /**
+     * Same as the equivalent calls to {@link #requireProviderSets} and {@link
+     * #requireStarlarkProviderSets} for specifying the required providers conveyed by {@code
+     * requiredProviders}.
+     */
+    @CanIgnoreReturnValue
+    public Builder requireProviders(RequiredProviders requiredProviders) {
+      requiredProviders.addToAspectDefinitionBuilder(this);
+      return this;
+    }
+
+    /**
      * Asserts that this aspect can only be evaluated for rules that supply all of the providers
      * from at least one set of required providers.
      */
