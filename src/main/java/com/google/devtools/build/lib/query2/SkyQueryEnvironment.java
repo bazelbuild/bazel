@@ -37,6 +37,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -725,6 +726,54 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // TODO(bazel-team): As in here, use concurrency for the async #eval of other QueryEnvironment
     // implementations.
     return executeAsync(() -> expr.eval(SkyQueryEnvironment.this, context, callback));
+  }
+
+  /**
+   * In {@link SkyQueryEvaluateExpressionImpl}, the constructor will create a {@link
+   * #settableFuture} which returned {@link QueryTaskFuture} delegates to. The {@link
+   * #settableFuture} will set as the return from {@code expr.eval(...)} when {@link
+   * #eval(Callback)} method is called to provide the real callback implementation.
+   */
+  protected class SkyQueryEvaluateExpressionImpl implements EvaluateExpression<Target> {
+    protected final SettableFuture<Void> settableFuture = SettableFuture.create();
+    protected final QueryExpression expression;
+    protected final QueryExpressionContext<Target> context;
+    private boolean wasGracefullyCancelled = false;
+
+    protected SkyQueryEvaluateExpressionImpl(
+        QueryExpression expr, QueryExpressionContext<Target> context) {
+      this.expression = expr;
+      this.context = context;
+    }
+
+    @Override
+    public QueryTaskFuture<Void> eval(Callback<Target> callback) {
+      setSettableFuture(callback);
+      return QueryTaskFutureImpl.ofDelegate(settableFuture);
+    }
+
+    @SuppressWarnings("unchecked")
+    protected void setSettableFuture(Callback<Target> callback) {
+      settableFuture.setFuture(
+          (ListenableFuture<Void>) SkyQueryEnvironment.this.eval(expression, context, callback));
+    }
+
+    @Override
+    public boolean gracefullyCancel() {
+      wasGracefullyCancelled = true;
+      return settableFuture.cancel(true);
+    }
+
+    @Override
+    public boolean isUngracefullyCancelled() {
+      return settableFuture.isCancelled() && !wasGracefullyCancelled;
+    }
+  }
+
+  @Override
+  public EvaluateExpression<Target> createEvaluateExpression(
+      QueryExpression expr, QueryExpressionContext<Target> context) {
+    return new SkyQueryEvaluateExpressionImpl(expr, context);
   }
 
   @Override

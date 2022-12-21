@@ -307,6 +307,61 @@ public interface QueryEnvironment<T> {
       QueryExpression expr, QueryExpressionContext<T> context, Callback<T> callback);
 
   /**
+   * A wrapper for evaluating query expression. User does not need to provide callback at object
+   * instantiation, and could manipulate the future in the callback implementation in some derived
+   * classes.
+   *
+   * <p>It replaces directly calling {@link #eval(QueryExpression, QueryExpressionContext,
+   * Callback)} method in {@link SomeFunction#eval(QueryEnvironment, QueryExpressionContext,
+   * QueryExpression, List, Callback)}.
+   *
+   * <p>For SkyQueryEnvironment-descended environments which feature streaming support, in {@code
+   * SomeFunction#eval(...)} method, we want to cancel the {@link QueryTaskFuture} immediately after
+   * targeted number of results are reached, which would significantly improve the performance of
+   * {@link SomeFunction} evaluation. So client will call {@link #gracefullyCancel()} to cancel the
+   * underlying {@code QueryTaskFuture}.
+   *
+   * <p>Users should use {@link #createEvaluateExpression(QueryExpression, QueryExpressionContext)}
+   * to create the {@code EvaluateExpression} instance.
+   */
+  interface EvaluateExpression<T> {
+    /**
+     * Returns a {@link QueryTaskFuture} representing the asynchronous evaluation of the expression
+     * provided by the constructor of the inherited classes. See {@code
+     * AbstractBlazeQueryEvaluateExpressionImpl} and {@code SkyQueryEvaluateExpressionImpl};
+     *
+     * <p>Requires the user to provide a {@code callback} to be associated with the {@link
+     * QueryTaskFuture}. Results of the asynchronous evaluation of the expression are passed to the
+     * given {@code callback}.
+     */
+    QueryTaskFuture<Void> eval(Callback<T> callback);
+
+    /**
+     * Attempts to cancel execution of expression evaluation task.
+     *
+     * <p>Please note that {@link #gracefullyCancel()} is a no-op implementation for
+     * non-SkyQueryEnvironment-descended environments.
+     */
+    boolean gracefullyCancel();
+
+    /**
+     * Returns {@code true} if the underlying future is cancelled but not via {@link
+     * #gracefullyCancel}. Clients are advised to propagate such cancellations instead of recovering
+     * from them, because they probably indicate that query evaluation was interrupted.
+     */
+    boolean isUngracefullyCancelled();
+  }
+
+  /**
+   * Creates an {@link EvaluateExpression} instance based on {@link QueryEnvironment} type.
+   *
+   * @param expr the expression to evaluate
+   * @param context the context relevant to the expression being evaluated.
+   */
+  EvaluateExpression<T> createEvaluateExpression(
+      QueryExpression expr, QueryExpressionContext<T> context);
+
+  /**
    * An asynchronous computation of part of a query evaluation.
    *
    * <p>A {@link QueryTaskFuture} can only be produced from scratch via {@link #eval}, {@link
@@ -338,25 +393,6 @@ public interface QueryEnvironment<T> {
      * the precise definition of "successful".
      */
     public abstract T getIfSuccessful();
-
-    /**
-     * Attempts to cancel execution of this task.
-     *
-     * <p>Please note that all threads executing the task will be interrupted in an attempt to stop
-     * the task when the underlying task gets cancelled.
-     *
-     * <p>After calling {@link QueryTaskFuture#gracefullyCancel()},
-     *
-     * <ol>
-     *   <li>{@link #getIfSuccessful()} will throw an {@link IllegalStateException} which wraps
-     *       {@link java.util.concurrent.CancellationException}.
-     *   <li>{@link #whenAllSucceedCall(Iterable, QueryTaskCallable)} will also cancel the returned
-     *       {@link QueryTaskFuture} and do not execute {@link QueryTaskCallable}.
-     *   <li>{@link #whenSucceedsOrIsCancelledCall(QueryTaskFuture, QueryTaskCallable)} will still
-     *       execute {@link QueryTaskCallable}.
-     * </ol>
-     */
-    public abstract boolean gracefullyCancel();
   }
 
   /**
