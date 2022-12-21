@@ -609,62 +609,63 @@ public final class SkyframeActionExecutor {
               artifactExpander,
               remoteDefaultProperties,
               loadCachedOutputMetadata);
-    } catch (UserExecException e) {
-      throw ActionExecutionException.fromExecException(e, action);
-    }
-    if (token == null) {
-      boolean eventPosted = false;
-      // Notify BlazeRuntimeStatistics about the action middleman 'execution'.
-      if (action.getActionType().isMiddleman()) {
-        eventHandler.post(new ActionMiddlemanEvent(action, actionStartTime));
-        eventPosted = true;
-      }
 
-      if (action instanceof NotifyOnActionCacheHit) {
-        NotifyOnActionCacheHit notify = (NotifyOnActionCacheHit) action;
-        ExtendedEventHandler contextEventHandler = selectEventHandler(action);
-        ActionCachedContext context =
-            new ActionCachedContext() {
-              @Override
-              public ExtendedEventHandler getEventHandler() {
-                return contextEventHandler;
-              }
+      if (token == null) {
+        boolean eventPosted = false;
+        // Notify BlazeRuntimeStatistics about the action middleman 'execution'.
+        if (action.getActionType().isMiddleman()) {
+          eventHandler.post(new ActionMiddlemanEvent(action, actionStartTime));
+          eventPosted = true;
+        }
 
-              @Override
-              public Path getExecRoot() {
-                return executorEngine.getExecRoot();
-              }
+        if (action instanceof NotifyOnActionCacheHit) {
+          NotifyOnActionCacheHit notify = (NotifyOnActionCacheHit) action;
+          ExtendedEventHandler contextEventHandler = selectEventHandler(action);
+          ActionCachedContext context =
+              new ActionCachedContext() {
+                @Override
+                public ExtendedEventHandler getEventHandler() {
+                  return contextEventHandler;
+                }
 
-              @Override
-              public <T extends ActionContext> T getContext(Class<? extends T> type) {
-                return executorEngine.getContext(type);
-              }
-            };
-        boolean recordActionCacheHit = notify.actionCacheHit(context);
-        if (!recordActionCacheHit) {
-          token =
-              actionCacheChecker.getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
-                  action,
-                  resolvedCacheArtifacts,
-                  clientEnv,
-                  handler,
-                  metadataHandler,
-                  artifactExpander,
-                  remoteDefaultProperties,
-                  loadCachedOutputMetadata);
+                @Override
+                public Path getExecRoot() {
+                  return executorEngine.getExecRoot();
+                }
+
+                @Override
+                public <T extends ActionContext> T getContext(Class<? extends T> type) {
+                  return executorEngine.getContext(type);
+                }
+              };
+          boolean recordActionCacheHit = notify.actionCacheHit(context);
+          if (!recordActionCacheHit) {
+            token =
+                actionCacheChecker.getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
+                    action,
+                    resolvedCacheArtifacts,
+                    clientEnv,
+                    handler,
+                    metadataHandler,
+                    artifactExpander,
+                    remoteDefaultProperties,
+                    loadCachedOutputMetadata);
+          }
+        }
+
+        // We still need to check the outputs so that output file data is available to the value.
+        // Filesets cannot be cached in the action cache, so it is fine to pass null here.
+        checkOutputs(
+            action,
+            metadataHandler,
+            /* filesetOutputSymlinksForMetrics= */ null,
+            /* isActionCacheHitForMetrics= */ true);
+        if (!eventPosted) {
+          eventHandler.post(new CachedActionEvent(action, actionStartTime));
         }
       }
-
-      // We still need to check the outputs so that output file data is available to the value.
-      // Filesets cannot be cached in the action cache, so it is fine to pass null here.
-      checkOutputs(
-          action,
-          metadataHandler,
-          /*filesetOutputSymlinksForMetrics=*/ null,
-          /*isActionCacheHitForMetrics=*/ true);
-      if (!eventPosted) {
-        eventHandler.post(new CachedActionEvent(action, actionStartTime));
-      }
+    } catch (UserExecException e) {
+      throw ActionExecutionException.fromExecException(e, action);
     }
     return token;
   }
@@ -1437,33 +1438,37 @@ public final class SkyframeActionExecutor {
       @Nullable ImmutableList<FilesetOutputSymlink> filesetOutputSymlinksForMetrics,
       boolean isActionCacheHitForMetrics) {
     boolean success = true;
-    for (Artifact output : action.getOutputs()) {
-      // getMetadata has the side effect of adding the artifact to the cache if it's not there
-      // already (e.g., due to a previous call to MetadataHandler.injectDigest), therefore we only
-      // call it if we know the artifact is not omitted.
-      if (!metadataHandler.artifactOmitted(output)) {
-        try {
-          FileArtifactValue metadata = metadataHandler.getMetadata(output);
+    try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "checkOutputs")) {
+      for (Artifact output : action.getOutputs()) {
+        // getMetadata has the side effect of adding the artifact to the cache if it's not there
+        // already (e.g., due to a previous call to MetadataHandler.injectDigest), therefore we only
+        // call it if we know the artifact is not omitted.
+        if (!metadataHandler.artifactOmitted(output)) {
+          try {
+            FileArtifactValue metadata = metadataHandler.getMetadata(output);
 
-          addOutputToMetrics(
-              output,
-              metadata,
-              metadataHandler,
-              filesetOutputSymlinksForMetrics,
-              isActionCacheHitForMetrics,
-              action);
-        } catch (IOException e) {
-          success = false;
-          if (output.isTreeArtifact()) {
-            reportOutputTreeArtifactErrors(action, output, reporter, e);
-          } else if (output.isSymlink() && e instanceof NotASymlinkException) {
-            reporter.handle(
-                Event.error(
-                    action.getOwner().getLocation(),
-                    String.format("declared output '%s' is not a symlink", output.prettyPrint())));
-          } else {
-            // Are all other exceptions caught due to missing files?
-            reportMissingOutputFile(action, output, reporter, output.getPath().isSymbolicLink(), e);
+            addOutputToMetrics(
+                output,
+                metadata,
+                metadataHandler,
+                filesetOutputSymlinksForMetrics,
+                isActionCacheHitForMetrics,
+                action);
+          } catch (IOException e) {
+            success = false;
+            if (output.isTreeArtifact()) {
+              reportOutputTreeArtifactErrors(action, output, reporter, e);
+            } else if (output.isSymlink() && e instanceof NotASymlinkException) {
+              reporter.handle(
+                  Event.error(
+                      action.getOwner().getLocation(),
+                      String.format(
+                          "declared output '%s' is not a symlink", output.prettyPrint())));
+            } else {
+              // Are all other exceptions caught due to missing files?
+              reportMissingOutputFile(
+                  action, output, reporter, output.getPath().isSymbolicLink(), e);
+            }
           }
         }
       }
