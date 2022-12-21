@@ -395,23 +395,7 @@ public class BuildView {
                     }
                     return result;
                   });
-      if (!includeExecutionPhase) {
-        skyframeAnalysisResult =
-            skyframeBuildView.configureTargets(
-                eventHandler,
-                topLevelCtKeys,
-                aspectsKeys.build(),
-                memoizedConfigurationLookupSupplier,
-                topLevelOptions,
-                eventBus,
-                bugReporter,
-                keepGoing,
-                loadingPhaseThreads,
-                viewOptions.strictConflictChecks,
-                checkForActionConflicts,
-                viewOptions.cpuHeavySkyKeysThreadPoolSize);
-        setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
-      } else {
+      if (includeExecutionPhase) {
         skyframeExecutor.setExtraActionFilter(viewOptions.extraActionFilter);
         skyframeExecutor.setRuleContextConstraintSemantics(
             (RuleContextConstraintSemantics) ruleClassProvider.getConstraintSemantics());
@@ -440,6 +424,22 @@ public class BuildView {
                 mergedPhasesExecutionJobsCount,
                 /*shouldDiscardAnalysisCache=*/ viewOptions.discardAnalysisCache
                     || !skyframeExecutor.tracksStateForIncrementality());
+      } else {
+        skyframeAnalysisResult =
+            skyframeBuildView.configureTargets(
+                eventHandler,
+                topLevelCtKeys,
+                aspectsKeys.build(),
+                memoizedConfigurationLookupSupplier,
+                topLevelOptions,
+                eventBus,
+                bugReporter,
+                keepGoing,
+                loadingPhaseThreads,
+                viewOptions.strictConflictChecks,
+                checkForActionConflicts,
+                viewOptions.cpuHeavySkyKeysThreadPoolSize);
+        setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
       }
     } finally {
       skyframeBuildView.clearInvalidatedActionLookupKeys();
