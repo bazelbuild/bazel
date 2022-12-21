@@ -564,8 +564,9 @@ public class BuildView {
         viewOptions, configuredTargets, aspects, artifactsToBuild, eventHandler);
 
     // Coverage
-    NestedSet<Artifact> baselineCoverageArtifacts =
-        getBaselineCoverageArtifacts(configuredTargets, artifactsToBuild);
+    NestedSet<Artifact> baselineCoverageArtifacts = getBaselineCoverageArtifacts(configuredTargets);
+    artifactsToBuild.addAll(baselineCoverageArtifacts.toList());
+
     if (coverageReportActionFactory != null) {
       CoverageReportActionsWrapper actionsWrapper;
       actionsWrapper =
@@ -733,13 +734,11 @@ public class BuildView {
   }
 
   private static NestedSet<Artifact> getBaselineCoverageArtifacts(
-      Collection<ConfiguredTarget> configuredTargets,
-      ImmutableSet.Builder<Artifact> artifactsToBuild) {
+      Collection<ConfiguredTarget> configuredTargets) {
     NestedSetBuilder<Artifact> baselineCoverageArtifacts = NestedSetBuilder.stableOrder();
     for (ConfiguredTarget target : configuredTargets) {
       InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
       if (provider != null) {
-        artifactsToBuild.addAll(provider.getBaselineCoverageArtifacts().toList());
         baselineCoverageArtifacts.addTransitive(provider.getBaselineCoverageArtifacts());
       }
     }
