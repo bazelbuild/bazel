@@ -215,6 +215,7 @@ def make_java_binary(executable, resolve_launcher_flag):
         attrs = merge_attrs(
             BASIC_JAVA_BINARY_ATTRIBUTES,
             {
+                "resource_strip_prefix": attr.string(),
                 "_java_launcher": attr.label(
                     default = configuration_field(
                         fragment = "java",
