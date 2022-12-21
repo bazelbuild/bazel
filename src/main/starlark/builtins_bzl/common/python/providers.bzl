@@ -13,8 +13,10 @@
 # limitations under the License.
 """Providers for Python rules."""
 
+load(":common/python/semantics.bzl", "TOOLS_REPO")
+
 DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python3"
-DEFAULT_BOOTSTRAP_TEMPLATE = "@bazel_tools//tools/python:python_bootstrap_template.txt"
+DEFAULT_BOOTSTRAP_TEMPLATE = "@" + TOOLS_REPO + "//tools/python:python_bootstrap_template.txt"
 _PYTHON_VERSION_VALUES = ["PY2", "PY3"]
 
 def _PyRuntimeInfo_init(

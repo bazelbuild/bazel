@@ -47,7 +47,6 @@ import net.starlark.java.eval.StarlarkValue;
 public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
 
   static final String DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python3";
-  static final String DEFAULT_BOOTSTRAP_TEMPLATE = "//tools/python:python_bootstrap_template.txt";
 
   @StarlarkMethod(
       name = "interpreter_path",
@@ -219,6 +218,7 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
               name = "bootstrap_template",
               allowedTypes = {
                 @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
               },
               positional = false,
               named = true,

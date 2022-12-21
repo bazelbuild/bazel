@@ -32,7 +32,6 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
-import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 
 /**
  * Instance of the provider type that describes Python runtimes.
