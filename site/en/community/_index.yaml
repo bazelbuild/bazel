@@ -99,7 +99,7 @@ landing_page:
     - heading: Bazel users
       path: /community/users
     - heading: Nominate a recommended rule
-      path: /contribute/recommended-rules
+      path: /community/recommended-rules
     - heading: Remote execution services
       path: /community/remote-execution-services
     - heading: Support channels

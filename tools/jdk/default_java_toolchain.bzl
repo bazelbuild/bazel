@@ -121,6 +121,8 @@ NONPREBUILT_TOOLCHAIN_CONFIGURATION = dict(
     singlejar = ["@remote_java_tools//:singlejar_cc_bin"],
 )
 
+_DEFAULT_SOURCE_VERSION = "8"
+
 def default_java_toolchain(name, configuration = DEFAULT_TOOLCHAIN_CONFIGURATION, toolchain_definition = True, exec_compatible_with = [], target_compatible_with = [], **kwargs):
     """Defines a remote java_toolchain with appropriate defaults for Bazel.
 
@@ -143,9 +145,25 @@ def default_java_toolchain(name, configuration = DEFAULT_TOOLCHAIN_CONFIGURATION
         **toolchain_args
     )
     if toolchain_definition:
+        source_version = toolchain_args["source_version"]
+        if source_version == _DEFAULT_SOURCE_VERSION:
+            native.config_setting(
+                name = name + "_default_version_setting",
+                values = {"java_language_version": ""},
+                visibility = ["//visibility:private"],
+            )
+            native.toolchain(
+                name = name + "_default_definition",
+                toolchain_type = "@bazel_tools//tools/jdk:toolchain_type",
+                target_settings = [name + "_default_version_setting"],
+                toolchain = name,
+                exec_compatible_with = exec_compatible_with,
+                target_compatible_with = target_compatible_with,
+            )
+
         native.config_setting(
             name = name + "_version_setting",
-            values = {"java_language_version": toolchain_args["source_version"]},
+            values = {"java_language_version": source_version},
             visibility = ["//visibility:private"],
         )
         native.toolchain(

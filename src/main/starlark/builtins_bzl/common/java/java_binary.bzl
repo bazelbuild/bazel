@@ -133,12 +133,12 @@ def basic_java_binary(
         runtime_classpath = depset(order = "preorder", direct = [extension_registry_provider.class_jar], transitive = [runtime_classpath])
         java_info = java_common.merge(
             [
+                java_info,
                 JavaInfo(
                     output_jar = extension_registry_provider.class_jar,
                     compile_jar = None,
                     source_jar = extension_registry_provider.src_jar,
                 ),
-                java_info,
             ],
         )
 

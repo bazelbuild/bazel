@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -168,7 +169,7 @@ public class ObjcStarlarkInternal implements StarlarkValue {
       })
   public IntermediateArtifacts createIntermediateArtifacts(
       StarlarkRuleContext starlarkRuleContext) {
-    return ObjcRuleClasses.intermediateArtifacts(starlarkRuleContext.getRuleContext());
+    return new IntermediateArtifacts(starlarkRuleContext.getRuleContext());
   }
 
   @StarlarkMethod(
@@ -269,5 +270,29 @@ public class ObjcStarlarkInternal implements StarlarkValue {
                 .map(PathFragment::create)
                 .collect(toImmutableList()))
         .build();
+  }
+
+  @StarlarkMethod(
+      name = "subtract_linking_contexts",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "linking_contexts", positional = false, defaultValue = "[]", named = true),
+        @Param(
+            name = "avoid_dep_linking_contexts",
+            positional = false,
+            defaultValue = "[]",
+            named = true),
+      })
+  public CcLinkingContext subtractLinkingContexts(
+      StarlarkRuleContext starlarkRuleContext,
+      Sequence<?> linkingContexts,
+      Sequence<?> avoidDepLinkingContexts)
+      throws InterruptedException, EvalException {
+    return MultiArchBinarySupport.ccLinkingContextSubtractSubtrees(
+        starlarkRuleContext.getRuleContext(),
+        Sequence.cast(linkingContexts, CcLinkingContext.class, "linking_contexts"),
+        Sequence.cast(
+            avoidDepLinkingContexts, CcLinkingContext.class, "avoid_dep_linking_contexts"));
   }
 }

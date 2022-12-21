@@ -31,7 +31,7 @@ commands to complete before it can continue.
 
 ### Notes about server mode {:#server-mode}
 
-By default, Bazel uses a long-running [server process](/docs/client-server) as an
+By default, Bazel uses a long-running [server process](/run/client-server) as an
 optimization. When running Bazel in a script, don't forget to call `shutdown`
 when you're finished with the server, or, specify `--max_idle_secs=5` so that
 idle servers shut themselves down promptly.
@@ -89,7 +89,7 @@ However, all non-zero exit values will always constitute an error.
 
 ### Reading the .bazelrc file {:#reading-bazelrc}
 
-By default, Bazel reads the [`.bazelrc` file](/docs/bazelrc) from the base
+By default, Bazel reads the [`.bazelrc` file](/run/bazelrc) from the base
 workspace directory or the user's home directory. Whether or not this is
 desirable is a choice for your script; if your script needs to be perfectly
 hermetic (such as when doing release builds), you should disable reading the

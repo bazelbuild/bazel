@@ -60,10 +60,20 @@ class BazelModuleTest(test_base.TestBase):
             # bazel_tools can work.
             'common --registry=https://bcr.bazel.build',
             'common --verbose_failures',
-        ] + ([
-            # Disable yanked version check so we are not affected BCR changes.
-            'common --allow_yanked_versions=all',
-        ] if allow_yanked_versions else []))
+            # Set an explicit Java language version
+            'common --java_language_version=8',
+            'common --tool_java_language_version=8',
+        ]
+        + (
+            [
+                # Disable yanked version check so we are not affected BCR
+                # changes.
+                'common --allow_yanked_versions=all',
+            ]
+            if allow_yanked_versions
+            else []
+        ),
+    )
 
   def writeMainProjectFiles(self):
     self.ScratchFile('aaa.patch', [

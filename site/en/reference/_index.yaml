@@ -50,7 +50,7 @@ landing_page:
       description: >
         Find options and syntax for working in a command line environment.
     - heading: Query reference
-      path: /reference/query
+      path: /query/language
       image_path: /images/why_faq.svg
       description: >
         Reference the query manual when analyzing build dependencies with one of Bazel's query languages.

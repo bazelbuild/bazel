@@ -13,6 +13,8 @@ java_library(
     srcs = [
         "AutoProfiler.java",
         "CollectLocalResourceUsage.java",
+        "CounterSeriesTraceData.java",
+        "JsonTraceFileWriter.java",
         "MemoryProfiler.java",
         "MetricData.java",
         "MnemonicData.java",
@@ -23,7 +25,9 @@ java_library(
         "SilentCloseable.java",
         "SingleStatRecorder.java",
         "StatRecorder.java",
+        "ThreadMetadata.java",
         "TimeSeries.java",
+        "TraceData.java",
     ],
     deps = [
         ":network_metrics_collector",

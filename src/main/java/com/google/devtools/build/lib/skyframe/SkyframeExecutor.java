@@ -17,7 +17,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
-import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.NUM_JOBS;
 import static java.util.stream.Collectors.toMap;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -102,9 +101,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
-import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
@@ -112,7 +109,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.Transi
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -124,7 +120,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
-import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
@@ -401,6 +396,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // Reset while preparing for execution in each build.
   private Optional<IncrementalPackageRoots> incrementalPackageRoots = Optional.empty();
 
+  // This boolean controls whether FILE_STATE or DIRECTORY_LISTING_STATE nodes are dropped after the
+  // corresponding FILE or DIRECTORY_LISTING nodes are evaluated.
+  // See b/261019506.
+  protected boolean heuristicallyDropNodes = false;
+
   class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
     public boolean shouldCreatePathResolverForArtifactValues() {
@@ -665,7 +665,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             new TransitiveActionLookupValuesHelper() {
               @Override
               public ActionLookupValuesCollectionResult collect(ActionLookupKey key) {
-                return collectTransitiveActionLookupValues(key);
+                return collectTransitiveActionLookupValuesOfKey(key);
               }
 
               @Override
@@ -948,6 +948,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       boolean batch,
       boolean keepStateAfterBuild,
       boolean trackIncrementalState,
+      boolean heuristicallyDropNodes,
       boolean discardAnalysisCache,
       EventHandler eventHandler) {
     // Assume incrementality.
@@ -2440,6 +2441,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return incrementalArtifactConflictFinder;
   }
 
+  public int getOutputArtifactCount() {
+    return incrementalArtifactConflictFinder.getOutputArtifactCount();
+  }
+
   private Set<SkyKey> getConflictFreeActionLookupKeysGlobalSet() {
     return conflictFreeActionLookupKeysGlobalSet;
   }
@@ -3100,6 +3105,26 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         @Nullable ErrorInfo newError,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
         EvaluationState state) {
+      if (heuristicallyDropNodes) {
+        Object argument = skyKey.argument();
+        if (skyKey.functionName().equals(FileValue.FILE)) {
+          Preconditions.checkArgument(
+              argument instanceof RootedPath,
+              "FILE SkyKey (%s) does not have a RootedPath typed argument (%s)",
+              skyKey,
+              argument);
+          memoizingEvaluator.getAllValuesMutable().remove(argument);
+        } else if (skyKey.functionName().equals(SkyFunctions.DIRECTORY_LISTING)) {
+          Preconditions.checkArgument(
+              argument instanceof RootedPath,
+              "DIRECTORY_LISTING SkyKey (%s) does not have a RootedPath typed argument (%s)",
+              skyKey,
+              argument);
+          SkyKey directoryListingStateKey = DirectoryListingStateValue.key((RootedPath) argument);
+          memoizingEvaluator.getAllValuesMutable().remove(directoryListingStateKey);
+        }
+      }
+
       if (EvaluationState.BUILT.equals(state)) {
         skyKeyStateReceiver.evaluated(skyKey);
       }
@@ -3130,29 +3155,29 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return ExecutionFinishedEvent.builderWithDefaults();
   }
 
-  final AnalysisTraversalResult getActionLookupValuesInBuild(
+  final ActionLookupValuesTraversal collectActionLookupValuesInBuild(
       List<ConfiguredTargetKey> topLevelCtKeys, ImmutableSet<AspectKey> aspectKeys)
       throws InterruptedException {
     try (SilentCloseable c =
-        Profiler.instance().profile("skyframeExecutor.getActionLookupValuesInBuild")) {
-      AnalysisTraversalResult result = new AnalysisTraversalResult();
+        Profiler.instance().profile("skyframeExecutor.collectActionLookupValuesInBuild")) {
+      ActionLookupValuesTraversal alvTraversal = new ActionLookupValuesTraversal();
       if (!tracksStateForIncrementality()) {
         // If we do not have graph edges, we cannot traverse the graph and find only actions in the
         // current build. In this case we can simply return all ActionLookupValues in the graph,
         // since the graph's lifetime is a single build anyway.
         for (Map.Entry<SkyKey, SkyValue> entry : memoizingEvaluator.getDoneValues().entrySet()) {
           if ((entry.getKey() instanceof ActionLookupKey) && entry.getValue() != null) {
-            result.accumulate((ActionLookupKey) entry.getKey(), entry.getValue());
+            alvTraversal.accumulate((ActionLookupKey) entry.getKey(), entry.getValue());
           }
         }
-        return result;
+        return alvTraversal;
       }
 
       Map<ActionLookupKey, SkyValue> foundActions =
           new TransitiveActionLookupKeysCollector(SkyframeExecutorWrappingWalkableGraph.of(this))
               .collect(Iterables.concat(topLevelCtKeys, aspectKeys));
-      foundActions.forEach(result::accumulate);
-      return result;
+      foundActions.forEach(alvTraversal::accumulate);
+      return alvTraversal;
     }
   }
 
@@ -3160,96 +3185,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * Collects the transitive ActionLookupKeys of the provided {@code key}, taking into account the
    * set of visited ALKs this build for pruning.
    */
-  private ActionLookupValuesCollectionResult collectTransitiveActionLookupValues(
+  private ActionLookupValuesCollectionResult collectTransitiveActionLookupValuesOfKey(
       ActionLookupKey key) {
     try (SilentCloseable c =
-        Profiler.instance().profile("SkyframeExecutor.collectTransitiveActionLookupValues")) {
-      AnalysisTraversalResult result = new AnalysisTraversalResult();
+        Profiler.instance().profile("SkyframeExecutor.collectTransitiveActionLookupValuesOfKey")) {
+      ActionLookupValuesTraversal result = new ActionLookupValuesTraversal();
       Map<ActionLookupKey, SkyValue> foundTransitiveActionLookupEntities =
           incrementalTransitiveActionLookupKeysCollector.collect(key);
       foundTransitiveActionLookupEntities.forEach(result::accumulate);
       return ActionLookupValuesCollectionResult.create(
-          result.getActionShards(),
+          result.getActionLookupValueShards(),
           ImmutableSet.copyOf(foundTransitiveActionLookupEntities.keySet()));
-    }
-  }
-
-  static class AnalysisTraversalResult {
-    // Some metrics indicate this is a rough average # of ALVs in a build.
-    private final Sharder<ActionLookupValue> actionShards = new Sharder<>(NUM_JOBS, 200_000);
-
-    // Metrics.
-    private int configuredObjectCount = 0;
-    private int configuredTargetCount = 0;
-    private int actionCount = 0;
-    private int actionCountNotIncludingAspects = 0;
-    private int inputFileConfiguredTargetCount = 0;
-    private int outputFileConfiguredTargetCount = 0;
-    private int otherConfiguredTargetCount = 0;
-
-    private AnalysisTraversalResult() {}
-
-    private void accumulate(ActionLookupKey keyForDebugging, SkyValue value) {
-      boolean isConfiguredTarget = value instanceof ConfiguredTargetValue;
-      boolean isActionLookupValue = value instanceof ActionLookupValue;
-      if (!isConfiguredTarget && !isActionLookupValue) {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                String.format(
-                    "Should only be called with ConfiguredTargetValue or ActionLookupValue: %s %s"
-                        + " %s",
-                    value.getClass(), keyForDebugging, value)));
-        return;
-      }
-      configuredObjectCount++;
-      if (isConfiguredTarget) {
-        configuredTargetCount++;
-      }
-      if (isActionLookupValue) {
-        ActionLookupValue alv = (ActionLookupValue) value;
-        int numActions = alv.getNumActions();
-        actionCount += numActions;
-        if (isConfiguredTarget) {
-          actionCountNotIncludingAspects += numActions;
-        }
-        actionShards.add(alv);
-        return;
-      }
-      if (!(value instanceof NonRuleConfiguredTargetValue)) {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                String.format(
-                    "Unexpected value type: %s %s %s", value.getClass(), keyForDebugging, value)));
-        return;
-      }
-      ConfiguredTarget configuredTarget =
-          ((NonRuleConfiguredTargetValue) value).getConfiguredTarget();
-      if (configuredTarget instanceof InputFileConfiguredTarget) {
-        inputFileConfiguredTargetCount++;
-      } else if (configuredTarget instanceof OutputFileConfiguredTarget) {
-        outputFileConfiguredTargetCount++;
-      } else {
-        otherConfiguredTargetCount++;
-      }
-    }
-
-    Sharder<ActionLookupValue> getActionShards() {
-      return actionShards;
-    }
-
-    int getActionCount() {
-      return actionCount;
-    }
-
-    BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.Builder getMetrics() {
-      return BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.newBuilder()
-          .setActionLookupValueCount(configuredObjectCount)
-          .setActionLookupValueCountNotIncludingAspects(configuredTargetCount)
-          .setActionCount(actionCount)
-          .setActionCountNotIncludingAspects(actionCountNotIncludingAspects)
-          .setInputFileConfiguredTargetCount(inputFileConfiguredTargetCount)
-          .setOutputFileConfiguredTargetCount(outputFileConfiguredTargetCount)
-          .setOtherConfiguredTargetCount(otherConfiguredTargetCount);
     }
   }
 

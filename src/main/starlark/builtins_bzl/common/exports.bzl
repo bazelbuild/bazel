@@ -33,6 +33,7 @@ load("@_builtins//:common/python/py_test_macro.bzl", "py_test")
 load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyInfo", "PyRuntimeInfo")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 load("@_builtins//:common/cc/cc_library.bzl", "cc_library")
+load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
@@ -69,6 +70,7 @@ exported_rules = {
     "-py_binary": py_binary,
     "-py_test": py_test,
     "-py_library": py_library,
+    "+cc_toolchain_alias": cc_toolchain_alias,
 }
 
 # A list of Starlark functions callable from native rules implementation.

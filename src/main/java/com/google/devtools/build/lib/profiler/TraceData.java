@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2022 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,19 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.skyframe;
+package com.google.devtools.build.lib.profiler;
 
-/**
- * A Version "less than" all other versions, other than itself. Only used as initializer in node
- * entry.
- */
-final class MinimalVersion implements Version {
-  static final MinimalVersion INSTANCE = new MinimalVersion();
+import com.google.gson.stream.JsonWriter;
+import java.io.IOException;
 
-  private MinimalVersion() {}
-
-  @Override
-  public boolean atMost(Version other) {
-    return true;
-  }
+/** Encapsulates data to be written to the JSON trace profile. */
+public interface TraceData {
+  void writeTraceData(JsonWriter jsonWriter, long profileStartTimeNanos) throws IOException;
 }

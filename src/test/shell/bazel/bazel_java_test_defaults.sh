@@ -162,7 +162,7 @@ public class JavaBinary {
 EOF
   bazel coverage java/main:JavaBinary \
       --java_runtime_version=11 \
-      --extra_toolchains=//java/main:default_toolchain_definition \
+      --extra_toolchains=//java/main:all \
       --verbose_failures -s &>"${TEST_log}" \
       && fail "Coverage succeeded even when jacocorunner not set"
   expect_log "jacocorunner not set in java_toolchain:"

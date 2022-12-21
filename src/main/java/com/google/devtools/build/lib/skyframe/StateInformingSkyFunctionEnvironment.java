@@ -162,6 +162,11 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
   }
 
   @Override
+  public SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps() {
+    return delegate.getLookupHandleForPreviouslyRequestedDeps();
+  }
+
+  @Override
   public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
     return delegate.getState(stateSupplier);
   }

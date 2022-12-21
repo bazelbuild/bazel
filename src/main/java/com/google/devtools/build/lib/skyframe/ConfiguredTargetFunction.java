@@ -847,7 +847,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             new ConfigurationResolver(
                 env,
                 ctgValue,
-                buildView.getHostConfiguration(),
                 configConditions,
                 buildView.getStarlarkTransitionCache());
         StoredEventHandler storedEventHandler = new StoredEventHandler();

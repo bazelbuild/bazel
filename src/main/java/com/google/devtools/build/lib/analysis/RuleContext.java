@@ -50,9 +50,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.FragmentCollection;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -157,7 +154,6 @@ public final class RuleContext extends TargetContext
   private final ImmutableSet<String> enabledFeatures;
   private final ImmutableSet<String> disabledFeatures;
   private final String ruleClassNameForLogging;
-  private final BuildConfigurationValue hostConfiguration;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final ConfiguredRuleClassProvider ruleClassProvider;
   private final RuleErrorConsumer reporter;
@@ -216,7 +212,6 @@ public final class RuleContext extends TargetContext
     this.enabledFeatures = ImmutableSortedSet.copyOf(allEnabledFeatures);
     this.disabledFeatures = ImmutableSortedSet.copyOf(allDisabledFeatures);
     this.ruleClassNameForLogging = builder.getRuleClassNameForLogging();
-    this.hostConfiguration = builder.hostConfiguration;
     this.actionOwnerSymbolGenerator = new SymbolGenerator<>(builder.actionOwnerSymbol);
     this.reporter = builder.reporter;
     this.toolchainContexts = builder.toolchainContexts;
@@ -364,11 +359,6 @@ public final class RuleContext extends TargetContext
     return configConditions;
   }
 
-  /** Returns the host configuration for this rule. */
-  public BuildConfigurationValue getHostConfiguration() {
-    return hostConfiguration;
-  }
-
   /** All aspects applied to the rule. */
   public ImmutableList<AspectDescriptor> getAspectDescriptors() {
     return aspectDescriptors;
@@ -449,40 +439,27 @@ public final class RuleContext extends TargetContext
 
   /** Returns a configuration fragment for this this target. */
   @Nullable
-  public <T extends Fragment> T getFragment(Class<T> fragment, ConfigurationTransition transition) {
-    return getFragment(fragment, fragment.getSimpleName(), "", transition);
+  public <T extends Fragment> T getFragment(Class<T> fragment) {
+    return getFragment(fragment, fragment.getSimpleName(), "");
   }
 
   @Nullable
   private <T extends Fragment> T getFragment(
-      Class<T> fragment,
-      String name,
-      String additionalErrorMessage,
-      ConfigurationTransition transition) {
+      Class<T> fragment, String name, String additionalErrorMessage) {
     // TODO(bazel-team): The fragments can also be accessed directly through
     // BuildConfigurationValue. Can we lock that down somehow?
     Preconditions.checkArgument(
-        isLegalFragment(fragment, transition),
-        "%s has to declare '%s' as a required fragment in %s configuration in order to access"
-            + " it.%s",
+        isLegalFragment(fragment),
+        "%s has to declare '%s' as a required fragment in order to access it.%s",
         ruleClassNameForLogging,
         name,
-        FragmentCollection.getConfigurationName(transition),
         additionalErrorMessage);
-    return getConfiguration(transition).getFragment(fragment);
+    return getConfiguration().getFragment(fragment);
   }
 
   @Nullable
-  public <T extends Fragment> T getFragment(Class<T> fragment) {
-    // No transition means target configuration.
-    return getFragment(fragment, NoTransition.INSTANCE);
-  }
-
-  @Nullable
-  public Fragment getStarlarkFragment(String name, ConfigurationTransition transition)
-      throws EvalException {
-    Class<? extends Fragment> fragmentClass =
-        getConfiguration(transition).getStarlarkFragmentByName(name);
+  public Fragment getStarlarkFragment(String name) throws EvalException {
+    Class<? extends Fragment> fragmentClass = getConfiguration().getStarlarkFragmentByName(name);
     if (fragmentClass == null) {
       return null;
     }
@@ -491,32 +468,21 @@ public final class RuleContext extends TargetContext
           fragmentClass,
           name,
           String.format(
-              " Please update the '%1$sfragments' argument of the rule definition "
-                  + "(for example: %1$sfragments = [\"%2$s\"])",
-              transition.isHostTransition() ? "host_" : "", name),
-          transition);
+              " Please update the 'fragments' argument of the rule definition "
+                  + "(for example: fragments = [\"%1$s\"])",
+              name));
     } catch (IllegalArgumentException ex) { // fishy
       throw new EvalException(ex.getMessage());
     }
   }
 
-  public ImmutableCollection<String> getStarlarkFragmentNames(ConfigurationTransition transition) {
-    return getConfiguration(transition).getStarlarkFragmentNames();
-  }
-
-  public <T extends Fragment> boolean isLegalFragment(
-      Class<T> fragment, ConfigurationTransition transition) {
-    return ruleClassProvider.getFragmentRegistry().getUniversalFragments().contains(fragment)
-        || configurationFragmentPolicy.isLegalConfigurationFragment(fragment, transition);
+  public ImmutableCollection<String> getStarlarkFragmentNames() {
+    return getConfiguration().getStarlarkFragmentNames();
   }
 
   public <T extends Fragment> boolean isLegalFragment(Class<T> fragment) {
-    // No transition means target configuration.
-    return isLegalFragment(fragment, NoTransition.INSTANCE);
-  }
-
-  private BuildConfigurationValue getConfiguration(ConfigurationTransition transition) {
-    return transition.isHostTransition() ? hostConfiguration : getConfiguration();
+    return ruleClassProvider.getFragmentRegistry().getUniversalFragments().contains(fragment)
+        || configurationFragmentPolicy.isLegalConfigurationFragment(fragment);
   }
 
   @Override
@@ -1652,7 +1618,6 @@ public final class RuleContext extends TargetContext
     private final BuildConfigurationValue configuration;
     private final RuleErrorConsumer reporter;
     private ConfiguredRuleClassProvider ruleClassProvider;
-    private BuildConfigurationValue hostConfiguration;
     private ConfigurationFragmentPolicy configurationFragmentPolicy;
     private ActionLookupKey actionOwnerSymbol;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
@@ -1704,7 +1669,6 @@ public final class RuleContext extends TargetContext
 
     private RuleContext build(boolean attributeChecks) throws InvalidExecGroupException {
       Preconditions.checkNotNull(ruleClassProvider);
-      Preconditions.checkNotNull(hostConfiguration);
       Preconditions.checkNotNull(configurationFragmentPolicy);
       Preconditions.checkNotNull(actionOwnerSymbol);
       Preconditions.checkNotNull(prerequisiteMap);
@@ -1823,12 +1787,6 @@ public final class RuleContext extends TargetContext
     @CanIgnoreReturnValue
     public Builder setRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider) {
       this.ruleClassProvider = ruleClassProvider;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setHostConfiguration(BuildConfigurationValue hostConfiguration) {
-      this.hostConfiguration = hostConfiguration;
       return this;
     }
 

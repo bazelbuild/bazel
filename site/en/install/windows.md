@@ -49,7 +49,7 @@ To make Bazel easily accessible from command prompts or PowerShell by default, y
 set PATH=%PATH%;{{ '<var>' }}path to the Bazel binary{{ '</var>' }}
 ```
 
-You can also change your system `PATH` environment variable to make it permanent. Check out how to [set environment variables](/docs/windows#set-environment-variables).
+You can also change your system `PATH` environment variable to make it permanent. Check out how to [set environment variables](/configure/windows#set-environment-variables).
 
 ### Done {:#done}
 
@@ -65,8 +65,8 @@ Next, you can check out more tips and guidance here:
 
 *   [Installing compilers and language runtimes](#install-compilers)
 *   [Troubleshooting](#troubleshooting)
-*   [Best practices on Windows](/docs/windows#best-practices)
-*   [Tutorials](/start/getting-started#tutorials)
+*   [Best practices on Windows](/configure/windows#best-practices)
+*   [Tutorials](/start/#tutorials)
 
 ## Installing compilers and language runtimes {:#install-compilers}
 

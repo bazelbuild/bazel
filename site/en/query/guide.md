@@ -9,8 +9,8 @@ This page covers how to get started using Bazel's query language to trace
 dependencies in your code.
 
 For a language details and `--output` flag details, please see the
-reference manuals, [Bazel query reference](/reference/query)
-and [Bazel cquery reference](/docs/cquery). You can get help by
+reference manuals, [Bazel query reference](/query/language)
+and [Bazel cquery reference](/query/cquery). You can get help by
 typing `bazel help query` or `bazel help cquery` on the
 command line.
 
@@ -112,7 +112,7 @@ if you're going to change some code, you might want to know what other code
 you're about to break. You can use `rdeps(u, x)` to find the reverse
 dependencies of the targets in `x` within the transitive closure of `u`.
 
-Bazel's [Sky Query](/reference/query#sky-query)
+Bazel's [Sky Query](/query/language#sky-query)
 supports the `allrdeps` function which allows you to query reverse dependencies
 in a universe you specify.
 

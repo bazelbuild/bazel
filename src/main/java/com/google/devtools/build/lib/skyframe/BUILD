@@ -20,6 +20,7 @@ java_library(
     srcs = [
         "ActionExecutionFunction.java",
         "ActionLookupConflictFindingFunction.java",
+        "ActionLookupValuesTraversal.java",
         "ActionOutputDirectoryHelper.java",
         "AspectCompletor.java",
         "AspectFunction.java",

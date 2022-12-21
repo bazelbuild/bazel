@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.time.Duration;
 
@@ -35,6 +36,7 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private final SandboxHelpers helpers;
   private final Path execRoot;
+  private final ImmutableList<Root> packageRoots;
   private final PathFragment windowsSandbox;
   private final LocalEnvProvider localEnvProvider;
   private final Duration timeoutKillDelay;
@@ -55,6 +57,7 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     super(cmdEnv);
     this.helpers = helpers;
     this.execRoot = cmdEnv.getExecRoot();
+    this.packageRoots = cmdEnv.getPackageLocator().getPathEntries();
     this.windowsSandbox = windowsSandboxPath;
     this.timeoutKillDelay = timeoutKillDelay;
     this.localEnvProvider = new WindowsLocalEnvProvider(cmdEnv.getClientEnv());
@@ -75,7 +78,7 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
             execRoot,
             execRoot,
-            ImmutableList.of(),
+            packageRoots,
             null);
 
     ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();

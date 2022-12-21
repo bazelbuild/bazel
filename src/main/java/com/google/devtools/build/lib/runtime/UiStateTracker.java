@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressRecei
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
@@ -87,7 +88,7 @@ class UiStateTracker {
 
   private int sampleSize = 3;
 
-  private String status;
+  protected String status;
   protected String additionalMessage;
 
   protected final Clock clock;
@@ -454,31 +455,31 @@ class UiStateTracker {
     executionProgressReceiver = event.getExecutionProgressReceiver();
   }
 
-  void buildComplete(BuildCompleteEvent event) {
+  Event buildComplete(BuildCompleteEvent event) {
     buildComplete = true;
     buildCompleteAt = Instant.ofEpochMilli(clock.currentTimeMillis());
 
+    status = null;
+    additionalMessage = "";
     if (event.getResult().getSuccess()) {
-      status = "INFO";
       int actionsCompleted = this.actionsCompleted.get();
       if (failedTests == 0) {
-        additionalMessage =
+        return Event.info(
             "Build completed successfully, "
                 + actionsCompleted
-                + pluralize(" total action", actionsCompleted);
+                + pluralize(" total action", actionsCompleted));
       } else {
-        additionalMessage =
+        return Event.info(
             "Build completed, "
                 + failedTests
                 + pluralize(" test", failedTests)
                 + " FAILED, "
                 + actionsCompleted
-                + pluralize(" total action", actionsCompleted);
+                + pluralize(" total action", actionsCompleted));
       }
     } else {
       ok = false;
-      status = "FAILED";
-      additionalMessage = "Build did NOT complete successfully";
+      return Event.error("Build did NOT complete successfully");
     }
   }
 
@@ -1324,7 +1325,9 @@ class UiStateTracker {
       return;
     }
 
-    writeExecutionProgress(terminalWriter, shortVersion);
+    if (!buildComplete) {
+      writeExecutionProgress(terminalWriter, shortVersion);
+    }
 
     if (!shortVersion) {
       reportOnDownloads(terminalWriter);

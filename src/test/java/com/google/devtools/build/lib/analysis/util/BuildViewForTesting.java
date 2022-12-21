@@ -660,7 +660,6 @@ public class BuildViewForTesting {
 
     return new RuleContext.Builder(env, target, /*aspects=*/ ImmutableList.of(), targetConfig)
         .setRuleClassProvider(ruleClassProvider)
-        .setHostConfiguration(configurations.getHostConfiguration())
         .setConfigurationFragmentPolicy(
             target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy())
         .setActionOwnerSymbol(ConfiguredTargetKey.fromConfiguredTarget(configuredTarget))

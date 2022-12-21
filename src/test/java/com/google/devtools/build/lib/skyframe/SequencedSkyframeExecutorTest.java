@@ -1590,10 +1590,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     initializeSkyframeExecutor();
     skyframeExecutor.setActive(false);
     skyframeExecutor.decideKeepIncrementalState(
-        /*batch=*/ false,
-        /*keepStateAfterBuild=*/ true,
-        /*shouldTrackIncrementalState=*/ false,
-        /*discardAnalysisCache=*/ false,
+        /* batch= */ false,
+        /* keepStateAfterBuild= */ true,
+        /* shouldTrackIncrementalState= */ false,
+        /* heuristicallyDropNodes= */ false,
+        /* discardAnalysisCache= */ false,
         reporter);
     skyframeExecutor.setActive(true);
     syncSkyframeExecutor();
@@ -2140,10 +2141,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     options.parse("--keep_going", "--jobs=1", "--discard_analysis_cache");
     skyframeExecutor.setActive(false);
     skyframeExecutor.decideKeepIncrementalState(
-        /*batch=*/ true,
-        /*keepStateAfterBuild=*/ true,
-        /*shouldTrackIncrementalState=*/ true,
-        /*discardAnalysisCache=*/ true,
+        /* batch= */ true,
+        /* keepStateAfterBuild= */ true,
+        /* shouldTrackIncrementalState= */ true,
+        /* heuristicallyDropNodes= */ false,
+        /* discardAnalysisCache= */ true,
         reporter);
     skyframeExecutor.setActive(true);
     runCatastropheHaltsBuild();
@@ -2538,10 +2540,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     skyframeExecutor.setActive(false);
     skyframeExecutor.decideKeepIncrementalState(
-        /*batch=*/ false,
-        /*keepStateAfterBuild=*/ true,
+        /* batch= */ false,
+        /* keepStateAfterBuild= */ true,
         trackIncrementalState,
-        /*discardAnalysisCache=*/ false,
+        /* heuristicallyDropNodes= */ false,
+        /* discardAnalysisCache= */ false,
         reporter);
     skyframeExecutor.setActive(true);
     syncSkyframeExecutor();

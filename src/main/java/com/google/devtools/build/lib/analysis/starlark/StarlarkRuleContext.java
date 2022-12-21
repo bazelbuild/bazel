@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
-import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
@@ -190,7 +189,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.actionFactory = new StarlarkActionFactory(this);
     this.ruleLabelCanonicalName = ruleContext.getLabel().getCanonicalForm();
-    this.fragments = new FragmentCollection(ruleContext, NoTransition.INSTANCE);
+    this.fragments = new FragmentCollection(ruleContext);
     this.aspectDescriptor = aspectDescriptor;
     this.isForAspect = aspectDescriptor != null;
 
@@ -611,12 +610,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public BuildConfigurationValue getConfiguration() throws EvalException {
     checkMutable("configuration");
     return ruleContext.getConfiguration();
-  }
-
-  @Override
-  public BuildConfigurationValue getHostConfiguration() throws EvalException {
-    checkMutable("host_configuration");
-    return ruleContext.getHostConfiguration();
   }
 
   @Override

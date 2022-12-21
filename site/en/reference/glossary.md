@@ -12,7 +12,7 @@ A command to run during the build, for example, a call to a compiler that takes
 Includes metadata like the command line arguments, action key, environment
 variables, and declared input/output artifacts.
 
-**See also:** [Rules documentation](/rules/rules#actions)
+**See also:** [Rules documentation](/extending/rules#actions)
 
 ### Action cache {:#action-cache}
 
@@ -72,7 +72,7 @@ cached and reused between targets requiring the same aspect. Created with the
 `aspect()` Starlark Build API function. Can be used, for example, to generate
 metadata for IDEs, and create actions for linting.
 
-**See also:** [Aspects documentation](/rules/aspects)
+**See also:** [Aspects documentation](/extending/aspects)
 
 ### Aspect-on-aspect {:#aspect-on-aspect}
 
@@ -187,7 +187,7 @@ target platform, action environment variables, and command-line [build
 flags](#command-flags). [Transitions](#transition) may create additional
 configurations, such as for host tools or cross-compilation.
 
-**See also:** [Configurations](/rules/rules#configurations)
+**See also:** [Configurations](/extending/rules#configurations)
 
 <!-- TODO: ### Configuration fragment -->
 
@@ -206,7 +206,7 @@ targets](#configured-target) (after the [analysis phase](#analysis-phase)
 completes). This means `select()` and [build flags](#command-flags) (such as
 `--platforms`) are accurately reflected in the results.
 
-**See also:** [cquery documentation](/docs/cquery)
+**See also:** [cquery documentation](/query/cquery)
 
 ### Configured target {:#configured-target}
 
@@ -243,7 +243,7 @@ the rule is at the top level of the build graph. Flattening large depsets incurs
 huge memory consumption. Also known as *nested sets* in Bazel's internal
 implementation.
 
-**See also:** [Depset documentation](/rules/depsets)
+**See also:** [Depset documentation](/extending/depsets)
 
 ### Disk cache {:#disk-cache}
 
@@ -331,7 +331,7 @@ a single [Starlark](#starlark) function. Enables reusing common rule declaration
 patterns across `BUILD` files. Expanded to the underlying rule target declarations
 during the [loading phase](#loading-phase).
 
-**See also:** [Macro documentation](/rules/macros)
+**See also:** [Macro documentation](/extending/macros)
 
 ### Mnemonic {:#mnemonic}
 
@@ -404,7 +404,7 @@ Note: The object holding specific data for a given rule target is
 referred to as a "provider instance", although sometimes this is conflated with
 "provider".
 
-**See also:** [Provider documentation](/rules/rules#providers)
+**See also:** [Provider documentation](/extending/rules#providers)
 
 ### Query (concept) {:#query-concept}
 
@@ -420,7 +420,7 @@ phase](#loading-phase) [target graph](#target-graph). This is relatively fast,
 but can't analyze the effects of `select()`, [build flags](#command-flags),
 [artifacts](#artifact), or build [actions](#action).
 
-**See also:** [Query how-to](/docs/query-how-to), [Query reference](/reference/query)
+**See also:** [Query how-to](/query/guide), [Query reference](/query/language)
 
 ### Repository cache {:#repo-cache}
 
@@ -461,7 +461,7 @@ Note: Historically the term "rule" has been used to refer to a rule target.
 This usage was inherited from tools like Make, but causes confusion and should
 be avoided for Bazel.
 
-**See also:** [Rules documentation](/rules/rules)
+**See also:** [Rules documentation](/extending/rules)
 
 ### Rule target {:#rule-target}
 
@@ -476,7 +476,7 @@ data dependencies of the test. Before the invocation of the executable (during
 bazel test), Bazel prepares the tree of runfiles alongside the test executable
 according to their source directory structure.
 
-**See also:** [Runfiles documentation](/rules/rules#runfiles)
+**See also:** [Runfiles documentation](/extending/rules#runfiles)
 
 ### Sandboxing {:#sandboxing}
 
@@ -498,12 +498,12 @@ On Linux, it's not significant, but on macOS it can make sandboxing unusable.
 A feature to embed additional information into Bazel-built
 [artifacts](#artifact). For example, this can be used for source control, build
 time and other workspace or environment-related information for release builds.
-Enable through the `--workspace_status_command` flag and [rules](/rules/rules) that
+Enable through the `--workspace_status_command` flag and [rules](/extending/rules) that
 support the stamp attribute.
 
 ### Starlark {:#starlark}
 
-The extension language for writing [rules](/rules/rules) and [macros](#macro). A
+The extension language for writing [rules](/extending/rules) and [macros](#macro). A
 restricted subset of Python (syntactically and grammatically) aimed for the
 purpose of configuration, and for better performance. Uses the [`.bzl`
 file](#bzl-file) extension. [`BUILD` files](#build-file) use an even more
@@ -598,7 +598,7 @@ the [target graph](#target-graph) is forked with distinct configurations for
 each fork. For example, one can build an Android APK with native binaries
 compiled for ARM and x86 using split transitions in a single build.
 
-**See also:** [User-defined transitions](/rules/config#user-defined-transitions)
+**See also:** [User-defined transitions](/extending/config#user-defined-transitions)
 
 ### Tree artifact {:#tree-artifact}
 

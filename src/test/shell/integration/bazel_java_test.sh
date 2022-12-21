@@ -214,7 +214,7 @@ public class HelloWorld {}
 EOF
 
   # Check that the RHS javabase appears in the launcher.
-  bazel build --extra_toolchains=//:toolchain_definition --java_runtime_version=javabase //java:javabin
+  bazel build --extra_toolchains=//:all --java_runtime_version=javabase //java:javabin
   cat bazel-bin/java/javabin >& $TEST_log
   expect_log "JAVABIN=.*/zoo/bin/java"
 

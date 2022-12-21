@@ -6,7 +6,7 @@ Book: /_book.yaml
 {% include "_buttons.html" %}
 
 _If you're new to Bazel, start with the [Building Android with
-Bazel](/tutorials/android-app) tutorial._
+Bazel](/start/android-app ) tutorial._
 
 ![Running Android instrumentation tests in parallel](/docs/images/android_test.gif "Android instrumentation test")
 

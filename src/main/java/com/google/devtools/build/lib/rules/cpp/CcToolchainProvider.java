@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoProfile;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -459,6 +460,12 @@ public final class CcToolchainProvider extends NativeInfo
     return allFilesIncludingLibc;
   }
 
+  @Override
+  public Depset getAllFilesIncludingLibcForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getAllFilesIncludingLibc());
+  }
+
   /** Returns the files necessary for compilation. */
   public NestedSet<Artifact> getCompilerFiles() {
     return compilerFiles;
@@ -792,6 +799,12 @@ public final class CcToolchainProvider extends NativeInfo
     return abi;
   }
 
+  @Override
+  public String getAbiForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getAbi();
+  }
+
   /**
    * Returns the glibc version used by the abi we're using. This is a glibc version number (e.g.,
    * "2.2.2"). Note that in practice we might be using glibc 2.2.2 as ABI even when compiling with
@@ -801,6 +814,18 @@ public final class CcToolchainProvider extends NativeInfo
   // TODO(bazel-team): The javadoc should clarify how this is used in Blaze.
   public String getAbiGlibcVersion() {
     return abiGlibcVersion;
+  }
+
+  @Override
+  public String getAbiGlibcVersionForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getAbiGlibcVersion();
+  }
+
+  @Override
+  public String getCrosstoolTopPathForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return crosstoolTopPathFragment.getPathString();
   }
 
   /** Returns the compiler version string (e.g. "gcc-4.1.1"). */
@@ -831,6 +856,13 @@ public final class CcToolchainProvider extends NativeInfo
    */
   public ImmutableMap<String, String> getAdditionalMakeVariables() {
     return additionalMakeVariables;
+  }
+
+  @Override
+  public Dict<String, String> getAdditionalMakeVariablesForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Dict.immutableCopyOf(getAdditionalMakeVariables());
   }
 
   /**

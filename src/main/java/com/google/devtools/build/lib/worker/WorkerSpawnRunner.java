@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
@@ -90,6 +91,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   private final SandboxHelpers helpers;
   private final Path execRoot;
+  private final ImmutableList<Root> packageRoots;
   private final WorkerPool workers;
   private final ExtendedEventHandler reporter;
   private final BinTools binTools;
@@ -104,6 +106,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   public WorkerSpawnRunner(
       SandboxHelpers helpers,
       Path execRoot,
+      ImmutableList<Root> packageRoots,
       WorkerPool workers,
       ExtendedEventHandler reporter,
       LocalEnvProvider localEnvProvider,
@@ -116,6 +119,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Clock clock) {
     this.helpers = helpers;
     this.execRoot = execRoot;
+    this.packageRoots = packageRoots;
     this.workers = checkNotNull(workers);
     this.reporter = reporter;
     this.binTools = binTools;
@@ -191,7 +195,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
                 execRoot,
                 execRoot,
-                ImmutableList.of(),
+                packageRoots,
                 null);
       }
       SandboxOutputs outputs = helpers.getOutputs(spawn);

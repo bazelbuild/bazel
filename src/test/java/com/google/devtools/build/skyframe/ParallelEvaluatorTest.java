@@ -84,6 +84,7 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Assume;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -93,6 +94,8 @@ public class ParallelEvaluatorTest {
   private static final SkyFunctionName CHILD_TYPE = SkyFunctionName.createHermetic("child");
   private static final SkyFunctionName PARENT_TYPE = SkyFunctionName.createHermetic("parent");
 
+  @TestParameter private boolean useQueryDep;
+
   protected ProcessableGraph graph;
   protected IntVersion graphVersion = IntVersion.of(0);
   protected GraphTester tester = new GraphTester();
@@ -101,6 +104,11 @@ public class ParallelEvaluatorTest {
 
   private DirtyTrackingProgressReceiver revalidationReceiver =
       new DirtyTrackingProgressReceiver(null);
+
+  @Before
+  public void configureTesterUseLookup() {
+    tester.setUseQueryDep(useQueryDep);
+  }
 
   @After
   public void assertNoTrackedErrors() {
@@ -117,7 +125,7 @@ public class ParallelEvaluatorTest {
     return new ParallelEvaluator(
         graph,
         oldGraphVersion,
-        MinimalVersion.INSTANCE,
+        Version.minimal(),
         builders,
         reportedEvents,
         new NestedSetVisitor.VisitedState(),
@@ -128,8 +136,8 @@ public class ParallelEvaluatorTest {
         GraphInconsistencyReceiver.THROWING,
         () -> AbstractQueueVisitor.createExecutorService(200, "test-pool"),
         new SimpleCycleDetector(),
-        /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
-        /*executionJobsThreadPoolSize=*/ 0,
+        /* cpuHeavySkyKeysThreadPoolSize= */ 0,
+        /* executionJobsThreadPoolSize= */ 0,
         UnnecessaryTemporaryStateDropperReceiver.NULL);
   }
 
@@ -3205,21 +3213,21 @@ public class ParallelEvaluatorTest {
         new ParallelEvaluator(
             graph,
             graphVersion,
-            MinimalVersion.INSTANCE,
+            Version.minimal(),
             tester.getSkyFunctionMap(),
             reportedEvents,
             new NestedSetVisitor.VisitedState(),
             EventFilter.FULL_STORAGE,
             ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
             // Doesn't matter for this test case.
-            /*keepGoing=*/ false,
+            /* keepGoing= */ false,
             revalidationReceiver,
             GraphInconsistencyReceiver.THROWING,
             // We ought not need more than 1 thread for this test case.
             () -> AbstractQueueVisitor.createExecutorService(1, "test-pool"),
             new SimpleCycleDetector(),
-            /*cpuHeavySkyKeysThreadPoolSize=*/ 0,
-            /*executionJobsThreadPoolSize=*/ 0,
+            /* cpuHeavySkyKeysThreadPoolSize= */ 0,
+            /* executionJobsThreadPoolSize= */ 0,
             dropperReceiver);
     // Then, when we evaluate key1,
     SkyValue resultValue = parallelEvaluator.eval(ImmutableList.of(key1)).get(key1);

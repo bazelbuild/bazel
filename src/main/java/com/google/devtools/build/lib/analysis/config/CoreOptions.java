@@ -102,7 +102,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "collapse_duplicate_defines",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,

@@ -198,7 +198,7 @@ Bazel learns about option classes in the following ways:
 3.  From `ConfiguredRuleClassProvider` (these are command line options related
     to individual programming languages)
 4.  Starlark rules can also define their own options (see
-    [here](/rules/config))
+    [here](/extending/config))
 
 Each option (excluding Starlark-defined options) is a member variable of a
 `FragmentOptions` subclass that has the `@Option` annotation, which specifies
@@ -539,7 +539,7 @@ If a configuration transition results in multiple configurations, it's called a
 _split transition._
 
 Configuration transitions can also be implemented in Starlark (documentation
-[here](/rules/config))
+[here](/extending/config))
 
 ### Transitive info providers {:#transitive-info-providers}
 
@@ -638,7 +638,7 @@ necessitates the following additional components:
 
 Aspects are a way to "propagate computation down the dependency graph". They are
 described for users of Bazel
-[here](/rules/aspects). A good
+[here](/extending/aspects). A good
 motivating example is protocol buffers: a `proto_library` rule should not know
 about any particular language, but building the implementation of a protocol
 buffer message (the “basic unit” of protocol buffers) in any programming
@@ -689,7 +689,7 @@ Bazel supports multi-platform builds, that is, builds where there may be
 multiple architectures where build actions run and multiple architectures for
 which code is built. These architectures are referred to as _platforms_ in Bazel
 parlance (full documentation
-[here](/docs/platforms))
+[here](/extending/platforms))
 
 A platform is described by a key-value mapping from _constraint settings_ (such as
 the concept of "CPU architecture") to _constraint values_ (such as a particular CPU
@@ -702,7 +702,7 @@ different compilers; for example, a particular C++ toolchain may run on a
 specific OS and be able to target some other OSes. Bazel must determine the C++
 compiler that is used based on the set execution and target platform
 (documentation for toolchains
-[here](/docs/toolchains)).
+[here](/extending/toolchains)).
 
 In order to do this, toolchains are annotated with the set of execution and
 target platform constraints they support. In order to do this, the definition of
@@ -1375,7 +1375,7 @@ attribute of the first test that is executed.
 ## The query engine {:#query-engine}
 
 Bazel has a
-[little language](/docs/query-how-to)
+[little language](/query/guide)
 used to ask it various things about various graphs. The following query kinds
 are provided:
 

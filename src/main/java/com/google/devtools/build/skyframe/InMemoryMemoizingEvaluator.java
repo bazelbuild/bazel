@@ -186,7 +186,7 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
             new ParallelEvaluator(
                 graph,
                 graphVersion,
-                MinimalVersion.INSTANCE,
+                Version.minimal(),
                 skyFunctions,
                 evaluationContext.getEventHandler(),
                 emittedEventState,

@@ -34,8 +34,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -235,7 +233,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "def _impl(target, ctx):",
         "   print('This aspect does nothing')",
         "   return struct()",
-        "MyAspect = aspect(implementation=_impl, fragments=['java'], host_fragments=['cpp'])");
+        "MyAspect = aspect(implementation=_impl, fragments=['java'])");
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
@@ -247,23 +245,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(
             aspectDefinition
                 .getConfigurationFragmentPolicy()
-                .isLegalConfigurationFragment(JavaConfiguration.class, NoTransition.INSTANCE))
+                .isLegalConfigurationFragment(JavaConfiguration.class))
         .isTrue();
     assertThat(
             aspectDefinition
                 .getConfigurationFragmentPolicy()
-                .isLegalConfigurationFragment(JavaConfiguration.class, HostTransition.INSTANCE))
+                .isLegalConfigurationFragment(CppConfiguration.class))
         .isFalse();
-    assertThat(
-            aspectDefinition
-                .getConfigurationFragmentPolicy()
-                .isLegalConfigurationFragment(CppConfiguration.class, NoTransition.INSTANCE))
-        .isFalse();
-    assertThat(
-            aspectDefinition
-                .getConfigurationFragmentPolicy()
-                .isLegalConfigurationFragment(CppConfiguration.class, HostTransition.INSTANCE))
-        .isTrue();
   }
 
   @Test
@@ -1614,8 +1602,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void aspectFragmentAccessSuccess() throws Exception {
-    analyzeConfiguredTargetForAspectFragment(
-        "ctx.fragments.java.strict_java_deps", "'java'", "", "", "");
+    analyzeConfiguredTargetForAspectFragment("ctx.fragments.java.strict_java_deps", "'java'", "");
     assertNoEvents();
   }
 
@@ -1626,21 +1613,15 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         ViewCreationFailedException.class,
         () ->
             analyzeConfiguredTargetForAspectFragment(
-                "ctx.fragments.java.strict_java_deps", "'cpp'", "'java'", "'java'", ""));
+                "ctx.fragments.java.strict_java_deps", "'cpp'", "'cpp'"));
     assertContainsEvent(
         "//test:aspect.bzl%MyAspect aspect on my_rule has to declare 'java' as a "
-            + "required fragment in target configuration in order to access it. Please update the "
-            + "'fragments' argument of the rule definition "
-            + "(for example: fragments = [\"java\"])");
+            + "required fragment in order to access it. Please update the 'fragments' argument of "
+            + "the rule definition (for example: fragments = [\"java\"])");
   }
 
   private void analyzeConfiguredTargetForAspectFragment(
-      String fullFieldName,
-      String fragments,
-      String hostFragments,
-      String ruleFragments,
-      String ruleHostFragments)
-      throws Exception {
+      String fullFieldName, String fragments, String ruleFragments) throws Exception {
     scratch.file(
         "test/aspect.bzl",
         "def _aspect_impl(target, ctx):",
@@ -1653,14 +1634,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "   implementation=_aspect_impl,",
         "   attr_aspects=['deps'],",
         "   fragments=[" + fragments + "],",
-        "   host_fragments=[" + hostFragments + "],",
         ")",
         "my_rule = rule(",
         "   implementation=_rule_impl,",
         "   attrs = { 'attr' : ",
         "             attr.label_list(mandatory=True, allow_files=True, aspects = [MyAspect]) },",
         "   fragments=[" + ruleFragments + "],",
-        "   host_fragments=[" + ruleHostFragments + "],",
         ")");
     scratch.file(
         "test/BUILD",

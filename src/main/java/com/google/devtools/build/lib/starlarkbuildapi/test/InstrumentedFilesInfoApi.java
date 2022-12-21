@@ -29,7 +29,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + " targets matched by <a"
             + " href=\"https://bazel.build/reference/command-line-reference#flag--instrumentation_filter\"><code>--instrumentation_filter</code></a>"
             + " for purposes of <a"
-            + " href=\"https://bazel.build/rules/rules#code_coverage\">code coverage"
+            + " href=\"https://bazel.build/extending/rules#code_coverage\">code coverage"
             + " data collection</a>. When coverage data collection is enabled, a manifest"
             + " containing the combined paths in <a"
             + " href=\"#instrumented_files\"><code>instrumented_files</code></a> and <a"

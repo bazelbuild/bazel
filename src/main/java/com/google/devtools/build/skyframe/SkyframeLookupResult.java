@@ -18,14 +18,14 @@ import javax.annotation.Nullable;
 
 /**
  * A map-like result of getting Skyframe dependencies via {@link
- * SkyFunction.Environment#getValuesAndExceptions}. Callers can use the {@link #get} and {@link
- * #getOrThrow} methods to obtain elements by key.
+ * SkyFunction.Environment#getValuesAndExceptions}. Callers can use the {@link #get}, {@link
+ * #getOrThrow} and {@link #queryDep} methods to obtain elements by key.
  *
  * <p>Note that a {@link SkyFunction} cannot guarantee that {@link
  * SkyFunction.Environment#valuesMissing} will be true upon receipt of a {@code
  * SkyframeLookupResult}. The elements must all be fetched. If {@link #get} or {@link #getOrThrow}
- * returns {@code null}, only then will {@link SkyFunction.Environment#valuesMissing} be guaranteed
- * to return true.
+ * returns {@code null}, or {@link #queryDep} returns false, only then will {@link
+ * SkyFunction.Environment#valuesMissing} be guaranteed to return true.
  */
 public interface SkyframeLookupResult {
 
@@ -78,4 +78,43 @@ public interface SkyframeLookupResult {
       @Nullable Class<E2> exceptionClass2,
       @Nullable Class<E3> exceptionClass3)
       throws E1, E2, E3;
+
+  /**
+   * Similar to {@link #getOrThrow}, but supports more flexible control flows.
+   *
+   * <p>This method provides a more generic exception handling interface than {@link #getOrThrow},
+   * for cases where the caller cannot pass specific exception types.
+   *
+   * @return true if either a value was passed to {@link QueryDepCallback#acceptValue} or an
+   *     exception was successfully handled by {@link QueryDepCallback#tryHandleException}. False
+   *     indicates that either the key is unavailable or an exception was unhandled by {@link
+   *     QueryDepCallback#tryHandleException}.
+   */
+  boolean queryDep(SkyKey key, QueryDepCallback resultCallback);
+
+  /**
+   * An interface specifying a dependency query.
+   *
+   * <p>{@link #queryDep} calls one of {@link QueryDepCallback#acceptValue} or {@link
+   * QueryDepCallback#tryHandleException} if a result is available.
+   */
+  @FunctionalInterface
+  interface QueryDepCallback {
+    /**
+     * Accepts a value.
+     *
+     * @param key the key associated with the value.
+     */
+    void acceptValue(SkyKey key, SkyValue value);
+
+    /**
+     * Offers an exception to this query.
+     *
+     * @param key the key associated with the exception.
+     * @return true if the exception was handled.
+     */
+    default boolean tryHandleException(SkyKey key, Exception e) {
+      return false; // Default implementation that handles no exceptions.
+    }
+  }
 }

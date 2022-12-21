@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionTemplate;
+import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
@@ -59,6 +61,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.ByteArrayOutputStream;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -703,6 +706,21 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         .containsExactly(execPath + "app/_j2objc/dummyOne", execPath + "app/_j2objc/dummyTwo");
   }
 
+  @Nullable
+  private ParameterFileWriteAction paramFileWriteActionForLinkAction(Action action) {
+    for (Artifact input : action.getInputs().toList()) {
+      if (!(input instanceof SpecialArtifact)) {
+        if (input.getFilename().endsWith("linker.objlist")) {
+          Action generatingAction = getGeneratingAction(input);
+          if (generatingAction instanceof ParameterFileWriteAction) {
+            return (ParameterFileWriteAction) generatingAction;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
   @Test
   public void testJ2ObjcAppearsInLinkArgs() throws Exception {
     scratch.file(
@@ -734,7 +752,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     String binDir =
         removeConfigFragment(
             getConfiguration(target).getBinDirectory(RepositoryName.MAIN).getExecPathString());
-    assertThat(removeConfigFragment(ImmutableList.copyOf(paramFileArgsForAction(linkAction))))
+    ParameterFileWriteAction paramAction = paramFileWriteActionForLinkAction(linkAction);
+    Iterable<String> paramFileArgs = paramAction.getCommandLine().arguments();
+    assertThat(removeConfigFragment(ImmutableList.copyOf(paramFileArgs)))
         .containsAtLeast(
             binDir + "/java/c/y/libylib_j2objc.a",
             // All jre libraries mus appear after java libraries in the link order.
@@ -754,15 +774,15 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     useConfiguration("--ios_minimum_os=1.0");
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     Artifact archive = j2objcArchive("//java/com/google/app/test:transpile", "test");
-    CommandAction archiveAction = (CommandAction) getGeneratingAction(archive);
+    CppLinkAction archiveAction = (CppLinkAction) getGeneratingAction(archive);
     Artifact objectFilesFromGenJar =
         getFirstArtifactEndingWith(archiveAction.getInputs(), "source_files");
     Artifact normalObjectFile = getFirstArtifactEndingWith(archiveAction.getInputs(), "test.o");
 
-    // Test that the archive obj list param file contains the individual object files inside
+    // Test that the archive commandline contains the individual object files inside
     // the object file tree artifact.
-    assertThat(paramFileCommandLineForAction(archiveAction).arguments(DUMMY_ARTIFACT_EXPANDER))
-        .containsExactly(
+    assertThat(archiveAction.getLinkCommandLine().arguments(DUMMY_ARTIFACT_EXPANDER))
+        .containsAtLeast(
             objectFilesFromGenJar.getExecPathString() + "/children1",
             objectFilesFromGenJar.getExecPathString() + "/children2",
             normalObjectFile.getExecPathString());

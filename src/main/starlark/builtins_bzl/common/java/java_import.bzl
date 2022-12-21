@@ -46,12 +46,13 @@ def _process_with_ijars_if_needed(jars, ctx):
     for jar in jars:
         interface_jar = jar
         if use_ijars:
-            ijar_basename = jar.short_path.removesuffix("." + jar.extension) + "-ijar.jar"
+            ijar_basename = jar.short_path.removeprefix("../").removesuffix("." + jar.extension) + "-ijar.jar"
             interface_jar_directory = "_ijar/" + ctx.label.name + "/" + ijar_basename
 
             interface_jar = ctx.actions.declare_file(interface_jar_directory)
             java_common.run_ijar(
                 ctx.actions,
+                target_label = ctx.label,
                 jar = jar,
                 output = interface_jar,
                 java_toolchain = semantics.find_java_toolchain(ctx),

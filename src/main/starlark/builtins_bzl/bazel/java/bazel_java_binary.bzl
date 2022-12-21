@@ -199,6 +199,7 @@ def _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jv
         inputs = [launcher_artifact],
         outputs = [executable],
         arguments = [launcher_artifact.path, launch_info, executable.path],
+        use_default_shell_env = True,
     )
     return executable
 
@@ -214,6 +215,7 @@ def make_java_binary(executable, resolve_launcher_flag):
         attrs = merge_attrs(
             BASIC_JAVA_BINARY_ATTRIBUTES,
             {
+                "resource_strip_prefix": attr.string(),
                 "_java_launcher": attr.label(
                     default = configuration_field(
                         fragment = "java",

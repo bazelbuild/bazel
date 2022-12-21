@@ -87,19 +87,16 @@ public final class ConfigurationResolver {
 
   private final SkyFunction.Environment env;
   private final TargetAndConfiguration ctgValue;
-  private final BuildConfigurationValue hostConfiguration;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final StarlarkTransitionCache starlarkTransitionCache;
 
   public ConfigurationResolver(
       SkyFunction.Environment env,
       TargetAndConfiguration ctgValue,
-      BuildConfigurationValue hostConfiguration,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       StarlarkTransitionCache starlarkTransitionCache) {
     this.env = env;
     this.ctgValue = ctgValue;
-    this.hostConfiguration = hostConfiguration;
     this.configConditions = configConditions;
     this.starlarkTransitionCache = starlarkTransitionCache;
   }
@@ -185,8 +182,6 @@ public final class ConfigurationResolver {
         return null; // Need Skyframe deps.
       }
       return ImmutableList.of(resolvedDep);
-    } else if (transition.isHostTransition()) {
-      return ImmutableList.of(resolveHostTransition(dependencyBuilder, dependencyKey));
     }
 
     return resolveGenericTransition(dependencyBuilder, dependencyKey, eventHandler);
@@ -212,14 +207,6 @@ public final class ConfigurationResolver {
     }
 
     return dependencyBuilder.withNullConfiguration().build();
-  }
-
-  private Dependency resolveHostTransition(
-      Dependency.Builder dependencyBuilder, DependencyKey dependencyKey) {
-    return dependencyBuilder
-        .setConfiguration(hostConfiguration)
-        .setAspects(dependencyKey.getAspects())
-        .build();
   }
 
   @Nullable

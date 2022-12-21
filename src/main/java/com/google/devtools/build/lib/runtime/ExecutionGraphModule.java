@@ -82,7 +82,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Blaze module that writes an partial execution graph with performance data. */
+/** Blaze module that writes a partial execution graph with performance data. */
 public class ExecutionGraphModule extends BlazeModule {
 
   private static final String ACTION_DUMP_NAME = "execution_graph_dump.proto.zst";
@@ -424,7 +424,7 @@ public class ExecutionGraphModule extends BlazeModule {
       // we won't need.
       maybeAddEdges(
           nodeBuilder,
-          spawn.getOutputFiles(),
+          spawn.getOutputEdgesForExecutionGraph(),
           spawn.getInputFiles(),
           spawn.getResourceOwner(),
           spawn.getRunfilesSupplier(),

@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -395,23 +396,7 @@ public class BuildView {
                     }
                     return result;
                   });
-      if (!includeExecutionPhase) {
-        skyframeAnalysisResult =
-            skyframeBuildView.configureTargets(
-                eventHandler,
-                topLevelCtKeys,
-                aspectsKeys.build(),
-                memoizedConfigurationLookupSupplier,
-                topLevelOptions,
-                eventBus,
-                bugReporter,
-                keepGoing,
-                loadingPhaseThreads,
-                viewOptions.strictConflictChecks,
-                checkForActionConflicts,
-                viewOptions.cpuHeavySkyKeysThreadPoolSize);
-        setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
-      } else {
+      if (includeExecutionPhase) {
         skyframeExecutor.setExtraActionFilter(viewOptions.extraActionFilter);
         skyframeExecutor.setRuleContextConstraintSemantics(
             (RuleContextConstraintSemantics) ruleClassProvider.getConstraintSemantics());
@@ -432,14 +417,33 @@ public class BuildView {
                 bugReporter,
                 Preconditions.checkNotNull(resourceManager), // non-null for skymeld.
                 Preconditions.checkNotNull(buildResultListener), // non-null for skymeld.
+                (configuredTargets, allTargetsToTest) ->
+                    getCoverageArtifactsHelper(
+                        configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult),
                 keepGoing,
                 viewOptions.strictConflictChecks,
                 checkForActionConflicts,
                 loadingPhaseThreads,
                 viewOptions.cpuHeavySkyKeysThreadPoolSize,
                 mergedPhasesExecutionJobsCount,
-                /*shouldDiscardAnalysisCache=*/ viewOptions.discardAnalysisCache
+                /* shouldDiscardAnalysisCache= */ viewOptions.discardAnalysisCache
                     || !skyframeExecutor.tracksStateForIncrementality());
+      } else {
+        skyframeAnalysisResult =
+            skyframeBuildView.configureTargets(
+                eventHandler,
+                topLevelCtKeys,
+                aspectsKeys.build(),
+                memoizedConfigurationLookupSupplier,
+                topLevelOptions,
+                eventBus,
+                bugReporter,
+                keepGoing,
+                loadingPhaseThreads,
+                viewOptions.strictConflictChecks,
+                checkForActionConflicts,
+                viewOptions.cpuHeavySkyKeysThreadPoolSize);
+        setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
       }
     } finally {
       skyframeBuildView.clearInvalidatedActionLookupKeys();
@@ -564,27 +568,10 @@ public class BuildView {
         viewOptions, configuredTargets, aspects, artifactsToBuild, eventHandler);
 
     // Coverage
-    NestedSet<Artifact> baselineCoverageArtifacts =
-        getBaselineCoverageArtifacts(configuredTargets, artifactsToBuild);
-    if (coverageReportActionFactory != null) {
-      CoverageReportActionsWrapper actionsWrapper;
-      actionsWrapper =
-          coverageReportActionFactory.createCoverageReportActionsWrapper(
-              eventHandler,
-              eventBus,
-              directories,
-              allTargetsToTest,
-              baselineCoverageArtifacts,
-              getArtifactFactory(),
-              skyframeExecutor.getActionKeyContext(),
-              CoverageReportValue.COVERAGE_REPORT_KEY,
-              loadingResult.getWorkspaceName());
-      if (actionsWrapper != null) {
-        Actions.GeneratingActions actions = actionsWrapper.getActions();
-        skyframeExecutor.injectCoverageReportData(actions);
-        actionsWrapper.getCoverageOutputs().forEach(artifactsToBuild::add);
-      }
-    }
+    artifactsToBuild.addAll(
+        getCoverageArtifactsHelper(
+            configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult));
+
     // TODO(cparsons): If extra actions are ever removed, this filtering step can probably be
     //  removed as well: the only concern would be action conflicts involving coverage artifacts,
     //  which seems far-fetched.
@@ -733,13 +720,11 @@ public class BuildView {
   }
 
   private static NestedSet<Artifact> getBaselineCoverageArtifacts(
-      Collection<ConfiguredTarget> configuredTargets,
-      ImmutableSet.Builder<Artifact> artifactsToBuild) {
+      Collection<ConfiguredTarget> configuredTargets) {
     NestedSetBuilder<Artifact> baselineCoverageArtifacts = NestedSetBuilder.stableOrder();
     for (ConfiguredTarget target : configuredTargets) {
       InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
       if (provider != null) {
-        artifactsToBuild.addAll(provider.getBaselineCoverageArtifacts().toList());
         baselineCoverageArtifacts.addTransitive(provider.getBaselineCoverageArtifacts());
       }
     }
@@ -889,5 +874,38 @@ public class BuildView {
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }
+  }
+
+  private ImmutableSet<Artifact> getCoverageArtifactsHelper(
+      Set<ConfiguredTarget> configuredTargets,
+      Set<ConfiguredTarget> allTargetsToTest,
+      EventHandler eventHandler,
+      EventBus eventBus,
+      TargetPatternPhaseValue loadingResult)
+      throws InterruptedException {
+    ImmutableSet.Builder<Artifact> resultBuilder = ImmutableSet.builder();
+    // Coverage
+    NestedSet<Artifact> baselineCoverageArtifacts = getBaselineCoverageArtifacts(configuredTargets);
+    resultBuilder.addAll(baselineCoverageArtifacts.toList());
+
+    if (coverageReportActionFactory != null) {
+      CoverageReportActionsWrapper actionsWrapper =
+          coverageReportActionFactory.createCoverageReportActionsWrapper(
+              eventHandler,
+              eventBus,
+              directories,
+              allTargetsToTest,
+              baselineCoverageArtifacts,
+              getArtifactFactory(),
+              skyframeExecutor.getActionKeyContext(),
+              CoverageReportValue.COVERAGE_REPORT_KEY,
+              loadingResult.getWorkspaceName());
+      if (actionsWrapper != null) {
+        Actions.GeneratingActions actions = actionsWrapper.getActions();
+        skyframeExecutor.injectCoverageReportData(actions);
+        actionsWrapper.getCoverageOutputs().forEach(resultBuilder::add);
+      }
+    }
+    return resultBuilder.build();
   }
 }
