@@ -384,11 +384,11 @@ public final class SkyframeBuildView {
         // This operation is somewhat expensive, so we only do it if the graph might have changed in
         // some way -- either we analyzed a new target or we invalidated an old one or are building
         // targets together that haven't been built before.
-        SkyframeExecutor.AnalysisTraversalResult analysisTraversalResult =
-            skyframeExecutor.getActionLookupValuesInBuild(ctKeys, aspectKeys);
+        ActionLookupValuesTraversal analysisTraversalResult =
+            skyframeExecutor.collectActionLookupValuesInBuild(ctKeys, aspectKeys);
         ArtifactConflictFinder.ActionConflictsAndStats conflictsAndStats =
             ArtifactConflictFinder.findAndStoreArtifactConflicts(
-                analysisTraversalResult.getActionShards(),
+                analysisTraversalResult.getActionLookupValueShards(),
                 analysisTraversalResult.getActionCount(),
                 strictConflictChecks,
                 actionKeyContext);
