@@ -95,6 +95,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
     if (OS.getCurrent() == OS.DARWIN) {
       result.add(CcToolchainConfig.getCcToolchainConfigForCpu("darwin"));
+      result.add(CcToolchainConfig.getCcToolchainConfigForCpu("darwin_arm64"));
     }
 
     return result.build();
