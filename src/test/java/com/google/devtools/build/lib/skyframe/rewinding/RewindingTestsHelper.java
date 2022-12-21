@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.SpawnExecException;
@@ -76,7 +74,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.TrackingAwaiter;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import com.google.errorprone.annotations.ForOverride;
-import com.google.errorprone.annotations.Keep;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -215,7 +212,8 @@ public class RewindingTestsHelper {
 
   final List<SkyKey> collectOrderedDirtiedKeys(boolean exactNestedSets) {
     List<SkyKey> dirtiedKeys = new ArrayList<>();
-    injectListenerAtStartOfNextBuild(collectOrderedDirtyKeysListener(dirtiedKeys, exactNestedSets));
+    testCase.injectListenerAtStartOfNextBuild(
+        collectOrderedDirtyKeysListener(dirtiedKeys, exactNestedSets));
     return dirtiedKeys;
   }
 
@@ -251,36 +249,6 @@ public class RewindingTestsHelper {
         }
       }
     };
-  }
-
-  /**
-   * Lazily injects the given listener at the start of the next build.
-   *
-   * <p>Injecting the listener immediately would reach the <em>current</em> evaluator, but the next
-   * build may create a new evaluator, which happens when {@link
-   * com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor} is not tracking incremental
-   * state.
-   */
-  private void injectListenerAtStartOfNextBuild(NotifyingHelper.Listener listener) {
-    testCase
-        .getRuntimeWrapper()
-        .registerSubscriber(
-            new Object() {
-              private boolean injected = false;
-
-              @Subscribe
-              @Keep
-              void buildStarting(@SuppressWarnings("unused") BuildStartingEvent event) {
-                if (!injected) {
-                  testCase
-                      .getSkyframeExecutor()
-                      .getEvaluator()
-                      .injectGraphTransformerForTesting(
-                          NotifyingHelper.makeNotifyingTransformer(listener));
-                  injected = true;
-                }
-              }
-            });
   }
 
   static void assertOnlyActionsDirtied(List<SkyKey> dirtiedKeys) {
@@ -396,7 +364,7 @@ public class RewindingTestsHelper {
         "foo/BUILD",
         "genrule(name = 'top', outs = ['top.out'], srcs = [':dep'], cmd = 'cp $< $@')",
         "genrule(name = 'dep', outs = ['dep.out'], cmd = 'touch $@')");
-    injectListenerAtStartOfNextBuild(
+    testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
           if (type == EventType.GET_BATCH
               && order == Order.BEFORE
@@ -539,7 +507,7 @@ public class RewindingTestsHelper {
     CountDownLatch cppRestarted = new CountDownLatch(1);
     Label cppLabel = Label.parseAbsoluteUnchecked("//test:loser");
     Label gensrcLabel = Label.parseAbsoluteUnchecked("//test:gensrc");
-    injectListenerAtStartOfNextBuild(
+    testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
           if (EventType.ADD_REVERSE_DEP.equals(type)
               && isActionExecutionKey(context, cppLabel)
@@ -1383,7 +1351,7 @@ public class RewindingTestsHelper {
     AtomicInteger shared2ADirtied = new AtomicInteger(0);
     AtomicInteger shared2AReady = new AtomicInteger(0);
     AtomicInteger shared2BReady = new AtomicInteger(0);
-    injectListenerAtStartOfNextBuild(
+    testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
           // Count the times shared_1{A,B} are dirtied.
           if (type.equals(NotifyingHelper.EventType.MARK_DIRTY) && order.equals(Order.AFTER)) {
@@ -2558,7 +2526,7 @@ public class RewindingTestsHelper {
           return createLostInputsExecException(
               context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
         });
-    injectListenerAtStartOfNextBuild(
+    testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
           if (isActionExecutionKey(key, fail) && type == EventType.CREATE_IF_ABSENT) {
             awaitUninterruptibly(depDone);

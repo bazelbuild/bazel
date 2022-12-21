@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.devtools.build.lib.actions.Action;
@@ -61,6 +62,7 @@ import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -126,10 +128,12 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerModule;
+import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.Keep;
 import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
@@ -246,6 +250,34 @@ public abstract class BuildIntegrationTestCase {
 
   public final BlazeRuntimeWrapper getRuntimeWrapper() {
     return runtimeWrapper;
+  }
+
+  /**
+   * Lazily injects the given listener at the start of the next build.
+   *
+   * <p>Injecting the listener immediately would reach the <em>current</em> evaluator, but the next
+   * build may create a new evaluator, which happens when {@link
+   * com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor} is not tracking incremental
+   * state.
+   */
+  public final void injectListenerAtStartOfNextBuild(NotifyingHelper.Listener listener) {
+    getRuntimeWrapper()
+        .registerSubscriber(
+            new Object() {
+              private boolean injected = false;
+
+              @Subscribe
+              @Keep
+              void buildStarting(@SuppressWarnings("unused") BuildStartingEvent event) {
+                if (!injected) {
+                  getSkyframeExecutor()
+                      .getEvaluator()
+                      .injectGraphTransformerForTesting(
+                          NotifyingHelper.makeNotifyingTransformer(listener));
+                  injected = true;
+                }
+              }
+            });
   }
 
   /**
