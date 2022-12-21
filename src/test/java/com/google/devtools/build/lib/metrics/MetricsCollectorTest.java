@@ -226,10 +226,17 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     // Do a null build. No useful analysis stats.
     buildTarget("//a");
 
+    // For null build, we don't do any conflict checking. As the metrics are collected during the
+    // traversal that's part of conflict checking, these analysis-related numbers are 0.
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
-        .ignoringFieldAbsence()
         .isEqualTo(
             BuildGraphMetrics.newBuilder()
+                .setActionLookupValueCount(0)
+                .setActionLookupValueCountNotIncludingAspects(0)
+                .setActionCount(0)
+                .setActionCountNotIncludingAspects(0)
+                .setInputFileConfiguredTargetCount(0)
+                .setOutputArtifactCount(0)
                 .setPostInvocationSkyframeNodeCount(newGraphSize)
                 .build());
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getArtifactMetrics())
@@ -591,5 +598,48 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     for (ActionData actionData : actionDataList) {
       assertThat(actionData.getFirstStartedMs()).isAtMost(actionData.getLastEndedMs());
     }
+  }
+
+  @Test
+  public void skymeldNullIncrementalBuild_buildGraphMetricsCollected() throws Exception {
+    write(
+        "foo/BUILD",
+        "genrule(",
+        "    name = 'foo',",
+        "    outs = ['dir'],",
+        "    cmd = '/bin/mkdir $(location dir)',",
+        "    srcs = [],",
+        ")",
+        "genrule(",
+        "    name = 'bar',",
+        "    outs = ['dir2'],",
+        "    cmd = '/bin/mkdir $(location dir2)',",
+        "    srcs = [],",
+        ")");
+    addOptions("--experimental_merged_skyframe_analysis_execution");
+    BuildGraphMetrics expected =
+        BuildGraphMetrics.newBuilder()
+            .setActionLookupValueCount(3)
+            .setActionLookupValueCountNotIncludingAspects(3)
+            .setActionCount(2)
+            .setActionCountNotIncludingAspects(2)
+            .setInputFileConfiguredTargetCount(1)
+            .setOutputArtifactCount(2)
+            .build();
+    buildTarget("//foo:foo", "//foo:bar");
+
+    assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
+        .comparingExpectedFieldsOnly()
+        .isEqualTo(expected);
+
+    // Null build.
+    buildTarget("//foo:foo", "//foo:bar");
+
+    // For Skymeld, we expect BuildGraphMetrics to include all the entities that were touched in the
+    // build. This is not true for regular blaze: the metric is only collected if there's conflict
+    // checking.
+    assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
+        .comparingExpectedFieldsOnly()
+        .isEqualTo(expected);
   }
 }

@@ -665,7 +665,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             new TransitiveActionLookupValuesHelper() {
               @Override
               public ActionLookupValuesCollectionResult collect(ActionLookupKey key) {
-                return collectTransitiveActionLookupValues(key);
+                return collectTransitiveActionLookupValuesOfKey(key);
               }
 
               @Override
@@ -2441,6 +2441,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return incrementalArtifactConflictFinder;
   }
 
+  public int getOutputArtifactCount() {
+    return incrementalArtifactConflictFinder.getOutputArtifactCount();
+  }
+
   private Set<SkyKey> getConflictFreeActionLookupKeysGlobalSet() {
     return conflictFreeActionLookupKeysGlobalSet;
   }
@@ -3181,10 +3185,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * Collects the transitive ActionLookupKeys of the provided {@code key}, taking into account the
    * set of visited ALKs this build for pruning.
    */
-  private ActionLookupValuesCollectionResult collectTransitiveActionLookupValues(
+  private ActionLookupValuesCollectionResult collectTransitiveActionLookupValuesOfKey(
       ActionLookupKey key) {
     try (SilentCloseable c =
-        Profiler.instance().profile("SkyframeExecutor.collectTransitiveActionLookupValues")) {
+        Profiler.instance().profile("SkyframeExecutor.collectTransitiveActionLookupValuesOfKey")) {
       ActionLookupValuesTraversal result = new ActionLookupValuesTraversal();
       Map<ActionLookupKey, SkyValue> foundTransitiveActionLookupEntities =
           incrementalTransitiveActionLookupKeysCollector.collect(key);

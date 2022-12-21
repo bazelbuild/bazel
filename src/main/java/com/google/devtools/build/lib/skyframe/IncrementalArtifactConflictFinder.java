@@ -75,6 +75,10 @@ public final class IncrementalArtifactConflictFinder {
     return new IncrementalArtifactConflictFinder(threadSafeMutableActionGraph);
   }
 
+  public int getOutputArtifactCount() {
+    return threadSafeMutableActionGraph.getSize();
+  }
+
   ActionConflictsAndStats findArtifactConflicts(
       Sharder<ActionLookupValue> actionLookupValues, boolean strictConflictChecks)
       throws InterruptedException {

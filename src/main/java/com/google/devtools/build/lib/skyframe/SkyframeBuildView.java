@@ -612,13 +612,14 @@ public final class SkyframeBuildView {
         AnalysisOperationWatcher.createAndRegisterWithEventBus(
             Sets.newConcurrentHashSet(Sets.union(buildDriverCTKeys, buildDriverAspectKeys)),
             eventBus,
-            /*finisher=*/ () ->
+            /* finisher= */ () ->
                 analysisFinishedCallback(
                     eventBus,
                     buildResultListener,
                     skyframeExecutor,
+                    ctKeys,
                     shouldDiscardAnalysisCache,
-                    /*measuredAnalysisTime=*/ analysisWorkTimer.stop().elapsed().toMillis()))) {
+                    /* measuredAnalysisTime= */ analysisWorkTimer.stop().elapsed().toMillis()))) {
 
       try {
         resourceManager.resetResourceUsage();
@@ -776,9 +777,20 @@ public final class SkyframeBuildView {
       EventBus eventBus,
       BuildResultListener buildResultListener,
       SkyframeExecutor skyframeExecutor,
+      List<ConfiguredTargetKey> configuredTargetKeys,
       boolean shouldDiscardAnalysisCache,
       long measuredAnalysisTime)
       throws InterruptedException {
+    // Now that we have the full picture, it's time to collect the metrics of the whole graph.
+    BuildGraphMetrics buildGraphMetrics =
+        skyframeExecutor
+            .collectActionLookupValuesInBuild(
+                configuredTargetKeys, buildResultListener.getAnalyzedAspects().keySet())
+            .getMetrics()
+            .setOutputArtifactCount(skyframeExecutor.getOutputArtifactCount())
+            .build();
+    eventBus.post(new AnalysisGraphStatsEvent(buildGraphMetrics));
+
     if (shouldDiscardAnalysisCache) {
       clearAnalysisCache(
           buildResultListener.getAnalyzedTargets(),
