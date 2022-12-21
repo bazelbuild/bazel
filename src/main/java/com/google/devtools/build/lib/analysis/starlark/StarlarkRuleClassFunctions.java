@@ -661,6 +661,16 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         }
       } else if (!hasDefault) { // Implicit or late bound attribute
         String starlarkName = "_" + nativeName.substring(1);
+        if (attribute.isLateBound()
+            && !(attribute.getLateBoundDefault() instanceof StarlarkLateBoundDefault)) {
+          // Code elsewhere assumes that a late-bound attribute of a Starlark-defined aspects can
+          // exist in Java-land only as a StarlarkLateBoundDefault.
+          throw Starlark.errorf(
+              "Starlark aspect attribute '%s' is late-bound but somehow is not defined in Starlark."
+                  + " This violates an invariant inside of Bazel. Please file a bug with"
+                  + " instructions for reproducing this. Thanks!",
+              starlarkName);
+        }
         throw Starlark.errorf("Aspect attribute '%s' has no default value.", starlarkName);
       }
       if (attribute.getDefaultValueUnchecked() instanceof StarlarkComputedDefaultTemplate) {
