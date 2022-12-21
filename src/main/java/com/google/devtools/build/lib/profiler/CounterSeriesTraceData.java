@@ -98,6 +98,7 @@ final class CounterSeriesTraceData implements TraceData {
       jsonWriter.beginObject();
       jsonWriter.setIndent("");
       jsonWriter.name("name").value(shortName);
+      jsonWriter.name("pid").value(1);
       if (colorName != null) {
         jsonWriter.name("cname").value(colorName);
       }
