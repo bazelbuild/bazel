@@ -285,7 +285,7 @@ public final class ProfilerTest {
         ImmutableList.of(
             WorkerMetric.create(
                 WorkerMetric.WorkerProperties.create(
-                    /* workerId= */ 1,
+                    /* workerIds= */ ImmutableList.of(1),
                     /* processId= */ 1,
                     /* mnemonic= */ "dummy1",
                     /* isMultiplex= */ true,
@@ -294,7 +294,7 @@ public final class ProfilerTest {
                 /* isMeasurable= */ true),
             WorkerMetric.create(
                 WorkerMetric.WorkerProperties.create(
-                    /* workerId= */ 1,
+                    /* workerIds= */ ImmutableList.of(1),
                     /* processId= */ 1,
                     /* mnemonic= */ "dummy2",
                     /* isMultiplex= */ false,
@@ -303,7 +303,7 @@ public final class ProfilerTest {
                 /* isMeasurable= */ true),
             WorkerMetric.create(
                 WorkerMetric.WorkerProperties.create(
-                    /* workerId= */ 1,
+                    /* workerIds= */ ImmutableList.of(1),
                     /* processId= */ 1,
                     /* mnemonic= */ "dummy2",
                     /* isMultiplex= */ false,

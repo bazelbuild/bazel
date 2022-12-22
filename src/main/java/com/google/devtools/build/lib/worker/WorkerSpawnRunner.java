@@ -770,14 +770,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
   }
 
   private void initializeMetrics(WorkerKey workerKey, Worker worker) {
-    WorkerMetric.WorkerProperties properties =
-        WorkerMetric.WorkerProperties.create(
-            worker.getWorkerId(),
-            worker.getProcessId(),
-            workerKey.getMnemonic(),
-            workerKey.isMultiplex(),
-            workerKey.isSandboxed());
-    this.metricsCollector.registerWorker(properties);
+    this.metricsCollector.registerWorker(
+        worker.getWorkerId(),
+        worker.getProcessId(),
+        workerKey.getMnemonic(),
+        workerKey.isMultiplex(),
+        workerKey.isSandboxed());
   }
 
   /**

@@ -333,7 +333,11 @@ public final class WorkerLifecycleManagerTest {
   private static WorkerMetric.WorkerProperties createWorkerProperties(
       int workerId, long processId, String mnemonic) {
     return WorkerMetric.WorkerProperties.create(
-        workerId, processId, mnemonic, /* isMultiplex= */ false, /* isSandboxed= */ false);
+        ImmutableList.of(workerId),
+        processId,
+        mnemonic,
+        /* isMultiplex= */ false,
+        /* isSandboxed= */ false);
   }
 
   private static WorkerMetric.WorkerStat createWorkerStat(int memoryUsage) {
