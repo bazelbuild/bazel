@@ -109,7 +109,7 @@ public final class AnalysisAndExecutionPhaseRunner {
 
     AnalysisAndExecutionResult analysisAndExecutionResult = null;
     if (request.getBuildOptions().performAnalysisPhase) {
-      Profiler.instance().markPhase(ProfilePhase.ANALYZE);
+      Profiler.instance().markPhase(ProfilePhase.ANALYZE_AND_EXECUTE);
 
       // The build info factories are immutable during the life time of this server. However, we
       // sometimes clean the graph, which requires re-injecting the value, which requires a hook to
