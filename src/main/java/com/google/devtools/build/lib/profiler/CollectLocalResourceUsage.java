@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ResourceEstimator;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.profiler.NetworkMetricsCollector.SystemNetworkUsages;
@@ -265,7 +266,9 @@ public class CollectLocalResourceUsage extends Thread {
 
     for (ProfilerTask task : timeSeries.keySet()) {
       profiler.logCounters(
-          task, timeSeries.get(task).toDoubleArray(len), profileStart, BUCKET_DURATION);
+          ImmutableMap.ofEntries(Map.entry(task, timeSeries.get(task).toDoubleArray(len))),
+          profileStart,
+          BUCKET_DURATION);
     }
     timeSeries = null;
   }

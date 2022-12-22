@@ -20,38 +20,53 @@ import com.google.common.collect.ImmutableMap;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /**
- * Used to inject a whole counter series in one go in the JSON trace profile; these could be used to
- * represent CPU or memory usages over the course of an invocations (as opposed to individual tasks
- * such as executing an action).
+ * Used to inject a whole counter series (or even multiple) in one go in the JSON trace profile;
+ * these could be used to represent CPU or memory usages over the course of an invocation (as
+ * opposed to individual tasks such as executing an action).
  */
 final class CounterSeriesTraceData implements TraceData {
-  private final String shortName;
-  private final String readableName;
-  private final double[] counterValues;
+  private final Map<ProfilerTask, double[]> counterSeriesMap;
   private final Duration profileStart;
   private final Duration bucketDuration;
-  @Nullable private final String colorName;
+  private final int len;
+  private String displayName;
+  @Nullable private String colorName;
 
+  /**
+   * If multiple series are passed: - they will be rendered as stacked chart; - we assume they all
+   * have the same length; - display name and color are picked from the first profile task in the
+   * map. However, colors the remaining series are picked arbitrarily by the Trace renderer.
+   */
   CounterSeriesTraceData(
-      ProfilerTask profilerTask,
-      double[] counterValues,
+      Map<ProfilerTask, double[]> counterSeriesMap,
       Duration profileStart,
       Duration bucketDuration) {
-    Preconditions.checkArgument(COUNTER_TASK_TO_SERIES_NAME.containsKey(profilerTask));
-    this.shortName = profilerTask.description;
-    this.readableName = COUNTER_TASK_TO_SERIES_NAME.get(profilerTask);
-    this.counterValues = counterValues;
+    Integer len = null;
+    for (ProfilerTask profilerTask : counterSeriesMap.keySet()) {
+      Preconditions.checkState(COUNTER_TASK_TO_SERIES_NAME.containsKey(profilerTask));
+      if (len == null) {
+        len = counterSeriesMap.get(profilerTask).length;
+
+        this.displayName = profilerTask.description;
+
+        // Pick acceptable counter colors manually, unfortunately we have to pick from these
+        // weird reserved names from
+        // https://github.com/catapult-project/catapult/blob/master/tracing/tracing/base/color_scheme.html
+        this.colorName = COUNTER_TASK_TO_COLOR.get(profilerTask);
+      } else {
+        Preconditions.checkState(len.equals(counterSeriesMap.get(profilerTask).length));
+      }
+    }
+    this.len = len;
+    this.counterSeriesMap = counterSeriesMap;
     this.profileStart = profileStart;
     this.bucketDuration = bucketDuration;
 
-    // Pick acceptable counter colors manually, unfortunately we have to pick from these
-    // weird reserved names from
-    // https://github.com/catapult-project/catapult/blob/master/tracing/tracing/base/color_scheme.html
-    this.colorName = COUNTER_TASK_TO_COLOR.get(profilerTask);
   }
 
   // Pick acceptable counter colors manually, unfortunately we have to pick from these
@@ -73,6 +88,7 @@ final class CounterSeriesTraceData implements TraceData {
   private static final ImmutableMap<ProfilerTask, String> COUNTER_TASK_TO_SERIES_NAME =
       ImmutableMap.ofEntries(
           entry(ProfilerTask.ACTION_COUNTS, "action"),
+          entry(ProfilerTask.ACTION_CACHE_COUNTS, "local action cache"),
           entry(ProfilerTask.LOCAL_CPU_USAGE, "cpu"),
           entry(ProfilerTask.SYSTEM_CPU_USAGE, "system cpu"),
           entry(ProfilerTask.LOCAL_MEMORY_USAGE, "memory"),
@@ -86,18 +102,15 @@ final class CounterSeriesTraceData implements TraceData {
 
   @Override
   public void writeTraceData(JsonWriter jsonWriter, long profileStartTimeNanos) throws IOException {
-    // See https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview#heading=h.msg3086636uq
+    // See
+    // https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview#heading=h.msg3086636uq
     // for how counter series are represented in the Chrome Trace Event format.
-    for (int i = 0; i < counterValues.length; i++) {
+    for (int i = 0; i < len; i++) {
       long timeNanos = profileStart.plus(bucketDuration.multipliedBy(i)).toNanos();
-      // Skip counts equal to zero. They will show up as a thin line in the profile.
-      if (Math.abs(counterValues[i]) <= 0.00001) {
-        continue;
-      }
       jsonWriter.setIndent("  ");
       jsonWriter.beginObject();
       jsonWriter.setIndent("");
-      jsonWriter.name("name").value(shortName);
+      jsonWriter.name("name").value(displayName);
       jsonWriter.name("pid").value(1);
       if (colorName != null) {
         jsonWriter.name("cname").value(colorName);
@@ -107,7 +120,13 @@ final class CounterSeriesTraceData implements TraceData {
       jsonWriter.name("args");
 
       jsonWriter.beginObject();
-      jsonWriter.name(readableName).value(counterValues[i]);
+      for (ProfilerTask profilerTask : counterSeriesMap.keySet()) {
+        double value = counterSeriesMap.get(profilerTask)[i];
+        // Skip counts equal to zero. They will show up as a thin line in the profile.
+        if (Math.abs(value) > 0.00001) {
+          jsonWriter.name(COUNTER_TASK_TO_SERIES_NAME.get(profilerTask)).value(value);
+        }
+      }
       jsonWriter.endObject();
 
       jsonWriter.endObject();
