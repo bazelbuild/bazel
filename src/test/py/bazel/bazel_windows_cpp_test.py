@@ -1071,6 +1071,36 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('arm64\\cl.exe', ''.join(stderr))
 
+  def testLongCompileCommandLines(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+      'cc_library(',
+      '    name = "long",',
+      '    includes = ["a" * 32768]',
+      ')',
+      'cc_binary(',
+      '    name = "long_bin",',
+      '    srcs = ["main.cpp"],',
+      '    deps = [',
+      '      ":long"',
+      '    ]',
+      ')',
+    ])
+    self.ScratchFile('main.cpp', ['int main() { return 0; }'])
+
+    # By default, the build should fail with a command line too long error.
+    exit_code, _, stderr = self.RunBazel([
+      'build', '--verbose_failures', '//:long_bin'
+    ])
+    self.AssertNotExitCode(exit_code, 1, stderr)
+
+    # With the compiler_param_file feature, the build should pass.
+    exit_code, _, stderr = self.RunBazel([
+      'build', '--verbose_failures', '--features=compiler_param_file',
+      '//:long_bin'
+    ])
+    self.AssertNotExitCode(exit_code, 1, stderr)
+
 
 if __name__ == '__main__':
   unittest.main()
