@@ -49,7 +49,15 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
           + ""
           + "<p>Each element of the list is an <code>*Info</code> object returned by "
           + "<a href='globals.html#provider'><code>provider()</code></a>, except that a legacy "
-          + "provider is represented by its string name instead.";
+          + "provider is represented by its string name instead."
+          + ""
+          + "When a target of the rule is used as a dependency for a target that declares a "
+          + "required provider, it is not necessary to specify that provider here. It is enough "
+          + "that the implementation function returns it. However, it is considered best "
+          + "practice to specify it, even though this is not required. The "
+          + "<a href='globals#aspect.required_providers'><code>required_providers</code></a> field "
+          + "of an <a href='globals.html#aspect'>aspect</a> does, however, require that providers "
+          + "are specified here.";
 
   @StarlarkMethod(
       name = "provider",
