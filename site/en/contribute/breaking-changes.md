@@ -97,12 +97,17 @@ dependencies of other Bazel projects, therefore it's important to migrate them t
 Check how this pipeline works [here](https://github.com/bazelbuild/continuous-integration/tree/master/buildkite#checking-incompatible-changes-status-for-downstream-projects){: .external}.
 
 Our dev support team monitors the [`migration-ready`](https://github.com/bazelbuild/bazel/labels/migration-ready){: .external} label. Once you add this label to the GitHub issue, they will handle the following:
+
 1. Create a comment in the GitHub issue to track the list of failures and downstream projects that need to be migrated ([see example](https://github.com/bazelbuild/bazel/issues/17032#issuecomment-1353077469){: .external})
+
 1. File Github issues to notify the owners of every downstream project broken by your incompatible change ([see example](https://github.com/bazelbuild/intellij/issues/4208){: .external})
+
 1. Follow up to make sure all issues are addressed before the target release date
 
 Migrating projects in the downstream pipeline is NOT entirely the responsibility of the incompatible change author, but you can do the following to accelerate the migration and make life easier for both Bazel users and the Bazel Green Team.
+
 1. Send PRs to fix downstream projects.
+
 1. Reach out to the Bazel community for help on migration (e.g. [Bazel Rules Authors SIG](https://bazel-contrib.github.io/SIG-rules-authors/)).
 
 ## Flipping the flag {:#flip-flag}
