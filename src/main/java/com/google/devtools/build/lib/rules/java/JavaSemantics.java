@@ -270,6 +270,9 @@ public interface JavaSemantics {
       NestedSet<String> addExports,
       NestedSet<String> addOpens);
 
+  ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, int stamp)
+      throws RuleErrorException, InterruptedException;
+
   /**
    * Creates the action that writes the Java executable stub script.
    *

@@ -33,8 +33,10 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -391,8 +393,19 @@ public class DeployArchiveBuilder {
     if (runfilesMiddleman != null) {
       inputs.add(runfilesMiddleman);
     }
-
-    ImmutableList<Artifact> buildInfoArtifacts = ruleContext.getBuildInfo(JavaBuildInfoFactory.KEY);
+    ImmutableList<Artifact> buildInfoArtifacts = ImmutableList.of();
+    int stamp = 0;
+    if (ruleContext.attributes().has("stamp", Type.INTEGER)) {
+      stamp = ruleContext.attributes().get("stamp", Type.INTEGER).toIntUnchecked();
+    }
+    if (ruleContext.attributes().has("stamp", BuildType.TRISTATE)) {
+      stamp = ruleContext.attributes().get("stamp", BuildType.TRISTATE).toInt();
+    }
+    try {
+      buildInfoArtifacts = semantics.getBuildInfo(ruleContext, stamp);
+    } catch (RuleErrorException e) {
+      throw new InterruptedException("Translating BuildInfo files failed: " + e);
+    }
     inputs.addAll(buildInfoArtifacts);
 
     NestedSetBuilder<Artifact> runtimeClasspath = NestedSetBuilder.stableOrder();
