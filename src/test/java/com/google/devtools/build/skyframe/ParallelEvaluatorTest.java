@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.EventIterableSubjectFactory.assertThatEvents;
@@ -30,6 +33,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -3049,6 +3053,12 @@ public class ParallelEvaluatorTest {
     assertThat(resultValue).isEqualTo(new StringValue("value1"));
   }
 
+  private static class SkyFunctionExceptionForTest extends SkyFunctionException {
+    public SkyFunctionExceptionForTest(String message) {
+      super(new SomeErrorException(message), Transience.PERSISTENT);
+    }
+  }
+
   // Test for SkyKeyComputeState in the situation of an error for one node causing normal evaluation
   // to fail-fast, but when there are SkyKeyComputeState instances for other inflight nodes.
   @Test
@@ -3061,12 +3071,6 @@ public class ParallelEvaluatorTest {
     SkyKey key3 = new SkyKeyForSkyKeyComputeStateTests("key3");
 
     class State implements SkyKeyComputeState {}
-
-    class SkyFunctionExceptionForTest extends SkyFunctionException {
-      public SkyFunctionExceptionForTest(String message) {
-        super(new SomeErrorException(message), Transience.PERSISTENT);
-      }
-    }
 
     // And a SkyFunction for these nodes,
     AtomicReference<WeakReference<State>> stateForKey1Ref = new AtomicReference<>();
@@ -3296,5 +3300,628 @@ public class ParallelEvaluatorTest {
     graph = new InMemoryGraphImpl();
     SkyValue resultValue = eval(/*keepGoing=*/ true, key1);
     assertThat(resultValue).isEqualTo(new StringValue("value"));
+  }
+
+  private static class PartialReevaluationKey extends AbstractSkyKey<String> {
+    private static final SkyFunctionName FUNCTION_NAME =
+        SkyFunctionName.createHermetic("PARTIAL_REEVALUATION");
+
+    private PartialReevaluationKey(String arg) {
+      super(arg);
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return FUNCTION_NAME;
+    }
+
+    @Override
+    public boolean supportsPartialReevaluation() {
+      return true;
+    }
+  }
+
+  /**
+   * A bundle of {@link SkyframeLookupResult}s that can be consumed from as if it was a single one.
+   */
+  static class DelegatingSkyframeLookupResult implements SkyframeLookupResult {
+    private static final Splitter BATCH_SPLITTER = Splitter.on(';');
+    private static final Splitter KEY_SPLITTER = Splitter.on(',');
+    private final ImmutableMap<SkyKey, SkyframeLookupResult> resultsByKey;
+
+    /**
+     * Makes {@link SkyFunction.Environment#getValuesAndExceptions} calls in batches as described by
+     * {@code requestBatches} and returns them bundled up.
+     *
+     * <p>The {@code requestBatches} string is split first by ';' to define an order-sensitive
+     * sequence of batches, then by ',' to define an order-insensitive collection of keys.
+     */
+    static DelegatingSkyframeLookupResult fromRequestBatches(
+        String requestBatches,
+        SkyFunction.Environment env,
+        ImmutableList<? extends AbstractSkyKey<String>> keys)
+        throws InterruptedException {
+      ImmutableMap<String, ? extends AbstractSkyKey<String>> keysByArg =
+          keys.stream().collect(ImmutableMap.toImmutableMap(AbstractSkyKey::argument, k -> k));
+
+      ImmutableMap.Builder<SkyKey, SkyframeLookupResult> builder = new ImmutableMap.Builder<>();
+      Iterable<String> batches = BATCH_SPLITTER.split(requestBatches);
+      for (String batch : batches) {
+        Iterable<String> batchKeys = KEY_SPLITTER.split(batch);
+        SkyframeLookupResult result =
+            env.getValuesAndExceptions(
+                stream(batchKeys).map(keysByArg::get).collect(toImmutableList()));
+        for (String batchKey : batchKeys) {
+          builder.put(checkNotNull(keysByArg.get(batchKey)), result);
+        }
+      }
+      ImmutableMap<SkyKey, SkyframeLookupResult> resultsByKey = builder.buildOrThrow();
+
+      assertThat(resultsByKey).hasSize(keys.size());
+      return new DelegatingSkyframeLookupResult(resultsByKey);
+    }
+
+    private DelegatingSkyframeLookupResult(
+        ImmutableMap<SkyKey, SkyframeLookupResult> resultsByKey) {
+      this.resultsByKey = resultsByKey;
+    }
+
+    @Nullable
+    @Override
+    public <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue getOrThrow(
+        SkyKey skyKey,
+        @Nullable Class<E1> exceptionClass1,
+        @Nullable Class<E2> exceptionClass2,
+        @Nullable Class<E3> exceptionClass3)
+        throws E1, E2, E3 {
+      return checkNotNull(resultsByKey.get(skyKey))
+          .getOrThrow(skyKey, exceptionClass1, exceptionClass2, exceptionClass3);
+    }
+
+    @Override
+    public boolean queryDep(SkyKey key, QueryDepCallback resultCallback) {
+      return checkNotNull(resultsByKey.get(key)).queryDep(key, resultCallback);
+    }
+  }
+
+  @Test
+  public void partialReevaluationOneButNotAllDeps(
+      @TestParameter({"key2,key3", "key2;key3", "key3;key2"}) String requestBatches)
+      throws InterruptedException {
+    // The parameterization of this test ensures that the partial reevaluation implementation is
+    // insensitive to dep grouping.
+
+    // This test illustrates the basic functionality of partial reevaluation: that a
+    // function opting into partial reevaluation can be resumed when one, but not all, of its
+    // previously requested-and-not-already-evaluated dependencies finishes evaluation.
+
+    // Graph structure:
+    // * key1 depends on key2 and key3
+
+    // Evaluation behavior:
+    // * key3 will not finish evaluating until key1 has been restarted with the result of key2
+
+    PartialReevaluationKey key1 = new PartialReevaluationKey("key1");
+    PartialReevaluationKey key2 = new PartialReevaluationKey("key2");
+    PartialReevaluationKey key3 = new PartialReevaluationKey("key3");
+    AtomicInteger key1EvaluationCount = new AtomicInteger();
+    CountDownLatch key1ObservesTheValueOfKey2 = new CountDownLatch(1);
+    SkyFunction f =
+        (skyKey, env) -> {
+          if (skyKey.equals(key1)) {
+            int c = key1EvaluationCount.incrementAndGet();
+            SkyframeLookupResult result =
+                DelegatingSkyframeLookupResult.fromRequestBatches(
+                    requestBatches, env, ImmutableList.of(key2, key3));
+            if (c == 1) {
+              assertThat(result.get(key2)).isNull();
+              assertThat(result.get(key3)).isNull();
+              return null;
+            }
+            if (c == 2) {
+              assertThat(result.get(key2)).isEqualTo(StringValue.of("val2"));
+              assertThat(result.get(key3)).isNull();
+              key1ObservesTheValueOfKey2.countDown();
+              return null;
+            }
+            assertThat(c).isEqualTo(3);
+            assertThat(result.get(key2)).isEqualTo(StringValue.of("val2"));
+            assertThat(result.get(key3)).isEqualTo(StringValue.of("val3"));
+            return StringValue.of("val1");
+          }
+          if (skyKey.equals(key2)) {
+            return StringValue.of("val2");
+          }
+          assertThat(skyKey).isEqualTo(key3);
+          assertThat(
+                  key1ObservesTheValueOfKey2.await(
+                      TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+              .isTrue();
+          return StringValue.of("val3");
+        };
+    tester.putSkyFunction(PartialReevaluationKey.FUNCTION_NAME, f);
+    graph = new InMemoryGraphImpl();
+    SkyValue resultValue = eval(/* keepGoing= */ true, key1);
+    assertThat(resultValue).isEqualTo(StringValue.of("val1"));
+    assertThat(key1EvaluationCount.get()).isEqualTo(3);
+  }
+
+  @Test
+  public void partialReevaluationOneDuringAReevaluation(
+      @TestParameter({
+            "key2,key3,key4",
+            "key2,key3;key4",
+            "key2;key3,key4",
+            "key2;key3;key4",
+            // permute (2,3):
+            "key3;key2,key4",
+            "key3;key2;key4",
+            // permute (2,4):
+            "key4,key3;key2",
+            "key4;key3,key2",
+            "key4;key3;key2",
+            // permute (3,4):
+            "key2,key4;key3",
+            "key2;key4;key3",
+            // permute (2,3,4):
+            "key4;key2;key3"
+          })
+          String requestBatches)
+      throws InterruptedException {
+    // The parameterization of this test ensures that the partial reevaluation implementation is
+    // insensitive to dep grouping.
+
+    // This test illustrates another bit of partial reevaluation functionality: when a partial
+    // reevaluation is currently underway, and when another one of its previously
+    // requested-and-not-already-evaluated dependencies finishes evaluation (but not all of them),
+    // another partial reevaluation will run when the current one finishes.
+
+    // Graph structure:
+    // * key1 depends on key2, key3, and key4
+    // * key5 depends on key3 (it's here only to detect when key3 signals its parents)
+
+    // Evaluation behavior:
+    // * key4 will not finish evaluating until key1 has been restarted with the result of key3
+    // * key1's partial reevaluation observing key2 does not finish until key3 has signaled its
+    //   parents (i.e. key1 and key5)
+    // * key3 will not finish evaluating until key1 has been restarted with the result of key2
+
+    PartialReevaluationKey key1 = new PartialReevaluationKey("key1");
+    PartialReevaluationKey key2 = new PartialReevaluationKey("key2");
+    PartialReevaluationKey key3 = new PartialReevaluationKey("key3");
+    PartialReevaluationKey key4 = new PartialReevaluationKey("key4");
+    PartialReevaluationKey key5 = new PartialReevaluationKey("key5");
+    AtomicInteger key1EvaluationCount = new AtomicInteger();
+    AtomicInteger key5EvaluationCount = new AtomicInteger();
+    AtomicInteger key1EvaluationsInflight = new AtomicInteger();
+    CountDownLatch key1ObservesTheValueOfKey2 = new CountDownLatch(1);
+    CountDownLatch key5ObservesTheAbsenceOfKey3 = new CountDownLatch(1);
+    CountDownLatch key1ObservesTheValueOfKey3 = new CountDownLatch(1);
+    CountDownLatch key3SignaledItsParents = new CountDownLatch(1);
+    SkyFunction f =
+        (skyKey, env) -> {
+          if (skyKey.equals(key1)) {
+            assertThat(key1EvaluationsInflight.incrementAndGet()).isEqualTo(1);
+            try {
+              int c = key1EvaluationCount.incrementAndGet();
+              SkyframeLookupResult result =
+                  DelegatingSkyframeLookupResult.fromRequestBatches(
+                      requestBatches, env, ImmutableList.of(key2, key3, key4));
+              if (c == 1) {
+                assertThat(result.get(key2)).isNull();
+                assertThat(result.get(key3)).isNull();
+                assertThat(result.get(key4)).isNull();
+                return null;
+              }
+              if (c == 2) {
+                assertThat(result.get(key2)).isEqualTo(StringValue.of("val2"));
+                assertThat(result.get(key3)).isNull();
+                assertThat(result.get(key4)).isNull();
+                key1ObservesTheValueOfKey2.countDown();
+                assertThat(
+                        key3SignaledItsParents.await(
+                            TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                    .isTrue();
+                return null;
+              }
+              if (c == 3) {
+                assertThat(result.get(key2)).isEqualTo(StringValue.of("val2"));
+                assertThat(result.get(key3)).isEqualTo(StringValue.of("val3"));
+                assertThat(result.get(key4)).isNull();
+                key1ObservesTheValueOfKey3.countDown();
+                return null;
+              }
+              assertThat(c).isEqualTo(4);
+              assertThat(result.get(key2)).isEqualTo(StringValue.of("val2"));
+              assertThat(result.get(key3)).isEqualTo(StringValue.of("val3"));
+              assertThat(result.get(key4)).isEqualTo(StringValue.of("val4"));
+              return StringValue.of("val1");
+            } finally {
+              assertThat(key1EvaluationsInflight.decrementAndGet()).isEqualTo(0);
+            }
+          }
+
+          if (skyKey.equals(key2)) {
+            return StringValue.of("val2");
+          }
+
+          if (skyKey.equals(key3)) {
+            assertThat(
+                    key1ObservesTheValueOfKey2.await(
+                        TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                .isTrue();
+            assertThat(
+                    key5ObservesTheAbsenceOfKey3.await(
+                        TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                .isTrue();
+            return StringValue.of("val3");
+          }
+
+          if (skyKey.equals(key4)) {
+            assertThat(
+                    key1ObservesTheValueOfKey3.await(
+                        TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                .isTrue();
+            return StringValue.of("val4");
+          }
+
+          assertThat(skyKey).isEqualTo(key5);
+          int c = key5EvaluationCount.incrementAndGet();
+          if (c == 1) {
+            SkyValue value = env.getValue(key3);
+            assertThat(value).isNull();
+            key5ObservesTheAbsenceOfKey3.countDown();
+            return null;
+          }
+          assertThat(c).isEqualTo(2);
+          SkyValue value = env.getValue(key3);
+          assertThat(value).isEqualTo(StringValue.of("val3"));
+          key3SignaledItsParents.countDown();
+          return StringValue.of("val5");
+        };
+    tester.putSkyFunction(PartialReevaluationKey.FUNCTION_NAME, f);
+    graph = new InMemoryGraphImpl();
+    EvaluationResult<SkyValue> resultValues = eval(/* keepGoing= */ true, key1, key5);
+    assertThat(resultValues.get(key1)).isEqualTo(StringValue.of("val1"));
+    assertThat(resultValues.get(key5)).isEqualTo(StringValue.of("val5"));
+    assertThat(key1EvaluationsInflight.get()).isEqualTo(0);
+    assertThat(key1EvaluationCount.get()).isEqualTo(4);
+  }
+
+  @Test
+  public void partialReevaluationErrorDuringReevaluation(@TestParameter boolean keepGoing)
+      throws InterruptedException {
+    // This test illustrates how the partial reevaluation implementation handles the case in which a
+    // SkyFunction throws an error during a partial reevaluation: the error is ignored if the
+    // partially-reevaluated node has not yet been fully signaled. This maintains the invariant that
+    // nodes are not committed with a value or error while they have deps which may signal them.
+
+    // Note that Skyframe policy encourages SkyFunction behavior such as this: SkyFunction
+    // implementations should eagerly throw errors even when not all their deps are done, to better
+    // support error contextualization during no-keep_going builds.
+
+    // Graph structure:
+    // * key1 depends on key2, key3, and key4
+    // * key5 depends on key3 (it's here only to detect when key3 signals its parents)
+
+    // Evaluation behavior:
+    // * key4 will not finish evaluating until key1 has been restarted with the result of key3
+    // * key1's partial reevaluation observing key2 does not finish until key3 has signaled its
+    //   parents (i.e. key1 and key5)
+    // * key3 will not finish evaluating until key1 has been restarted with the result of key2
+
+    PartialReevaluationKey key1 = new PartialReevaluationKey("key1");
+    PartialReevaluationKey key2 = new PartialReevaluationKey("key2");
+    PartialReevaluationKey key3 = new PartialReevaluationKey("key3");
+    PartialReevaluationKey key4 = new PartialReevaluationKey("key4");
+    PartialReevaluationKey key5 = new PartialReevaluationKey("key5");
+    AtomicInteger key1EvaluationCount = new AtomicInteger();
+    AtomicInteger key5EvaluationCount = new AtomicInteger();
+    AtomicInteger key1EvaluationsInflight = new AtomicInteger();
+    CountDownLatch key1ObservesTheValueOfKey2 = new CountDownLatch(1);
+    CountDownLatch key5ObservesTheAbsenceOfKey3 = new CountDownLatch(1);
+    CountDownLatch key1ObservesTheValueOfKey3 = new CountDownLatch(1);
+    CountDownLatch key3SignaledItsParents = new CountDownLatch(1);
+    SkyFunction f =
+        (skyKey, env) -> {
+          if (skyKey.equals(key1)) {
+            assertThat(key1EvaluationsInflight.incrementAndGet()).isEqualTo(1);
+            try {
+              int c = key1EvaluationCount.incrementAndGet();
+              SkyframeLookupResult result =
+                  env.getValuesAndExceptions(ImmutableList.of(key2, key3, key4));
+              if (c == 1) {
+                assertThat(result.get(key2)).isNull();
+                assertThat(result.get(key3)).isNull();
+                assertThat(result.get(key4)).isNull();
+                return null;
+              }
+              if (c == 2) {
+                assertThat(result.get(key2)).isEqualTo(StringValue.of("val2"));
+                assertThat(result.get(key3)).isNull();
+                assertThat(result.get(key4)).isNull();
+                key1ObservesTheValueOfKey2.countDown();
+                assertThat(
+                        key3SignaledItsParents.await(
+                            TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                    .isTrue();
+                throw new SkyFunctionExceptionForTest(
+                    "Error thrown during partial reevaluation (1)");
+              }
+              if (c == 3) {
+                assertThat(result.get(key2)).isEqualTo(StringValue.of("val2"));
+                assertThat(result.get(key3)).isEqualTo(StringValue.of("val3"));
+                assertThat(result.get(key4)).isNull();
+                key1ObservesTheValueOfKey3.countDown();
+                throw new SkyFunctionExceptionForTest(
+                    "Error thrown during partial reevaluation (2)");
+              }
+              assertThat(c).isEqualTo(4);
+              assertThat(result.get(key2)).isEqualTo(StringValue.of("val2"));
+              assertThat(result.get(key3)).isEqualTo(StringValue.of("val3"));
+              assertThat(result.get(key4)).isEqualTo(StringValue.of("val4"));
+              throw new SkyFunctionExceptionForTest("Error thrown during final full evaluation");
+            } finally {
+              assertThat(key1EvaluationsInflight.decrementAndGet()).isEqualTo(0);
+            }
+          }
+
+          if (skyKey.equals(key2)) {
+            return StringValue.of("val2");
+          }
+
+          if (skyKey.equals(key3)) {
+            assertThat(
+                    key1ObservesTheValueOfKey2.await(
+                        TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                .isTrue();
+            assertThat(
+                    key5ObservesTheAbsenceOfKey3.await(
+                        TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                .isTrue();
+            return StringValue.of("val3");
+          }
+
+          if (skyKey.equals(key4)) {
+            assertThat(
+                    key1ObservesTheValueOfKey3.await(
+                        TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                .isTrue();
+            return StringValue.of("val4");
+          }
+
+          assertThat(skyKey).isEqualTo(key5);
+          int c = key5EvaluationCount.incrementAndGet();
+          if (c == 1) {
+            SkyValue value = env.getValue(key3);
+            assertThat(value).isNull();
+            key5ObservesTheAbsenceOfKey3.countDown();
+            return null;
+          }
+          assertThat(c).isEqualTo(2);
+          SkyValue value = env.getValue(key3);
+          assertThat(value).isEqualTo(StringValue.of("val3"));
+          key3SignaledItsParents.countDown();
+          return StringValue.of("val5");
+        };
+    tester.putSkyFunction(PartialReevaluationKey.FUNCTION_NAME, f);
+    graph = new InMemoryGraphImpl();
+    EvaluationResult<SkyValue> resultValues = eval(keepGoing, key1, key5);
+    assertThat(resultValues.getError(key1).getException()).isInstanceOf(SomeErrorException.class);
+
+    // key4's signal to key1 races with key1's readiness check after completing with an error during
+    // partial reevaluation 2. If the signal wins, then key1 should be allowed to complete, because
+    // it has no outstanding signals. If the signal loses, then key1 will reevaluate one last time.
+    assertThat(resultValues.getError(key1).getException())
+        .hasMessageThat()
+        .isIn(
+            ImmutableList.of(
+                "Error thrown during partial reevaluation (2)",
+                "Error thrown during final full evaluation"));
+    if (keepGoing) {
+      assertThat(resultValues.get(key5)).isEqualTo(StringValue.of("val5"));
+    }
+    assertThat(key1EvaluationsInflight.get()).isEqualTo(0);
+    assertThat(key1EvaluationCount.get()).isIn(ImmutableList.of(3, 4));
+  }
+
+  @Test
+  public void partialReevaluationOneErrorButNotAllDeps(
+      @TestParameter boolean keepGoing, @TestParameter boolean enrichError)
+      throws InterruptedException {
+    // The parameterization of this test ensures that the partial reevaluation implementation is
+    // insensitive to dep grouping.
+
+    // This test illustrates partial reevaluation's handling of errors in multiple contexts, with
+    // and without keepGoing, and with the error-observing function enriching or recovering from the
+    // error.
+
+    // Graph structure:
+    // * key1 depends on key2 and key3
+
+    // Evaluation behavior:
+    // * key3 will not finish evaluating until key1 has been restarted with the error result of key2
+    //   (which notably will never happen in no-keepGoing because by then key2 should have
+    //   interrupted evaluations)
+
+    PartialReevaluationKey key1 = new PartialReevaluationKey("key1");
+    PartialReevaluationKey key2 = new PartialReevaluationKey("key2");
+    PartialReevaluationKey key3 = new PartialReevaluationKey("key3");
+    AtomicInteger key1EvaluationCount = new AtomicInteger();
+    CountDownLatch key1ObservesTheErrorOfKey2 = new CountDownLatch(1);
+    SkyFunction f =
+        (skyKey, env) -> {
+          if (skyKey.equals(key1)) {
+            int c = key1EvaluationCount.incrementAndGet();
+            SkyframeLookupResult result = env.getValuesAndExceptions(ImmutableList.of(key2, key3));
+            if (c == 1) {
+              assertThat(result.get(key2)).isNull();
+              assertThat(result.get(key3)).isNull();
+              return null;
+            }
+            if (c == 2) {
+              if (!keepGoing) {
+                assertThat(env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors())
+                    .isTrue();
+              }
+              assertThrows(
+                  "key2",
+                  SomeErrorException.class,
+                  () -> result.getOrThrow(key2, SomeErrorException.class));
+              assertThat(result.get(key3)).isNull();
+              key1ObservesTheErrorOfKey2.countDown();
+              if (enrichError) {
+                throw new SkyFunctionExceptionForTest("key1 observed key2 exception (w/o key3)");
+              } else {
+                return null;
+              }
+            }
+            assertThat(c).isEqualTo(3);
+            assertThat(keepGoing).isTrue();
+            assertThrows(
+                "key2",
+                SomeErrorException.class,
+                () -> result.getOrThrow(key2, SomeErrorException.class));
+            assertThat(result.get(key3)).isEqualTo(StringValue.of("val3"));
+            if (enrichError) {
+              throw new SkyFunctionExceptionForTest("key1 observed key2 exception (w/ key3)");
+            } else {
+              return StringValue.of("val1");
+            }
+          }
+          if (skyKey.equals(key2)) {
+            throw new SkyFunctionExceptionForTest("key2");
+          }
+          assertThat(skyKey).isEqualTo(key3);
+          assertThat(
+                  key1ObservesTheErrorOfKey2.await(
+                      TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+              .isTrue();
+          assertThat(keepGoing).isTrue();
+          return StringValue.of("val3");
+        };
+    tester.putSkyFunction(PartialReevaluationKey.FUNCTION_NAME, f);
+    graph = new InMemoryGraphImpl();
+    EvaluationResult<SkyValue> result = eval(/* keepGoing= */ keepGoing, ImmutableList.of(key1));
+
+    if (keepGoing && enrichError) {
+      assertThat(result.getError(key1).getException()).isInstanceOf(SomeErrorException.class);
+      assertThat(result.getError(key1).getException())
+          .hasMessageThat()
+          .isEqualTo("key1 observed key2 exception (w/ key3)");
+    } else if (keepGoing) {
+      // !enrichError -- expect key1 to have recovered
+      assertThat(result.get(key1)).isEqualTo(StringValue.of("val1"));
+    } else if (enrichError) {
+      // !keepGoing -- expect key3 to have not completed
+      assertThat(result.getError(key1).getException()).isInstanceOf(SomeErrorException.class);
+      assertThat(result.getError(key1).getException())
+          .hasMessageThat()
+          .isEqualTo("key1 observed key2 exception (w/o key3)");
+    } else {
+      // !keepGoing && !enrichError -- expect key2's error
+      assertThat(result.getError(key1).getException()).isInstanceOf(SomeErrorException.class);
+      assertThat(result.getError(key1).getException()).hasMessageThat().isEqualTo("key2");
+    }
+
+    assertThat(key1EvaluationCount.get()).isEqualTo(keepGoing ? 3 : 2);
+  }
+
+  @Test
+  public void partialReevaluationErrorObservedDuringReevaluation() throws InterruptedException {
+    // This test illustrates how the partial reevaluation implementation handles the case in which a
+    // SkyFunction doing a partial reevaluation has a dep which completes with an error during a
+    // no-keep_going build: that partial reevaluation ends, because
+    // ParallelEvaluatorContext.signalParentsOnAbort completely ignores the value returned by
+    // entry.signalDep. The node undergoing partial evaluation may or may not be chosen when
+    // bubbling up the dep's error; in this test it's chosen because it's the only parent.
+
+    // Note that the partial reevaluation implementation is *not* responsible for this behavior;
+    // rather, it is due to "core" Skyframe evaluation policy. However, this test documents the
+    // expected behavior of partial reevaluation implementations, in case of future changes to
+    // Skyframe.
+
+    // Graph structure:
+    // * key1 depends on key2, key3, and key4
+
+    // Evaluation behavior:
+    // * key4 will not finish evaluating -- it gets interrupted by key2's error and is never resumed
+    // * key3 will not finish evaluating until key1 has been restarted with the result of key2
+    // * key1 only observes key2's error during error bubbling
+
+    PartialReevaluationKey key1 = new PartialReevaluationKey("key1");
+    PartialReevaluationKey key2 = new PartialReevaluationKey("key2");
+    PartialReevaluationKey key3 = new PartialReevaluationKey("key3");
+    PartialReevaluationKey key4 = new PartialReevaluationKey("key4");
+    AtomicInteger key1EvaluationCount = new AtomicInteger();
+    AtomicInteger key4EvaluationCount = new AtomicInteger();
+    AtomicInteger key1EvaluationsInflight = new AtomicInteger();
+    CountDownLatch key1ObservesTheValueOfKey2 = new CountDownLatch(1);
+    CountDownLatch key4WaitsUntilInterruptedByNoKeepGoingEvaluationShutdown = new CountDownLatch(1);
+    SkyFunction f =
+        (skyKey, env) -> {
+          if (skyKey.equals(key1)) {
+            assertThat(key1EvaluationsInflight.incrementAndGet()).isEqualTo(1);
+            try {
+              int c = key1EvaluationCount.incrementAndGet();
+              SkyframeLookupResult result =
+                  env.getValuesAndExceptions(ImmutableList.of(key2, key3, key4));
+              if (c == 1) {
+                assertThat(result.get(key2)).isNull();
+                assertThat(result.get(key3)).isNull();
+                assertThat(result.get(key4)).isNull();
+                return null;
+              }
+              if (c == 2) {
+                assertThat(result.get(key2)).isEqualTo(StringValue.of("val2"));
+                assertThat(result.get(key3)).isNull();
+                assertThat(result.get(key4)).isNull();
+                key1ObservesTheValueOfKey2.countDown();
+                return null;
+              }
+              assertThat(c).isEqualTo(3);
+              assertThat(env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors())
+                  .isTrue();
+              assertThat(result.get(key2)).isEqualTo(StringValue.of("val2"));
+              assertThrows(
+                  "key3",
+                  SomeErrorException.class,
+                  () -> result.getOrThrow(key3, SomeErrorException.class));
+              assertThat(result.get(key4)).isNull();
+              throw new SkyFunctionExceptionForTest("Error thrown after partial reevaluation");
+            } finally {
+              assertThat(key1EvaluationsInflight.decrementAndGet()).isEqualTo(0);
+            }
+          }
+
+          if (skyKey.equals(key2)) {
+            return StringValue.of("val2");
+          }
+
+          if (skyKey.equals(key3)) {
+            assertThat(
+                    key1ObservesTheValueOfKey2.await(
+                        TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                .isTrue();
+            throw new SkyFunctionExceptionForTest("key3");
+          }
+
+          assertThat(skyKey).isEqualTo(key4);
+          assertThat(key4EvaluationCount.incrementAndGet()).isEqualTo(1);
+          throw assertThrows(
+              InterruptedException.class,
+              () ->
+                  key4WaitsUntilInterruptedByNoKeepGoingEvaluationShutdown.await(
+                      TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+        };
+    tester.putSkyFunction(PartialReevaluationKey.FUNCTION_NAME, f);
+    graph = new InMemoryGraphImpl();
+    EvaluationResult<SkyValue> resultValues = eval(/* keepGoing= */ false, ImmutableList.of(key1));
+    assertThat(resultValues.getError(key1).getException()).isInstanceOf(SomeErrorException.class);
+    assertThat(resultValues.getError(key1).getException())
+        .hasMessageThat()
+        .isEqualTo("Error thrown after partial reevaluation");
+    assertThat(key1EvaluationsInflight.get()).isEqualTo(0);
+    assertThat(key1EvaluationCount.get()).isEqualTo(3);
   }
 }

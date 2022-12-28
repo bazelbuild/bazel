@@ -133,8 +133,9 @@ public class SimpleCycleDetector implements CycleDetector {
         if (cyclesFound < MAX_CYCLES) {
           // Value must be ready, because all of its children have finished, so we can build its
           // error.
-          checkState(entry.isReady(), "%s not ready. ValueEntry: %s", key, entry);
-        } else if (!entry.isReady()) {
+          checkState(
+              !entry.hasUnsignaledDeps(), "%s has unsignaled deps. ValueEntry: %s", key, entry);
+        } else if (entry.hasUnsignaledDeps()) {
           removedDeps =
               removeIncompleteChildrenForCycle(
                   key,
@@ -459,14 +460,14 @@ public class SimpleCycleDetector implements CycleDetector {
     // not built by the end of cycle-checking, we would have dangling references.
     Set<SkyKey> removedDeps =
         removeIncompleteChildrenForCycle(key, entry, unvisitedDeps, evaluatorContext);
-    if (!entry.isReady()) {
+    if (entry.hasUnsignaledDeps()) {
       // The entry has at most one undone dep now, its cycleChild. Signal to make entry ready. Note
       // that the entry can conceivably be ready if its cycleChild already found a different cycle
       // and was built.
       entry.signalDep(evaluatorContext.getGraphVersion(), cycleChild);
     }
     maybeMarkRebuilding(entry);
-    checkState(entry.isReady(), "%s %s %s", key, cycleChild, entry);
+    checkState(!entry.hasUnsignaledDeps(), "%s %s %s", key, cycleChild, entry);
     Iterator<SkyKey> it = toVisit.iterator();
     while (it.hasNext()) {
       SkyKey descendant = it.next();

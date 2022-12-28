@@ -160,8 +160,13 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public boolean isReady() {
-    return getDelegate().isReady();
+  public boolean isReadyToEvaluate() {
+    return getDelegate().isReadyToEvaluate();
+  }
+
+  @Override
+  public boolean hasUnsignaledDeps() {
+    return getDelegate().hasUnsignaledDeps();
   }
 
   @Override

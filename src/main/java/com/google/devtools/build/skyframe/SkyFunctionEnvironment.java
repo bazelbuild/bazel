@@ -154,10 +154,10 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     return new SkyFunctionEnvironment(
         skyKey,
         previouslyRequestedDeps,
-        /*bubbleErrorInfo=*/ null,
+        /* bubbleErrorInfo= */ null,
         oldDeps,
         evaluatorContext,
-        /*throwIfPreviouslyRequestedDepsUndone=*/ true);
+        /* throwIfPreviouslyRequestedDepsUndone= */ !skyKey.supportsPartialReevaluation());
   }
 
   static SkyFunctionEnvironment createForError(
@@ -870,7 +870,8 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     // during a --keep_going build.
 
     NestedSet<Reportable> events =
-        reportEventsAndGetEventsToStore(primaryEntry, /*expectDoneDeps=*/ true);
+        reportEventsAndGetEventsToStore(
+            primaryEntry, /* expectDoneDeps= */ !skyKey.supportsPartialReevaluation());
 
     SkyValue valueWithMetadata;
     if (value == null) {

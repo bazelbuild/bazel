@@ -524,7 +524,12 @@ abstract class AbstractParallelEvaluator {
       SkyFunctionEnvironment env = null;
       try {
         NodeEntry nodeEntry = checkNotNull(graph.get(null, Reason.EVALUATION, skyKey), skyKey);
-        checkState(nodeEntry.isReady(), "%s %s", skyKey, nodeEntry);
+        if (nodeEntry.isDone()) {
+          checkState(skyKey.supportsPartialReevaluation(), "%s %s", skyKey, nodeEntry);
+          evaluatorContext.getProgressReceiver().removeFromInflight(skyKey);
+          return;
+        }
+        checkState(nodeEntry.isReadyToEvaluate(), "%s %s", skyKey, nodeEntry);
         try {
           evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.CHECK_DIRTY);
           if (maybeHandleDirtyNode(nodeEntry) == DirtyOutcome.ALREADY_PROCESSED) {
@@ -545,7 +550,7 @@ abstract class AbstractParallelEvaluator {
         } catch (UndonePreviouslyRequestedDeps undonePreviouslyRequestedDeps) {
           // If a previously requested dep is no longer done, restart this node from scratch.
           stateCache.invalidate(skyKey);
-          restart(skyKey, nodeEntry);
+          resetEntry(skyKey, nodeEntry);
           evaluatorContext.getVisitor().enqueueEvaluation(skyKey, determineRestartPriority());
           return;
         } finally {
@@ -581,16 +586,25 @@ abstract class AbstractParallelEvaluator {
             }
           }
         } catch (final SkyFunctionException builderException) {
+          // TODO(b/261604460): invalidating the state cache here appears to be load-bearing for
+          // error propagation. It ought to be allowed to invalidate it only after the following
+          // early return checks pass, but something is misusing the state cache, and moving it
+          // causes tests to fail.
           stateCache.invalidate(skyKey);
 
-          ReifiedSkyFunctionException reifiedBuilderException =
-              new ReifiedSkyFunctionException(builderException);
           // In keep-going mode, we do not let SkyFunctions complete with a thrown error if they
           // have missing deps. Instead, we wait until their deps are done and restart the
           // SkyFunction, so we can have a definitive error and definitive graph structure, thus
           // avoiding non-determinism. It's completely reasonable for SkyFunctions to throw eagerly
           // because they do not know if they are in keep-going mode.
           if (!evaluatorContext.keepGoing() || !env.valuesMissing()) {
+            if (nodeEntry.hasUnsignaledDeps()) {
+              // This is a partial reevaluation. It is not safe to set the error because a dep may
+              // yet signal this node. We return (without preventing new evaluations) so that any
+              // not-yet-complete deps can complete and signal this node.
+              return;
+            }
+
             if (maybeHandleRegisteringNewlyDiscoveredDepsForDoneEntry(
                 skyKey, nodeEntry, oldDeps, env, evaluatorContext.keepGoing())) {
               // A newly requested dep transitioned from done to dirty before this node finished.
@@ -615,6 +629,8 @@ abstract class AbstractParallelEvaluator {
                     "Aborting evaluation while evaluating %s", skyKey);
               }
             }
+            ReifiedSkyFunctionException reifiedBuilderException =
+                new ReifiedSkyFunctionException(builderException);
             boolean isTransitivelyTransient =
                 reifiedBuilderException.isTransient()
                     || env.isAnyDirectDepErrorTransitivelyTransient()
@@ -645,7 +661,13 @@ abstract class AbstractParallelEvaluator {
           env.doneBuilding();
         }
 
-        if (maybeHandleRestart(skyKey, nodeEntry, value)) {
+        if (value instanceof Restart) {
+          if (nodeEntry.hasUnsignaledDeps()) {
+            // This is a partial reevaluation. It is not safe to reset the node because a dep may
+            // be racing to signal it.
+            return;
+          }
+          dirtyRewindGraphAndResetEntry(skyKey, nodeEntry, (Restart) value);
           stateCache.invalidate(skyKey);
           cancelExternalDeps(env);
           evaluatorContext.getVisitor().enqueueEvaluation(skyKey, determineRestartPriority());
@@ -654,7 +676,11 @@ abstract class AbstractParallelEvaluator {
 
         Set<SkyKey> newDeps = env.getNewlyRequestedDeps();
         if (value != null) {
-          stateCache.invalidate(skyKey);
+          if (nodeEntry.hasUnsignaledDeps()) {
+            // This is a partial reevaluation. It is not safe to set the value because a dep may be
+            // racing to signal this node.
+            return;
+          }
 
           checkState(
               !env.valuesMissing(),
@@ -664,6 +690,7 @@ abstract class AbstractParallelEvaluator {
               newDeps,
               nodeEntry);
 
+          stateCache.invalidate(skyKey);
           try {
             evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.COMMIT);
             if (maybeHandleRegisteringNewlyDiscoveredDepsForDoneEntry(
@@ -755,11 +782,11 @@ abstract class AbstractParallelEvaluator {
         env.addTemporaryDirectDepsTo(nodeEntry);
 
         List<ListenableFuture<?>> externalDeps = env.externalDeps;
-        // If there were no newly requested dependencies, at least one of them was in error or there
-        // is a bug in the SkyFunction implementation. The environment has collected its errors, so
-        // we just order it to be built.
-        if (newDeps.isEmpty() && externalDeps == null) {
-          // TODO(bazel-team): This means a bug in the SkyFunction. What to do?
+        // If the key does not support partial reevaluation and there were no newly requested
+        // dependencies, then at least one of them was in error or there is a bug in the SkyFunction
+        // implementation. The environment has collected its errors, so we just order it to be
+        // built.
+        if (newDeps.isEmpty() && externalDeps == null && !skyKey.supportsPartialReevaluation()) {
           checkState(
               !env.getChildErrorInfos().isEmpty(),
               "Evaluation of SkyKey failed and no dependencies were requested: %s %s",
@@ -894,16 +921,13 @@ abstract class AbstractParallelEvaluator {
   }
 
   /**
-   * If {@code returnedValue} is a {@link Restart} value, then {@code entry} will be reset, and the
-   * other nodes specified by {@code returnedValue.rewindGraph()} will be marked changed via
-   * postorder DFS.
+   * Resets {@code entry}, and the other nodes specified by {@code restart.rewindGraph()} will be
+   * marked changed via postorder DFS.
    *
-   * <p>{@code returnedValue.rewindGraph()} must be empty or must contain {@code key}.
+   * <p>{@code restart.rewindGraph()} must be empty or must contain {@code key}.
    *
    * <p>TODO(b/123993876): this should verify that edges in rewindGraph correspond to deps in the
    * Skyframe graph. Will require a safe way of requesting deps for nodes which may not be done.
-   *
-   * @return {@code returnedValue instanceof Restart}
    */
   // Nodes must be marked changed via postorder DFS. To see why, suppose we have this graph:
   //
@@ -928,16 +952,12 @@ abstract class AbstractParallelEvaluator {
   //
   // When FN next evaluates, it requests R1, and because R1 is done, R2 is not scheduled for
   // evaluation, contrary to FN's expectations.
-  private boolean maybeHandleRestart(SkyKey key, NodeEntry entry, SkyValue returnedValue)
+  private void dirtyRewindGraphAndResetEntry(SkyKey key, NodeEntry entry, Restart restart)
       throws InterruptedException {
-    if (!(returnedValue instanceof Restart)) {
-      return false;
-    }
-
-    ImmutableGraph<SkyKey> rewindGraph = ((Restart) returnedValue).rewindGraph();
+    ImmutableGraph<SkyKey> rewindGraph = restart.rewindGraph();
     if (rewindGraph.nodes().isEmpty()) {
-      restart(key, entry);
-      return true;
+      resetEntry(key, entry);
+      return;
     }
     checkArgument(
         rewindGraph.nodes().contains(key),
@@ -987,11 +1007,10 @@ abstract class AbstractParallelEvaluator {
     // back to "known reverse deps" from "reverse deps declared during this evaluation" (the inverse
     // of NodeEntry#checkIfDoneForDirtyReverseDep). Such a method doesn't currently exist, but
     // could.
-    restart(key, entry);
-    return true;
+    resetEntry(key, entry);
   }
 
-  private void restart(SkyKey key, NodeEntry entry) {
+  private void resetEntry(SkyKey key, NodeEntry entry) {
     evaluatorContext
         .getGraphInconsistencyReceiver()
         .noteInconsistencyAndMaybeThrow(key, /*otherKeys=*/ null, Inconsistency.RESET_REQUESTED);

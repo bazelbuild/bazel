@@ -50,4 +50,14 @@ public interface SkyKey extends Serializable {
   default boolean valueIsShareable() {
     return true;
   }
+
+  /**
+   * Returns {@code true} if this key's {@link SkyFunction} would like Skyframe to schedule its
+   * reevaluation when any of its previously requested unfinished deps completes. Otherwise,
+   * Skyframe will schedule reevaluation only when all previously requested unfinished deps
+   * complete.
+   */
+  default boolean supportsPartialReevaluation() {
+    return false;
+  }
 }

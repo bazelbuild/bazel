@@ -288,9 +288,9 @@ public class NotifyingHelper {
     }
 
     @Override
-    public boolean isReady() {
+    public boolean isReadyToEvaluate() {
       graphListener.accept(myKey, EventType.IS_READY, Order.BEFORE, this);
-      return super.isReady();
+      return super.isReadyToEvaluate();
     }
 
     @Override
