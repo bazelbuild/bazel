@@ -26,15 +26,16 @@ Next, retrieve the sample app from [Bazel's Examples repository](https://github.
 git clone https://github.com/bazelbuild/examples.git
 ```
 
-The sample project for this tutorial is in the 'examples/query-quickstart' directory.
+The sample project for this tutorial is in the `examples/query-quickstart` directory.
 
 ## Getting started
 
 ### What are Bazel queries?
 
-Queries help you to learn about a Bazel codebase by analyzing the relationships between `BUILD` files and examining the resulting output for useful information. This guide previews some basic query functions, but for more options see the [Query guide](https://bazel.build/query/guide). Queries help you learn about dependencies in large scale projects without manually navigating through `BUILD` files.
+Queries help you to learn about a Bazel codebase by analyzing the relationships between `BUILD` files and examining the resulting output for useful information. This guide previews some basic query functions, but for more options see the [query guide](https://bazel.build/query/guide). Queries help you learn about dependencies in large scale projects without manually navigating through `BUILD` files.
 
 To run a query, open your command line terminal and enter:
+
 ```posix-terminal
 bazel query 'query_function'
 ```
@@ -82,16 +83,20 @@ A project consists of different packages that make up a Cafe. They are separated
 
 ### Running a build
 
-To start, build this project using Bazel to create the executable.
-
-Next, run the executable to provide a menu of what the Cafe has to offer.
+This project contains a main method inside of `Runner.java` that you can execute
+to print out a menu of the Cafe. Build the project using Bazel with the command
+`bazel build` and use `:` to signal that the target is named `runner`. See
+[target names](https://bazel.build/concepts/labels#target-names) to learn how to
+reference targets.
 
 To build this project, paste this command into a terminal:
 
 ```posix-terminal
 bazel build :runner
 ```
+
 Your output should look something like this if the build is successful.
+
 ```bash
 INFO: Analyzed target //:runner (49 packages loaded, 784 targets configured).
 INFO: Found 1 target...
