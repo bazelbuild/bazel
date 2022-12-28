@@ -48,7 +48,7 @@ import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.Restart;
-import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDep;
+import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -542,7 +542,7 @@ abstract class AbstractParallelEvaluator {
           env =
               SkyFunctionEnvironment.create(
                   skyKey, nodeEntry.getTemporaryDirectDeps(), oldDeps, evaluatorContext);
-        } catch (UndonePreviouslyRequestedDep undonePreviouslyRequestedDep) {
+        } catch (UndonePreviouslyRequestedDeps undonePreviouslyRequestedDeps) {
           // If a previously requested dep is no longer done, restart this node from scratch.
           stateCache.invalidate(skyKey);
           restart(skyKey, nodeEntry);
@@ -1102,6 +1102,8 @@ abstract class AbstractParallelEvaluator {
     }
 
     for (SkyKey newDep : newlyAddedNewDeps) {
+      // TODO(b/261019506): When heuristically dropping node is enabled, declared dep might be
+      //  missing and the check below will fail leading to blaze crash.
       NodeEntry depEntry =
           checkNotNull(
               newlyAddedNewDepNodes.get().get(newDep),

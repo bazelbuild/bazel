@@ -262,10 +262,17 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     if (evaluatorNeedsReset) {
-      inconsistencyReceiver =
-          rewindingPermitted(options)
-              ? new RewindableGraphInconsistencyReceiver()
-              : GraphInconsistencyReceiver.THROWING;
+      if (rewindingPermitted(options)) {
+        var rewindableReceiver = new RewindableGraphInconsistencyReceiver();
+        rewindableReceiver.setHeuristicallyDropNodes(heuristicallyDropNodes);
+        this.inconsistencyReceiver = rewindableReceiver;
+      } else {
+        inconsistencyReceiver =
+            heuristicallyDropNodes
+                ? new NodeDroppingInconsistencyReceiver()
+                : GraphInconsistencyReceiver.THROWING;
+      }
+
       // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
       // or if the graph doesn't have edges, so that a fresh graph can be used.
       resetEvaluator();
