@@ -87,7 +87,7 @@ public class TargetLoadingUtil {
     SkyKey packageKey = PackageValue.key(label.getPackageIdentifier());
     PackageValue packageValue =
         (PackageValue) env.getValueOrThrow(packageKey, NoSuchPackageException.class);
-    if (env.valuesMissing() || packageValue == null) {
+    if (packageValue == null) {
       return null;
     }
 
