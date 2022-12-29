@@ -85,6 +85,11 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
     public SkyFunctionName functionName() {
       return GENQUERY_SCOPE;
     }
+
+    @Override
+    public boolean supportsPartialReevaluation() {
+      return true;
+    }
   }
 
   private static class Value implements SkyValue {
@@ -314,7 +319,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
       }
       labelsToVisit = nextLabelsToVisit;
     }
-    if (env.valuesMissing()) {
+    if (env.valuesMissing() || !traversal.labelsToVisitNextRestart.isEmpty()) {
       return null;
     }
 
