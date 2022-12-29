@@ -297,10 +297,26 @@ java_plugin(
     ],
 )
 
+java_plugin(
+    name = "auto_oneof_plugin",
+    processor_class = "com.google.auto.value.processor.AutoOneOfProcessor",
+    deps = [
+        ":apache_commons_collections",
+        ":apache_velocity",
+        ":asm",
+        ":auto_common",
+        ":auto_service_lib",
+        ":auto_value_value",
+        ":guava",
+        ":tomcat_annotations_api",
+    ],
+)
+
 java_library(
     name = "auto_value",
     exported_plugins = [
         ":auto_annotation_plugin",
+        ":auto_oneof_plugin",
         ":auto_value_plugin",
     ],
     exports = [
