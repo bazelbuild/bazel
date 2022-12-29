@@ -445,6 +445,17 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                     + " <code>build_file</code>, this field can be used to strip it from extracted"
                     + " files."),
         @Param(
+            name = "strip_prefix",
+            defaultValue = "''",
+            named = true,
+            doc =
+                "a directory prefix to strip from the extracted files."
+                    + "\nMany archives contain a top-level directory that contains all files in the"
+                    + " archive. Instead of needing to specify this prefix over and over in the"
+                    + " <code>build_file</code>, this field can be used to strip it from extracted"
+                    + " files."
+        ),
+        @Param(
             name = "rename_files",
             defaultValue = "{}",
             named = true,
@@ -460,6 +471,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       Object archive,
       Object output,
       String stripPrefix,
+      String strip_prefix,
       Dict<?, ?> renameFiles, // <String, String> expected
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
@@ -481,11 +493,13 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             archive.toString(),
             output.toString(),
             stripPrefix,
+            strip_prefix,
             renameFilesMap,
             getIdentifyingStringForLogging(),
             thread.getCallerLocation());
     env.getListener().post(w);
 
+    stripPrefix = (stripPrefix=="''") ? (strip_prefix) : (stripPrefix) ;
     env.getListener()
         .post(
             new ExtractProgress(
