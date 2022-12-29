@@ -467,6 +467,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                     + " contain non-Unicode filenames, or which have files that would extract to"
                     + " the same path on case-insensitive filesystems."),
       })
+
   public void extract(
       Object archive,
       Object output,
@@ -476,6 +477,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     StarlarkPath archivePath = getPath("extract()", archive);
+    stripPrefix = (stripPrefix=="''") ? (strip_prefix) : (stripPrefix) ;
 
     if (!archivePath.exists()) {
       throw new RepositoryFunctionException(
@@ -493,13 +495,11 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             archive.toString(),
             output.toString(),
             stripPrefix,
-            strip_prefix,
             renameFilesMap,
             getIdentifyingStringForLogging(),
             thread.getCallerLocation());
     env.getListener().post(w);
 
-    stripPrefix = (stripPrefix=="''") ? (strip_prefix) : (stripPrefix) ;
     env.getListener()
         .post(
             new ExtractProgress(
