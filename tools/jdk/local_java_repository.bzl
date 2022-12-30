@@ -146,11 +146,17 @@ def _local_java_repository_impl(repository_ctx):
     version = repository_ctx.attr.version if repository_ctx.attr.version != "" else _detect_java_version(repository_ctx, java_bin)
 
     # Prepare BUILD file using "local_java_runtime" macro
-    build_file = ""
-    if repository_ctx.attr.build_file != None:
+    if repository_ctx.attr.build_file_content and repository_ctx.attr.build_file:
+        fail("build_file and build_file_content are exclusive")
+    if repository_ctx.attr.build_file_content:
+        build_file = repository_ctx.attr.build_file_content
+    elif repository_ctx.attr.build_file:
         build_file = repository_ctx.read(repository_ctx.path(repository_ctx.attr.build_file))
+    else:
+        build_file = ""
+    build_file = build_file.format(RUNTIME_VERSION=version if version.isdigit() else "0")
 
-    runtime_name = '"jdk"' if repository_ctx.attr.build_file else None
+    runtime_name = '"jdk"' if build_file else None
     local_java_runtime_macro = """
 local_java_runtime(
     name = "%s",
@@ -201,10 +207,11 @@ _local_java_repository_rule = repository_rule(
         "java_home": attr.string(),
         "version": attr.string(),
         "build_file": attr.label(),
+        "build_file_content": attr.string(),
     },
 )
 
-def local_java_repository(name, java_home, version = "", build_file = None):
+def local_java_repository(name, java_home, version = "", build_file = None, build_file_content = None):
     """Registers a runtime toolchain for local JDK and creates an unregistered compile toolchain.
 
     Toolchain resolution is constrained with --java_runtime_version flag
@@ -220,7 +227,8 @@ def local_java_repository(name, java_home, version = "", build_file = None):
       name: A unique name for this rule.
       java_home: Location of the JDK imported.
       build_file: optionally BUILD file template
+      build_file_content: optional BUILD file template as a string
       version: optionally java version
     """
-    _local_java_repository_rule(name = name, java_home = java_home, version = version, build_file = build_file)
+    _local_java_repository_rule(name = name, java_home = java_home, version = version, build_file = build_file, build_file_content = build_file_content)
     native.register_toolchains("@" + name + "//:runtime_toolchain_definition")

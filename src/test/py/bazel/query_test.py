@@ -41,7 +41,7 @@ class QueryTest(test_base.TestBase):
   def testQueryFilesUsedByRepositoryRules(self):
     self.ScratchFile('WORKSPACE')
     self._AssertQueryOutputContains("kind('source file', deps(//external:*))",
-                                    '@bazel_tools//tools/jdk:jdk.BUILD')
+                                    '@bazel_tools//tools/genrule:genrule-setup.sh')
 
   def testBuildFilesForExternalRepos_Simple(self):
     self.ScratchFile('WORKSPACE', [
