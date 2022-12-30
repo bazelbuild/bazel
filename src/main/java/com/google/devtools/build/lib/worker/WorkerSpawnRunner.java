@@ -416,6 +416,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         ResourceSet.createWithWorkerKey(
             spawn.getLocalResources().getMemoryMb(),
             spawn.getLocalResources().getCpuUsage(),
+            spawn.getLocalResources().getExtraResourceUsage(),
             spawn.getLocalResources().getLocalTestCount(),
             key);
 
