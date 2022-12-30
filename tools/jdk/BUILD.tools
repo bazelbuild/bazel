@@ -116,21 +116,6 @@ cc_library(
     }),
 )
 
-alias(
-    name = "java",
-    actual = "@local_jdk//:java",
-)
-
-alias(
-    name = "jar",
-    actual = "@local_jdk//:jar",
-)
-
-alias(
-    name = "javadoc",
-    actual = "@local_jdk//:javadoc",
-)
-
 [
     (
         alias(
@@ -272,20 +257,6 @@ alias(
 alias(
     name = "proguard",
     actual = "@remote_java_tools//:proguard",
-)
-
-BOOTCLASS_JARS = [
-    "rt.jar",
-    "resources.jar",
-    "jsse.jar",
-    "jce.jar",
-    "charsets.jar",
-]
-
-# TODO(cushon): this isn't compatible with JDK 9
-alias(
-    name = "bootclasspath",
-    actual = "@local_jdk//:bootclasspath",
 )
 
 alias(
