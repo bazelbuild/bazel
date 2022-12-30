@@ -195,6 +195,7 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@com_google_protobuf//java/core",
     ],
 )
 
@@ -218,6 +219,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/protobuf:any_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
+        "@com_google_protobuf//java/core",
     ],
 )
 
