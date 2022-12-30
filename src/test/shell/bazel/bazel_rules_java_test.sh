@@ -86,7 +86,7 @@ function test_rules_java_repository_builds_itself() {
   write_default_bazelrc
 
   # We test that a built-in @rules_java repository is buildable.
-  bazel build @rules_java//... &> $TEST_log \
+  bazel build -- @rules_java//... -@rules_java//toolchains/... &> $TEST_log \
       || fail "Build failed unexpectedly"
 }
 
