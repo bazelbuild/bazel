@@ -81,12 +81,11 @@ DIST_DEPS = {
     },
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_proto": {
-        "archive": "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
-        "sha256": "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
-        "strip_prefix": "rules_proto-7e4afce6fe62dbff0a4a03450143146f9f2d7488",
+        "archive": "5.3.0-21.7.tar.gz",
+        "sha256": "dc3fb206a2cb3441b485eb1e423165b231235a1ea9b031b4433cf7bc1fa460dd",
+        "strip_prefix": "rules_proto-5.3.0-21.7",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
-            "https://github.com/bazelbuild/rules_proto/archive/7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
+            "https://github.com/bazelbuild/rules_proto/archive/refs/tags/5.3.0-21.7.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -95,7 +94,6 @@ DIST_DEPS = {
         "license_kinds": [
             "@rules_license//licenses/spdx:Apache-2.0",
         ],
-        "package_version": "2020-10-27",
     },
     #################################################
     #
@@ -103,15 +101,15 @@ DIST_DEPS = {
     #
     #################################################
     "com_google_protobuf": {
-        "archive": "v3.19.6.tar.gz",
-        "sha256": "9a301cf94a8ddcb380b901e7aac852780b826595075577bb967004050c835056",
-        "strip_prefix": "protobuf-3.19.6",
+        "archive": "v21.7.tar.gz",
+        "sha256": "75be42bd736f4df6d702a0e4e4d30de9ee40eac024c4b845d17ae4cc831fe4ae",
+        "strip_prefix": "protobuf-21.7",
         "urls": [
-            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.19.6.tar.gz",
-            "https://github.com/protocolbuffers/protobuf/archive/v3.19.6.tar.gz",
+            "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v21.7.tar.gz",
+            "https://github.com/protocolbuffers/protobuf/archive/v21.7.tar.gz",
         ],
         "patch_args": ["-p1"],
-        "patches": ["//third_party/protobuf:3.19.6.patch"],
+        "patches": ["//third_party/protobuf:21.7.patch"],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
