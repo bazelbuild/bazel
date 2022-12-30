@@ -26,6 +26,7 @@ gen_workspace_stanza(
     name = "rules_proto_stanza",
     out = "rules_proto_stanza.txt",
     repos = [
+        "rules_pkg", # Handles version mismatch between Bazel and protobuf
         "rules_proto",
     ],
 )
