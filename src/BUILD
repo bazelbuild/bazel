@@ -562,7 +562,6 @@ filegroup(
         "@android_gmaven_r8_for_testing//jar:file",
         "@android_tools_for_testing//:WORKSPACE",
         "@bazel_skylib//:WORKSPACE",
-        "@com_google_protobuf//:WORKSPACE",
         "@remote_coverage_tools//:WORKSPACE",
         "@remote_java_tools_darwin_for_testing//:WORKSPACE",
         "@remote_java_tools_for_testing//:WORKSPACE",
