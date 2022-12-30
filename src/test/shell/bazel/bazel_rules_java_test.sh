@@ -84,6 +84,7 @@ EOF
 
 function test_rules_java_repository_builds_itself() {
   write_default_bazelrc
+  setup_skylib_support
 
   # We test that a built-in @rules_java repository is buildable.
   bazel build -- @rules_java//... -@rules_java//toolchains/... &> $TEST_log \
