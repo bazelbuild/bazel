@@ -1549,7 +1549,7 @@ public class ByteStreamUploaderTest {
   }
 
   /**
-   * An byte stream service where an upload for a given blob may or may not fail on the first
+   * A byte stream service where an upload for a given blob may or may not fail on the first
    * attempt but is guaranteed to succeed on the second try.
    */
   static class MaybeFailOnceUploadService extends ByteStreamImplBase {
