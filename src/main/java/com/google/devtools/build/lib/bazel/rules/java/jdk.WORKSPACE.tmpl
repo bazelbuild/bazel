@@ -173,67 +173,56 @@ maybe(
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     remote_java_repository,
-    {remotejdk18_linux}
+    {remotejdk19_linux}
     target_compatible_with = [
         "@platforms//os:linux",
         "@platforms//cpu:x86_64",
     ],
-    version = "18",
+    version = "19",
 )
 
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     remote_java_repository,
-    {remotejdk18_linux_aarch64}
+    {remotejdk19_linux_aarch64}
     target_compatible_with = [
         "@platforms//os:linux",
         "@platforms//cpu:aarch64",
     ],
-    version = "18",
+    version = "19",
 )
 
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     remote_java_repository,
-    {remotejdk18_macos}
+    {remotejdk19_macos}
     target_compatible_with = [
         "@platforms//os:macos",
         "@platforms//cpu:x86_64",
     ],
-    version = "18",
+    version = "19",
 )
 
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     remote_java_repository,
-    {remotejdk18_macos_aarch64}
+    {remotejdk19_macos_aarch64}
     target_compatible_with = [
         "@platforms//os:macos",
         "@platforms//cpu:aarch64",
     ],
-    version = "18",
+    version = "19",
 )
 
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     remote_java_repository,
-    {remotejdk18_win}
+    {remotejdk19_win}
     target_compatible_with = [
         "@platforms//os:windows",
         "@platforms//cpu:x86_64",
     ],
-    version = "18",
-)
-
-# This must be kept in sync with the top-level WORKSPACE file.
-maybe(
-    remote_java_repository,
-    {remotejdk18_win_arm64}
-    target_compatible_with = [
-        "@platforms//os:windows",
-        "@platforms//cpu:arm64",
-    ],
-    version = "18",
+    version = "19",
 )
 
 maybe(

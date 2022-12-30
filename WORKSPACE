@@ -403,8 +403,8 @@ dist_http_archive(
         patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
         patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
     )
-    for version in ("17", "18")
-    for os in ("linux", "macos", "macos_aarch64", "win", "win_arm64")
+    for version in ("17", "19")
+    for os in ("linux", "macos", "macos_aarch64", "win") + (("win_arm64",) if version != "19" else ())
 ]
 
 # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
@@ -516,8 +516,8 @@ java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
     )
-    for version in ("17", "18")
-    for os in ("linux", "darwin", "darwin_aarch64", "windows", "windows_arm64")
+    for version in ("17", "19")
+    for os in ("linux", "darwin", "darwin_aarch64", "windows") + (("windows_arm64",) if version != "19" else ())
 ]
 
 load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
