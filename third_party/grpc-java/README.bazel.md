@@ -5,7 +5,7 @@ This directory contains the Java gRPC libraries needed by Bazel, sourced from
 
 | Repo             | Current   |
 | ---------------- | --------- |
-| `grpc/grpc-java` | `v1.45.1` |
+| `grpc/grpc-java` | `v1.47.0` |
 
 ## Updating `third_party/grpc/grpc-java`
 
