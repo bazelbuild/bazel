@@ -18,10 +18,8 @@ Definition of proto_library rule.
 
 load(":common/proto/proto_semantics.bzl", "semantics")
 load(":common/proto/proto_common.bzl", proto_common = "proto_common_do_not_use")
+load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/paths.bzl", "paths")
-
-ProtoInfo = _builtins.toplevel.ProtoInfo
-native_proto_common = _builtins.toplevel.proto_common
 
 def _check_srcs_package(target_package, srcs):
     """Check that .proto files in sources are from the same package.
@@ -114,7 +112,7 @@ def _create_proto_sources(ctx, srcs, import_prefix, strip_import_prefix):
             else:
                 # source_root == ''|'bazel-out/foo/k8-fastbuild/bin' / 'external/repo'
                 source_root = _join(src.root.path, ctx.label.workspace_root)
-            direct_sources.append(native_proto_common.ProtoSource(src, src, source_root))
+            direct_sources.append(_builtins.toplevel.proto_common.ProtoSource(src, src, source_root))
 
         return ctx.label.workspace_root if ctx.label.workspace_root else ".", direct_sources
 
@@ -157,7 +155,7 @@ def _symlink_to_virtual_imports(ctx, srcs, import_prefix, strip_import_prefix):
             target_file = src,
             progress_message = "Symlinking virtual .proto sources for %{label}",
         )
-        direct_sources.append(native_proto_common.ProtoSource(virtual_src, src, proto_path))
+        direct_sources.append(_builtins.toplevel.proto_common.ProtoSource(virtual_src, src, proto_path))
     return proto_path, direct_sources
 
 def _create_proto_info(ctx, direct_sources, deps, exports, proto_path, descriptor_set):
@@ -194,7 +192,7 @@ def _create_proto_info(ctx, direct_sources, deps, exports, proto_path, descripto
     else:
         exported_sources = depset(transitive = [dep.exported_sources() for dep in deps])
 
-    return native_proto_common.ProtoInfo(
+    return _builtins.toplevel.proto_common.ProtoInfo(
         direct_sources,
         proto_path,
         transitive_sources,

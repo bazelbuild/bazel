@@ -27,7 +27,6 @@ coverage_common = _builtins.toplevel.coverage_common
 
 JavaInfo = _builtins.toplevel.JavaInfo
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
-ProtoInfo = _builtins.toplevel.ProtoInfo
 CcInfo = _builtins.toplevel.CcInfo
 
 def _filter_srcs(srcs, ext):

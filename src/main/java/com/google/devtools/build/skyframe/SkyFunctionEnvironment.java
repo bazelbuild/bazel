@@ -216,12 +216,12 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     NodeBatch batch = evaluatorContext.getGraph().getBatch(skyKey, Reason.PREFETCH, keysToPrefetch);
     ImmutableMap.Builder<SkyKey, SkyValue> depValuesBuilder =
         ImmutableMap.builderWithExpectedSize(keysToPrefetch.size());
-    List<SkyKey> missingRequestedDeps = null;
+    ImmutableList.Builder<SkyKey> missingRequestedDeps = null;
     for (SkyKey depKey : keysToPrefetch) {
       NodeEntry entry = batch.get(depKey);
       if (entry == null) {
         if (missingRequestedDeps == null) {
-          missingRequestedDeps = new ArrayList<>();
+          missingRequestedDeps = ImmutableList.builder();
         }
         missingRequestedDeps.add(depKey);
         continue;
@@ -245,17 +245,15 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       }
     }
 
-    if (missingRequestedDeps != null && !missingRequestedDeps.isEmpty()) {
+    if (missingRequestedDeps != null) {
       // Notify `GraphInconsistencyReceiver` when there are some dependencies missing from the graph
       // to check whether this is expected.
+      ImmutableList<SkyKey> allMissingDeps = missingRequestedDeps.build();
       evaluatorContext
           .getGraphInconsistencyReceiver()
           .noteInconsistencyAndMaybeThrow(
-              skyKey, missingRequestedDeps, Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
-      throw new UndonePreviouslyRequestedDeps(null);
-      // TODO(b/261019506): Please investigate whether it is possible
-      //  `throwIfPreviouslyRequestedDepsUndone` is false and how to prevent blaze from crashing if
-      //  possible.
+              skyKey, allMissingDeps, Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
+      throw new UndonePreviouslyRequestedDeps(allMissingDeps);
     }
 
     return depValuesBuilder.buildOrThrow();
@@ -1035,7 +1033,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     private final ImmutableList<SkyKey> depKeys;
 
     private UndonePreviouslyRequestedDeps(ImmutableList<SkyKey> depKeys) {
-      this.depKeys = depKeys;
+      this.depKeys = checkNotNull(depKeys);
     }
 
     ImmutableList<SkyKey> getDepKeys() {

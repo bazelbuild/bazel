@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import java.util.Objects;
 
 /** {@link AspectClass} for aspects defined in Starlark. */
 @Immutable
@@ -60,7 +59,8 @@ public final class StarlarkAspectClass implements AspectClass {
 
   @Override
   public int hashCode() {
-    return Objects.hash(extensionLabel, exportedName);
+    // Inlines the implementation of Objects.hashCode to avoid generating garbage.
+    return 31 * extensionLabel.hashCode() + exportedName.hashCode();
   }
 
   @Override

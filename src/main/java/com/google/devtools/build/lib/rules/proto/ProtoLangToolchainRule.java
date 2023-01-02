@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 
 /**
@@ -100,10 +99,7 @@ public class ProtoLangToolchainRule implements RuleDefinition {
         This is used for .proto files that are already linked into proto runtimes, such as
         <code>any.proto</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr("blacklisted_protos", LABEL_LIST)
-                .allowedFileTypes()
-                .mandatoryProviders(StarlarkProviderIdentifier.forKey(ProtoInfo.PROVIDER.getKey())))
+        .add(attr("blacklisted_protos", LABEL_LIST).allowedFileTypes())
 
         /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(proto_compiler) -->
         The proto compiler executable.
