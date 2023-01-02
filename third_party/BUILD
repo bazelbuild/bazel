@@ -465,19 +465,14 @@ filegroup(
     ],
 )
 
-distrib_java_import(
+java_library(
     name = "guava",
-    enable_distributions = ["debian"],
-    jars = [
-        "guava/failureaccess-1.0.1.jar",
-        "guava/guava-31.1-jre.jar",
-    ],
     exports = [
-        ":error_prone_annotations",
-        ":jcip_annotations",
-        ":jsr305",
-    ],
-    applicable_licenses = [":guava_license"],
+       "@maven//:com_google_guava_guava",
+       "@maven//:com_google_errorprone_error_prone_annotations",
+       "@maven//:com_google_code_findbugs_jsr305",
+       "@maven//:com_github_stephenc_jcip_jcip_annotations",
+    ]
 )
 
 license(
@@ -540,16 +535,14 @@ distrib_java_import(
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-31.1-jre.jar"],
+    srcs = ["@maven//:com_google_guava_guava_file"],
     enable_distributions = ["debian"],
 )
 
 # For desugaring the Guava jar.
 distrib_jar_filegroup(
     name = "guava-failureaccess-jar",
-    srcs = [
-        "guava/failureaccess-1.0.1.jar",
-    ],
+    srcs = ["@maven//:com_google_guava_failureaccess_file"],
     enable_distributions = ["debian"],
 )
 

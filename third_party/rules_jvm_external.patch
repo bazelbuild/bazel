@@ -1,0 +1,47 @@
+commit 93a2c892a38d9423837238f68fa71b157058d651
+Author: Yun Peng <pcloudy@google.com>
+Date:   Tue Jan 3 05:04:12 2023 +0000
+
+    Patch rules_jvm_external to support Bazel's bootstrap build
+    
+    Instead of checking in jar files in Bazel's source tree, we want to use rules_jvm_external
+    to fetch jars dependencies. However, to support Bazel's bootstrap build,
+    we need to patch rules_jvm_external for vendoring the @maven repository.
+    
+    - Added a filegroup rule for BUILD, WORKSPACE and jar files in the @maven repository
+    - Added a filegroup rule for each downloaded jar artifact. This is required by
+      the bootstrap Java toolchain, since it cannot directly depend on a jvm_import
+      rule, because the jvm_import rule depends on a java_binary tool "AddJarManifestEntry"
+      which requires a Java toolchain. This will cause cyclic dependency.
+
+diff --git a/coursier.bzl b/coursier.bzl
+index 86b4c50..2ab0436 100644
+--- a/coursier.bzl
++++ b/coursier.bzl
+@@ -32,6 +32,13 @@ _BUILD = """
+ load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+ load("@rules_jvm_external//private/rules:jvm_import.bzl", "jvm_import")
+ load("@rules_jvm_external//private/rules:jetifier.bzl", "jetify_aar_import", "jetify_jvm_import")
++
++filegroup(
++    name = "srcs",
++    srcs = ["BUILD", "WORKSPACE"] + glob(["v1/**/*.jar"]),
++    visibility = ["//visibility:public"],
++)
++
+ {aar_import_statement}
+ 
+ {imports}
+diff --git a/private/dependency_tree_parser.bzl b/private/dependency_tree_parser.bzl
+index 3b1b4b1..d519740 100644
+--- a/private/dependency_tree_parser.bzl
++++ b/private/dependency_tree_parser.bzl
+@@ -345,6 +345,8 @@ def _generate_imports(repository_ctx, dep_tree, explicit_artifacts, neverlink_ar
+             versioned_target_alias_label = escape(strip_packaging_and_classifier(artifact["coord"]))
+             all_imports.append("alias(\n\tname = \"%s\",\n\tactual = \"%s\",\n%s)" %
+                                (versioned_target_alias_label, target_label, alias_visibility))
++            all_imports.append("filegroup(\n\tname = \"%s\",\n\tsrcs = [\"%s\"],\n%s)" %
++                               (target_label + "_file", artifact_path, alias_visibility))
+ 
+             # 11. If using maven_install.json, use a genrule to copy the file from the http_file
+             # repository into this repository.
