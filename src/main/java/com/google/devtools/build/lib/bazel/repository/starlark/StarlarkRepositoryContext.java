@@ -473,7 +473,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       Object output,
       String stripPrefix,
       String strip_prefix,
-      Dict<?, ?> renameFiles, // <String, String> expected
+      Dict<?, ?> renameFiles, //  <String, String> expected
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     StarlarkPath archivePath = getPath("extract()", archive);
