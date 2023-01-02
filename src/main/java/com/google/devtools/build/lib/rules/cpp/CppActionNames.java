@@ -61,8 +61,6 @@ public class CppActionNames {
   public static final String CPP_LINK_DYNAMIC_LIBRARY = "c++-link-dynamic-library";
   /** Name of the action producing executable binary. */
   public static final String CPP_LINK_EXECUTABLE = "c++-link-executable";
-  /** Name of the objc action producing static library */
-  public static final String OBJC_ARCHIVE = "objc-archive";
   /** Name of the objc action producing dynamic library */
   public static final String OBJC_FULLY_LINK = "objc-fully-link";
   /** Name of the objc action producing objc executable binary */
