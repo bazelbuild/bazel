@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -151,18 +151,18 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     if (!semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
       return ImmutableList.of();
     }
-    BazelModuleResolutionValue bazelModuleResolutionValue =
-        (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
-    if (bazelModuleResolutionValue == null) {
+    BazelDepGraphValue bazelDepGraphValue =
+        (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
+    if (bazelDepGraphValue == null) {
       return null;
     }
     ImmutableList.Builder<TargetPattern> toolchains = ImmutableList.builder();
-    for (Module module : bazelModuleResolutionValue.getDepGraph().values()) {
+    for (Module module : bazelDepGraphValue.getDepGraph().values()) {
       TargetPattern.Parser parser =
           new TargetPattern.Parser(
               PathFragment.EMPTY_FRAGMENT,
               module.getCanonicalRepoName(),
-              bazelModuleResolutionValue.getFullRepoMapping(module.getKey()));
+              bazelDepGraphValue.getFullRepoMapping(module.getKey()));
       for (String pattern : module.getToolchainsToRegister()) {
         try {
           toolchains.add(parser.parse(pattern));
