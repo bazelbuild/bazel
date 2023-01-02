@@ -54,7 +54,7 @@ public final class ExampleWorker {
   static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
 
   // A UUID that uniquely identifies this running worker process.
-  static final UUID workerUuid = UUID.randomUUID();
+  static final UUID WORKER_UUID = UUID.randomUUID();
 
   // A counter that increases with each work unit processed.
   static int workUnitCounter = 1;
@@ -83,6 +83,9 @@ public final class ExampleWorker {
     @Override
     @SuppressWarnings("SystemExitOutsideMain")
     public void processRequests() throws IOException {
+      ByteArrayOutputStream captured = new ByteArrayOutputStream();
+      WorkerIO workerIO = new WorkerIO(System.in, System.out, System.err, captured, captured);
+
       while (true) {
         WorkRequest request = messageProcessor.readWorkRequest();
         if (request == null) {
@@ -100,11 +103,18 @@ public final class ExampleWorker {
         if (request.getCancel()) {
           respondToCancelRequest(request);
         } else {
-          startResponseThread(request);
+          startResponseThread(workerIO, request);
         }
         if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
           System.exit(0);
         }
+      }
+
+      try {
+        // Unwrap the system streams placing the original streams back
+        workerIO.close();
+      } catch (Exception e) {
+        workerIO.getOriginalErrorStream().println(e.getMessage());
       }
     }
   }
@@ -241,7 +251,7 @@ public final class ExampleWorker {
     List<String> outputs = new ArrayList<>();
 
     if (options.writeUUID) {
-      outputs.add("UUID " + workerUuid);
+      outputs.add("UUID " + WORKER_UUID);
     }
 
     if (options.writeCounter) {
