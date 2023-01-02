@@ -18,7 +18,7 @@ bazel_dep(name = "zlib", version = "1.2.13")
 
 # The following are required when building without WORKSPACE SUFFIX
 bazel_dep(name = "rules_cc", version = "0.0.2")
-bazel_dep(name = "rules_java", version = "5.1.0")
+bazel_dep(name = "rules_java", version = "5.4.0")
 bazel_dep(name = "rules_proto", version = "4.0.0")
 
 # TODO(pcloudy): Add remoteapis and googleapis as Bazel modules in the BCR.
