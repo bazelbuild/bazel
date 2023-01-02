@@ -179,6 +179,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * Fetches remotely stored action outputs, that are inputs to this spawn, and stores them under
    * their path in the output base.
    *
+   * <p>The {@code inputs} may not contain any unexpanded directories.
+   *
    * <p>This method is safe to be called concurrently from spawn runners before running any local
    * spawn.
    *
@@ -197,7 +199,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     Map<SpecialArtifact, List<TreeFileArtifact>> trees = new HashMap<>();
     List<ActionInput> files = new ArrayList<>();
     for (ActionInput input : inputs) {
+      // Source artifacts don't need to be fetched.
       if (input instanceof Artifact && ((Artifact) input).isSourceArtifact()) {
+        continue;
+      }
+
+      // Skip empty tree artifacts (non-empty tree artifacts should have already been expanded).
+      if (input.isDirectory()) {
         continue;
       }
 
