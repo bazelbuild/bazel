@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
@@ -158,6 +159,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * Fetches remotely stored action outputs, that are inputs to this spawn, and stores them under
    * their path in the output base.
    *
+   * <p>The {@code inputs} may not contain any unexpanded directories.
+   *
    * <p>This method is safe to be called concurrently from spawn runners before running any local
    * spawn.
    *
@@ -176,6 +179,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     Map<SpecialArtifact, List<TreeFileArtifact>> trees = new HashMap<>();
     List<ActionInput> files = new ArrayList<>();
     for (ActionInput input : inputs) {
+      checkArgument(!input.isDirectory(), "cannot prefetch a directory");
+
+      // Source artifacts don't need to be fetched.
       if (input instanceof Artifact && ((Artifact) input).isSourceArtifact()) {
         continue;
       }
