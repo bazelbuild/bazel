@@ -56,7 +56,7 @@ public class BazelModuleInspectorFunction implements SkyFunction {
     }
     ImmutableMap<String, ModuleOverride> overrides = root.getOverrides();
     ImmutableMap<ModuleKey, Module> unprunedDepGraph = resolutionValue.getUnprunedDepGraph();
-    ImmutableMap<ModuleKey, Module> resolvedDepGraph = resolutionValue.getDepGraph();
+    ImmutableMap<ModuleKey, Module> resolvedDepGraph = resolutionValue.getResolvedDepGraph();
 
     ImmutableMap<ModuleKey, AugmentedModule> depGraph =
         computeAugmentedGraph(unprunedDepGraph, resolvedDepGraph.keySet(), overrides);

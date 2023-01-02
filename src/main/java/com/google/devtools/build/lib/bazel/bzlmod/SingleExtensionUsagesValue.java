@@ -34,8 +34,7 @@ public abstract class SingleExtensionUsagesValue implements SkyValue {
   public abstract ImmutableMap<ModuleKey, ModuleExtensionUsage> getExtensionUsages();
 
   /**
-   * The "unique name" (see {@link BazelModuleResolutionValue#getExtensionUniqueNames} of this
-   * extension.
+   * The "unique name" (see {@link BazelDepGraphValue#getExtensionUniqueNames} of this extension.
    */
   public abstract String getExtensionUniqueName();
 
