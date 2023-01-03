@@ -1106,6 +1106,32 @@ def _impl(ctx):
             ],
         )
 
+    if (ctx.attr.cpu == "catalyst_x86_64" or
+        ctx.attr.cpu == "catalyst_arm64"):
+        ios_support_link_flags_feature = feature(
+            name = "ios_support_link_flags",
+            enabled = True,
+            flag_sets = [
+                flag_set(
+                    actions = all_link_actions +
+                              ["objc-executable", "objc++-executable"],
+                    flag_groups = [
+                        flag_group(
+                            flags = [
+                                "-frameworkwithsysroot",
+                                "System/iOS/System/Library/Frameworks",
+                                "-L%{sdk_dir}/System/iOSSupport/usr/lib",
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        )
+    else:
+        ios_support_link_flags_feature = feature(
+            name = "ios_support_link_flags"
+        )
+
     no_deduplicate_feature = feature(
         name = "no_deduplicate",
         enabled = True,
@@ -2758,6 +2784,7 @@ def _impl(ctx):
             relative_ast_path_feature,
             user_link_flags_feature,
             default_link_flags_feature,
+            ios_support_link_flags_feature,
             no_deduplicate_feature,
             dead_strip_feature,
             cpp_linker_flags_feature,
