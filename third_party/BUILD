@@ -472,7 +472,8 @@ java_library(
        "@maven//:com_google_errorprone_error_prone_annotations",
        "@maven//:com_google_code_findbugs_jsr305",
        "@maven//:com_github_stephenc_jcip_jcip_annotations",
-    ]
+    ],
+    applicable_licenses = [":guava_license"],
 )
 
 license(
