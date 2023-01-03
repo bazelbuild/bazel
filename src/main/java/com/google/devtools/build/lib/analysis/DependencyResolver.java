@@ -271,6 +271,7 @@ public abstract class DependencyResolver {
           throws Failure {
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         OrderedSetMultimap.create();
+    ImmutableList<Aspect> aspectsList = ImmutableList.copyOf(aspects);
 
     for (Map.Entry<DependencyKind, Label> entry : outgoingLabels.entries()) {
       Label toLabel = entry.getValue();
@@ -334,11 +335,8 @@ public abstract class DependencyResolver {
       Attribute attribute = entry.getKey().getAttribute();
       ImmutableList.Builder<Aspect> propagatingAspects = ImmutableList.builder();
       propagatingAspects.addAll(attribute.getAspects(fromRule));
-      collectPropagatingAspects(
-          ImmutableList.copyOf(aspects),
-          attribute.getName(),
-          entry.getKey().getOwningAspect(),
-          propagatingAspects);
+      AspectClass owningAspect = entry.getKey().getOwningAspect();
+      collectPropagatingAspects(aspectsList, attribute.getName(), owningAspect, propagatingAspects);
 
       Label executionPlatformLabel = null;
       // TODO(jcater): refactor this nested if structure into something simpler.
@@ -347,11 +345,25 @@ public abstract class DependencyResolver {
           String execGroup =
               ((ExecutionTransitionFactory) attribute.getTransitionFactory()).getExecGroup();
           if (!toolchainContexts.hasToolchainContext(execGroup)) {
-            throw new Failure(
-                fromRule != null ? fromRule.getLocation() : null,
-                String.format(
-                    "Attr '%s' declares a transition for non-existent exec group '%s'",
-                    attribute.getName(), execGroup));
+            // If {@code aspectsList} is not empty, {@code toolchainContexts} contains only the exec
+            // groups of the main aspect (placed as the last aspect in {@code aspectsList}).
+            // Otherwise, {@code toolchainContexts} contains the exec group of the target's rule.
+            // Therefore, if the {@aspectsList} is not empty and the current entry is not a
+            // dependency of the main aspect, {@code execGroup} will never exist in {@code
+            // toolchainContexts} and this dependency will be skipped.
+            // TODO(b/256617733): Make a decision on whether the exec groups of the target
+            // and the base aspects should be merged in {@code toolchainContexts}.
+            if (aspectsList.isEmpty()
+                || (owningAspect != null
+                    && owningAspect.equals(Iterables.getLast(aspects).getAspectClass()))) {
+              throw new Failure(
+                  fromRule != null ? fromRule.getLocation() : null,
+                  String.format(
+                      "Attr '%s' declares a transition for non-existent exec group '%s'",
+                      attribute.getName(), execGroup));
+            } else {
+              continue;
+            }
           }
           if (toolchainContexts.getToolchainContext(execGroup).executionPlatform() != null) {
             executionPlatformLabel =
