@@ -22,7 +22,7 @@ Install Bazel on Ubuntu using one of the following methods:
 *   *Recommended*: [Use Bazelisk](/install/bazelisk)
 *   [Use our custom APT repository](#install-on-ubuntu)
 *   [Use the binary installer](#binary-installer)
-*   [Use the Bazel docker container](#docker-container)
+*   [Use the Bazel Docker container](#docker-container)
 *   [Compile Bazel from source](/install/compile-source)
 
 **Note:** For Arm-based systems, the APT repository does not contain an `arm64`
@@ -160,7 +160,7 @@ permanent.
 ## Using the Bazel Docker container {:#docker-container}
 
 We publish Docker container with Bazel installed for each Bazel version at `gcr.io/bazel-public/bazel`.
-You can use the docker container as follows:
+You can use the Docker container as follows:
 
 ```
 $ docker pull gcr.io/bazel-public/bazel:<bazel version>
