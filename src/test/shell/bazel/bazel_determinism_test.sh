@@ -56,7 +56,7 @@ function test_determinism()  {
     unzip -q "${DISTFILE}"
 
     distdir="derived/distdir"
-    maven = "${workdir}/maven"
+    maven="${workdir}/maven"
 
     # Build Bazel once.
     bazel \

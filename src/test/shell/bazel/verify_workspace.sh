@@ -43,13 +43,15 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 WORKSPACE_FILES=("$(rlocation io_bazel/WORKSPACE)" "$(rlocation io_bazel/distdir_deps.bzl)")
 
 function test_verify_urls() {
-  # Find url-shaped lines, skipping jekyll-tree (which isn't a valid URL), and
-  # skipping comments.
+  # Find url-shaped lines, skipping jekyll-tree (which isn't a valid URL),
+  # skip https://dl.google.com/android/maven2,
+  # and # skipping comments.
   invalid_urls=()
   checked_urls=()
   for file in "${WORKSPACE_FILES[@]}"; do
     for url in $(grep -E '"https://|http://' "${file}" | \
       sed -e '/jekyll-tree/d' -e '/^#/d' -r -e  's#^.*"(https?://[^"]+)".*$#\1#g' | \
+      sed -e '/dl\.google\.com\/android\/maven2/d' \
       sort -u); do
       # add only unique url to the array
       if [[ ${#checked_urls[@]} == 0 ]] || [[ ! " ${checked_urls[@]} " =~ " ${url} " ]]; then
