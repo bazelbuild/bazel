@@ -56,12 +56,14 @@ function test_determinism()  {
     unzip -q "${DISTFILE}"
 
     distdir="derived/distdir"
+    maven = "${workdir}/maven"
 
     # Build Bazel once.
     bazel \
       --output_base="${TEST_TMPDIR}/out1" \
       build \
       --distdir=$distdir \
+      --override_repository=maven=$maven \
       --nostamp \
       //src:bazel
     hash_outputs >"${TEST_TMPDIR}/sum1"
@@ -73,6 +75,7 @@ function test_determinism()  {
       --output_base="${TEST_TMPDIR}/out2" \
       build \
       --distdir=$distdir \
+      --override_repository=maven=$maven \
       --nostamp \
       //src:bazel
     hash_outputs >"${TEST_TMPDIR}/sum2"
