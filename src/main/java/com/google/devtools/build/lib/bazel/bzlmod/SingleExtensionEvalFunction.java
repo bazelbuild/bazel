@@ -16,7 +16,9 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
@@ -51,6 +53,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -147,13 +150,19 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     // Check that the .bzl file actually exports a module extension by our name.
     Object exported = bzlLoadValue.getModule().getGlobal(extensionId.getExtensionName());
     if (!(exported instanceof ModuleExtension.InStarlark)) {
+      ImmutableSet<String> exportedExtensions = bzlLoadValue.getModule().getGlobals()
+          .entrySet().stream()
+          .filter(e -> e.getValue() instanceof ModuleExtension.InStarlark)
+          .map(Entry::getKey)
+          .collect(toImmutableSet());
       throw new SingleExtensionEvalFunctionException(
           ExternalDepsException.withMessage(
               Code.BAD_MODULE,
-              "%s does not export a module extension called %s, yet its use is requested at %s",
+              "%s does not export a module extension called %s, yet its use is requested at %s%s",
               extensionId.getBzlFileLabel(),
               extensionId.getExtensionName(),
-              sampleUsageLocation),
+              sampleUsageLocation,
+              SpellChecker.didYouMean(extensionId.getExtensionName(), exportedExtensions)),
           Transience.PERSISTENT);
     }
 
@@ -206,12 +215,14 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               ExternalDepsException.withMessage(
                   Code.BAD_MODULE,
                   "module extension \"%s\" from \"%s\" does not generate repository \"%s\", yet it"
-                      + " is imported as \"%s\" in the usage at %s",
+                      + " is imported as \"%s\" in the usage at %s%s",
                   extensionId.getExtensionName(),
                   extensionId.getBzlFileLabel(),
                   repoImport.getValue(),
                   repoImport.getKey(),
-                  usage.getLocation()),
+                  usage.getLocation(),
+                  SpellChecker.didYouMean(repoImport.getValue(),
+                      threadContext.getGeneratedRepos().keySet())),
               Transience.PERSISTENT);
         }
       }
