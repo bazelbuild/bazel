@@ -471,9 +471,9 @@ public final class SandboxHelpers {
    * Returns the appropriate {@link RootedPath} for a Fileset symlink.
    *
    * <p>Filesets are weird because sometimes exec paths of the {@link ActionInput}s in them are not
-   * relative, as exec paths should be, but absolute and point to under one of the package roots. In
-   * order to handle this, if we find such an absolute exec path, we iterate over the package path
-   * entries to turn it into a {@link RootedPath}.
+   * relative, as exec paths should be, but absolute and point to under one of the package roots or
+   * the execroot. In order to handle this, if we find such an absolute exec path, we iterate over
+   * possible base directories.
    *
    * <p>The inputs to this function should be symlinks that are contained within Filesets; in
    * particular, this is different from "unresolved symlinks" in that Fileset contents are regular
@@ -481,11 +481,18 @@ public final class SandboxHelpers {
    * symlinks are symlinks for which the important content is the result of {@code readlink()}
    */
   private static RootedPath processFilesetSymlink(
-      PathFragment symlink, ImmutableList<Root> packageRoots) {
+      PathFragment symlink,
+      Root execRootWithinSandbox,
+      PathFragment execRootFragment,
+      ImmutableList<Root> packageRoots) {
     for (Root packageRoot : packageRoots) {
       if (packageRoot.contains(symlink)) {
         return RootedPath.toRootedPath(packageRoot, packageRoot.relativize(symlink));
       }
+    }
+
+    if (symlink.startsWith(execRootFragment)) {
+      return RootedPath.toRootedPath(execRootWithinSandbox, symlink.relativeTo(execRootFragment));
     }
 
     throw new IllegalStateException(
@@ -565,7 +572,9 @@ public final class SandboxHelpers {
           if (execPath.isAbsolute()) {
             // This happens for ActionInputs that are part of Filesets (see the Javadoc on
             // processFilesetSymlink())
-            inputPath = processFilesetSymlink(actionInput.getExecPath(), packageRoots);
+            inputPath =
+                processFilesetSymlink(
+                    actionInput.getExecPath(), execRoot, execRootPath.asFragment(), packageRoots);
           } else {
             inputPath = RootedPath.toRootedPath(execRoot, actionInput.getExecPath());
           }
