@@ -229,6 +229,10 @@ def _bootclasspath_impl(ctx):
     args.add("DumpPlatformClassPath")
     args.add(bootclasspath)
 
+    system_files = ("release", "modules", "jrt-fs.jar")
+    system = [f for f in ctx.files.target_javabase if f.basename in system_files]
+    if len(system) != len(system_files):
+        system = None
     if ctx.attr.target_javabase:
         inputs.extend(ctx.files.target_javabase)
         args.add(ctx.attr.target_javabase[java_common.JavaRuntimeInfo].java_home)
@@ -242,6 +246,10 @@ def _bootclasspath_impl(ctx):
     )
     return [
         DefaultInfo(files = depset([bootclasspath])),
+        java_common.BootClassPathInfo(
+            bootclasspath = [bootclasspath],
+            system = system,
+        ),
         OutputGroupInfo(jar = [bootclasspath]),
     ]
 

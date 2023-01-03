@@ -157,7 +157,6 @@ public final class CcCommon implements StarlarkValue {
       ImmutableSet.of(
           CppActionNames.OBJC_COMPILE,
           CppActionNames.OBJCPP_COMPILE,
-          CppActionNames.OBJC_ARCHIVE,
           CppActionNames.OBJC_FULLY_LINK,
           CppActionNames.OBJC_EXECUTABLE,
           CppActionNames.OBJCPP_EXECUTABLE);

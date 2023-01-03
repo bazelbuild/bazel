@@ -717,17 +717,6 @@ sh_test(
 )
 
 sh_test(
-    name = "git_repository_test",
-    size = "large",
-    srcs = ["git_repository_test.sh"],
-    data = [
-        ":test-deps",
-        "//src/test/shell/bazel/testdata:git-repos",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-)
-
-sh_test(
     name = "starlark_git_repository_test",
     size = "large",
     srcs = ["starlark_git_repository_test.sh"],

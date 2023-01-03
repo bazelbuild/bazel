@@ -44,24 +44,24 @@ public class SingleExtensionUsagesFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-    BazelModuleResolutionValue bazelModuleResolutionValue =
-        (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
-    if (bazelModuleResolutionValue == null) {
+    BazelDepGraphValue bazelDepGraphValue =
+        (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
+    if (bazelDepGraphValue == null) {
       return null;
     }
 
     ModuleExtensionId id = (ModuleExtensionId) skyKey.argument();
     ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> usagesTable =
-        bazelModuleResolutionValue.getExtensionUsagesTable();
+        bazelDepGraphValue.getExtensionUsagesTable();
     return SingleExtensionUsagesValue.create(
         usagesTable.row(id),
-        bazelModuleResolutionValue.getExtensionUniqueNames().get(id),
+        bazelDepGraphValue.getExtensionUniqueNames().get(id),
         // Filter abridged modules down to only those that actually used this extension.
-        bazelModuleResolutionValue.getAbridgedModules().stream()
+        bazelDepGraphValue.getAbridgedModules().stream()
             .filter(module -> usagesTable.contains(id, module.getKey()))
             .collect(toImmutableList()),
         // TODO(wyv): Maybe cache these mappings?
         usagesTable.row(id).keySet().stream()
-            .collect(toImmutableMap(key -> key, bazelModuleResolutionValue::getFullRepoMapping)));
+            .collect(toImmutableMap(key -> key, bazelDepGraphValue::getFullRepoMapping)));
   }
 }

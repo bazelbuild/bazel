@@ -64,12 +64,11 @@ DIST_DEPS = {
         "package_version": "0.0.2",
     },
     "rules_java": {
-        "archive": "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-        "sha256": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
-        "strip_prefix": "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
+        "archive": "rules_java-5.4.0.tar.gz",
+        "sha256": "9b87757af5c77e9db5f7c000579309afae75cf6517da745de01ba0c6e4870951",
+        "strip_prefix": "",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-            "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+            "https://github.com/bazelbuild/rules_java/releases/download/5.4.0/rules_java-5.4.0.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -78,8 +77,7 @@ DIST_DEPS = {
         "license_kinds": [
             "@rules_license//licenses/spdx:Apache-2.0",
         ],
-        # TODO(bazel-team): Update to a newer version
-        "package_version": "2019-06-28",
+        "package_version": "5.4.0",
     },
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_proto": {

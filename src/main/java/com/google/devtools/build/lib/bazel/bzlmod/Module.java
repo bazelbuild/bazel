@@ -115,7 +115,7 @@ public abstract class Module {
 
   /**
    * Returns a {@link RepositoryMapping} with only Bazel module repos and no repos from module
-   * extensions. For the full mapping, see {@link BazelModuleResolutionValue#getFullRepoMapping}.
+   * extensions. For the full mapping, see {@link BazelDepGraphValue#getFullRepoMapping}.
    */
   public final RepositoryMapping getRepoMappingWithBazelDepsOnly() {
     ImmutableMap.Builder<String, RepositoryName> mapping = ImmutableMap.builder();

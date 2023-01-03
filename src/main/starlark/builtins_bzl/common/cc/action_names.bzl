@@ -77,9 +77,6 @@ CPP_LINK_STATIC_LIBRARY_ACTION_NAME = "c++-link-static-library"
 # Name of the action stripping the binary.
 STRIP_ACTION_NAME = "strip"
 
-# A string constant for the objc archive action.
-OBJC_ARCHIVE_ACTION_NAME = "objc-archive"
-
 # A string constant for the objc compilation action.
 OBJC_COMPILE_ACTION_NAME = "objc-compile"
 
@@ -122,7 +119,6 @@ ACTION_NAMES = struct(
     cpp_link_nodeps_dynamic_library = CPP_LINK_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME,
     cpp_link_static_library = CPP_LINK_STATIC_LIBRARY_ACTION_NAME,
     strip = STRIP_ACTION_NAME,
-    objc_archive = OBJC_ARCHIVE_ACTION_NAME,
     objc_compile = OBJC_COMPILE_ACTION_NAME,
     objc_executable = OBJC_EXECUTABLE_ACTION_NAME,
     objc_fully_link = OBJC_FULLY_LINK_ACTION_NAME,

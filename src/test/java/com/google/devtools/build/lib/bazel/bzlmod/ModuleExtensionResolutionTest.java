@@ -196,12 +196,12 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.PACKAGE,
                     new PackageFunction(
-                        /*packageFactory=*/ null,
-                        /*pkgLocator=*/ null,
-                        /*showLoadingProgress=*/ null,
-                        /*numPackagesSuccessfullyLoaded=*/ new AtomicInteger(),
-                        /*bzlLoadFunctionForInlining=*/ null,
-                        /*packageProgress=*/ null,
+                        /* packageFactory= */ null,
+                        /* pkgLocator= */ null,
+                        /* showLoadingProgress= */ null,
+                        /* numPackagesSuccessfullyLoaded= */ new AtomicInteger(),
+                        /* bzlLoadFunctionForInlining= */ null,
+                        /* packageProgress= */ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
                             .INSTANCE,
                         GlobbingStrategy.SKYFRAME_HYBRID,
@@ -221,7 +221,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.IGNORED_PACKAGE_PREFIXES,
                     new IgnoredPackagePrefixesFunction(
-                        /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
+                        /* ignoredPackagePrefixesFile= */ PathFragment.EMPTY_FRAGMENT))
                 .put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction())
                 .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction())
                 .put(
@@ -234,7 +234,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                         ruleClassProvider,
                         packageFactory,
                         directories,
-                        /*bzlLoadFunctionForInlining=*/ null))
+                        /* bzlLoadFunctionForInlining= */ null))
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
                     new RepositoryDelegatorFunction(
@@ -247,6 +247,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))
+                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
                 .put(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)

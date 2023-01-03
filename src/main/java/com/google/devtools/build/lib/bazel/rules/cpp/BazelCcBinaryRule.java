@@ -192,13 +192,13 @@ cc_library(
 </p>
 
 <p>
-  Unfortunately Bazel currently cannot distinguish between direct and transitive
-  inclusions, so it cannot detect error cases where a file illegally includes a
-  header directly that is only allowed to be included transitively. For example,
-  Bazel would not complain if in the example above <code>foo.cc</code> directly
-  includes <code>baz.h</code>. This would be illegal, because <code>foo</code>
-  does not directly depend on <code>baz</code>. Currently, no error is produced
-  in that case, but such error checking may be added in the future.
+  Bazel depends on toolchain support to enforce the inclusion checking rules.
+  The <code>layering_check</code> feature has to be supported by the toolchain
+  and requested explicitly, for example via the
+  <code>--features=layering_check</code> command-line flag or the
+  <code>features</code> parameter of the
+  <a href="${link package}"><code>package</code></a> function. The toolchains
+  provided by Bazel only support this feature with clang on Unix and macOS.
 </p>
 
 <!-- #END_BLAZE_RULE -->*/

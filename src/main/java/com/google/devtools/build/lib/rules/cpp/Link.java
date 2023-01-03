@@ -115,14 +115,6 @@ public abstract class Link {
         ArtifactCategory.STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
 
-    /** An objc static archive. */
-    OBJC_ARCHIVE(
-        LinkerOrArchiver.ARCHIVER,
-        CppActionNames.OBJC_ARCHIVE,
-        Picness.NOPIC,
-        ArtifactCategory.STATIC_LIBRARY,
-        Executable.NOT_EXECUTABLE),
-
     /** An objc fully linked static archive. */
     OBJC_FULLY_LINKED_ARCHIVE(
         LinkerOrArchiver.ARCHIVER,
