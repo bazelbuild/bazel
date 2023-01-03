@@ -49,6 +49,11 @@ def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_cu
         deploy_jar_args = _filtered_dict(kwargs, _DEPLOY_JAR_RULE_ATTRS)
         if is_test_rule_class:
             deploy_jar_args["testonly"] = True
+
+        # Do not let the deploy jar be matched by wildcard target patterns.
+        deploy_jar_args.setdefault("tags", [])
+        if "manual" not in deploy_jar_args["tags"]:
+            deploy_jar_args["tags"].append("manual")
         rule_deploy_jars(
             name = kwargs["name"] + DEPLOY_JAR_RULE_NAME_SUFFIX,  # to avoid collision
             binary = kwargs["name"],
