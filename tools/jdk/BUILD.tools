@@ -306,8 +306,8 @@ alias(
 bootclasspath(
     name = "platformclasspath",
     src = "DumpPlatformClassPath.java",
-    host_javabase = "current_java_runtime",
-    target_javabase = "current_java_runtime",
+    host_javabase = ":current_java_runtime",
+    target_javabase = ":current_java_runtime",
 )
 
 default_java_toolchain(
