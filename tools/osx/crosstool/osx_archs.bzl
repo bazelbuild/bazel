@@ -32,6 +32,8 @@ OSX_TOOLS_ARCHS = [
     "ios_armv7",
     "ios_arm64",
     "ios_arm64e",
+    "catalyst_x86_64",
+    "catalyst_arm64",
     "watchos_armv7k",
     "watchos_arm64_32",
     "tvos_arm64",

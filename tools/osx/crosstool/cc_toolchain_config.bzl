@@ -97,6 +97,10 @@ def _impl(ctx):
         target_system_name = "x86_64-apple-tvos{}-simulator".format(target_os_version)
     elif (ctx.attr.cpu == "watchos_x86_64"):
         target_system_name = "x86_64-apple-watchos{}-simulator".format(target_os_version)
+    elif (ctx.attr.cpu == "catalyst_x86_64"):
+        target_system_name = "x86_64-apple-ios{}-macabi".format(target_os_version)
+    elif (ctx.attr.cpu == "catalyst_arm64"):
+        target_system_name = "arm64-apple-ios{}-macabi".format(target_os_version)
     else:
         fail("Unreachable")
 
@@ -692,7 +696,9 @@ def _impl(ctx):
         ctx.attr.cpu == "watchos_armv7k" or
         ctx.attr.cpu == "watchos_i386" or
         ctx.attr.cpu == "watchos_x86_64" or
-        ctx.attr.cpu == "watchos_arm64"):
+        ctx.attr.cpu == "watchos_arm64" or
+        ctx.attr.cpu == "catalyst_x86_64" or
+        ctx.attr.cpu == "catalyst_arm64"):
         apply_default_compiler_flags_feature = feature(
             name = "apply_default_compiler_flags",
             flag_sets = [
@@ -941,7 +947,9 @@ def _impl(ctx):
         ctx.attr.cpu == "watchos_armv7k" or
         ctx.attr.cpu == "watchos_i386" or
         ctx.attr.cpu == "watchos_x86_64" or
-        ctx.attr.cpu == "watchos_arm64"):
+        ctx.attr.cpu == "watchos_arm64" or
+        ctx.attr.cpu == "catalyst_x86_64" or
+        ctx.attr.cpu == "catalyst_arm64"):
         contains_objc_source_feature = feature(
             name = "contains_objc_source",
             flag_sets = [
@@ -1260,35 +1268,68 @@ def _impl(ctx):
 
     coverage_feature = feature(name = "coverage")
 
-    include_system_dirs_feature = feature(
-        name = "include_system_dirs",
-        flag_sets = [
-            flag_set(
-                actions = [
-                    ACTION_NAMES.c_compile,
-                    ACTION_NAMES.cpp_compile,
-                    ACTION_NAMES.cpp_module_compile,
-                    ACTION_NAMES.cpp_header_parsing,
-                    ACTION_NAMES.objc_compile,
-                    ACTION_NAMES.objcpp_compile,
-                    "objc-executable",
-                    "objc++-executable",
-                    ACTION_NAMES.assemble,
-                    ACTION_NAMES.preprocess_assemble,
-                ],
-                flag_groups = [
-                    flag_group(
-                        flags = [
-                            "-isysroot",
-                            "%{sdk_dir}",
-                            "-F%{sdk_framework_dir}",
-                            "-F%{platform_developer_framework_dir}",
-                        ],
-                    ),
-                ],
-            ),
-        ],
-    )
+    if (ctx.attr.cpu == "catalyst_x86_64" or
+        ctx.attr.cpu == "catalyst_arm64"):
+        include_system_dirs_feature = feature(
+            name = "include_system_dirs",
+            flag_sets = [
+                flag_set(
+                    actions = [
+                        ACTION_NAMES.c_compile,
+                        ACTION_NAMES.cpp_compile,
+                        ACTION_NAMES.cpp_module_compile,
+                        ACTION_NAMES.cpp_header_parsing,
+                        ACTION_NAMES.objc_compile,
+                        ACTION_NAMES.objcpp_compile,
+                        "objc-executable",
+                        "objc++-executable",
+                        ACTION_NAMES.assemble,
+                        ACTION_NAMES.preprocess_assemble,
+                    ],
+                    flag_groups = [
+                        flag_group(
+                            flags = [
+                                "-isysroot",
+                                "%{sdk_dir}",
+                                "-F%{sdk_framework_dir}",
+                                "-F%{platform_developer_framework_dir}",
+                                "-F%{sdk_dir}/System/iOSSupport/System/Library/Frameworks",
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        )
+    else:
+        include_system_dirs_feature = feature(
+            name = "include_system_dirs",
+            flag_sets = [
+                flag_set(
+                    actions = [
+                        ACTION_NAMES.c_compile,
+                        ACTION_NAMES.cpp_compile,
+                        ACTION_NAMES.cpp_module_compile,
+                        ACTION_NAMES.cpp_header_parsing,
+                        ACTION_NAMES.objc_compile,
+                        ACTION_NAMES.objcpp_compile,
+                        "objc-executable",
+                        "objc++-executable",
+                        ACTION_NAMES.assemble,
+                        ACTION_NAMES.preprocess_assemble,
+                    ],
+                    flag_groups = [
+                        flag_group(
+                            flags = [
+                                "-isysroot",
+                                "%{sdk_dir}",
+                                "-F%{sdk_framework_dir}",
+                                "-F%{platform_developer_framework_dir}",
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        )
 
     input_param_flags_feature = feature(
         name = "input_param_flags",
@@ -1542,7 +1583,9 @@ def _impl(ctx):
         ctx.attr.cpu == "watchos_armv7k" or
         ctx.attr.cpu == "watchos_i386" or
         ctx.attr.cpu == "watchos_x86_64" or
-        ctx.attr.cpu == "watchos_arm64"):
+        ctx.attr.cpu == "watchos_arm64" or
+        ctx.attr.cpu == "catalyst_x86_64" or
+        ctx.attr.cpu == "catalyst_arm64"):
         apply_implicit_frameworks_feature = feature(
             name = "apply_implicit_frameworks",
             flag_sets = [
@@ -2395,6 +2438,8 @@ def _impl(ctx):
         ctx.attr.cpu == "tvos_arm64" or
         ctx.attr.cpu == "watchos_arm64_32" or
         ctx.attr.cpu == "watchos_armv7k" or
+        ctx.attr.cpu == "catalyst_x86_64" or
+        ctx.attr.cpu == "catalyst_arm64" or
         ctx.attr.cpu == "darwin_x86_64" or
         ctx.attr.cpu == "darwin_arm64" or
         ctx.attr.cpu == "darwin_arm64e"):
@@ -2652,7 +2697,9 @@ def _impl(ctx):
         ctx.attr.cpu == "watchos_armv7k" or
         ctx.attr.cpu == "watchos_i386" or
         ctx.attr.cpu == "watchos_x86_64" or
-        ctx.attr.cpu == "watchos_arm64"):
+        ctx.attr.cpu == "watchos_arm64" or
+        ctx.attr.cpu == "catalyst_x86_64" or
+        ctx.attr.cpu == "catalyst_arm64"):
         features = [
             fastbuild_feature,
             no_legacy_features_feature,

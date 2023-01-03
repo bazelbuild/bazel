@@ -33,6 +33,7 @@ import net.starlark.java.eval.StarlarkValue;
             + " href='apple_common.html#platform'>apple_common.platform</a> struct:<br><ul>"
             + "<li><code>apple_common.platform.ios_device</code></li>"
             + "<li><code>apple_common.platform.ios_simulator</code></li>"
+            + "<li><code>apple_common.platform.catalyst</code></li>"
             + "<li><code>apple_common.platform.macos</code></li>"
             + "<li><code>apple_common.platform.tvos_device</code></li>"
             + "<li><code>apple_common.platform.tvos_simulator</code></li>"

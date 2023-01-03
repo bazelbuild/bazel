@@ -30,6 +30,7 @@ import net.starlark.java.eval.StarlarkValue;
             + " href='apple_common.html#platform_type'>apple_common.platform_type</a>:<br><ul>"
             + "<li><code>apple_common.platform_type.ios</code></li>"
             + "<li><code>apple_common.platform_type.macos</code></li>"
+            + "<li><code>apple_common.platform_type.catalyst</code></li>"
             + "<li><code>apple_common.platform_type.tvos</code></li>"
             + "<li><code>apple_common.platform_type.watchos</code></li></ul><p>Likewise, the"
             + " platform type of an existing platform value can be retrieved using its"
