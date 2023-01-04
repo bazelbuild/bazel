@@ -34,7 +34,7 @@ public final class DefStatement extends Statement {
       Identifier identifier,
       ImmutableList<Parameter> parameters,
       ImmutableList<Statement> body) {
-    super(locs);
+    super(locs, Kind.DEF);
     this.defOffset = defOffset;
     this.identifier = identifier;
     this.parameters = Preconditions.checkNotNull(parameters);
@@ -87,10 +87,5 @@ public final class DefStatement extends Statement {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.DEF;
   }
 }

@@ -46,7 +46,7 @@ public final class BinaryOperatorExpression extends Expression {
 
   BinaryOperatorExpression(
       FileLocations locs, Expression x, TokenKind op, int opOffset, Expression y) {
-    super(locs);
+    super(locs, Kind.BINARY_OPERATOR);
     this.x = x;
     this.op = op;
     this.opOffset = opOffset;
@@ -92,10 +92,5 @@ public final class BinaryOperatorExpression extends Expression {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.BINARY_OPERATOR;
   }
 }
