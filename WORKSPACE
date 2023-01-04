@@ -613,6 +613,7 @@ maven_install(
     artifacts = [
        "com.google.guava:guava:31.1-jre",
        "com.google.guava:guava-testlib:31.1-jre",
+       "com.google.guava:failureaccess:1.0.1",
        "com.google.errorprone:error_prone_annotations:2.16",
        "com.google.errorprone:error_prone_type_annotations:2.16",
        "com.google.code.findbugs:jsr305:3.0.2",
