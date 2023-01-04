@@ -225,6 +225,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   // Note that these configurations are virtual (they use only VFS)
   protected BuildConfigurationCollection masterConfig;
   protected BuildConfigurationValue targetConfig; // "target" or "build" config
+  protected BuildConfigurationValue execConfig;
   private List<String> configurationArgs;
 
   protected OptionsParser optionsParser;
@@ -619,6 +620,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     masterConfig = createConfigurations(starlarkOptions, actualArgs.toArray(new String[0]));
     targetConfig = getTargetConfiguration();
+    if (!scratch.resolve("platform/BUILD").exists()) {
+      scratch.overwriteFile("platform/BUILD", "platform(name = 'exec')");
+    }
+    execConfig =
+        skyframeExecutor.getConfiguration(
+            reporter,
+            AnalysisTestUtil.execOptions(targetConfig.getOptions(), reporter),
+            /* keepGoing= */ false);
+
     targetConfigKey = targetConfig.getKey();
     configurationArgs = actualArgs;
     createBuildView();
@@ -636,8 +646,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     Preconditions.checkNotNull(masterConfig);
     Preconditions.checkState(
         getHostConfiguration().equals(getTargetConfiguration())
-            || getHostConfiguration().isHostConfiguration(),
-        "Host configuration %s is not a host configuration' "
+            || getHostConfiguration().isExecConfiguration(),
+        "Host configuration %s is not an exec configuration' "
             + "and does not match target configuration %s",
         getHostConfiguration(),
         getTargetConfiguration());
@@ -1932,8 +1942,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return masterConfig.getTargetConfiguration();
   }
 
+  // TODO(b/496767290): rename "host" -> "exec".
   protected BuildConfigurationValue getHostConfiguration() {
-    return masterConfig.getHostConfiguration();
+    return execConfig;
   }
 
   /**

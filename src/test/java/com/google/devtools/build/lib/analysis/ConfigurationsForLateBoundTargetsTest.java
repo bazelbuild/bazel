@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
@@ -107,7 +108,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
   }
 
   @Test
-  public void lateBoundAttributeInHostConfiguration() throws Exception {
+  public void lateBoundAttributeInExecConfiguration() throws Exception {
     scratch.file("foo/BUILD",
         "genrule(",
         "    name = 'gen',",
@@ -127,13 +128,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
             SkyframeExecutorTestUtils.getExistingConfiguredTargets(
                 skyframeExecutor, Label.parseCanonical("//foo:latebound_dep")));
     assertThat(deps).hasSize(2);
-    ConfiguredTarget dep =
-        deps.stream()
-            .filter(d -> getConfiguration(d).equals(getHostConfiguration()))
-            .findFirst()
-            .get();
-    // This is technically redundant, but slightly stronger in checking that the host configuration
-    // doesn't happen to match what the patch would have done.
-    assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).fooFlag).isEmpty();
+    assertThat(deps.stream().filter(d -> getConfiguration(d).isExecConfiguration()).findFirst())
+        .isPresent();
   }
 }

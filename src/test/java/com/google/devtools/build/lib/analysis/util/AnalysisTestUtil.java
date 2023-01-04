@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -44,14 +45,20 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Options;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
+import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -505,8 +512,7 @@ public final class AnalysisTestUtil {
   public static Set<String> artifactsToStrings(
       BuildConfigurationCollection configurations, Iterable<? extends Artifact> artifacts) {
     BuildConfigurationValue targetConfiguration = configurations.getTargetConfiguration();
-    BuildConfigurationValue hostConfiguration = configurations.getHostConfiguration();
-    return artifactsToStrings(targetConfiguration, hostConfiguration, artifacts);
+    return artifactsToStrings(targetConfiguration, artifacts);
   }
 
   /**
@@ -517,7 +523,6 @@ public final class AnalysisTestUtil {
    */
   public static Set<String> artifactsToStrings(
       BuildConfigurationValue targetConfiguration,
-      BuildConfigurationValue hostConfiguration,
       Iterable<? extends Artifact> artifacts) {
     Map<String, String> rootMap = new HashMap<>();
     computeRootPaths(
@@ -529,17 +534,6 @@ public final class AnalysisTestUtil {
     computeRootPaths(
         targetConfiguration.getMiddlemanDirectory(RepositoryName.MAIN),
         path -> rootMap.put(path, "internal"));
-
-    computeRootPaths(
-        hostConfiguration.getBinDirectory(RepositoryName.MAIN),
-        path -> rootMap.put(path, "bin(host)"));
-    // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore
-    computeRootPaths(
-        hostConfiguration.getGenfilesDirectory(RepositoryName.MAIN),
-        path -> rootMap.put(path, "bin(host)"));
-    computeRootPaths(
-        hostConfiguration.getMiddlemanDirectory(RepositoryName.MAIN),
-        path -> rootMap.put(path, "internal(host)"));
 
     Set<String> files = new LinkedHashSet<>();
     for (Artifact artifact : artifacts) {
@@ -565,5 +559,18 @@ public final class AnalysisTestUtil {
         /*repoMappingManifest=*/ null,
         /*buildRunfileLinks=*/ false,
         /*runfileLinksEnabled=*/ false);
+  }
+
+  public static BuildOptions execOptions(BuildOptions targetOptions, EventHandler handler)
+      throws InterruptedException {
+    return Iterables.getOnlyElement(
+        ExecutionTransitionFactory.create()
+            .create(
+                AttributeTransitionData.builder()
+                    .attributes(FakeAttributeMapper.empty())
+                    .executionPlatform(Label.parseAbsoluteUnchecked("//platform:exec"))
+                    .build())
+            .apply(new BuildOptionsView(targetOptions, targetOptions.getFragmentClasses()), handler)
+            .values());
   }
 }

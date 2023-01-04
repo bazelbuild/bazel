@@ -265,7 +265,11 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
    *
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
+  // TODO(b/496767290): rename "host" -> "exec".
   protected BuildConfigurationValue createHost(String... args) throws Exception {
-    return createCollection(args).getHostConfiguration();
+    return skyframeExecutor.getConfiguration(
+        reporter,
+        AnalysisTestUtil.execOptions(parseBuildOptions(args), reporter),
+        /* keepGoing= */ false);
   }
 }

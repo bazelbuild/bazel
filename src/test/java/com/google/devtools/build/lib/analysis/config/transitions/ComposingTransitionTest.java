@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -132,24 +131,6 @@ public final class ComposingTransitionTest {
         () ->
             composed.apply(
                 TransitionUtil.restrict(composed, BuildOptions.builder().build()), eventHandler));
-  }
-
-  @Test
-  public void compose_host_first() {
-    ConfigurationTransition composed =
-        ComposingTransition.of(HostTransition.INSTANCE, new StubPatch(FLAG_1, "value2"));
-
-    assertThat(composed).isNotNull();
-    assertThat(composed.isHostTransition()).isTrue();
-  }
-
-  @Test
-  public void compose_host_second() {
-    ConfigurationTransition composed =
-        ComposingTransition.of(new StubPatch(FLAG_1, "value2"), HostTransition.INSTANCE);
-
-    assertThat(composed).isNotNull();
-    assertThat(composed.isHostTransition()).isTrue();
   }
 
   @Test

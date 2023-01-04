@@ -93,10 +93,8 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
@@ -1445,13 +1443,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     BuildConfigurationValue topLevelTargetConfig =
         getConfiguration(eventHandler, buildOptions, keepGoing);
 
-    BuildOptionsView hostTransitionOptionsView =
-        new BuildOptionsView(
-            topLevelTargetConfig.getOptions(), HostTransition.INSTANCE.requiresOptionFragments());
-    BuildOptions hostOptions =
-        HostTransition.INSTANCE.patch(hostTransitionOptionsView, eventHandler);
-    BuildConfigurationValue hostConfig = getConfiguration(eventHandler, hostOptions, keepGoing);
-
     // TODO(gregce): cache invalid option errors in BuildConfigurationFunction, then use a dedicated
     // accessor (i.e. not the event handler) to trigger the exception below.
     ErrorSensingEventHandler<Void> nosyEventHandler =
@@ -1461,7 +1452,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       throw new InvalidConfigurationException(
           "Build options are invalid", Code.INVALID_BUILD_OPTIONS);
     }
-    return new BuildConfigurationCollection(topLevelTargetConfig, hostConfig);
+    return new BuildConfigurationCollection(topLevelTargetConfig);
   }
 
   /**

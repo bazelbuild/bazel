@@ -18,37 +18,22 @@ import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
 /**
- * Convenience container for top-level target and host configurations.
+ * Convenience container for top-level target configuration.
  *
  * <p>The target configuration is used for all targets specified on the command line.
- *
- * <p>The host configuration is used for tools that are executed during the build, e. g, compilers.
  */
+// TODO(b/253313672): replace this class with just a BuildConfigurationValue (hostConfig is gone)
 @ThreadSafe
 public final class BuildConfigurationCollection {
   private final BuildConfigurationValue targetConfiguration;
-  private final BuildConfigurationValue hostConfiguration;
 
-  public BuildConfigurationCollection(
-      BuildConfigurationValue targetConfiguration, BuildConfigurationValue hostConfiguration)
+  public BuildConfigurationCollection(BuildConfigurationValue targetConfiguration)
       throws InvalidConfigurationException {
     this.targetConfiguration = targetConfiguration;
-    this.hostConfiguration = hostConfiguration;
   }
 
   public BuildConfigurationValue getTargetConfiguration() {
     return targetConfiguration;
-  }
-
-  /**
-   * Returns the host configuration for this collection.
-   *
-   * <p>Don't use this method. It's limited in that it assumes a single host configuration for the
-   * entire collection. This may not be true in the future and more flexible interfaces will likely
-   * supplant this interface anyway.
-   */
-  public BuildConfigurationValue getHostConfiguration() {
-    return hostConfiguration;
   }
 
   @Override
@@ -72,7 +57,6 @@ public final class BuildConfigurationCollection {
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("targetConfiguration", targetConfiguration.checksum())
-        .add("hostConfiguration", hostConfiguration.checksum())
         .toString();
   }
 }

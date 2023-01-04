@@ -97,7 +97,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
 
-    BuildConfigurationValue hostConfig = configs.getHostConfiguration();
+    BuildConfigurationValue hostConfig = createHost();
     assertThat(hostConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
   }

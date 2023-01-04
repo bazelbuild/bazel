@@ -80,7 +80,7 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         "    toolchain = ':bar',",
         ")");
 
-    scratch.file(
+    scratch.overwriteFile(
         "platform/BUILD",
         "constraint_setting(name = 'setting')",
         "constraint_value(",

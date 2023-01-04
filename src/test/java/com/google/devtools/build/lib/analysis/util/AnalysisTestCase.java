@@ -167,6 +167,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   // Note that these configurations are virtual (they use only VFS)
   private BuildConfigurationCollection universeConfig;
+  private BuildConfigurationValue execConfig;
 
   private AnalysisResult analysisResult;
   protected SkyframeExecutor skyframeExecutor = null;
@@ -376,8 +377,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return universeConfig.getTargetConfiguration();
   }
 
+  // TODO(b/496767290): rename "host" -> "exec".
   protected BuildConfigurationValue getHostConfiguration() {
-    return universeConfig.getHostConfiguration();
+    return execConfig;
   }
 
   protected final void ensureUpdateWasCalled() {
@@ -456,7 +458,16 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       buildView.clearAnalysisCache(
           analysisResult.getTargetsToBuild(), analysisResult.getAspectsMap().keySet());
     }
+
     universeConfig = analysisResult.getConfigurationCollection();
+    scratch.overwriteFile("platform/BUILD", "platform(name = 'exec')");
+    execConfig =
+        skyframeExecutor.getConfiguration(
+            reporter,
+            AnalysisTestUtil.execOptions(
+                universeConfig.getTargetConfiguration().getOptions(), reporter),
+            /* keepGoing= */ false);
+
     return analysisResult;
   }
 
