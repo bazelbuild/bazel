@@ -786,7 +786,7 @@ public class RuleClass {
     private final Map<String, ExecGroup> execGroups = new HashMap<>();
 
     /**
-     * Constructs a new {@code RuleClassBuilder} using all attributes from all parent rule classes.
+     * Constructs a new {@link RuleClass.Builder} using all attributes from all parent rule classes.
      * An attribute cannot exist in more than one parent.
      *
      * <p>The rule type affects the allowed names and the required attributes (see {@link
