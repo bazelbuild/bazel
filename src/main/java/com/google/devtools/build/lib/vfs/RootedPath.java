@@ -25,9 +25,6 @@ import javax.annotation.Nullable;
  *
  * <p>Two {@link RootedPath}s are considered equal iff they have equal roots and equal relative
  * paths.
- *
- * <p>TODO(bazel-team): use an opaque root representation so as to not expose the absolute path to
- * clients via #asPath or #getRoot.
  */
 @AutoCodec
 public class RootedPath implements Comparable<RootedPath>, FileStateKey {
