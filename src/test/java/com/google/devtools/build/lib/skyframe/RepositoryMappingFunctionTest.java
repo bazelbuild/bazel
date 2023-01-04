@@ -466,6 +466,18 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testMixtureOfBothSystems_workspaceRepo() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='2.0')",
+        "ext=use_extension('@ccc//:ext.bzl', 'ext')",
+        "use_repo(ext, 'ddd')");
+    registry
+        .addModule(createModuleKey("bbb", "1.0"), "module(name='bbb', version='1.0')")
+        .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
+
+    // Called last as it triggers package invalidation, which requires a valid MODULE.bazel setup.
     rewriteWorkspace(
         "workspace(name = 'root')",
         "local_repository(",
@@ -478,16 +490,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         "        '@eee_alias' : '@eee',",
         "    },",
         ")");
-    scratch.overwriteFile(
-        "MODULE.bazel",
-        "module(name='aaa',version='0.1')",
-        "bazel_dep(name='bbb',version='1.0')",
-        "bazel_dep(name='ccc',version='2.0')",
-        "ext=use_extension('@ccc//:ext.bzl', 'ext')",
-        "use_repo(ext, 'ddd')");
-    registry
-        .addModule(createModuleKey("bbb", "1.0"), "module(name='bbb', version='1.0')")
-        .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
 
     RepositoryName name = RepositoryName.create("ws_repo");
     SkyKey skyKey = RepositoryMappingValue.key(name);
@@ -516,12 +518,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testMixtureOfBothSystems_mainRepo() throws Exception {
-    rewriteWorkspace(
-        "workspace(name = 'root')",
-        "local_repository(",
-        "    name = 'ws_repo',",
-        "    path = '/ws_repo',",
-        ")");
     scratch.overwriteFile(
         "MODULE.bazel", "module(name='aaa',version='0.1')", "bazel_dep(name='bbb',version='1.0')");
     registry
@@ -529,6 +525,14 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
             createModuleKey("bbb", "1.0"),
             "module(name='bbb', version='1.0');bazel_dep(name='ccc', version='2.0')")
         .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
+
+    // Called last as it triggers package invalidation, which requires a valid MODULE.bazel setup.
+    rewriteWorkspace(
+        "workspace(name = 'root')",
+        "local_repository(",
+        "    name = 'ws_repo',",
+        "    path = '/ws_repo',",
+        ")");
 
     SkyKey skyKey = RepositoryMappingValue.key(RepositoryName.MAIN);
     assertThatEvaluationResult(eval(skyKey))
@@ -547,12 +551,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testMixtureOfBothSystems_mainRepo_shouldNotSeeWorkspaceRepos() throws Exception {
-    rewriteWorkspace(
-        "workspace(name = 'root')",
-        "local_repository(",
-        "    name = 'ws_repo',",
-        "    path = '/ws_repo',",
-        ")");
     scratch.overwriteFile(
         "MODULE.bazel", "module(name='aaa',version='0.1')", "bazel_dep(name='bbb',version='1.0')");
     registry
@@ -560,6 +558,14 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
             createModuleKey("bbb", "1.0"),
             "module(name='bbb', version='1.0');bazel_dep(name='ccc', version='2.0')")
         .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
+
+    // Called last as it triggers package invalidation, which requires a valid MODULE.bazel setup.
+    rewriteWorkspace(
+        "workspace(name = 'root')",
+        "local_repository(",
+        "    name = 'ws_repo',",
+        "    path = '/ws_repo',",
+        ")");
 
     SkyKey skyKey = RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS;
     assertThatEvaluationResult(eval(skyKey))

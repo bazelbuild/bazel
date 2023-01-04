@@ -18,9 +18,13 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,6 +35,8 @@ public class PlatformMappingFunctionParserTest {
 
   private static final Label PLATFORM1 = Label.parseCanonicalUnchecked("//platforms:one");
   private static final Label PLATFORM2 = Label.parseCanonicalUnchecked("//platforms:two");
+  private static final Label EXTERNAL_PLATFORM =
+      Label.parseCanonicalUnchecked("@dep~1.0//platforms:two");
 
   @Test
   public void testParse() throws Exception {
@@ -55,6 +61,37 @@ public class PlatformMappingFunctionParserTest {
         .containsExactly(ImmutableSet.of("--cpu=one"), ImmutableSet.of("--cpu=two"));
     assertThat(mappings.flagsToPlatforms.get(ImmutableSet.of("--cpu=one"))).isEqualTo(PLATFORM1);
     assertThat(mappings.flagsToPlatforms.get(ImmutableSet.of("--cpu=two"))).isEqualTo(PLATFORM2);
+  }
+
+  @Test
+  public void testParseWithRepoMapping() throws Exception {
+    PlatformMappingFunction.Mappings mappings =
+        parse(
+            RepositoryMapping.create(
+                ImmutableMap.of(
+                    "foo", RepositoryName.MAIN, "dep", RepositoryName.create("dep~1.0")),
+                RepositoryName.MAIN),
+            "platforms:",
+            "  @foo//platforms:one",
+            "    --cpu=one",
+            "  @dep//platforms:two",
+            "    --cpu=two",
+            "flags:",
+            "  --cpu=one",
+            "    @foo//platforms:one",
+            "  --cpu=two",
+            "    @dep//platforms:two");
+
+    assertThat(mappings.platformsToFlags.keySet()).containsExactly(PLATFORM1, EXTERNAL_PLATFORM);
+    assertThat(mappings.platformsToFlags.get(PLATFORM1).nativeFlags()).containsExactly("--cpu=one");
+    assertThat(mappings.platformsToFlags.get(EXTERNAL_PLATFORM).nativeFlags())
+        .containsExactly("--cpu=two");
+
+    assertThat(mappings.flagsToPlatforms.keySet())
+        .containsExactly(ImmutableSet.of("--cpu=one"), ImmutableSet.of("--cpu=two"));
+    assertThat(mappings.flagsToPlatforms.get(ImmutableSet.of("--cpu=one"))).isEqualTo(PLATFORM1);
+    assertThat(mappings.flagsToPlatforms.get(ImmutableSet.of("--cpu=two")))
+        .isEqualTo(EXTERNAL_PLATFORM);
   }
 
   @Test
@@ -393,6 +430,15 @@ public class PlatformMappingFunctionParserTest {
 
   private static PlatformMappingFunction.Mappings parse(String... lines)
       throws PlatformMappingFunction.PlatformMappingException {
-    return PlatformMappingFunction.parse(/* env= */ null, ImmutableList.copyOf(lines));
+    return parse(RepositoryMapping.ALWAYS_FALLBACK, lines);
+  }
+
+  private static PlatformMappingFunction.Mappings parse(
+      RepositoryMapping mainRepoMapping, String... lines)
+      throws PlatformMappingFunction.PlatformMappingException {
+    return PlatformMappingFunction.parse(
+        /* env= */ null,
+        ImmutableList.copyOf(lines),
+        RepoContext.of(RepositoryName.MAIN, mainRepoMapping));
   }
 }
