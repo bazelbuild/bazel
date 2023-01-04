@@ -556,9 +556,9 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--nostamp");
     createStampingTargets();
     assertStamped("//u:foo_stamp");
-    assertStamped(getHostConfiguredTarget("//u:foo_stamp"));
+    assertStamped(getExecConfiguredTarget("//u:foo_stamp"));
     assertNotStamped("//u:foo_nostamp");
-    assertNotStamped(getHostConfiguredTarget("//u:foo_nostamp"));
+    assertNotStamped(getExecConfiguredTarget("//u:foo_nostamp"));
     assertNotStamped("//u:foo_default");
   }
 
@@ -567,9 +567,9 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--stamp");
     createStampingTargets();
     assertStamped("//u:foo_stamp");
-    assertStamped(getHostConfiguredTarget("//u:foo_stamp"));
-    //assertStamped("//u:foo_nostamp");
-    assertNotStamped(getHostConfiguredTarget("//u:foo_nostamp"));
+    assertStamped(getExecConfiguredTarget("//u:foo_stamp"));
+    // assertStamped("//u:foo_nostamp");
+    assertNotStamped(getExecConfiguredTarget("//u:foo_nostamp"));
     assertNotStamped("//u:foo_default");
   }
 

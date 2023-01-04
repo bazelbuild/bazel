@@ -97,7 +97,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
 
-    BuildConfigurationValue hostConfig = createHost();
+    BuildConfigurationValue hostConfig = createExec();
     assertThat(hostConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
   }
@@ -235,26 +235,26 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
   @Test
   public void testHostDefine() throws Exception {
-    BuildConfigurationValue cfg = createHost("--define=foo=bar");
+    BuildConfigurationValue cfg = createExec("--define=foo=bar");
     assertThat(cfg.getCommandLineBuildVariables().get("foo")).isEqualTo("bar");
   }
 
   @Test
   public void testHostCompilationModeDefault() throws Exception {
-    BuildConfigurationValue cfg = createHost();
+    BuildConfigurationValue cfg = createExec();
     assertThat(cfg.getCompilationMode()).isEqualTo(CompilationMode.OPT);
   }
 
   @Test
   public void testHostCompilationModeNonDefault() throws Exception {
-    BuildConfigurationValue cfg = createHost("--host_compilation_mode=dbg");
+    BuildConfigurationValue cfg = createExec("--host_compilation_mode=dbg");
     assertThat(cfg.getCompilationMode()).isEqualTo(CompilationMode.DBG);
   }
 
   @Test
   public void testIncompatibleMergeGenfilesDirectory() throws Exception {
     BuildConfigurationValue target = create("--incompatible_merge_genfiles_directory");
-    BuildConfigurationValue host = createHost("--incompatible_merge_genfiles_directory");
+    BuildConfigurationValue host = createExec("--incompatible_merge_genfiles_directory");
     assertThat(target.getGenfilesDirectory(RepositoryName.MAIN))
         .isEqualTo(target.getBinDirectory(RepositoryName.MAIN));
     assertThat(host.getGenfilesDirectory(RepositoryName.MAIN))

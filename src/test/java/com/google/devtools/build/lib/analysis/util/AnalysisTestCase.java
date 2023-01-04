@@ -377,8 +377,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return universeConfig.getTargetConfiguration();
   }
 
-  // TODO(b/496767290): rename "host" -> "exec".
-  protected BuildConfigurationValue getHostConfiguration() {
+  protected BuildConfigurationValue getExecConfiguration() {
     return execConfig;
   }
 

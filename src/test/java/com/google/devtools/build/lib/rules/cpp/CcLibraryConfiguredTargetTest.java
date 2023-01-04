@@ -2023,7 +2023,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    hdrs = ['implementation_dep.h'],",
         ")");
 
-    getHostConfiguredTarget("//foo:public_dep");
+    assertThat(getExecConfiguredTarget("//foo:public_dep")).isNotNull();
+    ;
     assertDoesNotContainEvent("requires --experimental_cc_implementation_deps");
   }
 

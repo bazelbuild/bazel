@@ -121,7 +121,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
         "rule_with_test_fragment(",
         "    name = 'latebound_dep')");
     update("//foo:gen");
-    assertThat(getConfiguredTarget("//foo:foo", getHostConfiguration())).isNotNull();
+    assertThat(getConfiguredTarget("//foo:foo", getExecConfiguration())).isNotNull();
     // TODO(b/203203933) Fix LateboundDefault-s to return exec configuration
     ImmutableList<ConfiguredTarget> deps =
         ImmutableList.copyOf(

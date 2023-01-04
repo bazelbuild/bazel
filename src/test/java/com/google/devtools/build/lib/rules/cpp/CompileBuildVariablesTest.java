@@ -123,7 +123,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
         "--host_per_file_copt=//x:bar\\.cc@-bar",
         "--per_file_copt=//x:bin@-baz");
 
-    ConfiguredTarget target = getConfiguredTarget("//x:bin", getHostConfiguration());
+    ConfiguredTarget target = getConfiguredTarget("//x:bin", getExecConfiguration());
     CcToolchainVariables variables =
         getCppCompileAction(target, "bin").getCompileCommandLine().getVariables();
 

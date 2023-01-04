@@ -71,7 +71,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
         "--host_grte_top=//a/grte/top", "--noincompatible_enable_cc_toolchain_resolution");
     BuildConfigurationValue target = getTargetConfiguration();
     CcToolchainProvider targetCcProvider = getCcToolchainProvider(target);
-    BuildConfigurationValue host = getHostConfiguration();
+    BuildConfigurationValue host = getExecConfiguration();
     CcToolchainProvider hostCcProvider = getCcToolchainProvider(host);
 
     testCCFlagsContainsSysroot(host, "a/grte/top", true);
@@ -88,7 +88,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
         "--noincompatible_enable_cc_toolchain_resolution");
     BuildConfigurationValue target = getTargetConfiguration();
     CcToolchainProvider targetCcProvider = getCcToolchainProvider(target);
-    BuildConfigurationValue host = getHostConfiguration();
+    BuildConfigurationValue host = getExecConfiguration();
     CcToolchainProvider hostCcProvider = getCcToolchainProvider(host);
 
     assertThat(targetCcProvider.getSysroot()).isEqualTo("a/grte/top");
@@ -159,7 +159,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
     // The host BuildConfigurationValue shouldn't provide a sysroot option by default.
     for (String cpu : new String[] {"piii", "k8"}) {
       useConfiguration("--cpu=" + cpu, "--noincompatible_enable_cc_toolchain_resolution");
-      BuildConfigurationValue config = getHostConfiguration();
+      BuildConfigurationValue config = getExecConfiguration();
       testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
     }
     // The host BuildConfigurationValue should work with label grte_top options.
@@ -169,7 +169,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
           "--cpu=" + cpu,
           "--host_grte_top=//a/grte/top",
           "--noincompatible_enable_cc_toolchain_resolution");
-      BuildConfigurationValue config = getHostConfiguration();
+      BuildConfigurationValue config = getExecConfiguration();
       testCCFlagsContainsSysroot(config, "a/grte/top", true);
 
       // "--grte_top" does *not* set the host grte_top,
@@ -178,7 +178,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
           "--cpu=" + cpu,
           "--grte_top=//a/grte/top",
           "--noincompatible_enable_cc_toolchain_resolution");
-      config = getHostConfiguration();
+      config = getExecConfiguration();
       testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
 
       // If a host_crosstool_top is set, we shouldn't see the grte_top option in the host config.
@@ -188,7 +188,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
           "--grte_top=//a/grte/top",
           "--host_crosstool_top=" + analysisMock.ccSupport().getMockCrosstoolLabel(),
           "--noincompatible_enable_cc_toolchain_resolution");
-      config = getHostConfiguration();
+      config = getExecConfiguration();
       testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
     }
   }

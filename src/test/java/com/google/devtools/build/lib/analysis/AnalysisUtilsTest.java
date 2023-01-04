@@ -81,11 +81,11 @@ public class AnalysisUtilsTest extends ConfigurationTestCase {
 
   @Test
   public void stampingEnabled_stampDisabledInToolConfig_attributeYes() throws Exception {
-    assertThat(AnalysisUtils.isStampingEnabled(TriState.YES, createHost("--stamp"))).isFalse();
+    assertThat(AnalysisUtils.isStampingEnabled(TriState.YES, createExec("--stamp"))).isFalse();
   }
 
   @Test
   public void stampingEnabled_stampDisabledInToolConfig_attributeAuto() throws Exception {
-    assertThat(AnalysisUtils.isStampingEnabled(TriState.AUTO, createHost("--stamp"))).isFalse();
+    assertThat(AnalysisUtils.isStampingEnabled(TriState.AUTO, createExec("--stamp"))).isFalse();
   }
 }
