@@ -334,6 +334,7 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
+            "test_WORKSPACE_files",
         ],
         "package_version": "0.8.0",
     },
