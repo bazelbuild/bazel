@@ -768,10 +768,16 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     if (val instanceof BuildType.SelectorList) {
       List<Object> selectors = new ArrayList<>();
       for (BuildType.Selector<?> selector : ((BuildType.SelectorList<?>) val).getSelectors()) {
-        selectors.add(
-            new SelectorValue(
-                ((Map<?, ?>) starlarkifyValue(mu, selector.getEntries(), pkg)),
-                selector.getNoMatchError()));
+        Dict.Builder<Object, Object> m = Dict.builder();
+        selector.forEach(
+            (rawKey, rawValue) -> {
+              Object key = starlarkifyValue(mu, rawKey, pkg);
+              Object mapVal = starlarkifyValue(mu, rawValue, pkg);
+              if (key != null && mapVal != null) {
+                m.put(key, mapVal);
+              }
+            });
+        selectors.add(new SelectorValue(((Map<?, ?>) m.build(mu)), selector.getNoMatchError()));
       }
       try {
         return SelectorList.of(selectors);

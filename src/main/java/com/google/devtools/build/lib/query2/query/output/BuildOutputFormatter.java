@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.base.Ascii;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -208,11 +209,9 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
           ((BuildType.SelectorList<?>) attributeMap.getRawAttributeValue(rule, attr))
               .getSelectors()) {
         if (selector.isUnconditional()) {
-          selectors.add(
-              outputRawAttrValue(
-                  Iterables.getOnlyElement(selector.getEntries().entrySet()).getValue()));
+          selectors.add(outputRawAttrValue(Preconditions.checkNotNull(selector.getDefault())));
         } else {
-          selectors.add(String.format("select(%s)", outputRawAttrValue(selector.getEntries())));
+          selectors.add(String.format("select(%s)", outputRawAttrValue(selector.mapCopy())));
         }
       }
       return String.join(" + ", selectors);
