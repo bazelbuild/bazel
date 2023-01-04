@@ -161,6 +161,8 @@ pkg_tar(
     visibility = ["//:__subpackages__"],
 )
 
+# The @maven repository is created by maven_install from rules_jvm_external.
+# `@maven//:srcs` contains all jar files downloaded and BUILD files created by maven_install.
 pkg_tar(
     name = "maven-srcs",
     srcs = ["@maven//:srcs"],

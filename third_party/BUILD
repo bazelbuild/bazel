@@ -352,11 +352,9 @@ java_import(
     ],
 )
 
-distrib_java_import(
+java_library(
     name = "checker_framework_annotations",
-    enable_distributions = ["debian"],
-    jars = ["checker_framework_annotations/checker-qual-3.2.0.jar"],
-    srcjar = "checker_framework_annotations/checker-qual-3.2.0-sources.jar",
+    exports = ["@maven//:org_checkerframework_checker_qual"],
 )
 
 java_import(
@@ -389,19 +387,18 @@ java_import(
     ],
 )
 
-distrib_java_import(
+java_library(
     name = "error_prone_annotations",
-    enable_distributions = ["debian"],
-    jars = [
-        "error_prone/error_prone_annotations-2.16.jar",
-        "error_prone/error_prone_type_annotations-2.16.jar",
+    exports = [
+        "@maven//:com_google_errorprone_error_prone_annotations",
+        "@maven//:com_google_errorprone_error_prone_type_annotations",
     ],
 )
 
 distrib_jar_filegroup(
     name = "error_prone_annotations-jar",
     srcs = [
-        "error_prone/error_prone_annotations-2.16.jar",
+        "@maven//:com_google_errorprone_error_prone_annotations_file",
         "error_prone/threeten-extra-1.5.0.jar",
     ],
     enable_distributions = ["debian"],
@@ -430,11 +427,10 @@ java_import(
     ],
 )
 
-distrib_java_import(
+java_library(
     name = "jcip_annotations",
-    enable_distributions = ["debian"],
-    jars = [
-        "jcip_annotations/jcip-annotations-1.0-1.jar",
+    exports = [
+        "@maven//:com_github_stephenc_jcip_jcip_annotations",
     ],
 )
 
@@ -442,7 +438,7 @@ distrib_java_import(
 distrib_jar_filegroup(
     name = "jcip_annotations-jars",
     srcs = [
-        "jcip_annotations/jcip-annotations-1.0-1.jar",
+        "@maven//:com_github_stephenc_jcip_jcip_annotations_file",
     ],
     enable_distributions = ["debian"],
 )
@@ -469,9 +465,9 @@ java_library(
     name = "guava",
     exports = [
        "@maven//:com_google_guava_guava",
-       "@maven//:com_google_errorprone_error_prone_annotations",
-       "@maven//:com_google_code_findbugs_jsr305",
-       "@maven//:com_github_stephenc_jcip_jcip_annotations",
+       ":error_prone_annotations",
+       ":jsr305",
+       ":jcip_annotations",
     ],
     applicable_licenses = [":guava_license"],
 )
@@ -582,16 +578,15 @@ java_import(
     jars = ["jimfs/jimfs-1.1.jar"],
 )
 
-distrib_java_import(
+java_library(
     name = "jsr305",
-    enable_distributions = ["debian"],
-    jars = ["jsr305/jsr-305.jar"],
+    exports = ["@maven//:com_google_code_findbugs_jsr305"],
 )
 
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "jsr305-jars",
-    srcs = ["jsr305/jsr-305.jar"],
+    srcs = ["@maven//:com_google_code_findbugs_jsr305_file"],
     enable_distributions = ["debian"],
 )
 
