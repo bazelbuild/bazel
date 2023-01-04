@@ -612,6 +612,7 @@ load("@rules_jvm_external//:defs.bzl", "maven_install")
 maven_install(
     artifacts = [
        "com.google.guava:guava:31.1-jre",
+       "com.google.guava:guava-testlib:31.1-jre",
        "com.google.errorprone:error_prone_annotations:2.16",
        "com.google.errorprone:error_prone_type_annotations:2.16",
        "com.google.code.findbugs:jsr305:3.0.2",

@@ -708,9 +708,9 @@ java_import(
     jars = ["diffutils/diffutils-1.3.0.jar"],
 )
 
-java_import(
+java_library(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-31.1-jre.jar"],
+    exports = ["@maven//:com_google_guava_guava_testlib"],
 )
 
 distrib_java_import(
