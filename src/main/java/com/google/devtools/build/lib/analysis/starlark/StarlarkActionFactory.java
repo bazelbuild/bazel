@@ -542,7 +542,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     registerStarlarkAction(
         outputs,
         inputs,
-        /*unusedInputsList=*/ Starlark.NONE,
+        /* unusedInputsList= */ Starlark.NONE,
         toolsUnchecked,
         mnemonicUnchecked,
         progressMessage,

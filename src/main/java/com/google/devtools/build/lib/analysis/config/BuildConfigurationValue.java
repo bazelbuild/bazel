@@ -465,6 +465,11 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return outputDirectories.getMnemonic();
   }
 
+  /** Returns whether to use automatic exec groups. */
+  public boolean useAutoExecGroups() {
+    return options.useAutoExecGroups;
+  }
+
   /**
    * Returns the name of the base output directory under which actions in this configuration write
    * their outputs.
