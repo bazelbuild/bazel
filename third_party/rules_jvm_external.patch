@@ -1,4 +1,4 @@
-commit f1ba47abc65e4ab0a2096aa99c66a73d41fca16c
+commit 942a4c51d47d1625af7b4d43f7e61fcc4a259dfc
 Author: Yun Peng <pcloudy@google.com>
 Date:   Thu Jan 5 16:37:29 2023 +0800
 
@@ -72,7 +72,7 @@ index 901a6b0..d763f01 100644
          dep_tree = dep_tree,
          explicit_artifacts = {
 diff --git a/private/dependency_tree_parser.bzl b/private/dependency_tree_parser.bzl
-index 8515bf5..24ce69e 100644
+index 8515bf5..0b525a8 100644
 --- a/private/dependency_tree_parser.bzl
 +++ b/private/dependency_tree_parser.bzl
 @@ -107,6 +107,9 @@ def _generate_imports(repository_ctx, dep_tree, explicit_artifacts, neverlink_ar
@@ -93,16 +93,17 @@ index 8515bf5..24ce69e 100644
  
              # 10. Create a versionless alias target
              #
-@@ -346,6 +350,8 @@ def _generate_imports(repository_ctx, dep_tree, explicit_artifacts, neverlink_ar
+@@ -346,6 +350,9 @@ def _generate_imports(repository_ctx, dep_tree, explicit_artifacts, neverlink_ar
              versioned_target_alias_label = escape(strip_packaging_and_classifier(artifact["coord"]))
              all_imports.append("alias(\n\tname = \"%s\",\n\tactual = \"%s\",\n%s)" %
                                 (versioned_target_alias_label, target_label, alias_visibility))
-+            vendor_targets.append("filegroup(\n\tname = \"%s\",\n\tsrcs = [\"%s\"],\n%s)" %
-+                                  (target_label + "_file", artifact_path, alias_visibility))
++            file_group_target_string = "filegroup(\n\tname = \"%s\",\n\tsrcs = [\"%s\"],\n%s)" % (target_label + "_file", artifact_path, alias_visibility)
++            all_imports.append(file_group_target_string)
++            vendor_targets.append(file_group_target_string)
  
              # 11. If using maven_install.json, use a genrule to copy the file from the http_file
              # repository into this repository.
-@@ -359,6 +365,9 @@ def _generate_imports(repository_ctx, dep_tree, explicit_artifacts, neverlink_ar
+@@ -359,6 +366,9 @@ def _generate_imports(repository_ctx, dep_tree, explicit_artifacts, neverlink_ar
              if repository_ctx.attr.maven_install_json:
                  all_imports.append(_genrule_copy_artifact_from_http_file(artifact, default_visibilities))
  
@@ -112,7 +113,7 @@ index 8515bf5..24ce69e 100644
          else:  # artifact_path == None:
              # Special case for certain artifacts that only come with a POM file.
              # Such artifacts "aggregate" their dependencies, so they don't have
-@@ -410,7 +419,10 @@ def _generate_imports(repository_ctx, dep_tree, explicit_artifacts, neverlink_ar
+@@ -410,7 +420,10 @@ def _generate_imports(repository_ctx, dep_tree, explicit_artifacts, neverlink_ar
              all_imports.append("alias(\n\tname = \"%s\",\n\tactual = \"%s\",\n%s)" %
                                 (versioned_target_alias_label, target_label, alias_visibility))
  
