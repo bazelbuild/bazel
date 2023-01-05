@@ -58,6 +58,9 @@ function test_determinism()  {
     distdir="derived/distdir"
     maven="${workdir}/maven"
 
+    # Set up the maven repository properly.
+    cp maven/BUILD.vendor maven/BUILD
+
     # Build Bazel once.
     bazel \
       --output_base="${TEST_TMPDIR}/out1" \
