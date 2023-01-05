@@ -310,6 +310,9 @@ EOF
   mkdir -p ${BAZEL_TOOLS_REPO}/platforms
   cp tools/platforms/BUILD.tools ${BAZEL_TOOLS_REPO}/platforms/BUILD
 
+  # Set up @maven properly
+  cp maven/BUILD.vendor maven/BUILD
+
   # Overwrite tools.WORKSPACE, this is only for the bootstrap binary
   chmod u+w "${OUTPUT_DIR}/classes/com/google/devtools/build/lib/bazel/rules/tools.WORKSPACE"
   cat <<EOF >${OUTPUT_DIR}/classes/com/google/devtools/build/lib/bazel/rules/tools.WORKSPACE
