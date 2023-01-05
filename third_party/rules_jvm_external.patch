@@ -1,4 +1,4 @@
-commit 942a4c51d47d1625af7b4d43f7e61fcc4a259dfc
+commit 569fe4da2530d7b1356265d7cc62ca74f93ec7e5
 Author: Yun Peng <pcloudy@google.com>
 Date:   Thu Jan 5 16:37:29 2023 +0800
 
@@ -72,7 +72,7 @@ index 901a6b0..d763f01 100644
          dep_tree = dep_tree,
          explicit_artifacts = {
 diff --git a/private/dependency_tree_parser.bzl b/private/dependency_tree_parser.bzl
-index 8515bf5..0b525a8 100644
+index 8515bf5..7653dea 100644
 --- a/private/dependency_tree_parser.bzl
 +++ b/private/dependency_tree_parser.bzl
 @@ -107,6 +107,9 @@ def _generate_imports(repository_ctx, dep_tree, explicit_artifacts, neverlink_ar
@@ -119,7 +119,7 @@ index 8515bf5..0b525a8 100644
  
 -    return ("\n".join(all_imports), jar_versionless_target_labels)
 +    all_imports.append("filegroup(\n\tname = \"srcs\",\n\tsrcs = [\n\t\t%s,\n\t],\n\tvisibility = [\"//visibility:public\"],\n)" %
-+                       (",\n\t\t".join(["\"BUILD.vendor\"", "\"WORKSPACE\""] + artifact_paths)))
++                       (",\n\t\t".join(["\"BUILD.vendor\"", "\"defs.bzl\"", "\"WORKSPACE\""] + artifact_paths)))
 +
 +    return ("\n".join(all_imports), jar_versionless_target_labels, "\n".join(vendor_targets))
  
