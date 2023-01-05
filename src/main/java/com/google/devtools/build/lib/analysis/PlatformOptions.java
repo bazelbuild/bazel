@@ -226,7 +226,7 @@ public class PlatformOptions extends FragmentOptions {
   public List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
 
   @Override
-  public PlatformOptions getHost() {
+  public PlatformOptions getExec() {
     PlatformOptions host = (PlatformOptions) getDefault();
     host.platforms =
         this.hostPlatform == null ? ImmutableList.of() : ImmutableList.of(this.hostPlatform);

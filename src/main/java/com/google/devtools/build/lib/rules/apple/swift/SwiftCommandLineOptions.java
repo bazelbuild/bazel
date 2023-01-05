@@ -41,8 +41,8 @@ public class SwiftCommandLineOptions extends FragmentOptions {
   public List<String> hostSwiftcoptList;
 
   @Override
-  public FragmentOptions getHost() {
-    SwiftCommandLineOptions host = (SwiftCommandLineOptions) super.getHost();
+  public FragmentOptions getExec() {
+    SwiftCommandLineOptions host = (SwiftCommandLineOptions) super.getExec();
     host.copts = this.hostSwiftcoptList;
 
     // Save host options in case of a further exec->host transition.

@@ -46,10 +46,10 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
 
   /**
    * Creates a new instance of this {@code FragmentOptions} with all flags adjusted as needed to
-   * represent the host platform.
+   * represent the execution platform.
    */
   @SuppressWarnings("unused")
-  public FragmentOptions getHost() {
+  public FragmentOptions getExec() {
     return getDefault();
   }
 

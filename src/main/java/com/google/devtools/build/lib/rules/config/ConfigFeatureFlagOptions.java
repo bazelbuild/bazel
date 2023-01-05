@@ -60,8 +60,8 @@ public final class ConfigFeatureFlagOptions extends FragmentOptions {
   public boolean allFeatureFlagValuesArePresent = true;
 
   @Override
-  public ConfigFeatureFlagOptions getHost() {
-    ConfigFeatureFlagOptions host = (ConfigFeatureFlagOptions) super.getHost();
+  public ConfigFeatureFlagOptions getExec() {
+    ConfigFeatureFlagOptions host = (ConfigFeatureFlagOptions) super.getExec();
     host.enforceTransitiveConfigsForConfigFeatureFlag = false;
     host.allFeatureFlagValuesArePresent = this.allFeatureFlagValuesArePresent;
     return host;

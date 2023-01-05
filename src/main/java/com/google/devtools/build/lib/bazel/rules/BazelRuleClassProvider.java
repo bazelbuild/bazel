@@ -159,7 +159,7 @@ public class BazelRuleClassProvider {
     public boolean useStrictActionEnv;
 
     @Override
-    public StrictActionEnvOptions getHost() {
+    public StrictActionEnvOptions getExec() {
       StrictActionEnvOptions host = (StrictActionEnvOptions) getDefault();
       host.useStrictActionEnv = useStrictActionEnv;
       return host;

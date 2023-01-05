@@ -168,8 +168,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   }
 
   private static boolean isTargetConfig(ConfigurationForOutput config) {
-    return !Boolean.parseBoolean(getOptionValue(config, "CoreOptions", "is host configuration"))
-        && !Boolean.parseBoolean(getOptionValue(config, "CoreOptions", "is exec configuration"));
+    return !Boolean.parseBoolean(getOptionValue(config, "CoreOptions", "is exec configuration"));
   }
 
   /** Converts {@code a.b.d} to {@code d}. */

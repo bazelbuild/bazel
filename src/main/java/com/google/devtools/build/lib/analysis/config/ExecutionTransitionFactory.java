@@ -120,13 +120,11 @@ public class ExecutionTransitionFactory
     }
 
     private static BuildOptions transitionImpl(BuildOptionsView options, Label executionPlatform) {
-      // Start by converting to host options.
+      // Start by converting to exec options.
       BuildOptionsView execOptions =
-          new BuildOptionsView(options.underlying().createHostOptions(), FRAGMENTS);
+          new BuildOptionsView(options.underlying().createExecOptions(), FRAGMENTS);
 
-      // Then unset isHost.
       CoreOptions coreOptions = checkNotNull(execOptions.get(CoreOptions.class));
-      coreOptions.isHost = false;
       coreOptions.isExec = true;
       // Disable extra actions
       coreOptions.actionListeners = ImmutableList.of();

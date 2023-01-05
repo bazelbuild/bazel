@@ -86,32 +86,13 @@ public final class ConfigurationFragmentPolicy {
 
     /**
      * Declares that the implementation of the associated rule class requires the given fragments to
-     * be present in this rule's target configuration only.
+     * be present.
      *
      * <p>The value is inherited by subclasses.
      */
     @CanIgnoreReturnValue
     public Builder requiresConfigurationFragments(
         Collection<Class<? extends Fragment>> configurationFragments) {
-      requiresConfigurationFragments(NoTransition.INSTANCE, configurationFragments);
-      return this;
-    }
-
-    /**
-     * Declares that the implementation of the associated rule class requires the given fragments to
-     * be present in the specified configuration. Valid transition values are HOST for the host
-     * configuration and NONE for the target configuration.
-     *
-     * <p>The value is inherited by subclasses.
-     */
-    @CanIgnoreReturnValue
-    public Builder requiresConfigurationFragments(
-        ConfigurationTransition transition,
-        Collection<Class<? extends Fragment>> configurationFragments) {
-      // We can relax this assumption if needed. But it's already sketchy to let a rule see more
-      // than its own configuration. So we don't want to casually proliferate this pattern.
-      Preconditions.checkArgument(
-          transition == NoTransition.INSTANCE || transition.isHostTransition());
       requiredConfigurationFragments.addAll(configurationFragments);
       return this;
     }
@@ -148,8 +129,7 @@ public final class ConfigurationFragmentPolicy {
         ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
       // We can relax this assumption if needed. But it's already sketchy to let a rule see more
       // than its own configuration. So we don't want to casually proliferate this pattern.
-      Preconditions.checkArgument(
-          transition == NoTransition.INSTANCE || transition.isHostTransition());
+      Preconditions.checkArgument(transition == NoTransition.INSTANCE);
       starlarkRequiredConfigurationFragments.putAll(transition, configurationFragmentNames);
       return this;
     }

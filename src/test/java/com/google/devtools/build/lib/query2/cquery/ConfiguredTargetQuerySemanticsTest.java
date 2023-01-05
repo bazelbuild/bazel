@@ -201,11 +201,11 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
   @Test
   public void testAlias_filtering() throws Exception {
-    MockRule ruleWithHostDep =
+    MockRule ruleWithExecDep =
         () ->
             MockRule.define(
-                "rule_with_host_dep",
-                attr("host_dep", LABEL)
+                "rule_with_exec_dep",
+                attr("exec_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
                     .cfg(ExecutionTransitionFactory.create()),
                 attr("$impl_dep", LABEL)
@@ -213,13 +213,13 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
                     .value(Label.parseAbsoluteUnchecked("//test:other")));
     MockRule simpleRule = () -> MockRule.define("simple_rule");
 
-    helper.useRuleClassProvider(setRuleClassProviders(ruleWithHostDep, simpleRule).build());
+    helper.useRuleClassProvider(setRuleClassProviders(ruleWithExecDep, simpleRule).build());
     writeFile(
         "test/BUILD",
         "alias(name = 'other_my_rule', actual = ':my_rule')",
-        "rule_with_host_dep(name = 'my_rule', host_dep = ':host_dep')",
-        "alias(name = 'other_host_dep', actual = ':host_dep')",
-        "simple_rule(name='host_dep')",
+        "rule_with_exec_dep(name = 'my_rule', exec_dep = ':exec_dep')",
+        "alias(name = 'other_exec_dep', actual = ':exec_dep')",
+        "simple_rule(name='exec_dep')",
         "alias(name = 'other_impl_dep', actual = 'impl_dep')",
         "simple_rule(name='impl_dep')");
 
@@ -263,9 +263,6 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
             MockRule.define(
                 "my_rule",
                 attr("target", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE),
-                attr("host", LABEL)
-                    .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(ExecutionTransitionFactory.create()),
                 attr("exec", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
                     .cfg(ExecutionTransitionFactory.create()),
@@ -281,12 +278,10 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         "my_rule(",
         "  name = 'my_rule',",
         "  target = ':target_dep',",
-        "  host = ':host_dep',",
         "  exec = ':exec_dep',",
         "  deps = [':dep'],",
         ")",
         "simple_rule(name = 'target_dep', dep=':dep')",
-        "simple_rule(name = 'host_dep', dep=':dep')",
         "simple_rule(name = 'exec_dep', dep=':dep')",
         "simple_rule(name = 'dep')");
   }
@@ -339,11 +334,6 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     getHelper().setWholeTestUniverseScope("test:my_rule");
 
     assertThat(eval("config(//test:target_dep, target)")).isEqualTo(eval("//test:target_dep"));
-    EvalThrowsResult hostResult = evalThrows("config(//test:host_dep, target)", true);
-    assertThat(hostResult.getMessage())
-        .isEqualTo("No target (in) //test:host_dep could be found in the 'target' configuration");
-    assertConfigurableQueryCode(
-        hostResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
     EvalThrowsResult execResult = evalThrows("config(//test:exec_dep, target)", true);
     assertThat(execResult.getMessage())
         .isEqualTo("No target (in) //test:exec_dep could be found in the 'target' configuration");
@@ -354,7 +344,6 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         getConfiguration(Iterables.getOnlyElement(eval("config(//test:dep, target)")));
 
     assertThat(configuration).isNotNull();
-    assertThat(configuration.isHostConfiguration()).isFalse();
     assertThat(configuration.isExecConfiguration()).isFalse();
     assertThat(configuration.isToolConfiguration()).isFalse();
   }
@@ -461,7 +450,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   @Test
-  public void testExecTransitionNotFilteredByNoHostDeps() throws Exception {
+  public void testExecTransitionNotFilteredByNoToolDeps() throws Exception {
     createConfigRulesAndBuild();
     helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))

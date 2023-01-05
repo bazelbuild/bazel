@@ -147,7 +147,7 @@ public class ShellConfiguration extends Fragment {
     public boolean useShBinaryStubScript;
 
     @Override
-    public Options getHost() {
+    public Options getExec() {
       Options host = (Options) getDefault();
       host.shellExecutable = shellExecutable;
       host.useShBinaryStubScript = useShBinaryStubScript;

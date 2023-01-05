@@ -610,8 +610,9 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Enable experimental jspecify integration.")
   public boolean experimentalEnableJspecify;
+
   @Override
-  public FragmentOptions getHost() {
+  public FragmentOptions getExec() {
     // Note validation actions don't run in host config, so no need copying flags related to that.
     // TODO(b/171078539): revisit if relevant validations are run in host config
     JavaOptions host = (JavaOptions) getDefault();

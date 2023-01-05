@@ -36,7 +36,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -1008,25 +1007,6 @@ public class RuleClass {
     }
 
     /**
-     * Declares that the implementation of the associated rule class requires the given fragments to
-     * be present in the given configuration that isn't the rule's configuration but is also
-     * readable by the rule.
-     *
-     * <p>You probably don't want to use this, because rules generally shouldn't read configurations
-     * other than their own. If you want to declare host config fragments, see {@link
-     * com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder}.
-     *
-     * <p>The value is inherited by subclasses.
-     */
-    @CanIgnoreReturnValue
-    public Builder requiresConfigurationFragments(
-        ConfigurationTransition transition, Class<? extends Fragment>... configurationFragments) {
-      configurationFragmentPolicy.requiresConfigurationFragments(
-          transition, ImmutableSet.copyOf(configurationFragments));
-      return this;
-    }
-
-    /**
      * Declares the configuration fragments that are required by this rule for the target
      * configuration.
      *
@@ -1038,32 +1018,6 @@ public class RuleClass {
         Collection<String> configurationFragmentNames) {
       configurationFragmentPolicy.requiresConfigurationFragmentsByStarlarkBuiltinName(
           configurationFragmentNames);
-      return this;
-    }
-
-    /**
-     * Declares the configuration fragments that are required by this rule for the host
-     * configuration.
-     */
-    /**
-     * Declares that the implementation of the associated rule class requires the given fragments to
-     * be present in the given configuration that isn't the rule's configuration but is also
-     * readable by the rule.
-     *
-     * <p>In contrast to {@link #requiresConfigurationFragments(ConfigurationTransition, Class...)},
-     * this method takes Starlark module names of fragments instead of their classes. *
-     *
-     * <p>You probably don't want to use this, because rules generally shouldn't read configurations
-     * other than their own. If you want to declare host config fragments, see {@link
-     * com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder}.
-     *
-     * <p>The value is inherited by subclasses.
-     */
-    @CanIgnoreReturnValue
-    public Builder requiresConfigurationFragmentsByStarlarkModuleName(
-        ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
-      configurationFragmentPolicy.requiresConfigurationFragmentsByStarlarkBuiltinName(
-          transition, configurationFragmentNames);
       return this;
     }
 
@@ -2245,12 +2199,12 @@ public class RuleClass {
 
       } else if (attr.getName().equals(APPLICABLE_LICENSES_ATTR)
           && attr.getType() == BuildType.LABEL_LIST) {
-        // The check here is preventing against an corner case where the license() rule can get
+        // The check here is preventing against a corner case where the license() rule can get
         // itself as an applicable_license. This breaks the graph because there is now a self-edge.
         //
         // There are two ways that I can see to resolve this. The first, what is shown here, simply
         // prunes the attribute if the source is a new-style license rule, based on what's been
-        // provided publically. This does create a tight coupling to the implementation, but this is
+        // provided publicly. This does create a tight coupling to the implementation, but this is
         // unavoidable since licenses are no longer a first-class type but we want first class
         // behavior in Bazel core.
         //

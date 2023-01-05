@@ -86,11 +86,11 @@ public final class BuildOptions implements Cloneable {
     }
   }
 
-  /** Creates a new BuildOptions instance for host. */
-  public BuildOptions createHostOptions() {
+  /** Creates a new BuildOptions instance for an exec configuration. */
+  public BuildOptions createExecOptions() {
     Builder builder = builder();
     for (FragmentOptions options : fragmentOptionsMap.values()) {
-      builder.addFragmentOptions(options.getHost());
+      builder.addFragmentOptions(options.getExec());
     }
     return builder.addStarlarkOptions(starlarkOptionsMap).build();
   }

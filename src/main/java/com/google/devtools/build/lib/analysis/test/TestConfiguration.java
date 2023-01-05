@@ -282,7 +282,7 @@ public class TestConfiguration extends Fragment {
     public boolean zipUndeclaredTestOutputs;
 
     @Override
-    public FragmentOptions getHost() {
+    public FragmentOptions getExec() {
       // Options here are either:
       // 1. Applicable only for the test actions, which are relevant only for the top-level targets
       //    before host or exec transitions can apply.

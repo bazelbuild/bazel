@@ -183,8 +183,8 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public boolean experimentalJavaProtoAddAllowedPublicImports;
 
     @Override
-    public FragmentOptions getHost() {
-      Options host = (Options) super.getHost();
+    public FragmentOptions getExec() {
+      Options host = (Options) super.getExec();
       host.protoCompiler = protoCompiler;
       host.protocOpts = protocOpts;
       host.experimentalProtoDescriptorSetsIncludeSourceInfo =
