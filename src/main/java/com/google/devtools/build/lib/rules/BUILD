@@ -8,6 +8,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/rules/android:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/apple:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/config:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules/core:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/genrule:srcs",
@@ -49,26 +50,6 @@ java_library(
     ],
 )
 
-# TODO: Move to core/rules.
-java_library(
-    name = "core_rules",
-    srcs = glob(
-        ["core/*.java"],
-    ),
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/test_trimming_transition_factory",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-    ],
-)
-
 # TODO(bazel-team): Include in the srcs the implementations of the rules inside
 # CoreWorkspaceRules.java once they can be extracted from the "build-base" target. They can't be
 # extracted currently because of non-trivial inter-package dependencies.
@@ -78,11 +59,11 @@ java_library(
         "repository/CoreWorkspaceRules.java",
     ],
     deps = [
-        ":core_rules",
         ":repository/bind_rule",
         ":repository/local_repository_rule",
         ":repository/workspace_base_rule",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//third_party:guava",
     ],
 )
@@ -117,7 +98,6 @@ java_library(
         ["test/*.java"],
     ),
     deps = [
-        ":core_rules",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
@@ -133,6 +113,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",

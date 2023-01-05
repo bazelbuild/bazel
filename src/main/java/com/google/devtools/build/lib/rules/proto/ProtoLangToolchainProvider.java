@@ -105,7 +105,6 @@ public abstract class ProtoLangToolchainProvider {
     m.put("out_replacement_format_flag", outReplacementFormatFlag);
     m.put("progress_message", progressMessage);
     m.put("mnemonic", mnemonic);
-    m.put("plugin", pluginExecutable == null ? Starlark.NONE : pluginExecutable);
     m.put("runtime", runtime == null ? Starlark.NONE : runtime);
 
     StarlarkProvider.Builder builder = StarlarkProvider.builder(Location.BUILTIN);

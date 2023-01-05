@@ -225,6 +225,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   // Note that these configurations are virtual (they use only VFS)
   protected BuildConfigurationCollection masterConfig;
   protected BuildConfigurationValue targetConfig; // "target" or "build" config
+  protected BuildConfigurationValue execConfig;
   private List<String> configurationArgs;
 
   protected OptionsParser optionsParser;
@@ -574,8 +575,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     if (alsoConfigs) {
       try {
         // Also invalidate all configurations. This is important: by invalidating all files we
-        // invalidate CROSSTOOL, which invalidates CppConfiguration (and a few other fragments). So
-        // we need to invalidate the {@link SkyframeBuildView#hostConfigurationCache} as well.
+        // invalidate CROSSTOOL, which invalidates CppConfiguration (and a few other fragments).
         // Otherwise we end up with old CppConfiguration instances. Even though they're logically
         // equal to the new ones, CppConfiguration has no .equals() method and some production code
         // expects equality.
@@ -599,7 +599,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Sets host and target configuration using the specified options, falling back to the default
+   * Sets exec and target configuration using the specified options, falling back to the default
    * options for unspecified ones, and recreates the build view.
    *
    * <p>TODO(juliexxia): when Starlark option parsing exists, find a way to combine these parameters
@@ -619,6 +619,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     masterConfig = createConfigurations(starlarkOptions, actualArgs.toArray(new String[0]));
     targetConfig = getTargetConfiguration();
+    if (!scratch.resolve("platform/BUILD").exists()) {
+      scratch.overwriteFile("platform/BUILD", "platform(name = 'exec')");
+    }
+    execConfig =
+        skyframeExecutor.getConfiguration(
+            reporter,
+            AnalysisTestUtil.execOptions(targetConfig.getOptions(), reporter),
+            /* keepGoing= */ false);
+
     targetConfigKey = targetConfig.getKey();
     configurationArgs = actualArgs;
     createBuildView();
@@ -629,17 +638,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Creates BuildView using current hostConfig/targetConfig values. Ensures that hostConfig is
-   * either identical to the targetConfig or has 'host' short name.
+   * Creates BuildView using current execConfig/targetConfig values. Ensures that execConfig is
+   * either identical to the targetConfig or {@code isExecConfiguration()} is true.
    */
   protected final void createBuildView() {
     Preconditions.checkNotNull(masterConfig);
     Preconditions.checkState(
-        getHostConfiguration().equals(getTargetConfiguration())
-            || getHostConfiguration().isHostConfiguration(),
-        "Host configuration %s is not a host configuration' "
+        getExecConfiguration().equals(getTargetConfiguration())
+            || getExecConfiguration().isExecConfiguration(),
+        "Exec configuration %s is not an exec configuration' "
             + "and does not match target configuration %s",
-        getHostConfiguration(),
+        getExecConfiguration(),
         getTargetConfiguration());
 
     skyframeExecutor.handleAnalysisInvalidatingChange();
@@ -1083,19 +1092,19 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Returns the ConfiguredTarget for the specified label, configured for the "host" configuration.
+   * Returns the ConfiguredTarget for the specified label, configured for the "exec" configuration.
    */
-  protected ConfiguredTarget getHostConfiguredTarget(String label) throws LabelSyntaxException {
-    return getConfiguredTarget(label, getHostConfiguration());
+  protected ConfiguredTarget getExecConfiguredTarget(String label) throws LabelSyntaxException {
+    return getConfiguredTarget(label, getExecConfiguration());
   }
 
   /**
-   * Returns the ConfiguredTarget for the specified file label, configured for the "host"
+   * Returns the ConfiguredTarget for the specified file label, configured for the "exec"
    * configuration.
    */
-  protected FileConfiguredTarget getHostFileConfiguredTarget(String label)
+  protected FileConfiguredTarget getExecFileConfiguredTarget(String label)
       throws LabelSyntaxException {
-    return (FileConfiguredTarget) getHostConfiguredTarget(label);
+    return (FileConfiguredTarget) getExecConfiguredTarget(label);
   }
 
   /** Returns the configurations in which the given label has already been configured. */
@@ -1932,8 +1941,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return masterConfig.getTargetConfiguration();
   }
 
-  protected BuildConfigurationValue getHostConfiguration() {
-    return masterConfig.getHostConfiguration();
+  protected BuildConfigurationValue getExecConfiguration() {
+    return execConfig;
   }
 
   /**

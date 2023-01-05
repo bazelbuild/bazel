@@ -149,7 +149,7 @@ public final class DependencyTest extends AnalysisTestCase {
     Label aExplicit = Label.parseCanonical("//a:a");
     Label b = Label.parseCanonical("//b");
 
-    BuildConfigurationValue host = getHostConfiguration();
+    BuildConfigurationValue host = getExecConfiguration();
     BuildConfigurationValue target = getTargetConfiguration();
 
     AspectDescriptor simpleAspect = new AspectDescriptor(TestAspects.SIMPLE_ASPECT);

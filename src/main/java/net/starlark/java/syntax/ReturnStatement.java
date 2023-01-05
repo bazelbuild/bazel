@@ -22,7 +22,7 @@ public final class ReturnStatement extends Statement {
   @Nullable private final Expression result;
 
   ReturnStatement(FileLocations locs, int returnOffset, @Nullable Expression result) {
-    super(locs);
+    super(locs, Kind.RETURN);
     this.returnOffset = returnOffset;
     this.result = result;
   }
@@ -53,10 +53,5 @@ public final class ReturnStatement extends Statement {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.RETURN;
   }
 }

@@ -25,7 +25,7 @@ public final class StringLiteral extends Expression {
   private final int endOffset;
 
   StringLiteral(FileLocations locs, int startOffset, String value, int endOffset) {
-    super(locs);
+    super(locs, Kind.STRING_LITERAL);
     this.startOffset = startOffset;
     this.value = value;
     this.endOffset = endOffset;
@@ -57,11 +57,6 @@ public final class StringLiteral extends Expression {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.STRING_LITERAL;
   }
 
   // -- hooks to support Skyframe serialization without creating a dependency --

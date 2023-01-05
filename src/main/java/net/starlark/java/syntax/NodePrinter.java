@@ -168,7 +168,7 @@ final class NodePrinter {
       case FLOW:
         {
           FlowStatement stmt = (FlowStatement) s;
-          buf.append(stmt.getKind()).append('\n');
+          buf.append(stmt.getFlowKind()).append('\n');
           break;
         }
 

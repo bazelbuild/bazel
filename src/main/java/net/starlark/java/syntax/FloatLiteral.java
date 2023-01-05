@@ -20,7 +20,7 @@ public final class FloatLiteral extends Expression {
   private final double value;
 
   FloatLiteral(FileLocations locs, String raw, int tokenOffset, double value) {
-    super(locs);
+    super(locs, Kind.FLOAT_LITERAL);
     this.raw = raw;
     this.tokenOffset = tokenOffset;
     this.value = value;
@@ -49,10 +49,5 @@ public final class FloatLiteral extends Expression {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.FLOAT_LITERAL;
   }
 }

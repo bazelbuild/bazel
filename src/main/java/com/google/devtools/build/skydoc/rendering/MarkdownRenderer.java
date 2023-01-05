@@ -38,9 +38,7 @@ import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
 import org.apache.velocity.runtime.resource.loader.JarResourceLoader;
 
-/**
- * Produces skydoc output in markdown form.
- */
+/** Produces skydoc output in markdown form. */
 public class MarkdownRenderer {
   // TODO(kendalllane): Refactor MarkdownRenderer to take in something other than filepaths.
   private final String headerTemplateFilename;
@@ -65,12 +63,15 @@ public class MarkdownRenderer {
 
     this.velocityEngine = new VelocityEngine();
     velocityEngine.setProperty("resource.loader", "classpath, jar");
-    velocityEngine.setProperty("classpath.resource.loader.class",
-        ClasspathResourceLoader.class.getName());
+    velocityEngine.setProperty(
+        "classpath.resource.loader.class", ClasspathResourceLoader.class.getName());
     velocityEngine.setProperty("jar.resource.loader.class", JarResourceLoader.class.getName());
     velocityEngine.setProperty("input.encoding", "UTF-8");
     velocityEngine.setProperty("output.encoding", "UTF-8");
     velocityEngine.setProperty("runtime.references.strict", true);
+
+    // Ensure formatting is the same on Velocity 1.7 and 2.x.
+    velocityEngine.setProperty("parser.space_gobbling", "bc");
   }
 
   /**

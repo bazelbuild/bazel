@@ -260,12 +260,15 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   }
 
   /**
-   * Returns a host {@link BuildConfigurationValue} derived from a target configuration with the
+   * Returns an exec {@link BuildConfigurationValue} derived from a target configuration with the
    * given non-default options.
    *
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
-  protected BuildConfigurationValue createHost(String... args) throws Exception {
-    return createCollection(args).getHostConfiguration();
+  protected BuildConfigurationValue createExec(String... args) throws Exception {
+    return skyframeExecutor.getConfiguration(
+        reporter,
+        AnalysisTestUtil.execOptions(parseBuildOptions(args), reporter),
+        /* keepGoing= */ false);
   }
 }

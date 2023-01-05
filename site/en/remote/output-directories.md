@@ -100,7 +100,7 @@ The directories are laid out as follows:
                                               actions run in a directory that mimics execroot.
                                               Implementation details, such as where the directories
                                               are created, are intentionally hidden from the action.
-                                              All actions can access its inputs and outputs relative
+                                              Every action can access its inputs and outputs relative
                                               to the execroot directory.
         &lt;workspace-name&gt;/                 <== Working tree for the Bazel build & root of symlink forest: execRoot
           _bin/                           <== Helper tools are linked from or copied to here.

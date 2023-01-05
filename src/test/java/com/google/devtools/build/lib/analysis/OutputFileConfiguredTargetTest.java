@@ -39,9 +39,9 @@ public class OutputFileConfiguredTargetTest extends BuildViewTestBase {
     update("//foo:generating_rule");
     OutputFileConfiguredTarget generatedSource =
         (OutputFileConfiguredTarget)
-            getConfiguredTarget("//foo:generated.source", getHostConfiguration());
+            getConfiguredTarget("//foo:generated.source", getExecConfiguration());
     assertThat(generatedSource.getGeneratingRule())
-        .isSameInstanceAs(getConfiguredTarget("//foo:generating_rule", getHostConfiguration()));
+        .isSameInstanceAs(getConfiguredTarget("//foo:generating_rule", getExecConfiguration()));
   }
 
   /**
@@ -102,7 +102,7 @@ public class OutputFileConfiguredTargetTest extends BuildViewTestBase {
     update("//foo:gen3");
 
     ConfiguredTargetAndData hostSrc3 =
-        getConfiguredTargetAndData("//foo:host_src3.cc", getHostConfiguration());
+        getConfiguredTargetAndData("//foo:host_src3.cc", getExecConfiguration());
     ConfiguredTarget hostGeneratedFileConsumer3 =
         ((OutputFileConfiguredTarget) hostSrc3.getConfiguredTarget()).getGeneratingRule();
     assertThat(hostSrc3.getConfiguration()).isEqualTo(getConfiguration(hostGeneratedFileConsumer3));

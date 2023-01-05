@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import java.io.IOException;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -79,7 +80,7 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         "    toolchain = ':bar',",
         ")");
 
-    scratch.file(
+    scratch.overwriteFile(
         "platform/BUILD",
         "constraint_setting(name = 'setting')",
         "constraint_value(",
@@ -328,12 +329,11 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCannotNameExecGroupDefaultName() throws Exception {
+  public void ruleCannotNameExecGroupDefaultName() throws Exception {
     createToolchainsAndPlatforms();
 
     scratch.file(
         "test/defs.bzl",
-        "MyInfo = provider()",
         "def _impl(ctx):",
         "  return []",
         "my_rule = rule(",
@@ -348,6 +348,59 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         "test/BUILD", //
         "load('//test:defs.bzl', 'my_rule')",
         "my_rule(name = 'papaya')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:papaya");
+    assertContainsEvent("Exec group name '" + DEFAULT_EXEC_GROUP_NAME + "' is not a valid name");
+  }
+
+  private void createAspectRuleWithExecGroup(String execGroupName) throws IOException {
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_impl(target, ctx):",
+        "    return []",
+        "my_aspect = aspect(",
+        "    implementation = _aspect_impl,",
+        "    exec_groups = {",
+        "        '" + execGroupName + "': exec_group(toolchains = ['//rule:toolchain_type_2']),",
+        "    },",
+        "    toolchains = ['//rule:toolchain_type_1'],",
+        ")",
+        "def _rule_impl(ctx):",
+        "    return []",
+        "my_rule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        'srcs': attr.label_list(aspects = [my_aspect])",
+        "    },",
+        ")");
+  }
+
+  @Test
+  public void aspectUsesExecGroup() throws Exception {
+    createToolchainsAndPlatforms();
+    createAspectRuleWithExecGroup("watermelon");
+
+    scratch.file(
+        "test/BUILD",
+        "load(':defs.bzl', 'my_rule')",
+        "filegroup(name = 'banana')",
+        "my_rule(name = 'papaya', srcs = [':banana'])");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//test:papaya");
+    assertThat(configuredTarget).isNotNull();
+  }
+
+  @Test
+  public void aspectCannotNameExecGroupDefaultName() throws Exception {
+    createToolchainsAndPlatforms();
+    createAspectRuleWithExecGroup(DEFAULT_EXEC_GROUP_NAME);
+
+    scratch.file(
+        "test/BUILD",
+        "load(':defs.bzl', 'my_rule')",
+        "filegroup(name = 'banana')",
+        "my_rule(name = 'papaya', srcs = [':banana'])");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:papaya");
@@ -441,7 +494,7 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testInheritsRuleRequirements() throws Exception {
+  public void ruleInheritsRuleRequirements() throws Exception {
     createToolchainsAndPlatforms();
     scratch.file(
         "test/defs.bzl",
@@ -472,7 +525,7 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testInheritsPlatformExecGroupExecProperty() throws Exception {
+  public void ruleInheritsPlatformExecGroupExecProperty() throws Exception {
     createToolchainsAndPlatforms();
     writeRuleWithActionsAndWatermelonExecGroup();
 
@@ -495,7 +548,30 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testOverridePlatformExecGroupExecProperty() throws Exception {
+  public void aspectInheritsPlatformExecGroupExecProperty() throws Exception {
+    createToolchainsAndPlatforms();
+    writeRuleWithActionsAndWatermelonExecGroup();
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'with_actions')",
+        "with_actions(",
+        "  name = 'papaya',",
+        "  output = 'out.txt',",
+        "  watermelon_output = 'watermelon_out.txt',",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:papaya");
+
+    assertThat(
+            getGeneratingAction(target, "test/watermelon_out.txt").getOwner().getExecProperties())
+        .containsExactly("ripeness", "unripe", "color", "red");
+    assertThat(getGeneratingAction(target, "test/out.txt").getOwner().getExecProperties())
+        .containsExactly();
+  }
+
+  @Test
+  public void ruleOverridePlatformExecGroupExecProperty() throws Exception {
     createToolchainsAndPlatforms();
     writeRuleWithActionsAndWatermelonExecGroup();
 

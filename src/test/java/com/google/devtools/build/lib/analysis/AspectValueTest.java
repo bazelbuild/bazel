@@ -40,7 +40,7 @@ public final class AspectValueTest extends AnalysisTestCase {
   public void keyEquality() throws Exception {
     update();
     BuildConfigurationValue c1 = getTargetConfiguration();
-    BuildConfigurationValue c2 = getHostConfiguration();
+    BuildConfigurationValue c2 = getExecConfiguration();
     Label l1 = Label.parseCanonical("//a:l1");
     Label l1b = Label.parseCanonical("//a:l1");
     Label l2 = Label.parseCanonical("//a:l2");

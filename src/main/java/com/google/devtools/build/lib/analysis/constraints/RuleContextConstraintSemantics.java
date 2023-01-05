@@ -821,9 +821,7 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
   private static <T> void addSelectValuesToSet(BuildType.Selector<T> select, Set<Label> set) {
     Type<T> type = select.getOriginalType();
     LabelVisitor visitor = (label, dummy) -> set.add(label);
-    for (T value : select.getEntries().values()) {
-      type.visitLabels(visitor, value, /*context=*/ null);
-    }
+    select.forEach((label, value) -> type.visitLabels(visitor, value, /* context= */ null));
   }
 
   /**

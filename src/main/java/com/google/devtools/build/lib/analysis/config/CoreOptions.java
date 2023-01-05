@@ -253,6 +253,18 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL})
   public boolean enableAspectHints;
 
+  @Option(
+      name = "incompatible_auto_exec_groups",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When enabled, an exec groups is automatically created for each toolchain used by a rule."
+              + " For this to work rule needs to specify `toolchain` parameter on its actions. For"
+              + " more information, see https://github.com/bazelbuild/bazel/issues/17134.")
+  public boolean useAutoExecGroups;
+
   /** Regardless of input, converts to an empty list. For use with affectedByStarlarkTransition */
   public static class EmptyListConverter extends Converter.Contextless<List<String>> {
     @Override
@@ -936,6 +948,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
     host.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
     host.checkTestonlyForOutputFiles = checkTestonlyForOutputFiles;
+    host.useAutoExecGroups = useAutoExecGroups;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;
