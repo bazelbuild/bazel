@@ -106,7 +106,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             return getDerivedArtifact(rootRelativePath, root);
           }
         },
-        masterConfig);
+        targetConfig);
   }
 
   private FeatureConfiguration getMockFeatureConfiguration(ImmutableMap<String, String> envVars) {

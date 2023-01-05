@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver.TopLevelTargetsAndConfigsResult;
@@ -240,33 +239,32 @@ public class BuildView {
     eventBus.post(new AnalysisPhaseStartedEvent(labelToTargetMap.values()));
 
     // Prepare the analysis phase
-    BuildConfigurationCollection configurations;
+    BuildConfigurationValue configuration;
     TopLevelTargetsAndConfigsResult topLevelTargetsWithConfigsResult;
     // Configuration creation.
     // TODO(gregce): Consider dropping this phase and passing on-the-fly target / host configs as
     // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
     try (SilentCloseable c = Profiler.instance().profile("createConfigurations")) {
-      configurations = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
+      configuration = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
     }
     if (buildConfigurationsCreatedCallback != null) {
-      buildConfigurationsCreatedCallback.run(configurations);
+      buildConfigurationsCreatedCallback.run(configuration);
     }
     try (SilentCloseable c = Profiler.instance().profile("AnalysisUtils.getTargetsWithConfigs")) {
       topLevelTargetsWithConfigsResult =
           AnalysisUtils.getTargetsWithConfigs(
-              configurations,
+              configuration,
               labelToTargetMap.values(),
               eventHandler,
               ruleClassProvider,
               skyframeExecutor);
     }
 
-    skyframeBuildView.setConfigurations(
-        eventHandler, configurations, viewOptions.maxConfigChangesToShow);
+    skyframeBuildView.setConfiguration(
+        eventHandler, configuration, viewOptions.maxConfigChangesToShow);
 
-    eventBus.post(
-        new MakeEnvironmentEvent(configurations.getTargetConfiguration().getMakeEnvironment()));
-    eventBus.post(configurations.getTargetConfiguration().toBuildEvent());
+    eventBus.post(new MakeEnvironmentEvent(configuration.getMakeEnvironment()));
+    eventBus.post(configuration.toBuildEvent());
 
     Collection<TargetAndConfiguration> topLevelTargetsWithConfigs =
         topLevelTargetsWithConfigsResult.getTargetsAndConfigs();
@@ -361,17 +359,16 @@ public class BuildView {
     ImmutableList<AspectClass> aspectClasses = aspectClassesBuilder.build();
     ImmutableList.Builder<TopLevelAspectsKey> aspectsKeys = ImmutableList.builder();
     for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
-      BuildConfigurationValue configuration = targetSpec.getConfiguration();
+      BuildConfigurationValue config = targetSpec.getConfiguration();
       for (AspectClass aspectClass : aspectClasses) {
-        aspectConfigurations.put(
-            Pair.of(targetSpec.getLabel(), aspectClass.getName()), configuration);
+        aspectConfigurations.put(Pair.of(targetSpec.getLabel(), aspectClass.getName()), config);
       }
       // For invoking top-level aspects, use the top-level configuration for both the
       // aspect and the base target while the top-level configuration is untrimmed.
       if (!aspectClasses.isEmpty()) {
         aspectsKeys.add(
             AspectKeyCreator.createTopLevelAspectsKey(
-                aspectClasses, targetSpec.getLabel(), configuration, aspectsParameters));
+                aspectClasses, targetSpec.getLabel(), config, aspectsParameters));
       }
     }
 
@@ -468,14 +465,14 @@ public class BuildView {
               eventHandler,
               eventBus,
               loadingResult,
-              configurations,
+              configuration,
               topLevelOptions,
               viewOptions,
               skyframeAnalysisResult,
-              /*targetsToSkip=*/ ImmutableSet.of(),
-              /*labelToTargetMap=*/ labelToTargetMap,
+              /* targetsToSkip= */ ImmutableSet.of(),
+              /* labelToTargetMap= */ labelToTargetMap,
               topLevelTargetsWithConfigsResult,
-              /*includeExecutionPhase=*/ true);
+              /* includeExecutionPhase= */ true);
     } else {
       ImmutableSet<ConfiguredTarget> targetsToSkip = ImmutableSet.of();
       if (reportIncompatibleTargets) {
@@ -511,14 +508,14 @@ public class BuildView {
               eventHandler,
               eventBus,
               loadingResult,
-              configurations,
+              configuration,
               topLevelOptions,
               viewOptions,
               skyframeAnalysisResult,
               targetsToSkip,
               labelToTargetMap,
               topLevelTargetsWithConfigsResult,
-              /*includeExecutionPhase=*/ false);
+              /* includeExecutionPhase= */ false);
     }
     logger.atInfo().log("Finished analysis");
     return result;
@@ -536,7 +533,7 @@ public class BuildView {
       ExtendedEventHandler eventHandler,
       EventBus eventBus,
       TargetPatternPhaseValue loadingResult,
-      BuildConfigurationCollection configurations,
+      BuildConfigurationValue configuration,
       TopLevelArtifactContext topLevelOptions,
       AnalysisOptions viewOptions,
       SkyframeAnalysisResult skyframeAnalysisResult,
@@ -610,7 +607,7 @@ public class BuildView {
       SkyframeAnalysisAndExecutionResult skyframeAnalysisAndExecutionResult =
           (SkyframeAnalysisAndExecutionResult) skyframeAnalysisResult;
       return new AnalysisAndExecutionResult(
-          configurations,
+          configuration,
           ImmutableSet.copyOf(configuredTargets),
           aspects,
           allTargetsToTest == null ? null : ImmutableSet.copyOf(allTargetsToTest),
@@ -653,7 +650,7 @@ public class BuildView {
           }
         };
     return new AnalysisResult(
-        configurations,
+        configuration,
         ImmutableSet.copyOf(configuredTargets),
         aspects,
         allTargetsToTest == null ? null : ImmutableSet.copyOf(allTargetsToTest),
@@ -860,10 +857,10 @@ public class BuildView {
             InterruptedException;
   }
 
-  /** The callback for when BuildConfigurationCollection is available. */
+  /** The callback for when BuildConfigurationValue is available. */
   @FunctionalInterface
   public interface BuildConfigurationsCreated {
-    void run(BuildConfigurationCollection buildConfigurationCollection);
+    void run(BuildConfigurationValue buildConfiguration);
   }
 
   /**

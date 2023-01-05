@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Options;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -501,18 +500,6 @@ public final class AnalysisTestUtil {
       result = function.apply(androidReplacedPath);
     }
     return result;
-  }
-
-  /**
-   * Given a collection of Artifacts, returns a corresponding set of strings of the form "{root}
-   * {relpath}", such as "bin x/libx.a". Such strings make assertions easier to write.
-   *
-   * <p>The returned set preserves the order of the input.
-   */
-  public static Set<String> artifactsToStrings(
-      BuildConfigurationCollection configurations, Iterable<? extends Artifact> artifacts) {
-    BuildConfigurationValue targetConfiguration = configurations.getTargetConfiguration();
-    return artifactsToStrings(targetConfiguration, artifacts);
   }
 
   /**

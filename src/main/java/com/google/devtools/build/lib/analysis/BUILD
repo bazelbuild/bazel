@@ -217,7 +217,6 @@ java_library(
         "actions/SymlinkTreeAction.java",
         "actions/SymlinkTreeActionContext.java",
         "buildinfo/BuildInfoFactory.java",
-        "config/BuildConfigurationCollection.java",
         "config/ConfigAwareRuleClassBuilder.java",
         "config/ConfigurationResolver.java",
         "config/DependencyEvaluationException.java",

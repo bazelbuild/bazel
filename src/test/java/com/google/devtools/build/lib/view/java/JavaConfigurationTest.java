@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.view.java;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -49,8 +48,7 @@ public class JavaConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void testHostCrosstoolTop() throws Exception {
-    BuildConfigurationCollection configs = createCollection();
-    BuildConfigurationValue config = configs.getTargetConfiguration();
+    BuildConfigurationValue config = createConfiguration();
     assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(
             Label.parseAbsoluteUnchecked(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain"));

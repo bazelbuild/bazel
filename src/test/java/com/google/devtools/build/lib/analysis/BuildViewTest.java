@@ -497,8 +497,8 @@ public class BuildViewTest extends BuildViewTestBase {
         "sh_binary(name='inner', srcs=['script.sh'])");
     update("//package:top");
     ConfiguredTarget top = getConfiguredTarget("//package:top", getTargetConfiguration());
-    Iterable<ConfiguredTarget> targets = getView().getDirectPrerequisitesForTesting(
-        reporter, top, getBuildConfigurationCollection());
+    Iterable<ConfiguredTarget> targets =
+        getView().getDirectPrerequisitesForTesting(reporter, top, getBuildConfiguration());
     Iterable<Label> labels = Iterables.transform(targets, TransitiveInfoCollection::getLabel);
     assertThat(labels)
         .containsExactly(
@@ -524,7 +524,7 @@ public class BuildViewTest extends BuildViewTestBase {
     Iterable<DependencyKey> targets =
         getView()
             .getDirectPrerequisiteDependenciesForTesting(
-                reporter, top, getBuildConfigurationCollection(), /* toolchainContexts= */ null)
+                reporter, top, /* toolchainContexts= */ null)
             .values();
 
     DependencyKey innerDependency =

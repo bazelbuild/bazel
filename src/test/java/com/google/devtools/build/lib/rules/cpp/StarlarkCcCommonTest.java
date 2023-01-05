@@ -5324,11 +5324,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         (CcCompilationOutputs) getMyInfoFromTarget(target).getValue("compilation_outputs");
     assertThat(
             AnalysisTestUtil.artifactsToStrings(
-                masterConfig, compilationOutputs.getObjectFiles(/* usePic= */ true)))
+                targetConfig, compilationOutputs.getObjectFiles(/* usePic= */ true)))
         .containsExactly("src foo/pic_object1.o", "src foo/pic_object2.o");
     assertThat(
             AnalysisTestUtil.artifactsToStrings(
-                masterConfig, compilationOutputs.getObjectFiles(/* usePic= */ false)))
+                targetConfig, compilationOutputs.getObjectFiles(/* usePic= */ false)))
         .containsExactly("src foo/object1.o", "src foo/object2.o");
   }
 

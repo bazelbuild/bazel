@@ -92,8 +92,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
       return;
     }
 
-    BuildConfigurationCollection configs = createCollection("--cpu=piii");
-    BuildConfigurationValue config = configs.getTargetConfiguration();
+    BuildConfigurationValue config = createConfiguration("--cpu=piii");
     assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
 

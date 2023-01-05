@@ -90,7 +90,6 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
@@ -1426,13 +1425,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /** Called when a top-level configuration is determined. */
-  protected void setTopLevelConfiguration(BuildConfigurationCollection topLevelConfiguration) {}
+  protected void setTopLevelConfiguration(BuildConfigurationValue topLevelConfiguration) {}
 
-  /**
-   * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and returns the
-   * result.
-   */
-  public BuildConfigurationCollection createConfiguration(
+  /** Asks the Skyframe evaluator to build a {@link BuildConfigurationValue}. */
+  public BuildConfigurationValue createConfiguration(
       ExtendedEventHandler eventHandler, BuildOptions buildOptions, boolean keepGoing)
       throws InvalidConfigurationException {
 
@@ -1452,7 +1448,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       throw new InvalidConfigurationException(
           "Build options are invalid", Code.INVALID_BUILD_OPTIONS);
     }
-    return new BuildConfigurationCollection(topLevelTargetConfig);
+    return topLevelTargetConfig;
   }
 
   /**

@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
@@ -140,7 +139,7 @@ public final class SkyframeBuildView {
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
-  private BuildConfigurationCollection configurations;
+  private BuildConfigurationValue configuration;
 
   /**
    * If the last build was executed with {@code Options#discard_analysis_cache} and we are not
@@ -185,29 +184,28 @@ public final class SkyframeBuildView {
 
   /**
    * Returns a description of the analysis-cache affecting changes between the current configuration
-   * collection and the incoming one.
+   * and the incoming one.
    *
    * @param maxDifferencesToShow the maximum number of change-affecting options to include in the
    *     returned description
-   * @return a description or {@code null} if the configurations have not changed in a way that
+   * @return a description or {@code null} if the configuration has not changed in a way that
    *     requires the analysis cache to be invalidated
    */
   @Nullable
   private String describeConfigurationDifference(
-      BuildConfigurationCollection configurations, int maxDifferencesToShow) {
-    if (this.configurations == null) {
+      BuildConfigurationValue configuration, int maxDifferencesToShow) {
+    if (this.configuration == null) {
       return null;
     }
-    if (configurations.equals(this.configurations)) {
+    if (configuration.equals(this.configuration)) {
       return null;
     }
 
-    BuildConfigurationValue oldConfig = this.configurations.getTargetConfiguration();
-    BuildConfigurationValue newConfig = configurations.getTargetConfiguration();
-    OptionsDiff diff = BuildOptions.diff(oldConfig.getOptions(), newConfig.getOptions());
+    OptionsDiff diff =
+        BuildOptions.diff(this.configuration.getOptions(), configuration.getOptions());
 
     ImmutableSet<OptionDefinition> nativeCacheInvalidatingDifferences =
-        getNativeCacheInvalidatingDifferences(newConfig, diff);
+        getNativeCacheInvalidatingDifferences(configuration, diff);
     if (nativeCacheInvalidatingDifferences.isEmpty()
         && diff.getChangedStarlarkOptions().isEmpty()) {
       // The configuration may have changed, but none of the changes required a cache reset. For
@@ -266,12 +264,10 @@ public final class SkyframeBuildView {
         .collect(toImmutableSet());
   }
 
-  /** Sets the configurations. Not thread-safe. DO NOT CALL except from tests! */
+  /** Sets the configuration. Not thread-safe. DO NOT CALL except from tests! */
   @VisibleForTesting
-  public void setConfigurations(
-      EventHandler eventHandler,
-      BuildConfigurationCollection configurations,
-      int maxDifferencesToShow) {
+  public void setConfiguration(
+      EventHandler eventHandler, BuildConfigurationValue configuration, int maxDifferencesToShow) {
     if (skyframeAnalysisWasDiscarded) {
       eventHandler.handle(
           Event.info(
@@ -279,7 +275,7 @@ public final class SkyframeBuildView {
                   + "discarding analysis cache."));
       skyframeExecutor.handleAnalysisInvalidatingChange();
     } else {
-      String diff = describeConfigurationDifference(configurations, maxDifferencesToShow);
+      String diff = describeConfigurationDifference(configuration, maxDifferencesToShow);
       if (diff != null) {
         eventHandler.handle(Event.info(diff + ", discarding analysis cache."));
         // Note that clearing the analysis cache is currently required for correctness. It is also
@@ -293,13 +289,13 @@ public final class SkyframeBuildView {
     }
 
     skyframeAnalysisWasDiscarded = false;
-    this.configurations = configurations;
-    skyframeExecutor.setTopLevelConfiguration(configurations);
+    this.configuration = configuration;
+    skyframeExecutor.setTopLevelConfiguration(configuration);
   }
 
   @VisibleForTesting
-  public BuildConfigurationCollection getBuildConfigurationCollection() {
-    return configurations;
+  public BuildConfigurationValue getBuildConfiguration() {
+    return configuration;
   }
 
   /**
@@ -1210,7 +1206,7 @@ public final class SkyframeBuildView {
    * reset.
    */
   void reset() {
-    configurations = null;
+    configuration = null;
     skyframeAnalysisWasDiscarded = false;
     clearLegacyData();
   }

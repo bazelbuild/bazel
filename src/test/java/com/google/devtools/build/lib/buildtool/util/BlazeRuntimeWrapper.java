@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -105,7 +104,7 @@ public class BlazeRuntimeWrapper {
 
   private BuildRequest lastRequest;
   private BuildResult lastResult;
-  private BuildConfigurationCollection configurations;
+  private BuildConfigurationValue configuration;
   private BuildConfigurationValue execConfiguration;
   private ImmutableSet<ConfiguredTarget> topLevelTargets;
 
@@ -381,7 +380,7 @@ public class BlazeRuntimeWrapper {
         throw e;
       } finally {
         env.getTimestampGranularityMonitor().waitForTimestampGranularity(lastRequest.getOutErr());
-        this.configurations = lastResult.getBuildConfigurationCollection();
+        this.configuration = lastResult.getBuildConfiguration();
         this.execConfiguration = null; // Lazily instantiated only upon request.
         finalizeBuildResult(lastResult);
         buildTool.stopRequest(
@@ -447,8 +446,8 @@ public class BlazeRuntimeWrapper {
     return lastResult;
   }
 
-  public BuildConfigurationCollection getConfigurationCollection() {
-    return configurations;
+  public BuildConfigurationValue getConfiguration() {
+    return configuration;
   }
 
   public BuildConfigurationValue getExecConfiguration() throws Exception {
@@ -456,10 +455,7 @@ public class BlazeRuntimeWrapper {
       // Lazily instantiate the exec configuration only when requested. This stops the extra
       // Skyframe evaluation from interfering with tests that don't care about the exec oonfig
       // but due care about # of Skyframe calls: particularly MetricsCollectorTest.
-      this.execConfiguration =
-          this.configurations == null
-              ? null
-              : createExecConfig(configurations.getTargetConfiguration());
+      this.execConfiguration = this.configuration == null ? null : createExecConfig(configuration);
     }
     return execConfiguration;
   }
