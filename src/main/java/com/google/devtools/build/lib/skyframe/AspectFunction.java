@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
-import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -859,10 +858,7 @@ final class AspectFunction implements SkyFunction {
       return createAliasAspect(
           env, associatedTarget, key, aspect, key.withLabel(label), transitivePackages);
     } else if (AspectResolver.aspectMatchesConfiguredTarget(
-        associatedConfiguredTarget,
-        associatedTarget instanceof Rule,
-        associatedTarget instanceof InputFile,
-        aspect)) {
+        associatedConfiguredTarget, associatedTarget instanceof Rule, aspect)) {
       try {
         CurrentRuleTracker.beginConfiguredAspect(aspect.getAspectClass());
         configuredAspect =
