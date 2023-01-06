@@ -53,8 +53,8 @@ public class JavaConfigurationTest extends ConfigurationTestCase {
         .isEqualTo(
             Label.parseAbsoluteUnchecked(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain"));
 
-    BuildConfigurationValue hostConfig = createExec();
-    assertThat(hostConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
+    BuildConfigurationValue execConfig = createExec();
+    assertThat(execConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(
             Label.parseAbsoluteUnchecked(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain"));
   }

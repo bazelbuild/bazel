@@ -37,7 +37,7 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** Configuration for Protocol Buffer Libraries. */
 @Immutable
-// This module needs to be exported to Starlark so it can be passed as a mandatory host/target
+// This module needs to be exported to Starlark so it can be passed as a mandatory exec/target
 // configuration fragment in aspect definitions.
 @RequiresOptions(options = {ProtoConfiguration.Options.class})
 public class ProtoConfiguration extends Fragment implements ProtoConfigurationApi {
@@ -184,22 +184,22 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
     @Override
     public FragmentOptions getExec() {
-      Options host = (Options) super.getExec();
-      host.protoCompiler = protoCompiler;
-      host.protocOpts = protocOpts;
-      host.experimentalProtoDescriptorSetsIncludeSourceInfo =
+      Options exec = (Options) super.getExec();
+      exec.protoCompiler = protoCompiler;
+      exec.protocOpts = protocOpts;
+      exec.experimentalProtoDescriptorSetsIncludeSourceInfo =
           experimentalProtoDescriptorSetsIncludeSourceInfo;
-      host.experimentalProtoExtraActions = experimentalProtoExtraActions;
-      host.protoToolchainForJava = protoToolchainForJava;
-      host.protoToolchainForJ2objc = protoToolchainForJ2objc;
-      host.protoToolchainForJavaLite = protoToolchainForJavaLite;
-      host.protoToolchainForCc = protoToolchainForCc;
-      host.strictProtoDeps = strictProtoDeps;
-      host.strictPublicImports = strictPublicImports;
-      host.ccProtoLibraryHeaderSuffixes = ccProtoLibraryHeaderSuffixes;
-      host.ccProtoLibrarySourceSuffixes = ccProtoLibrarySourceSuffixes;
-      host.generatedProtosInVirtualImports = generatedProtosInVirtualImports;
-      return host;
+      exec.experimentalProtoExtraActions = experimentalProtoExtraActions;
+      exec.protoToolchainForJava = protoToolchainForJava;
+      exec.protoToolchainForJ2objc = protoToolchainForJ2objc;
+      exec.protoToolchainForJavaLite = protoToolchainForJavaLite;
+      exec.protoToolchainForCc = protoToolchainForCc;
+      exec.strictProtoDeps = strictProtoDeps;
+      exec.strictPublicImports = strictPublicImports;
+      exec.ccProtoLibraryHeaderSuffixes = ccProtoLibraryHeaderSuffixes;
+      exec.ccProtoLibrarySourceSuffixes = ccProtoLibrarySourceSuffixes;
+      exec.generatedProtosInVirtualImports = generatedProtosInVirtualImports;
+      return exec;
     }
   }
 

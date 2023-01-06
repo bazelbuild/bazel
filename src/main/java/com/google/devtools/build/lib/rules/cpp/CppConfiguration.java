@@ -596,7 +596,7 @@ public final class CppConfiguration extends Fragment
 
     // This is an assertion check vs. user error because users can't trigger this state.
     // TODO(b/253313672): uncomment the below and check tests don't fail. This was originally set
-    // check the host configuration doesn't apply FDO settings. With the host configuration gone
+    // check the exec configuration doesn't apply FDO settings. With the host configuration gone
     // we should migrate this check to the exec config. Since there's a chance of breakage it's best
     // to test this as its own dedicated change.
     // Verify.verify(

@@ -196,11 +196,11 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Override
   public FragmentOptions getExec() {
-    ObjcCommandLineOptions host = (ObjcCommandLineOptions) getDefault();
-    host.enableCcDeps = enableCcDeps;
-    host.incompatibleAvoidHardcodedObjcCompilationFlags =
+    ObjcCommandLineOptions exec = (ObjcCommandLineOptions) getDefault();
+    exec.enableCcDeps = enableCcDeps;
+    exec.incompatibleAvoidHardcodedObjcCompilationFlags =
         incompatibleAvoidHardcodedObjcCompilationFlags;
-    host.incompatibleObjcLinkingInfoMigration = incompatibleObjcLinkingInfoMigration;
-    return host;
+    exec.incompatibleObjcLinkingInfoMigration = incompatibleObjcLinkingInfoMigration;
+    return exec;
   }
 }

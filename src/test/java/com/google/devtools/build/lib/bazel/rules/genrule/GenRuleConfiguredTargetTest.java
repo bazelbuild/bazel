@@ -393,7 +393,7 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testToolsAreHostConfiguration() throws Exception {
+  public void testToolsAreExecConfiguration() throws Exception {
     scratch.file(
         "config/BUILD",
         "genrule(name='src', outs=['src.out'], cmd=':')",

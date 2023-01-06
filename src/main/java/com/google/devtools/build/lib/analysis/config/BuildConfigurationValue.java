@@ -473,8 +473,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
    * Returns the name of the base output directory under which actions in this configuration write
    * their outputs.
    *
-   * <p>This is the same as {@link #getMnemonic} except in the host configuration, in which case it
-   * is {@code "host"}.
+   * <p>This is the same as {@link #getMnemonic}.
    */
   public String getOutputDirectoryName() {
     return outputDirectories.getOutputDirName();

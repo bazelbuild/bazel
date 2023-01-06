@@ -75,8 +75,7 @@ public final class CommandHelper {
 
     /**
      * Adds tools, as a set of executable binaries, by fetching them from the given attribute on the
-     * {@code ruleContext}, in HOST mode. Populates manifests, remoteRunfiles and label map where
-     * required.
+     * {@code ruleContext}. Populates manifests, remoteRunfiles and label map where required.
      */
     @CanIgnoreReturnValue
     public Builder addHostToolDependencies(String toolAttributeName) {
@@ -177,7 +176,7 @@ public final class CommandHelper {
     }
 
     for (Iterable<? extends TransitiveInfoCollection> tools : toolsList) {
-      for (TransitiveInfoCollection dep : tools) { // (Note: host configuration)
+      for (TransitiveInfoCollection dep : tools) { // (Note: exec configuration)
 
         FilesToRunProvider tool = dep.getProvider(FilesToRunProvider.class);
         if (tool == null) {

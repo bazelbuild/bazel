@@ -58,7 +58,7 @@ public final class AspectValueTest extends AnalysisTestCase {
     ExtraAttributeAspect a2 = TestAspects.EXTRA_ATTRIBUTE_ASPECT;
 
     // label: //a:l1 or //a:l2
-    // baseConfiguration: target or host
+    // baseConfiguration: target or exec
     // aspect: Attribute or ExtraAttribute
     // parameters: bar or baz
 

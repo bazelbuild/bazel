@@ -173,10 +173,9 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         }
       }
 
-      // Include explicit elements for all direct inputs and outputs of a rule;
-      // this goes beyond what is available from the attributes above, since it
-      // may also (depending on options) include implicit outputs,
-      // host-configuration outputs, and default values.
+      // Include explicit elements for all direct inputs and outputs of a rule; this goes beyond
+      // what is available from the attributes above, since it may also (depending on options)
+      // include implicit outputs, exec-configuration outputs, and default values.
       for (Label label : rule.getSortedLabels(dependencyFilter)) {
         Element inputElem = doc.createElement("rule-input");
         inputElem.setAttribute("name", label.toString());

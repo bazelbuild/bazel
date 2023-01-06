@@ -307,7 +307,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   /**
-   * Sets host and target configuration using the specified options, falling back to the default
+   * Sets exec and target configuration using the specified options, falling back to the default
    * options for unspecified ones, and recreates the build view.
    */
   public void useConfiguration(String... args) throws Exception {

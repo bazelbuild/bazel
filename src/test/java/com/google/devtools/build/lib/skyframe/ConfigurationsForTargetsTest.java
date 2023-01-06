@@ -149,8 +149,8 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
         OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depMap =
             ConfiguredTargetFunction.computeDependencies(
                 new ConfiguredTargetFunction.ComputeDependenciesState(),
-                /*transitivePackagesForPackageRootResolution=*/ null,
-                /*transitiveRootCauses=*/ NestedSetBuilder.stableOrder(),
+                /* transitivePackages= */ null,
+                /* transitiveRootCauses= */ NestedSetBuilder.stableOrder(),
                 env,
                 new SkyframeDependencyResolver(env),
                 targetAndConfiguration,
@@ -317,12 +317,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
     }
   }
 
-  /**
-   * Tests dependencies in attribute with host transition.
-   *
-   * <p>Note: This cannot be used to test exec transition, because mocks don't set up toolchain
-   * contexts.
-   */
+  /** Tests dependencies in attribute with exec transition. */
   @Test
   public void execDeps() throws Exception {
     scratch.file(

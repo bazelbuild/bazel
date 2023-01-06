@@ -433,15 +433,15 @@ require building `//foo:bin` using a toolchain capable of creating 64-bit
 executables, but the build system must also build various tools used during the
 build itself—for example tools that are built from source, then subsequently
 used in, say, a genrule—and these must be built to run on your workstation. Thus
-we can identify two configurations: the **host configuration**, which is used
+we can identify two configurations: the **exec configuration**, which is used
 for building tools that run during the build, and the **target configuration**
 (or _request configuration_, but we say "target configuration" more often even
 though that word already has many meanings), which is used for building the
 binary you ultimately requested.
 
 Typically, there are many libraries that are prerequisites of both the requested
-build target (`//foo:bin`) and one or more of the host tools, for example some
-base libraries. Such libraries must be built twice, once for the host
+build target (`//foo:bin`) and one or more of the exec tools, for example some
+base libraries. Such libraries must be built twice, once for the exec
 configuration, and once for the target configuration. Bazel takes care of
 ensuring that both variants are built, and that the derived files are kept
 separate to avoid interference; usually such targets can be built concurrently,
@@ -449,37 +449,7 @@ since they are independent of each other. If you see progress messages
 indicating that a given target is being built twice, this is most likely the
 explanation.
 
-Bazel uses one of two ways to select the host configuration, based on the
-`--distinct_host_configuration` option. This boolean option is somewhat subtle,
-and the setting may improve (or worsen) the speed of your builds.
-
-#### `--distinct_host_configuration=false` {:#distinct-host-config-false}
-
-Caution: We do not recommend this option. If you frequently make changes to your
-request configuration, such as alternating between `-c opt` and `-c dbg` builds,
-or between simple- and cross-compilation, you will typically rebuild the
-majority of your codebase each time you switch.
-
-When this option is false, the host and request configurations are identical:
-all tools required during the build will be built in exactly the same way as
-target programs. This setting means that no libraries need to be built twice
-during a single build.
-
-However, it does mean that any change to your request configuration also affects
-your host configuration, causing all the tools to be rebuilt, and then anything
-that depends on the tool output to be rebuilt too. Thus, for example, simply
-changing a linker option between builds might cause all tools to be re-linked,
-and then all actions using them re-executed, and so on, resulting in a very
-large rebuild.
-
-Note: If your host architecture is not capable of running your target binaries,
-your build will not work.
-
-#### `--distinct_host_configuration=true` _(default)_ {:#distinct-host-config-true}
-
-If this option is true, then instead of using the same configuration for the
-host and request, a completely distinct host configuration is used. The host
-configuration is derived from the target configuration as follows:
+The exec configuration is derived from the target configuration as follows:
 
 -   Use the same version of Crosstool (`--crosstool_top`) as specified in the
     request configuration, unless `--host_crosstool_top` is specified.
@@ -487,7 +457,7 @@ configuration is derived from the target configuration as follows:
 -   Use the same values of these options as specified in the request
     configuration: `--compiler`, `--use_ijars`, and if `--host_crosstool_top` is
     used, then the value of `--host_cpu` is used to look up a
-    `default_toolchain` in the Crosstool (ignoring `--compiler`) for the host
+    `default_toolchain` in the Crosstool (ignoring `--compiler`) for the exec
     configuration.
 -   Use the value of `--host_javabase` for `--javabase`
 -   Use the value of `--host_java_toolchain` for `--java_toolchain`
@@ -500,23 +470,17 @@ configuration is derived from the target configuration as follows:
 -   Suppress stamping of binaries with build data (see `--embed_*` options).
 -   All other values remain at their defaults.
 
-There are many reasons why it might be preferable to select a distinct host
-configuration from the request configuration. Some are too esoteric to mention
-here, but two of them are worth pointing out.
+There are many reasons why it might be preferable to select a distinct exec
+configuration from the request configuration. Most importantly:
 
 Firstly, by using stripped, optimized binaries, you reduce the time spent
 linking and executing the tools, the disk space occupied by the tools, and the
 network I/O time in distributed builds.
 
-Secondly, by decoupling the host and request configurations in all builds, you
+Secondly, by decoupling the exec and request configurations in all builds, you
 avoid very expensive rebuilds that would result from minor changes to the
 request configuration (such as changing a linker options does), as described
 earlier.
-
-That said, for certain builds, this option may be a hindrance. In particular,
-builds in which changes of configuration are infrequent (especially certain Java
-builds), and builds where the amount of code that must be built in both host and
-target configurations is large, may not benefit.
 
 ### Correct incremental rebuilds {:#correct-incremental-rebuilds}
 

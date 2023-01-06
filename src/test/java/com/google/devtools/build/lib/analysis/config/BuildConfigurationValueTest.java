@@ -96,8 +96,8 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
 
-    BuildConfigurationValue hostConfig = createExec();
-    assertThat(hostConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
+    BuildConfigurationValue execConfig = createExec();
+    assertThat(execConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
   }
 
@@ -233,7 +233,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testHostDefine() throws Exception {
+  public void testExecDefine() throws Exception {
     BuildConfigurationValue cfg = createExec("--define=foo=bar");
     assertThat(cfg.getCommandLineBuildVariables().get("foo")).isEqualTo("bar");
   }
@@ -253,11 +253,11 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   @Test
   public void testIncompatibleMergeGenfilesDirectory() throws Exception {
     BuildConfigurationValue target = create("--incompatible_merge_genfiles_directory");
-    BuildConfigurationValue host = createExec("--incompatible_merge_genfiles_directory");
+    BuildConfigurationValue exec = createExec("--incompatible_merge_genfiles_directory");
     assertThat(target.getGenfilesDirectory(RepositoryName.MAIN))
         .isEqualTo(target.getBinDirectory(RepositoryName.MAIN));
-    assertThat(host.getGenfilesDirectory(RepositoryName.MAIN))
-        .isEqualTo(host.getBinDirectory(RepositoryName.MAIN));
+    assertThat(exec.getGenfilesDirectory(RepositoryName.MAIN))
+        .isEqualTo(exec.getBinDirectory(RepositoryName.MAIN));
   }
 
   private ImmutableList<BuildConfigurationValue> getTestConfigurations() throws Exception {

@@ -21,7 +21,7 @@ import java.io.IOException;
 /** Mocking support for platforms and toolchains. */
 public class MockPlatformSupport {
 
-  /** Adds mocks for basic host and target platform. */
+  /** Adds mocks for basic exec and target platform. */
   public static void setup(MockToolsConfig mockToolsConfig) throws IOException {
     setup(
         mockToolsConfig,
@@ -32,7 +32,7 @@ public class MockPlatformSupport {
         TestConstants.LOCAL_CONFIG_PLATFORM_PATH);
   }
 
-  /** Adds mocks for basic host and target platform. */
+  /** Adds mocks for basic exec and target platform. */
   public static void setup(
       MockToolsConfig mockToolsConfig,
       String platformsPath,

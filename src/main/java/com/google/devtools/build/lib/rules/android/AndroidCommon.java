@@ -385,7 +385,7 @@ public class AndroidCommon {
     if (!keys.isEmpty()) {
       return keys;
     }
-    return ImmutableList.of(ruleContext.getHostPrerequisiteArtifact("debug_key"));
+    return ImmutableList.of(ruleContext.getPrerequisiteArtifact("debug_key"));
   }
 
   private void compileResources(

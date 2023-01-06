@@ -227,19 +227,19 @@ public class PlatformOptions extends FragmentOptions {
 
   @Override
   public PlatformOptions getExec() {
-    PlatformOptions host = (PlatformOptions) getDefault();
-    host.platforms =
+    PlatformOptions exec = (PlatformOptions) getDefault();
+    exec.platforms =
         this.hostPlatform == null ? ImmutableList.of() : ImmutableList.of(this.hostPlatform);
-    host.hostPlatform = this.hostPlatform;
-    host.platformMappings = this.platformMappings;
-    host.extraExecutionPlatforms = this.extraExecutionPlatforms;
-    host.extraToolchains = this.extraToolchains;
-    host.toolchainResolutionDebug = this.toolchainResolutionDebug;
-    host.toolchainResolutionOverrides = this.toolchainResolutionOverrides;
-    host.autoConfigureHostPlatform = this.autoConfigureHostPlatform;
-    host.useToolchainResolutionForJavaRules = this.useToolchainResolutionForJavaRules;
-    host.targetPlatformFallback = this.targetPlatformFallback;
-    return host;
+    exec.hostPlatform = this.hostPlatform;
+    exec.platformMappings = this.platformMappings;
+    exec.extraExecutionPlatforms = this.extraExecutionPlatforms;
+    exec.extraToolchains = this.extraToolchains;
+    exec.toolchainResolutionDebug = this.toolchainResolutionDebug;
+    exec.toolchainResolutionOverrides = this.toolchainResolutionOverrides;
+    exec.autoConfigureHostPlatform = this.autoConfigureHostPlatform;
+    exec.useToolchainResolutionForJavaRules = this.useToolchainResolutionForJavaRules;
+    exec.targetPlatformFallback = this.targetPlatformFallback;
+    return exec;
   }
 
   /** Returns the intended target platform value based on options defined in this fragment. */

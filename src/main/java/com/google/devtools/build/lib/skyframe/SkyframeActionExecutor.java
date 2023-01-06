@@ -1284,7 +1284,7 @@ public final class SkyframeActionExecutor {
   /**
    * Returns a progress message like:
    *
-   * <p>[2608/6445] Compiling foo/bar.cc [host]
+   * <p>[2608/6445] Compiling foo/bar.cc [exec]
    */
   private String prependExecPhaseStats(String message) {
     if (progressSupplier == null) {

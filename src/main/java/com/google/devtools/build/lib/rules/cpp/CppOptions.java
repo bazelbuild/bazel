@@ -605,7 +605,7 @@ public class CppOptions extends FragmentOptions {
       },
       help =
           "By default, the --crosstool_top and --compiler options are also used "
-              + "for the host configuration. If this flag is provided, Bazel uses the default libc "
+              + "for the exec configuration. If this flag is provided, Bazel uses the default libc "
               + "and compiler for the given crosstool_top.")
   public Label hostCrosstoolTop;
 
@@ -616,7 +616,7 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Additional options to pass to the C compiler for tools built in the host or exec"
+          "Additional options to pass to the C compiler for tools built in the exec"
               + " configurations.")
   public List<String> hostCoptList;
 
@@ -627,7 +627,7 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Additional options to pass to C++ compiler for tools built in the host or exec"
+          "Additional options to pass to C++ compiler for tools built in the exec"
               + " configurations.")
   public List<String> hostCxxoptList;
 
@@ -639,7 +639,7 @@ public class CppOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Additional option to pass to the C compiler when compiling C (but not C++) source files"
-              + " in the host or exec configurations.")
+              + " in the exec configurations.")
   public List<String> hostConlyoptList;
 
   @Option(
@@ -651,7 +651,7 @@ public class CppOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Additional options to selectively pass to the C/C++ compiler when "
-              + "compiling certain files in the host or exec configurations. "
+              + "compiling certain files in the exec configurations. "
               + "This option can be passed multiple times. "
               + "Syntax: regex_filter@option_1,option_2,...,option_n. Where regex_filter stands "
               + "for a list of include and exclude regular expression patterns (Also see "
@@ -671,8 +671,7 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Additional option to pass to linker when linking tools in the host or exec"
-              + " configurations.")
+          "Additional option to pass to linker when linking tools in the exec" + " configurations.")
   public List<String> hostLinkoptList;
 
   @Option(
@@ -694,14 +693,14 @@ public class CppOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "If specified, this setting overrides the libc top-level directory (--grte_top) "
-              + "for the host configuration.")
+              + "for the exec configuration.")
   public Label hostLibcTopLabel;
 
   /** See {@link #targetLibcTopLabel} documentation. * */
   private static final String TARGET_LIBC_TOP_NOT_YET_SET = "TARGET LIBC TOP NOT YET SET";
 
   /**
-   * This is a fake option used to pass data from target configuration to the host configuration.
+   * This is a fake option used to pass data from target configuration to the exec configuration.
    * It's a horrible hack that will be removed once toolchain-transitions are implemented.
    *
    * <p>We want to make sure this stays bound to the top-level configuration (as opposed to a
@@ -1217,18 +1216,18 @@ public class CppOptions extends FragmentOptions {
 
   @Override
   public FragmentOptions getExec() {
-    CppOptions host = (CppOptions) getDefault();
+    CppOptions exec = (CppOptions) getDefault();
 
-    host.crosstoolTop = hostCrosstoolTop;
-    host.cppCompiler = hostCppCompiler;
+    exec.crosstoolTop = hostCrosstoolTop;
+    exec.cppCompiler = hostCppCompiler;
 
     // hostLibcTop doesn't default to the target's libcTop.
     // Only an explicit command-line option will change it.
     // The default is whatever the host's crosstool (which might have been specified
     // by --host_crosstool_top, or --crosstool_top as a fallback) says it should be.
-    host.libcTopLabel = hostLibcTopLabel;
+    exec.libcTopLabel = hostLibcTopLabel;
     // TODO(b/129045294): Remove once toolchain-transitions are implemented.
-    host.targetLibcTopLabel = targetLibcTopLabel;
+    exec.targetLibcTopLabel = targetLibcTopLabel;
 
     // -g0 is the default, but allowMultiple options cannot have default values so we just pass
     // -g0 first and let the user options override it.
@@ -1240,58 +1239,58 @@ public class CppOptions extends FragmentOptions {
       coptListBuilder.add("-g0");
       cxxoptListBuilder.add("-g0");
     }
-    host.experimentalLinkStaticLibrariesOnce = experimentalLinkStaticLibrariesOnce;
-    host.experimentalEnableTargetExportCheck = experimentalEnableTargetExportCheck;
-    host.experimentalCcSharedLibraryDebug = experimentalCcSharedLibraryDebug;
-    host.experimentalCcImplementationDeps = experimentalCcImplementationDeps;
+    exec.experimentalLinkStaticLibrariesOnce = experimentalLinkStaticLibrariesOnce;
+    exec.experimentalEnableTargetExportCheck = experimentalEnableTargetExportCheck;
+    exec.experimentalCcSharedLibraryDebug = experimentalCcSharedLibraryDebug;
+    exec.experimentalCcImplementationDeps = experimentalCcImplementationDeps;
 
-    host.coptList = coptListBuilder.addAll(hostCoptList).build();
-    host.cxxoptList = cxxoptListBuilder.addAll(hostCxxoptList).build();
-    host.conlyoptList = ImmutableList.copyOf(hostConlyoptList);
-    host.perFileCopts = ImmutableList.copyOf(hostPerFileCoptsList);
-    host.linkoptList = ImmutableList.copyOf(hostLinkoptList);
+    exec.coptList = coptListBuilder.addAll(hostCoptList).build();
+    exec.cxxoptList = cxxoptListBuilder.addAll(hostCxxoptList).build();
+    exec.conlyoptList = ImmutableList.copyOf(hostConlyoptList);
+    exec.perFileCopts = ImmutableList.copyOf(hostPerFileCoptsList);
+    exec.linkoptList = ImmutableList.copyOf(hostLinkoptList);
 
-    host.useStartEndLib = useStartEndLib;
-    host.stripBinaries = StripMode.ALWAYS;
-    host.inmemoryDotdFiles = inmemoryDotdFiles;
+    exec.useStartEndLib = useStartEndLib;
+    exec.stripBinaries = StripMode.ALWAYS;
+    exec.inmemoryDotdFiles = inmemoryDotdFiles;
 
-    host.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
-    host.disableLegacyCcProvider = disableLegacyCcProvider;
-    host.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
-    host.enableCcToolchainResolution = enableCcToolchainResolution;
-    host.removeLegacyWholeArchive = removeLegacyWholeArchive;
-    host.dontEnableHostNonhost = dontEnableHostNonhost;
-    host.requireCtxInConfigureFeatures = requireCtxInConfigureFeatures;
-    host.useStandaloneLtoIndexingCommandLines = useStandaloneLtoIndexingCommandLines;
-    host.useSpecificToolFiles = useSpecificToolFiles;
-    host.disableNoCopts = disableNoCopts;
-    host.loadCcRulesFromBzl = loadCcRulesFromBzl;
-    host.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;
-    host.parseHeadersSkippedIfCorrespondingSrcsFound = parseHeadersSkippedIfCorrespondingSrcsFound;
-    host.strictSystemIncludes = strictSystemIncludes;
-    host.useArgsParamsFile = useArgsParamsFile;
-    host.ignoreParamFile = ignoreParamFile;
-    host.experimentalIncludeScanning = experimentalIncludeScanning;
-    host.renameDLL = renameDLL;
-    host.enableCcTestFeature = enableCcTestFeature;
-    host.forceStrictHeaderCheckFromStarlark = forceStrictHeaderCheckFromStarlark;
-    host.useCppCompileHeaderMnemonic = useCppCompileHeaderMnemonic;
+    exec.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
+    exec.disableLegacyCcProvider = disableLegacyCcProvider;
+    exec.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
+    exec.enableCcToolchainResolution = enableCcToolchainResolution;
+    exec.removeLegacyWholeArchive = removeLegacyWholeArchive;
+    exec.dontEnableHostNonhost = dontEnableHostNonhost;
+    exec.requireCtxInConfigureFeatures = requireCtxInConfigureFeatures;
+    exec.useStandaloneLtoIndexingCommandLines = useStandaloneLtoIndexingCommandLines;
+    exec.useSpecificToolFiles = useSpecificToolFiles;
+    exec.disableNoCopts = disableNoCopts;
+    exec.loadCcRulesFromBzl = loadCcRulesFromBzl;
+    exec.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;
+    exec.parseHeadersSkippedIfCorrespondingSrcsFound = parseHeadersSkippedIfCorrespondingSrcsFound;
+    exec.strictSystemIncludes = strictSystemIncludes;
+    exec.useArgsParamsFile = useArgsParamsFile;
+    exec.ignoreParamFile = ignoreParamFile;
+    exec.experimentalIncludeScanning = experimentalIncludeScanning;
+    exec.renameDLL = renameDLL;
+    exec.enableCcTestFeature = enableCcTestFeature;
+    exec.forceStrictHeaderCheckFromStarlark = forceStrictHeaderCheckFromStarlark;
+    exec.useCppCompileHeaderMnemonic = useCppCompileHeaderMnemonic;
 
     // Save host options for further use.
-    host.hostCoptList = hostCoptList;
-    host.hostConlyoptList = hostConlyoptList;
-    host.hostCppCompiler = hostCppCompiler;
-    host.hostCrosstoolTop = hostCrosstoolTop;
-    host.hostCxxoptList = hostCxxoptList;
-    host.hostPerFileCoptsList = hostPerFileCoptsList;
-    host.hostLibcTopLabel = hostLibcTopLabel;
-    host.hostLinkoptList = hostLinkoptList;
+    exec.hostCoptList = hostCoptList;
+    exec.hostConlyoptList = hostConlyoptList;
+    exec.hostCppCompiler = hostCppCompiler;
+    exec.hostCrosstoolTop = hostCrosstoolTop;
+    exec.hostCxxoptList = hostCxxoptList;
+    exec.hostPerFileCoptsList = hostPerFileCoptsList;
+    exec.hostLibcTopLabel = hostLibcTopLabel;
+    exec.hostLinkoptList = hostLinkoptList;
 
-    host.experimentalStarlarkCcImport = experimentalStarlarkCcImport;
+    exec.experimentalStarlarkCcImport = experimentalStarlarkCcImport;
 
-    host.macosSetInstallName = macosSetInstallName;
+    exec.macosSetInstallName = macosSetInstallName;
 
-    return host;
+    return exec;
   }
 
   /** Returns true if targets under this configuration should apply FDO. */

@@ -159,7 +159,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     // The python code coverage tool to use, if any.
     String coverageTool = getCoverageTool(ruleContext, common);
 
-    // Version information for host config diagnostic warning.
+    // Version information for exec config diagnostic warning.
     PythonVersion attrVersion = PyCommon.readPythonVersionFromAttribute(ruleContext.attributes());
     boolean attrVersionSpecifiedExplicitly = attrVersion != null;
     if (!attrVersionSpecifiedExplicitly) {

@@ -490,33 +490,33 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   @Override
   public FragmentOptions getExec() {
-    AppleCommandLineOptions host = (AppleCommandLineOptions) super.getExec();
+    AppleCommandLineOptions exec = (AppleCommandLineOptions) super.getExec();
 
-    // Set options needed in the host configuration.
-    host.xcodeVersionConfig = xcodeVersionConfig;
-    host.xcodeVersion = xcodeVersion;
-    host.iosSdkVersion = iosSdkVersion;
-    host.watchOsSdkVersion = watchOsSdkVersion;
-    host.tvOsSdkVersion = tvOsSdkVersion;
-    host.macOsSdkVersion = macOsSdkVersion;
-    host.macosMinimumOs = hostMacosMinimumOs;
-    // The host apple platform type will always be MACOS, as no other apple platform type can
+    // Set options needed in the exec configuration.
+    exec.xcodeVersionConfig = xcodeVersionConfig;
+    exec.xcodeVersion = xcodeVersion;
+    exec.iosSdkVersion = iosSdkVersion;
+    exec.watchOsSdkVersion = watchOsSdkVersion;
+    exec.tvOsSdkVersion = tvOsSdkVersion;
+    exec.macOsSdkVersion = macOsSdkVersion;
+    exec.macosMinimumOs = hostMacosMinimumOs;
+    // The exec apple platform type will always be MACOS, as no other apple platform type can
     // currently execute build actions. If that were the case, a host_apple_platform_type flag might
     // be needed.
-    host.applePlatformType = PlatformType.MACOS;
-    host.configurationDistinguisher = ConfigurationDistinguisher.UNKNOWN;
+    exec.applePlatformType = PlatformType.MACOS;
+    exec.configurationDistinguisher = ConfigurationDistinguisher.UNKNOWN;
     // Preseve Xcode selection preferences so that the same Xcode version is used throughout the
     // build.
-    host.preferMutualXcode = preferMutualXcode;
-    host.includeXcodeExecutionRequirements = includeXcodeExecutionRequirements;
-    host.appleCrosstoolTop = appleCrosstoolTop;
-    host.applePlatforms = applePlatforms;
-    host.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
+    exec.preferMutualXcode = preferMutualXcode;
+    exec.includeXcodeExecutionRequirements = includeXcodeExecutionRequirements;
+    exec.appleCrosstoolTop = appleCrosstoolTop;
+    exec.applePlatforms = applePlatforms;
+    exec.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
 
     // Save host option for further use.
-    host.hostMacosMinimumOs = hostMacosMinimumOs;
+    exec.hostMacosMinimumOs = hostMacosMinimumOs;
 
-    return host;
+    return exec;
   }
 
   void serialize(SerializationContext context, CodedOutputStream out)

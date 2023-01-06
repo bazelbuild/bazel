@@ -55,10 +55,10 @@ public class AppleCcToolchain extends CcToolchain {
 
   @Override
   protected AdditionalBuildVariablesComputer getAdditionalBuildVariablesComputer(
-      RuleContext ruleContextPossiblyInHostConfiguration) {
-    // xcode config is shared between target and host configuration therefore we can use it.
+      RuleContext ruleContextPossiblyInExecConfiguration) {
+    // xcode config is shared between target and exec configuration therefore we can use it.
     XcodeConfigInfo xcodeConfig =
-        XcodeConfig.getXcodeConfigInfo(ruleContextPossiblyInHostConfiguration);
+        XcodeConfig.getXcodeConfigInfo(ruleContextPossiblyInExecConfiguration);
     return getAdditionalBuildVariablesComputer(xcodeConfig);
   }
 

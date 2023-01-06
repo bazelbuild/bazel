@@ -479,7 +479,7 @@ public final class AspectDefinition {
 
     /**
      * Declares that the implementation of the associated aspect definition requires the given
-     * fragments to be present in this rule's host and target configurations.
+     * fragments to be present in this rule's exec and target configurations.
      *
      * <p>The value is inherited by subclasses.
      */

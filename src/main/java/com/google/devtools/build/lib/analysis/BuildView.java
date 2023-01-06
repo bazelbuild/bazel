@@ -242,7 +242,7 @@ public class BuildView {
     BuildConfigurationValue configuration;
     TopLevelTargetsAndConfigsResult topLevelTargetsWithConfigsResult;
     // Configuration creation.
-    // TODO(gregce): Consider dropping this phase and passing on-the-fly target / host configs as
+    // TODO(gregce): Consider dropping this phase and passing on-the-fly target / exec configs as
     // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
     try (SilentCloseable c = Profiler.instance().profile("createConfigurations")) {
       configuration = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);

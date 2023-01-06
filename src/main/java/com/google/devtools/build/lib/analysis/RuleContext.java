@@ -1330,15 +1330,6 @@ public final class RuleContext extends TargetContext
     return transitiveInfoCollectionToArtifact(attributeName, target);
   }
 
-  /**
-   * Equivalent to getPrerequisiteArtifact(), but also asserts that host-configuration is
-   * appropriate for the specified attribute.
-   */
-  // TODO(b/165916637): Fix callers to this method to use getPrerequisiteArtifact instead.
-  public Artifact getHostPrerequisiteArtifact(String attributeName) {
-    return getPrerequisiteArtifact(attributeName);
-  }
-
   @Nullable
   private Artifact transitiveInfoCollectionToArtifact(
       String attributeName, TransitiveInfoCollection target) {
