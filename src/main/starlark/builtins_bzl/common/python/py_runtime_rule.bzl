@@ -14,7 +14,7 @@
 """Implementation of py_runtime rule."""
 
 load(":common/paths.bzl", "paths")
-load(":common/python/providers.bzl", "DEFAULT_STUB_SHEBANG", _PyRuntimeInfo = "PyRuntimeInfo")
+load(":common/python/providers.bzl", "DEFAULT_BOOTSTRAP_TEMPLATE", "DEFAULT_STUB_SHEBANG", _PyRuntimeInfo = "PyRuntimeInfo")
 
 _py_builtins = _builtins.internal.py_builtins
 
@@ -75,6 +75,7 @@ def _py_runtime_impl(ctx):
             coverage_files = coverage_files,
             python_version = python_version,
             stub_shebang = ctx.attr.stub_shebang,
+            bootstrap_template = ctx.file.bootstrap_template,
         ),
         DefaultInfo(
             files = runtime_files,
@@ -177,6 +178,28 @@ See https://github.com/bazelbuild/bazel/issues/8685 for
 motivation.
 
 Does not apply to Windows.
+""",
+        ),
+        "bootstrap_template": attr.label(
+            allow_single_file = True,
+            default = DEFAULT_BOOTSTRAP_TEMPLATE,
+            doc = """
+The bootstrap script template file to use. Should have %python_binary%,
+%workspace_name%, %main%, and %imports%.
+
+This template, after expansion, becomes the executable file used to start the
+process, so it is responsible for initial bootstrapping actions such as finding
+the Python interpreter, runfiles, and constructing an environment to run the
+intended Python application.
+
+While this attribute is currently optional, it will become required when the
+Python rules are moved out of Bazel itself.
+
+The exact variable names expanded is an unstable API and is subject to change.
+The API will become more stable when the Python rules are moved out of Bazel
+itself.
+
+See @bazel_tools//tools/python:python_bootstrap_template.txt for more variables.
 """,
         ),
     },
