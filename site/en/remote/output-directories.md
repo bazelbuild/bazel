@@ -68,7 +68,7 @@ The directories are laid out as follows:
 &lt;workspace-name&gt;/                         <== The workspace directory
   bazel-my-project => <...my-project>     <== Symlink to execRoot
   bazel-out => <...bin>                   <== Convenience symlink to outputPath
-  bazel-bin => <...bin>                   <== Convenience symlink to most recent written bin dir $(BINDIR)
+  bazel-bin => <...bin>                   <== Convenience symlink to most recent written bin dir (excluding transitions) $(BINDIR)
   bazel-testlogs => <...testlogs>         <== Convenience symlink to the test logs directory
 
 /home/user/.cache/bazel/                  <== Root for all Bazel output on a machine: outputRoot
