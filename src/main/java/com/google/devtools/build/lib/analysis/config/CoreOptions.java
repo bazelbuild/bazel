@@ -49,7 +49,7 @@ import java.util.Map;
  * BuildConfigurationValue instances.)
  *
  * <p>IMPORTANT: when adding new options, be sure to consider whether those values should be
- * propagated to the host configuration or not.
+ * propagated to the exec configuration or not.
  *
  * <p>ALSO IMPORTANT: all option types MUST define a toString method that gives identical results
  * for semantically identical option values. The simplest way to ensure that is to return the input
@@ -395,7 +395,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
-          "Specifies the set of environment variables available to actions with host or execution"
+          "Specifies the set of environment variables available to actions with execution"
               + " configurations. Variables can be either specified by name, in which case the"
               + " value will be taken from the invocation environment, or by the name=value pair"
               + " which sets the value independent of the invocation environment. This option can"
@@ -580,15 +580,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " `affected by Starlark transition` is ignored and instead ST hash is determined,"
               + " for all configuration, by diffing against the top-level configuration.")
   public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
-
-  @Option(
-      name = "is host configuration",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.INTERNAL},
-      help = "Shows whether these options are set for host configuration.")
-  public boolean isHost;
 
   @Option(
       name = "is exec configuration",
@@ -928,13 +919,12 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   }
 
   @Override
-  public FragmentOptions getHost() {
+  public FragmentOptions getExec() {
     CoreOptions host = (CoreOptions) getDefault();
 
     host.affectedByStarlarkTransition = affectedByStarlarkTransition;
     host.outputDirectoryNamingScheme = outputDirectoryNamingScheme;
     host.compilationMode = hostCompilationMode;
-    host.isHost = true;
     host.isExec = false;
     host.execConfigurationDistinguisherScheme = execConfigurationDistinguisherScheme;
     host.outputPathsMode = outputPathsMode;
@@ -963,7 +953,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.strictFilesets = strictFilesets;
 
     // === Linkstamping ===
-    // Disable all link stamping for the host configuration, to improve action
+    // Disable all link stamping for the exec configuration, to improve action
     // cache hit rates for tools.
     host.stampBinaries = false;
 

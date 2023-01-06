@@ -719,8 +719,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     public String hostRelevantOption;
 
     @Override
-    public DiffResetOptions getHost() {
-      DiffResetOptions host = ((DiffResetOptions) super.getHost());
+    public DiffResetOptions getExec() {
+      DiffResetOptions host = ((DiffResetOptions) super.getExec());
       host.definitelyRelevantOption = hostRelevantOption;
       return host;
     }

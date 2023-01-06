@@ -208,7 +208,7 @@ public class BazelRuleClassProviderTest {
     StrictActionEnvOptions o = Options.getDefaults(
         StrictActionEnvOptions.class);
     o.useStrictActionEnv = true;
-    StrictActionEnvOptions h = o.getHost();
+    StrictActionEnvOptions h = o.getExec();
     assertThat(h.useStrictActionEnv).isTrue();
   }
 

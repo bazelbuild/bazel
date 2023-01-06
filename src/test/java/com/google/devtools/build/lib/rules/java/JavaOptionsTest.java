@@ -42,7 +42,7 @@ public class JavaOptionsTest {
 
     assertThat(buildOptions.get(JavaOptions.class).javacOpts).contains("-XDtarget");
     assertThat(buildOptions.get(JavaOptions.class).hostJavacOpts).contains("-XDhost");
-    assertThat(((JavaOptions) buildOptions.get(JavaOptions.class).getHost()).javacOpts)
+    assertThat(((JavaOptions) buildOptions.get(JavaOptions.class).getExec()).javacOpts)
         .contains("-XDhost");
   }
 }

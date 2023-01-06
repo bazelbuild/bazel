@@ -97,7 +97,7 @@ public class BazelPythonConfiguration extends Fragment {
 
     /** Make Python configuration options available for host configurations as well */
     @Override
-    public FragmentOptions getHost() {
+    public FragmentOptions getExec() {
       return clone(); // host options are the same as target options
     }
   }

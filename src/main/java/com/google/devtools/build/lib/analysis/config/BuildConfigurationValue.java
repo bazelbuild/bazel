@@ -66,10 +66,10 @@ import net.starlark.java.eval.StarlarkThread;
  *
  * <p>A single build may require building tools to run on a variety of platforms: when compiling a
  * server application for production, we must build the build tools (like compilers) to run on the
- * host platform, but cross-compile the application for the production environment.
+ * execution platform, but cross-compile the application for the production environment.
  *
  * <p>There is always at least one {@code BuildConfigurationValue} instance in any build: the one
- * representing the host platform. Additional instances may be created, in a cross-compilation
+ * representing the target platform. Additional instances may be created, in a cross-compilation
  * build, for example.
  *
  * <p>Instances of {@code BuildConfigurationValue} are canonical:
@@ -457,9 +457,8 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   /**
    * Returns the configuration-dependent string for this configuration.
    *
-   * <p>This is also the name of the configuration's base output directory unless {@link
-   * #isHostConfiguration} is {@code true}, in which case the output directory is named {@code
-   * "host"}. See also {@link #getOutputDirectoryName}.
+   * <p>This is also the name of the configuration's base output directory. See also {@link
+   * #getOutputDirectoryName}.
    */
   public String getMnemonic() {
     return outputDirectories.getMnemonic();
@@ -700,19 +699,14 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return options.runUnder;
   }
 
-  /** Returns true if this is a host configuration. */
-  public boolean isHostConfiguration() {
-    return options.isHost;
-  }
-
   /** Returns true if this is an execution configuration. */
   public boolean isExecConfiguration() {
     return options.isExec;
   }
 
-  /** Returns true if this is an tool-related configuration. */
+  /** Returns true if this is a tool-related configuration. */
   public boolean isToolConfiguration() {
-    return isExecConfiguration() || isHostConfiguration();
+    return isExecConfiguration();
   }
 
   @Override

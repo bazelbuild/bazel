@@ -1067,8 +1067,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean androidPlatformsTransitionsUpdateAffected;
 
     @Override
-    public FragmentOptions getHost() {
-      Options host = (Options) super.getHost();
+    public FragmentOptions getExec() {
+      Options host = (Options) super.getExec();
       host.hwasan = false;
       host.androidCrosstoolTop = androidCrosstoolTop;
       host.sdk = sdk;

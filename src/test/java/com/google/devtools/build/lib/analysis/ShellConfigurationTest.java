@@ -32,7 +32,7 @@ public class ShellConfigurationTest extends BuildViewTestCase {
   public void optionsAlsoApplyToHost() {
     ShellConfiguration.Options o = Options.getDefaults(ShellConfiguration.Options.class);
     o.shellExecutable = PathFragment.create("/my/shell/binary");
-    ShellConfiguration.Options h = o.getHost();
+    ShellConfiguration.Options h = o.getExec();
     assertThat(h.shellExecutable).isEqualTo(PathFragment.create("/my/shell/binary"));
   }
 }

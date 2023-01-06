@@ -1216,7 +1216,7 @@ public class CppOptions extends FragmentOptions {
   }
 
   @Override
-  public FragmentOptions getHost() {
+  public FragmentOptions getExec() {
     CppOptions host = (CppOptions) getDefault();
 
     host.crosstoolTop = hostCrosstoolTop;
