@@ -395,6 +395,10 @@ def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_c
                 linked_statically_but_not_exported.setdefault(link_once_static_libs_map[owner], []).append(owner)
             else:
                 static_linker_inputs.append(linker_input)
+        else:
+            # This branch is taken when a library has an owner label from another rule, such as a
+            # rule that uses the CcInfo created by an aspect.
+            static_linker_inputs.append(linker_input)
 
     throw_linked_but_not_exported_errors(linked_statically_but_not_exported)
 
