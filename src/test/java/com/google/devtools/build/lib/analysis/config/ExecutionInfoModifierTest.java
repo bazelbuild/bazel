@@ -70,6 +70,44 @@ public class ExecutionInfoModifierTest {
   }
 
   @Test
+  public void executionInfoModifier_multipleOptionsAdditive() throws Exception {
+    ExecutionInfoModifier modifier1 = converter.convert("Genrule=+x,CppCompile=-y1,GenericAction=+z,MergeLayers=+t,OtherAction=+o");
+    ExecutionInfoModifier modifier2 = converter.convert("Genrule=-x,CppCompile=+y1,CppCompile=+y2,GenericAction=+z,MergeLayers=+u");
+    ExecutionInfoModifier modifier3 = converter.convert(".*=-t");
+
+    ExecutionInfoModifier mergedModifier = ExecutionInfoModifier.collapse(List.of(modifier1, modifier2, modifier3), true);
+
+    assertModifierMatchesAndResults(mergedModifier, "Genrule", ImmutableSet.of());
+    assertModifierMatchesAndResults(mergedModifier, "CppCompile", ImmutableSet.of("y1", "y2"));
+    assertModifierMatchesAndResults(mergedModifier, "GenericAction", ImmutableSet.of("z"));
+    assertModifierMatchesAndResults(mergedModifier, "MergeLayers", ImmutableSet.of("u"));
+    assertModifierMatchesAndResults(mergedModifier, "OtherAction", ImmutableSet.of("o"));
+  }
+
+  @Test
+  public void executionInfoModifier_multipleOptionsNonAdditive() throws Exception {
+    ExecutionInfoModifier modifier1 = converter.convert("Genrule=+x,CppCompile=-y1,GenericAction=+z,MergeLayers=+t,OtherAction=+o");
+    ExecutionInfoModifier modifier2 = converter.convert("Genrule=-x,CppCompile=+y1,CppCompile=+y2,GenericAction=+z,MergeLayers=+u");
+    ExecutionInfoModifier modifier3 = converter.convert(".*=-t");
+
+    ExecutionInfoModifier mergedModifier1 = ExecutionInfoModifier.collapse(List.of(modifier1, modifier2), false);
+
+    assertModifierMatchesAndResults(mergedModifier1, "Genrule", ImmutableSet.of());
+    assertModifierMatchesAndResults(mergedModifier1, "CppCompile", ImmutableSet.of("y1", "y2"));
+    assertModifierMatchesAndResults(mergedModifier1, "GenericAction", ImmutableSet.of("z"));
+    assertModifierMatchesAndResults(mergedModifier1, "MergeLayers", ImmutableSet.of("u"));
+    assertThat(mergedModifier1.matches("OtherAction")).isFalse();
+
+    ExecutionInfoModifier mergedModifier2 = ExecutionInfoModifier.collapse(List.of(modifier1, modifier2, modifier3), false);
+
+    assertModifierMatchesAndResults(mergedModifier2, "Genrule", ImmutableSet.of());
+    assertModifierMatchesAndResults(mergedModifier2, "CppCompile", ImmutableSet.of());
+    assertModifierMatchesAndResults(mergedModifier2, "GenericAction", ImmutableSet.of());
+    assertModifierMatchesAndResults(mergedModifier2, "MergeLayers", ImmutableSet.of());
+    assertModifierMatchesAndResults(mergedModifier2, "OtherAction", ImmutableSet.of());
+  }
+
+  @Test
   public void executionInfoModifier_invalidFormat_throws() throws Exception {
     List<String> invalidModifiers =
         ImmutableList.of("A", "=", "A=", "A=+", "=+", "A=-B,A", "A=B", "A", ",");

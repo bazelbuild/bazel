@@ -737,14 +737,15 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "modify_execution_info",
+      allowMultiple = true,
       converter = ExecutionInfoModifier.Converter.class,
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {
         OptionEffectTag.EXECUTION,
         OptionEffectTag.AFFECTS_OUTPUTS,
         OptionEffectTag.LOADING_AND_ANALYSIS,
       },
-      defaultValue = "",
       help =
           "Add or remove keys from an action's execution info based on action mnemonic.  "
               + "Applies only to actions which support execution info. Many common actions "
@@ -759,7 +760,25 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "all Genrule actions.\n"
               + "  '(?!Genrule).*=-requires-x' removes 'requires-x' from the execution info for "
               + "all non-Genrule actions.\n")
-  public ExecutionInfoModifier executionInfoModifier;
+  public List<ExecutionInfoModifier> executionInfoModifier;
+
+  @Option(
+      name = "incompatible_modify_execution_info_additive_flag",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When enabled, passing multiple --modify_execution_info flags will be additive."
+              + " When disabled, only the last flag will be taken into account."
+
+      )
+  public boolean additiveModifyExecutionInfo;
+
 
   @Option(
       name = "incompatible_genquery_use_graphless_query",
@@ -930,6 +949,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.outputPathsMode = outputPathsMode;
     host.enableRunfiles = enableRunfiles;
     host.executionInfoModifier = executionInfoModifier;
+    host.additiveModifyExecutionInfo = additiveModifyExecutionInfo;
     host.commandLineBuildVariables = commandLineBuildVariables;
     host.enforceConstraints = enforceConstraints;
     host.mergeGenfilesDirectory = mergeGenfilesDirectory;
