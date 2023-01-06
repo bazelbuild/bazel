@@ -130,18 +130,18 @@ public final class FunctionTransitionUtil {
    * <p>Platform mappings: https://bazel.build/concepts/platforms-intro#platform-mappings.
    */
   private static Map<String, Object> handleImplicitPlatformChange(
-      BuildOptions options, Map<String, Object> originalOutput) {
-    Object newCpu = originalOutput.get(COMMAND_LINE_OPTION_PREFIX + "cpu");
+      BuildOptions options, Map<String, Object> rawTransitionOutput) {
+    Object newCpu = rawTransitionOutput.get(COMMAND_LINE_OPTION_PREFIX + "cpu");
     if (newCpu == null || newCpu.equals(options.get(CoreOptions.class).cpu)) {
       // No effective change to --cpu, so no need to prevent the platform mapping from resetting it.
-      return originalOutput;
+      return rawTransitionOutput;
     }
-    if (originalOutput.containsKey(COMMAND_LINE_OPTION_PREFIX + "platforms")) {
+    if (rawTransitionOutput.containsKey(COMMAND_LINE_OPTION_PREFIX + "platforms")) {
       // Explicitly setting --platforms overrides the implicit clearing.
-      return originalOutput;
+      return rawTransitionOutput;
     }
     return ImmutableMap.<String, Object>builder()
-        .putAll(originalOutput)
+        .putAll(rawTransitionOutput)
         .put(COMMAND_LINE_OPTION_PREFIX + "platforms", ImmutableList.<Label>of())
         .build();
   }

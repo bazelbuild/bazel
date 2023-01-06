@@ -2517,6 +2517,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/my_rule.bzl",
         "def transition_func(settings, attr):",
+        // Leave --cpu unchanged, but still trigger the full transition logic that would be
+        // bypassed by returning {}.
         "  return settings",
         "my_transition = transition(implementation = transition_func,",
         "  inputs = [",
