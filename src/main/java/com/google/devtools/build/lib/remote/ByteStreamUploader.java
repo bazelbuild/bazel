@@ -310,13 +310,15 @@ class ByteStreamUploader {
 
         throw new IOException(
             format(
-                "compressed write incomplete: committed_size %d is" + " neither -1 nor total %d",
-                committedSize, expected));
+                "compressed write incomplete: committed_size %d is neither -1 nor total %d - %s",
+                committedSize, expected, resourceName));
       }
 
       // Uncompressed upload failed.
       throw new IOException(
-          format("write incomplete: committed_size %d for %d total", committedSize, expected));
+          format(
+              "write incomplete: committed_size %d for %d total - %s",
+              committedSize, expected, resourceName));
     }
 
     /**
