@@ -457,6 +457,20 @@ public final class RunfilesSupport {
   }
 
   /**
+   * Creates and returns a {@link RunfilesSupport} object for the given rule and executable without
+   * computing arguments based on the value of the "args" attribute.
+   */
+  public static RunfilesSupport withExecutableNoArgs(
+      RuleContext ruleContext, Runfiles runfiles, Artifact executable) {
+    return RunfilesSupport.create(
+        ruleContext,
+        executable,
+        runfiles,
+        CommandLine.EMPTY,
+        computeActionEnvironment(ruleContext));
+  }
+
+  /**
    * Creates and returns a {@link RunfilesSupport} object for the given rule and executable. Note
    * that this method calls back into the passed in rule to obtain the runfiles.
    */

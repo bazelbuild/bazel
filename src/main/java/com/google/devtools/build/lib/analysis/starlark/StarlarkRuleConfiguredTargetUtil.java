@@ -343,30 +343,40 @@ public final class StarlarkRuleConfiguredTargetUtil {
       }
     }
 
+    DefaultInfo defaultInfo = null;
     boolean defaultProviderProvidedExplicitly = false;
+    boolean starlarkArgsProvided = false;
 
     for (Info declaredProvider : declaredProviders.values()) {
       if (getProviderKey(declaredProvider).equals(DefaultInfo.PROVIDER.getKey())) {
-        parseDefaultProviderFields((DefaultInfo) declaredProvider, context, builder);
+        defaultInfo = (DefaultInfo) declaredProvider;
         defaultProviderProvidedExplicitly = true;
-      } else if (getProviderKey(declaredProvider).equals(RunEnvironmentInfo.PROVIDER.getKey())
-          && !(context.isExecutable() || context.getRuleContext().isTestTarget())) {
-        String message =
-            "Returning RunEnvironmentInfo from a non-executable, non-test target has no effect";
-        RunEnvironmentInfo runEnvironmentInfo = (RunEnvironmentInfo) declaredProvider;
-        if (runEnvironmentInfo.shouldErrorOnNonExecutableRule()) {
-          context.getRuleContext().ruleError(message);
-        } else {
-          context.getRuleContext().ruleWarning(message);
-          builder.addStarlarkDeclaredProvider(declaredProvider);
+      } else if (getProviderKey(declaredProvider).equals(RunEnvironmentInfo.PROVIDER.getKey())) {
+        if (((RunEnvironmentInfo) declaredProvider).getArguments() != null) {
+          // Ensure that RunfilesSupport does not parse the "args" attribute, the rule handles it in
+          // a custom way.
+          starlarkArgsProvided = true;
         }
+        if (!(context.isExecutable() || context.getRuleContext().isTestTarget())) {
+          String message =
+              "Returning RunEnvironmentInfo from a non-executable, non-test target has no effect";
+          RunEnvironmentInfo runEnvironmentInfo = (RunEnvironmentInfo) declaredProvider;
+          if (runEnvironmentInfo.shouldErrorOnNonExecutableRule()) {
+            context.getRuleContext().ruleError(message);
+          } else {
+            context.getRuleContext().ruleWarning(message);
+          }
+        }
+        builder.addStarlarkDeclaredProvider(declaredProvider);
       } else {
         builder.addStarlarkDeclaredProvider(declaredProvider);
       }
     }
 
-    if (!defaultProviderProvidedExplicitly) {
-      parseDefaultProviderFields(oldStyleProviders, context, builder);
+    if (defaultProviderProvidedExplicitly) {
+      parseDefaultProviderFields(defaultInfo, context, builder, starlarkArgsProvided);
+    } else {
+      parseDefaultProviderFields(oldStyleProviders, context, builder, starlarkArgsProvided);
     }
 
     for (String field : oldStyleProviders.getFieldNames()) {
@@ -491,7 +501,10 @@ public final class StarlarkRuleConfiguredTargetUtil {
    * throws an {@link EvalException} if there are unknown fields.
    */
   private static void parseDefaultProviderFields(
-      StructImpl info, StarlarkRuleContext context, RuleConfiguredTargetBuilder builder)
+      StructImpl info,
+      StarlarkRuleContext context,
+      RuleConfiguredTargetBuilder builder,
+      boolean starlarkArgsProvided)
       throws EvalException {
     Depset files = null;
     Runfiles statelessRunfiles = null;
@@ -591,7 +604,8 @@ public final class StarlarkRuleConfiguredTargetUtil {
         files,
         statelessRunfiles,
         dataRunfiles,
-        defaultRunfiles);
+        defaultRunfiles,
+        starlarkArgsProvided);
   }
 
   private static void addSimpleProviders(
@@ -601,7 +615,8 @@ public final class StarlarkRuleConfiguredTargetUtil {
       @Nullable Depset files,
       Runfiles statelessRunfiles,
       Runfiles dataRunfiles,
-      Runfiles defaultRunfiles)
+      Runfiles defaultRunfiles,
+      boolean starlarkArgsProvided)
       throws EvalException {
 
     // TODO(bazel-team) if both 'files' and 'executable' are provided, 'files' overrides
@@ -643,8 +658,13 @@ public final class StarlarkRuleConfiguredTargetUtil {
       RunfilesSupport runfilesSupport = null;
       if (!computedDefaultRunfiles.isEmpty()) {
         Preconditions.checkNotNull(executable, "executable must not be null");
-        runfilesSupport =
-            RunfilesSupport.withExecutable(ruleContext, computedDefaultRunfiles, executable);
+        if (starlarkArgsProvided) {
+          runfilesSupport = RunfilesSupport.withExecutableNoArgs(
+              ruleContext, computedDefaultRunfiles, executable);
+        } else {
+          runfilesSupport =
+              RunfilesSupport.withExecutable(ruleContext, computedDefaultRunfiles, executable);
+        }
         assertExecutableSymlinkPresent(runfilesSupport.getRunfiles(), executable);
       }
       builder.setRunfilesSupport(runfilesSupport, executable);

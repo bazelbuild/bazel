@@ -26,11 +26,12 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 
 /**
- * Provider containing any additional environment variables for use when running executables, either
- * in test actions or when executed via the run command.
+ * Provider containing any additional environment variables and arguments for use when running
+ * executables, either in test actions or when executed via the run command.
  */
 @StarlarkBuiltin(
     name = "RunEnvironmentInfo",
@@ -78,7 +79,9 @@ public interface RunEnvironmentInfoApi extends StructApi {
               doc =
                   "A map of string keys and values that represent environment variables and their"
                       + " values. These will be made available when the target that returns this"
-                      + " provider is executed, either as a test or via the run command."),
+                      + " provider is executed, either as a test or via the run command. In the"
+                      + " case of a test, environment variables specified on the command line via"
+                      + " <code>--test_env</code> take precedence over values specified here."),
           @Param(
               name = "inherited_environment",
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
@@ -91,13 +94,29 @@ public interface RunEnvironmentInfoApi extends StructApi {
                       + " when the target that returns this provider is executed, either as a"
                       + " test or via the run command. If a variable is contained in both <code>"
                       + "environment</code> and <code>inherited_environment</code>, the value"
-                      + " inherited from the shell environment will take precedence if set.")
+                      + " inherited from the shell environment will take precedence if set."),
+          @Param(
+              name = "arguments",
+              allowedTypes = {
+                  @ParamType(type = Sequence.class, generic1 = String.class),
+                  @ParamType(type = NoneType.class)
+              },
+              defaultValue = "None",
+              named = true,
+              positional = false,
+              doc = "A list of arguments. If set to a value other than <code>None</code>, this"
+                        + " list will be appended to the command line when the target that returns"
+                        + " this provider is executed, either as a test or via the run command. In"
+                        + " this case, the arguments specified in the <code>args</code> attribute"
+                        + " implicitly defined for all rules are <strong>not</code> appended"
+                        + " automatically.")
         },
         selfCall = true)
     @StarlarkConstructor
     RunEnvironmentInfoApi constructor(
         Dict<?, ?> environment, // <String, String> expected
-        Sequence<?> inheritedEnvironment /* <String> expected */)
+        Sequence<?> inheritedEnvironment, /* <String> expected */
+        Object arguments /* Sequence<String> or NoneType expected */)
         throws EvalException;
   }
 }

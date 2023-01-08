@@ -474,6 +474,7 @@ public final class RuleConfiguredTargetBuilder {
     if (environmentProvider != null) {
       testActionBuilder.addExtraEnv(environmentProvider.getEnvironment());
       testActionBuilder.addExtraInheritedEnv(environmentProvider.getInheritedEnvironment());
+      testActionBuilder.setStarlarkTargetArgs(environmentProvider.getArguments());
     }
 
     TestParams testParams =

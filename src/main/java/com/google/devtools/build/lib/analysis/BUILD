@@ -1038,6 +1038,7 @@ java_library(
     name = "run_environment_info",
     srcs = ["RunEnvironmentInfo.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
