@@ -510,7 +510,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
     exec.preferMutualXcode = preferMutualXcode;
     exec.includeXcodeExecutionRequirements = includeXcodeExecutionRequirements;
     exec.appleCrosstoolTop = appleCrosstoolTop;
-    exec.applePlatforms = applePlatforms;
     exec.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
 
     // Save host option for further use.
