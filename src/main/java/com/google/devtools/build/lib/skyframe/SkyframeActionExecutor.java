@@ -94,6 +94,7 @@ import com.google.devtools.build.lib.skyframe.ActionExecutionState.SharedActionC
 import com.google.devtools.build.lib.skyframe.ActionOutputDirectoryHelper.CreateOutputDirectoryException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
@@ -113,6 +114,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -210,6 +212,8 @@ public final class SkyframeActionExecutor {
 
   private DiscoveredModulesPruner discoveredModulesPruner;
 
+  @Nullable private Semaphore cacheHitSemaphore;
+
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
       MetadataConsumerForMetrics outputArtifactsSeen,
@@ -280,6 +284,11 @@ public final class SkyframeActionExecutor {
     // actions, which consume their shadowed action's discovered inputs.
     freeDiscoveredInputsAfterExecution =
         !trackIncrementalState && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
+
+    this.cacheHitSemaphore =
+        options.getOptions(CoreOptions.class).throttleActionCacheCheck
+            ? new Semaphore(ResourceUsage.getAvailableProcessors())
+            : null;
   }
 
   public void setActionLogBufferPathGenerator(
@@ -586,6 +595,12 @@ public final class SkyframeActionExecutor {
     SortedMap<String, String> remoteDefaultProperties;
     EventHandler handler;
     boolean loadCachedOutputMetadata;
+
+    if (cacheHitSemaphore != null) {
+      try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, "acquiring semaphore")) {
+        cacheHitSemaphore.acquire();
+      }
+    }
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, action.describe())) {
       remoteOptions = this.options.getOptions(RemoteOptions.class);
       remoteDefaultProperties =
@@ -664,6 +679,10 @@ public final class SkyframeActionExecutor {
       }
     } catch (UserExecException e) {
       throw ActionExecutionException.fromExecException(e, action);
+    } finally {
+      if (cacheHitSemaphore != null) {
+        cacheHitSemaphore.release();
+      }
     }
     return token;
   }

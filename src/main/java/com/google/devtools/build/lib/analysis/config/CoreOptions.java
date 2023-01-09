@@ -897,6 +897,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " of failing. This is to help use cquery diagnose failures in select.")
   public boolean debugSelectsAlwaysSucceed;
 
+  @Option(
+      name = "experimental_throttle_action_cache_check",
+      defaultValue = "false",
+      converter = BooleanConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "Whether to throttle the check whether an action is cached.")
+  public boolean throttleActionCacheCheck;
+
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     /**
