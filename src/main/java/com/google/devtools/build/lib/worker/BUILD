@@ -46,11 +46,11 @@ java_library(
     deps = [
         ":error_message",
         ":worker",
-        ":worker_factory",
         ":worker_files_hash",
         ":worker_key",
         ":worker_metric",
         ":worker_options",
+        ":worker_pool",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -90,6 +90,7 @@ java_library(
         ":worker_factory",
         ":worker_metric",
         ":worker_options",
+        ":worker_pool_impl",
         ":worker_spawn_runner",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -171,9 +172,7 @@ java_library(
 java_library(
     name = "worker_factory",
     srcs = [
-        "SimpleWorkerPool.java",
         "WorkerFactory.java",
-        "WorkerPool.java",
     ],
     deps = [
         ":error_message",
@@ -186,6 +185,35 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:apache_commons_pool2",
         "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "worker_pool",
+    srcs = [
+        "WorkerPool.java",
+    ],
+    deps = [
+        ":worker",
+        ":worker_key",
+        "//third_party:apache_commons_pool2",
+    ],
+)
+
+java_library(
+    name = "worker_pool_impl",
+    srcs = [
+        "SimpleWorkerPool.java",
+        "WorkerPoolImpl.java",
+    ],
+    deps = [
+        ":worker",
+        ":worker_factory",
+        ":worker_key",
+        ":worker_pool",
+        "//third_party:apache_commons_pool2",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
