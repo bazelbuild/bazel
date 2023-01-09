@@ -170,6 +170,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "disabled.")
   public boolean strictFilesets;
 
+  // This option is only used during execution. However, it is a required input to the analysis
+  // phase, as otherwise flipping this flag would not invalidate already-executed actions.
+  @Option(
+      name = "experimental_writable_outputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, the file permissions of action outputs are set to 0755 instead of 0555")
+  public boolean experimentalWritableOutputs;
+
   @Option(
       name = "experimental_strict_fileset_output",
       defaultValue = "false",
@@ -949,6 +960,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     exec.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
     exec.checkTestonlyForOutputFiles = checkTestonlyForOutputFiles;
     exec.useAutoExecGroups = useAutoExecGroups;
+    exec.experimentalWritableOutputs = experimentalWritableOutputs;
 
     // === Runfiles ===
     exec.buildRunfilesManifests = buildRunfilesManifests;

@@ -742,6 +742,7 @@ public final class ActionExecutionFunction implements SkyFunction {
             state.inputArtifactData,
             action.discoversInputs(),
             skyframeActionExecutor.useArchivedTreeArtifacts(action),
+            skyframeActionExecutor.getOutputPermissions(),
             action.getOutputs(),
             skyframeActionExecutor.getXattrProvider(),
             tsgm.get(),
