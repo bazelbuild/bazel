@@ -273,6 +273,11 @@ def _impl(ctx):
     else:
         action_configs = []
 
+    compiler_param_file_feature = feature(
+        name = "compiler_param_file",
+        enabled = True,
+    )
+
     if _use_msvc_toolchain(ctx):
         msvc_link_env_feature = feature(
             name = "msvc_link_env",
@@ -373,11 +378,6 @@ def _impl(ctx):
 
         archive_param_file_feature = feature(
             name = "archive_param_file",
-        )
-
-        compiler_param_file_feature = feature(
-            name = "compiler_param_file",
-            enabled = True,
         )
 
         copy_dynamic_libraries_to_binary_feature = feature(
@@ -1212,10 +1212,6 @@ def _impl(ctx):
                 name = "archive_param_file",
             )
 
-            compiler_param_file_feature = feature(
-                name = "compiler_param_file",
-            )
-
             features = [
                 targets_windows_feature,
                 copy_dynamic_libraries_to_binary_feature,
@@ -1338,6 +1334,7 @@ def _impl(ctx):
                 user_compile_flags_feature,
                 treat_warnings_as_errors_feature,
                 sysroot_feature,
+                compiler_param_file_feature,
             ]
 
     tool_paths = [

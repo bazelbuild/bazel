@@ -218,10 +218,6 @@ bazel build //examples/cpp:hello-world --cpu=x64_arm_windows
 To build and use Dynamically Linked Libraries (DLL files), see [this
 example](https://github.com/bazelbuild/bazel/tree/master/examples/windows/dll){: .external}.
 
-**Command Line Length Limit**: To prevent the
-[Windows command line length limit issue](https://github.com/bazelbuild/bazel/issues/5163){: .external},
-enable the compiler parameter file feature via `--features=compiler_param_file`.
-
 ### Build C++ with Clang {:#clang}
 
 From 0.29.0, Bazel supports building with LLVM's MSVC-compatible compiler driver (`clang-cl.exe`).
