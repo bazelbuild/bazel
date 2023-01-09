@@ -106,7 +106,6 @@ import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsProvider;
-import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
@@ -150,7 +149,7 @@ public final class SkyframeActionExecutor {
   private final SyscallCache syscallCache;
   private final Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory;
   private Reporter reporter;
-  private Map<String, String> clientEnv = ImmutableMap.of();
+  private ImmutableMap<String, String> clientEnv = ImmutableMap.of();
   private Executor executorEngine;
   private ExtendedEventHandler progressSuppressingEventHandler;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
@@ -529,8 +528,7 @@ public final class SkyframeActionExecutor {
     boolean emitProgressEvents = shouldEmitProgressEvents(action);
     ArtifactPathResolver artifactPathResolver =
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot());
-    FileOutErr fileOutErr;
-    fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
+    FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
     return new ActionExecutionContext(
         executorEngine,
         createFileCache(metadataHandler, actionFileSystem),
@@ -556,7 +554,7 @@ public final class SkyframeActionExecutor {
       Action action,
       @Nullable ActionExecutionException finalException)
       throws ActionExecutionException {
-    try (Closeable c = context) {
+    try (context) {
       if (finalException != null) {
         throw finalException;
       }
