@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.reactivex.rxjava3.core.Completable;
@@ -74,6 +75,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private final Reporter reporter;
   private final AsyncTaskCache.NoResult<Path> downloadCache = AsyncTaskCache.NoResult.create();
   private final TempPathGenerator tempPathGenerator;
+  private final OutputPermissions outputPermissions;
   protected final Set<Artifact> outputsAreInputs = Sets.newConcurrentHashSet();
 
   protected final Path execRoot;
@@ -123,11 +125,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Reporter reporter,
       Path execRoot,
       TempPathGenerator tempPathGenerator,
-      ImmutableList<Pattern> patternsToDownload) {
+      ImmutableList<Pattern> patternsToDownload,
+      OutputPermissions outputPermissions) {
     this.reporter = reporter;
     this.execRoot = execRoot;
     this.tempPathGenerator = tempPathGenerator;
     this.patternsToDownload = patternsToDownload;
+    this.outputPermissions = outputPermissions;
   }
 
   private boolean shouldDownloadFile(Path path, FileArtifactValue metadata) {
@@ -347,12 +351,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                   }
 
                   for (Path dir : dirs) {
-                    // Change permission of all directories of a tree artifact to 0555 (files are
+                    // Change permission of all directories of a tree artifact (files are
                     // changed inside {@code finalizeDownload}) in order to match the behaviour when
                     // the tree artifact is generated locally. In that case, permission of all files
-                    // and directories inside a tree artifact is changed to 0555 within {@code
+                    // and directories inside a tree artifact is changed within {@code
                     // checkOutputs()}.
-                    dir.chmod(0555);
+                    dir.chmod(outputPermissions.getPermissionsMode());
                   }
 
                   completed.set(true);
@@ -528,9 +532,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       parentDir.setWritable(true);
     }
 
-    // The permission of output file is changed to 0555 after action execution. We manually change
+    // The permission of output file is changed after action execution. We manually change
     // the permission here for the downloaded file to keep this behaviour consistent.
-    tmpPath.chmod(0555);
+    tmpPath.chmod(outputPermissions.getPermissionsMode());
     FileSystemUtils.moveFile(tmpPath, path);
   }
 

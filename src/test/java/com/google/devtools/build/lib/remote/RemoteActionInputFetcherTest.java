@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
@@ -74,6 +75,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
         execRoot,
         tempPathGenerator,
         ImmutableList.of(),
+        OutputPermissions.READONLY,
         /* useNewExitCodeForLostInputs= */ false);
   }
 
@@ -91,6 +93,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             execRoot,
             tempPathGenerator,
             ImmutableList.of(),
+            OutputPermissions.READONLY,
             /* useNewExitCodeForLostInputs= */ false);
     VirtualActionInput a = ActionsTestUtil.createVirtualActionInput("file1", "hello world");
 
@@ -119,6 +122,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             execRoot,
             tempPathGenerator,
             ImmutableList.of(),
+            OutputPermissions.READONLY,
             /* useNewExitCodeForLostInputs= */ false);
 
     // act
