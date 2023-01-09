@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -55,15 +53,12 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.Nullable;
 
 /** Spawn runner that uses linux sandboxing APIs to execute a local subprocess. */
@@ -141,10 +136,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final TreeDeleter treeDeleter;
   private final Reporter reporter;
   private final ImmutableList<Root> packageRoots;
-  /** If non-null, this is a cgroups directory that sandboxes can put their directories into. */
-  @Nullable private static java.nio.file.Path cgroupsBlazeDir;
-
-  private static final ReentrantLock cgroupsBlazeDirLock = new ReentrantLock();
+  private String cgroupsDir;
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
@@ -340,12 +332,13 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .setKillDelay(timeoutKillDelay);
 
     if (sandboxOptions.memoryLimit > 0) {
-      String cgroupsDir = createCgroupsDir(context.getId());
+      CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
+      // We put the sandbox inside a unique subdirectory using the context's ID. This ID is
+      // unique per spawn run by this spawn runner.
+      cgroupsDir =
+          cgroupsInfo.createMemoryLimitCgroupDir(
+              "sandbox_" + context.getId(), sandboxOptions.memoryLimit);
       commandLineBuilder.setCgroupsDir(cgroupsDir);
-      Files.writeString(
-          Paths.get(cgroupsDir).resolve("memory.max"),
-          Integer.toString(sandboxOptions.memoryLimit),
-          UTF_8);
     }
 
     if (useHermeticTmp) {
@@ -419,7 +412,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       throws IOException {
     ImmutableSet.Builder<Path> writableDirs = ImmutableSet.builder();
     writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, withinSandboxExecRoot, env));
-
+    if (getSandboxOptions().memoryLimit > 0) {
+      CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
+      writableDirs.add(fileSystem.getPath(cgroupsInfo.getMountPoint().getAbsolutePath()));
+    }
     FileSystem fs = sandboxExecRoot.getFileSystem();
     writableDirs.add(fs.getPath("/dev/shm").resolveSymbolicLinks());
     writableDirs.add(fs.getPath("/tmp"));
@@ -546,47 +542,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
   }
 
-  /** Creates a cgroups directory to control this sandbox. */
-  private String createCgroupsDir(int id) throws IOException, InterruptedException {
-    java.nio.file.Path blazeCgroupsDir = getCgroupsBlazeDir();
-    var cgroupsDir = blazeCgroupsDir.resolve("sandbox_" + id + ".scope");
-    Files.createDirectories(cgroupsDir);
-    Files.write(
-        blazeCgroupsDir.resolve("cgroup.subtree_control"), ImmutableList.of("+memory"), UTF_8);
-    Files.write(cgroupsDir.resolve("memory.oom.group"), ImmutableList.of("1"), UTF_8);
-    return cgroupsDir.toString();
-  }
-
-  /**
-   * Gets the common cgroups dir that all sandbox cgroups dirs should live under.
-   *
-   * @return A Path for a cgroups node we can create more nodes in.
-   * @throws IOException If the cgroups setup doesn't allow making our own cgroups.
-   */
-  private static java.nio.file.Path getCgroupsBlazeDir() throws IOException, InterruptedException {
-    if (cgroupsBlazeDir == null) {
-      cgroupsBlazeDirLock.lockInterruptibly();
-      try {
-        if (cgroupsBlazeDir == null) {
-          // Using java.nio.Paths in here because we need a truly absolute path.
-          var procSelfCgroupContents = Files.readAllLines(Paths.get("/proc/self/cgroup"), UTF_8);
-          if (procSelfCgroupContents.isEmpty()
-              || !procSelfCgroupContents.get(0).startsWith("0::")) {
-            throw new IOException(
-                "Cgroups v2 requested, but /proc/self/cgroup does not start with 0::");
-          }
-          String cgroupsProcPath = procSelfCgroupContents.get(0).trim().substring(3);
-          var cgroupsNode = Paths.get("/sys/fs/cgroup" + cgroupsProcPath).getParent();
-          cgroupsBlazeDir =
-              cgroupsNode.resolve("blaze_" + ProcessHandle.current().pid() + ".slice");
-        }
-      } finally {
-        cgroupsBlazeDirLock.unlock();
-      }
-    }
-    return cgroupsBlazeDir;
-  }
-
   @Override
   public void verifyPostCondition(
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
@@ -647,6 +602,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   public void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {
+    if (cgroupsDir != null) {
+      new File(cgroupsDir).delete();
+    }
     // Delete the inaccessible files synchronously, bypassing the treeDeleter. They are only a
     // couple of files that can be deleted fast, and ensuring they are gone at the end of every
     // build avoids annoying permission denied errors if the user happens to run "rm -rf" on the
