@@ -503,9 +503,10 @@ abstract class AbstractParallelEvaluator {
         NodeEntry directDepEntry =
             checkNotNull(
                 oldChildren.get(directDep),
-                "Dirty parent had missing child (parent=%s, child=%s)",
+                "Dirty parent had missing child (child=%s, parent=%s %s)",
+                directDep,
                 skyKey,
-                directDep);
+                nodeEntry);
         parentIsSignalledAndReady |=
             enqueueChild(
                 skyKey,
