@@ -1108,6 +1108,82 @@ class BazelWindowsCppTest(test_base.TestBase):
     )
     self.AssertExitCode(exit_code, 0, stderr)
 
+  def testCompilerSettingMsvc(self):
+      self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+      self.ScratchFile('BUILD', [
+          'config_setting(',
+          '    name = "msvc_compiler",',
+          '    flag_values = {"@bazel_tools//tools/cpp:compiler": "msvc-cl"},',
+          ')',
+          'cc_binary(',
+          '    name = "main",',
+          '    srcs = select({":msvc_compiler": ["main.cc"]}),',
+          ')',
+      ])
+      self.ScratchFile('main.cc', ['int main() { return 0; }'])
+
+      exit_code, _, stderr = self.RunBazel(['build', '//:main'])
+      self.AssertExitCode(exit_code, 0, stderr)
+
+  def testCompilerSettingClangCl(self):
+      self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+      self.ScratchFile('BUILD', [
+          'platform(',
+          '    name = "x64_windows-clang-cl",',
+          '    constraint_values = [',
+          '        "@platforms//cpu:x86_64",',
+          '        "@platforms//os:windows",',
+          '        "@bazel_tools//tools/cpp:clang-cl",',
+          '    ],',
+          ')',
+          'config_setting(',
+          '    name = "clang_cl_compiler",',
+          '    flag_values = {"@bazel_tools//tools/cpp:compiler": "clang-cl"},',
+          ')',
+          'cc_binary(',
+          '    name = "main",',
+          '    srcs = select({":clang_cl_compiler": ["main.cc"]}),',
+          ')',
+      ])
+      self.ScratchFile('main.cc', ['int main() { return 0; }'])
+
+      exit_code, _, stderr = self.RunBazel([
+          'build', '--incompatible_enable_cc_toolchain_resolution',
+          '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl',
+          '--extra_execution_platforms=//:x64_windows-clang-cl',
+          '//:main',
+      ])
+      self.AssertExitCode(exit_code, 0, stderr)
+
+  def testCompilerSettingMingwGcc(self):
+      self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+      self.ScratchFile('BUILD', [
+          'platform(',
+          '    name = "x64_windows-mingw-gcc",',
+          '    constraint_values = [',
+          '        "@platforms//cpu:x86_64",',
+          '        "@platforms//os:windows",',
+          '        "@bazel_tools//tools/cpp:mingw",',
+          '    ],',
+          ')',
+          'config_setting(',
+          '    name = "mingw_gcc_compiler",',
+          '    flag_values = {"@bazel_tools//tools/cpp:compiler": "mingw-gcc"},',
+          ')',
+          'cc_binary(',
+          '    name = "main",',
+          '    srcs = select({":mingw_gcc_compiler": ["main.cc"]}),',
+          ')',
+      ])
+      self.ScratchFile('main.cc', ['int main() { return 0; }'])
+
+      exit_code, _, stderr = self.RunBazel([
+          'build', '--incompatible_enable_cc_toolchain_resolution',
+          '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw',
+          '--extra_execution_platforms=//:x64_windows-mingw-gcc',
+          '//:main',
+      ])
+      self.AssertExitCode(exit_code, 0, stderr)
 
 if __name__ == '__main__':
   unittest.main()
