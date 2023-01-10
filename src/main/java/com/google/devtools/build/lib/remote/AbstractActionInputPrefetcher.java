@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
@@ -183,10 +182,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     Map<SpecialArtifact, List<TreeFileArtifact>> trees = new HashMap<>();
     List<ActionInput> files = new ArrayList<>();
     for (ActionInput input : inputs) {
-      checkArgument(!input.isDirectory(), "cannot prefetch a directory");
-
       // Source artifacts don't need to be fetched.
       if (input instanceof Artifact && ((Artifact) input).isSourceArtifact()) {
+        continue;
+      }
+
+      // Skip empty tree artifacts (non-empty tree artifacts should have already been expanded).
+      if (input.isDirectory()) {
         continue;
       }
 
