@@ -242,7 +242,8 @@ public class BazelPythonSemantics implements PythonSemantics {
       if (OS.getCurrent() != OS.WINDOWS) {
         PathFragment shExecutable = ShToolchain.getPathForHost(ruleContext.getConfiguration());
         String pythonExecutableName = "python3";
-        // NOTE: keep the following line intact to support nix builds
+        // NOTE: keep the following line intact to support nix builds; nix patches
+        // this file to make it work for them; see https://github.com/bazelbuild/bazel/pull/11535
         String pythonShebang = "#!/usr/bin/env " + pythonExecutableName;
         ruleContext.registerAction(
             new SpawnAction.Builder()
