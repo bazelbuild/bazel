@@ -158,8 +158,8 @@ abstract class AbstractParallelEvaluator {
             graphInconsistencyReceiver,
             () ->
                 new NodeEntryVisitor(
-                    quiescingExecutorSupplier.get(), progressReceiver, Evaluate::new),
-            /*mergingSkyframeAnalysisExecutionPhases=*/ executionJobsThreadPoolSize > 0,
+                    quiescingExecutorSupplier.get(), progressReceiver, Evaluate::new, stateCache),
+            /* mergingSkyframeAnalysisExecutionPhases= */ executionJobsThreadPoolSize > 0,
             stateCache);
   }
 
@@ -171,7 +171,7 @@ abstract class AbstractParallelEvaluator {
       return () ->
           AbstractQueueVisitor.createWithExecutorService(
               executorService.get(),
-              /*failFastOnException=*/ true,
+              /* failFastOnException= */ true,
               NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER);
     }
     if (executionJobsThreadPoolSize <= 0) {
@@ -179,11 +179,11 @@ abstract class AbstractParallelEvaluator {
           MultiExecutorQueueVisitor.createWithExecutorServices(
               executorService.get(),
               AbstractQueueVisitor.createExecutorService(
-                  /*parallelism=*/ cpuHeavySkyKeysThreadPoolSize,
+                  /* parallelism= */ cpuHeavySkyKeysThreadPoolSize,
                   "skyframe-evaluator-cpu-heavy",
                   // FJP performs much better on machines with many cores.
-                  /*useForkJoinPool=*/ true),
-              /*failFastOnException=*/ true,
+                  /* useForkJoinPool= */ true),
+              /* failFastOnException= */ true,
               NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER);
     }
     // We only consider the experimental case of merged Skyframe phases WITH a separate pool for
@@ -192,16 +192,16 @@ abstract class AbstractParallelEvaluator {
         MultiExecutorQueueVisitor.createWithExecutorServices(
             executorService.get(),
             AbstractQueueVisitor.createExecutorService(
-                /*parallelism=*/ cpuHeavySkyKeysThreadPoolSize,
+                /* parallelism= */ cpuHeavySkyKeysThreadPoolSize,
                 "skyframe-evaluator-cpu-heavy",
                 // FJP performs much better on machines with many cores.
-                /*useForkJoinPool=*/ true),
+                /* useForkJoinPool= */ true),
             AbstractQueueVisitor.createExecutorService(
-                /*parallelism=*/ executionJobsThreadPoolSize,
+                /* parallelism= */ executionJobsThreadPoolSize,
                 "skyframe-evaluator-execution",
                 // FJP performs much better on machines with many cores.
-                /*useForkJoinPool=*/ true),
-            /*failFastOnException=*/ true,
+                /* useForkJoinPool= */ true),
+            /* failFastOnException= */ true,
             NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER);
   }
 
@@ -284,6 +284,7 @@ abstract class AbstractParallelEvaluator {
      * child or the parent, returning whether the parent has both been signalled and also is ready
      * for evaluation.
      */
+    @CanIgnoreReturnValue
     private boolean enqueueChild(
         SkyKey skyKey,
         NodeEntry entry,
@@ -291,7 +292,8 @@ abstract class AbstractParallelEvaluator {
         NodeEntry childEntry,
         boolean depAlreadyExists,
         int childEvaluationPriority,
-        boolean enqueueParentIfReady)
+        boolean enqueueParentIfReady,
+        @Nullable SkyFunctionEnvironment environmentIfEnqueuing)
         throws InterruptedException {
       checkState(!entry.isDone(), "%s %s", skyKey, entry);
       DependencyState dependencyState;
@@ -308,15 +310,28 @@ abstract class AbstractParallelEvaluator {
         case DONE:
           if (entry.signalDep(childEntry.getVersion(), child)) {
             if (enqueueParentIfReady) {
-              evaluatorContext.getVisitor().enqueueEvaluation(skyKey, determineRestartPriority());
+              evaluatorContext
+                  .getVisitor()
+                  .enqueueEvaluation(skyKey, determineRestartPriority(), child);
             }
             return true;
+          } else {
+            if (skyKey.supportsPartialReevaluation()
+                && environmentIfEnqueuing != null
+                && environmentIfEnqueuing.wasNewlyRequestedDepNullForPartialReevaluation(child)) {
+              // If a dep was observed not-done by its parent when the parent tried to read its
+              // value, but that dep is now done, then this is the only chance the parent has to be
+              // signalled by that dep.
+              evaluatorContext
+                  .getVisitor()
+                  .enqueueEvaluation(skyKey, determineRestartPriority(), child);
+            }
           }
           break;
         case ALREADY_EVALUATING:
           break;
         case NEEDS_SCHEDULING:
-          evaluatorContext.getVisitor().enqueueEvaluation(child, childEvaluationPriority);
+          evaluatorContext.getVisitor().enqueueEvaluation(child, childEvaluationPriority, null);
           break;
       }
       return false;
@@ -438,7 +453,8 @@ abstract class AbstractParallelEvaluator {
                 entriesToCheck,
                 nodeEntry,
                 determineChildPriority(),
-                /*enqueueParentIfReady=*/ false);
+                /* enqueueParentIfReady= */ false,
+                /* environmentIfEnqueuing= */ null);
         if (!parentIsSignalledAndReady
             || evaluatorContext.getVisitor().shouldPreventNewEvaluations()) {
           return DirtyOutcome.ALREADY_PROCESSED;
@@ -462,8 +478,8 @@ abstract class AbstractParallelEvaluator {
               .getProgressReceiver()
               .evaluated(
                   skyKey,
-                  /*newValue=*/ null,
-                  /*newError=*/ null,
+                  /* newValue= */ null,
+                  /* newError= */ null,
                   new EvaluationSuccessStateSupplier(nodeEntry),
                   EvaluationState.CLEAN);
           if (!evaluatorContext.keepGoing() && nodeEntry.getErrorInfo() != null) {
@@ -496,7 +512,8 @@ abstract class AbstractParallelEvaluator {
         NodeBatch oldChildren,
         NodeEntry nodeEntry,
         int childEvaluationPriority,
-        boolean enqueueParentIfReady)
+        boolean enqueueParentIfReady,
+        @Nullable SkyFunctionEnvironment environmentIfEnqueuing)
         throws InterruptedException {
       boolean parentIsSignalledAndReady = false;
       for (SkyKey directDep : knownChildren) {
@@ -513,9 +530,10 @@ abstract class AbstractParallelEvaluator {
                 nodeEntry,
                 directDep,
                 directDepEntry,
-                /*depAlreadyExists=*/ true,
+                /* depAlreadyExists= */ true,
                 childEvaluationPriority,
-                enqueueParentIfReady);
+                enqueueParentIfReady,
+                environmentIfEnqueuing);
       }
       return parentIsSignalledAndReady;
     }
@@ -549,10 +567,7 @@ abstract class AbstractParallelEvaluator {
               SkyFunctionEnvironment.create(
                   skyKey, nodeEntry.getTemporaryDirectDeps(), oldDeps, evaluatorContext);
         } catch (UndonePreviouslyRequestedDeps undonePreviouslyRequestedDeps) {
-          // If a previously requested dep is no longer done, restart this node from scratch.
-          stateCache.invalidate(skyKey);
-          resetEntry(skyKey, nodeEntry);
-          evaluatorContext.getVisitor().enqueueEvaluation(skyKey, determineRestartPriority());
+          handleUndonePreviouslyRequestedDep(nodeEntry);
           return;
         } finally {
           evaluatorContext
@@ -615,6 +630,13 @@ abstract class AbstractParallelEvaluator {
               return;
             }
 
+            try {
+              env.ensurePreviouslyRequestedDepsFetched();
+            } catch (UndonePreviouslyRequestedDeps e) {
+              handleUndonePreviouslyRequestedDep(nodeEntry);
+              return;
+            }
+
             boolean shouldFailFast =
                 !evaluatorContext.keepGoing() || builderException.isCatastrophic();
             if (shouldFailFast) {
@@ -671,7 +693,7 @@ abstract class AbstractParallelEvaluator {
           dirtyRewindGraphAndResetEntry(skyKey, nodeEntry, (Restart) value);
           stateCache.invalidate(skyKey);
           cancelExternalDeps(env);
-          evaluatorContext.getVisitor().enqueueEvaluation(skyKey, determineRestartPriority());
+          evaluatorContext.getVisitor().enqueueEvaluation(skyKey, determineRestartPriority(), null);
           return;
         }
 
@@ -680,6 +702,13 @@ abstract class AbstractParallelEvaluator {
           if (nodeEntry.hasUnsignaledDeps()) {
             // This is a partial reevaluation. It is not safe to set the value because a dep may be
             // racing to signal this node.
+            return;
+          }
+
+          try {
+            env.ensurePreviouslyRequestedDepsFetched();
+          } catch (UndonePreviouslyRequestedDeps e) {
+            handleUndonePreviouslyRequestedDep(nodeEntry);
             return;
           }
 
@@ -840,7 +869,8 @@ abstract class AbstractParallelEvaluator {
             graph.getBatch(skyKey, Reason.ENQUEUING_CHILD, newDepsThatWereInTheLastEvaluation),
             nodeEntry,
             childEvaluationPriority,
-            /*enqueueParentIfReady=*/ true);
+            /* enqueueParentIfReady= */ true,
+            env);
 
         // Due to multi-threading, this can potentially cause the current node to be re-enqueued if
         // all 'new' children of this node are already done. Therefore, there should not be any code
@@ -852,9 +882,10 @@ abstract class AbstractParallelEvaluator {
               nodeEntry,
               newDirectDep,
               newNodes.get(newDirectDep),
-              /*depAlreadyExists=*/ false,
+              /* depAlreadyExists= */ false,
               childEvaluationPriority,
-              /*enqueueParentIfReady=*/ true);
+              /* enqueueParentIfReady= */ true,
+              env);
         }
         if (externalDeps != null) {
           // This can cause the current node to be re-enqueued if all futures are already done.
@@ -881,10 +912,17 @@ abstract class AbstractParallelEvaluator {
       }
     }
 
+    private void handleUndonePreviouslyRequestedDep(NodeEntry nodeEntry) {
+      // If a previously requested dep is no longer done, restart this node from scratch.
+      stateCache.invalidate(skyKey);
+      resetEntry(skyKey, nodeEntry);
+      evaluatorContext.getVisitor().enqueueEvaluation(skyKey, determineRestartPriority(), null);
+    }
+
     private void cancelExternalDeps(SkyFunctionEnvironment env) {
       if (env != null && env.externalDeps != null) {
         for (ListenableFuture<?> future : env.externalDeps) {
-          future.cancel(/*mayInterruptIfRunning=*/ true);
+          future.cancel(/* mayInterruptIfRunning= */ true);
         }
       }
     }
@@ -1014,7 +1052,7 @@ abstract class AbstractParallelEvaluator {
   private void resetEntry(SkyKey key, NodeEntry entry) {
     evaluatorContext
         .getGraphInconsistencyReceiver()
-        .noteInconsistencyAndMaybeThrow(key, /*otherKeys=*/ null, Inconsistency.RESET_REQUESTED);
+        .noteInconsistencyAndMaybeThrow(key, /* otherKeys= */ null, Inconsistency.RESET_REQUESTED);
     entry.resetForRestartFromScratch();
   }
 
@@ -1191,7 +1229,7 @@ abstract class AbstractParallelEvaluator {
         .noteInconsistencyAndMaybeThrow(
             skyKey, ImmutableList.of(depKey), Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD);
     if (triState == DependencyState.NEEDS_SCHEDULING) {
-      evaluatorContext.getVisitor().enqueueEvaluation(depKey, FIRST_RESTART_PRIORITY);
+      evaluatorContext.getVisitor().enqueueEvaluation(depKey, FIRST_RESTART_PRIORITY, null);
     }
     return MaybeHandleUndoneDepResult.DEP_NOT_DONE;
   }

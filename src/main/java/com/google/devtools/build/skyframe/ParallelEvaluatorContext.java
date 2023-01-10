@@ -130,7 +130,7 @@ class ParallelEvaluatorContext {
       NodeEntry entry = checkNotNull(batch.get(parent), parent);
       boolean evaluationRequired = entry.signalDep(version, skyKey);
       if (evaluationRequired || parent.supportsPartialReevaluation()) {
-        getVisitor().enqueueEvaluation(parent, evaluationPriority);
+        getVisitor().enqueueEvaluation(parent, evaluationPriority, skyKey);
       }
     }
   }

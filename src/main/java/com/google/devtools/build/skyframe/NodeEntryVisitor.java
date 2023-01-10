@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
@@ -26,12 +27,15 @@ import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecuto
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.ComparableRunnable;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.RunnableMaker;
+import com.google.devtools.build.skyframe.SkyFunction.Environment.ClassToInstanceMapSkyKeyComputeState;
+import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 
 /**
  * Threadpool manager for {@link ParallelEvaluator}. Wraps a {@link QuiescingExecutor} and keeps
@@ -67,6 +71,7 @@ class NodeEntryVisitor {
   private final RunnableMaker runnableMaker;
 
   private final RunnableMaker partialReevaluationRunnableMaker;
+  private final Cache<SkyKey, SkyKeyComputeState> stateCache;
 
   /**
    * This state enum is used with {@link #partialReevaluationStates} to describe, for each {@link
@@ -139,11 +144,13 @@ class NodeEntryVisitor {
   NodeEntryVisitor(
       QuiescingExecutor quiescingExecutor,
       DirtyTrackingProgressReceiver progressReceiver,
-      RunnableMaker runnableMaker) {
+      RunnableMaker runnableMaker,
+      Cache<SkyKey, SkyKeyComputeState> stateCache) {
     this.quiescingExecutor = quiescingExecutor;
     this.progressReceiver = progressReceiver;
     this.runnableMaker = runnableMaker;
     this.partialReevaluationRunnableMaker = new PartialReevaluationRunnableMaker();
+    this.stateCache = stateCache;
   }
 
   void waitForCompletion() throws InterruptedException {
@@ -170,9 +177,9 @@ class NodeEntryVisitor {
    * Similarly, prioritizing deeper nodes (depth-first search of the evaluation graph) also has good
    * results experimentally, since it minimizes sprawl.
    */
-  void enqueueEvaluation(SkyKey key, int evaluationPriority) {
+  void enqueueEvaluation(SkyKey key, int evaluationPriority, @Nullable SkyKey signalingDep) {
     if (key.supportsPartialReevaluation()) {
-      enqueuePartialReevaluation(key, evaluationPriority);
+      enqueuePartialReevaluation(key, evaluationPriority, signalingDep);
     } else {
       innerEnqueueEvaluation(key, evaluationPriority, runnableMaker);
     }
@@ -200,7 +207,7 @@ class NodeEntryVisitor {
             .run(
                 () -> {
                   if (entry.signalDep(entry.getVersion(), null)) {
-                    enqueueEvaluation(skyKey, evaluationPriority);
+                    enqueueEvaluation(skyKey, evaluationPriority, null);
                   }
                 },
                 MoreExecutors.directExecutor());
@@ -241,7 +248,15 @@ class NodeEntryVisitor {
     return quiescingExecutor.getExceptionLatchForTestingOnly();
   }
 
-  private void enqueuePartialReevaluation(SkyKey key, int evaluationPriority) {
+  private void enqueuePartialReevaluation(
+      SkyKey key, int evaluationPriority, @Nullable SkyKey signalingDep) {
+    PartialReevaluationMailbox mailbox = getMailbox(key);
+    if (signalingDep != null) {
+      mailbox.signal(signalingDep);
+    } else {
+      mailbox.enqueuedNotByDeps();
+    }
+
     PartialReevaluationState reevaluationState =
         partialReevaluationStates.compute(
             key,
@@ -252,6 +267,12 @@ class NodeEntryVisitor {
     if (reevaluationState.equals(PartialReevaluationState.EVALUATING)) {
       innerEnqueueEvaluation(key, evaluationPriority, partialReevaluationRunnableMaker);
     }
+  }
+
+  private PartialReevaluationMailbox getMailbox(SkyKey key) {
+    return PartialReevaluationMailbox.from(
+        (ClassToInstanceMapSkyKeyComputeState)
+            stateCache.get(key, k -> new ClassToInstanceMapSkyKeyComputeState()));
   }
 
   private void innerEnqueueEvaluation(
