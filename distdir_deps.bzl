@@ -339,6 +339,22 @@ DIST_DEPS = {
         ],
         "package_version": "0.8.0",
     },
+    "rules_jvm_external": {
+        "archive": "4.5.zip",
+        "sha256": "b17d7388feb9bfa7f2fa09031b32707df529f26c91ab9e5d909eb1676badd9a6",
+        "strip_prefix": "rules_jvm_external-4.5",
+        "patches": [
+             "//third_party:rules_jvm_external.patch",
+         ],
+        "patch_args": ["-p1"],
+        "urls": [
+            "https://github.com/bazelbuild/rules_jvm_external/archive/4.5.zip",
+        ],
+        "used_in": [
+            "additional_distfiles",
+        ],
+        "package_version": "4.5",
+    },
     "desugar_jdk_libs": {
         # Commit 5847d6a06302136d95a14b4cbd4b55a9c9f1436e of 2021-03-10
         "archive": "5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
