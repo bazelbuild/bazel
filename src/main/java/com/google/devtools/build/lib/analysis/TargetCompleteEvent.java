@@ -123,7 +123,8 @@ public final class TargetCompleteEvent
   private final CompletionContext completionContext;
   private final ImmutableMap<String, ArtifactsInOutputGroup> outputs;
   private final NestedSet<Artifact> baselineCoverageArtifacts;
-  private final Label aliasLabel;
+  // The label as appeared in the BUILD file.
+  private final Label originalLabel;
   private final boolean isTest;
   private final boolean announceTargetSummary;
   @Nullable private final Long testTimeoutSeconds;
@@ -146,10 +147,10 @@ public final class TargetCompleteEvent
     this.executableTargetData = new ExecutableTargetData(targetAndData);
     ImmutableList.Builder<BuildEventId> postedAfterBuilder = ImmutableList.builder();
     this.label = targetAndData.getConfiguredTarget().getLabel();
-    this.aliasLabel = targetAndData.getConfiguredTarget().getOriginalLabel();
+    this.originalLabel = targetAndData.getConfiguredTarget().getOriginalLabel();
     this.configuredTargetKey =
         ConfiguredTargetKey.fromConfiguredTarget(targetAndData.getConfiguredTarget());
-    postedAfterBuilder.add(BuildEventIdUtil.targetConfigured(aliasLabel));
+    postedAfterBuilder.add(BuildEventIdUtil.targetConfigured(originalLabel));
     DetailedExitCode mostImportantDetailedExitCode = null;
     for (Cause cause : getRootCauses().toList()) {
       mostImportantDetailedExitCode =
@@ -227,6 +228,15 @@ public final class TargetCompleteEvent
     return label;
   }
 
+  /**
+   * Returns the original label of the target.
+   *
+   * <p>See {@link ConfiguredTarget#getOriginalLabel()}.
+   */
+  public Label getOriginalLabel() {
+    return originalLabel;
+  }
+
   public ConfiguredTargetKey getConfiguredTargetKey() {
     return configuredTargetKey;
   }
@@ -260,7 +270,7 @@ public final class TargetCompleteEvent
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventIdUtil.targetCompleted(aliasLabel, configEventId);
+    return BuildEventIdUtil.targetCompleted(originalLabel, configEventId);
   }
 
   @Override
@@ -281,7 +291,7 @@ public final class TargetCompleteEvent
       childrenBuilder.add(BuildEventIdUtil.testSummary(label, configEventId));
     }
     if (announceTargetSummary) {
-      childrenBuilder.add(BuildEventIdUtil.targetSummary(aliasLabel, configEventId));
+      childrenBuilder.add(BuildEventIdUtil.targetSummary(originalLabel, configEventId));
     }
     return childrenBuilder.build();
   }
