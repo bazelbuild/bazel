@@ -1,5 +1,15 @@
 ---
+matrix:
+  bzlmod_platforms: ["centos7_java11_devtoolset10", "ubuntu2004", "macos", "windows"]
+
 tasks:
+  bzlmod_builds:
+    name: "Bazel Bzlmod build"
+    platform: ${{ bzlmod_platforms }}
+    build_flags:
+      - "--config=bzlmod"
+    build_targets:
+      - "//src:bazel_nojdk"
   centos7_java11_devtoolset10:
     shards: 4
     shell_commands:
