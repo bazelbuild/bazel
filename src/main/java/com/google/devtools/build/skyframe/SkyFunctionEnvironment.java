@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
@@ -1075,8 +1076,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
    */
   private static final class PartialReevaluation extends SkyFunctionEnvironment {
 
-    private final ImmutableSet<SkyKey> previouslyRequestedDepsSet;
-
     private PartialReevaluation(
         SkyKey skyKey,
         GroupedList<SkyKey> previouslyRequestedDeps,
@@ -1090,7 +1089,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
           oldDeps,
           evaluatorContext,
           false);
-      this.previouslyRequestedDepsSet = previouslyRequestedDeps.toSet();
     }
 
     @Override
@@ -1108,7 +1106,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
           !depKey.equals(ErrorTransienceValue.KEY),
           "Error transience key cannot be in requested deps of %s",
           env.skyKey);
-      if (previouslyRequestedDepsSet.contains(depKey)) {
+      if (env.previouslyRequestedDeps.contains(depKey)) {
         return env.previouslyRequestedDepsValues.putIfAbsent(depKey, PENDING_MARKER);
       }
       SkyValue directDepsValue = env.newlyRequestedDepsValues.putIfAbsent(depKey, PENDING_MARKER);
@@ -1122,7 +1120,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       SkyFunctionEnvironment env = this;
       SkyValue valueOrNullMarker = getValueOrNullMarker(depEntry);
       processDepValue(depKey, valueOrNullMarker);
-      if (previouslyRequestedDepsSet.contains(depKey)) {
+      if (env.previouslyRequestedDeps.contains(depKey)) {
         env.previouslyRequestedDepsValues.put(depKey, valueOrNullMarker);
       } else {
         env.newlyRequestedDepsValues.put(depKey, valueOrNullMarker);
@@ -1156,9 +1154,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
         throws UndonePreviouslyRequestedDeps, InterruptedException {
       SkyFunctionEnvironment env = this;
       ImmutableList<SkyKey> keysToFetch =
-          ImmutableList.copyOf(
-              Sets.difference(
-                  previouslyRequestedDepsSet, env.previouslyRequestedDepsValues.keySet()));
+          env.previouslyRequestedDeps.toSet().stream()
+              .filter(k -> !env.previouslyRequestedDepsValues.containsKey(k))
+              .collect(toImmutableList());
       NodeBatch batch =
           env.evaluatorContext.getGraph().getBatch(env.skyKey, Reason.PREFETCH, keysToFetch);
       ImmutableList.Builder<SkyKey> missingRequestedDeps = null;

@@ -377,7 +377,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
           bubbleErrorInfo);
       // Expected 6 args, but got 8.
       Preconditions.checkState(
-          parentEntry.getTemporaryDirectDeps().expensiveContains(errorKey),
+          parentEntry.getTemporaryDirectDeps().contains(errorKey),
           "In-progress reverse deps can only include nodes that have declared a dep: "
               + "%s %s %s %s %s %s",
           errorKey,
