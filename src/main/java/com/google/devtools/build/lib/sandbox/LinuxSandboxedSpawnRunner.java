@@ -218,7 +218,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
 
     SandboxInputs inputs =
-        helpers.processInputFiles(context.getInputMapping(PathFragment.EMPTY_FRAGMENT), execRoot);
+        helpers.processInputFiles(
+            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
+            execRoot);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
     Duration timeout = context.getTimeout();
@@ -437,7 +439,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private void checkForConcurrentModifications(SpawnExecutionContext context)
       throws IOException, ForbiddenActionInputException {
-    for (ActionInput input : context.getInputMapping(PathFragment.EMPTY_FRAGMENT).values()) {
+    for (ActionInput input :
+        context
+            .getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
+            .values()) {
       if (input instanceof VirtualActionInput) {
         // Virtual inputs are not existing in file system and can't be tampered with via sandbox. No
         // need to check them.
