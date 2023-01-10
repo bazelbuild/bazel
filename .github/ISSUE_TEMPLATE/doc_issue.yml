@@ -1,7 +1,7 @@
 name: bazel.build doc issue
 description: File a documentation issue through bazel.build's "Report an Issue" button
 body:
-  - type: textarea
+  - type: input
     id: link
     attributes:
       label: >
