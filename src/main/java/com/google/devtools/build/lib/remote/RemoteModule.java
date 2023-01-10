@@ -115,6 +115,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
@@ -219,6 +220,24 @@ public final class RemoteModule extends BlazeModule {
     return capabilities;
   }
 
+  public static final Predicate<? super Exception> RETRIABLE_HTTP_ERRORS =
+          e -> {
+            boolean retry = false;
+            if (e instanceof ClosedChannelException) {
+              retry = true;
+            } else if (e instanceof HttpException) {
+              retry = true;
+            } else if (e instanceof IOException) {
+              String msg = e.getMessage().toLowerCase();
+              if (msg.contains("connection reset by peer")) {
+                retry = true;
+              } else if (msg.contains("operation timed out")) {
+                retry = true;
+              }
+            }
+            return retry;
+          };
+
   private void initHttpAndDiskCache(
       CommandEnvironment env,
       Credentials credentials,
@@ -236,22 +255,7 @@ public final class RemoteModule extends BlazeModule {
               digestUtil,
               new RemoteRetrier(
                  remoteOptions,
-                 (e) -> {
-                   boolean retry = false;
-                   if (e instanceof ClosedChannelException) {
-                     retry = true;
-                   } else if (e instanceof HttpException) {
-                     retry = true;
-                   } else if (e instanceof IOException) {
-                     String msg = e.getMessage().toLowerCase();
-                     if (msg.contains("connection reset by peer")) {
-                       retry = true;
-                     } else if (msg.contains("operation timed out")) {
-                       retry = true;
-                     }
-                   }
-                   return retry;
-                 },
+                 RETRIABLE_HTTP_ERRORS,
                  retryScheduler,
                  Retrier.ALLOW_ALL_CALLS)
               );
