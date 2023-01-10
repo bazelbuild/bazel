@@ -184,7 +184,7 @@ public class PythonOptions extends FragmentOptions {
    *
    * <p>Null means to use the default ({@link #getDefaultPythonVersion}).
    *
-   * <p>This option is only read by {@link #getHost}. It should not be read by other native code or
+   * <p>This option is only read by {@link #getExec}. It should not be read by other native code or
    * by {@code select()}s in user code.
    */
   @Option(
@@ -193,7 +193,7 @@ public class PythonOptions extends FragmentOptions {
       converter = TargetPythonVersionConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Overrides the Python version for the host configuration. Can be \"PY2\" or \"PY3\".")
+      help = "Overrides the Python version for the exec configuration. Can be \"PY2\" or \"PY3\".")
   public PythonVersion hostForcePython;
 
   private static final OptionDefinition HOST_FORCE_PYTHON_DEFINITION =
@@ -324,7 +324,7 @@ public class PythonOptions extends FragmentOptions {
   }
 
   @Override
-  public FragmentOptions getHost() {
+  public FragmentOptions getExec() {
     PythonOptions hostPythonOptions = (PythonOptions) getDefault();
     PythonVersion hostVersion = getDefaultPythonVersion();
     if (hostForcePython != null) {

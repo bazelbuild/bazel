@@ -36,14 +36,25 @@ public abstract class TraceEvent {
   public static TraceEvent create(
       @Nullable String category,
       String name,
+      @Nullable String type,
       @Nullable Duration timestamp,
       @Nullable Duration duration,
       long threadId,
+      @Nullable ImmutableMap<String, Object> args,
       @Nullable String primaryOutputPath,
       @Nullable String targetLabel,
       @Nullable String mnemonic) {
     return new AutoValue_TraceEvent(
-        category, name, timestamp, duration, threadId, primaryOutputPath, targetLabel, mnemonic);
+        category,
+        name,
+        type,
+        timestamp,
+        duration,
+        threadId,
+        args,
+        primaryOutputPath,
+        targetLabel,
+        mnemonic);
   }
 
   @Nullable
@@ -52,12 +63,18 @@ public abstract class TraceEvent {
   public abstract String name();
 
   @Nullable
+  public abstract String type();
+
+  @Nullable
   public abstract Duration timestamp();
 
   @Nullable
   public abstract Duration duration();
 
   public abstract long threadId();
+
+  @Nullable
+  public abstract ImmutableMap<String, Object> args();
 
   // Only applicable to action-related TraceEvents.
   @Nullable
@@ -78,6 +95,8 @@ public abstract class TraceEvent {
     String primaryOutputPath = null;
     String targetLabel = null;
     String mnemonic = null;
+    String type = null;
+    ImmutableMap<String, Object> args = null;
 
     reader.beginObject();
     while (reader.hasNext()) {
@@ -87,6 +106,9 @@ public abstract class TraceEvent {
           break;
         case "name":
           name = reader.nextString();
+          break;
+        case "ph":
+          type = reader.nextString();
           break;
         case "ts":
           // Duration has no microseconds :-/.
@@ -102,7 +124,7 @@ public abstract class TraceEvent {
           primaryOutputPath = reader.nextString();
           break;
         case "args":
-          ImmutableMap<String, Object> args = parseMap(reader);
+          args = parseMap(reader);
           Object target = args.get("target");
           targetLabel = target instanceof String ? (String) target : null;
           Object mnemonicValue = args.get("mnemonic");
@@ -114,7 +136,16 @@ public abstract class TraceEvent {
     }
     reader.endObject();
     return TraceEvent.create(
-        category, name, timestamp, duration, threadId, primaryOutputPath, targetLabel, mnemonic);
+        category,
+        name,
+        type,
+        timestamp,
+        duration,
+        threadId,
+        args,
+        primaryOutputPath,
+        targetLabel,
+        mnemonic);
   }
 
   private static ImmutableMap<String, Object> parseMap(JsonReader reader) throws IOException {

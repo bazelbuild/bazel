@@ -70,7 +70,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   String OUTPUT_ATTR_TEXT =
       LABEL_PARAGRAPH
           + "<p>At analysis time, the corresponding <a href='File.html'><code>File</code></a> can "
-          + "be retrieved using <a href='../ctx.$DOC_EXT#outputs'><code>ctx.outputs</code></a>.";
+          + "be retrieved using <a href='ctx.html#outputs'><code>ctx.outputs</code></a>.";
 
   String ALLOW_FILES_ARG = "allow_files";
   String ALLOW_FILES_DOC =
@@ -134,7 +134,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
           + "in the case of a legacy provider, its string name). The dependency must return ALL "
           + "providers mentioned in at least ONE of the inner lists. As a convenience, this "
           + "argument may also be a single-level list of providers, in which case it is wrapped in "
-          + "an outer list with one element.";
+          + "an outer list with one element."
+          + ""
+          + "It is NOT required that the rule of the dependency advertises those providers "
+          + "in its <code>provides<code> parameter, however, it is considered best practice.";
 
   String ALLOW_SINGLE_FILE_ARG = "allow_single_file";
 
@@ -148,8 +151,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       doc =
           "Creates a schema for an integer attribute. The value must be in the signed 32-bit"
               + " range. The corresponding "
-              + "<a href='../ctx.$DOC_EXT#attr'><code>ctx.attr</code></a> attribute will be of "
-              + "type <a href='../int.$DOC_EXT'><code>int</code></a>.",
+              + "<a href='ctx.html#attr'><code>ctx.attr</code></a> attribute will be of "
+              + "type <a href='int.html'><code>int</code></a>.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -188,7 +191,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "string",
-      doc = "Creates a schema for a <a href='../string.$DOC_EXT#attr'>string</a> attribute.",
+      doc = "Creates a schema for a <a href='string.html#attr'>string</a> attribute.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -417,9 +420,9 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       name = "label_list",
       doc =
           "<p>Creates a schema for a list-of-labels attribute. This is a dependency attribute. "
-              + "The corresponding <a href='../ctx.$DOC_EXT#attr'><code>ctx.attr</code></a> "
-              + "attribute will be of type <a href='../list.$DOC_EXT'>list</a> of "
-              + "<a href='Target.$DOC_EXT'><code>Target</code>s</a>.</p>"
+              + "The corresponding <a href='ctx.html#attr'><code>ctx.attr</code></a> "
+              + "attribute will be of type <a href='list.html'>list</a> of "
+              + "<a href='Target.html'><code>Target</code>s</a>.</p>"
               + DEPENDENCY_ATTR_TEXT,
       parameters = {
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
@@ -614,8 +617,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       name = "bool",
       doc =
           "Creates a schema for a boolean attribute. The corresponding <a"
-              + " href='../ctx.$DOC_EXT#attr'><code>ctx.attr</code></a> attribute will be of type"
-              + " <a href='../bool.$DOC_EXT'><code>bool</code></a>.",
+              + " href='ctx.html#attr'><code>ctx.attr</code></a> attribute will be of type"
+              + " <a href='bool.html'><code>bool</code></a>.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,

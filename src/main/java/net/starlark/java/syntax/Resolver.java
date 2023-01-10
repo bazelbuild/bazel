@@ -568,8 +568,8 @@ public final class Resolver extends NodeVisitor {
 
   @Override
   public void visit(FlowStatement node) {
-    if (node.getKind() != TokenKind.PASS && loopCount <= 0) {
-      errorf(node, "%s statement must be inside a for loop", node.getKind());
+    if (node.getFlowKind() != TokenKind.PASS && loopCount <= 0) {
+      errorf(node, "%s statement must be inside a for loop", node.getFlowKind());
     }
     super.visit(node);
   }

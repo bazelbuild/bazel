@@ -649,16 +649,16 @@ public final class ParserTest {
     List<Statement> loop = ((ForStatement) body.get(0)).getBody();
     assertThat(loop).hasSize(4);
 
-    assertThat(((FlowStatement) loop.get(0)).getKind()).isEqualTo(TokenKind.BREAK);
+    assertThat(((FlowStatement) loop.get(0)).getFlowKind()).isEqualTo(TokenKind.BREAK);
     assertLocation(34, 39, loop.get(0));
 
-    assertThat(((FlowStatement) loop.get(1)).getKind()).isEqualTo(TokenKind.CONTINUE);
+    assertThat(((FlowStatement) loop.get(1)).getFlowKind()).isEqualTo(TokenKind.CONTINUE);
     assertLocation(44, 52, loop.get(1));
 
-    assertThat(((FlowStatement) loop.get(2)).getKind()).isEqualTo(TokenKind.PASS);
+    assertThat(((FlowStatement) loop.get(2)).getFlowKind()).isEqualTo(TokenKind.PASS);
     assertLocation(57, 61, loop.get(2));
 
-    assertThat(((FlowStatement) loop.get(3)).getKind()).isEqualTo(TokenKind.BREAK);
+    assertThat(((FlowStatement) loop.get(3)).getFlowKind()).isEqualTo(TokenKind.BREAK);
     assertLocation(66, 71, loop.get(3));
   }
 

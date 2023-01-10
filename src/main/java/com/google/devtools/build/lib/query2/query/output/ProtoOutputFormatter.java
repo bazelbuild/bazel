@@ -244,7 +244,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         }
         // Include explicit elements for all direct inputs and outputs of a rule; this goes beyond
         // what is available from the attributes above, since it may also (depending on options)
-        // include implicit outputs, host-configuration outputs, and default values.
+        // include implicit outputs, exec-configuration outputs, and default values.
         rule.getSortedLabels(dependencyFilter)
             .forEach(input -> rulePb.addRuleInput(input.toString()));
         rule.getOutputFiles().stream()

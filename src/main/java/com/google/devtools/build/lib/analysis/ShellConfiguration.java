@@ -147,11 +147,11 @@ public class ShellConfiguration extends Fragment {
     public boolean useShBinaryStubScript;
 
     @Override
-    public Options getHost() {
-      Options host = (Options) getDefault();
-      host.shellExecutable = shellExecutable;
-      host.useShBinaryStubScript = useShBinaryStubScript;
-      return host;
+    public Options getExec() {
+      Options exec = (Options) getDefault();
+      exec.shellExecutable = shellExecutable;
+      exec.useShBinaryStubScript = useShBinaryStubScript;
+      return exec;
     }
   }
 }

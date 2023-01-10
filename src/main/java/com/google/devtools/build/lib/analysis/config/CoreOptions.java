@@ -49,7 +49,7 @@ import java.util.Map;
  * BuildConfigurationValue instances.)
  *
  * <p>IMPORTANT: when adding new options, be sure to consider whether those values should be
- * propagated to the host configuration or not.
+ * propagated to the exec configuration or not.
  *
  * <p>ALSO IMPORTANT: all option types MUST define a toString method that gives identical results
  * for semantically identical option values. The simplest way to ensure that is to return the input
@@ -170,6 +170,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "disabled.")
   public boolean strictFilesets;
 
+  // This option is only used during execution. However, it is a required input to the analysis
+  // phase, as otherwise flipping this flag would not invalidate already-executed actions.
+  @Option(
+      name = "experimental_writable_outputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, the file permissions of action outputs are set to 0755 instead of 0555")
+  public boolean experimentalWritableOutputs;
+
   @Option(
       name = "experimental_strict_fileset_output",
       defaultValue = "false",
@@ -252,6 +263,18 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL})
   public boolean enableAspectHints;
+
+  @Option(
+      name = "incompatible_auto_exec_groups",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When enabled, an exec groups is automatically created for each toolchain used by a rule."
+              + " For this to work rule needs to specify `toolchain` parameter on its actions. For"
+              + " more information, see https://github.com/bazelbuild/bazel/issues/17134.")
+  public boolean useAutoExecGroups;
 
   /** Regardless of input, converts to an empty list. For use with affectedByStarlarkTransition */
   public static class EmptyListConverter extends Converter.Contextless<List<String>> {
@@ -383,7 +406,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
-          "Specifies the set of environment variables available to actions with host or execution"
+          "Specifies the set of environment variables available to actions with execution"
               + " configurations. Variables can be either specified by name, in which case the"
               + " value will be taken from the invocation environment, or by the name=value pair"
               + " which sets the value independent of the invocation environment. This option can"
@@ -568,15 +591,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " `affected by Starlark transition` is ignored and instead ST hash is determined,"
               + " for all configuration, by diffing against the top-level configuration.")
   public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
-
-  @Option(
-      name = "is host configuration",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.INTERNAL},
-      help = "Shows whether these options are set for host configuration.")
-  public boolean isHost;
 
   @Option(
       name = "is exec configuration",
@@ -894,6 +908,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " of failing. This is to help use cquery diagnose failures in select.")
   public boolean debugSelectsAlwaysSucceed;
 
+  @Option(
+      name = "experimental_throttle_action_cache_check",
+      defaultValue = "false",
+      converter = BooleanConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "Whether to throttle the check whether an action is cached.")
+  public boolean throttleActionCacheCheck;
+
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     /**
@@ -916,69 +940,70 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   }
 
   @Override
-  public FragmentOptions getHost() {
-    CoreOptions host = (CoreOptions) getDefault();
+  public FragmentOptions getExec() {
+    CoreOptions exec = (CoreOptions) getDefault();
 
-    host.affectedByStarlarkTransition = affectedByStarlarkTransition;
-    host.outputDirectoryNamingScheme = outputDirectoryNamingScheme;
-    host.compilationMode = hostCompilationMode;
-    host.isHost = true;
-    host.isExec = false;
-    host.execConfigurationDistinguisherScheme = execConfigurationDistinguisherScheme;
-    host.outputPathsMode = outputPathsMode;
-    host.enableRunfiles = enableRunfiles;
-    host.executionInfoModifier = executionInfoModifier;
-    host.commandLineBuildVariables = commandLineBuildVariables;
-    host.enforceConstraints = enforceConstraints;
-    host.mergeGenfilesDirectory = mergeGenfilesDirectory;
-    host.platformInOutputDir = platformInOutputDir;
-    host.cpu = hostCpu;
-    host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
-    host.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
-    host.checkTestonlyForOutputFiles = checkTestonlyForOutputFiles;
+    exec.affectedByStarlarkTransition = affectedByStarlarkTransition;
+    exec.outputDirectoryNamingScheme = outputDirectoryNamingScheme;
+    exec.compilationMode = hostCompilationMode;
+    exec.isExec = false;
+    exec.execConfigurationDistinguisherScheme = execConfigurationDistinguisherScheme;
+    exec.outputPathsMode = outputPathsMode;
+    exec.enableRunfiles = enableRunfiles;
+    exec.executionInfoModifier = executionInfoModifier;
+    exec.commandLineBuildVariables = commandLineBuildVariables;
+    exec.enforceConstraints = enforceConstraints;
+    exec.mergeGenfilesDirectory = mergeGenfilesDirectory;
+    exec.platformInOutputDir = platformInOutputDir;
+    exec.cpu = hostCpu;
+    exec.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
+    exec.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
+    exec.checkTestonlyForOutputFiles = checkTestonlyForOutputFiles;
+    exec.useAutoExecGroups = useAutoExecGroups;
+    exec.experimentalWritableOutputs = experimentalWritableOutputs;
 
     // === Runfiles ===
-    host.buildRunfilesManifests = buildRunfilesManifests;
-    host.buildRunfiles = buildRunfiles;
-    host.legacyExternalRunfiles = legacyExternalRunfiles;
-    host.remotableSourceManifestActions = remotableSourceManifestActions;
-    host.skipRunfilesManifests = skipRunfilesManifests;
-    host.alwaysIncludeFilesToBuildInData = alwaysIncludeFilesToBuildInData;
+    exec.buildRunfilesManifests = buildRunfilesManifests;
+    exec.buildRunfiles = buildRunfiles;
+    exec.legacyExternalRunfiles = legacyExternalRunfiles;
+    exec.remotableSourceManifestActions = remotableSourceManifestActions;
+    exec.skipRunfilesManifests = skipRunfilesManifests;
+    exec.alwaysIncludeFilesToBuildInData = alwaysIncludeFilesToBuildInData;
 
     // === Filesets ===
-    host.strictFilesetOutput = strictFilesetOutput;
-    host.strictFilesets = strictFilesets;
+    exec.strictFilesetOutput = strictFilesetOutput;
+    exec.strictFilesets = strictFilesets;
 
     // === Linkstamping ===
-    // Disable all link stamping for the host configuration, to improve action
+    // Disable all link stamping for the exec configuration, to improve action
     // cache hit rates for tools.
-    host.stampBinaries = false;
+    exec.stampBinaries = false;
 
     // === Visibility ===
-    host.checkVisibility = checkVisibility;
+    exec.checkVisibility = checkVisibility;
 
     // === Licenses ===
-    host.checkLicenses = checkLicenses;
+    exec.checkLicenses = checkLicenses;
 
     // === Pass on C++ compiler features.
-    host.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
+    exec.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
 
     // Save host options in case of a further exec->host transition.
-    host.hostCpu = hostCpu;
-    host.hostCompilationMode = hostCompilationMode;
+    exec.hostCpu = hostCpu;
+    exec.hostCompilationMode = hostCompilationMode;
 
-    // Pass host action environment variables
-    host.actionEnvironment = hostActionEnvironment;
-    host.hostActionEnvironment = hostActionEnvironment;
+    // Pass exec action environment variables
+    exec.actionEnvironment = hostActionEnvironment;
+    exec.hostActionEnvironment = hostActionEnvironment;
 
     // Pass archived tree artifacts filter.
-    host.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
+    exec.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
 
-    host.enableAspectHints = enableAspectHints;
-    host.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
+    exec.enableAspectHints = enableAspectHints;
+    exec.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
 
-    host.usePlatformsRepoForConstraints = usePlatformsRepoForConstraints;
-    return host;
+    exec.usePlatformsRepoForConstraints = usePlatformsRepoForConstraints;
+    return exec;
   }
 
   /// Normalizes --define flags, preserving the last one to appear in the event of conflicts.

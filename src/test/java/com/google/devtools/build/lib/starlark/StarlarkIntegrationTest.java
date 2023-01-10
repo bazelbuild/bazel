@@ -1219,7 +1219,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "        'srcs': attr.label_list(allow_files = True),",
         "        'wrapped': attr.label(mandatory = True),",
         "        'wrapped_list': attr.label_list(),",
-        // Host deps aren't forwarded by default, since they don't provide code/binaries executed
+        // Exec deps aren't forwarded by default, since they don't provide code/binaries executed
         // at runtime.
         "        'tool': attr.label(cfg = 'exec', executable = True, mandatory = True),",
         "    })");

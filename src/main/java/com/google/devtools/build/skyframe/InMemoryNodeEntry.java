@@ -151,10 +151,18 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized boolean isReady() {
+  public synchronized boolean isReadyToEvaluate() {
     checkState(!isDone(), "can't be ready if done: %s", this);
     checkState(isEvaluating(), this);
-    return dirtyBuildingState.isReady(getNumTemporaryDirectDeps());
+    return dirtyBuildingState.isReady(getNumTemporaryDirectDeps())
+        || key.supportsPartialReevaluation();
+  }
+
+  @Override
+  public synchronized boolean hasUnsignaledDeps() {
+    checkState(!isDone(), this);
+    checkState(isEvaluating(), this);
+    return !dirtyBuildingState.isReady(getNumTemporaryDirectDeps());
   }
 
   @Override
@@ -265,7 +273,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized Set<SkyKey> setValue(
       SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion)
       throws InterruptedException {
-    checkState(isReady(), "Not ready (this=%s, value=%s)", this, value);
+    checkState(!hasUnsignaledDeps(), "Has unsignaled deps (this=%s, value=%s)", this, value);
     checkState(
         version.lastChanged().atMost(graphVersion) && version.lastEvaluated().atMost(graphVersion),
         "Bad version (this=%s, version=%s, value=%s)",
@@ -414,7 +422,7 @@ public class InMemoryNodeEntry implements NodeEntry {
         !isDone(), "Value must not be done in signalDep %s child=%s", this, childForDebugging);
     checkNotNull(dirtyBuildingState, "%s %s", this, childForDebugging);
     dirtyBuildingState.signalDep(this, childVersion, childForDebugging);
-    return isReady();
+    return !hasUnsignaledDeps();
   }
 
   /** Checks that a caller is not trying to access not-stored graph edges. */
@@ -480,7 +488,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized NodeValueAndRdepsToSignal markClean() throws InterruptedException {
     checkNotNull(dirtyBuildingState, this);
     this.value = checkNotNull(dirtyBuildingState.getLastBuildValue());
-    checkState(isReady(), "Should be ready when clean: %s", this);
+    checkState(!hasUnsignaledDeps(), this);
     checkState(
         dirtyBuildingState.depsUnchangedFromLastBuild(getTemporaryDirectDeps()),
         "Direct deps must be the same as those found last build for node to be marked clean: %s",
@@ -514,7 +522,7 @@ public class InMemoryNodeEntry implements NodeEntry {
    */
   @Override
   public synchronized ImmutableList<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
-    checkState(isReady(), this);
+    checkState(!hasUnsignaledDeps(), this);
     checkNotNull(dirtyBuildingState, this);
     checkState(dirtyBuildingState.isEvaluating(), "Not evaluating during getNextDirty? %s", this);
     return dirtyBuildingState.getNextDirtyDirectDeps();
@@ -592,7 +600,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized void resetForRestartFromScratch() {
-    checkState(isReady(), this);
+    checkState(!hasUnsignaledDeps(), this);
     directDeps = null;
     dirtyBuildingState.resetForRestartFromScratch();
   }

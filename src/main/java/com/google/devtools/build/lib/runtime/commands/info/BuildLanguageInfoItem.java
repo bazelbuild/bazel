@@ -87,7 +87,6 @@ public final class BuildLanguageInfoItem extends InfoItem {
         attrPb.setAllowEmpty(!attr.isNonEmpty());
         attrPb.setAllowSingleFile(attr.isSingleArtifact());
         attrPb.setConfigurable(attr.isConfigurable());
-        attrPb.setCfgIsHost(attr.getTransitionFactory().isHost());
 
         // Encode default value, if simple.
         Object v = attr.getDefaultValueUnchecked();

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -138,6 +139,15 @@ public class LinuxSandboxCommandLineBuilder {
   public LinuxSandboxCommandLineBuilder setWritableFilesAndDirectories(
       Set<Path> writableFilesAndDirectories) {
     this.writableFilesAndDirectories = writableFilesAndDirectories;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public LinuxSandboxCommandLineBuilder addWritablePath(Path writablePath) {
+    if (this.writableFilesAndDirectories == null) {
+      this.writableFilesAndDirectories = new HashSet<>();
+    }
+    this.writableFilesAndDirectories.add(writablePath);
     return this;
   }
 

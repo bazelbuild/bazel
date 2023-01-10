@@ -395,7 +395,7 @@ public final class FeatureFlagValueTest {
                 Label.parseAbsoluteUnchecked("//label:b"),
                 Label.parseAbsoluteUnchecked("//label:c")));
 
-    BuildOptions hostOptions = options.createHostOptions();
+    BuildOptions hostOptions = options.createExecOptions();
     assertThat(hostOptions).isNotEqualTo(options);
     BuildOptions withTransitiveConfigsDisabled = options.clone();
     withTransitiveConfigsDisabled.get(ConfigFeatureFlagOptions.class)

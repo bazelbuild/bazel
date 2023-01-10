@@ -37,6 +37,7 @@ import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -344,6 +345,7 @@ public final class Profiler {
   private CollectLocalResourceUsage resourceUsageThread;
 
   private TimeSeries actionCountTimeSeries;
+  private TimeSeries actionCacheCountTimeSeries;
   private Duration actionCountStartTime;
   private boolean collectTaskHistograms;
   private boolean includePrimaryOutput;
@@ -473,6 +475,8 @@ public final class Profiler {
     this.clock = clock;
     this.actionCountStartTime = Duration.ofNanos(clock.nanoTime());
     this.actionCountTimeSeries = new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
+    this.actionCacheCountTimeSeries =
+        new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
     this.collectTaskHistograms = collectTaskHistograms;
     this.includePrimaryOutput = includePrimaryOutput;
     this.includeTargetLabel = includeTargetLabel;
@@ -536,17 +540,21 @@ public final class Profiler {
   }
 
   private void collectActionCounts() {
+    Duration endTime = Duration.ofNanos(clock.nanoTime());
+    int len = (int) endTime.minus(actionCountStartTime).dividedBy(ACTION_COUNT_BUCKET_DURATION) + 1;
+    Map<ProfilerTask, double[]> counterSeriesMap = new LinkedHashMap<>();
     if (actionCountTimeSeries != null) {
-      Duration endTime = Duration.ofNanos(clock.nanoTime());
-      Duration profileStart = actionCountStartTime;
-      int len = (int) endTime.minus(profileStart).dividedBy(ACTION_COUNT_BUCKET_DURATION) + 1;
       double[] actionCountValues = actionCountTimeSeries.toDoubleArray(len);
-      instance.logCounters(
-          ProfilerTask.ACTION_COUNTS,
-          actionCountValues,
-          profileStart,
-          ACTION_COUNT_BUCKET_DURATION);
       actionCountTimeSeries = null;
+      counterSeriesMap.put(ProfilerTask.ACTION_COUNTS, actionCountValues);
+    }
+    if (actionCacheCountTimeSeries != null) {
+      double[] actionCacheCountValues = actionCacheCountTimeSeries.toDoubleArray(len);
+      actionCacheCountTimeSeries = null;
+      counterSeriesMap.put(ProfilerTask.ACTION_CACHE_COUNTS, actionCacheCountValues);
+    }
+    if (!counterSeriesMap.isEmpty()) {
+      instance.logCounters(counterSeriesMap, actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
     }
   }
 
@@ -609,11 +617,13 @@ public final class Profiler {
 
   /** Adds a whole action count series to the writer bypassing histogram and subtask creation. */
   public void logCounters(
-      ProfilerTask type, double[] counterValues, Duration profileStart, Duration bucketDuration) {
+      Map<ProfilerTask, double[]> counterSeriesMap,
+      Duration profileStart,
+      Duration bucketDuration) {
     JsonTraceFileWriter currentWriter = writerRef.get();
-    if (isActive() && isProfiling(type) && currentWriter != null) {
+    if (isActive() && currentWriter != null) {
       CounterSeriesTraceData counterSeriesTraceData =
-          new CounterSeriesTraceData(type, counterValues, profileStart, bucketDuration);
+          new CounterSeriesTraceData(counterSeriesMap, profileStart, bucketDuration);
       currentWriter.enqueue(counterSeriesTraceData);
     }
   }
@@ -832,14 +842,19 @@ public final class Profiler {
       data.duration = endTime - data.startTimeNanos;
       boolean shouldRecordTask = wasTaskSlowEnoughToRecord(data.type, data.duration);
       JsonTraceFileWriter writer = writerRef.get();
-      if (shouldRecordTask && writer != null) {
-        writer.enqueue(data);
-      }
-
       if (shouldRecordTask) {
+        if (writer != null) {
+          writer.enqueue(data);
+        }
         if (actionCountTimeSeries != null && countAction(data.type, data)) {
           synchronized (this) {
             actionCountTimeSeries.addRange(
+                Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTime));
+          }
+        }
+        if (actionCacheCountTimeSeries != null && data.type == ProfilerTask.ACTION_CHECK) {
+          synchronized (this) {
+            actionCacheCountTimeSeries.addRange(
                 Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTime));
           }
         }

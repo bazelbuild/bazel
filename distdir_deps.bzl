@@ -64,12 +64,11 @@ DIST_DEPS = {
         "package_version": "0.0.2",
     },
     "rules_java": {
-        "archive": "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-        "sha256": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
-        "strip_prefix": "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
+        "archive": "rules_java-5.4.0.tar.gz",
+        "sha256": "9b87757af5c77e9db5f7c000579309afae75cf6517da745de01ba0c6e4870951",
+        "strip_prefix": "",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-            "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+            "https://github.com/bazelbuild/rules_java/releases/download/5.4.0/rules_java-5.4.0.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -78,8 +77,7 @@ DIST_DEPS = {
         "license_kinds": [
             "@rules_license//licenses/spdx:Apache-2.0",
         ],
-        # TODO(bazel-team): Update to a newer version
-        "package_version": "2019-06-28",
+        "package_version": "5.4.0",
     },
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_proto": {
@@ -341,6 +339,22 @@ DIST_DEPS = {
         ],
         "package_version": "0.8.0",
     },
+    "rules_jvm_external": {
+        "archive": "4.5.zip",
+        "sha256": "b17d7388feb9bfa7f2fa09031b32707df529f26c91ab9e5d909eb1676badd9a6",
+        "strip_prefix": "rules_jvm_external-4.5",
+        "patches": [
+            "//third_party:rules_jvm_external.patch",
+        ],
+        "patch_args": ["-p1"],
+        "urls": [
+            "https://github.com/bazelbuild/rules_jvm_external/archive/4.5.zip",
+        ],
+        "used_in": [
+            "additional_distfiles",
+        ],
+        "package_version": "4.5",
+    },
     "desugar_jdk_libs": {
         # Commit 5847d6a06302136d95a14b4cbd4b55a9c9f1436e of 2021-03-10
         "archive": "5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
@@ -528,12 +542,12 @@ DIST_DEPS = {
             "openjdk17_windows_arm64_archive",
             "openjdk_win_arm64_vanilla",
         ],
-        "archive": "zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip",
-        "sha256": "811d7e7591bac4f081dfb00ba6bd15b6fc5969e1f89f0f327ef75147027c3877",
-        "strip_prefix": "zulu17.30.15-ca-jdk17.0.1-win_aarch64",
+        "archive": "zulu17.38.21-ca-jdk17.0.5-win_aarch64.zip",
+        "sha256": "bc3476f2161bf99bc9a243ff535b8fc033b34ce9a2fa4b62fb8d79b6bfdc427f",
+        "strip_prefix": "zulu17.38.21-ca-jdk17.0.5-win_aarch64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip",
-            "https://cdn.azul.com/zulu/bin/zulu17.30.15-ca-jdk17.0.1-win_aarch64.zip",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_aarch64.zip",
+            "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_aarch64.zip",
         ],
         "used_in": [
             "additional_distfiles",
@@ -559,12 +573,12 @@ DIST_DEPS = {
             "openjdk17_linux_archive",
             "openjdk_linux_vanilla",
         ],
-        "archive": "zulu17.32.13-ca-jdk17.0.2-linux_x64.tar.gz",
-        "sha256": "73d5c4bae20325ca41b606f7eae64669db3aac638c5b3ead4a975055846ad6de",
-        "strip_prefix": "zulu17.32.13-ca-jdk17.0.2-linux_x64",
+        "archive": "zulu17.38.21-ca-jdk17.0.5-linux_x64.tar.gz",
+        "sha256": "20c91a922eec795f3181eaa70def8b99d8eac56047c9a14bfb257c85b991df1b",
+        "strip_prefix": "zulu17.38.21-ca-jdk17.0.5-linux_x64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_x64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_x64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-linux_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-linux_x64.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -577,12 +591,12 @@ DIST_DEPS = {
             "openjdk17_linux_aarch64_archive",
             "openjdk_linux_aarch64_vanilla",
         ],
-        "archive": "zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz",
-        "sha256": "2b8066bbdbc5cff422bb6b6db1b8f8d362b576340cce8492f1255502af632b06",
-        "strip_prefix": "zulu17.32.13-ca-jdk17.0.2-linux_aarch64",
+        "archive": "zulu17.38.21-ca-jdk17.0.5-linux_aarch64.tar.gz",
+        "sha256": "dbc6ae9163e7ff469a9ab1f342cd1bc1f4c1fb78afc3c4f2228ee3b32c4f3e43",
+        "strip_prefix": "zulu17.38.21-ca-jdk17.0.5-linux_aarch64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-linux_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-linux_aarch64.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -626,12 +640,12 @@ DIST_DEPS = {
             "openjdk17_darwin_archive",
             "openjdk_macos_x86_64_vanilla",
         ],
-        "archive": "zulu17.32.13-ca-jdk17.0.2-macosx_x64.tar.gz",
-        "sha256": "89d04b2d99b05dcb25114178e65f6a1c5ca742e125cab0a63d87e7e42f3fcb80",
-        "strip_prefix": "zulu17.32.13-ca-jdk17.0.2-macosx_x64",
+        "archive": "zulu17.38.21-ca-jdk17.0.5-macosx_x64.tar.gz",
+        "sha256": "e6317cee4d40995f0da5b702af3f04a6af2bbd55febf67927696987d11113b53",
+        "strip_prefix": "zulu17.38.21-ca-jdk17.0.5-macosx_x64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-macosx_x64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-macosx_x64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-macosx_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-macosx_x64.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -644,12 +658,12 @@ DIST_DEPS = {
             "openjdk17_darwin_aarch64_archive",
             "openjdk_macos_aarch64_vanilla",
         ],
-        "archive": "zulu17.32.13-ca-jdk17.0.2-macosx_aarch64.tar.gz",
-        "sha256": "54247dde248ffbcd3c048675504b1c503b81daf2dc0d64a79e353c48d383c977",
-        "strip_prefix": "zulu17.32.13-ca-jdk17.0.2-macosx_aarch64",
+        "archive": "zulu17.38.21-ca-jdk17.0.5-macosx_aarch64",
+        "sha256": "515dd56ec99bb5ae8966621a2088aadfbe72631818ffbba6e4387b7ee292ab09",
+        "strip_prefix": "zulu17.38.21-ca-jdk17.0.5-macosx_aarch64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-macosx_aarch64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-macosx_aarch64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-macosx_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-macosx_aarch64.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -662,12 +676,12 @@ DIST_DEPS = {
             "openjdk17_windows_archive",
             "openjdk_win_vanilla",
         ],
-        "archive": "zulu17.32.13-ca-jdk17.0.2-win_x64.zip",
-        "sha256": "e965aa0ea7a0661a3446cf8f10ee00684b851f883b803315289f26b4aa907fdb",
-        "strip_prefix": "zulu17.32.13-ca-jdk17.0.2-win_x64",
+        "archive": "zulu17.38.21-ca-jdk17.0.5-win_x64.zip",
+        "sha256": "9972c5b62a61b45785d3d956c559e079d9e91f144ec46225f5deeda214d48f27",
+        "strip_prefix": "zulu17.38.21-ca-jdk17.0.5-win_x64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-win_x64.zip",
-            "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-win_x64.zip",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_x64.zip",
+            "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_x64.zip",
         ],
         "used_in": [
             "additional_distfiles",

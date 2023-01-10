@@ -79,7 +79,7 @@ public class ObjcRuleClasses {
    * Creates a new spawn action builder with apple environment variables set that are typically
    * needed by the apple toolchain. This should be used to start to build spawn actions that, in
    * order to run, require both a darwin architecture and a collection of environment variables
-   * which contain information about the target and host architectures.
+   * which contain information about the target and exec architectures.
    */
   static SpawnAction.Builder spawnAppleEnvActionBuilder(
       XcodeConfigInfo xcodeConfigInfo, ApplePlatform targetPlatform) {

@@ -3277,7 +3277,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   private void createPlatforms() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "platform/BUILD",
         "constraint_setting(name = 'setting')",
         "constraint_value(",

@@ -16,23 +16,27 @@ package net.starlark.java.syntax;
 /** A class for flow statements (break, continue, and pass) */
 public final class FlowStatement extends Statement {
 
-  private final TokenKind kind; // BREAK | CONTINUE | PASS
+  private final TokenKind flowKind; // BREAK | CONTINUE | PASS
   private final int offset;
 
-  /** @param kind The label of the statement (break, continue, or pass) */
-  FlowStatement(FileLocations locs, TokenKind kind, int offset) {
-    super(locs);
-    this.kind = kind;
+  /**
+   * Constructs a new flow control statement.
+   *
+   * @param flowKind The specific kind of flow control statement (break, continue, or pass)
+   */
+  FlowStatement(FileLocations locs, TokenKind flowKind, int offset) {
+    super(locs, Kind.FLOW);
+    this.flowKind = flowKind;
     this.offset = offset;
   }
 
-  public TokenKind getKind() {
-    return kind;
+  public TokenKind getFlowKind() {
+    return flowKind;
   }
 
   @Override
   public String toString() {
-    return kind.toString() + "\n";
+    return flowKind.toString() + "\n";
   }
 
   @Override
@@ -42,16 +46,11 @@ public final class FlowStatement extends Statement {
 
   @Override
   public int getEndOffset() {
-    return offset + kind.toString().length();
+    return offset + flowKind.toString().length();
   }
 
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Statement.Kind kind() {
-    return Statement.Kind.FLOW;
   }
 }

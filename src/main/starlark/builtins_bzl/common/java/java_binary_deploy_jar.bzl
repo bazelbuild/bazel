@@ -71,8 +71,7 @@ def create_deploy_archives(
         ],
         order = "preorder",
     )
-
-    build_info_files = java_common.get_build_info(ctx)
+    build_info_files = semantics.get_build_info(ctx, getattr(ctx.attr, "stamp", 0))
     multi_release = ctx.fragments.java.multi_release_deploy_jars
 
     _create_deploy_archive(
@@ -247,6 +246,9 @@ def make_deploy_jars_rule(implementation):
             "_cc_toolchain": attr.label(default = "@" + cc_semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
             "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
             "_java_runtime_toolchain_type": attr.label(default = semantics.JAVA_RUNTIME_TOOLCHAIN_TYPE),
+            "_build_info_translator": attr.label(
+                default = semantics.BUILD_INFO_TRANSLATOR,
+            ),
         },
         outputs = _implicit_outputs,
         fragments = ["java"],

@@ -1067,39 +1067,39 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean androidPlatformsTransitionsUpdateAffected;
 
     @Override
-    public FragmentOptions getHost() {
-      Options host = (Options) super.getHost();
-      host.hwasan = false;
-      host.androidCrosstoolTop = androidCrosstoolTop;
-      host.sdk = sdk;
-      host.fatApkCpus = ImmutableList.of(); // Fat APK archs don't apply to the host.
-      host.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
-      host.androidPlatformsTransitionsUpdateAffected = androidPlatformsTransitionsUpdateAffected;
+    public FragmentOptions getExec() {
+      Options exec = (Options) super.getExec();
+      exec.hwasan = false;
+      exec.androidCrosstoolTop = androidCrosstoolTop;
+      exec.sdk = sdk;
+      exec.fatApkCpus = ImmutableList.of(); // Fat APK archs don't apply to the exec platform..
+      exec.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
+      exec.androidPlatformsTransitionsUpdateAffected = androidPlatformsTransitionsUpdateAffected;
 
-      host.desugarJava8 = desugarJava8;
-      host.desugarJava8Libs = desugarJava8Libs;
-      host.checkDesugarDeps = checkDesugarDeps;
-      host.incrementalDexing = incrementalDexing;
-      host.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
-      host.incrementalDexingUseDexSharder = incrementalDexingUseDexSharder;
-      host.incrementalDexingAfterProguardByDefault = incrementalDexingAfterProguardByDefault;
-      host.assumeMinSdkVersion = assumeMinSdkVersion;
-      host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
-      host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
-      host.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
-      host.dexoptsSupportedInDexSharder = dexoptsSupportedInDexSharder;
-      host.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
-      host.manifestMerger = manifestMerger;
-      host.manifestMergerOrder = manifestMergerOrder;
-      host.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
-      host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
+      exec.desugarJava8 = desugarJava8;
+      exec.desugarJava8Libs = desugarJava8Libs;
+      exec.checkDesugarDeps = checkDesugarDeps;
+      exec.incrementalDexing = incrementalDexing;
+      exec.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
+      exec.incrementalDexingUseDexSharder = incrementalDexingUseDexSharder;
+      exec.incrementalDexingAfterProguardByDefault = incrementalDexingAfterProguardByDefault;
+      exec.assumeMinSdkVersion = assumeMinSdkVersion;
+      exec.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
+      exec.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
+      exec.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
+      exec.dexoptsSupportedInDexSharder = dexoptsSupportedInDexSharder;
+      exec.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
+      exec.manifestMerger = manifestMerger;
+      exec.manifestMergerOrder = manifestMergerOrder;
+      exec.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
+      exec.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
-      host.persistentBusyboxTools = persistentBusyboxTools;
-      host.disableNativeAndroidRules = disableNativeAndroidRules;
+      exec.persistentBusyboxTools = persistentBusyboxTools;
+      exec.disableNativeAndroidRules = disableNativeAndroidRules;
 
-      // Unless the build was started from an Android device, host means MAIN.
-      host.configurationDistinguisher = ConfigurationDistinguisher.MAIN;
-      return host;
+      // Unless the build was started from an Android device, exec means MAIN.
+      exec.configurationDistinguisher = ConfigurationDistinguisher.MAIN;
+      return exec;
     }
   }
 

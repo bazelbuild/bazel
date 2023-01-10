@@ -334,7 +334,7 @@ contains fields for dependency attributes whose specs set `executable=True`.
 
 During the analysis phase, a rule's implementation function can create outputs.
 Since all labels have to be known during the loading phase, these additional
-outputs have no labels. `File` objects for outputs can be created using using
+outputs have no labels. `File` objects for outputs can be created using
 [`ctx.actions.declare_file`](/rules/lib/actions#declare_file) and
 [`ctx.actions.declare_directory`](/rules/lib/actions#declare_directory). Often,
 the names of outputs are based on the target's name,

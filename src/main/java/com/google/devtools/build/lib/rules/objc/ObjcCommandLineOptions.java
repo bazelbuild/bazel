@@ -195,12 +195,12 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean incompatibleDisableNativeAppleBinaryRule;
 
   @Override
-  public FragmentOptions getHost() {
-    ObjcCommandLineOptions host = (ObjcCommandLineOptions) getDefault();
-    host.enableCcDeps = enableCcDeps;
-    host.incompatibleAvoidHardcodedObjcCompilationFlags =
+  public FragmentOptions getExec() {
+    ObjcCommandLineOptions exec = (ObjcCommandLineOptions) getDefault();
+    exec.enableCcDeps = enableCcDeps;
+    exec.incompatibleAvoidHardcodedObjcCompilationFlags =
         incompatibleAvoidHardcodedObjcCompilationFlags;
-    host.incompatibleObjcLinkingInfoMigration = incompatibleObjcLinkingInfoMigration;
-    return host;
+    exec.incompatibleObjcLinkingInfoMigration = incompatibleObjcLinkingInfoMigration;
+    return exec;
   }
 }

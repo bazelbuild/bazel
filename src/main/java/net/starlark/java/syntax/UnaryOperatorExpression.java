@@ -21,7 +21,7 @@ public final class UnaryOperatorExpression extends Expression {
   private final Expression x;
 
   UnaryOperatorExpression(FileLocations locs, TokenKind op, int opOffset, Expression x) {
-    super(locs);
+    super(locs, Kind.UNARY_OPERATOR);
     this.op = op;
     this.opOffset = opOffset;
     this.x = x;
@@ -59,10 +59,5 @@ public final class UnaryOperatorExpression extends Expression {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.UNARY_OPERATOR;
   }
 }

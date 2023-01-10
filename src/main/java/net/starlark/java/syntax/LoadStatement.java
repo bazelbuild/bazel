@@ -53,7 +53,7 @@ public final class LoadStatement extends Statement {
       StringLiteral module,
       ImmutableList<Binding> bindings,
       int rparenOffset) {
-    super(locs);
+    super(locs, Kind.LOAD);
     this.loadOffset = loadOffset;
     this.module = module;
     this.bindings = bindings;
@@ -81,10 +81,5 @@ public final class LoadStatement extends Statement {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.LOAD;
   }
 }

@@ -28,7 +28,10 @@ import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -44,6 +47,7 @@ import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -68,6 +72,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
@@ -99,7 +104,8 @@ public class BlazeRuntimeWrapper {
 
   private BuildRequest lastRequest;
   private BuildResult lastResult;
-  private BuildConfigurationCollection configurations;
+  private BuildConfigurationValue configuration;
+  private BuildConfigurationValue execConfiguration;
   private ImmutableSet<ConfiguredTarget> topLevelTargets;
 
   private OptionsParser optionsParser;
@@ -374,7 +380,8 @@ public class BlazeRuntimeWrapper {
         throw e;
       } finally {
         env.getTimestampGranularityMonitor().waitForTimestampGranularity(lastRequest.getOutErr());
-        this.configurations = lastResult.getBuildConfigurationCollection();
+        this.configuration = lastResult.getBuildConfiguration();
+        this.execConfiguration = null; // Lazily instantiated only upon request.
         finalizeBuildResult(lastResult);
         buildTool.stopRequest(
             lastResult, crash != null ? crash.getThrowable() : null, detailedExitCode);
@@ -388,6 +395,25 @@ public class BlazeRuntimeWrapper {
     } finally {
       Profiler.instance().stop();
     }
+  }
+
+  private BuildConfigurationValue createExecConfig(BuildConfigurationValue targetConfig)
+      throws Exception {
+    BuildOptions targetOptions = targetConfig.getOptions();
+    BuildOptions execOptions =
+        Iterables.getOnlyElement(
+            ExecutionTransitionFactory.create()
+                .create(
+                    AttributeTransitionData.builder()
+                        .attributes(FakeAttributeMapper.empty())
+                        .executionPlatform(Label.parseAbsoluteUnchecked("//platform:exec"))
+                        .build())
+                .apply(
+                    new BuildOptionsView(targetOptions, targetOptions.getFragmentClasses()),
+                    events.reporter())
+                .values());
+    return getSkyframeExecutor()
+        .getConfiguration(events.reporter(), execOptions, /*keepGoig*/ false);
   }
 
   private static FailureDetail createGenericDetailedFailure() {
@@ -420,8 +446,18 @@ public class BlazeRuntimeWrapper {
     return lastResult;
   }
 
-  public BuildConfigurationCollection getConfigurationCollection() {
-    return configurations;
+  public BuildConfigurationValue getConfiguration() {
+    return configuration;
+  }
+
+  public BuildConfigurationValue getExecConfiguration() throws Exception {
+    if (execConfiguration == null) {
+      // Lazily instantiate the exec configuration only when requested. This stops the extra
+      // Skyframe evaluation from interfering with tests that don't care about the exec oonfig
+      // but due care about # of Skyframe calls: particularly MetricsCollectorTest.
+      this.execConfiguration = this.configuration == null ? null : createExecConfig(configuration);
+    }
+    return execConfiguration;
   }
 
   public ImmutableSet<ConfiguredTarget> getTopLevelTargets() {

@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -248,10 +247,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
             starlarkBuiltinsValue);
 
     return view.getRuleContextForTesting(
-        eventHandler,
-        dummyTarget,
-        analysisEnv,
-        new BuildConfigurationCollection(dummy.getConfiguration(), dummy.getConfiguration()));
+        eventHandler, dummyTarget, analysisEnv, dummy.getConfiguration());
   }
 
   /**

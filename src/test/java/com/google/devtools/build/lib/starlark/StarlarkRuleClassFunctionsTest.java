@@ -783,13 +783,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testAttrCfgNoMoreHost() throws Exception {
-    Attribute attr = buildAttribute("a1", "attr.label(cfg = 'host', allow_files = True)");
-    assertThat(attr.getTransitionFactory().isHost()).isFalse();
-    assertThat(attr.getTransitionFactory().isTool()).isTrue();
-  }
-
-  @Test
   public void testAttrCfgHostDisabled() throws Exception {
     setBuildLanguageOptions("--incompatible_disable_starlark_host_transitions");
 

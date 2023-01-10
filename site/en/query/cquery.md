@@ -108,10 +108,6 @@ To see the configuration's complete contents, run:
 $ bazel config 9f87702
 </pre>
 
-The host configuration uses the special ID `(HOST)`. Non-generated source files, like
-those commonly found in `srcs`, use the special ID `(null)` (because they
-don't need to be configured).
-
 `9f87702` is a prefix of the complete ID. This is because complete IDs are
 SHA-256 hashes, which are long and hard to follow. `cquery` understands any valid
 prefix of a complete ID, similar to
@@ -134,12 +130,12 @@ For example, the following can produce multiple results:
 
 <pre>
 # Analyzes //foo in the target configuration, but also analyzes
-# //genrule_with_foo_as_tool which depends on a host-configured
+# //genrule_with_foo_as_tool which depends on an exec-configured
 # //foo. So there are two configured target instances of //foo in
 # the build graph.
 $ bazel cquery //foo --universe_scope=//foo,//genrule_with_foo_as_tool
 //foo (9f87702)
-//foo (HOST)
+//foo (exec)
 </pre>
 
 If you want to precisely declare which instance to query over, use
@@ -165,20 +161,20 @@ The `config` operator attempts to find the configured target for
 the label denoted by the first argument and configuration specified by the
 second argument.
 
-Valid values for the second argument are `target`, `host`, `null`, or a
+Valid values for the second argument are `null` or a
 [custom configuration hash](#configurations). Hashes can be retrieved from `$
 bazel config` or a prevous `cquery`'s output.
 
 Examples:
 
 <pre>
-$ bazel cquery "config(//bar, host)" --universe_scope=//foo
+$ bazel cquery "config(//bar, 3732cc8)" --universe_scope=//foo
 </pre>
 
 <pre>
 $ bazel cquery "deps(//foo)"
-//bar (HOST)
-//baz (3732cc8)
+//bar (exec)
+//baz (exec)
 
 $ bazel cquery "config(//baz, 3732cc8)"
 </pre>
@@ -219,7 +215,7 @@ cc_library(
 </pre>
 
 Genrules configure their tools in the
-[host configuration](/extending/rules#configurations)
+[exec configuration](/extending/rules#configurations)
 so the following queries would produce the following outputs:
 
 <table class="table table-condensed table-bordered table-params">
@@ -239,7 +235,7 @@ so the following queries would produce the following outputs:
     <tr>
       <td>bazel cquery "//x:tool" --universe_scope="//x:my_gen"</td>
       <td>//x:my_gen</td>
-      <td>//x:tool(hostconfig)</td>
+      <td>//x:tool(execconfig)</td>
     </tr>
   </tbody>
 </table>
@@ -307,7 +303,7 @@ Configuration [transitions](/extending/rules#configurations)
 are used to build targets underneath the top level targets in different
 configurations than the top level targets.
 
-For example, a target might impose a transition to the host configuration on all
+For example, a target might impose a transition to the exec configuration on all
 dependencies in its `tools` attribute. These are known as attribute
 transitions. Rules can also impose transitions on their own configurations,
 known as rule class transitions. This output format outputs information about
@@ -577,9 +573,9 @@ $ bazel cquery 'somepath(//foo, //bar)' --universe_scope=//foo
 
 `cquery` does not automatically wipe the build graph from
 previous commands and is therefore prone to picking up results from past
-queries. For example, `genquery` exerts a host transition on
+queries. For example, `genquery` exerts an exec transition on
 its `tools` attribute - that is, it configures its tools in the
-[host configuration](/extending/rules#configurations).
+[exec configuration](/extending/rules#configurations).
 
 You can see the lingering effects of that transition below.
 
@@ -602,11 +598,11 @@ tool(target_config)
 
     $ bazel cquery "deps(//foo:my_gen)"
 my_gen (target_config)
-tool (host_config)
+tool (exec_config)
 ...
 
     $ bazel cquery "//foo:tool"
-tool(host_config)
+tool(exec_config)
 </pre>
 
 Workaround: change any startup option to force re-analysis of configured targets.

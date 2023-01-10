@@ -67,34 +67,6 @@ import javax.annotation.Nullable;
 final class Selection {
   private Selection() {}
 
-  /**
-   * The result of the selection process, containing both the pruned and the un-pruned dependency
-   * graphs.
-   */
-  @AutoValue
-  abstract static class SelectionResult {
-    /* TODO(andreisolo): Also load the modules overridden by {@code single_version_override} or
-        NonRegistryOverride if we need to detect changes in the dependency graph caused by them.
-    */
-
-    /** Final dep graph sorted in BFS iteration order, with unused modules removed. */
-    abstract ImmutableMap<ModuleKey, Module> getResolvedDepGraph();
-
-    /**
-     * Un-pruned dep graph, with updated dep keys, and additionally containing the unused modules
-     * which were initially discovered (and their MODULE.bazel files loaded). Does not contain
-     * modules overridden by {@code single_version_override} or {@link NonRegistryOverride}, only by
-     * {@code multiple_version_override}.
-     */
-    abstract ImmutableMap<ModuleKey, Module> getUnprunedDepGraph();
-
-    static SelectionResult create(
-        ImmutableMap<ModuleKey, Module> resolvedDepGraph,
-        ImmutableMap<ModuleKey, Module> unprunedDepGraph) {
-      return new AutoValue_Selection_SelectionResult(resolvedDepGraph, unprunedDepGraph);
-    }
-  }
-
   /** During selection, a version is selected for each distinct "selection group". */
   @AutoValue
   abstract static class SelectionGroup {
@@ -193,8 +165,10 @@ final class Selection {
         allowedVersionSet.ceiling(module.getVersion()));
   }
 
-  /** Runs module selection (aka version resolution). Returns a {@link SelectionResult}. */
-  public static SelectionResult run(
+  /**
+   * Runs module selection (aka version resolution). Returns a {@link BazelModuleResolutionValue}.
+   */
+  public static BazelModuleResolutionValue run(
       ImmutableMap<ModuleKey, Module> depGraph, ImmutableMap<String, ModuleOverride> overrides)
       throws ExternalDepsException {
     // For any multiple-version overrides, build a mapping from (moduleName, compatibilityLevel) to
@@ -254,7 +228,7 @@ final class Selection {
         new DepGraphWalker(newDepGraph, overrides, selectionGroups).walk();
 
     // Return the result containing both the pruned and un-pruned dep graphs
-    return SelectionResult.create(prunedDepGraph, unprunedDepGraph);
+    return BazelModuleResolutionValue.create(prunedDepGraph, unprunedDepGraph);
   }
 
   /**

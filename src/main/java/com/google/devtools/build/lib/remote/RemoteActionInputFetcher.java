@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.reactivex.rxjava3.core.Completable;
@@ -54,8 +55,9 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       RemoteCache remoteCache,
       Path execRoot,
       TempPathGenerator tempPathGenerator,
-      ImmutableList<Pattern> patternsToDownload) {
-    super(execRoot, tempPathGenerator, patternsToDownload);
+      ImmutableList<Pattern> patternsToDownload,
+      OutputPermissions outputPermissions) {
+    super(execRoot, tempPathGenerator, patternsToDownload, outputPermissions);
     this.buildRequestId = Preconditions.checkNotNull(buildRequestId);
     this.commandId = Preconditions.checkNotNull(commandId);
     this.remoteCache = Preconditions.checkNotNull(remoteCache);

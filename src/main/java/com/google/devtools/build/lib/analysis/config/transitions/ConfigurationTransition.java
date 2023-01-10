@@ -85,13 +85,6 @@ public interface ConfigurationTransition {
   @SuppressWarnings("unused")
   String reasonForOverride();
 
-  /**
-   * Does this transition switch to a "host" configuration?
-   */
-  default boolean isHostTransition() {
-    return false;
-  }
-
   default String getName() {
     return this.getClass().getSimpleName();
   }

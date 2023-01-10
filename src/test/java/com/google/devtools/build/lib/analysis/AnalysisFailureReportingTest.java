@@ -239,10 +239,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
 
     Label topLevel = Label.parseAbsoluteUnchecked("//foo");
     BuildConfigurationValue expectedConfig =
-        skyframeExecutor
-            .getSkyframeBuildView()
-            .getBuildConfigurationCollection()
-            .getTargetConfiguration();
+        skyframeExecutor.getSkyframeBuildView().getBuildConfiguration();
     String message =
         "in sh_test rule //foo:foo: target '//bar:bar' is not visible from"
             + " target '//foo:foo'. Check the visibility declaration of the"

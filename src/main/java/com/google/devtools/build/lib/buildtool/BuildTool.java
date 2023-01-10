@@ -206,7 +206,7 @@ public class BuildTool {
           analysisResult = analysisResult.withExclusiveIfLocalTestsAsParallelTests();
         }
 
-        result.setBuildConfigurationCollection(analysisResult.getConfigurationCollection());
+        result.setBuildConfiguration(analysisResult.getConfiguration());
         result.setActualTargets(analysisResult.getTargetsToBuild());
         result.setTestTargets(analysisResult.getTargetsToTest());
 
@@ -336,7 +336,7 @@ public class BuildTool {
                 buildOptions,
                 loadingResult,
                 () -> executionTool.prepareForExecution(request.getId()),
-                result::setBuildConfigurationCollection);
+                result::setBuildConfiguration);
         buildCompleted = true;
         executionTool.handleConvenienceSymlinks(analysisAndExecutionResult);
       } catch (InvalidConfigurationException

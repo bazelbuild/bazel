@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -166,7 +165,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   // Note that these configurations are virtual (they use only VFS)
-  private BuildConfigurationCollection universeConfig;
+  private BuildConfigurationValue universeConfig;
+  private BuildConfigurationValue execConfig;
 
   private AnalysisResult analysisResult;
   protected SkyframeExecutor skyframeExecutor = null;
@@ -307,7 +307,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   /**
-   * Sets host and target configuration using the specified options, falling back to the default
+   * Sets exec and target configuration using the specified options, falling back to the default
    * options for unspecified ones, and recreates the build view.
    */
   public void useConfiguration(String... args) throws Exception {
@@ -364,7 +364,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     }
   }
 
-  protected BuildConfigurationCollection getBuildConfigurationCollection() {
+  protected BuildConfigurationValue getBuildConfiguration() {
     return universeConfig;
   }
 
@@ -373,11 +373,11 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    * configuration creation phase.
    */
   protected BuildConfigurationValue getTargetConfiguration() throws InterruptedException {
-    return universeConfig.getTargetConfiguration();
+    return universeConfig;
   }
 
-  protected BuildConfigurationValue getHostConfiguration() {
-    return universeConfig.getHostConfiguration();
+  protected BuildConfigurationValue getExecConfiguration() {
+    return execConfig;
   }
 
   protected final void ensureUpdateWasCalled() {
@@ -456,7 +456,15 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       buildView.clearAnalysisCache(
           analysisResult.getTargetsToBuild(), analysisResult.getAspectsMap().keySet());
     }
-    universeConfig = analysisResult.getConfigurationCollection();
+
+    universeConfig = analysisResult.getConfiguration();
+    scratch.overwriteFile("platform/BUILD", "platform(name = 'exec')");
+    execConfig =
+        skyframeExecutor.getConfiguration(
+            reporter,
+            AnalysisTestUtil.execOptions(universeConfig.getOptions(), reporter),
+            /* keepGoing= */ false);
+
     return analysisResult;
   }
 

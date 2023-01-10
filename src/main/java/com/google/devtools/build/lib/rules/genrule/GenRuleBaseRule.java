@@ -70,7 +70,7 @@ public class GenRuleBaseRule implements RuleDefinition {
         <a href="${link build-ref#deps}">dependencies</a> for more information. <br/>
         <p>
           The build system ensures these prerequisites are built before running the genrule command;
-          they are built using the <a href='${link guide#configurations}'><i>host</i>
+          they are built using the <a href='${link guide#configurations}'><i>exec</i>
           configuration</a>, since these tools are executed as part of the build. The path of an
           individual <code>tools</code> target <code>//x:y</code> can be obtained using
           <code>$(location //x:y)</code>.
@@ -88,10 +88,10 @@ public class GenRuleBaseRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(exec_tools) -->
         A list of <i>tool</i> dependencies for this rule. This behaves exactly like the
         <a href="#genrule.tools"><code>tools</code></a> attribute, except that these dependencies
-        will be configured for the rule's execution platform instead of the host configuration.
+        will be configured for the rule's execution platform instead of the exec configuration.
         This means that dependencies in <code>exec_tools</code> are not subject to the same
         limitations as dependencies in <code>tools</code>. In particular, they are not required to
-        use the host configuration for their own transitive dependencies. See
+        use the exec configuration for their own transitive dependencies. See
         <a href="#genrule.tools"><code>tools</code></a> for further details.
 
         <p>
@@ -144,7 +144,7 @@ public class GenRuleBaseRule implements RuleDefinition {
           <li>
             Next, <a href="${link make-variables}">"Make" variables</a> are expanded. Note that
             predefined variables <code>$(JAVA)</code>, <code>$(JAVAC)</code> and
-            <code>$(JAVABASE)</code> expand under the <i>host</i> configuration, so Java invocations
+            <code>$(JAVABASE)</code> expand under the <i>exec</i> configuration, so Java invocations
             that run as part of a build step can correctly load shared libraries and other
             dependencies.
           </li>

@@ -386,13 +386,58 @@ function test_child_ignores_sigterm_and_sigalrm_no_kill_delay() {
   assert_equals 137 "$code" # SIGNAL_BASE + SIGTERM = 128 + 9
 }
 
-function test_cgroups_memory_limit() {
+# Tests that using cgruops v1 with linux_sandbox.cc works, if it's available
+function test_cgroups1_memory_limit() {
+  if ! grep -E '^cgroup +[^ ]+ +cgroup +.*memory.*' /proc/mounts; then
+    echo "No cgroup memory controller mounted, skipping test"
+    return 0
+  fi
+  memmount=$(grep -E '^cgroup +[^ ]+ +cgroup +.*memory.*' /proc/mounts | cut -d' ' -f2)
+  if ! grep -E '^[0-9]*:[^:]*memory[^:]*:' /proc/self/cgroup &>/dev/null; then
+    echo "Does not use cgroups v1, skipping test"
+    return 0
+  fi
+  memsubdir=$(grep -E '^[0-9]*:[^:]*memory[^:]*:' /proc/self/cgroup | cut -d: -f3)
+  memdir="$memmount$memsubdir"
+  if [[ ! -w "$memdir" ]]; then
+    echo "Cgroups v1 directory not writable, skipping test"
+    return 0
+  fi
+  cat >${TEST_TMPDIR}/run_sandbox_with_cgroups.sh <<EOF
+#!/bin/bash
+set -euo pipefail
+# Runs the sandbox with appropriate cgroups setup
+cgroups_self=$memdir
+cgroups_parent=\$( dirname "\$cgroups_self" )
+cgroups_base=$memdir/blaze_test
+mkdir -p "\$cgroups_base" || ( echo "Error creating \$cgroups_base"; exit 1 )
+echo \$1 > "\$cgroups_base/memory.limit_in_bytes" \
+  || ( echo "Error setting \$1 memory limit"; exit 1 )
+cat "\$cgroups_base/memory.limit_in_bytes"
+$linux_sandbox $SANDBOX_DEFAULT_OPTS -M "\$cgroups_base" -w "\$cgroups_base" -C "\$cgroups_base" \
+  -- /bin/echo hi there
+EOF
+  chmod +x ${TEST_TMPDIR}/run_sandbox_with_cgroups.sh
+
+  ${TEST_TMPDIR}/run_sandbox_with_cgroups.sh 1000000 &>$TEST_log \
+    || fail "Expected sandbox run to succeed"
+
+  expect_log "hi there"
+
+  ${TEST_TMPDIR}/run_sandbox_with_cgroups.sh 1000 &> $TEST_log \
+  && fail "Expected sandbox run to fail"
+
+  expect_not_log "hi there"
+}
+
+# Tests that using cgruops v2 with linux_sandbox.cc works, if it's available
+function test_cgroups2_memory_limit() {
   if ! grep '^0::' /proc/self/cgroup &>/dev/null; then
-    echo "Uses cgroups v1, skipping"
+    echo "Not using cgroups v2, skipping test"
     return 0
   fi
   if ! XDG_RUNTIME_DIR=/run/user/$( id -u ) systemd-run --user --scope true; then
-    echo "Not able to use systemd, skipping"
+    echo "Not able to use systemd, skipping test"
     return 0
   fi
   cat >${TEST_TMPDIR}/run_sandbox_with_cgroups.sh <<EOF

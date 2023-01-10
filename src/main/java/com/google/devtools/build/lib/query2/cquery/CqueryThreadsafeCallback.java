@@ -126,14 +126,12 @@ public abstract class CqueryThreadsafeCallback
   }
 
   /**
-   * Returns a user-friendly configuration identifier, using special IDs for null and host
-   * configurations and {@link #shortId(String)} for others.
+   * Returns a user-friendly configuration identifier, using special IDs for null configurations and
+   * {@link #shortId(String)} for others.
    */
   protected static String shortId(@Nullable BuildConfigurationValue config) {
     if (config == null) {
       return "null";
-    } else if (config.isHostConfiguration()) {
-      return "HOST";
     } else {
       return shortId(config.checksum());
     }

@@ -192,7 +192,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
           Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Setting up inputs")) {
         inputFiles =
             helpers.processInputFiles(
-                context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
+                context.getInputMapping(
+                    PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
                 execRoot,
                 execRoot,
                 packageRoots,
@@ -416,6 +417,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         ResourceSet.createWithWorkerKey(
             spawn.getLocalResources().getMemoryMb(),
             spawn.getLocalResources().getCpuUsage(),
+            spawn.getLocalResources().getExtraResourceUsage(),
             spawn.getLocalResources().getLocalTestCount(),
             key);
 
@@ -770,14 +772,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
   }
 
   private void initializeMetrics(WorkerKey workerKey, Worker worker) {
-    WorkerMetric.WorkerProperties properties =
-        WorkerMetric.WorkerProperties.create(
-            worker.getWorkerId(),
-            worker.getProcessId(),
-            workerKey.getMnemonic(),
-            workerKey.isMultiplex(),
-            workerKey.isSandboxed());
-    this.metricsCollector.registerWorker(properties);
+    this.metricsCollector.registerWorker(
+        worker.getWorkerId(),
+        worker.getProcessId(),
+        workerKey.getMnemonic(),
+        workerKey.isMultiplex(),
+        workerKey.isSandboxed());
   }
 
   /**

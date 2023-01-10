@@ -94,9 +94,11 @@ import com.google.devtools.build.lib.skyframe.ActionExecutionState.SharedActionC
 import com.google.devtools.build.lib.skyframe.ActionOutputDirectoryHelper.CreateOutputDirectoryException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
@@ -106,7 +108,6 @@ import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsProvider;
-import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
@@ -114,6 +115,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -150,7 +152,7 @@ public final class SkyframeActionExecutor {
   private final SyscallCache syscallCache;
   private final Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory;
   private Reporter reporter;
-  private Map<String, String> clientEnv = ImmutableMap.of();
+  private ImmutableMap<String, String> clientEnv = ImmutableMap.of();
   private Executor executorEngine;
   private ExtendedEventHandler progressSuppressingEventHandler;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
@@ -210,6 +212,8 @@ public final class SkyframeActionExecutor {
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
   private DiscoveredModulesPruner discoveredModulesPruner;
+
+  @Nullable private Semaphore cacheHitSemaphore;
 
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
@@ -281,6 +285,11 @@ public final class SkyframeActionExecutor {
     // actions, which consume their shadowed action's discovered inputs.
     freeDiscoveredInputsAfterExecution =
         !trackIncrementalState && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
+
+    this.cacheHitSemaphore =
+        options.getOptions(CoreOptions.class).throttleActionCacheCheck
+            ? new Semaphore(ResourceUsage.getAvailableProcessors())
+            : null;
   }
 
   public void setActionLogBufferPathGenerator(
@@ -320,6 +329,12 @@ public final class SkyframeActionExecutor {
 
   boolean publishTargetSummaries() {
     return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
+  }
+
+  OutputPermissions getOutputPermissions() {
+    return options.getOptions(CoreOptions.class).experimentalWritableOutputs
+        ? OutputPermissions.WRITABLE
+        : OutputPermissions.READONLY;
   }
 
   XattrProvider getXattrProvider() {
@@ -529,8 +544,7 @@ public final class SkyframeActionExecutor {
     boolean emitProgressEvents = shouldEmitProgressEvents(action);
     ArtifactPathResolver artifactPathResolver =
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot());
-    FileOutErr fileOutErr;
-    fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
+    FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
     return new ActionExecutionContext(
         executorEngine,
         createFileCache(metadataHandler, actionFileSystem),
@@ -556,7 +570,7 @@ public final class SkyframeActionExecutor {
       Action action,
       @Nullable ActionExecutionException finalException)
       throws ActionExecutionException {
-    try (Closeable c = context) {
+    try (context) {
       if (finalException != null) {
         throw finalException;
       }
@@ -588,6 +602,12 @@ public final class SkyframeActionExecutor {
     SortedMap<String, String> remoteDefaultProperties;
     EventHandler handler;
     boolean loadCachedOutputMetadata;
+
+    if (cacheHitSemaphore != null) {
+      try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, "acquiring semaphore")) {
+        cacheHitSemaphore.acquire();
+      }
+    }
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, action.describe())) {
       remoteOptions = this.options.getOptions(RemoteOptions.class);
       remoteDefaultProperties =
@@ -604,6 +624,7 @@ public final class SkyframeActionExecutor {
               action,
               resolvedCacheArtifacts,
               clientEnv,
+              getOutputPermissions(),
               handler,
               metadataHandler,
               artifactExpander,
@@ -645,6 +666,7 @@ public final class SkyframeActionExecutor {
                     action,
                     resolvedCacheArtifacts,
                     clientEnv,
+                    getOutputPermissions(),
                     handler,
                     metadataHandler,
                     artifactExpander,
@@ -666,6 +688,10 @@ public final class SkyframeActionExecutor {
       }
     } catch (UserExecException e) {
       throw ActionExecutionException.fromExecException(e, action);
+    } finally {
+      if (cacheHitSemaphore != null) {
+        cacheHitSemaphore.release();
+      }
     }
     return token;
   }
@@ -693,7 +719,13 @@ public final class SkyframeActionExecutor {
 
     try {
       actionCacheChecker.updateActionCache(
-          action, token, metadataHandler, artifactExpander, clientEnv, remoteDefaultProperties);
+          action,
+          token,
+          metadataHandler,
+          artifactExpander,
+          clientEnv,
+          getOutputPermissions(),
+          remoteDefaultProperties);
     } catch (IOException e) {
       // Skyframe has already done all the filesystem access needed for outputs and swallows
       // IOExceptions for inputs. So an IOException is impossible here.
@@ -1284,7 +1316,7 @@ public final class SkyframeActionExecutor {
   /**
    * Returns a progress message like:
    *
-   * <p>[2608/6445] Compiling foo/bar.cc [host]
+   * <p>[2608/6445] Compiling foo/bar.cc [exec]
    */
   private String prependExecPhaseStats(String message) {
     if (progressSupplier == null) {

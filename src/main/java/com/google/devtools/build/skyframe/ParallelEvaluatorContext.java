@@ -128,8 +128,9 @@ class ParallelEvaluatorContext {
     NodeBatch batch = graph.getBatch(skyKey, Reason.SIGNAL_DEP, parents);
     for (SkyKey parent : parents) {
       NodeEntry entry = checkNotNull(batch.get(parent), parent);
-      if (entry.signalDep(version, skyKey)) {
-        getVisitor().enqueueEvaluation(parent, evaluationPriority);
+      boolean evaluationRequired = entry.signalDep(version, skyKey);
+      if (evaluationRequired || parent.supportsPartialReevaluation()) {
+        getVisitor().enqueueEvaluation(parent, evaluationPriority, skyKey);
       }
     }
   }

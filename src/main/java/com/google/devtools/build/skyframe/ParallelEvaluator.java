@@ -148,7 +148,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
           case NEEDS_SCHEDULING:
             // Low priority because this node is not needed by any other currently evaluating node.
             // So keep it at the back of the queue as long as there's other useful work to be done.
-            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, Integer.MIN_VALUE);
+            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, Integer.MIN_VALUE, null);
             break;
           case DONE:
             informProgressReceiverThatValueIsDone(skyKey, entry);

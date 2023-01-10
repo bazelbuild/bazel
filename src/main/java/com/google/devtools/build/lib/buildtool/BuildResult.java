@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileCompression;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
@@ -54,7 +54,7 @@ public final class BuildResult {
   private boolean stopOnFirstFailure;
   @Nullable private DetailedExitCode detailedExitCode;
 
-  private BuildConfigurationCollection configurations;
+  private BuildConfigurationValue configuration;
   private Collection<ConfiguredTarget> actualTargets;
   private Collection<ConfiguredTarget> testTargets;
   private Collection<ConfiguredTarget> successfulTargets;
@@ -152,13 +152,13 @@ public final class BuildResult {
     return crash;
   }
 
-  public void setBuildConfigurationCollection(BuildConfigurationCollection configurations) {
-    this.configurations = configurations;
+  public void setBuildConfiguration(BuildConfigurationValue configuration) {
+    this.configuration = configuration;
   }
 
   /** Returns the build configuration collection used for the build. */
-  public BuildConfigurationCollection getBuildConfigurationCollection() {
-    return configurations;
+  public BuildConfigurationValue getBuildConfiguration() {
+    return configuration;
   }
 
   /** @see #getActualTargets */

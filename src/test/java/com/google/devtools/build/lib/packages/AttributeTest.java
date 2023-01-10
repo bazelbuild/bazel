@@ -275,7 +275,7 @@ public class AttributeTest {
   }
 
   @Test
-  public void testHostTransition() throws Exception {
+  public void testExecTransition() throws Exception {
     Attribute attr =
         attr("foo", LABEL).cfg(ExecutionTransitionFactory.create()).allowedFileTypes().build();
     assertThat(attr.getTransitionFactory().isTool()).isTrue();

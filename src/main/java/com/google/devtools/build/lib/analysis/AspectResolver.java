@@ -166,21 +166,20 @@ public final class AspectResolver {
   }
 
   public static boolean aspectMatchesConfiguredTarget(
-      ConfiguredTarget ct, boolean isRule, boolean isInputFile, Aspect aspect) {
+      ConfiguredTarget ct, boolean isRule, Aspect aspect) {
     if (!aspect.getDefinition().applyToFiles()
         && !aspect.getDefinition().applyToGeneratingRules()
         && !isRule) {
       return false;
     }
-    if (isInputFile) {
-      // even aspects that 'apply to files' cannot apply to input files.
+    if (ct.getConfigurationKey() == null) {
+      // Aspects cannot apply to PackageGroups or InputFiles, the only cases where this is null.
       return false;
     }
     return ct.satisfies(aspect.getDefinition().getRequiredProviders());
   }
 
   public static boolean aspectMatchesConfiguredTarget(ConfiguredTargetAndData ctad, Aspect aspect) {
-    return aspectMatchesConfiguredTarget(
-        ctad.getConfiguredTarget(), ctad.isTargetRule(), ctad.isTargetInputFile(), aspect);
+    return aspectMatchesConfiguredTarget(ctad.getConfiguredTarget(), ctad.isTargetRule(), aspect);
   }
 }

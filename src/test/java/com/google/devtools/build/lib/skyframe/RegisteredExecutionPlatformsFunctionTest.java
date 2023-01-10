@@ -309,7 +309,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
   @Test
   public void testRegisteredExecutionPlatforms_reload() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "platform/BUILD",
         "platform(name = 'execution_platform_1')",
         "platform(name = 'execution_platform_2')");

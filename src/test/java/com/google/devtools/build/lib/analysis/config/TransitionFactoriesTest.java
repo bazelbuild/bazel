@@ -29,22 +29,11 @@ import org.junit.runners.JUnit4;
 public class TransitionFactoriesTest {
 
   @Test
-  public void hostTransition() {
-    TransitionFactory<TransitionFactory.Data> factory =
-        TransitionFactories.of(HostTransition.INSTANCE);
-    assertThat(factory).isNotNull();
-    assertThat(HostTransition.isInstance(factory)).isTrue();
-    assertThat(factory.isHost()).isTrue();
-    assertThat(factory.isSplit()).isFalse();
-  }
-
-  @Test
   public void noTransition() {
     TransitionFactory<TransitionFactory.Data> factory =
         TransitionFactories.of(NoTransition.INSTANCE);
     assertThat(factory).isNotNull();
     assertThat(NoTransition.isInstance(factory)).isTrue();
-    assertThat(factory.isHost()).isFalse();
     assertThat(factory.isSplit()).isFalse();
   }
 
@@ -54,7 +43,6 @@ public class TransitionFactoriesTest {
         TransitionFactories.of(NullTransition.INSTANCE);
     assertThat(factory).isNotNull();
     assertThat(NullTransition.isInstance(factory)).isTrue();
-    assertThat(factory.isHost()).isFalse();
     assertThat(factory.isSplit()).isFalse();
   }
 
@@ -66,7 +54,6 @@ public class TransitionFactoriesTest {
                 (buildOptions, eventHandler) ->
                     ImmutableMap.of("test0", buildOptions.clone().underlying()));
     assertThat(factory).isNotNull();
-    assertThat(factory.isHost()).isFalse();
     assertThat(factory.isSplit()).isTrue();
   }
 }

@@ -64,7 +64,6 @@ java_library(
         ":config/execution_transition_factory",
         ":config/fragment",
         ":config/fragment_options",
-        ":config/host_transition",
         ":config/invalid_configuration_exception",
         ":config/per_label_options",
         ":config/run_under",
@@ -218,7 +217,6 @@ java_library(
         "actions/SymlinkTreeAction.java",
         "actions/SymlinkTreeActionContext.java",
         "buildinfo/BuildInfoFactory.java",
-        "config/BuildConfigurationCollection.java",
         "config/ConfigAwareRuleClassBuilder.java",
         "config/ConfigurationResolver.java",
         "config/DependencyEvaluationException.java",
@@ -252,7 +250,6 @@ java_library(
         "test/AnalysisTestActionBuilder.java",
         "test/BaselineCoverageAction.java",
         "test/CoverageCommon.java",
-        "test/CoverageConfiguration.java",
         "test/InstrumentedFileManifestAction.java",
         "test/InstrumentedFilesCollector.java",
         "test/TestActionBuilder.java",
@@ -287,14 +284,12 @@ java_library(
         ":config/build_options",
         ":config/config_conditions",
         ":config/config_matching_provider",
-        ":config/core_option_converters",
         ":config/core_options",
         ":config/execution_transition_factory",
         ":config/fragment",
         ":config/fragment_class_set",
         ":config/fragment_options",
         ":config/fragment_registry",
-        ":config/host_transition",
         ":config/invalid_configuration_exception",
         ":config/per_label_options",
         ":config/run_under",
@@ -360,6 +355,7 @@ java_library(
         ":test/analysis_failure_propagation_exception",
         ":test/analysis_test_result_info",
         ":test/baseline_coverage_result",
+        ":test/coverage_configuration",
         ":test/execution_info",
         ":test/instrumented_files_info",
         ":test/test_configuration",
@@ -386,7 +382,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations",
         "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -1680,10 +1675,7 @@ java_library(
     name = "config/config_aware_aspect_builder",
     srcs = ["config/ConfigAwareAspectBuilder.java"],
     deps = [
-        ":config/fragment",
-        ":config/host_transition",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//third_party:error_prone_annotations",
     ],
 )
 
@@ -1834,23 +1826,6 @@ java_library(
 )
 
 java_library(
-    name = "config/host_transition",
-    srcs = ["config/HostTransition.java"],
-    deps = [
-        ":config/build_options",
-        ":config/core_options",
-        ":config/fragment_options",
-        ":config/transitions/patch_transition",
-        ":config/transitions/transition_factory",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//third_party:auto_value",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "config/invalid_configuration_exception",
     srcs = ["config/InvalidConfigurationException.java"],
     deps = [
@@ -1928,7 +1903,6 @@ java_library(
     name = "config/transition_factories",
     srcs = ["config/TransitionFactories.java"],
     deps = [
-        ":config/host_transition",
         ":config/transitions/configuration_transition",
         ":config/transitions/no_transition",
         ":config/transitions/null_transition",
@@ -2545,6 +2519,24 @@ java_library(
 )
 
 java_library(
+    name = "test/coverage_configuration",
+    srcs = ["test/CoverageConfiguration.java"],
+    deps = [
+        ":config/build_options",
+        ":config/core_option_converters",
+        ":config/core_options",
+        ":config/fragment",
+        ":config/fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "test/coverage_report_action_factory",
     srcs = ["test/CoverageReportActionFactory.java"],
     deps = [
@@ -2595,6 +2587,7 @@ java_library(
         ":config/fragment_options",
         ":config/per_label_options",
         ":options_diff_predicate",
+        ":test/coverage_configuration",
         ":test/test_sharding_strategy",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",

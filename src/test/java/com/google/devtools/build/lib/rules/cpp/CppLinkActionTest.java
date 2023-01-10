@@ -106,7 +106,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             return getDerivedArtifact(rootRelativePath, root);
           }
         },
-        masterConfig);
+        targetConfig);
   }
 
   private FeatureConfiguration getMockFeatureConfiguration(ImmutableMap<String, String> envVars) {
@@ -657,9 +657,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     builder.setLinkType(LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY);
     assertThat(builder.canSplitCommandLine()).isFalse();
 
-    builder.setLinkType(LinkTargetType.OBJC_ARCHIVE);
-    assertThat(builder.canSplitCommandLine()).isFalse();
-
     builder.setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE);
     assertThat(builder.canSplitCommandLine()).isFalse();
   }
@@ -776,9 +773,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(builder.canSplitCommandLine()).isTrue();
 
     builder.setLinkType(LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY);
-    assertThat(builder.canSplitCommandLine()).isTrue();
-
-    builder.setLinkType(LinkTargetType.OBJC_ARCHIVE);
     assertThat(builder.canSplitCommandLine()).isTrue();
 
     builder.setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE);

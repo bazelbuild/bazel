@@ -230,7 +230,7 @@ slightly between different versions of clang.
 
     `cc_common.create_cc_toolchain_config_info()` creates the needed provider
     `CcToolchainConfigInfo`. To use the `cc_toolchain_config` rule, add a load
-    statement to `toolchains/BUILD`:
+    statement to `toolchain/BUILD`:
 
     ```python
     load(":cc_toolchain_config.bzl", "cc_toolchain_config")

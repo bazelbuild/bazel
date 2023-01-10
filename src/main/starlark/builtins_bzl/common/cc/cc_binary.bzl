@@ -528,7 +528,12 @@ def _create_transitive_linking_actions(
 def _use_pic(ctx, cc_toolchain, cpp_config, feature_configuration):
     if _is_link_shared(ctx):
         return cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration)
-    return cpp_config.force_pic() or (cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration) and ctx.var["COMPILATION_MODE"] != "opt")
+    return cpp_config.force_pic() or (
+        cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration) and (
+            ctx.var["COMPILATION_MODE"] != "opt" or
+            cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "prefer_pic_for_opt_binaries")
+        )
+    )
 
 def _collect_linking_context(ctx, cpp_config):
     cc_infos = _get_providers(ctx)

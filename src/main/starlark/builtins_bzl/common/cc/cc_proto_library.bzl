@@ -14,10 +14,10 @@
 
 """Starlark implementation of cc_proto_library"""
 
+load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
 
-ProtoInfo = _builtins.toplevel.ProtoInfo
 CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 

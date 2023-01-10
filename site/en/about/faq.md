@@ -199,7 +199,7 @@ Open an issue [on GitHub](https://github.com/bazelbuild/bazel/issues){: .externa
 
 ## What’s up with the word “Blaze” in the codebase?
 
-This is an internal name for the tool. Please refer to Bazel as Bazel.
+This is an internal name for the tool. Please refer to Blaze as Bazel.
 
 ## Why do other Google projects (Android, Chrome) use other build tools?
 

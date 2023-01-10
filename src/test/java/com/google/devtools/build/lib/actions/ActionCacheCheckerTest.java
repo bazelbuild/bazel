@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -179,13 +180,14 @@ public class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
-            /*resolvedCacheArtifacts=*/ null,
+            /* resolvedCacheArtifacts= */ null,
             clientEnv,
-            /*handler=*/ null,
+            OutputPermissions.READONLY,
+            /* handler= */ null,
             metadataHandler,
-            /*artifactExpander=*/ null,
+            /* artifactExpander= */ null,
             platform,
-            /*isRemoteCacheEnabled=*/ true);
+            /* loadCachedOutputMetadata= */ true);
     if (token != null) {
       // Real action execution would happen here.
       ActionExecutionContext context = mock(ActionExecutionContext.class);
@@ -193,7 +195,13 @@ public class ActionCacheCheckerTest {
       action.execute(context);
 
       cacheChecker.updateActionCache(
-          action, token, metadataHandler, /*artifactExpander=*/ null, clientEnv, platform);
+          action,
+          token,
+          metadataHandler,
+          /* artifactExpander= */ null,
+          clientEnv,
+          OutputPermissions.READONLY,
+          platform);
     }
   }
 
@@ -437,13 +445,14 @@ public class ActionCacheCheckerTest {
     assertThat(
             cacheChecker.getTokenIfNeedToExecute(
                 action,
-                /*resolvedCacheArtifacts=*/ null,
-                /*clientEnv=*/ ImmutableMap.of(),
-                /*handler=*/ null,
+                /* resolvedCacheArtifacts= */ null,
+                /* clientEnv= */ ImmutableMap.of(),
+                OutputPermissions.READONLY,
+                /* handler= */ null,
                 new FakeMetadataHandler(),
-                /*artifactExpander=*/ null,
-                /*remoteDefaultPlatformProperties=*/ ImmutableMap.of(),
-                /*isRemoteCacheEnabled=*/ true))
+                /* artifactExpander= */ null,
+                /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+                /* loadCachedOutputMetadata= */ true))
         .isNotNull();
   }
 
@@ -563,13 +572,14 @@ public class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
-            /*resolvedCacheArtifacts=*/ null,
-            /*clientEnv=*/ ImmutableMap.of(),
-            /*handler=*/ null,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
             metadataHandler,
-            /*artifactExpander=*/ null,
-            /*remoteDefaultPlatformProperties=*/ ImmutableMap.of(),
-            /*isRemoteCacheEnabled=*/ true);
+            /* artifactExpander= */ null,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* loadCachedOutputMetadata= */ true);
 
     assertThat(output.getPath().exists()).isFalse();
     assertThat(token).isNull();
@@ -592,13 +602,14 @@ public class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
-            /*resolvedCacheArtifacts=*/ null,
-            /*clientEnv=*/ ImmutableMap.of(),
-            /*handler=*/ null,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
             metadataHandler,
-            /*artifactExpander=*/ null,
-            /*remoteDefaultPlatformProperties=*/ ImmutableMap.of(),
-            /*isRemoteCacheEnabled=*/ false);
+            /* artifactExpander= */ null,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* loadCachedOutputMetadata= */ false);
 
     assertThat(output.getPath().exists()).isFalse();
     assertThat(token).isNotNull();
@@ -766,13 +777,14 @@ public class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
-            /*resolvedCacheArtifacts=*/ null,
-            /*clientEnv=*/ ImmutableMap.of(),
-            /*handler=*/ null,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
             metadataHandler,
-            /*artifactExpander=*/ null,
-            /*remoteDefaultPlatformProperties=*/ ImmutableMap.of(),
-            /*isRemoteCacheEnabled=*/ true);
+            /* artifactExpander= */ null,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* loadCachedOutputMetadata= */ true);
 
     assertThat(token).isNull();
     assertThat(output.getPath().exists()).isFalse();
@@ -864,13 +876,14 @@ public class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
-            /*resolvedCacheArtifacts=*/ null,
-            /*clientEnv=*/ ImmutableMap.of(),
-            /*handler=*/ null,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
             metadataHandler,
-            /*artifactExpander=*/ null,
-            /*remoteDefaultPlatformProperties=*/ ImmutableMap.of(),
-            /*isRemoteCacheEnabled=*/ true);
+            /* artifactExpander= */ null,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* loadCachedOutputMetadata= */ true);
 
     TreeArtifactValue expectedMetadata =
         createTreeMetadata(
@@ -1025,13 +1038,14 @@ public class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
-            /*resolvedCacheArtifacts=*/ null,
-            /*clientEnv=*/ ImmutableMap.of(),
-            /*handler=*/ null,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
             metadataHandler,
-            /*artifactExpander=*/ null,
-            /*remoteDefaultPlatformProperties=*/ ImmutableMap.of(),
-            /*isRemoteCacheEnabled=*/ true);
+            /* artifactExpander= */ null,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* loadCachedOutputMetadata= */ true);
 
     assertThat(token).isNull();
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());

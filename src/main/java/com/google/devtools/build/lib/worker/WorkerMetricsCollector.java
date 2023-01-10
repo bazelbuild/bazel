@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.worker;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.auto.value.AutoValue;
@@ -49,13 +48,13 @@ public class WorkerMetricsCollector {
   private Clock clock;
 
   /**
-   * Mapping of worker ids to their metrics. Contains worker ids, which memory usage could be
-   * measured.
+   * Mapping of worker process ids to their properties. One process could be mapped to multiple
+   * workers because of multiplex workers.
    */
-  private final Map<Integer, WorkerMetric.WorkerProperties> workerIdToWorkerProperties =
+  private final Map<Long, WorkerMetric.WorkerProperties> processIdToWorkerProperties =
       new ConcurrentHashMap<>();
 
-  private final Map<Integer, Instant> workerLastCallTime = new ConcurrentHashMap<>();
+  private final Map<Long, Instant> workerLastCallTime = new ConcurrentHashMap<>();
 
   private MetricsWithTime lastMetrics;
 
@@ -206,53 +205,47 @@ public class WorkerMetricsCollector {
   public ImmutableList<WorkerMetric> collectMetrics() {
     MemoryCollectionResult memoryCollectionResult =
         collectMemoryUsageByPid(
-            OS.getCurrent(),
-            workerIdToWorkerProperties.values().stream()
-                .map(WorkerMetric.WorkerProperties::getProcessId)
-                .collect(toImmutableSet()));
+            OS.getCurrent(), ImmutableSet.copyOf(processIdToWorkerProperties.keySet()));
 
     ImmutableMap<Long, Integer> pidToMemoryInKb = memoryCollectionResult.pidToMemoryInKb;
     Instant collectionTime = memoryCollectionResult.collectionTime;
 
     ImmutableList.Builder<WorkerMetric> workerMetrics = new ImmutableList.Builder<>();
-    List<Integer> nonMeasurableWorkerIds = new ArrayList<>();
-    for (WorkerMetric.WorkerProperties workerProperties : workerIdToWorkerProperties.values()) {
+    List<Long> nonMeasurableProcessIds = new ArrayList<>();
+    for (WorkerMetric.WorkerProperties workerProperties : processIdToWorkerProperties.values()) {
       Long pid = workerProperties.getProcessId();
-      Integer workerId = workerProperties.getWorkerId();
 
       WorkerStat workerStats =
           WorkerStat.create(
-              pidToMemoryInKb.getOrDefault(pid, 0),
-              workerLastCallTime.get(workerId),
-              collectionTime);
+              pidToMemoryInKb.getOrDefault(pid, 0), workerLastCallTime.get(pid), collectionTime);
 
       workerMetrics.add(
           WorkerMetric.create(
               workerProperties, workerStats, /* isMeasurable= */ pidToMemoryInKb.containsKey(pid)));
 
       if (!pidToMemoryInKb.containsKey(pid)) {
-        nonMeasurableWorkerIds.add(workerId);
+        nonMeasurableProcessIds.add(pid);
       }
     }
 
-    workerIdToWorkerProperties.keySet().removeAll(nonMeasurableWorkerIds);
+    processIdToWorkerProperties.keySet().removeAll(nonMeasurableProcessIds);
 
     return updateLastCollectMetrics(workerMetrics.build(), collectionTime).metrics;
   }
 
   public void clear() {
-    workerIdToWorkerProperties.clear();
+    processIdToWorkerProperties.clear();
     workerLastCallTime.clear();
     lastMetrics = null;
   }
 
   @VisibleForTesting
-  public Map<Integer, WorkerMetric.WorkerProperties> getWorkerIdToWorkerProperties() {
-    return workerIdToWorkerProperties;
+  public Map<Long, WorkerMetric.WorkerProperties> getProcessIdToWorkerProperties() {
+    return processIdToWorkerProperties;
   }
 
   @VisibleForTesting
-  public Map<Integer, Instant> getWorkerLastCallTime() {
+  public Map<Long, Instant> getWorkerLastCallTime() {
     return workerLastCallTime;
   }
 
@@ -260,11 +253,35 @@ public class WorkerMetricsCollector {
    * Initializes workerIdToWorkerProperties for workers. If worker metrics already exists for this
    * worker, only updates workerLastCallTime.
    */
-  public void registerWorker(WorkerMetric.WorkerProperties properties) {
-    int workerId = properties.getWorkerId();
+  public synchronized void registerWorker(
+      int workerId, long processId, String mnemonic, boolean isMultiplex, boolean isSandboxed) {
+    WorkerMetric.WorkerProperties existingWorkerProperties =
+        processIdToWorkerProperties.get(processId);
 
-    workerIdToWorkerProperties.putIfAbsent(workerId, properties);
-    workerLastCallTime.put(workerId, Instant.ofEpochMilli(clock.currentTimeMillis()));
+    workerLastCallTime.put(processId, Instant.ofEpochMilli(clock.currentTimeMillis()));
+
+    if (existingWorkerProperties == null) {
+      processIdToWorkerProperties.put(
+          processId,
+          WorkerMetric.WorkerProperties.create(
+              ImmutableList.of(workerId), processId, mnemonic, isMultiplex, isSandboxed));
+      return;
+    }
+
+    if (existingWorkerProperties.getWorkerIds().contains(workerId)) {
+      return;
+    }
+
+    ImmutableList<Integer> updatedWorkerIds =
+        ImmutableList.<Integer>builder()
+            .addAll(existingWorkerProperties.getWorkerIds())
+            .add(workerId)
+            .build();
+
+    WorkerMetric.WorkerProperties updatedWorkerProperties =
+        WorkerMetric.WorkerProperties.create(
+            updatedWorkerIds, processId, mnemonic, isMultiplex, isSandboxed);
+    processIdToWorkerProperties.put(processId, updatedWorkerProperties);
   }
 
   private synchronized MetricsWithTime updateLastCollectMetrics(

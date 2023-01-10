@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -39,7 +38,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
@@ -170,16 +168,15 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   }
 
   private static boolean isTargetConfig(ConfigurationForOutput config) {
-    return !Boolean.parseBoolean(getOptionValue(config, "CoreOptions", "is host configuration"))
-        && !Boolean.parseBoolean(getOptionValue(config, "CoreOptions", "is exec configuration"));
+    return !Boolean.parseBoolean(getOptionValue(config, "CoreOptions", "is exec configuration"));
   }
 
-  /** Converts {@code a.b.d} to {@code d}. * */
+  /** Converts {@code a.b.d} to {@code d}. */
   private static String getBaseName(String str) {
     return str.substring(str.lastIndexOf(".") + 1);
   }
 
-  /** Converts a list of {@code a.b.d} strings to {@code d} form. * */
+  /** Converts a list of {@code a.b.d} strings to {@code d} form. */
   private static List<String> getBaseNames(List<String> list) {
     return list.stream().map(ConfigCommandTest::getBaseName).collect(Collectors.toList());
   }
@@ -189,10 +186,10 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     analyzeTarget();
     JsonObject fullJson =
         JsonParser.parseString(callConfigCommand().outAsLatin1()).getAsJsonObject();
-    // Should be: target configuration, target configuration without test, host configuration
+    // Should be: target configuration, target configuration without test.
     assertThat(fullJson).isNotNull();
     assertThat(fullJson.has("configuration-IDs")).isTrue();
-    assertThat(fullJson.get("configuration-IDs").getAsJsonArray().size()).isEqualTo(3);
+    assertThat(fullJson.get("configuration-IDs").getAsJsonArray().size()).isEqualTo(2);
   }
 
   @Test
@@ -256,15 +253,6 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void showSingleConfig_hostConfig() throws Exception {
-    analyzeTarget();
-    ConfigurationForOutput config =
-        new Gson().fromJson(callConfigCommand("host").outAsLatin1(), ConfigurationForOutput.class);
-    assertThat(config).isNotNull();
-    assertThat(config.isHost).isTrue();
-  }
-
-  @Test
   public void unknownHashPrefix() throws Exception {
     analyzeTarget();
     String configHash =
@@ -291,7 +279,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
       assertThat(config).isNotNull();
       numConfigs++;
     }
-    assertThat(numConfigs).isEqualTo(3); // Host + target + target w/o test.
+    assertThat(numConfigs).isEqualTo(2); // Target + target w/o test.
   }
 
   @Test
@@ -342,33 +330,6 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     assertThat(diff).isNotNull();
     assertThat(diff.configHash1).startsWith(hashPrefix1);
     assertThat(diff.configHash2).startsWith(hashPrefix2);
-  }
-
-  @Test
-  public void compareConfigs_hostConfig() throws Exception {
-    // Do not trim test configuration for now to make 'finding' the configurations easier.
-    analyzeTarget("--platform_suffix=pure", "--notrim_test_configuration");
-    String targetConfigHash = getTargetConfig().configHash;
-
-    ConfigurationDiffForOutput diff =
-        new Gson()
-            .fromJson(
-                callConfigCommand(targetConfigHash, "host").outAsLatin1(),
-                ConfigurationDiffForOutput.class);
-    assertThat(diff).isNotNull();
-    assertThat(diff.configHash1).isEqualTo(targetConfigHash);
-    assertThat(diff.fragmentsDiff).isNotEmpty();
-
-    // Find the "is host config" option, check that it is different.
-    Optional<Pair<String, String>> isHostDiff =
-        diff.fragmentsDiff.stream()
-            .flatMap(fragmentDiff -> fragmentDiff.optionsDiff.entrySet().stream())
-            .filter(od -> od.getKey().equals("is host configuration"))
-            .map(Map.Entry::getValue)
-            .findAny();
-    assertThat(isHostDiff).isPresent();
-    assertThat(isHostDiff.get().getFirst()).isEqualTo("false");
-    assertThat(isHostDiff.get().getSecond()).isEqualTo("true");
   }
 
   private ConfigurationForOutput getTargetConfig() throws Exception {

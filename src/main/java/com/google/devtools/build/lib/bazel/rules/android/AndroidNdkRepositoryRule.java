@@ -85,6 +85,12 @@ public class AndroidNdkRepositoryRule implements RuleDefinition {
 <p>Configures Bazel to use an Android NDK to support building Android targets with native
 code.
 
+<p>Note that this implementation of <code>android_ndk_repository</code> is being replaced by an
+implementation in Starlark. Support for future versions of the NDK including version 25 and up will
+be implemented in the Starlark version of <code>android_ndk_repository</code>. See
+<a href="https://github.com/bazelbuild/rules_android_ndk">rules_android_ndk</a> for the Starlark
+version.
+
 <p>Note that building for Android also requires an <code>android_sdk_repository</code> rule in your
 <code>WORKSPACE</code> file.
 

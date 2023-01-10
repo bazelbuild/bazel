@@ -236,14 +236,14 @@ public final class TestActionBuilder {
 
     Artifact testActionExecutable =
         isUsingTestWrapperInsteadOfTestSetupScript
-            ? ruleContext.getHostPrerequisiteArtifact("$test_wrapper")
-            : ruleContext.getHostPrerequisiteArtifact("$test_setup_script");
+            ? ruleContext.getPrerequisiteArtifact("$test_wrapper")
+            : ruleContext.getPrerequisiteArtifact("$test_setup_script");
 
     inputsBuilder.add(testActionExecutable);
     Artifact testXmlGeneratorExecutable =
         isUsingTestWrapperInsteadOfTestSetupScript
-            ? ruleContext.getHostPrerequisiteArtifact("$xml_writer")
-            : ruleContext.getHostPrerequisiteArtifact("$xml_generator_script");
+            ? ruleContext.getPrerequisiteArtifact("$xml_writer")
+            : ruleContext.getPrerequisiteArtifact("$xml_generator_script");
     inputsBuilder.add(testXmlGeneratorExecutable);
 
     Artifact collectCoverageScript = null;
@@ -256,7 +256,7 @@ public final class TestActionBuilder {
 
     TestTargetExecutionSettings executionSettings;
     if (collectCodeCoverage) {
-      collectCoverageScript = ruleContext.getHostPrerequisiteArtifact("$collect_coverage_script");
+      collectCoverageScript = ruleContext.getPrerequisiteArtifact("$collect_coverage_script");
       inputsBuilder.add(collectCoverageScript);
       inputsBuilder.addTransitive(instrumentedFiles.getCoverageSupportFiles());
       // Add instrumented file manifest artifact to the list of inputs. This file will contain
@@ -272,8 +272,7 @@ public final class TestActionBuilder {
               .getAllArtifacts());
 
       if (ruleContext.isAttrDefined("$collect_cc_coverage", LABEL)) {
-        Artifact collectCcCoverage =
-            ruleContext.getHostPrerequisiteArtifact("$collect_cc_coverage");
+        Artifact collectCcCoverage = ruleContext.getPrerequisiteArtifact("$collect_cc_coverage");
         inputsBuilder.add(collectCcCoverage);
         extraTestEnv.put(CC_CODE_COVERAGE_SCRIPT, collectCcCoverage.getExecPathString());
       }

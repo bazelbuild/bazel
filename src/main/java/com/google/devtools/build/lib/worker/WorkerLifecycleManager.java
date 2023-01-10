@@ -127,7 +127,7 @@ final class WorkerLifecycleManager extends Thread {
             .filter(
                 metric ->
                     metric.getWorkerStat() != null
-                        && idleWorkers.contains(metric.getWorkerProperties().getWorkerId()))
+                        && idleWorkers.containsAll(metric.getWorkerProperties().getWorkerIds()))
             .collect(Collectors.toList());
 
     if (idleWorkerMetrics.size() != idleWorkers.size()) {
@@ -141,7 +141,7 @@ final class WorkerLifecycleManager extends Thread {
     ImmutableSet.Builder<Integer> candidates = ImmutableSet.builder();
     int freeMemoryMb = 0;
     for (WorkerMetric metric : idleWorkerMetrics) {
-      candidates.add(metric.getWorkerProperties().getWorkerId());
+      candidates.addAll(metric.getWorkerProperties().getWorkerIds());
       freeMemoryMb += metric.getWorkerStat().getUsedMemoryInKB() / 1000;
 
       if (workerMemeoryUsageMb - freeMemoryMb <= memoryLimitMb) {

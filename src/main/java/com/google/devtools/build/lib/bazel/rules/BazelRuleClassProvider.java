@@ -159,10 +159,10 @@ public class BazelRuleClassProvider {
     public boolean useStrictActionEnv;
 
     @Override
-    public StrictActionEnvOptions getHost() {
-      StrictActionEnvOptions host = (StrictActionEnvOptions) getDefault();
-      host.useStrictActionEnv = useStrictActionEnv;
-      return host;
+    public StrictActionEnvOptions getExec() {
+      StrictActionEnvOptions exec = (StrictActionEnvOptions) getDefault();
+      exec.useStrictActionEnv = useStrictActionEnv;
+      return exec;
     }
   }
 
@@ -552,8 +552,8 @@ public class BazelRuleClassProvider {
       // searches PATH for "python3", so if we don't include this directory then we can't run PY3
       // targets with this toolchain if strict action environment is on.
       //
-      // Note that --action_env does not propagate to the host config, so it is not a viable
-      // workaround when a genrule is itself built in the host config (e.g. nested genrules). See
+      // Note that --action_env does not propagate to the exec config, so it is not a viable
+      // workaround when a genrule is itself built in the exec config (e.g. nested genrules). See
       // #8536.
       return "/bin:/usr/bin:/usr/local/bin";
     }

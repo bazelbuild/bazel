@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.devtools.build.lib.rules.cpp.CcModule.isBuiltIn;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -55,7 +54,7 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
- * This class represents the C/C++ parts of the {@link BuildConfigurationValue}, including the host
+ * This class represents the C/C++ parts of the {@link BuildConfigurationValue}, including the exec
  * architecture, target architecture, compiler version, and a standard library version.
  */
 @Immutable
@@ -63,7 +62,7 @@ import net.starlark.java.eval.StarlarkValue;
 public final class CppConfiguration extends Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
   /**
-   * String indicating a Mac system, for example when used in a crosstool configuration's host or
+   * String indicating a Mac system, for example when used in a crosstool configuration's exec or
    * target system name.
    */
   public static final String MAC_SYSTEM_NAME = "x86_64-apple-macosx";
@@ -291,8 +290,7 @@ public final class CppConfiguration extends Fragment
                 && compilationMode == CompilationMode.FASTBUILD);
     this.compilationMode = compilationMode;
     this.collectCodeCoverage = commonOptions.collectCodeCoverage;
-    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 =
-        commonOptions.isHost || commonOptions.isExec;
+    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 = commonOptions.isExec;
     this.appleGenerateDsym =
         (cppOptions.appleGenerateDsym
             || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG));
@@ -597,9 +595,13 @@ public final class CppConfiguration extends Fragment
     }
 
     // This is an assertion check vs. user error because users can't trigger this state.
-    Verify.verify(
-        !(buildOptions.get(CoreOptions.class).isHost && cppOptions.isFdo()),
-        "FDO state should not propagate to the host configuration");
+    // TODO(b/253313672): uncomment the below and check tests don't fail. This was originally set
+    // check the exec configuration doesn't apply FDO settings. With the host configuration gone
+    // we should migrate this check to the exec config. Since there's a chance of breakage it's best
+    // to test this as its own dedicated change.
+    // Verify.verify(
+    //   !(buildOptions.get(CoreOptions.class).isExec && cppOptions.isFdo()),
+    // "FDO state should not propagate to the exec configuration");
   }
 
   @Override
@@ -730,9 +732,9 @@ public final class CppConfiguration extends Fragment
   public Label getTargetLibcTopLabel() {
     if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294) {
       // This isn't for a platform-enabled C++ toolchain (legacy C++ toolchains evaluate in the
-      // target configuration while platform-enabled toolchains evaluate in the host/exec
-      // configuration). targetLibcTopLabel is only intended for platform-enabled toolchains and can
-      // cause errors otherwise.
+      // target configuration while platform-enabled toolchains evaluate in the exec configuration).
+      // targetLibcTopLabel is only intended for platform-enabled toolchains and can cause errors
+      // otherwise.
       //
       // For example: if a legacy-configured toolchain inherits a --grte_top pointing to an Android
       // runtime alias that select()s on a target Android CPU and an iOS dep changes the CPU to an

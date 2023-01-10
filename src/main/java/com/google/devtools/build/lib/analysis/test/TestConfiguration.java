@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.test.CoverageConfiguration.CoverageOptions;
 import com.google.devtools.build.lib.analysis.test.TestShardingStrategy.ShardingStrategyConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.TestTimeout;
@@ -51,7 +52,9 @@ public class TestConfiguration extends Fragment {
           // changes in --trim_test_configuration itself or related flags always prompt invalidation
           return true;
         }
-        if (!changedOption.getField().getDeclaringClass().equals(TestOptions.class)) {
+        Class<?> affectedOptionsClass = changedOption.getField().getDeclaringClass();
+        if (!affectedOptionsClass.equals(TestOptions.class)
+            && !affectedOptionsClass.equals(CoverageOptions.class)) {
           // options outside of TestOptions always prompt invalidation
           return true;
         }
@@ -242,23 +245,6 @@ public class TestConfiguration extends Fragment {
     public Label coverageSupport;
 
     @Option(
-        name = "coverage_report_generator",
-        converter = LabelConverter.class,
-        defaultValue = "@bazel_tools//tools/test:coverage_report_generator",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {
-            OptionEffectTag.CHANGES_INPUTS,
-            OptionEffectTag.AFFECTS_OUTPUTS,
-            OptionEffectTag.LOADING_AND_ANALYSIS
-        },
-        help =
-            "Location of the binary that is used to generate coverage reports. This must "
-                + "currently be a filegroup that contains a single file, the binary. Defaults to "
-                + "'//tools/test:coverage_report_generator'."
-    )
-    public Label coverageReportGenerator;
-
-    @Option(
         name = "experimental_fetch_all_coverage_outputs",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -296,10 +282,10 @@ public class TestConfiguration extends Fragment {
     public boolean zipUndeclaredTestOutputs;
 
     @Override
-    public FragmentOptions getHost() {
+    public FragmentOptions getExec() {
       // Options here are either:
       // 1. Applicable only for the test actions, which are relevant only for the top-level targets
-      //    before host or exec transitions can apply.
+      //    before exec transitions can apply.
       // 2. Supposed to be build-universal and thus non-transitionable anyways
       //    (e.g. trim_test_configuration)
       // And thus the options should just be copied and not reset by the exec transition (as
@@ -356,10 +342,6 @@ public class TestConfiguration extends Fragment {
 
   public Label getCoverageSupport() {
     return options.coverageSupport;
-  }
-
-  public Label getCoverageReportGenerator() {
-    return options.coverageReportGenerator;
   }
 
   /**

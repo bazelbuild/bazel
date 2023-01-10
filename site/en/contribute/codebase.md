@@ -1542,7 +1542,7 @@ starting `@guava//` and expect that to mean different versions of it.
 
 Therefore, Bazel allows one to re-map external repository labels so that the
 string `@guava//` can refer to one Guava repository (such as `@guava1//`) in the
-repository of one binary and another Guava repository (such as `@guava2//`) the the
+repository of one binary and another Guava repository (such as `@guava2//`) the
 repository of the other.
 
 Alternatively, this can also be used to **join** diamonds. If a repository

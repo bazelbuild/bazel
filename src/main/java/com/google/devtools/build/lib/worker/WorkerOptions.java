@@ -36,7 +36,7 @@ public class WorkerOptions extends OptionsBase {
    * Defines a resource converter for named values in the form [name=]value, where the value is
    * {@link ResourceConverter.FLAG_SYNTAX}. If no name is provided (used when setting a default),
    * the empty string is used as the key. The default value for unspecified mnemonics is defined in
-   * {@link WorkerPool.createWorkerPools}. "auto" currently returns the default.
+   * {@link WorkerPoolImpl.createWorkerPools}. "auto" currently returns the default.
    */
   public static class MultiResourceConverter extends Converter.Contextless<Entry<String, Integer>> {
 
@@ -75,9 +75,12 @@ public class WorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
-          "How many instances of a worker process (like the persistent Java compiler) may be "
+          "How many instances of each kind of persistent worker may be "
               + "launched if you use the 'worker' strategy. May be specified as [name=value] to "
-              + "give a different value per worker mnemonic. Takes "
+              + "give a different value per mnemonic. The limit is based on worker keys, which are "
+              + "differentiated based on mnemonic, but also on startup flags and environment, so "
+              + "there can in some cases be more workers per mnemonic than this flag specifies. "
+              + "Takes "
               + ResourceConverter.FLAG_SYNTAX
               + ". 'auto' calculates a reasonable default based on machine capacity. "
               + "\"=value\" sets a default for unspecified mnemonics.",
@@ -94,8 +97,11 @@ public class WorkerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "How many WorkRequests a multiplex worker process may receive in parallel if you use the"
-              + " 'worker' strategy with --experimental_worker_multiplex. May be specified as"
-              + " [name=value] to give a different value per worker mnemonic. Takes "
+              + " 'worker' strategy with --experimental_worker_multiplex. May be specified as "
+              + "[name=value] to give a different value per mnemonic. The limit is based on worker "
+              + "keys, which are differentiated based on mnemonic, but also on startup flags and "
+              + "environment, so there can in some cases be more workers per mnemonic than this "
+              + "flag specifies. Takes "
               + ResourceConverter.FLAG_SYNTAX
               + ". 'auto' calculates a reasonable default based on machine capacity. "
               + "\"=value\" sets a default for unspecified mnemonics.",

@@ -149,7 +149,7 @@ public final class DependencyTest extends AnalysisTestCase {
     Label aExplicit = Label.parseCanonical("//a:a");
     Label b = Label.parseCanonical("//b");
 
-    BuildConfigurationValue host = getHostConfiguration();
+    BuildConfigurationValue exec = getExecConfiguration();
     BuildConfigurationValue target = getTargetConfiguration();
 
     AspectDescriptor simpleAspect = new AspectDescriptor(TestAspects.SIMPLE_ASPECT);
@@ -166,38 +166,38 @@ public final class DependencyTest extends AnalysisTestCase {
 
     new EqualsTester()
         .addEqualityGroup(
-            // base set: //a, host configuration, normal aspect set
-            Dependency.builder().setLabel(a).setConfiguration(host).setAspects(twoAspects).build(),
+            // base set: //a, exec configuration, normal aspect set
+            Dependency.builder().setLabel(a).setConfiguration(exec).setAspects(twoAspects).build(),
             Dependency.builder()
                 .setLabel(aExplicit)
-                .setConfiguration(host)
+                .setConfiguration(exec)
                 .setAspects(twoAspects)
                 .build(),
             Dependency.builder()
                 .setLabel(a)
-                .setConfiguration(host)
+                .setConfiguration(exec)
                 .setAspects(inverseAspects)
                 .build(),
             Dependency.builder()
                 .setLabel(aExplicit)
-                .setConfiguration(host)
+                .setConfiguration(exec)
                 .setAspects(inverseAspects)
                 .build(),
-            Dependency.builder().setLabel(a).setConfiguration(host).setAspects(twoAspects).build(),
+            Dependency.builder().setLabel(a).setConfiguration(exec).setAspects(twoAspects).build(),
             Dependency.builder()
                 .setLabel(aExplicit)
-                .setConfiguration(host)
+                .setConfiguration(exec)
                 .setAspects(twoAspects)
                 .build())
         .addEqualityGroup(
             // base set but with label //b
-            Dependency.builder().setLabel(b).setConfiguration(host).setAspects(twoAspects).build(),
+            Dependency.builder().setLabel(b).setConfiguration(exec).setAspects(twoAspects).build(),
             Dependency.builder()
                 .setLabel(b)
-                .setConfiguration(host)
+                .setConfiguration(exec)
                 .setAspects(inverseAspects)
                 .build(),
-            Dependency.builder().setLabel(b).setConfiguration(host).setAspects(twoAspects).build())
+            Dependency.builder().setLabel(b).setConfiguration(exec).setAspects(twoAspects).build())
         .addEqualityGroup(
             // base set but with target configuration
             Dependency.builder()
@@ -238,22 +238,22 @@ public final class DependencyTest extends AnalysisTestCase {
             // base set but with different aspects
             Dependency.builder()
                 .setLabel(a)
-                .setConfiguration(host)
+                .setConfiguration(exec)
                 .setAspects(differentAspects)
                 .build(),
             Dependency.builder()
                 .setLabel(aExplicit)
-                .setConfiguration(host)
+                .setConfiguration(exec)
                 .setAspects(differentAspects)
                 .build(),
             Dependency.builder()
                 .setLabel(a)
-                .setConfiguration(host)
+                .setConfiguration(exec)
                 .setAspects(differentAspects)
                 .build(),
             Dependency.builder()
                 .setLabel(aExplicit)
-                .setConfiguration(host)
+                .setConfiguration(exec)
                 .setAspects(differentAspects)
                 .build())
         .addEqualityGroup(
@@ -280,12 +280,12 @@ public final class DependencyTest extends AnalysisTestCase {
             // base set but with label //b and different aspects
             Dependency.builder()
                 .setLabel(b)
-                .setConfiguration(host)
+                .setConfiguration(exec)
                 .setAspects(differentAspects)
                 .build(),
             Dependency.builder()
                 .setLabel(b)
-                .setConfiguration(host)
+                .setConfiguration(exec)
                 .setAspects(differentAspects)
                 .build())
         .addEqualityGroup(
@@ -324,25 +324,25 @@ public final class DependencyTest extends AnalysisTestCase {
                 .build())
         .addEqualityGroup(
             // base set but with no aspects
-            Dependency.builder().setLabel(a).setConfiguration(host).build(),
-            Dependency.builder().setLabel(aExplicit).setConfiguration(host).build(),
-            Dependency.builder().setLabel(a).setConfiguration(host).setAspects(noAspects).build(),
+            Dependency.builder().setLabel(a).setConfiguration(exec).build(),
+            Dependency.builder().setLabel(aExplicit).setConfiguration(exec).build(),
+            Dependency.builder().setLabel(a).setConfiguration(exec).setAspects(noAspects).build(),
             Dependency.builder()
                 .setLabel(aExplicit)
-                .setConfiguration(host)
+                .setConfiguration(exec)
                 .setAspects(noAspects)
                 .build(),
-            Dependency.builder().setLabel(a).setConfiguration(host).setAspects(noAspects).build(),
+            Dependency.builder().setLabel(a).setConfiguration(exec).setAspects(noAspects).build(),
             Dependency.builder()
                 .setLabel(aExplicit)
-                .setConfiguration(host)
+                .setConfiguration(exec)
                 .setAspects(noAspects)
                 .build())
         .addEqualityGroup(
             // base set but with label //b and no aspects
-            Dependency.builder().setLabel(b).setConfiguration(host).build(),
-            Dependency.builder().setLabel(b).setConfiguration(host).setAspects(noAspects).build(),
-            Dependency.builder().setLabel(b).setConfiguration(host).setAspects(noAspects).build())
+            Dependency.builder().setLabel(b).setConfiguration(exec).build(),
+            Dependency.builder().setLabel(b).setConfiguration(exec).setAspects(noAspects).build(),
+            Dependency.builder().setLabel(b).setConfiguration(exec).setAspects(noAspects).build())
         .addEqualityGroup(
             // base set but with target configuration and no aspects
             Dependency.builder().setLabel(a).setConfiguration(target).build(),

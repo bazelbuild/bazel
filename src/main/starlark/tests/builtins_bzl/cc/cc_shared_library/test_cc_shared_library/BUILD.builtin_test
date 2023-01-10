@@ -50,6 +50,13 @@ cc_binary(
 )
 
 cc_shared_library(
+    name = "python_module",
+    features = ["windows_export_all_symbols"],
+    roots = [":a_suffix"],
+    shared_lib_name = "python_module.pyd",
+)
+
+cc_shared_library(
     name = "a_so",
     features = ["windows_export_all_symbols"],
     roots = [":a_suffix"],

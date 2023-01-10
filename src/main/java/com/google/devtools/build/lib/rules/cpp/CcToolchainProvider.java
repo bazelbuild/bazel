@@ -627,7 +627,7 @@ public final class CcToolchainProvider extends NativeInfo
 
   /**
    * Returns the name of the directory where the solib symlinks for the dynamic runtime libraries
-   * live. The directory itself will be under the root of the host configuration in the 'bin'
+   * live. The directory itself will be under the root of the exec configuration in the 'bin'
    * directory.
    */
   public PathFragment getDynamicRuntimeSolibDir() {
@@ -716,9 +716,9 @@ public final class CcToolchainProvider extends NativeInfo
    *
    * <p>If C++ rules use platforms/toolchains without
    * https://github.com/bazelbuild/proposals/blob/master/designs/2019-02-12-toolchain-transitions.md
-   * implemented, CcToolchain is analyzed in the host configuration. This configuration is not what
+   * implemented, CcToolchain is analyzed in the exec configuration. This configuration is not what
    * should be used by rules using the toolchain. This method should only be used to access stuff
-   * from CppConfiguration that is identical between host and target (e.g. incompatible flag
+   * from CppConfiguration that is identical between exec and target (e.g. incompatible flag
    * values). Don't use it if you don't know what you're doing.
    *
    * <p>Once toolchain transitions are implemented, we can safely use the CppConfiguration from the
@@ -737,7 +737,7 @@ public final class CcToolchainProvider extends NativeInfo
   public CcToolchainVariables getBuildVariables(
       BuildOptions buildOptions, CppConfiguration cppConfiguration) {
     if (cppConfiguration.enableCcToolchainResolution()) {
-      // With platforms, cc toolchain is analyzed in the host configuration, so we cannot reuse
+      // With platforms, cc toolchain is analyzed in the exec configuration, so we cannot reuse
       // build variables instance.
       return CcToolchainProviderHelper.getBuildVariables(
           buildOptions,

@@ -396,7 +396,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   }
 
   /**
-   * Returns the label of the xcode_config rule to use for resolving the host system xcode version.
+   * Returns the label of the xcode_config rule to use for resolving the exec system xcode version.
    */
   @StarlarkConfigurationField(
       name = "xcode_config_label",

@@ -45,11 +45,15 @@ def _find_java_toolchain(ctx):
 def _find_java_runtime_toolchain(ctx):
     return ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"].java_runtime
 
+def _get_build_info(ctx, _):
+    return java_common.get_build_info(ctx)
+
 semantics = struct(
     JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
     JAVA_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:toolchain_type",
     JAVA_TOOLCHAIN = _builtins.toplevel.config_common.toolchain_type("@bazel_tools//tools/jdk:toolchain_type", mandatory = True),
     find_java_toolchain = _find_java_toolchain,
+    get_build_info = _get_build_info,
     JAVA_RUNTIME_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:runtime_toolchain_type",
     JAVA_RUNTIME_TOOLCHAIN = _builtins.toplevel.config_common.toolchain_type("@bazel_tools//tools/jdk:runtime_toolchain_type", mandatory = True),
     find_java_runtime_toolchain = _find_java_runtime_toolchain,
@@ -74,4 +78,5 @@ semantics = struct(
     get_coverage_runner = _get_coverage_runner,
     add_constraints = _add_constraints,
     JAVA_STUB_TEMPLATE_LABEL = "@bazel_tools//tools/jdk:java_stub_template.txt",
+    BUILD_INFO_TRANSLATOR = None,
 )

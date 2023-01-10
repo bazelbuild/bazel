@@ -92,11 +92,6 @@ public class NoConfigTransition implements PatchTransition {
     }
 
     @Override
-    public boolean isHost() {
-      return true;
-    }
-
-    @Override
     public boolean isTool() {
       return true;
     }
