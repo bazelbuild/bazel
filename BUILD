@@ -161,6 +161,15 @@ pkg_tar(
     visibility = ["//:__subpackages__"],
 )
 
+# The @maven repository is created by maven_install from rules_jvm_external.
+# `@maven//:srcs` contains all jar files downloaded and BUILD files created by maven_install.
+pkg_tar(
+    name = "maven-srcs",
+    srcs = ["@maven//:srcs"],
+    strip_prefix = "external",
+    visibility = ["//:__subpackages__"],
+)
+
 py_binary(
     name = "combine_distfiles",
     srcs = ["combine_distfiles.py"],
@@ -174,6 +183,7 @@ genrule(
         ":bazel-srcs",
         ":bootstrap-jars",
         ":platforms-srcs",
+        ":maven-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
         "@additional_distfiles//:archives.tar",
@@ -191,6 +201,7 @@ genrule(
         ":bazel-srcs",
         ":bootstrap-jars",
         ":platforms-srcs",
+        ":maven-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
         "@additional_distfiles//:archives.tar",
