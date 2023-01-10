@@ -12,6 +12,11 @@ body:
       label: >
         Problem description (include actual vs expected text, if applicable):
   - type: textarea
+    id: location
+    attributes:
+      label: >
+        Where do you see this issue? (include link to specific section of the page, if applicable)       
+  - type: textarea
     id: extras
     attributes:
       label: Any other information you'd like to share?
