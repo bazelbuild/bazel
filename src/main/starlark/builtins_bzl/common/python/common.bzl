@@ -18,10 +18,13 @@ load(
     ":common/python/providers.bzl",
     "PyInfo",
 )
+load(":common/python/semantics.bzl", "TOOLS_REPO")
 
 _testing = _builtins.toplevel.testing
 _platform_common = _builtins.toplevel.platform_common
 _coverage_common = _builtins.toplevel.coverage_common
+
+TOOLCHAIN_TYPE = "@" + TOOLS_REPO + "//tools/python:toolchain_type"
 
 # Extensions without the dot
 _PYTHON_SOURCE_EXTENSIONS = ["py"]

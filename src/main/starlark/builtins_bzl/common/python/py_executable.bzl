@@ -16,6 +16,7 @@
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(
     ":common/python/common.bzl",
+    "TOOLCHAIN_TYPE",
     "collect_runfiles",
     "create_instrumented_files_info",
     "create_output_group_info",
@@ -44,7 +45,6 @@ load(
     "PY_RUNTIME_ATTR_NAME",
     "PY_RUNTIME_FRAGMENT_ATTR_NAME",
     "PY_RUNTIME_FRAGMENT_NAME",
-    "TOOLS_REPO",
 )
 
 _cc_common = _builtins.toplevel.cc_common
@@ -220,15 +220,24 @@ def _get_runtime_details(ctx, semantics):
     flag_interpreter_path = getattr(fragment, PY_RUNTIME_FRAGMENT_ATTR_NAME)
 
     if flag_interpreter_path:
+        toolchain_runtime = None
         effective_runtime = None
         executable_interpreter_path = flag_interpreter_path
         runtime_files = depset()
     else:
-        attr_target = getattr(ctx.attr, PY_RUNTIME_ATTR_NAME)
-        if PyRuntimeInfo in attr_target:
-            effective_runtime = attr_target[PyRuntimeInfo]
+        if ctx.fragments.py.use_toolchains:
+            toolchain = ctx.toolchains[TOOLCHAIN_TYPE]
+            if not toolchain.py3_runtime:
+                fail("Python toolchain missing py3_runtime")
+            toolchain_runtime = toolchain.py3_runtime
+            effective_runtime = toolchain_runtime
         else:
-            fail("Unable to get Python runtime from {}".format(attr_target))
+            toolchain_runtime = None
+            attr_target = getattr(ctx.attr, PY_RUNTIME_ATTR_NAME)
+            if PyRuntimeInfo in attr_target:
+                effective_runtime = attr_target[PyRuntimeInfo]
+            else:
+                fail("Unable to get Python runtime from {}".format(attr_target))
 
         if effective_runtime.interpreter_path:
             runtime_files = depset()
@@ -250,7 +259,7 @@ def _get_runtime_details(ctx, semantics):
         # Optional PyRuntimeInfo: The runtime found from toolchain resolution.
         # This may be None because, within Google, toolchain resolution isn't
         # yet enabled.
-        toolchain_runtime = None,  # TODO: implement toolchain lookup
+        toolchain_runtime = toolchain_runtime,
         # Optional PyRuntimeInfo: The runtime that should be used. When
         # toolchain resolution is enabled, this is the same as
         # `toolchain_resolution`. Otherwise, this probably came from the
@@ -725,20 +734,25 @@ def _create_run_environment_info(ctx, inherited_environment):
         inherited_environment = inherited_environment,
     )
 
-def create_base_executable_rule(*, attrs, **kwargs):
+def create_base_executable_rule(*, attrs, fragments = [], **kwargs):
     """Create a function for defining for Python binary/test targets.
 
     Args:
         attrs: Rule attributes
+        fragments: List of str; extra config fragments that are required.
         **kwargs: Additional args to pass onto `rule()`
 
     Returns:
         A rule function
     """
+    if "py" not in fragments:
+        # The list might be frozen, so use concatentation
+        fragments = fragments + ["py"]
     return rule(
         # TODO: add ability to remove attrs, i.e. for imports attr
         attrs = EXECUTABLE_ATTRS | attrs,
-        toolchains = ["@" + TOOLS_REPO + "//tools/python:toolchain_type"] + cc_helper.use_cpp_toolchain(),  # Google-specific
+        toolchains = [TOOLCHAIN_TYPE] + cc_helper.use_cpp_toolchain(),
+        fragments = fragments,
         **kwargs
     )
 
