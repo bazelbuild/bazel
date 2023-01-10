@@ -112,6 +112,10 @@ public class ToplevelArtifactsDownloader {
       // Since the event is fired within action execution, the skyframe doesn't know the outputs of
       // test actions yet, so we can't get their metadata through skyframe. However, the fileSystem
       // of the path is an ActionFileSystem, we use it to get the metadata for this file.
+      //
+      // If the test hit action cache, the filesystem is local filesystem because the actual test
+      // action didn't get the chance to execute. In this case the metadata is null which is fine
+      // because test outputs are already downloaded (otherwise it cannot hit the action cache).
       FileArtifactValue metadata = pathToMetadataConverter.getMetadata(path);
       if (metadata != null) {
         ListenableFuture<Void> future =

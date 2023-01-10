@@ -966,11 +966,11 @@ public final class RemoteModule extends BlazeModule {
               actionInputFetcher,
               (path) -> {
                 FileSystem fileSystem = path.getFileSystem();
-                Preconditions.checkState(
-                    fileSystem instanceof RemoteActionFileSystem,
-                    "fileSystem must be an instance of RemoteActionFileSystem");
-                return ((RemoteActionFileSystem) path.getFileSystem())
-                    .getRemoteMetadata(path.asFragment());
+                if (fileSystem instanceof RemoteActionFileSystem) {
+                  return ((RemoteActionFileSystem) path.getFileSystem())
+                      .getRemoteMetadata(path.asFragment());
+                }
+                return null;
               });
       env.getEventBus().register(toplevelArtifactsDownloader);
     }
