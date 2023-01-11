@@ -521,6 +521,58 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void emptyTreeConsumedByLocalAction() throws Exception {
+    // Disable remote execution so that the empty tree artifact is prefetched.
+    addOptions("--modify_execution_info=Genrule=+no-remote-exec");
+    setDownloadToplevel();
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  manifest = ':manifest',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['foobar.txt'],",
+        "  cmd = 'touch $@',",
+        ")");
+    write("manifest"); // no files
+
+    buildTarget("//:foobar");
+    waitDownloads();
+  }
+
+  @Test
+  public void multiplePackagePaths_buildsSuccessfully() throws Exception {
+    write(
+        "../a/src/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")");
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = ['//src:foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location //src:foo) > $@ && echo bar >> $@',",
+        ")");
+    addOptions("--package_path=%workspace%:%workspace%/../a");
+    setDownloadToplevel();
+
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+  }
+
+  @Test
   public void incrementalBuild_deleteOutputsInUnwritableParentDirectory() throws Exception {
     write(
         "BUILD",
