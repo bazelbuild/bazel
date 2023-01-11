@@ -2509,30 +2509,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(instrumentedFilesInfo.getCoverageSupportFiles().toList()).isEmpty();
   }
 
-  @Test
-  public void testCoverageMetadataFiles() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "cc_toolchain_alias(name = 'toolchain')",
-        "objc_library(",
-        "    name = 'foo',",
-        "    srcs = ['foo.m'],",
-        ")",
-        "objc_library(",
-        "     name = 'bar',",
-        "     srcs = ['bar.m'],",
-        "     deps = [':foo'],",
-        ")");
-    useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
-
-    InstrumentedFilesInfo instrumentedFilesInfo =
-        getConfiguredTarget("//a:bar").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-
-    assertThat(
-            Artifact.toRootRelativePaths(instrumentedFilesInfo.getInstrumentationMetadataFiles()))
-        .containsExactly("a/_objs/foo/arc/foo.gcno", "a/_objs/bar/arc/bar.gcno");
-  }
-
   private ImmutableList<String> getCcInfoUserLinkFlagsFromTarget(String target)
       throws LabelSyntaxException {
     return getConfiguredTarget(target)
