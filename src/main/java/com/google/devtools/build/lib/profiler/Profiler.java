@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.zip.GZIPOutputStream;
@@ -129,7 +128,6 @@ public final class Profiler {
   static class TaskData implements TraceData {
     final long threadId;
     final long startTimeNanos;
-    final int id;
     final ProfilerTask type;
     final MnemonicData mnemonic;
     final String description;
@@ -137,12 +135,7 @@ public final class Profiler {
     long duration;
 
     TaskData(
-        int id,
-        long startTimeNanos,
-        ProfilerTask eventType,
-        MnemonicData mnemonic,
-        String description) {
-      this.id = id;
+        long startTimeNanos, ProfilerTask eventType, MnemonicData mnemonic, String description) {
       this.threadId = Thread.currentThread().getId();
       this.startTimeNanos = startTimeNanos;
       this.type = eventType;
@@ -150,12 +143,11 @@ public final class Profiler {
       this.description = Preconditions.checkNotNull(description);
     }
 
-    TaskData(int id, long startTimeNanos, ProfilerTask eventType, String description) {
-      this(id, startTimeNanos, eventType, MnemonicData.getEmptyMnemonic(), description);
+    TaskData(long startTimeNanos, ProfilerTask eventType, String description) {
+      this(startTimeNanos, eventType, MnemonicData.getEmptyMnemonic(), description);
     }
 
     TaskData(long threadId, long startTimeNanos, long duration, String description) {
-      this.id = -1;
       this.type = ProfilerTask.UNKNOWN;
       this.mnemonic = MnemonicData.getEmptyMnemonic();
       this.threadId = threadId;
@@ -166,7 +158,7 @@ public final class Profiler {
 
     @Override
     public String toString() {
-      return "Thread " + threadId + ", task " + id + ", type " + type + ", " + description;
+      return "Thread " + threadId + ", type " + type + ", " + description;
     }
 
     @Override
@@ -239,14 +231,13 @@ public final class Profiler {
     @Nullable final String targetLabel;
 
     ActionTaskData(
-        int id,
         long startTimeNanos,
         ProfilerTask eventType,
         MnemonicData mnemonic,
         String description,
         @Nullable String primaryOutputPath,
         @Nullable String targetLabel) {
-      super(id, startTimeNanos, eventType, mnemonic, description);
+      super(startTimeNanos, eventType, mnemonic, description);
       this.primaryOutputPath = primaryOutputPath;
       this.targetLabel = targetLabel;
     }
@@ -312,9 +303,6 @@ public final class Profiler {
   private volatile long profileStartTime;
   private volatile boolean recordAllDurations = false;
   private Duration profileCpuStartTime;
-
-  /** This counter provides a unique id for every task, used to provide a parent/child relation. */
-  private AtomicInteger taskId = new AtomicInteger();
 
   /**
    * The reference to the current writer, if any. If the referenced writer is null, then disk writes
@@ -467,10 +455,8 @@ public final class Profiler {
     this.collectTaskHistograms = collectTaskHistograms;
     this.includePrimaryOutput = includePrimaryOutput;
     this.includeTargetLabel = includeTargetLabel;
-
-    // Reset state for the new profiling session.
-    taskId.set(0);
     this.recordAllDurations = recordAllDurations;
+
     JsonTraceFileWriter writer = null;
     if (stream != null && format != null) {
       switch (format) {
@@ -642,7 +628,7 @@ public final class Profiler {
       // #clear.
       JsonTraceFileWriter currentWriter = writerRef.get();
       if (wasTaskSlowEnoughToRecord(type, duration)) {
-        TaskData data = new TaskData(taskId.incrementAndGet(), startTimeNanos, type, description);
+        TaskData data = new TaskData(startTimeNanos, type, description);
         data.duration = duration;
         if (currentWriter != null) {
           currentWriter.enqueue(data);
@@ -716,12 +702,7 @@ public final class Profiler {
   }
 
   private SilentCloseable reallyProfile(ProfilerTask type, String description) {
-    // ProfilerInfo.allTasksById is supposed to be an id -> Task map, but it is in fact a List,
-    // which means that we cannot drop tasks to which we had already assigned ids. Therefore,
-    // non-leaf tasks must not have a minimum duration. However, we don't quite consistently
-    // enforce this, and Blaze only works because we happen not to add child tasks to those parent
-    // tasks that have a minimum duration.
-    TaskData taskData = new TaskData(taskId.incrementAndGet(), clock.nanoTime(), type, description);
+    TaskData taskData = new TaskData(clock.nanoTime(), type, description);
     return () -> completeTask(taskData);
   }
 
@@ -797,7 +778,6 @@ public final class Profiler {
     if (isActive() && isProfiling(type)) {
       TaskData taskData =
           new ActionTaskData(
-              taskId.incrementAndGet(),
               clock.nanoTime(),
               type,
               new MnemonicData(mnemonic),

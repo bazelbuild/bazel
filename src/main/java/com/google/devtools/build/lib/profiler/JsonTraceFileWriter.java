@@ -47,7 +47,8 @@ class JsonTraceFileWriter implements Runnable {
   private static final long SLIM_PROFILE_MAXIMAL_PAUSE_NS = Duration.ofMillis(100).toNanos();
   private static final long SLIM_PROFILE_MAXIMAL_DURATION_NS = Duration.ofMillis(250).toNanos();
 
-  private static final TaskData POISON_PILL = new TaskData(0, 0, null, "poison pill");
+  private static final TaskData POISON_PILL =
+      new TaskData(/* startTimeNanos= */ 0, /* eventType= */ null, "poison pill");
 
   JsonTraceFileWriter(
       OutputStream outStream,
