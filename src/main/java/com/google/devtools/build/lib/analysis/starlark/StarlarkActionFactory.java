@@ -50,7 +50,9 @@ import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -409,6 +411,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         execGroupUnchecked,
         shadowedActionUnchecked,
         resourceSetUnchecked,
+        toolchainUnchecked,
         builder);
   }
 
@@ -448,11 +451,15 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     return context.getStarlarkSemantics();
   }
 
-  private void verifyExecGroup(Object execGroupUnchecked, RuleContext ctx) throws EvalException {
-    String execGroup = (String) execGroupUnchecked;
-    if (!StarlarkExecGroupCollection.isValidGroupName(execGroup)
-        || !ctx.hasToolchainContext(execGroup)) {
+  private void verifyExecGroupExists(String execGroup, RuleContext ctx) throws EvalException {
+    if (!ctx.hasToolchainContext(execGroup)) {
       throw Starlark.errorf("Action declared for non-existent exec group '%s'.", execGroup);
+    }
+  }
+
+  private void checkValidGroupName(String execGroup) throws EvalException {
+    if (!StarlarkExecGroupCollection.isValidGroupName(execGroup)) {
+      throw Starlark.errorf("Invalid name for exec group '%s'.", execGroup);
     }
   }
 
@@ -461,7 +468,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (execGroupUnchecked == Starlark.NONE) {
       return ctx.getExecutionPlatform(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
     } else {
-      verifyExecGroup(execGroupUnchecked, ctx);
+      String execGroup = (String) execGroupUnchecked;
+      verifyExecGroupExists(execGroup, ctx);
+      checkValidGroupName(execGroup);
       return ctx.getExecutionPlatform((String) execGroupUnchecked);
     }
   }
@@ -553,6 +562,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         execGroupUnchecked,
         shadowedActionUnchecked,
         resourceSetUnchecked,
+        toolchainUnchecked,
         builder);
   }
 
@@ -600,6 +610,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object execGroupUnchecked,
       Object shadowedActionUnchecked,
       Object resourceSetUnchecked,
+      Object toolchainUnchecked,
       StarlarkAction.Builder builder)
       throws EvalException {
     if (inputs instanceof Sequence) {
@@ -692,11 +703,33 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
     }
 
-    if (execGroupUnchecked == Starlark.NONE) {
-      builder.setExecGroup(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
+    boolean useAutoExecGroups = ruleContext.useAutoExecGroups();
+
+    if (execGroupUnchecked != Starlark.NONE) {
+      String execGroup = (String) execGroupUnchecked;
+      verifyExecGroupExists(execGroup, ruleContext);
+      checkValidGroupName(execGroup);
+
+      // If toolchain and exec_groups are both defined, verify they are compatible.
+      if (useAutoExecGroups && toolchainUnchecked != Starlark.NONE) {
+        Label toolchainLabel = Label.parseAbsoluteUnchecked((String) toolchainUnchecked);
+        if (ruleContext.getExecGroups().getExecGroup(execGroup).toolchainTypes().stream()
+            .map(ToolchainTypeRequirement::toolchainType)
+            .noneMatch(toolchainLabel::equals)) {
+          throw Starlark.errorf(
+              "`toolchain` and `exec_group` parameters inside actions.{run, run_shell} are not"
+                  + " compatible; use one of them or define `toolchain` which is compatible with"
+                  + " the exec_group (already exists inside the `exec_group`)");
+        }
+      }
+
+      builder.setExecGroup(execGroup);
+    } else if (useAutoExecGroups && toolchainUnchecked != Starlark.NONE) {
+      String toolchain = (String) toolchainUnchecked;
+      verifyExecGroupExists(toolchain, ruleContext);
+      builder.setExecGroup(toolchain);
     } else {
-      verifyExecGroup(execGroupUnchecked, ruleContext);
-      builder.setExecGroup((String) execGroupUnchecked);
+      builder.setExecGroup(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
     }
 
     if (shadowedActionUnchecked != Starlark.NONE) {
