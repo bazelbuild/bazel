@@ -1039,64 +1039,25 @@ def _impl(ctx):
         requires = [feature_set(features = ["coverage"])],
     )
 
-    if (ctx.attr.cpu == "darwin_x86_64" or
-        ctx.attr.cpu == "darwin_arm64" or
-        ctx.attr.cpu == "darwin_arm64e"):
-        default_link_flags_feature = feature(
-            name = "default_link_flags",
-            enabled = True,
-            flag_sets = [
-                flag_set(
-                    actions = all_link_actions +
-                              ["objc-executable", "objc++-executable"],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-target",
-                                target_system_name,
-                            ],
-                        ),
-                    ],
-                ),
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                    ],
-                    flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
-                ),
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.cpp_link_executable,
-                        "objc-executable",
-                        "objc++-executable",
-                    ],
-                    flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
-                    with_features = [with_feature_set(features = ["dynamic_linking_mode"])],
-                ),
-            ],
-        )
-    else:
-        default_link_flags_feature = feature(
-            name = "default_link_flags",
-            enabled = True,
-            flag_sets = [
-                flag_set(
-                    actions = all_link_actions +
-                              ["objc-executable", "objc++-executable"],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-target",
-                                target_system_name,
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        )
+    default_link_flags_feature = feature(
+        name = "default_link_flags",
+        enabled = True,
+        flag_sets = [
+            flag_set(
+                actions = all_link_actions +
+                          ["objc-executable", "objc++-executable"],
+                flag_groups = [
+                    flag_group(
+                        flags = [
+                            "-no-canonical-prefixes",
+                            "-target",
+                            target_system_name,
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
 
     no_deduplicate_feature = feature(
         name = "no_deduplicate",
