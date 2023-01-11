@@ -87,12 +87,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.function.IntFunction;
@@ -267,16 +262,19 @@ public class HttpCacheClientTest {
       int timeoutSeconds,
       boolean remoteVerifyDownloads,
       @Nullable final Credentials creds,
-      AuthAndTLSOptions authAndTlsOptions)
+      AuthAndTLSOptions authAndTlsOptions,
+      Optional<RemoteRetrier> optRetrier)
       throws Exception {
     SocketAddress socketAddress = serverChannel.localAddress();
-    ListeningScheduledExecutorService retryScheduler =
-            MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
-    RemoteRetrier retrier = new RemoteRetrier(
-            () -> RemoteRetrier.RETRIES_DISABLED,
-            (e) -> false,
-            retryScheduler,
-            Retrier.ALLOW_ALL_CALLS);
+    RemoteRetrier retrier = optRetrier.orElseGet(() -> {
+      ListeningScheduledExecutorService retryScheduler =
+              MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+      return new RemoteRetrier(
+              () -> RemoteRetrier.RETRIES_DISABLED,
+              (e) -> false,
+              retryScheduler,
+              Retrier.ALLOW_ALL_CALLS);
+    });
     if (socketAddress instanceof DomainSocketAddress) {
       DomainSocketAddress domainSocketAddress = (DomainSocketAddress) socketAddress;
       URI uri = new URI("http://localhost");
@@ -317,7 +315,7 @@ public class HttpCacheClientTest {
       AuthAndTLSOptions authAndTlsOptions)
       throws Exception {
     return createHttpBlobStore(
-        serverChannel, timeoutSeconds, /* remoteVerifyDownloads= */ true, creds, authAndTlsOptions);
+        serverChannel, timeoutSeconds, /* remoteVerifyDownloads= */ true, creds, authAndTlsOptions, Optional.empty());
   }
 
   @Before
@@ -503,7 +501,8 @@ public class HttpCacheClientTest {
               /* timeoutSeconds= */ 1,
               /* remoteVerifyDownloads= */ true,
               credentials,
-              authAndTlsOptions);
+              authAndTlsOptions,
+              Optional.empty());
       Digest fooDigest = DIGEST_UTIL.compute("foo".getBytes(Charsets.UTF_8));
       try (OutputStream out = new ByteArrayOutputStream()) {
         IOException e =
@@ -550,7 +549,8 @@ public class HttpCacheClientTest {
               /* timeoutSeconds= */ 1,
               /* remoteVerifyDownloads= */ false,
               credentials,
-              authAndTlsOptions);
+              authAndTlsOptions,
+              Optional.empty());
       Digest fooDigest = DIGEST_UTIL.compute("foo".getBytes(Charsets.UTF_8));
       try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
         getFromFuture(blobStore.downloadBlob(remoteActionExecutionContext, fooDigest, out));
