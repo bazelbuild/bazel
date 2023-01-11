@@ -187,4 +187,35 @@ public class HttpDownloadHandlerTest extends AbstractHttpHandlerTest {
     verify(out, never()).close();
     assertThat(ch.isActive()).isTrue();
   }
+
+  /**
+   * Test that the handler correctly supports chunked downloads at an offset, e.g. on retry.
+   */
+  @Test
+  public void chunkedDownloadAtOffsetShouldWork() throws IOException {
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpDownloadHandler(null, ImmutableList.of()));
+    ByteArrayOutputStream out = Mockito.spy(new ByteArrayOutputStream());
+    DownloadCommand cmd = new DownloadCommand(CACHE_URI, true, DIGEST, out, 3);
+    ChannelPromise writePromise = ch.newPromise();
+    ch.writeOneOutbound(cmd, writePromise);
+
+    HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+    response.headers().set(HttpHeaders.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED);
+    response.headers().set(HttpHeaders.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
+    ch.writeInbound(response);
+    ByteBuf content1 = Unpooled.buffer();
+    content1.writeBytes(new byte[] {1, 2});
+    ch.writeInbound(new DefaultHttpContent(content1));
+    ByteBuf content2 = Unpooled.buffer();
+    content2.writeBytes(new byte[] {3, 4});
+    ch.writeInbound(new DefaultHttpContent(content2));
+    ByteBuf content3 = Unpooled.buffer();
+    content3.writeBytes(new byte[] {5});
+    ch.writeInbound(new DefaultLastHttpContent(content3));
+
+    assertThat(writePromise.isDone()).isTrue();
+    assertThat(out.toByteArray()).isEqualTo(new byte[] {4, 5});
+    verify(out, never()).close();
+    assertThat(ch.isActive()).isTrue();
+  }
 }
