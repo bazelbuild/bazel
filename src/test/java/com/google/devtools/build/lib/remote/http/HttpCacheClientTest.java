@@ -16,8 +16,7 @@ package com.google.devtools.build.lib.remote.http;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.util.Collections.singletonList;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -48,17 +47,9 @@ import com.google.protobuf.ByteString;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandler;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.*;
 import io.netty.channel.ChannelHandler.Sharable;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandler;
-import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.ServerChannel;
-import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerDomainSocketChannel;
@@ -69,15 +60,8 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.unix.DomainSocketAddress;
 import io.netty.handler.codec.TooLongFrameException;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpHeaderNames;
-import io.netty.handler.codec.http.HttpObjectAggregator;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpServerCodec;
-import io.netty.handler.codec.http.HttpUtil;
-import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.*;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -86,6 +70,7 @@ import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
+import java.nio.channels.ClosedChannelException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -562,6 +547,63 @@ public class HttpCacheClientTest {
   }
 
   @Test
+  public void partialDownloadFailsWithoutRetry() throws Exception {
+    ServerChannel server = null;
+    try {
+      server = testServer.start(new IntermittentFailureHandler());
+      Credentials credentials = newCredentials();
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+
+      HttpCacheClient blobStore =
+          createHttpBlobStore(server, /* timeoutSeconds= */ 1, credentials, authAndTlsOptions);
+      assertThrows(
+          ClosedChannelException.class,
+          () ->
+              getFromFuture(
+                  blobStore.downloadBlob(
+                      remoteActionExecutionContext, DIGEST, new ByteArrayOutputStream())));
+    } finally {
+      testServer.stop(server);
+    }
+  }
+
+  @Test
+  public void partialDownloadSucceedsWithRetry() throws Exception {
+    ServerChannel server = null;
+    try {
+      server = testServer.start(new IntermittentFailureHandler());
+      Credentials credentials = newCredentials();
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+
+      ListeningScheduledExecutorService retryScheduler =
+              MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+      RemoteRetrier retrier = new RemoteRetrier(
+          () -> new Retrier.ZeroBackoff(1),
+          (e) -> {
+            return e instanceof ClosedChannelException;
+          },
+          retryScheduler,
+          Retrier.ALLOW_ALL_CALLS);
+      HttpCacheClient blobStore =
+          createHttpBlobStore(
+              server,
+              /* timeoutSeconds= */ 1,
+              /* remoteVerifyDownloads= */ false,
+              credentials,
+              authAndTlsOptions,
+              Optional.of(retrier));
+
+      ByteArrayOutputStream download = new ByteArrayOutputStream();
+      getFromFuture(
+          blobStore.downloadBlob(
+              remoteActionExecutionContext, DIGEST, download));
+      assertArrayEquals("File Contents".getBytes(Charsets.US_ASCII), download.toByteArray());
+    } finally {
+      testServer.stop(server);
+    }
+  }
+
+  @Test
   public void expiredAuthTokensShouldBeRetried_get() throws Exception {
     expiredAuthTokensShouldBeRetried_get(
         HttpCacheClientTest.NotAuthorizedHandler.ErrorType.UNAUTHORIZED);
@@ -781,6 +823,37 @@ public class HttpCacheClientTest {
                     HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR))
             .addListener(ChannelFutureListener.CLOSE);
       }
+    }
+  }
+
+  /**
+   * {@link ChannelHandler} that on the first request returns a partial response and then closes the stream,
+   * and on any further requests returns a full response.
+   */
+  @Sharable
+  static class IntermittentFailureHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+    private int messageCount;
+
+    @Override
+    protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
+      DefaultHttpResponse response = new DefaultHttpResponse(
+          HttpVersion.HTTP_1_1,
+          HttpResponseStatus.OK);
+      response.headers().set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED);
+      ctx.write(response);
+      ByteBuf content1 = Unpooled.buffer();
+      content1.writeBytes("File ".getBytes(Charsets.US_ASCII));
+      ChannelFuture future = ctx.writeAndFlush(new DefaultHttpContent(content1));
+      if (messageCount == 0) {
+        future.addListener(ChannelFutureListener.CLOSE);
+      } else {
+        ByteBuf content2 = Unpooled.buffer();
+        content2.writeBytes("Contents".getBytes(Charsets.US_ASCII));
+        ctx
+            .writeAndFlush(new DefaultLastHttpContent(content2))
+            .addListener(ChannelFutureListener.CLOSE);
+      }
+      ++messageCount;
     }
   }
 }
