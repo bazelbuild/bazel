@@ -580,6 +580,31 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void emptyTreeConsumedByLocalAction() throws Exception {
+    // Disable remote execution so that the empty tree artifact is prefetched.
+    addOptions("--modify_execution_info=Genrule=+no-remote-exec");
+    setDownloadToplevel();
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  manifest = ':manifest',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['foobar.txt'],",
+        "  cmd = 'touch $@',",
+        ")");
+    write("manifest"); // no files
+
+    buildTarget("//:foobar");
+    waitDownloads();
+  }
+
+  @Test
   public void multiplePackagePaths_buildsSuccessfully() throws Exception {
     write(
         "../a/src/BUILD",
