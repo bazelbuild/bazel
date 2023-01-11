@@ -182,6 +182,10 @@ class HttpConnector {
           // waiting.  If the client has an outstanding request in transit, the client MAY repeat
           // that request on a new connection. Quoth RFC7231 § 6.5.7
           throw new IOException(describeHttpResponse(connection));
+        } else if (code == 429) {
+          // The 429 (Too Many Requests) status code could result from Bazel temporarily overloading
+          // the server and is typically resolved by retrying.
+          throw new IOException(describeHttpResponse(connection));
         } else if (code < 500          // 4xx means client seems to have erred quoth RFC7231 § 6.5
                     || code == 501     // Server doesn't support function quoth RFC7231 § 6.6.2
                     || code == 502     // Host not configured on server cf. RFC7231 § 6.6.3
