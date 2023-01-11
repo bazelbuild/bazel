@@ -23,8 +23,14 @@ build:ubuntu1804_java11 --platforms=//:rbe_ubuntu1804_java11_platform
 build:ubuntu1804_java11 --config=remote_shared
 
 # FreeBSD requires a local JDK configuration because rules_java/rules_jvm_external don't have a remote JDK for FreeBSD.
+#
 # See: https://bazel.build/docs/bazel-and-java
-# Need to ensure that OpenJDK 11 is installed.
+#
+# To bootstrap bazel release dists using OpenJDK 11 first, use:
+#
+#    env JAVA_HOME=/usr/local/openjdk11 EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk" bash ./compile.sh
+#
+# Then build this repository using the resulting bazel binary.
 build:freebsd --extra_toolchains=@local_jdk//:all
 build:freebsd --java_runtime_version=local_jdk
 build:freebsd --tool_java_runtime_version=local_jdk
