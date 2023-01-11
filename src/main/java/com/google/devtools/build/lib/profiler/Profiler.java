@@ -307,19 +307,6 @@ public final class Profiler {
     }
   }
 
-  static final class CounterData extends TaskData {
-    private final double counterValue;
-
-    public CounterData(long timeNanos, ProfilerTask type, double counterValue) {
-      super(/* id= */ -1, timeNanos, type, String.valueOf(counterValue));
-      this.counterValue = counterValue;
-    }
-
-    public double getCounterValue() {
-      return counterValue;
-    }
-  }
-
   private Clock clock;
   private ImmutableSet<ProfilerTask> profiledTasks;
   private volatile long profileStartTime;
