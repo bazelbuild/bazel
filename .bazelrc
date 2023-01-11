@@ -34,6 +34,9 @@ build:bzlmod --experimental_enable_bzlmod
 build --java_language_version=11
 build --tool_java_language_version=11
 
+# Fail if a glob doesn't match anything (https://github.com/bazelbuild/bazel/issues/8195)
+build --incompatible_disallow_empty_glob
+
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc
 
