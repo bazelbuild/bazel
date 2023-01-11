@@ -17,7 +17,6 @@ java_library(
         "JsonTraceFileWriter.java",
         "MemoryProfiler.java",
         "MetricData.java",
-        "MnemonicData.java",
         "PredicateBasedStatRecorder.java",
         "ProfilePhase.java",
         "Profiler.java",

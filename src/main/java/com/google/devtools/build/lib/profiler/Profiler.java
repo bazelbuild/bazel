@@ -129,27 +129,19 @@ public final class Profiler {
     final long threadId;
     final long startTimeNanos;
     final ProfilerTask type;
-    final MnemonicData mnemonic;
     final String description;
 
     long duration;
 
-    TaskData(
-        long startTimeNanos, ProfilerTask eventType, MnemonicData mnemonic, String description) {
+    TaskData(long startTimeNanos, ProfilerTask eventType, String description) {
       this.threadId = Thread.currentThread().getId();
       this.startTimeNanos = startTimeNanos;
       this.type = eventType;
-      this.mnemonic = mnemonic;
       this.description = Preconditions.checkNotNull(description);
-    }
-
-    TaskData(long startTimeNanos, ProfilerTask eventType, String description) {
-      this(startTimeNanos, eventType, MnemonicData.getEmptyMnemonic(), description);
     }
 
     TaskData(long threadId, long startTimeNanos, long duration, String description) {
       this.type = ProfilerTask.UNKNOWN;
-      this.mnemonic = MnemonicData.getEmptyMnemonic();
       this.threadId = threadId;
       this.startTimeNanos = startTimeNanos;
       this.duration = duration;
@@ -189,19 +181,15 @@ public final class Profiler {
           // Primary outputs are non-mergeable, thus incompatible with slim profiles.
           jsonWriter.name("out").value(actionTaskData.primaryOutputPath);
         }
-        if (actionTaskData.targetLabel != null) {
+        if (actionTaskData.targetLabel != null || actionTaskData.mnemonic != null) {
           jsonWriter.name("args");
           jsonWriter.beginObject();
-          jsonWriter.name("target").value(actionTaskData.targetLabel);
-          if (mnemonic.hasBeenSet()) {
-            jsonWriter.name("mnemonic").value(mnemonic.getValueForJson());
+          if (actionTaskData.targetLabel != null) {
+            jsonWriter.name("target").value(actionTaskData.targetLabel);
           }
-          jsonWriter.endObject();
-        }
-        if (mnemonic.hasBeenSet()) {
-          jsonWriter.name("args");
-          jsonWriter.beginObject();
-          jsonWriter.name("mnemonic").value(mnemonic.getValueForJson());
+          if (actionTaskData.mnemonic != null) {
+            jsonWriter.name("mnemonic").value(actionTaskData.mnemonic);
+          }
           jsonWriter.endObject();
         }
       }
@@ -229,17 +217,19 @@ public final class Profiler {
   static final class ActionTaskData extends TaskData {
     @Nullable final String primaryOutputPath;
     @Nullable final String targetLabel;
+    @Nullable final String mnemonic;
 
     ActionTaskData(
         long startTimeNanos,
         ProfilerTask eventType,
-        MnemonicData mnemonic,
+        @Nullable String mnemonic,
         String description,
         @Nullable String primaryOutputPath,
         @Nullable String targetLabel) {
-      super(startTimeNanos, eventType, mnemonic, description);
+      super(startTimeNanos, eventType, description);
       this.primaryOutputPath = primaryOutputPath;
       this.targetLabel = targetLabel;
+      this.mnemonic = mnemonic;
     }
   }
 
@@ -780,7 +770,7 @@ public final class Profiler {
           new ActionTaskData(
               clock.nanoTime(),
               type,
-              new MnemonicData(mnemonic),
+              mnemonic,
               description,
               includePrimaryOutput ? primaryOutput : null,
               includeTargetLabel ? targetLabel : null);
