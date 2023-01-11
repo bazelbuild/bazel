@@ -119,15 +119,6 @@ public final class IntermediateArtifacts implements StarlarkValue {
   }
 
   /**
-   * The .objlist file, which contains a list of paths of object files to archive and is read by
-   * libtool (via -filelist flag) in the archive action.
-   */
-  @StarlarkMethod(name = "archive_obj_list", documented = false, structField = true)
-  public Artifact archiveObjList() {
-    return appendExtension("-archive.objlist");
-  }
-
-  /**
    * The artifact which is the binary (or library) which is comprised of one or more .a files linked
    * together. Compared to the artifact returned by {@link #unstrippedSingleArchitectureBinary},
    * this artifact is stripped of symbol table when --compilation_mode=opt and
