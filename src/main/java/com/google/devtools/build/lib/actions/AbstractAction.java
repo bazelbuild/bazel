@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -363,18 +364,36 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   @Nullable
   @Override
   public final String getProgressMessage() {
+    return getProgressMessageChecked(null);
+  }
+
+  @Nullable
+  @Override
+  public final String getProgressMessage(RepositoryMapping mainRepositoryMapping) {
+    Preconditions.checkNotNull(mainRepositoryMapping);
+    return getProgressMessageChecked(mainRepositoryMapping);
+  }
+
+  private String getProgressMessageChecked(@Nullable RepositoryMapping mainRepositoryMapping) {
     String message = getRawProgressMessage();
     if (message == null) {
       return null;
     }
-    message = replaceProgressMessagePlaceholders(message);
+    message = replaceProgressMessagePlaceholders(message, mainRepositoryMapping);
     String additionalInfo = getOwner().getAdditionalProgressInfo();
     return additionalInfo == null ? message : message + " [" + additionalInfo + "]";
   }
 
-  private String replaceProgressMessagePlaceholders(String progressMessage) {
+  private String replaceProgressMessagePlaceholders(
+      String progressMessage, @Nullable RepositoryMapping mainRepositoryMapping) {
     if (progressMessage.contains("%{label}") && getOwner().getLabel() != null) {
-      progressMessage = progressMessage.replace("%{label}", getOwner().getLabel().toString());
+      String labelString;
+      if (mainRepositoryMapping != null) {
+        labelString = getOwner().getLabel().getDisplayForm(mainRepositoryMapping);
+      } else {
+        labelString = getOwner().getLabel().toString();
+      }
+      progressMessage = progressMessage.replace("%{label}", labelString);
     }
     if (progressMessage.contains("%{output}") && getPrimaryOutput() != null) {
       progressMessage =
