@@ -219,7 +219,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  name = "main",',
         '  srcs = ["main.cc"],',
         '  deps = ["//:B"],',
-        '  linkstatic = 0,'
+        '  linkstatic = 0,',
         ')',
     ])
     bazel_bin = self.getBazelInfo('bazel-bin')
@@ -247,7 +247,7 @@ class BazelWindowsCppTest(test_base.TestBase):
             '  name = "main",',
             '  srcs = ["main.cc"],',
             '  deps = ["//:B", "//lib:A"],',  # Transitively depends on //:A
-            '  linkstatic = 0,'
+            '  linkstatic = 0,',
             ')',
         ])
     bazel_bin = self.getBazelInfo('bazel-bin')
@@ -278,14 +278,14 @@ class BazelWindowsCppTest(test_base.TestBase):
             '  name = "main",',
             '  srcs = ["main.cc"],',
             '  deps = ["//:B"],',  # Transitively depends on //:A
-            '  linkstatic = 0,'
+            '  linkstatic = 0,',
             ')',
             '',
             'cc_binary(',
             '  name = "other_main",',
             '  srcs = ["other_main.cc"],',
             '  deps = ["//lib:A"],',
-            '  linkstatic = 0,'
+            '  linkstatic = 0,',
             ')',
         ])
     bazel_bin = self.getBazelInfo('bazel-bin')
@@ -386,24 +386,32 @@ class BazelWindowsCppTest(test_base.TestBase):
     # By default, it should link to msvcrt dynamically.
     exit_code, _, stderr = self.RunBazel(
         ['build', '//:A', '--output_groups=dynamic_library', '-s'])
-    paramfile = os.path.join(bazel_output,
-                             'x64_windows-fastbuild/bin/A_0.dll-2.params')
+    compile_params = os.path.join(
+        bazel_output, 'x64_windows-fastbuild/bin/_objs/A/a.obj.params'
+    )
+    link_params = os.path.join(
+        bazel_output, 'x64_windows-fastbuild/bin/A_0.dll-2.params'
+    )
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('/MD', ''.join(stderr))
-    self.AssertFileContentContains(paramfile, '/DEFAULTLIB:msvcrt.lib')
-    self.assertNotIn('/MT', ''.join(stderr))
-    self.AssertFileContentNotContains(paramfile, '/DEFAULTLIB:libcmt.lib')
+    self.AssertFileContentContains(compile_params, '/MD')
+    self.AssertFileContentContains(link_params, '/DEFAULTLIB:msvcrt.lib')
+    self.AssertFileContentNotContains(compile_params, '/MT')
+    self.AssertFileContentNotContains(link_params, '/DEFAULTLIB:libcmt.lib')
 
     # Test build in debug mode.
     exit_code, _, stderr = self.RunBazel(
         ['build', '-c', 'dbg', '//:A', '--output_groups=dynamic_library', '-s'])
-    paramfile = os.path.join(bazel_output,
-                             'x64_windows-dbg/bin/A_0.dll-2.params')
+    compile_params = os.path.join(
+        bazel_output, 'x64_windows-dbg/bin/_objs/A/a.obj.params'
+    )
+    link_params = os.path.join(
+        bazel_output, 'x64_windows-dbg/bin/A_0.dll-2.params'
+    )
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('/MDd', ''.join(stderr))
-    self.AssertFileContentContains(paramfile, '/DEFAULTLIB:msvcrtd.lib')
-    self.assertNotIn('/MTd', ''.join(stderr))
-    self.AssertFileContentNotContains(paramfile, '/DEFAULTLIB:libcmtd.lib')
+    self.AssertFileContentContains(compile_params, '/MDd')
+    self.AssertFileContentContains(link_params, '/DEFAULTLIB:msvcrtd.lib')
+    self.AssertFileContentNotContains(compile_params, '/MTd')
+    self.AssertFileContentNotContains(link_params, '/DEFAULTLIB:libcmtd.lib')
 
   def testStaticLinkingMSVCRT(self):
     self.createProjectFiles()
@@ -414,26 +422,34 @@ class BazelWindowsCppTest(test_base.TestBase):
         'build', '//:A', '--output_groups=dynamic_library',
         '--features=static_link_msvcrt', '-s'
     ])
-    paramfile = os.path.join(bazel_output,
-                             'x64_windows-fastbuild/bin/A_0.dll-2.params')
+    compile_params = os.path.join(
+        bazel_output, 'x64_windows-fastbuild/bin/_objs/A/a.obj.params'
+    )
+    link_params = os.path.join(
+        bazel_output, 'x64_windows-fastbuild/bin/A_0.dll-2.params'
+    )
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertNotIn('/MD', ''.join(stderr))
-    self.AssertFileContentNotContains(paramfile, '/DEFAULTLIB:msvcrt.lib')
-    self.assertIn('/MT', ''.join(stderr))
-    self.AssertFileContentContains(paramfile, '/DEFAULTLIB:libcmt.lib')
+    self.AssertFileContentNotContains(compile_params, '/MD')
+    self.AssertFileContentNotContains(link_params, '/DEFAULTLIB:msvcrt.lib')
+    self.AssertFileContentContains(compile_params, '/MT')
+    self.AssertFileContentContains(link_params, '/DEFAULTLIB:libcmt.lib')
 
     # Test build in debug mode.
     exit_code, _, stderr = self.RunBazel([
         'build', '-c', 'dbg', '//:A', '--output_groups=dynamic_library',
         '--features=static_link_msvcrt', '-s'
     ])
-    paramfile = os.path.join(bazel_output,
-                             'x64_windows-dbg/bin/A_0.dll-2.params')
+    compile_params = os.path.join(
+        bazel_output, 'x64_windows-dbg/bin/_objs/A/a.obj.params'
+    )
+    link_params = os.path.join(
+        bazel_output, 'x64_windows-dbg/bin/A_0.dll-2.params'
+    )
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertNotIn('/MDd', ''.join(stderr))
-    self.AssertFileContentNotContains(paramfile, '/DEFAULTLIB:msvcrtd.lib')
-    self.assertIn('/MTd', ''.join(stderr))
-    self.AssertFileContentContains(paramfile, '/DEFAULTLIB:libcmtd.lib')
+    self.AssertFileContentNotContains(compile_params, '/MDd')
+    self.AssertFileContentNotContains(link_params, '/DEFAULTLIB:msvcrtd.lib')
+    self.AssertFileContentContains(compile_params, '/MTd')
+    self.AssertFileContentContains(link_params, '/DEFAULTLIB:libcmtd.lib')
 
   def testBuildSharedLibraryFromCcBinaryWithStaticLink(self):
     self.createProjectFiles()
@@ -444,8 +460,8 @@ class BazelWindowsCppTest(test_base.TestBase):
             '  name = "main.dll",',
             '  srcs = ["main.cc"],',
             '  deps = ["//:B"],',  # Transitively depends on //:A
-            '  linkstatic = 1,'
-            '  linkshared = 1,'
+            '  linkstatic = 1,',
+            '  linkshared = 1,',
             '  features=["windows_export_all_symbols"]',
             ')',
         ])
@@ -479,8 +495,8 @@ class BazelWindowsCppTest(test_base.TestBase):
             '  name = "main.dll",',
             '  srcs = ["main.cc"],',
             '  deps = ["//:B"],',  # Transitively depends on //:A
-            '  linkstatic = 0,'
-            '  linkshared = 1,'
+            '  linkstatic = 0,',
+            '  linkshared = 1,',
             '  features=["windows_export_all_symbols"]',
             ')',
             '',
@@ -528,8 +544,8 @@ class BazelWindowsCppTest(test_base.TestBase):
             '  name = "main.dll",',
             '  srcs = ["main.cc"],',
             '  deps = ["//:B"],',  # Transitively depends on //:A
-            '  linkstatic = 1,'
-            '  linkshared = 1,'
+            '  linkstatic = 1,',
+            '  linkshared = 1,',
             ')',
         ])
     bazel_bin = self.getBazelInfo('bazel-bin')
@@ -681,7 +697,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  shared_library = "A.dll",',
         '  visibility = ["//:__subpackages__"],',
         ')',
-        ''
+        '',
         'filegroup(',
         '  name = "bin_src",',
         '  srcs = ["bin.cc"],',
@@ -1070,6 +1086,27 @@ class BazelWindowsCppTest(test_base.TestBase):
     ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('arm64\\cl.exe', ''.join(stderr))
+
+  def testLongCompileCommandLines(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '    name = "long",',
+            '    srcs = ["long.cc"],',
+            # Creates a command that is longer than 32767 characters, which is
+            # the maximum length of a command line on Windows.
+            '    includes = [str(i) + 450 * "a"  for i in range(120)],',
+            ')',
+        ],
+    )
+    self.ScratchFile('long.cc', ['int main() { return 0; }'])
+
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--verbose_failures', '//:long']
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
 
 
 if __name__ == '__main__':
