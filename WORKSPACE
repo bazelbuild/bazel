@@ -92,8 +92,8 @@ bind(
 
 dist_http_archive(
     name = "com_google_protobuf",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
 # This is a mock version of bazelbuild/rules_python that contains only
