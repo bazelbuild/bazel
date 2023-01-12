@@ -89,7 +89,7 @@ public final class Profiler {
     final ProfilerTask type;
 
     private SlowTask(TaskData taskData) {
-      this.durationNanos = taskData.duration;
+      this.durationNanos = taskData.durationNanos;
       this.description = taskData.description;
       this.type = taskData.type;
     }
@@ -131,20 +131,25 @@ public final class Profiler {
     final ProfilerTask type;
     final String description;
 
-    long duration;
+    long durationNanos;
 
-    TaskData(long startTimeNanos, ProfilerTask eventType, String description) {
+    TaskData(long startTimeNanos, long durationNanos, ProfilerTask eventType, String description) {
       this.threadId = Thread.currentThread().getId();
       this.startTimeNanos = startTimeNanos;
+      this.durationNanos = durationNanos;
       this.type = eventType;
       this.description = Preconditions.checkNotNull(description);
     }
 
-    TaskData(long threadId, long startTimeNanos, long duration, String description) {
+    TaskData(long startTimeNanos, ProfilerTask eventType, String description) {
+      this(startTimeNanos, /* durationNanos= */ -1, eventType, description);
+    }
+
+    TaskData(long threadId, long startTimeNanos, long durationNanos, String description) {
       this.type = ProfilerTask.UNKNOWN;
       this.threadId = threadId;
       this.startTimeNanos = startTimeNanos;
-      this.duration = duration;
+      this.durationNanos = durationNanos;
       this.description = description;
     }
 
@@ -156,7 +161,7 @@ public final class Profiler {
     @Override
     public void writeTraceData(JsonWriter jsonWriter, long profileStartTimeNanos)
         throws IOException {
-      String eventType = duration == 0 ? "i" : "X";
+      String eventType = durationNanos == 0 ? "i" : "X";
       jsonWriter.setIndent("  ");
       jsonWriter.beginObject();
       jsonWriter.setIndent("");
@@ -170,8 +175,8 @@ public final class Profiler {
       jsonWriter
           .name("ts")
           .value(TimeUnit.NANOSECONDS.toMicros(startTimeNanos - profileStartTimeNanos));
-      if (duration != 0) {
-        jsonWriter.name("dur").value(TimeUnit.NANOSECONDS.toMicros(duration));
+      if (durationNanos != 0) {
+        jsonWriter.name("dur").value(TimeUnit.NANOSECONDS.toMicros(durationNanos));
       }
       jsonWriter.name("pid").value(1);
 
@@ -221,12 +226,13 @@ public final class Profiler {
 
     ActionTaskData(
         long startTimeNanos,
+        long durationNanos,
         ProfilerTask eventType,
         @Nullable String mnemonic,
         String description,
         @Nullable String primaryOutputPath,
         @Nullable String targetLabel) {
-      super(startTimeNanos, eventType, description);
+      super(startTimeNanos, durationNanos, eventType, description);
       this.primaryOutputPath = primaryOutputPath;
       this.targetLabel = targetLabel;
       this.mnemonic = mnemonic;
@@ -619,7 +625,7 @@ public final class Profiler {
       JsonTraceFileWriter currentWriter = writerRef.get();
       if (wasTaskSlowEnoughToRecord(type, duration)) {
         TaskData data = new TaskData(startTimeNanos, type, description);
-        data.duration = duration;
+        data.durationNanos = duration;
         if (currentWriter != null) {
           currentWriter.enqueue(data);
         }
@@ -692,8 +698,8 @@ public final class Profiler {
   }
 
   private SilentCloseable reallyProfile(ProfilerTask type, String description) {
-    TaskData taskData = new TaskData(clock.nanoTime(), type, description);
-    return () -> completeTask(taskData);
+    final long startTimeNanos = clock.nanoTime();
+    return () -> completeTask(startTimeNanos, type, description);
   }
 
   /**
@@ -766,15 +772,15 @@ public final class Profiler {
       String targetLabel) {
     Preconditions.checkNotNull(description);
     if (isActive() && isProfiling(type)) {
-      TaskData taskData =
-          new ActionTaskData(
-              clock.nanoTime(),
+      final long startTimeNanos = clock.nanoTime();
+      return () ->
+          completeAction(
+              startTimeNanos,
               type,
-              mnemonic,
               description,
+              mnemonic,
               includePrimaryOutput ? primaryOutput : null,
               includeTargetLabel ? targetLabel : null);
-      return () -> completeTask(taskData);
     } else {
       return NOP;
     }
@@ -782,7 +788,7 @@ public final class Profiler {
 
   public SilentCloseable profileAction(
       ProfilerTask type, String description, String primaryOutput, String targetLabel) {
-    return profileAction(type, null, description, primaryOutput, targetLabel);
+    return profileAction(type, /* mnemonic= */ null, description, primaryOutput, targetLabel);
   }
 
   private static final SilentCloseable NOP = () -> {};
@@ -793,33 +799,57 @@ public final class Profiler {
   }
 
   /** Records the end of the task. */
-  private void completeTask(TaskData data) {
+  private void completeTask(long startTimeNanos, ProfilerTask type, String description) {
     if (isActive()) {
-      long endTime = clock.nanoTime();
-      data.duration = endTime - data.startTimeNanos;
-      boolean shouldRecordTask = wasTaskSlowEnoughToRecord(data.type, data.duration);
-      JsonTraceFileWriter writer = writerRef.get();
+      long endTimeNanos = clock.nanoTime();
+      long duration = endTimeNanos - startTimeNanos;
+      boolean shouldRecordTask = wasTaskSlowEnoughToRecord(type, duration);
       if (shouldRecordTask) {
-        if (writer != null) {
-          writer.enqueue(data);
-        }
-        if (actionCountTimeSeries != null && countAction(data.type, data)) {
-          synchronized (this) {
-            actionCountTimeSeries.addRange(
-                Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTime));
-          }
-        }
-        if (actionCacheCountTimeSeries != null && data.type == ProfilerTask.ACTION_CHECK) {
-          synchronized (this) {
-            actionCacheCountTimeSeries.addRange(
-                Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTime));
-          }
-        }
-        SlowestTaskAggregator aggregator = slowestTasks[data.type.ordinal()];
-        if (aggregator != null) {
-          aggregator.add(data);
-        }
+        recordTask(new TaskData(startTimeNanos, duration, type, description));
       }
+    }
+  }
+
+  private void completeAction(
+      long startTimeNanos,
+      ProfilerTask type,
+      String description,
+      String mnemonic,
+      @Nullable String primaryOutput,
+      @Nullable String targetLabel) {
+    if (isActive()) {
+      long endTimeNanos = clock.nanoTime();
+      long duration = endTimeNanos - startTimeNanos;
+      boolean shouldRecordTask = wasTaskSlowEnoughToRecord(type, duration);
+      if (shouldRecordTask) {
+        recordTask(
+            new ActionTaskData(
+                startTimeNanos, duration, type, mnemonic, description, primaryOutput, targetLabel));
+      }
+    }
+  }
+
+  private void recordTask(TaskData data) {
+    JsonTraceFileWriter writer = writerRef.get();
+    if (writer != null) {
+      writer.enqueue(data);
+    }
+    long endTimeNanos = data.startTimeNanos + data.durationNanos;
+    if (actionCountTimeSeries != null && countAction(data.type, data)) {
+      synchronized (this) {
+        actionCountTimeSeries.addRange(
+            Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
+      }
+    }
+    if (actionCacheCountTimeSeries != null && data.type == ProfilerTask.ACTION_CHECK) {
+      synchronized (this) {
+        actionCacheCountTimeSeries.addRange(
+            Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
+      }
+    }
+    SlowestTaskAggregator aggregator = slowestTasks[data.type.ordinal()];
+    if (aggregator != null) {
+      aggregator.add(data);
     }
   }
 
