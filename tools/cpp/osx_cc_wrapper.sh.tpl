@@ -27,8 +27,6 @@
 #
 set -eu
 
-INSTALL_NAME_TOOL="/usr/bin/install_name_tool"
-
 LIBS=
 LIB_DIRS=
 RPATHS=
@@ -110,7 +108,7 @@ for rpath in ${RPATHS}; do
         if [[ -n "${libname-}" ]]; then
             libpath=$(get_library_path ${lib})
             if [ -n "${libpath}" ]; then
-                ${INSTALL_NAME_TOOL} -change $(get_otool_path "${libpath}") \
+                /usr/bin/xcrun install_name_tool -change $(get_otool_path "${libpath}") \
                     "@loader_path/${rpath}/${libname}" "${OUTPUT}"
             fi
         fi
