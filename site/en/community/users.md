@@ -341,6 +341,12 @@ details about their process, see their [engineering blog](https://eng.snap.com/b
 Stripe provides mobile payment solutions.  They are the main maintainers of the
 [Bazel Scala rules](https://github.com/bazelbuild/rules_scala){: .external}.
 
+### [Tinder](https://tinder.com){: .external}
+<img src="https://policies.tinder.com/static/b0327365f4c0a31c4337157c10e9fadf/c1b63/tinder_full_color_watermark.png" width="150" align="right">
+
+Tinder migrated its iOS app from CocoaPods to Bazel
+in 2021 ([source](https://medium.com/tinder/bazel-hermetic-toolchain-and-tooling-migration-c244dc0d3ae){: .external}).
+
 ### [Tink](https://tink.com/){: .external}
 <img src="https://cdn.tink.se/tink-logos/LOW/Tink_Black.png" width="150" align="right">
 
