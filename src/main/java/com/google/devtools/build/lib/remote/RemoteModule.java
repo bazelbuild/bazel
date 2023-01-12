@@ -103,6 +103,7 @@ import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
+import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import java.io.IOException;
 import java.net.URI;
@@ -226,7 +227,11 @@ public final class RemoteModule extends BlazeModule {
             if (e instanceof ClosedChannelException) {
               retry = true;
             } else if (e instanceof HttpException) {
-              retry = true;
+              HttpResponseStatus status = ((HttpException) e).response().status();
+              retry = status == HttpResponseStatus.INTERNAL_SERVER_ERROR
+                  || status == HttpResponseStatus.BAD_GATEWAY
+                  || status == HttpResponseStatus.SERVICE_UNAVAILABLE
+                  || status == HttpResponseStatus.GATEWAY_TIMEOUT;
             } else if (e instanceof IOException) {
               String msg = e.getMessage().toLowerCase();
               if (msg.contains("connection reset by peer")) {
