@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
@@ -40,8 +41,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -69,10 +68,9 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       boolean keepGoing,
       DirtyTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
-      Supplier<ExecutorService> executorService,
+      QuiescingExecutor executor,
       CycleDetector cycleDetector,
-      int cpuHeavySkyKeysThreadPoolSize,
-      int executionJobsThreadPoolSize,
+      boolean mergingSkyframeAnalysisExecutionPhases,
       UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
     super(
         graph,
@@ -86,10 +84,9 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         keepGoing,
         progressReceiver,
         graphInconsistencyReceiver,
-        executorService,
+        executor,
         cycleDetector,
-        cpuHeavySkyKeysThreadPoolSize,
-        executionJobsThreadPoolSize);
+        mergingSkyframeAnalysisExecutionPhases);
     this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
   }
 

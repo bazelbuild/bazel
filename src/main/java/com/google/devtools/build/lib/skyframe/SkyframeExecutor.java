@@ -117,6 +117,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
@@ -1323,6 +1324,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       BuildLanguageOptions buildLanguageOptions,
       UUID commandId,
       Map<String, String> clientEnv,
+      QuiescingExecutors executors,
       TimestampGranularityMonitor tsgm) {
     Preconditions.checkNotNull(pkgLocator);
     Preconditions.checkNotNull(tsgm);
@@ -1350,7 +1352,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     setPackageLocator(pkgLocator);
 
     syscallCache.clear();
-    this.pkgFactory.setGlobbingThreads(packageOptions.globbingThreads);
+    this.pkgFactory.setGlobbingThreads(executors.globbingParallelism());
     this.pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
         packageOptions.maxDirectoriesToEagerlyVisitInGlobbing);
     emittedEventState.clear();
@@ -1492,7 +1494,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       EvaluationContext evaluationContext =
           newEvaluationContextBuilder()
               .setKeepGoing(options.getOptions(KeepGoingOption.class).keepGoing)
-              .setNumThreads(options.getOptions(BuildRequestOptions.class).jobs)
+              .setParallelism(options.getOptions(BuildRequestOptions.class).jobs)
               .setEventHandler(reporter)
               .setExecutionPhase()
               .build();
@@ -1627,7 +1629,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     EvaluationContext evaluationContext =
         newEvaluationContextBuilder()
             .setKeepGoing(keepGoing)
-            .setNumThreads(numThreads)
+            .setParallelism(numThreads)
             .setEventHandler(eventHandler)
             .build();
     return memoizingEvaluator.evaluate(patternSkyKeys, evaluationContext);
@@ -2186,19 +2188,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ImmutableList<ConfiguredTargetKey> configuredTargetKeys,
       ImmutableList<TopLevelAspectsKey> topLevelAspectKeys,
       boolean keepGoing,
-      int numThreads,
-      int cpuHeavySkyKeysThreadPoolSize)
+      QuiescingExecutors executors)
       throws InterruptedException {
     checkActive();
 
     eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
     EvaluationContext evaluationContext =
         newEvaluationContextBuilder()
+            .setParallelism(executors.analysisParallelism())
             .setKeepGoing(keepGoing)
-            .setNumThreads(numThreads)
-            .setExecutorServiceSupplier(
-                () -> NamedForkJoinPool.newNamedPool("skyframe-evaluator", numThreads))
-            .setCPUHeavySkyKeysThreadPoolSize(cpuHeavySkyKeysThreadPoolSize)
+            .setExecutor(executors.getAnalysisExecutor())
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<ActionLookupValue> result =
@@ -2278,9 +2277,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Set<BuildDriverKey> buildDriverCTKeys,
       Set<BuildDriverKey> buildDriverAspectKeys,
       boolean keepGoing,
-      int numThreads,
-      int cpuHeavySkyKeysThreadPoolSize,
-      int mergedPhasesExecutionJobsCount)
+      QuiescingExecutors executors)
       throws InterruptedException {
     checkActive();
     try {
@@ -2288,12 +2285,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       EvaluationContext evaluationContext =
           newEvaluationContextBuilder()
               .setKeepGoing(keepGoing)
-              .setNumThreads(numThreads)
-              .setExecutorServiceSupplier(
-                  () -> NamedForkJoinPool.newNamedPool("skyframe-evaluator", numThreads))
-              .setCPUHeavySkyKeysThreadPoolSize(cpuHeavySkyKeysThreadPoolSize)
-              .setExecutionPhaseThreadPoolSize(mergedPhasesExecutionJobsCount)
+              .setParallelism(executors.executionParallelism())
+              .setExecutor(executors.getMergedAnalysisAndExecutionExecutor())
               .setEventHandler(eventHandler)
+              .setMergingSkyframeAnalysisExecutionPhases(true)
               .build();
       return memoizingEvaluator.evaluate(
           Iterables.concat(buildDriverCTKeys, buildDriverAspectKeys), evaluationContext);
@@ -2709,6 +2704,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * early in the build.
    */
   @Nullable
+  @CanIgnoreReturnValue
   public WorkspaceInfoFromDiff sync(
       ExtendedEventHandler eventHandler,
       PathPackageLocator pathPackageLocator,
@@ -2716,6 +2712,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Map<String, String> clientEnv,
       Map<String, String> repoEnvOption,
       TimestampGranularityMonitor tsgm,
+      QuiescingExecutors executors,
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     getActionEnvFromOptions(options.getOptions(CoreOptions.class));
@@ -2723,7 +2720,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
     updateSkyFunctionsSemaphoreSize(options);
-    syncPackageLoading(pathPackageLocator, commandId, clientEnv, tsgm, options);
+    syncPackageLoading(pathPackageLocator, commandId, clientEnv, tsgm, executors, options);
 
     if (lastAnalysisDiscarded) {
       dropConfiguredTargetsNow(eventHandler);
@@ -2753,6 +2750,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,
+      QuiescingExecutors executors,
       OptionsProvider options)
       throws AbruptExitException {
     PackageOptions packageOptions = options.getOptions(PackageOptions.class);
@@ -2763,6 +2761,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           options.getOptions(BuildLanguageOptions.class),
           commandId,
           clientEnv,
+          executors,
           tsgm);
     }
     try (SilentCloseable c = Profiler.instance().profile("setDeletedPackages")) {
@@ -3331,7 +3330,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     EvaluationContext evaluationContext =
         newEvaluationContextBuilder()
             .setKeepGoing(keepGoing)
-            .setNumThreads(numThreads)
+            .setParallelism(numThreads)
             .setEventHandler(eventHandler)
             .build();
     return memoizingEvaluator.evaluate(roots, evaluationContext);

@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -259,6 +260,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Map<String, String> clientEnv,
       Map<String, String> repoEnvOption,
       TimestampGranularityMonitor tsgm,
+      QuiescingExecutors executors,
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     if (evaluatorNeedsReset) {
@@ -278,7 +280,15 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       resetEvaluator();
       evaluatorNeedsReset = false;
     }
-    super.sync(eventHandler, packageLocator, commandId, clientEnv, repoEnvOption, tsgm, options);
+    super.sync(
+        eventHandler,
+        packageLocator,
+        commandId,
+        clientEnv,
+        repoEnvOption,
+        tsgm,
+        executors,
+        options);
     long startTime = System.nanoTime();
     WorkspaceInfoFromDiff workspaceInfo = handleDiffs(eventHandler, options);
     long stopTime = System.nanoTime();
@@ -489,7 +499,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       EvaluationContext evaluationContext =
           newEvaluationContextBuilder()
               .setKeepGoing(false)
-              .setNumThreads(DEFAULT_THREAD_COUNT)
+              .setParallelism(DEFAULT_THREAD_COUNT)
               .setEventHandler(eventHandler)
               .build();
       memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);
@@ -907,7 +917,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             EvaluationContext evaluationContext =
                 newEvaluationContextBuilder()
                     .setKeepGoing(false)
-                    .setNumThreads(ResourceUsage.getAvailableProcessors())
+                    .setParallelism(ResourceUsage.getAvailableProcessors())
                     .setEventHandler(eventHandler)
                     .build();
             memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);

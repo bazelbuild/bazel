@@ -21,7 +21,6 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor.ThreadPoolType;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
@@ -42,24 +41,6 @@ import javax.annotation.Nullable;
  * track of pending nodes.
  */
 class NodeEntryVisitor {
-  static final ErrorClassifier NODE_ENTRY_VISITOR_ERROR_CLASSIFIER =
-      new ErrorClassifier() {
-        @Override
-        protected ErrorClassification classifyException(Exception e) {
-          if (e instanceof SchedulerException) {
-            return ErrorClassification.CRITICAL;
-          }
-          if (e instanceof RuntimeException) {
-            // We treat non-SchedulerException RuntimeExceptions as more severe than
-            // SchedulerExceptions so that AbstractQueueVisitor will propagate instances of the
-            // former. They indicate actual Blaze bugs, rather than normal Skyframe evaluation
-            // control flow.
-            return ErrorClassification.CRITICAL_AND_LOG;
-          }
-          return ErrorClassification.NOT_CRITICAL;
-        }
-      };
-
   private final QuiescingExecutor quiescingExecutor;
   private final AtomicBoolean preventNewEvaluations = new AtomicBoolean(false);
   private final Set<RuntimeException> crashes = Sets.newConcurrentHashSet();

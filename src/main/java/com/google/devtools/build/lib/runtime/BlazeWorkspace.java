@@ -64,6 +64,7 @@ public final class BlazeWorkspace {
   private final BlazeDirectories directories;
   private final SkyframeExecutor skyframeExecutor;
   private final SyscallCache syscallCache;
+  private final QuiescingExecutorsImpl quiescingExecutors;
 
   /**
    * Loaded lazily on the first build command that enables the action cache. Cleared on a build
@@ -94,6 +95,7 @@ public final class BlazeWorkspace {
     this.directories = directories;
     this.skyframeExecutor = skyframeExecutor;
     this.syscallCache = syscallCache;
+    this.quiescingExecutors = QuiescingExecutorsImpl.createDefault();
 
     if (directories.inWorkspace()) {
       writeOutputBaseReadmeFile();
@@ -203,6 +205,7 @@ public final class BlazeWorkspace {
       long commandStartTime,
       List<Any> commandExtensions,
       Consumer<String> shutdownReasonConsumer) {
+    quiescingExecutors.resetParameters(options);
     CommandEnvironment env =
         new CommandEnvironment(
             runtime,
@@ -212,6 +215,7 @@ public final class BlazeWorkspace {
             command,
             options,
             syscallCache,
+            quiescingExecutors,
             warnings,
             waitTimeInMs,
             commandStartTime,

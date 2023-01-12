@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.testing.common.FakeOptions;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -311,9 +312,10 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         reporter,
         pathPackageLocator,
         UUID.randomUUID(),
-        /*clientEnv=*/ ImmutableMap.of(),
-        /*repoEnvOption=*/ ImmutableMap.of(),
+        /* clientEnv= */ ImmutableMap.of(),
+        /* repoEnvOption= */ ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()),
+        QuiescingExecutorsImpl.forTesting(),
         FakeOptions.builder().put(packageOptions).putDefaults(BuildLanguageOptions.class).build());
     evaluator = skyframeExecutor.getEvaluator();
   }
@@ -340,7 +342,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            .setNumThreads(1)
+            .setParallelism(1)
             .setEventHandler(new Reporter(new EventBus(), reporter))
             .build();
     return evaluator.evaluate(ImmutableList.of(key), evaluationContext);

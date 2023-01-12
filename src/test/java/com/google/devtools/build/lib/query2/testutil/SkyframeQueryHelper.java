@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.PackageValue;
@@ -333,6 +334,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
           ImmutableMap.of(),
           ImmutableMap.of(),
           new TimestampGranularityMonitor(BlazeClock.instance()),
+          QuiescingExecutorsImpl.forTesting(),
           FakeOptions.builder().put(packageOptions).put(buildLanguageOptions).build());
     } catch (InterruptedException | AbruptExitException e) {
       throw new IllegalStateException(e);

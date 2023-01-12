@@ -144,7 +144,7 @@ public class QueryTransitivePackagePreloader {
         evaluationContextBuilderSupplier
             .get()
             .setKeepGoing(keepGoing)
-            .setNumThreads(parallelThreads)
+            .setParallelism(parallelThreads)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<SkyValue> result =

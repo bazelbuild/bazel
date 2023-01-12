@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
+import static com.google.devtools.build.lib.concurrent.NamedForkJoinPool.newNamedPool;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -158,7 +160,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   }
 
   public static ExecutorService createExecutorService(int parallelism, String poolName) {
-    return new NamedForkJoinPool(poolName, parallelism);
+    return NamedForkJoinPool.newNamedPool(poolName, parallelism);
   }
 
   public static AbstractQueueVisitor createWithExecutorService(
@@ -172,6 +174,14 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
           .build();
     }
     return new AbstractQueueVisitor(executorService, true, failFastOnException, errorClassifier);
+  }
+
+  public static AbstractQueueVisitor create(
+      String name, int parallelism, ErrorClassifier errorClassifier) {
+    return createWithExecutorService(
+        newNamedPool(name, parallelism),
+        /* failFastOnException= */ false, // Not actually used.
+        errorClassifier);
   }
 
   /**

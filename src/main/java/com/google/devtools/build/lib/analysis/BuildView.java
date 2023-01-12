@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -209,20 +210,23 @@ public class BuildView {
       AnalysisOptions viewOptions,
       boolean keepGoing,
       boolean checkForActionConflicts,
-      int loadingPhaseThreads,
+      QuiescingExecutors executors,
       TopLevelArtifactContext topLevelOptions,
       boolean reportIncompatibleTargets,
       ExtendedEventHandler eventHandler,
       EventBus eventBus,
       BugReporter bugReporter,
       boolean includeExecutionPhase,
-      int mergedPhasesExecutionJobsCount,
       @Nullable ResourceManager resourceManager,
       @Nullable BuildResultListener buildResultListener,
       @Nullable ExecutionSetup executionSetupCallback,
       @Nullable BuildConfigurationsCreated buildConfigurationsCreatedCallback)
-      throws ViewCreationFailedException, InvalidConfigurationException, InterruptedException,
-          BuildFailedException, TestExecException, AbruptExitException {
+      throws ViewCreationFailedException,
+          InvalidConfigurationException,
+          InterruptedException,
+          BuildFailedException,
+          TestExecException,
+          AbruptExitException {
     logger.atInfo().log("Starting analysis");
     pollInterruptedStatus();
 
@@ -420,9 +424,7 @@ public class BuildView {
                 keepGoing,
                 viewOptions.strictConflictChecks,
                 checkForActionConflicts,
-                loadingPhaseThreads,
-                viewOptions.cpuHeavySkyKeysThreadPoolSize,
-                mergedPhasesExecutionJobsCount,
+                executors,
                 /* shouldDiscardAnalysisCache= */ viewOptions.discardAnalysisCache
                     || !skyframeExecutor.tracksStateForIncrementality());
       } else {
@@ -436,10 +438,9 @@ public class BuildView {
                 eventBus,
                 bugReporter,
                 keepGoing,
-                loadingPhaseThreads,
+                executors,
                 viewOptions.strictConflictChecks,
-                checkForActionConflicts,
-                viewOptions.cpuHeavySkyKeysThreadPoolSize);
+                checkForActionConflicts);
         setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
       }
     } finally {

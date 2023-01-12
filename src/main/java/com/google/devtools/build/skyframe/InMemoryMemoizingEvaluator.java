@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -158,7 +159,6 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
       throws InterruptedException {
     // NOTE: Performance critical code. See bug "Null build performance parity".
     IntVersion graphVersion = lastGraphVersion == null ? IntVersion.of(0) : lastGraphVersion.next();
-    evaluationContext = ensureExecutorService(evaluationContext);
     setAndCheckEvaluateState(true, roots);
     try {
       // Mark for removal any inflight nodes from the previous evaluation.
@@ -195,10 +195,16 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
                 evaluationContext.getKeepGoing(),
                 progressReceiver,
                 graphInconsistencyReceiver,
-                evaluationContext.getExecutorServiceSupplier().get(),
+                evaluationContext
+                    .getExecutor()
+                    .orElseGet(
+                        () ->
+                            AbstractQueueVisitor.create(
+                                "skyframe-evaluator",
+                                evaluationContext.getParallelism(),
+                                ParallelEvaluatorErrorClassifier.instance())),
                 new SimpleCycleDetector(),
-                evaluationContext.getCPUHeavySkyKeysThreadPoolSize(),
-                evaluationContext.getExecutionPhaseThreadPoolSize(),
+                evaluationContext.mergingSkyframeAnalysisExecutionPhases(),
                 evaluationContext.getUnnecessaryTemporaryStateDropperReceiver());
         result = evaluator.eval(roots);
       }
@@ -210,19 +216,6 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
       lastGraphVersion = graphVersion;
       setAndCheckEvaluateState(false, roots);
     }
-  }
-
-  private static EvaluationContext ensureExecutorService(EvaluationContext evaluationContext) {
-    return evaluationContext.getExecutorServiceSupplier().isPresent()
-        ? evaluationContext
-        : evaluationContext
-            .builder()
-            .setNumThreads(evaluationContext.getParallelism())
-            .setExecutorServiceSupplier(
-                () ->
-                    AbstractQueueVisitor.createExecutorService(
-                        evaluationContext.getParallelism(), "skyframe-evaluator"))
-            .build();
   }
 
   /**
