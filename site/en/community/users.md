@@ -253,7 +253,7 @@ network. LinkedIn uses Bazel for building its iOS Apps.
 
 ### [Lyft](https://www.lyft.com/){: .external}
 
-Lyft is using Bazel for their iOS Apps ([source](https://twitter.com/SmileyKeith/status/1116486751806033920)).
+Lyft is using Bazel for their iOS ([source](https://twitter.com/SmileyKeith/status/1116486751806033920)) and Android Apps.
 
 ### [Makani](https://www.google.com/makani){: .external}
 Makani, now a Google subsidiary, develops energy kites and uses Bazel to build
