@@ -1506,7 +1506,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           newEvaluationContextBuilder()
               .setKeepGoing(options.getOptions(KeepGoingOption.class).keepGoing)
               .setNumThreads(options.getOptions(BuildRequestOptions.class).jobs)
-              .setUseForkJoinPool(options.getOptions(BuildRequestOptions.class).useForkJoinPool)
               .setEventHandler(reporter)
               .setExecutionPhase()
               .build();
@@ -1643,7 +1642,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             .setKeepGoing(keepGoing)
             .setNumThreads(numThreads)
             .setEventHandler(eventHandler)
-            .setUseForkJoinPool(true)
             .build();
     return memoizingEvaluator.evaluate(patternSkyKeys, evaluationContext);
   }
