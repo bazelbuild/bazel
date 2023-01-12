@@ -29,7 +29,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -147,9 +146,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       BlockingQueue<Runnable> workQueue,
       String poolName) {
 
-    if ("1".equals(System.getProperty("experimental_use_fork_join_pool"))) {
-      return new NamedForkJoinPool(poolName, parallelism);
-    }
     return new ThreadPoolExecutor(
         /*corePoolSize=*/ parallelism,
         /*maximumPoolSize=*/ parallelism,
@@ -161,21 +157,8 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
             .build());
   }
 
-  public static ExecutorService createExecutorService(
-      int parallelism, String poolName, boolean useForkJoinPool) {
-    if (useForkJoinPool) {
-      return new NamedForkJoinPool(poolName, parallelism);
-    }
-    return createExecutorService(parallelism, poolName);
-  }
-
   public static ExecutorService createExecutorService(int parallelism, String poolName) {
-    return createExecutorService(
-        parallelism,
-        /*keepAliveTime=*/ 1,
-        TimeUnit.SECONDS,
-        new PriorityBlockingQueue<>(),
-        poolName);
+    return new NamedForkJoinPool(poolName, parallelism);
   }
 
   public static AbstractQueueVisitor createWithExecutorService(
