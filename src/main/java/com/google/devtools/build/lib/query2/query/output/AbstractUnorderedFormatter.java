@@ -57,10 +57,15 @@ abstract class AbstractUnorderedFormatter extends OutputFormatter implements Str
   }
 
   protected Iterable<Target> getOrderedTargets(Digraph<Target> result, QueryOptions options) {
-    Iterable<Node<Target>> orderedResult =
-        options.orderOutput == OrderOutput.DEPS
-            ? result.getTopologicalOrder()
-            : result.getTopologicalOrder(new FormatUtils.TargetOrdering());
-    return Iterables.transform(orderedResult, Node::getLabel);
+    if (options.orderOutput == OrderOutput.FULL) {
+      // Get targets in total order, the difference here from topological ordering is the sorting of
+      // nodes before post-order visitation (which ensures determinism at a time cost).
+      return Iterables.transform(
+          result.getTopologicalOrder(new FormatUtils.TargetOrdering()), Node::getLabel);
+    } else if (options.orderOutput == OrderOutput.DEPS) {
+      // Get targets in topological order.
+      return Iterables.transform(result.getTopologicalOrder(), Node::getLabel);
+    }
+    return result.getLabels();
   }
 }
