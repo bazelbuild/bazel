@@ -238,6 +238,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
     env.addTo(fp);
     fp.addStringMap(executionInfo);
+    fp.addBoolean(stripOutputPaths());
   }
 
   /**
