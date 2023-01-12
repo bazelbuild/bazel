@@ -57,6 +57,7 @@ public final class StructProvider extends BuiltinProvider<StarlarkInfo>
    * ctx.attr}.
    */
   public StarlarkInfo create(Map<String, Object> fields, String errorMessageFormatForUnknownField) {
-    return StarlarkInfo.createWithCustomMessage(this, fields, errorMessageFormatForUnknownField);
+    return StarlarkInfoWithMessage.createWithCustomMessage(
+        this, fields, errorMessageFormatForUnknownField);
   }
 }
