@@ -946,6 +946,7 @@ public final class RemoteModule extends BlazeModule {
       Preconditions.checkNotNull(patternsToDownload, "patternsToDownload must not be null");
       actionInputFetcher =
           new RemoteActionInputFetcher(
+              env.getReporter(),
               env.getBuildRequestId(),
               env.getCommandId().toString(),
               actionContextProvider.getRemoteCache(),

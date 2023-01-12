@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
@@ -26,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -37,6 +39,9 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
@@ -64,6 +69,7 @@ import java.util.regex.Pattern;
 public abstract class AbstractActionInputPrefetcher implements ActionInputPrefetcher {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  private final Reporter reporter;
   private final AsyncTaskCache.NoResult<Path> downloadCache = AsyncTaskCache.NoResult.create();
   private final TempPathGenerator tempPathGenerator;
   private final OutputPermissions outputPermissions;
@@ -111,10 +117,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   protected AbstractActionInputPrefetcher(
+      Reporter reporter,
       Path execRoot,
       TempPathGenerator tempPathGenerator,
       ImmutableList<Pattern> patternsToDownload,
       OutputPermissions outputPermissions) {
+    this.reporter = reporter;
     this.execRoot = execRoot;
     this.tempPathGenerator = tempPathGenerator;
     this.patternsToDownload = patternsToDownload;
@@ -550,6 +558,19 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
   }
 
+  /** Event which is fired when inputs for local action are eagerly prefetched. */
+  public static class InputsEagerlyPrefetched implements Postable {
+    private final List<Artifact> artifacts;
+
+    public InputsEagerlyPrefetched(List<Artifact> artifacts) {
+      this.artifacts = artifacts;
+    }
+
+    public List<Artifact> getArtifacts() {
+      return artifacts;
+    }
+  }
+
   @SuppressWarnings({"CheckReturnValue", "FutureReturnValueIgnored"})
   public void finalizeAction(Action action, MetadataHandler metadataHandler) {
     List<Artifact> inputsToDownload = new ArrayList<>();
@@ -557,10 +578,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     for (Artifact output : action.getOutputs()) {
       if (outputsAreInputs.remove(output)) {
-        inputsToDownload.add(output);
-      }
-
-      if (output.isTreeArtifact()) {
+        if (output.isTreeArtifact()) {
+          var children = metadataHandler.getTreeArtifactChildren((SpecialArtifact) output);
+          inputsToDownload.addAll(children);
+        } else {
+          inputsToDownload.add(output);
+        }
+      } else if (output.isTreeArtifact()) {
         var children = metadataHandler.getTreeArtifactChildren((SpecialArtifact) output);
         for (var file : children) {
           if (outputMatchesPattern(file)) {
@@ -573,11 +597,42 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     if (!inputsToDownload.isEmpty()) {
-      prefetchFiles(inputsToDownload, metadataHandler, Priority.HIGH);
+      var future = prefetchFiles(inputsToDownload, metadataHandler, Priority.HIGH);
+      addCallback(
+          future,
+          new FutureCallback<Void>() {
+            @Override
+            public void onSuccess(Void unused) {
+              reporter.post(new InputsEagerlyPrefetched(inputsToDownload));
+            }
+
+            @Override
+            public void onFailure(Throwable throwable) {
+              reporter.handle(
+                  Event.warn(
+                      String.format(
+                          "Failed to eagerly prefetch inputs: %s", throwable.getMessage())));
+            }
+          },
+          directExecutor());
     }
 
     if (!outputsToDownload.isEmpty()) {
-      prefetchFiles(outputsToDownload, metadataHandler, Priority.LOW);
+      var future = prefetchFiles(outputsToDownload, metadataHandler, Priority.LOW);
+      addCallback(
+          future,
+          new FutureCallback<Void>() {
+            @Override
+            public void onSuccess(Void unused) {}
+
+            @Override
+            public void onFailure(Throwable throwable) {
+              reporter.handle(
+                  Event.warn(
+                      String.format("Failed to download outputs: %s", throwable.getMessage())));
+            }
+          },
+          directExecutor());
     }
   }
 
