@@ -49,6 +49,7 @@ def cc_autoconf_toolchains_impl(repository_ctx):
 
     # Should we unconditionally *not* use xcode? If so, we don't have to run Xcode locator ever.
     should_use_cpp_only_toolchain = "BAZEL_USE_CPP_ONLY_TOOLCHAIN" in env and env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] == "1"
+    should_use_cpp_only_toolchain = True
 
     # Should we unconditionally use xcode? If so, we don't have to run Xcode locator now.
     should_use_xcode = "BAZEL_USE_XCODE_TOOLCHAIN" in env and env["BAZEL_USE_XCODE_TOOLCHAIN"] == "1"
