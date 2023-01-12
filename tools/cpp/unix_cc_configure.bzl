@@ -633,7 +633,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                 ],
             ),
             "%{opt_link_flags}": get_starlark_list(
-                [] if darwin else _add_linker_option_if_supported(
+                ["-Wl,-dead_strip"] if darwin else _add_linker_option_if_supported(
                     repository_ctx,
                     cc,
                     "-Wl,--gc-sections",
