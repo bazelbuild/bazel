@@ -87,8 +87,10 @@ import net.starlark.java.eval.Starlark;
  *       validation, will also have null generating Actions.
  * </ul>
  *
- * In the usual case, an Artifact represents a single file. However, an Artifact may also represent
- * the following:
+ * <p>See {@link ArtifactRoot} for a detailed example on root, execRoot, and related paths.
+ *
+ * <p>In the usual case, an Artifact represents a single file. However, an Artifact may also
+ * represent the following:
  *
  * <ul>
  *   <li>A TreeArtifact, which is a directory containing a tree of unknown {@link Artifact}s. In the
