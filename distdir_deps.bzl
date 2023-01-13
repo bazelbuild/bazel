@@ -414,7 +414,7 @@ DIST_DEPS = {
             "remote_java_tools_windows_for_testing",
         ],
         "archive": "java_tools_windows-v11.10-rc2.zip",
-        "sha256": "8a01eea40cd65a135a6390e27ffd1a9458bc6c879c8f2bb7067d1607742e5b58,
+        "sha256": "8a01eea40cd65a135a6390e27ffd1a9458bc6c879c8f2bb7067d1607742e5b58",
         "urls": [
             "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.10/java_tools_windows-v11.10-rc2.zip",        
         ],
