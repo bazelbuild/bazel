@@ -95,6 +95,7 @@ public class ApiExporter {
       Builtins.Builder builtins,
       Map<String, Object> globals,
       Map<String, StarlarkMethodDoc> globalToDoc,
+      Map<String, StarlarkBuiltinDoc> types,
       ApiContext context) {
     for (Entry<String, Object> entry : globals.entrySet()) {
       String name = entry.getKey();
@@ -120,6 +121,14 @@ public class ApiExporter {
             // selfCallMethod may be from a subclass of the annotated method.
             StarlarkMethod annotation = StarlarkAnnotations.getStarlarkMethod(selfCallMethod);
             value = valueFromAnnotation(annotation);
+            // For constructors, we can also set the return type.
+            StarlarkBuiltinDoc doc = types.get(entry.getKey());
+            if (doc != null) {
+              StarlarkConstructorMethodDoc constructor = doc.getConstructor();
+              if (constructor != null && value.hasCallable()) {
+                value.getCallableBuilder().setReturnType(constructor.getReturnType());
+              }
+            }
           } else {
             value.setName(name);
             // TODO(b/255647089): We should use the type module's type here, since it will more
@@ -344,9 +353,10 @@ public class ApiExporter {
               options.provider,
               options.inputDirs,
               options.denylist);
+      Map<String, StarlarkBuiltinDoc> types = symbols.getTypes();
       Builtins.Builder builtins = Builtins.newBuilder();
 
-      StarlarkBuiltinDoc globals = symbols.getTypes().get("globals");
+      StarlarkBuiltinDoc globals = types.get("globals");
       Map<String, StarlarkMethodDoc> globalToDoc = new HashMap<>();
       if (globals != null) {
         for (StarlarkMethodDoc meth : globals.getJavaMethods()) {
@@ -354,9 +364,9 @@ public class ApiExporter {
         }
       }
 
-      appendTypes(builtins, symbols.getTypes(), symbols.getNativeRules());
-      appendGlobals(builtins, symbols.getGlobals(), globalToDoc, ApiContext.ALL);
-      appendGlobals(builtins, symbols.getBzlGlobals(), globalToDoc, ApiContext.BZL);
+      appendTypes(builtins, types, symbols.getNativeRules());
+      appendGlobals(builtins, symbols.getGlobals(), globalToDoc, types, ApiContext.ALL);
+      appendGlobals(builtins, symbols.getBzlGlobals(), globalToDoc, types, ApiContext.BZL);
       appendNativeRules(builtins, symbols.getNativeRules());
       writeBuiltins(options.outputFile, builtins);
 
