@@ -722,7 +722,6 @@ public final class Profiler {
    * @param description task description. May be stored until the end of the build.
    */
   public SilentCloseable profile(ProfilerTask type, String description) {
-    Preconditions.checkNotNull(description);
     return (isActive() && isProfiling(type)) ? reallyProfile(type, description) : NOP;
   }
 
@@ -731,9 +730,7 @@ public final class Profiler {
    * profiling.
    */
   public SilentCloseable profile(ProfilerTask type, Supplier<String> description) {
-    return (isActive() && isProfiling(type))
-        ? reallyProfile(type, Preconditions.checkNotNull(description.get()))
-        : NOP;
+    return (isActive() && isProfiling(type)) ? reallyProfile(type, description.get()) : NOP;
   }
 
   /**
