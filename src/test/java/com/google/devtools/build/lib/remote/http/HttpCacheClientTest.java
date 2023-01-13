@@ -26,6 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.auth.Credentials;
 import com.google.common.base.Charsets;
@@ -37,6 +38,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.Retrier;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -77,6 +79,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.function.IntFunction;
 import javax.annotation.Nullable;
+
+import io.netty.handler.codec.protobuf.ProtobufEncoder;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -604,6 +608,66 @@ public class HttpCacheClientTest {
           blobStore.downloadBlob(
               remoteActionExecutionContext, DIGEST, download));
       assertArrayEquals("File Contents".getBytes(Charsets.US_ASCII), download.toByteArray());
+    } finally {
+      testServer.stop(server);
+    }
+  }
+
+  @Test
+  public void actionResultRetryReadsFromStart() throws Exception {
+    ServerChannel server = null;
+    try {
+      ActionResult.Builder builder1 = ActionResult.newBuilder();
+      builder1
+          .addOutputFilesBuilder()
+          .setPath("attempt1/filename")
+          .setDigest(DIGEST_UTIL.computeAsUtf8("digest1"))
+          .setIsExecutable(true);
+      ActionResult action1 = builder1.build();
+      ByteArrayOutputStream buffer1 = new ByteArrayOutputStream();
+      action1.writeTo(buffer1);
+      int splitAt = buffer1.size() / 2;
+      ByteBuf chunk1 = Unpooled.copiedBuffer(buffer1.toByteArray(), 0, splitAt);
+
+      // Replace first chunk to test that the client starts a fresh ActionResult download on retry.
+      ActionResult.Builder builder2 = ActionResult.newBuilder();
+      builder2
+          .addOutputFilesBuilder()
+          .setPath("attempt2/filename")
+          .setDigest(DIGEST_UTIL.computeAsUtf8("digest2"))
+          .setIsExecutable(false);
+      ActionResult action2 = builder2.build();
+      ByteArrayOutputStream buffer2 = new ByteArrayOutputStream();
+      action2.writeTo(buffer2);
+      ByteBuf chunk1_attempt2 = Unpooled.copiedBuffer(buffer2.toByteArray(), 0, splitAt);
+      ByteBuf chunk2 = Unpooled.copiedBuffer(buffer2.toByteArray(), splitAt, buffer2.size() - splitAt);
+
+      server = testServer.start(new IntermittentFailureHandler(chunk1, chunk1_attempt2, chunk2));
+      Credentials credentials = newCredentials();
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+
+      ListeningScheduledExecutorService retryScheduler =
+              MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+      RemoteRetrier retrier = new RemoteRetrier(
+              () -> new Retrier.ZeroBackoff(1),
+              (e) -> {
+                return e instanceof ClosedChannelException;
+              },
+              retryScheduler,
+              Retrier.ALLOW_ALL_CALLS);
+      HttpCacheClient blobStore =
+          createHttpBlobStore(
+              server,
+              /* timeoutSeconds= */ 1,
+              /* remoteVerifyDownloads= */ false,
+              credentials,
+              authAndTlsOptions,
+              Optional.of(retrier));
+
+      RemoteCacheClient.CachedActionResult download = getFromFuture(
+          blobStore.downloadActionResult(
+              remoteActionExecutionContext, new RemoteCacheClient.ActionKey(DIGEST), false));
+      assertThat(download.actionResult()).isEqualTo(action2);
     } finally {
       testServer.stop(server);
     }
