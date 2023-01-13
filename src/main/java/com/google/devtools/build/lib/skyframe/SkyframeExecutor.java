@@ -667,7 +667,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               }
 
               @Override
-              public void registerConflictFreeKeys(ImmutableSet<ActionLookupKey> keys) {
+              public void registerConflictFreeKeys(ImmutableSet<SkyKey> keys) {
                 getConflictFreeActionLookupKeysGlobalSet().addAll(keys);
               }
             },
