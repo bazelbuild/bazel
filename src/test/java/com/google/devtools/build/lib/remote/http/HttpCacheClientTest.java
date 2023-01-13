@@ -574,8 +574,10 @@ public class HttpCacheClientTest {
     ServerChannel server = null;
     try {
       ByteBuf chunk1 = Unpooled.wrappedBuffer("File ".getBytes(Charsets.US_ASCII));
+      // Replace first chunk to test that the client skips the redundant prefix on retry.
+      ByteBuf chunk1_attempt2 = Unpooled.wrappedBuffer("abcde".getBytes(Charsets.US_ASCII));
       ByteBuf chunk2 = Unpooled.wrappedBuffer("Contents".getBytes(Charsets.US_ASCII));
-      server = testServer.start(new IntermittentFailureHandler(chunk1, chunk2));
+      server = testServer.start(new IntermittentFailureHandler(chunk1, chunk1_attempt2, chunk2));
       Credentials credentials = newCredentials();
       AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
 
