@@ -383,10 +383,10 @@ DIST_DEPS = {
             "remote_java_tools_test",
             "remote_java_tools_for_testing",
         ],
-        "archive": "java_tools-v11.10-rc1.zip",
-        "sha256": "52b0890c1a13e24a7633b8f256ea413c32f95b659e38d344826949f33f1ef5dd",
+        "archive": "java_tools-v11.10-rc2.zip",
+        "sha256": "9ad29ed46cb8f01089a79e7e53759e8342877514bfcfa63ad589a378759ccfcf",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.10/java_tools-v11.10-rc1.zip",
+            "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.10/java_tools-v11.10-rc2.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
@@ -398,10 +398,10 @@ DIST_DEPS = {
             "remote_java_tools_test_linux",
             "remote_java_tools_linux_for_testing",
         ],
-        "archive": "java_tools_linux-v11.10-rc1.zip",
-        "sha256": "df5437f5c4abdd48b54ce007d004ab0500196fe0180defe511dc02f419340e22",
+        "archive": "java_tools_linux-v11.10-rc2.zip",
+        "sha256": "1c246dcb2ec5d0531933d60d146016d7d4535513a8a58690925478f8420fadad",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.10/java_tools_linux-v11.10-rc1.zip",
+            "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.10/java_tools_linux-v11.10-rc2.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
@@ -413,10 +413,10 @@ DIST_DEPS = {
             "remote_java_tools_test_windows",
             "remote_java_tools_windows_for_testing",
         ],
-        "archive": "java_tools_windows-v11.10-rc1.zip",
-        "sha256": "fe8c88e06e0a2b59cbd80c768869562a6a5d4ceda7945943711368b3ab6681e1",
+        "archive": "java_tools_windows-v11.10-rc2.zip",
+        "sha256": "8a01eea40cd65a135a6390e27ffd1a9458bc6c879c8f2bb7067d1607742e5b58,
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.10/java_tools_windows-v11.10-rc1.zip",        
+            "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.10/java_tools_windows-v11.10-rc2.zip",        
         ],
         "used_in": [
             "test_WORKSPACE_files",
@@ -428,10 +428,10 @@ DIST_DEPS = {
             "remote_java_tools_test_darwin",
             "remote_java_tools_darwin_for_testing",
         ],
-        "archive": "java_tools_darwin-v11.10-rc1.zip",
-        "sha256": "58b9dd2c929906fe0a47c3e6f3f08d1cc2d95cf77e5240437a32dd69ed419065",
+        "archive": "java_tools_darwin-v11.10-rc2.zip",
+        "sha256": "94f52501197603fc229f485ac5aefeaf3c86e1fd5aee8a0aaad75da2f3e64158",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.10/java_tools_darwin-v11.10-rc1.zip",          
+            "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.10/java_tools_darwin-v11.10-rc2.zip",          
         ],
         "used_in": [
             "test_WORKSPACE_files",
