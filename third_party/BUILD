@@ -522,24 +522,6 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-distrib_java_import(
-    name = "opencensus-api",
-    enable_distributions = ["debian"],
-    jars = [
-        "opencensus/opencensus-api-0.24.0.jar",
-        "opencensus/opencensus-contrib-grpc-metrics-0.24.0.jar",
-        "opencensus/opencensus-contrib-http-util-0.31.0.jar",
-    ],
-)
-
-distrib_java_import(
-    name = "perfmark-api",
-    enable_distributions = ["debian"],
-    jars = [
-        "perfmark/perfmark-api-0.19.0.jar",
-    ],
-)
-
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "guava-jars",
@@ -629,11 +611,11 @@ UNNECESSARY_DYNAMIC_LIBRARIES = select({
 genrule(
     name = "filter_netty_dynamic_libs",
     srcs = select({
-        "//src/conditions:darwin_arm64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-osx-aarch_64.jar"],
-        "//src/conditions:darwin_x86_64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-osx-x86_64.jar"],
-        "//src/conditions:linux_aarch64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-linux-aarch_64.jar"],
-        "//src/conditions:linux_x86_64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-linux-x86_64.jar"],
-        "//src/conditions:windows": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-windows-x86_64.jar"],
+        "//src/conditions:darwin_arm64": ["@maven//:io_netty_netty_tcnative_boringssl_static_osx_aarch_64_file"],
+        "//src/conditions:darwin_x86_64": ["@maven//:io_netty_netty_tcnative_boringssl_static_osx_x86_64_file"],
+        "//src/conditions:linux_aarch64": ["@maven//:io_netty_netty_tcnative_boringssl_static_linux_aarch_64_file"],
+        "//src/conditions:linux_x86_64": ["@maven//:io_netty_netty_tcnative_boringssl_static_linux_x86_64_file"],
+        "//src/conditions:windows": ["@maven//:io_netty_netty_tcnative_boringssl_static_windows_x86_64_file"],
         "//conditions:default": [],
     }),
     outs = ["netty_tcnative/netty-tcnative-filtered.jar"],
@@ -647,32 +629,32 @@ distrib_java_import(
     name = "netty",
     enable_distributions = ["debian"],
     jars = [
-        "netty/netty-buffer-4.1.75.Final.jar",
-        "netty/netty-codec-4.1.75.Final.jar",
-        "netty/netty-codec-http2-4.1.75.Final.jar",
-        "netty/netty-codec-http-4.1.75.Final.jar",
-        "netty/netty-common-4.1.75.Final.jar",
-        "netty/netty-handler-4.1.75.Final.jar",
-        "netty/netty-handler-proxy-4.1.75.Final.jar",
-        "netty/netty-resolver-4.1.75.Final.jar",
-        "netty/netty-resolver-dns-4.1.75.Final.jar",
-        "netty/netty-transport-4.1.75.Final.jar",
-        "netty/netty-transport-classes-epoll-4.1.75.Final.jar",
-        "netty/netty-transport-classes-kqueue-4.1.75.Final.jar",
-        "netty/netty-transport-sctp-4.1.75.Final.jar",
+       "@maven//:io_netty_netty_buffer_file",
+       "@maven//:io_netty_netty_codec_file",
+       "@maven//:io_netty_netty_codec_http2_file",
+       "@maven//:io_netty_netty_codec_http_file",
+       "@maven//:io_netty_netty_common_file",
+       "@maven//:io_netty_netty_handler_file",
+       "@maven//:io_netty_netty_handler_proxy_file",
+       "@maven//:io_netty_netty_resolver_file",
+       "@maven//:io_netty_netty_resolver_dns_file",
+       "@maven//:io_netty_netty_transport_file",
+       "@maven//:io_netty_netty_transport_classes_epoll_file",
+       "@maven//:io_netty_netty_transport_classes_kqueue_file",
+       "@maven//:io_netty_netty_transport_sctp_file",
     ] + select({
-        "//src/conditions:darwin_arm64": ["netty/netty-transport-native-unix-common-4.1.75.Final-osx-aarch_64.jar"],
-        "//src/conditions:darwin_x86_64": ["netty/netty-transport-native-unix-common-4.1.75.Final-osx-x86_64.jar"],
-        "//src/conditions:linux_aarch64": ["netty/netty-transport-native-unix-common-4.1.75.Final-linux-aarch_64.jar"],
-        "//src/conditions:linux_x86_64": ["netty/netty-transport-native-unix-common-4.1.75.Final-linux-x86_64.jar"],
-        "//conditions:default": ["netty/netty-transport-native-unix-common-4.1.75.Final.jar"],
+        "//src/conditions:darwin_arm64": ["@maven//:io_netty_netty_transport_native_unix_common_osx_aarch64_file"],
+        "//src/conditions:darwin_x86_64": ["@maven//:io_netty_netty_transport_native_unix_common_osx_x86_64_file"],
+        "//src/conditions:linux_aarch64": ["@maven//:io_netty_netty_transport_native_unix_common_linux_aarch64_file"],
+        "//src/conditions:linux_x86_64": ["@maven//:io_netty_netty_transport_native_unix_common_linux_x86_64_file"],
+        "//conditions:default": ["@maven//:io_netty_netty_transport_native_unix_common_file"],
     }) + select({
-        "//src/conditions:darwin_arm64": ["netty/netty-transport-native-kqueue-4.1.75.Final-osx-aarch_64.jar"],
-        "//src/conditions:darwin_x86_64": ["netty/netty-transport-native-kqueue-4.1.75.Final-osx-x86_64.jar"],
+        "//src/conditions:darwin_arm64": ["@maven//:io_netty_netty_transport_native_kqueue_osx_aarch_64_file"],
+        "//src/conditions:darwin_x86_64": ["@maven//:io_netty_netty_transport_native_kqueue_osx_x86_64_file"],
         "//conditions:default": [],
     }) + select({
-        "//src/conditions:linux_aarch64": ["netty/netty-transport-native-epoll-4.1.75.Final-linux-aarch_64.jar"],
-        "//src/conditions:linux_x86_64": ["netty/netty-transport-native-epoll-4.1.75.Final-linux-x86_64.jar"],
+        "//src/conditions:linux_aarch64": ["@maven//:io_netty_netty_transport_native_epoll_linux_aarch_64_file"],
+        "//src/conditions:linux_x86_64": ["@maven//:io_netty_netty_transport_native_epoll_linux_x86_64_file"],
         "//conditions:default": [],
     }),
 )
@@ -681,7 +663,7 @@ distrib_java_import(
     name = "netty_tcnative",
     enable_distributions = ["debian"],
     jars = [
-        "netty_tcnative/netty-tcnative-classes-2.0.51.Final.jar",
+        "@maven//:io_netty_netty_tcnative_classes_file",
     ] + select({
         "//src/conditions:darwin_arm64": [":netty_tcnative/netty-tcnative-filtered.jar"],
         "//src/conditions:darwin_x86_64": [":netty_tcnative/netty-tcnative-filtered.jar"],
