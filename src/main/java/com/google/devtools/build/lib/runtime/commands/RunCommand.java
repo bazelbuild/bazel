@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
-import com.google.common.annotations.VisibleForTesting;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -99,7 +100,6 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -137,19 +137,16 @@ public class RunCommand implements BlazeCommand {
     public PathFragment scriptPath;
   }
 
-  // Thrown when a method needs Bash but ShToolchain.getPath yields none.
-  private static final class NoShellFoundException extends Exception {}
+  private static final String NO_TARGET_MESSAGE = "No targets found to run";
 
-  @VisibleForTesting public static final String NO_TARGET_MESSAGE = "No targets found to run";
-
-  public static final String MULTIPLE_TESTS_MESSAGE =
+  private static final String MULTIPLE_TESTS_MESSAGE =
       "'run' only works with tests with one shard ('--test_sharding_strategy=disabled' is okay) "
           + "and without --runs_per_test";
 
-  // The test policy to determine the environment variables from when running tests
-  private final TestPolicy testPolicy;
-
   private static final FileType RUNFILES_MANIFEST = FileType.of(".runfiles_manifest");
+
+  /** The test policy to determine the environment variables from when running tests */
+  private final TestPolicy testPolicy;
 
   public RunCommand(TestPolicy testPolicy) {
     this.testPolicy = testPolicy;
@@ -162,7 +159,6 @@ public class RunCommand implements BlazeCommand {
    * Compute the arguments the binary should be run with by concatenating the arguments in its
    * {@code args} attribute and the arguments on the Blaze command line.
    */
-  @Nullable
   private static List<String> computeArgs(
       ConfiguredTarget targetToRun, List<String> commandLineArgs)
       throws InterruptedException, CommandLineExpansionException {
@@ -571,14 +567,6 @@ public class RunCommand implements BlazeCommand {
             builtTargets.targetToRun,
             builtTargets.runUnderTarget,
             args);
-      } catch (NoShellFoundException e) {
-        throw new RunCommandException(
-            reportAndCreateFailureResult(
-                env,
-                "the \"run\" command needs a shell with \"--run_under\"; use the"
-                    + " --shell_executable=<path> flag to specify its path, e.g."
-                    + " --shell_executable=/bin/bash",
-                Code.NO_SHELL_SPECIFIED));
       } catch (InterruptedException e) {
         String message = "run: command line expansion interrupted";
         env.getReporter().handle(Event.error(message));
@@ -607,7 +595,7 @@ public class RunCommand implements BlazeCommand {
       ConfiguredTarget targetToRun,
       ConfiguredTarget runUnderTarget,
       List<String> args)
-      throws NoShellFoundException {
+      throws RunCommandException {
     BlazeRuntime runtime = env.getRuntime();
     String productName = runtime.getProductName();
     Artifact executable = targetToRun.getProvider(FilesToRunProvider.class).getExecutable();
@@ -652,7 +640,13 @@ public class RunCommand implements BlazeCommand {
 
       PathFragment shellExecutable = ShToolchain.getPathForHost(configuration);
       if (shellExecutable.isEmpty()) {
-        throw new NoShellFoundException();
+        throw new RunCommandException(
+            reportAndCreateFailureResult(
+                env,
+                "the \"run\" command needs a shell with \"--run_under\"; use the"
+                    + " --shell_executable=<path> flag to specify its path, e.g."
+                    + " --shell_executable=/bin/bash",
+                Code.NO_SHELL_SPECIFIED));
       }
 
       cmdLine.add(shellExecutable.getPathString());
@@ -688,8 +682,7 @@ public class RunCommand implements BlazeCommand {
       throws RunCommandException {
     ExecRequest.Builder execDescription =
         ExecRequest.newBuilder()
-            .setWorkingDirectory(
-                ByteString.copyFrom(workingDir.getPathString(), StandardCharsets.ISO_8859_1));
+            .setWorkingDirectory(ByteString.copyFrom(workingDir.getPathString(), ISO_8859_1));
 
     if (OS.getCurrent() == OS.WINDOWS) {
       boolean isBinary = true;
@@ -699,7 +692,7 @@ public class RunCommand implements BlazeCommand {
           // binary, which must not be escaped.
           arg = ShellUtils.windowsEscapeArg(arg);
         }
-        execDescription.addArgv(ByteString.copyFrom(arg, StandardCharsets.ISO_8859_1));
+        execDescription.addArgv(ByteString.copyFrom(arg, ISO_8859_1));
         isBinary = false;
       }
     } else {
@@ -725,15 +718,15 @@ public class RunCommand implements BlazeCommand {
           ImmutableList.<String>of(shExecutable.getPathString(), "-c", shellEscaped);
 
       for (String arg : shellCmdLine) {
-        execDescription.addArgv(ByteString.copyFrom(arg, StandardCharsets.ISO_8859_1));
+        execDescription.addArgv(ByteString.copyFrom(arg, ISO_8859_1));
       }
     }
 
     for (Map.Entry<String, String> variable : runEnv.entrySet()) {
       execDescription.addEnvironmentVariable(
           EnvironmentVariable.newBuilder()
-              .setName(ByteString.copyFrom(variable.getKey(), StandardCharsets.ISO_8859_1))
-              .setValue(ByteString.copyFrom(variable.getValue(), StandardCharsets.ISO_8859_1))
+              .setName(ByteString.copyFrom(variable.getKey(), ISO_8859_1))
+              .setValue(ByteString.copyFrom(variable.getValue(), ISO_8859_1))
               .build());
     }
     return execDescription.build();
@@ -854,14 +847,11 @@ public class RunCommand implements BlazeCommand {
       throws IOException {
     Path scriptPath = env.getWorkingDirectory().getRelative(scriptPathFrag);
     if (OS.getCurrent() == OS.WINDOWS) {
-      FileSystemUtils.writeContent(
-          scriptPath, StandardCharsets.ISO_8859_1, "@echo off\n" + cmd + " %*");
+      FileSystemUtils.writeContent(scriptPath, ISO_8859_1, "@echo off\n" + cmd + " %*");
       scriptPath.setExecutable(true);
     } else {
       FileSystemUtils.writeContent(
-          scriptPath,
-          StandardCharsets.ISO_8859_1,
-          "#!" + shellExecutable.getPathString() + "\n" + cmd + " \"$@\"");
+          scriptPath, ISO_8859_1, "#!" + shellExecutable.getPathString() + "\n" + cmd + " \"$@\"");
       scriptPath.setExecutable(true);
     }
   }
