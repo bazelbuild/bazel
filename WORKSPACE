@@ -630,3 +630,26 @@ maven_install(
 
 load("@maven//:defs.bzl", "pinned_maven_install")
 pinned_maven_install()
+
+
+maven_install(
+  name = "maven_android",
+    artifacts = [
+       "com.android.tools.build:builder:7.1.3",
+       "com.android.tools.build:manifest-merger:30.1.3",
+       "com.android.tools:sdk-common:30.1.3",
+       "com.android.tools:annotations:30.1.3",
+       "com.android.tools.layoutlib:layoutlib-api:30.1.3",
+       "com.android.tools:common:30.1.3",
+       "com.android.tools:repository:30.1.3",
+    ],
+    repositories = [
+        "https://dl.google.com/android/maven2",
+        "https://repo1.maven.org/maven2",
+    ],
+    maven_install_json = "//src/tools/android:maven_android_install.json",
+)
+
+load("@maven_android//:defs.bzl", pinned_maven_install_android = "pinned_maven_install")
+pinned_maven_install_android()
+

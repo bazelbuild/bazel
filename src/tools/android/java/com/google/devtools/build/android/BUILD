@@ -123,3 +123,37 @@ filegroup(
     ],
     visibility = ["//src:__pkg__"],
 )
+
+java_import(
+    name = "android_common_30_1_3",
+    jars = [
+        "@maven_android//:com_android_signflinger_file",
+        "@maven_android//:com_android_tools_analytics_library_protos_file",
+        "@maven_android//:com_android_tools_analytics_library_shared_file",
+        "@maven_android//:com_android_tools_analytics_library_tracker_file",
+        "@maven_android//:com_android_tools_annotations_file",
+        "@maven_android//:com_android_tools_build_apksig_file",
+        "@maven_android//:com_android_tools_build_apkzlib_file",
+        "@maven_android//:com_android_tools_build_builder_file",
+        "@maven_android//:com_android_tools_build_builder_model_file",
+        "@maven_android//:com_android_tools_build_manifest_merger_file",
+        "@maven_android//:com_android_tools_common_file",
+        "@maven_android//:com_android_tools_ddms_ddmlib_file",
+        "@maven_android//:com_android_tools_dvlib_file",
+        "@maven_android//:com_android_tools_layoutlib_layoutlib_api_file",
+        "@maven_android//:com_android_tools_repository_file",
+        "@maven_android//:com_android_tools_sdk_common_file",
+        "@maven_android//:com_android_tools_sdklib_file",
+        "@maven_android//:com_android_zipflinger_file",
+    ],
+    runtime_deps = [
+        "@maven_android//:org_ow2_asm_asm",
+        "@maven_android//:org_ow2_asm_asm_commons",
+        "@maven_android//:org_ow2_asm_asm_tree",
+        "@maven_android//:org_ow2_asm_asm_util",
+    ],
+    deps = [
+        "@maven_android//:org_glassfish_jaxb_jaxb_runtime",
+        "@maven_android//:org_jetbrains_kotlin_kotlin_stdlib_jdk7",
+    ],
+)
