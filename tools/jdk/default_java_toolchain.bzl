@@ -49,6 +49,7 @@ DEFAULT_JAVACOPTS = [
     "-parameters",
     # https://github.com/bazelbuild/bazel/issues/15219
     "-Xep:ReturnValueIgnored:OFF",
+    "-Xep:EmptyTopLevelDeclaration:OFF",
 ]
 
 # java_toolchain parameters without specifying javac, java.compiler,
