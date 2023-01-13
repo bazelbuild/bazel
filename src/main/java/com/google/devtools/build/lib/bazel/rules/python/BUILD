@@ -15,7 +15,6 @@ java_library(
     srcs = glob(["*.java"]),
     resources = glob(
         [
-            "*.txt",
             "*.WORKSPACE",
         ],
     ),
