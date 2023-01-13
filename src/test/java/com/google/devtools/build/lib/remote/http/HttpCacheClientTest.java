@@ -550,7 +550,9 @@ public class HttpCacheClientTest {
   public void partialDownloadFailsWithoutRetry() throws Exception {
     ServerChannel server = null;
     try {
-      server = testServer.start(new IntermittentFailureHandler());
+      ByteBuf chunk1 = Unpooled.wrappedBuffer("File ".getBytes(Charsets.US_ASCII));
+      ByteBuf chunk2 = Unpooled.wrappedBuffer("Contents".getBytes(Charsets.US_ASCII));
+      server = testServer.start(new IntermittentFailureHandler(chunk1, chunk2));
       Credentials credentials = newCredentials();
       AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
 
@@ -571,7 +573,9 @@ public class HttpCacheClientTest {
   public void partialDownloadSucceedsWithRetry() throws Exception {
     ServerChannel server = null;
     try {
-      server = testServer.start(new IntermittentFailureHandler());
+      ByteBuf chunk1 = Unpooled.wrappedBuffer("File ".getBytes(Charsets.US_ASCII));
+      ByteBuf chunk2 = Unpooled.wrappedBuffer("Contents".getBytes(Charsets.US_ASCII));
+      server = testServer.start(new IntermittentFailureHandler(chunk1, chunk2));
       Credentials credentials = newCredentials();
       AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
 
@@ -832,7 +836,18 @@ public class HttpCacheClientTest {
    */
   @Sharable
   static class IntermittentFailureHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+    private final ByteBuf attempt1_chunk1, attempt2_chunk1, attempt2_chunk2;
     private int messageCount;
+
+    public IntermittentFailureHandler(ByteBuf attempt1_chunk1, ByteBuf attempt2_chunk1, ByteBuf attempt2_chunk2) {
+      this.attempt1_chunk1 = attempt1_chunk1;
+      this.attempt2_chunk1 = attempt2_chunk1;
+      this.attempt2_chunk2 = attempt2_chunk2;
+    }
+
+    public IntermittentFailureHandler(ByteBuf chunk1, ByteBuf chunk2) {
+      this(chunk1.copy(), chunk1, chunk2);
+    }
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
@@ -841,16 +856,15 @@ public class HttpCacheClientTest {
           HttpResponseStatus.OK);
       response.headers().set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED);
       ctx.write(response);
-      ByteBuf content1 = Unpooled.buffer();
-      content1.writeBytes("File ".getBytes(Charsets.US_ASCII));
-      ChannelFuture future = ctx.writeAndFlush(new DefaultHttpContent(content1));
       if (messageCount == 0) {
-        future.addListener(ChannelFutureListener.CLOSE);
-      } else {
-        ByteBuf content2 = Unpooled.buffer();
-        content2.writeBytes("Contents".getBytes(Charsets.US_ASCII));
         ctx
-            .writeAndFlush(new DefaultLastHttpContent(content2))
+            .writeAndFlush(new DefaultHttpContent(attempt1_chunk1))
+            .addListener(ChannelFutureListener.CLOSE);
+      } else {
+        ctx
+            .writeAndFlush(new DefaultHttpContent(attempt2_chunk1));
+        ctx
+            .writeAndFlush(new DefaultLastHttpContent(attempt2_chunk2))
             .addListener(ChannelFutureListener.CLOSE);
       }
       ++messageCount;
