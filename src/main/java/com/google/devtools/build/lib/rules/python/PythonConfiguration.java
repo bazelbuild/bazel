@@ -52,6 +52,7 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   private final boolean useToolchains;
 
   private final boolean defaultToExplicitInitPy;
+  private final boolean disablePy2;
 
   public PythonConfiguration(BuildOptions buildOptions) {
     PythonOptions pythonOptions = buildOptions.get(PythonOptions.class);
@@ -64,6 +65,7 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     this.py2OutputsAreSuffixed = pythonOptions.incompatiblePy2OutputsAreSuffixed;
     this.useToolchains = pythonOptions.incompatibleUsePythonToolchains;
     this.defaultToExplicitInitPy = pythonOptions.incompatibleDefaultToExplicitInitPy;
+    this.disablePy2 = pythonOptions.disablePy2;
   }
 
   @Override
@@ -171,5 +173,13 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
    */
   public boolean defaultToExplicitInitPy() {
     return defaultToExplicitInitPy;
+  }
+
+  @StarlarkMethod(
+      name = "disable_py2",
+      structField = true,
+      doc = "The value of the --incompatible_python_disable_py2 flag.")
+  public boolean getDisablePy2() {
+    return disablePy2;
   }
 }
