@@ -302,9 +302,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
           "If set to 'all', all local outputs referenced by BEP are uploaded to remote cache.\n"
               + "If set to 'minimal', local outputs referenced by BEP are not uploaded to the"
               + " remote cache, except for files that are important to the consumers of BEP (e.g."
-              + " test logs and timing profile).\n"
-              + "file:// scheme is used for the paths of local files and bytestream:// scheme is"
-              + " used for the paths of (already) uploaded files.\n"
+              + " test logs and timing profile). bytestream:// scheme is always used for the uri of"
+              + " files even if they are missing from remote cache.\n"
               + "Default to 'all'.")
   public RemoteBuildEventUploadMode remoteBuildEventUploadMode;
 
