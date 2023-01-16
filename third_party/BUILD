@@ -400,17 +400,6 @@ java_library(
         "@maven//:com_google_errorprone_error_prone_check_api",
         "@maven//:com_google_errorprone_error_prone_core",
     ],
-    deps = [
-        ":auto_common",
-        ":caffeine",
-        ":guava",
-        ":hungarian_algorithm",
-        ":jcip_annotations",
-        ":jsr305",
-        ":pcollections",
-        ":threeten",
-        "//third_party/checker_framework_dataflow",
-    ],
 )
 
 java_library(
