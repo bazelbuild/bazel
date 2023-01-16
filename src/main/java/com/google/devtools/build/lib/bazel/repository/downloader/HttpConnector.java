@@ -188,7 +188,6 @@ class HttpConnector {
           throw new IOException(describeHttpResponse(connection));
         } else if (code < 500          // 4xx means client seems to have erred quoth RFC7231 § 6.5
                     || code == 501     // Server doesn't support function quoth RFC7231 § 6.6.2
-                    || code == 502     // Host not configured on server cf. RFC7231 § 6.6.3
                     || code == 505) {  // Server refuses to support version quoth RFC7231 § 6.6.6
           // This is a permanent error so we're not going to retry.
           readAllBytesAndClose(connection.getErrorStream());
