@@ -614,6 +614,9 @@ NETTY_VERSION = "4.1.87.Final"
 
 maven_install(
     artifacts = [
+        "com.google.flogger:flogger-system-backend:0.5.1",
+        "com.google.flogger:flogger:0.5.1",
+        "com.google.flogger:google-extensions:0.5.1",
         "com.github.ben-manes.caffeine:caffeine:2.9.2",
         "com.google.api-client:google-api-client-gson:1.22.0",
         "com.google.api-client:google-api-client:1.22.0",
