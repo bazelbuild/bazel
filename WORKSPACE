@@ -637,7 +637,7 @@ maven_install(
         "com.google.errorprone:error_prone_annotation:2.16",
         "com.google.errorprone:error_prone_check_api:2.16",
         "com.google.errorprone:error_prone_core:2.16",
-        "com.google.jimfs:jimfs:1.1",
+        # "com.google.jimfs:jimfs:1.1",
         "com.google.truth.extensions:truth-java8-extension:1.1.3",
         "com.google.truth.extensions:truth-liteproto-extension:1.1.3",
         "com.google.truth.extensions:truth-proto-extension:1.1.3",
