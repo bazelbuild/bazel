@@ -429,11 +429,9 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-java_import(
+java_library(
     name = "pcollections",
-    jars = [
-        "pcollections/pcollections-2.1.2.jar",
-    ],
+    exports = ["@maven//:org_pcollections_pcollections"],
 )
 
 # For bootstrapping JavaBuilder
