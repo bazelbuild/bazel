@@ -508,20 +508,17 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-java_import(
+java_library(
     name = "javax_activation",
-    jars = ["javax_activation/javax.activation-api-1.2.0.jar"],
-    srcjar = "javax_activation/javax.activation-api-1.2.0-sources.jar",
+    exports = ["@maven//:javax_activation_javax_activation_api"],
 )
 
 # javax.annotation.Generated is not included in the default root modules in 9,
 # see: http://openjdk.java.net/jeps/320.
-distrib_java_import(
+java_library(
     name = "javax_annotations",
-    enable_distributions = ["debian"],
-    jars = ["javax_annotations/javax.annotation-api-1.3.2.jar"],
+    exports = ["@maven//:javax_annotation_javax_annotation_api"],
     neverlink = 1,  # @Generated is source-retention
-    srcjar = "javax_annotations/javax.annotation-api-1.3.2-sources.jar",
 )
 
 distrib_java_import(
