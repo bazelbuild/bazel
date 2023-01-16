@@ -634,32 +634,24 @@ distrib_java_import(
     }),
 )
 
-distrib_java_import(
+java_library(
     name = "tomcat_annotations_api",
-    enable_distributions = ["debian"],
-    jars = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
+    exports = ["@maven//:org_apache_tomcat_tomcat_annotations_api"],
 )
 
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "tomcat_annotations_api-jars",
-    srcs = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
+    srcs = ["@maven//:org_apache_tomcat_tomcat_annotations_api_file"],
     enable_distributions = ["debian"],
 )
 
-distrib_java_import(
+java_library(
     name = "java-diff-utils",
-    enable_distributions = ["debian"],
-    jars = ["java-diff-utils/java-diff-utils-4.0.jar"],
+    exports = ["@maven//:io_github_java_diff_utils_java_diff_utils"],
 )
 
 # Testing
-
-# TODO: Remove this target after migrating to java-diff-utils
-java_import(
-    name = "diffutils",
-    jars = ["diffutils/diffutils-1.3.0.jar"],
-)
 
 java_library(
     name = "guava-testlib",
@@ -710,6 +702,7 @@ java_import(
     deps = [
         ":diffutils",
     ],
+    applicable_licenses = [":truth_license"],
 )
 
 license(
