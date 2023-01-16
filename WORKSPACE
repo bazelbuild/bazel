@@ -650,7 +650,7 @@ maven_install(
         "io.reactivex.rxjava3:rxjava:3.1.2",
         "javax.activation:javax.activation-api:1.2.0",
         "javax.annotation:javax.annotation-api:1.3.2",
-        "javax.inject:javax.inject:1",
+        # "javax.inject:javax.inject:1",
         "junit:junit:4.13",
         "net.bytebuddy:byte-buddy-agent:1.9.7",
         "net.bytebuddy:byte-buddy:1.9.7",
