@@ -170,25 +170,25 @@ java_library(
 
 java_library(
     name = "asm-analysis",
-    exports = ["@maven//:org_ow2_asm_analysis"],
+    exports = ["@maven//:org_ow2_asm_asm_analysis"],
     runtime_deps = [":asm-tree"],
 )
 
 java_library(
     name = "asm-commons",
-    exports = ["@maven//:org_ow2_asm_commons"],
+    exports = ["@maven//:org_ow2_asm_asm_commons"],
     runtime_deps = [":asm-tree"],
 )
 
 java_library(
     name = "asm-tree",
-    exports = ["@maven//:org_ow2_asm_tree"],
+    exports = ["@maven//:org_ow2_asm_asm_tree"],
     runtime_deps = [":asm"],
 )
 
 java_library(
     name = "asm-util",
-    exports = ["@maven//:org_ow2_asm_util"],
+    exports = ["@maven//:org_ow2_asm_asm_util"],
     runtime_deps = [":asm-tree"],
 )
 
