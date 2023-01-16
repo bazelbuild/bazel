@@ -537,6 +537,64 @@ EOF
   || fail "Expected test binary bazel-bin/a/test to be downloaded"
 }
 
+function do_test_non_test_toplevel_targets() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/17190.
+  #
+  # Test that when using --remote_download_toplevel with bazel test, outputs of
+  # non-test targets are downloaded. When using --remote_download_minimal with
+  # bazel test, outputs of non-test targets are not downloaded.
+
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+)
+
+cc_test(
+  name = 'test',
+  srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello test!" << std::endl; return 0; }
+EOF
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    $@ \
+    //a/... || fail "failed to test"
+}
+
+function test_non_test_toplevel_targets_toplevel() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  do_test_non_test_toplevel_targets --remote_download_toplevel
+
+  [[ -f bazel-bin/a/foo.txt ]] || fail "Expected a/foo.txt to be downloaded"
+}
+
+function test_non_test_toplevel_targets_minimal() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  do_test_non_test_toplevel_targets --remote_download_minimal
+
+  [[ ! -f bazel-bin/a/foo.txt ]] || fail "Expected a/foo.txt to not be downloaded"
+}
+
 function test_downloads_minimal_bep() {
   # Test that when using --remote_download_minimal all URI's in the BEP
   # are rewritten as bytestream://..
