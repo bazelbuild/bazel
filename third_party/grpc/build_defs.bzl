@@ -41,6 +41,7 @@ def _gensource_impl(ctx):
         inputs = srcs + includes,
         tools = [ctx.executable._java_plugin, ctx.executable._protoc],
         outputs = [srcdotjar],
+        mnemonic = "JavaGrpcGenSource",
         use_default_shell_env = True,
     )
 
