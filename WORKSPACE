@@ -666,7 +666,6 @@ maven_install(
         "org.ow2.asm:asm-util:9.2",
         "org.ow2.asm:asm:9.2",
         "org.pcollections:pcollections:2.1.2",
-        "org.reactivestreams:reactive-streams:1.0.3",
         "org.threeten:threeten-extra:1.5.0",
         "org.tukaani:xz:1.9",
         "com.google.guava:guava:31.1-jre",

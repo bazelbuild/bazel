@@ -521,18 +521,9 @@ java_library(
     neverlink = 1,  # @Generated is source-retention
 )
 
-distrib_java_import(
-    name = "reactive_streams",
-    enable_distributions = ["debian"],
-    jars = ["reactive_streams/reactive-streams-1.0.3.jar"],
-)
-
-distrib_java_import(
+java_library(
     name = "rxjava3",
-    enable_distributions = ["debian"],
-    jars = ["rxjava3/rxjava-3.1.2.jar"],
-    exports = [":reactive_streams"],
-    deps = [":reactive_streams"],
+    exports = ["@maven//:io_reactivex_rxjava3_rxjava"],
 )
 
 java_import(
