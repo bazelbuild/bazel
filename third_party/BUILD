@@ -465,14 +465,14 @@ license(
     license_text = "guava/LICENSE",
 )
 
-distrib_java_import(
+java_library(
     name = "flogger",
     applicable_licenses = [":flogger_license"],
     enable_distributions = ["debian"],
-    jars = [
-        "flogger/flogger-0.5.1.jar",
-        "flogger/flogger-system-backend-0.5.1.jar",
-        "flogger/google-extensions-0.5.1.jar",
+    exports = [
+        "@maven//:com_google_flogger_flogger",
+        "@maven//:com_google_flogger_flogger_system_backend",
+        "@maven//:com_google_flogger_google_extensions",
     ],
 )
 
@@ -482,15 +482,14 @@ license(
     license_kinds = [
         "@rules_license//licenses/spdx:Apache-2.0",
     ],
-    license_text = "flogger/LICENSE",
 )
 
 distrib_jar_filegroup(
     name = "flogger-jars",
     srcs = [
-        "flogger/flogger-0.5.1.jar",
-        "flogger/flogger-system-backend-0.5.1.jar",
-        "flogger/google-extensions-0.5.1.jar",
+        "@maven//:com_google_flogger_flogger_file",
+        "@maven//:com_google_flogger_flogger_system_backend_file",
+        "@maven//:com_google_flogger_google_extensions_file",
     ],
     enable_distributions = ["debian"],
 )
