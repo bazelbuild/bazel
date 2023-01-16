@@ -643,9 +643,9 @@ distrib_java_import(
        "@maven//:io_netty_netty_transport_classes_kqueue_file",
        "@maven//:io_netty_netty_transport_sctp_file",
     ] + select({
-        "//src/conditions:darwin_arm64": ["@maven//:io_netty_netty_transport_native_unix_common_osx_aarch64_file"],
+        "//src/conditions:darwin_arm64": ["@maven//:io_netty_netty_transport_native_unix_common_osx_aarch_64_file"],
         "//src/conditions:darwin_x86_64": ["@maven//:io_netty_netty_transport_native_unix_common_osx_x86_64_file"],
-        "//src/conditions:linux_aarch64": ["@maven//:io_netty_netty_transport_native_unix_common_linux_aarch64_file"],
+        "//src/conditions:linux_aarch64": ["@maven//:io_netty_netty_transport_native_unix_common_linux_aarch_64_file"],
         "//src/conditions:linux_x86_64": ["@maven//:io_netty_netty_transport_native_unix_common_linux_x86_64_file"],
         "//conditions:default": ["@maven//:io_netty_netty_transport_native_unix_common_file"],
     }) + select({

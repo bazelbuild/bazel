@@ -684,7 +684,7 @@ maven_install(
         "io.netty:netty-all",
         "io.netty:netty-transport-native-unix-common:jar:osx-aarch_64",
         "io.netty:netty-transport-native-unix-common:jar:osx-x86_64",
-        "io.netty:netty-transport-native-unix-common:jar:linux-x86_64",
+        "io.netty:netty-transport-native-unix-common:jar:linux-aarch_64",
         "io.netty:netty-transport-native-unix-common:jar:linux-x86_64",
     ]] + [coord + ":" + GRPC_VERSION for coord in [
         "io.grpc:grpc-api",
