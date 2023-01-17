@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
-/** Rule definition for {@code py_runtime} */
+/** Fake rule definition for {@code py_runtime} for generated doc purposes. */
 public final class PyRuntimeRule implements RuleDefinition {
 
   @Override
@@ -112,7 +112,7 @@ public final class PyRuntimeRule implements RuleDefinition {
     return Metadata.builder()
         .name("py_runtime")
         .ancestors(BaseRuleClasses.NativeBuildRule.class)
-        .factoryClass(PyRuntime.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }
