@@ -449,6 +449,34 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertTrue(os.path.exists(output_file))
     self.assertFalse(os.path.exists(output_zip))
 
+  def testJavaBinaryWithLongPath(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    pkg = '/'.join(20 * ['123456789'])
+    self.ScratchFile(
+        pkg + '/BUILD',
+        [
+          'java_binary(',
+          '    name = "Main",',
+          '    srcs = ["Main.java"],',
+          '    main_class = "Main",',
+          ')',
+        ],
+    )
+    self.ScratchFile(
+        pkg + '/Main.java',
+        [
+          'public class Main {',
+          '  public static void main(String[] args) {',
+          '    System.out.println("Hello, world!");',
+          '  }',
+          '}',
+        ],
+    )
+
+    exit_code, stdout, stderr = self.RunBazel(['run', '//' + pkg + ':Main'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('Hello, world!', stdout)
+
 
 if __name__ == '__main__':
   unittest.main()
