@@ -42,7 +42,8 @@ public class RepositoryOptions extends OptionsBase {
       help =
           "Specifies the cache location of the downloaded values obtained "
               + "during the fetching of external repositories. An empty string "
-              + "as argument requests the cache to be disabled.")
+              + "as argument requests the cache to be disabled, "
+              + "otherwise the default of '<output_user_root>/cache/repos/v1' is used")
   public PathFragment experimentalRepositoryCache;
 
   @Option(
