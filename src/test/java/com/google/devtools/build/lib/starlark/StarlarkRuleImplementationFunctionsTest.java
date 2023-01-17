@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -656,6 +657,76 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     Object loc = ev.eval("ruleContext.expand_location('$(location :jl)', short_paths = True)");
 
     assertThat(loc).isEqualTo("foo/libjl.jar");
+  }
+
+  /**
+   * Asserts that a custom rule has the same behaviour as native rules when expanding executable
+   * target locations.
+   */
+  @Test
+  public void testExpandLocationExecutableTargets() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _my_binary_impl(ctx):",
+        "  executable = ctx.actions.declare_file(ctx.attr.name)",
+        "  ctx.actions.write(executable, '', is_executable = True)",
+        "  return [DefaultInfo(executable = executable, files = depset(ctx.files.srcs), runfiles ="
+            + " ctx.runfiles(ctx.files.srcs))]",
+        "my_binary = rule(",
+        "    implementation = _my_binary_impl,",
+        "    attrs = {'srcs': attr.label_list(allow_files=True)},",
+        "    executable = True,",
+        ")",
+        "def _expand_location_env_rule_impl(ctx):",
+        "  env = {}",
+        "  for k, v in ctx.attr.env.items():",
+        "    env[k] = ctx.expand_location(v, targets = ctx.attr.data)",
+        "  env_file = ctx.actions.declare_file('env_file')",
+        "  ctx.actions.write(env_file, str(env))",
+        "  return [DefaultInfo(files = depset([env_file]))]",
+        "expand_location_env_rule = rule(",
+        "    implementation = _expand_location_env_rule_impl,",
+        "    attrs = {",
+        "       'data': attr.label_list(allow_files=True),",
+        "       'env': attr.string_dict(),",
+        "    },",
+        ")");
+
+    scratch.file("test/file1", "");
+    scratch.file("test/file2", "");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'expand_location_env_rule', 'my_binary')",
+        "my_binary(name = 'main')",
+        "filegroup(name = 'files', srcs = ['file1', 'file2'])",
+        "expand_location_env_rule(",
+        "  name = 'expand_execpath_env',",
+        "  data = [':main'],",
+        "  env = {'MAIN_EXECPATH': '$(execpath :main)'},",
+        ")",
+        "expand_location_env_rule(",
+        "  name = 'expand_execpaths_env',",
+        "  data = [':files'],",
+        "  env = {'FILES': '$(execpaths :files)'},",
+        ")");
+
+    TransitiveInfoCollection expandExecpathEnv = getConfiguredTarget("//test:expand_execpath_env");
+    Artifact artifact =
+        Iterables.getOnlyElement(
+            expandExecpathEnv.getProvider(FileProvider.class).getFilesToBuild().toList());
+    FileWriteAction action = (FileWriteAction) getGeneratingAction(artifact);
+    assertMatches(
+        "env file contains expanded location of runfile",
+        "\\{\"MAIN_EXECPATH\": \"[\\w-_/]+/test/main\"\\}",
+        action.getFileContents());
+
+    expandExecpathEnv = getConfiguredTarget("//test:expand_execpaths_env");
+    artifact =
+        Iterables.getOnlyElement(
+            expandExecpathEnv.getProvider(FileProvider.class).getFilesToBuild().toList());
+    action = (FileWriteAction) getGeneratingAction(artifact);
+    assertThat(action.getFileContents()).isEqualTo("{\"FILES\": \"test/file1 test/file2\"}");
   }
 
   /** Regression test to check that expand_location allows ${var} and $$. */
