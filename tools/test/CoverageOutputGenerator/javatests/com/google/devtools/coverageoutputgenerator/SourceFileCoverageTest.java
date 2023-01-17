@@ -89,7 +89,12 @@ public class SourceFileCoverageTest {
     SourceFileCoverage merged = SourceFileCoverage.merge(sourceFile1, sourceFile2);
 
     assertThat(merged.getAllBranches())
-        .containsExactly(BranchCoverage.create(800, 2), BranchCoverage.create(800, 1));
+        .containsExactly(
+          BranchCoverage.create(800, 2),
+          BranchCoverage.create(800, 1),
+          BranchCoverage.create(800, 2),
+          BranchCoverage.create(800, 2),
+          BranchCoverage.create(800, 1));
   }
 
   @Test
