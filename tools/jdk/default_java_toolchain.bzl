@@ -55,7 +55,8 @@ DEFAULT_JAVACOPTS = [
     # https://github.com/bazelbuild/bazel/issues/16996
     "-Xep:IgnoredPureGetter:OFF",
     "-Xep:EmptyTopLevelDeclaration:OFF",
-    "-Xep:LenientFormatStringValidation:OFF",    
+    "-Xep:LenientFormatStringValidation:OFF",
+    "-Xep:ReturnMissingNullable:OFF",    
 ]
 
 # Default java_toolchain parameters
