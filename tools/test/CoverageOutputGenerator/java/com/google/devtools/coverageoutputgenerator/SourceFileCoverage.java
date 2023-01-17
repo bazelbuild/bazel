@@ -101,6 +101,7 @@ class SourceFileCoverage {
         // Preserve the LHS of the merge and drop the records on the RHS that conflict.
         // TODO(cmita): Improve this as much as possible.
         merged.putAll(line, s1Branches);
+        merged.putAll(line, s2Branches);
       } else {
         Iterator<BranchCoverage> it1 = s1Branches.iterator();
         Iterator<BranchCoverage> it2 = s2Branches.iterator();
