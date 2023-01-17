@@ -17,6 +17,7 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(
     ":common/python/common.bzl",
     "TOOLCHAIN_TYPE",
+    "collect_imports",
     "collect_runfiles",
     "create_instrumented_files_info",
     "create_output_group_info",
@@ -108,7 +109,7 @@ def py_executable_base_impl(ctx, *, semantics, is_test, inherited_environment = 
     main_py = determine_main(ctx)
     direct_sources = filter_to_py_srcs(ctx.files.srcs)
     output_sources = semantics.maybe_precompile(ctx, direct_sources)
-    imports = semantics.get_imports(ctx)
+    imports = collect_imports(ctx, semantics)
     executable, files_to_build = _compute_outputs(ctx, output_sources)
 
     runtime_details = _get_runtime_details(ctx, semantics)
@@ -671,8 +672,9 @@ def _create_providers(
         semantics: BinarySemantics struct; see create_binary_semantics()
 
     Returns:
-        A value that rules can return. i.e. a list of providers or
-        a struct of providers.
+        A two-tuple of:
+        1. A dict of legacy providers.
+        2. A list of modern providers.
     """
     providers = [
         DefaultInfo(
@@ -707,7 +709,7 @@ def _create_providers(
         )
 
     providers.append(py_info)
-    providers.append(create_output_group_info(py_info.transitive_sources))
+    providers.append(create_output_group_info(py_info.transitive_sources, output_groups))
 
     extra_legacy_providers, extra_providers = semantics.get_extra_providers(
         ctx,
@@ -715,9 +717,6 @@ def _create_providers(
         runtime_details = runtime_details,
     )
     providers.extend(extra_providers)
-    if output_groups:
-        providers.append(OutputGroupInfo(**output_groups))
-
     return extra_legacy_providers, providers
 
 def _create_run_environment_info(ctx, inherited_environment):

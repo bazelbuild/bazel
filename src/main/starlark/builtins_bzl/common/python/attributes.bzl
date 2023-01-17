@@ -15,7 +15,6 @@
 
 load(":common/python/common.bzl", "union_attrs")
 load(":common/python/providers.bzl", "PyInfo")
-load(":blaze/common/toplevel_aliases.bzl", "CcInfo")
 load(
     ":common/python/semantics.bzl",
     "DEPS_ATTR_ALLOW_RULES",
@@ -24,6 +23,7 @@ load(
     "TOOLS_REPO",
 )
 
+_CcInfo = _builtins.toplevel.CcInfo
 _STAMP_VALUES = [-1, 0, 1]
 
 def create_stamp_attr(**kwargs):
@@ -104,7 +104,7 @@ PY_SRCS_ATTRS = union_attrs(
         # Use create_srcs_attr to create one.
         "srcs": None,
         "deps": attr.label_list(
-            providers = [[PyInfo], [CcInfo]],
+            providers = [[PyInfo], [_CcInfo]],
             # TODO(b/228692666): Google-specific; remove these allowances once
             # the depot is cleaned up.
             allow_rules = DEPS_ATTR_ALLOW_RULES,

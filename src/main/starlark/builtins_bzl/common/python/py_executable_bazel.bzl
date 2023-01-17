@@ -13,16 +13,49 @@
 # limitations under the License.
 """Implementation for Bazel Python executable."""
 
+load(":common/paths.bzl", "paths")
 load(":common/python/attributes_bazel.bzl", "IMPORTS_ATTRS")
-load(":common/python/common_bazel.bzl", "collect_cc_info")
+load(
+    ":common/python/common.bzl",
+    "create_binary_semantics_struct",
+    "create_cc_details_struct",
+    "create_executable_result_struct",
+    "union_attrs",
+)
+load(":common/python/common_bazel.bzl", "collect_cc_info", "get_imports", "maybe_precompile")
 load(":common/python/providers.bzl", "DEFAULT_STUB_SHEBANG")
-load(":common/python/py_executable.bzl", "py_executable_base_impl")
+load(
+    ":common/python/py_executable.bzl",
+    "create_base_executable_rule",
+    "py_executable_base_impl",
+)
 load(":common/python/semantics.bzl", "TOOLS_REPO")
+
+_py_builtins = _builtins.internal.py_builtins
+_EXTERNAL_PATH_PREFIX = "external"
+_ZIP_RUNFILES_DIRECTORY_NAME = "runfiles"
 
 BAZEL_EXECUTABLE_ATTRS = union_attrs(
     IMPORTS_ATTRS,
     {
-        "_zipper": attr.label(cfg = "exec"),
+        "legacy_create_init": attr.int(
+            default = -1,
+            values = [-1, 0, 1],
+            doc = """\
+Whether to implicitly create empty `__init__.py` files in the runfiles tree.
+These are created in every directory containing Python source code or shared
+libraries, and every parent directory of those directories, excluding the repo
+root directory. The default, `-1` (auto), means true unless
+`--incompatible_default_to_explicit_init_py` is used. If false, the user is
+responsible for creating (possibly empty) `__init__.py` files and adding them to
+the `srcs` of Python targets as required.
+                                       """,
+        ),
+        "_zipper": attr.label(
+            cfg = "exec",
+            executable = True,
+            default = "@" + TOOLS_REPO + "//tools/zip:zipper",
+        ),
         "_launcher": attr.label(
             cfg = "target",
             default = "@" + TOOLS_REPO + "//tools/launcher:launcher",
@@ -35,6 +68,10 @@ BAZEL_EXECUTABLE_ATTRS = union_attrs(
         # TODO: Remove this attribute; it's basically a no-op in Bazel due
         # to toolchain resolution.
         "_py_interpreter": attr.label(),
+        "_bootstrap_template": attr.label(
+            allow_single_file = True,
+            default = "@" + TOOLS_REPO + "//tools/python:python_bootstrap_template.txt",
+        ),
     },
 )
 
@@ -45,7 +82,8 @@ def create_executable_rule(*, attrs, **kwargs):
         **kwargs
     )
 
-def py_executable_impl(ctx, *, is_test, inherited_environment):
+def py_executable_bazel_impl(ctx, *, is_test, inherited_environment):
+    """Common code for executables for Baze."""
     result = py_executable_base_impl(
         ctx = ctx,
         semantics = create_binary_semantics_bazel(),
@@ -58,16 +96,50 @@ def py_executable_impl(ctx, *, is_test, inherited_environment):
     )
 
 def create_binary_semantics_bazel():
-    return create_binary_semantics_bazel_common(
+    return create_binary_semantics_struct(
         # keep-sorted start
         create_executable = _create_executable,
         get_cc_details_for_binary = _get_cc_details_for_binary,
+        get_central_uncachable_version_file = lambda ctx: None,
+        get_coverage_deps = _get_coverage_deps,
+        get_debugger_deps = _get_debugger_deps,
+        get_extra_common_runfiles_for_binary = lambda ctx: ctx.runfiles(),
+        get_extra_providers = _get_extra_providers,
+        get_extra_write_build_data_env = lambda ctx: {},
+        get_imports = get_imports,
         get_interpreter_path = _get_interpreter_path,
         get_native_deps_dso_name = _get_native_deps_dso_name,
         get_native_deps_user_link_flags = _get_native_deps_user_link_flags,
-        should_build_native_deps_dso = _should_build_native_deps_dso,
+        get_stamp_flag = _get_stamp_flag,
+        maybe_precompile = maybe_precompile,
+        should_build_native_deps_dso = lambda ctx: False,
+        should_create_init_files = _should_create_init_files,
+        should_include_build_data = lambda ctx: False,
         # keep-sorted end
     )
+
+# todo: implement by getting coverage files from the runtime
+def _get_coverage_deps(ctx, runtime_details):
+    _ = ctx, runtime_details  # @unused
+    return []
+
+def _get_debugger_deps(ctx, runtime_details):
+    _ = ctx, runtime_details  # @unused
+    return []
+
+def _get_extra_providers(ctx, main_py, runtime_details):
+    _ = ctx, main_py, runtime_details  # @unused
+    return {}, []
+
+def _get_stamp_flag(ctx):
+    # NOTE: Undocumented API; private to builtins
+    return ctx.configuration.stamp_binaries
+
+def _should_create_init_files(ctx):
+    if ctx.attr.legacy_create_init == -1:
+        return ctx.fragments.py.default_to_explicit_init_py
+    else:
+        return bool(ctx.attr.legacy_create_init)
 
 def _create_executable(
         ctx,
@@ -95,12 +167,12 @@ def _create_executable(
     if is_windows:
         if not executable.name.extension == "exe":
             fail("Should not happen: somehow we are generating a non-.exe file on windows")
-        base_executable_name = executable.name[0:-4]
+        base_executable_name = executable.basename[0:-4]
     else:
-        base_executable_name = executable.name
+        base_executable_name = executable.basename
 
-    zip_bootstrap = ctx.actions.declare(base_executable_name + ".temp")
-    zip_file = ctx.actions.declare(base_executable_name + ".zip")
+    zip_bootstrap = ctx.actions.declare_file(base_executable_name + ".temp", sibling = executable)
+    zip_file = ctx.actions.declare_file(base_executable_name + ".zip", sibling = executable)
 
     _expand_bootstrap_template(
         ctx,
@@ -112,10 +184,11 @@ def _create_executable(
         ctx,
         output = zip_file,
         original_nonzip_executable = executable,
-        zipfile_executable = zip_bootstrap,
+        executable_for_zip_file = zip_bootstrap,
         runfiles = runfiles_details.default_runfiles,
     )
 
+    extra_files_to_build = []
     build_zip_enabled = ctx.fragments.py.build_python_zip
 
     # When --build_python_zip is enabled, then the zip file becomes
@@ -155,17 +228,17 @@ def _create_executable(
             extra_files_to_build.append(bootstrap_output)
 
     if should_create_executable_zip:
-        if bootstrap_template != None:
-            fail("Should not occur: bootstrap_template should not be used " +
+        if bootstrap_output != None:
+            fail("Should not occur: bootstrap_output should not be used " +
                  "when creating an executable zip")
         _create_executable_zip_file(ctx, output = executable, zip_file = zip_file)
     else:
-        if bootstrap_template == None:
-            fail("Should not occur: bootstrap_template should set when " +
+        if bootstrap_output == None:
+            fail("Should not occur: bootstrap_output should set when " +
                  "build a bootstrap-template-based executable")
         _expand_bootstrap_template(
             ctx,
-            output = bootstrap_template,
+            output = bootstrap_output,
             is_for_zip = build_zip_enabled,
             **common_bootstrap_template_kwargs
         )
@@ -243,7 +316,7 @@ def _create_windows_exe_launcher(
         progress_message = "Creating launcher for %{label}",
     )
 
-def _create_zip_file(ctx, *, zip_file, original_nonzip_executable, zip_executable, runfiles):
+def _create_zip_file(ctx, *, output, original_nonzip_executable, executable_for_zip_file, runfiles):
     workspace_name = ctx.workspace_name
     legacy_external_runfiles = _py_builtins.get_legacy_external_runfiles(ctx)
 
@@ -251,7 +324,7 @@ def _create_zip_file(ctx, *, zip_file, original_nonzip_executable, zip_executabl
     manifest.use_param_file("%s", use_always = True)
     manifest.set_param_file_format("multiline")
 
-    manifest.add("__main__.py=%s", zip_executable)
+    manifest.add("__main__.py=%s", executable_for_zip_file)
     manifest.add("__init__.py=")
     manifest.add(
         "%s=",
@@ -261,7 +334,7 @@ def _create_zip_file(ctx, *, zip_file, original_nonzip_executable, zip_executabl
         manifest.add("%s=", _get_zip_runfiles_path(path, workspace_name, legacy_external_runfiles))
 
     def map_zip_runfiles(file):
-        if file != original_nonzip_executable and file != zip_file:
+        if file != original_nonzip_executable and file != output:
             return "{}={}".format(
                 _get_zip_runfiles_path(file.short_path, workspace_name, legacy_external_runfiles),
                 file.path,
@@ -270,22 +343,22 @@ def _create_zip_file(ctx, *, zip_file, original_nonzip_executable, zip_executabl
             return None
 
     manifest.add_all(runfiles.files, map_each = map_zip_runfiles, allow_closure = True)
-    inputs = []
+    inputs = [executable_for_zip_file]
     for artifact in runfiles.files.to_list():
         # Don't include the original executable because it isn't used by the
         # zip file, so no need to build it for the action.
         # Don't include the zipfile itself because it's an output.
-        if artifact != original_nonzip_executable and artifact != zip_file:
+        if artifact != original_nonzip_executable and artifact != output:
             inputs.append(artifact)
 
     zip_cli_args = ctx.actions.args()
     zip_cli_args.add("cC")
-    zip_cli_args.add(zip_file)
+    zip_cli_args.add(output)
     ctx.actions.run(
         executable = ctx.executable._zipper,
         arguments = [zip_cli_args, manifest],
         inputs = depset(inputs),
-        outputs = [zip_file],
+        outputs = [output],
         use_default_shell_env = True,
         mnemonic = "PythonZipper",
         progress_message = "Building Python zip: %{label}",
@@ -293,10 +366,10 @@ def _create_zip_file(ctx, *, zip_file, original_nonzip_executable, zip_executabl
 
 def _get_zip_runfiles_path(path, workspace_name, legacy_external_runfiles):
     if legacy_external_runfiles and path.startswith(_EXTERNAL_PATH_PREFIX):
-        zip_runfiles_path = path.relativeTo(EXTERNAL_PATH_PREFIX)
+        zip_runfiles_path = paths.relativize(_EXTERNAL_PATH_PREFIX, path)
     else:
         zip_runfiles_path = "{}/{}".format(workspace_name, path)
-    return ZIP_RUNFILES_DIRECTORY_NAME.getRelative(zip_runfiles_path)
+    return "{}/{}".format(_ZIP_RUNFILES_DIRECTORY_NAME, zip_runfiles_path)
 
 def _create_executable_zip_file(ctx, *, output, zip_file):
     ctx.actions.run_shell(
