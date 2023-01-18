@@ -61,60 +61,6 @@ filegroup(
     srcs = [],
 )
 
-# This target only contains the jars that are used for building / running Bazel.
-# The target below is for the Android tools that are not shipped with Bazel.
-distrib_java_import(
-    name = "android_common_25_0_0_lite",
-    enable_distributions = ["debian"],
-    jars = [
-        "android_common/com.android.tools.layoutlib_layoutlib_26.1.2-stripped.jar",
-        "android_common/com.android.tools_sdk-common_25.0.0-patched-stripped.jar",
-        "android_common/com.android.tools_repository_25.0.0.jar",
-    ],
-    deps = [
-        "//third_party/jaxb",
-    ],
-)
-
-java_import(
-    name = "android-annotations",
-    jars = ["android_common/com.android_annotations_25.0.0.jar"],
-)
-
-java_import(
-    name = "android_common_25_0_0",
-    jars = [
-        "android_common/com.android_annotations_25.0.0.jar",
-        "android_common/com.android.tools.build_builder_2.0.0.jar",
-        "android_common/com.android.tools.build_builder-model_2.0.0.jar",
-        "android_common/com.android.tools.build_builder-test-api_2.0.0.jar",
-        "android_common/com.android.tools.build_manifest-merger_25.0.0-patched.jar",
-        "android_common/com.android.tools.external.lombok_lombok-ast_0.2.3.jar",
-        # layoutlib has been upgraded to 26.1.2 *just* for font resource support.
-        # We are unable to upgrade the other libraries yet due to internal
-        # constraints with Blaze. See
-        # https://github.com/bazelbuild/bazel/issues/4381
-        # TODO(bazel-team): Upgrade entire android_common suite to 26+ after
-        # resolving internal constraint.
-        "android_common/com.android.tools.layoutlib_layoutlib_26.1.2.jar",
-        "android_common/com.android.tools.lint_lint-api_25.0.0.jar",
-        "android_common/com.android.tools.lint_lint-checks_25.0.0.jar",
-        "android_common/com.android.tools_common_25.0.0.jar",
-        "android_common/com.android.tools_dvlib_25.0.0.jar",
-        "android_common/com.android.tools_repository_25.0.0.jar",
-        "android_common/com.android.tools_sdk-common_25.0.0-patched.jar",
-        "android_common/com.android.tools_sdklib_25.0.0.jar",
-    ],
-    runtime_deps = [
-        ":asm",
-        ":asm-analysis",
-        ":asm-tree",
-    ],
-    deps = [
-        "//third_party/jaxb",
-    ],
-)
-
 java_import(
     name = "apache_commons_codec",
     jars = ["apache_commons_codec/commons-codec-1.10.jar"],
@@ -239,9 +185,9 @@ java_plugin(
 
 distrib_java_import(
     name = "auto_common",
+    applicable_licenses = [":auto_license"],
     enable_distributions = ["debian"],
     jars = ["auto/auto-common-1.1.2.jar"],
-    applicable_licenses = [":auto_license"],
 )
 
 license(
@@ -398,8 +344,8 @@ java_library(
 distrib_jar_filegroup(
     name = "error_prone_annotations-jar",
     srcs = [
-        "@maven//:com_google_errorprone_error_prone_annotations_file",
         "error_prone/threeten-extra-1.5.0.jar",
+        "@maven//:com_google_errorprone_error_prone_annotations_file",
     ],
     enable_distributions = ["debian"],
 )
@@ -463,13 +409,13 @@ filegroup(
 
 java_library(
     name = "guava",
-    exports = [
-       "@maven//:com_google_guava_guava",
-       ":error_prone_annotations",
-       ":jsr305",
-       ":jcip_annotations",
-    ],
     applicable_licenses = [":guava_license"],
+    exports = [
+        ":error_prone_annotations",
+        ":jcip_annotations",
+        ":jsr305",
+        "@maven//:com_google_guava_guava",
+    ],
 )
 
 license(
@@ -483,13 +429,13 @@ license(
 
 distrib_java_import(
     name = "flogger",
+    applicable_licenses = [":flogger_license"],
     enable_distributions = ["debian"],
     jars = [
         "flogger/flogger-0.5.1.jar",
         "flogger/flogger-system-backend-0.5.1.jar",
         "flogger/google-extensions-0.5.1.jar",
     ],
-    applicable_licenses = [":flogger_license"],
 )
 
 license(
@@ -748,6 +694,7 @@ java_import(
 
 java_import(
     name = "truth",
+    applicable_licenses = [":truth_license"],
     jars = ["truth/truth-1.0.1.jar"],
     exports = [
         ":truth8",
@@ -756,7 +703,6 @@ java_import(
     deps = [
         ":diffutils",
     ],
-    applicable_licenses = [":truth_license"],
 )
 
 license(
@@ -770,8 +716,8 @@ license(
 
 java_import(
     name = "truth8",
-    jars = ["truth8/truth-java8-extension-1.0.1.jar"],
     applicable_licenses = [":truth8_license"],
+    jars = ["truth8/truth-java8-extension-1.0.1.jar"],
 )
 
 license(
@@ -785,11 +731,11 @@ license(
 
 java_import(
     name = "truth_proto",
+    applicable_licenses = [":truth_proto_license"],
     jars = [
         "truth_proto/truth-liteproto-extension-1.0.1.jar",
         "truth_proto/truth-proto-extension-1.0.1.jar",
     ],
-    applicable_licenses = [":truth_proto_license"],
 )
 
 license(
@@ -803,9 +749,9 @@ license(
 
 distrib_java_import(
     name = "xz",
+    applicable_licenses = [":xz_license"],
     enable_distributions = ["debian"],
     jars = ["xz/xz-1.9.jar"],
-    applicable_licenses = [":xz_license"],
 )
 
 license(

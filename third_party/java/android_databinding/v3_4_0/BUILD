@@ -48,7 +48,6 @@ java_import(
     deps = [
         ":base",
         ":x_common",
-        "//third_party:android-annotations",
         "//third_party:apache_commons_io",
         "//third_party:checker_framework_annotations",
         "//third_party:error_prone_annotations",
@@ -61,6 +60,7 @@ java_import(
         "//third_party/jetifier",
         "//third_party/juniversalchardet",
         "//third_party/kotlin_stdlib",
+        "@maven_android//:com_android_tools_annotations",
     ],
 )
 
