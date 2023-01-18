@@ -332,7 +332,8 @@ public class SkydocMain {
       if (envEntry.getValue() instanceof FakeStructApi) {
         String namespaceName = envEntry.getKey();
         FakeStructApi namespace = (FakeStructApi) envEntry.getValue();
-        putStructFields(namespaceName, namespace, userDefinedFunctionMap);
+        putStructFields(
+            namespaceName, namespace, ruleFunctions, ruleInfoMap, userDefinedFunctionMap);
       }
       if (aspectFunctions.containsKey(envEntry.getValue())) {
         AspectInfo.Builder aspectInfoBuild =
@@ -356,16 +357,22 @@ public class SkydocMain {
   private static void putStructFields(
       String namespaceName,
       FakeStructApi namespace,
+      Map<StarlarkCallable, RuleInfoWrapper> ruleFunctions,
+      ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
       ImmutableMap.Builder<String, StarlarkFunction> userDefinedFunctionMap)
       throws EvalException {
     for (String field : namespace.getFieldNames()) {
       String qualifiedFieldName = namespaceName + "." + field;
-      if (namespace.getValue(field) instanceof StarlarkFunction) {
+      if (ruleFunctions.containsKey(namespace.getValue(field))) {
+        ruleInfoMap.put(
+            qualifiedFieldName, ruleFunctions.get(namespace.getValue(field)).getRuleInfo().build());
+      } else if (namespace.getValue(field) instanceof StarlarkFunction) {
         StarlarkFunction userDefinedFunction = (StarlarkFunction) namespace.getValue(field);
         userDefinedFunctionMap.put(qualifiedFieldName, userDefinedFunction);
       } else if (namespace.getValue(field) instanceof FakeStructApi) {
         FakeStructApi innerNamespace = (FakeStructApi) namespace.getValue(field);
-        putStructFields(qualifiedFieldName, innerNamespace, userDefinedFunctionMap);
+        putStructFields(
+            qualifiedFieldName, innerNamespace, ruleFunctions, ruleInfoMap, userDefinedFunctionMap);
       }
     }
   }
