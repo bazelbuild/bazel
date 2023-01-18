@@ -39,9 +39,7 @@ public class RuleContextTest extends ToolchainTestCase {
 
     assertThat(ruleContext.getToolchainContext()).hasToolchainType("//toolchain:test_toolchain");
     ToolchainInfo toolchain =
-        ruleContext
-            .getToolchainContext()
-            .forToolchainType(Label.parseCanonical("//toolchain:test_toolchain"));
+        ruleContext.getToolchainInfo(Label.parseCanonical("//toolchain:test_toolchain"));
     assertThat(toolchain.getValue("data")).isEqualTo("foo");
   }
 

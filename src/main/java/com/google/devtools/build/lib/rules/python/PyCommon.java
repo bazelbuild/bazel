@@ -475,7 +475,7 @@ public final class PyCommon {
       return null;
     }
     Label toolchainType = ruleContext.attributes().get("$py_toolchain_type", BuildType.NODEP_LABEL);
-    ToolchainInfo toolchainInfo = ruleContext.getToolchainContext().forToolchainType(toolchainType);
+    ToolchainInfo toolchainInfo = ruleContext.getToolchainInfo(toolchainType);
     Preconditions.checkArgument(
         toolchainInfo != null,
         "Could not retrieve a Python toolchain for '%s' rule",

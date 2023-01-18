@@ -18,7 +18,10 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ObjectArrays;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import org.junit.Before;
 import org.junit.Test;
@@ -231,5 +234,42 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         getRuleContext(target).getExecGroups().execGroups();
 
     assertThat(execGroups).isNotEmpty();
+  }
+
+  @Test
+  public void getToolchainInfoAndContext_automaticExecGroupsEnabled() throws Exception {
+    createCustomRule(
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1']");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    RuleContext ruleContext = getRuleContext(target);
+    ImmutableMap<ToolchainTypeInfo, ToolchainInfo> defaultExecGroupToolchains =
+        ruleContext.getToolchainContext().toolchains();
+    ToolchainInfo toolchainInfo =
+        ruleContext.getToolchainInfo(Label.parseCanonical("//rule:toolchain_type_1"));
+
+    assertThat(defaultExecGroupToolchains).isEmpty();
+    assertThat(toolchainInfo).isNotNull();
+  }
+
+  @Test
+  public void getToolchainInfoAndContext_automaticExecGroupsDisabled() throws Exception {
+    createCustomRule(
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1']");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    RuleContext ruleContext = getRuleContext(target);
+    ImmutableMap<ToolchainTypeInfo, ToolchainInfo> defaultExecGroupToolchains =
+        ruleContext.getToolchainContext().toolchains();
+    ToolchainInfo toolchainInfo =
+        ruleContext.getToolchainInfo(Label.parseCanonical("//rule:toolchain_type_1"));
+
+    assertThat(defaultExecGroupToolchains).isNotEmpty();
+    assertThat(toolchainInfo).isNotNull();
   }
 }

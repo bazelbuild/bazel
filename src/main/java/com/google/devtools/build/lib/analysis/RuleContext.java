@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -1216,6 +1217,10 @@ public final class RuleContext extends TargetContext
     }
   }
 
+  /**
+   * Returns the toolchain context from the default exec group. Important note: In case automatic
+   * exec groups are enabled, use `getToolchainContext(Label toolchainType)` function.
+   */
   @Nullable
   public ResolvedToolchainContext getToolchainContext() {
     return toolchainContexts == null ? null : toolchainContexts.getDefaultToolchainContext();
@@ -1224,6 +1229,22 @@ public final class RuleContext extends TargetContext
   @Nullable
   private ResolvedToolchainContext getToolchainContext(String execGroup) {
     return toolchainContexts == null ? null : toolchainContexts.getToolchainContext(execGroup);
+  }
+
+  /**
+   * Returns the toolchain info from the default exec group in case automatic exec groups are not
+   * enabled. If they are enabled, retrieves toolchain info from the corresponding automatic exec
+   * group.
+   */
+  @Nullable
+  public ToolchainInfo getToolchainInfo(Label toolchainType) {
+    ResolvedToolchainContext toolchainContext;
+    if (useAutoExecGroups()) {
+      toolchainContext = toolchainContexts.getToolchainContext(toolchainType.toString());
+    } else {
+      toolchainContext = getToolchainContext();
+    }
+    return toolchainContext == null ? null : toolchainContext.forToolchainType(toolchainType);
   }
 
   public boolean hasToolchainContext(String execGroup) {

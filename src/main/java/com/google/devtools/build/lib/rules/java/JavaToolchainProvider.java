@@ -56,12 +56,10 @@ public final class JavaToolchainProvider extends NativeInfo
   /** Returns the Java Toolchain associated with the rule being analyzed or {@code null}. */
   public static JavaToolchainProvider from(RuleContext ruleContext) {
     ToolchainInfo toolchainInfo =
-        ruleContext
-            .getToolchainContext()
-            .forToolchainType(
-                ruleContext
-                    .getPrerequisite(JavaRuleClasses.JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)
-                    .getLabel());
+        ruleContext.getToolchainInfo(
+            ruleContext
+                .getPrerequisite(JavaRuleClasses.JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)
+                .getLabel());
     return from(toolchainInfo, ruleContext);
   }
 
