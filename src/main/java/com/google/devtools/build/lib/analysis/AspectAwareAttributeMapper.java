@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
  * <p>For example, given {@code deps = [":adep"]}, checking that {@code deps} exists or that it's
  * type is {@link com.google.devtools.build.lib.packages.BuildType#LABEL_LIST} are type queries.
  * Checking that its value is explicitly set in the BUILD File or that its value {@code [":adep"]}
- * are value queries..
+ * are value queries.
  *
  * <p>Value queries on aspect attributes trigger {@link UnsupportedOperationException}.
  */
