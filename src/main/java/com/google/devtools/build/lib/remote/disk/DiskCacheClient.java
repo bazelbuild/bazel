@@ -68,11 +68,6 @@ public class DiskCacheClient implements RemoteCacheClient {
     return toPath(digest.getHash(), /* actionResult= */ false).exists();
   }
 
-  /** Returns {@code true} if the provided {@code key} is stored in the Action Cache. */
-  public boolean containsActionResult(ActionKey actionKey) {
-    return toPath(actionKey.getDigest().getHash(), /* actionResult= */ true).exists();
-  }
-
   public void captureFile(Path src, Digest digest, boolean isActionCache) throws IOException {
     Path target = toPath(digest.getHash(), isActionCache);
     target.getParentDirectory().createDirectoryAndParents();
@@ -161,7 +156,11 @@ public class DiskCacheClient implements RemoteCacheClient {
           }
 
           if (checkActionResult) {
-            checkActionResult(actionResult);
+            try {
+              checkActionResult(actionResult);
+            } catch (CacheNotFoundException e) {
+              return Futures.immediateFuture(null);
+            }
           }
 
           return Futures.immediateFuture(CachedActionResult.disk(actionResult));
