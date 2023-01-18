@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <string>
 
@@ -28,15 +31,32 @@
 //  end, the size of the launch data written is appended as a long value (8
 //  bytes).
 int main(int argc, char** argv) {
+  if (argc < 4) {
+    printf("Expected 3 arguments, got %d\n", argc);
+    return 1;
+  }
+
   char* launcher_path = argv[1];
   char* info_params = argv[2];
   char* output_path = argv[3];
 
   std::ifstream src(launcher_path, std::ios::binary);
+  if (!src.good()) {
+    printf("Failed to open %s: %s\n", launcher_path, strerror(errno));
+    return 1;
+  }
   std::ofstream dst(output_path, std::ios::binary);
+  if (!dst.good()) {
+    printf("Failed to create %s: %s\n", output_path, strerror(errno));
+    return 1;
+  }
   dst << src.rdbuf();
 
   std::ifstream info_file(info_params);
+  if (!info_file.good()) {
+    printf("Failed to open %s: %s\n", info_params, strerror(errno));
+    return 1;
+  }
   int64_t bytes = 0;
   std::string line;
   while (std::getline(info_file, line)) {
