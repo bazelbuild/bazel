@@ -2528,6 +2528,34 @@ java_library(
 )
 
 java_library(
+    name = "test/coverage_report",
+    srcs = ["test/CoverageReport.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "test/coverage_configuration",
+    srcs = ["test/CoverageConfiguration.java"],
+    deps = [
+        ":config/build_options",
+        ":config/core_option_converters",
+        ":config/core_options",
+        ":config/fragment",
+        ":config/fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "test/coverage_report_action_factory",
     srcs = ["test/CoverageReportActionFactory.java"],
     deps = [

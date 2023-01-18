@@ -1053,5 +1053,78 @@ public class StandaloneTestStrategy extends TestStrategy {
           testResultDataBuilder,
           primarySpawnResults);
     }
+
+    Verify.verify(
+        !(testAction.isCoverageMode() && testAction.getSplitCoveragePostProcessing())
+            || actionExecutionContext
+                .getPathResolver()
+                .convertPath(testAction.getCoverageData().getPath())
+                .exists());
+    Verify.verifyNotNull(spawnResults);
+    Verify.verifyNotNull(testResultDataBuilder);
+
+    try {
+      if (!fileOutErr.hasRecordedOutput()) {
+        // Make sure that the test.log exists.Spaw
+        FileSystemUtils.touchFile(fileOutErr.getOutputPath());
+      }
+      // Append any error output to the test.log. This is very rare.
+      writeOutFile(fileOutErr.getErrorPath(), fileOutErr.getOutputPath());
+      fileOutErr.close();
+      if (streamed != null) {
+        streamed.close();
+      }
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(e, Code.TEST_OUT_ERR_IO_EXCEPTION);
+    }
+
+    Path xmlOutputPath = resolvedPaths.getXmlOutputPath();
+
+    // If the test did not create a test.xml, and --experimental_split_xml_generation is enabled,
+    // then we run a separate action to create a test.xml from test.log. We do this as a spawn
+    // rather than doing it locally in-process, as the test.log file may only exist remotely (when
+    // remote execution is enabled), and we do not want to have to download it.
+    if (executionOptions.splitXmlGeneration
+        && fileOutErr.getOutputPath().exists()
+        && !xmlOutputPath.exists()) {
+      Spawn xmlGeneratingSpawn =
+          createXmlGeneratingSpawn(testAction, spawn.getEnvironment(), spawnResults.get(0));
+      SpawnStrategyResolver spawnStrategyResolver =
+          actionExecutionContext.getContext(SpawnStrategyResolver.class);
+      // We treat all failures to generate the test.xml here as catastrophic, and won't rerun
+      // the test if this fails. We redirect the output to a temporary file.
+      FileOutErr xmlSpawnOutErr = actionExecutionContext.getFileOutErr().childOutErr();
+      try {
+
+        ImmutableList<SpawnResult> xmlSpawnResults =
+            spawnStrategyResolver.exec(
+                xmlGeneratingSpawn, actionExecutionContext.withFileOutErr(xmlSpawnOutErr));
+        spawnResults =
+            ImmutableList.<SpawnResult>builder()
+                .addAll(spawnResults)
+                .addAll(xmlSpawnResults)
+                .build();
+      } catch (InterruptedException | ExecException e) {
+        closeSuppressed(e, xmlSpawnOutErr);
+        throw e;
+      }
+    }
+
+    TestCase details = parseTestResult(xmlOutputPath);
+    if (details != null) {
+      testResultDataBuilder.setTestCase(details);
+    }
+
+    BuildEventStreamProtos.TestResult.ExecutionInfo executionInfo =
+        extractExecutionInfo(spawnResults.get(0), testResultDataBuilder);
+    return StandaloneTestResult.builder()
+        .setSpawnResults(spawnResults)
+        // We return the TestResultData.Builder rather than the finished TestResultData
+        // instance, as we may have to rename the output files in case the test needs to be
+        // rerun (if it failed here _and_ is marked flaky _and_ the number of flaky attempts
+        // is larger than 1).
+        .setTestResultDataBuilder(testResultDataBuilder)
+        .setExecutionInfo(executionInfo)
+        .build();
   }
 }
