@@ -228,6 +228,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -243,6 +244,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
@@ -378,6 +380,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private Map<String, String> lastRemoteDefaultExecProperties;
   private RemoteOutputsMode lastRemoteOutputsMode;
   private Boolean lastRemoteCacheEnabled;
+
+  private boolean mergedSkyframeAnalysisExecution = false;
 
   // Reset after each build.
   private IncrementalArtifactConflictFinder incrementalArtifactConflictFinder;
@@ -1404,6 +1408,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   public SkyframeBuildView getSkyframeBuildView() {
     return skyframeBuildView;
+  }
+
+  /** Sets whether this build is done with --experimental_merged_skyframe_analysis_execution. */
+  public void setMergedSkyframeAnalysisExecution(boolean mergedSkyframeAnalysisExecution) {
+    this.mergedSkyframeAnalysisExecution = mergedSkyframeAnalysisExecution;
   }
 
   /** Sets the eventBus to use for posting events. */
@@ -3049,6 +3058,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     /** This receiver is only needed for execution, so it is null otherwise. */
     @Nullable EvaluationProgressReceiver executionProgressReceiver = null;
 
+    /**
+     * As the ActionLookupValues are marked done in the graph, put it in the map. This map will be
+     * "swapped out" for a new one each time it's requested via {@link
+     * #getBatchedActionLookupValuesForConflictChecking()}
+     */
+    @GuardedBy("this")
+    private Map<SkyKey, SkyValue> batchedActionLookupValuesForConflictChecking =
+        Maps.newConcurrentMap();
+
     @Override
     public void invalidated(SkyKey skyKey, InvalidationState state) {
       if (ignoreInvalidations) {
@@ -3109,6 +3127,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         }
       }
 
+      if (mergedSkyframeAnalysisExecution
+          && !tracksStateForIncrementality()
+          && skyKey instanceof ActionLookupKey
+          && newValue != null) {
+        synchronized (this) {
+          batchedActionLookupValuesForConflictChecking.put(skyKey, newValue);
+        }
+      }
+
       if (EvaluationState.BUILT.equals(state)) {
         skyKeyStateReceiver.evaluated(skyKey);
       }
@@ -3121,6 +3148,23 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       if (executionProgressReceiver != null) {
         executionProgressReceiver.evaluated(
             skyKey, newValue, newError, evaluationSuccessState, state);
+      }
+    }
+
+    /**
+     * Returns the SkyKey -> SkyValue map of done ActionLookupValues since the last time this method
+     * was called. Replaces {@link #batchedActionLookupValuesForConflictChecking} with a new empty
+     * map.
+     *
+     * <p>This is only used in skymeld mode AND when we don't keep the incremental state.
+     */
+    public ImmutableMap<SkyKey, SkyValue> getBatchedActionLookupValuesForConflictChecking() {
+      Preconditions.checkState(mergedSkyframeAnalysisExecution && !tracksStateForIncrementality());
+      synchronized (this) {
+        ImmutableMap<SkyKey, SkyValue> result =
+            ImmutableMap.copyOf(batchedActionLookupValuesForConflictChecking);
+        batchedActionLookupValuesForConflictChecking = Maps.newConcurrentMap();
+        return result;
       }
     }
   }
@@ -3174,12 +3218,23 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     try (SilentCloseable c =
         Profiler.instance().profile("SkyframeExecutor.collectTransitiveActionLookupValuesOfKey")) {
       ActionLookupValuesTraversal result = new ActionLookupValuesTraversal();
-      Map<ActionLookupKey, SkyValue> foundTransitiveActionLookupEntities =
-          incrementalTransitiveActionLookupKeysCollector.collect(key);
-      foundTransitiveActionLookupEntities.forEach(result::accumulate);
+      if (tracksStateForIncrementality()) {
+        Map<ActionLookupKey, SkyValue> foundTransitiveActionLookupEntities =
+            incrementalTransitiveActionLookupKeysCollector.collect(key);
+        foundTransitiveActionLookupEntities.forEach(result::accumulate);
+        return ActionLookupValuesCollectionResult.create(
+            result.getActionLookupValueShards(),
+            ImmutableSet.copyOf(foundTransitiveActionLookupEntities.keySet()));
+      }
+      // No graph edges available when there's no incrementality. We get the ALVs collected
+      // since the last time this method was called.
+      ImmutableMap<SkyKey, SkyValue> batchOfActionLookupValues =
+          progressReceiver.getBatchedActionLookupValuesForConflictChecking();
+      for (Entry<SkyKey, SkyValue> entry : batchOfActionLookupValues.entrySet()) {
+        result.accumulate((ActionLookupKey) entry.getKey(), entry.getValue());
+      }
       return ActionLookupValuesCollectionResult.create(
-          result.getActionLookupValueShards(),
-          ImmutableSet.copyOf(foundTransitiveActionLookupEntities.keySet()));
+          result.getActionLookupValueShards(), batchOfActionLookupValues.keySet());
     }
   }
 

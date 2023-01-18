@@ -177,6 +177,7 @@ public class BuildTool {
         return;
       }
 
+      env.getSkyframeExecutor().setMergedSkyframeAnalysisExecution(false);
       AnalysisResult analysisResult =
           AnalysisPhaseRunner.execute(env, request, buildOptions, validator);
 
@@ -309,7 +310,7 @@ public class BuildTool {
       throws InterruptedException, TargetParsingException, LoadingFailedException,
           AbruptExitException, ViewCreationFailedException, BuildFailedException, TestExecException,
           InvalidConfigurationException, RepositoryMappingResolutionException {
-
+    env.getSkyframeExecutor().setMergedSkyframeAnalysisExecution(true);
     // Target pattern evaluation.
     TargetPatternPhaseValue loadingResult;
     Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
