@@ -13,9 +13,9 @@
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
   <!-- Comment for permission android.permission.GET_ACCOUNTS. This is just to make sure the comment is being merged correctly. -->
   <uses-permission android:name="android.permission.GET_ACCOUNTS" />
-  <android:uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-  <android:uses-permission android:name="android.permission.READ_PHONE_STATE" />
-  <android:uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+  <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
   <application
           android:name="com.google.android.apps.testapp.TestApplication"
           android:backupAgent="com.google.android.apps.testapp2.FooBar"

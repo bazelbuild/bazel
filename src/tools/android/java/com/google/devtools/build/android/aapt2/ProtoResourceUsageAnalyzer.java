@@ -16,17 +16,18 @@ package com.google.devtools.build.android.aapt2;
 
 import static com.android.SdkConstants.ATTR_DISCARD;
 import static com.android.SdkConstants.ATTR_KEEP;
+import static com.android.ide.common.resources.ResourcesUtil.resourceNameToFieldName;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 import com.android.aapt.Resources;
 import com.android.build.gradle.tasks.ResourceUsageAnalyzer;
+import com.android.ide.common.resources.usage.ResourceUsageModel;
+import com.android.ide.common.resources.usage.ResourceUsageModel.Resource;
 import com.android.resources.ResourceFolderType;
 import com.android.resources.ResourceType;
-import com.android.tools.lint.checks.ResourceUsageModel;
-import com.android.tools.lint.checks.ResourceUsageModel.Resource;
-import com.android.tools.lint.detector.api.LintUtils;
+import com.android.resources.ResourceUrl;
 import com.android.utils.XmlUtils;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
@@ -37,12 +38,14 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.android.aapt2.ProtoApk.ManifestVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ReferenceVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourcePackageVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourceValueVisitor;
 import com.google.devtools.build.android.aapt2.ProtoApk.ResourceVisitor;
+import com.google.devtools.build.android.resources.ResourceTypeEnum;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.sun.org.apache.xerces.internal.dom.AttrImpl;
 import java.io.IOException;
@@ -90,7 +93,7 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
     final Iterator<String> iterator = Splitter.on('/').split(resourceTypeAndName).iterator();
     Preconditions.checkArgument(
         iterator.hasNext(), "%s invalid resource name", resourceTypeAndName);
-    ResourceType resourceType = ResourceType.getEnum(iterator.next());
+    ResourceType resourceType = ResourceTypeEnum.get(iterator.next());
     Preconditions.checkArgument(
         iterator.hasNext(), "%s invalid resource name", resourceTypeAndName);
     return model.getResource(resourceType, iterator.next());
@@ -136,7 +139,17 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
 
     toolAttributes.entries().stream()
         .filter(entry -> entry.getKey().equals(ATTR_KEEP) || entry.getKey().equals(ATTR_DISCARD))
-        .map(entry -> createSimpleAttr(entry.getKey(), entry.getValue()))
+        .map(entry -> Maps.immutableEntry(entry.getKey(), ResourceUrl.parse(entry.getValue())))
+        .filter(entry -> entry.getValue() != null)
+        .map(
+            entry ->
+                Maps.immutableEntry(
+                    entry.getKey(),
+                    ResourceUrl.create(
+                        entry.getValue().namespace,
+                        entry.getValue().type,
+                        resourceNameToFieldName(entry.getValue().name))))
+        .map(entry -> createSimpleAttr(entry.getKey(), entry.getValue().toString()))
         .forEach(attr -> model().recordToolsAttributes(attr));
     model().processToolsAttributes();
 
@@ -241,7 +254,7 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
             String hexId =
                 String.format(
                     "0x%s", Integer.toHexString(((pkgId << 24) | (typeId << 16) | resourceId)));
-            model.addDeclaredResource(resourceType, LintUtils.getFieldName(name), hexId, true);
+            model.addDeclaredResource(resourceType, resourceNameToFieldName(name), hexId, true);
             // Skip visiting the definition when collecting declarations.
             return null;
           };
@@ -385,7 +398,8 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
   // This is used to work around the fact that (a) ResourceUsageModel throws away the original
   // names, and (b) ResourceUsageModel is from an external library not synced with Bazel.
   //
-  // Using a multimap because LintUtils.getFieldName is a many-to-one mapping, meaning that multiple
+  // Using a multimap because resourceNameToFieldName is a many-to-one mapping, meaning that
+  // multiple
   // resources could have the same Java name.  Assuming that the rest of the build system doesn't
   // blow up, neither should we.
   static ImmutableListMultimap<ResourceTypeAndJavaName, String> getUnJavafiedResourceNames(
@@ -396,7 +410,7 @@ public class ProtoResourceUsageAnalyzer extends ResourceUsageAnalyzer {
       for (Resources.Type type : pkg.getTypeList()) {
         for (Resources.Entry entry : type.getEntryList()) {
           String originalName = entry.getName();
-          String javafiedName = LintUtils.getFieldName(originalName);
+          String javafiedName = resourceNameToFieldName(originalName);
           unJavafiedNames.put(
               ResourceTypeAndJavaName.of(type.getName(), javafiedName), originalName);
         }

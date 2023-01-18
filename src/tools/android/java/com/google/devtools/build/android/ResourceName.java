@@ -18,6 +18,7 @@ import static com.google.common.base.Verify.verify;
 import com.android.resources.ResourceType;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Strings;
+import com.google.devtools.build.android.resources.ResourceTypeEnum;
 import java.util.regex.Matcher;
 
 /**
@@ -59,7 +60,7 @@ abstract class ResourceName {
 
     return create(
         Strings.nullToEmpty(matcher.group("package")),
-        ResourceType.getEnum(matcher.group("type")),
+        ResourceTypeEnum.get(matcher.group("type")),
         matcher.group("name"));
   }
 }
