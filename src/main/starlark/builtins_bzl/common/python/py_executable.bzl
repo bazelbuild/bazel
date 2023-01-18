@@ -687,6 +687,11 @@ def _create_providers(
         _create_run_environment_info(ctx, inherited_environment),
     ]
 
+    # TODO(b/265840007): Make this non-conditional once Google enables
+    # --incompatible_use_python_toolchains.
+    if runtime_details.toolchain_runtime:
+        providers.append(runtime_details.toolchain_runtime)
+
     # TODO(b/163083591): Remove the PyCcLinkParamsProvider once binaries-in-deps
     # are cleaned up.
     if cc_info:
