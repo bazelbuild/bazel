@@ -34,6 +34,7 @@ filegroup(
         "//tools/runfiles:srcs",
         "//tools/sh:srcs",
         "//tools/allowlists:srcs",
+        "//tools/universal_binary:srcs",
         "//tools/zip:srcs",
         "//tools/mini_tar:srcs",
     ],
@@ -71,6 +72,7 @@ filegroup(
         "//tools/osx:srcs",
         "//tools/sh:embedded_tools",
         "//tools/allowlists:srcs",
+        "//tools/universal_binary:srcs",
         "//tools/zip:srcs",
     ],
 )
