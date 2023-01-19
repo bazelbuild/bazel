@@ -123,6 +123,21 @@ def create_android_sdk_rules(
                 neverlink = 1,
             )
 
+        native.alias(
+            name = "framework_aidl-%d" % api_level,
+            actual = "platforms/android-%d/framework.aidl" % api_level,
+        )
+
+        native.alias(
+            name = "android_jar-%d" % api_level,
+            actual = "platforms/android-%d/android.jar" % api_level,
+        )
+
+        native.alias(
+            name = "shrinked_android_jar-%d" % api_level,
+            actual = "platforms/android-%d/android.jar" % api_level,
+        )
+
         native.android_sdk(
             name = "sdk-%d" % api_level,
             build_tools_version = build_tools_version,
@@ -135,11 +150,7 @@ def create_android_sdk_rules(
                 ":windows": "build-tools/%s/aapt2.exe" % build_tools_directory,
                 "//conditions:default": ":aapt2_binary",
             }),
-            dx = select({
-                "d8_standalone_dexer": ":d8_compat_dx",
-                "dx_standalone_dexer": ":dx_binary",
-                "//conditions:default": ":d8_compat_dx",
-            }),
+            dx = ":dx",
             legacy_main_dex_list_generator = ":generate_main_dex_list",
             adb = select({
                 ":windows": "platform-tools/adb.exe",
@@ -150,9 +161,9 @@ def create_android_sdk_rules(
                 ":windows": "build-tools/%s/aidl.exe" % build_tools_directory,
                 "//conditions:default": ":aidl_binary",
             }),
-            android_jar = "platforms/android-%d/android.jar" % api_level,
-            shrinked_android_jar = "platforms/android-%d/android.jar" % api_level,
-            main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
+            android_jar = ":android_jar-%d" % api_level,
+            shrinked_android_jar = ":shrinked_android_jar-%d" % api_level,
+            main_dex_classes = ":main_dex_classes",
             apksigner = ":apksigner",
             zipalign = select({
                 ":windows": "build-tools/%s/zipalign.exe" % build_tools_directory,
@@ -173,6 +184,11 @@ def create_android_sdk_rules(
         )
 
     create_dummy_sdk_toolchain()
+
+    native.alias(
+        name = "main_dex_classes",
+        actual = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
+    )
 
     native.alias(
         name = "org_apache_http_legacy",
@@ -213,14 +229,18 @@ def create_android_sdk_rules(
                 # On Windows however we can use these binaries directly because
                 # there's no runfiles support so Bazel just creates a junction to
                 # {SDK}/build-tools.
-                "SDK=$${0}.runfiles/%s" % name,
+                "RUNFILES=$${0}.runfiles",
                 # If $${SDK} is not a directory, it means that this tool is running
                 # from a runfiles directory, in the case of
                 # android_instrumentation_test. Hence, use the androidsdk
                 # that's already present in the runfiles of the current context.
-                "if [[ ! -d $${SDK} ]] ; then",
-                "  SDK=$$(pwd)/../%s" % name,
+                "if [[ ! -d $${RUNFILES} ]]; then",
+                "  RUNFILES=$$(dirname -- $${RUNFILES})",
+                "  while [[ $${RUNFILES} != *.runfiles ]]; do",
+                "    RUNFILES=$$(dirname -- $${RUNFILES})",
+                "  done",
                 "fi",
+                "SDK=$${RUNFILES}/%s" % name,
                 "tool=$${SDK}/build-tools/%s/%s" % (build_tools_directory, tool),
                 "exec env LD_LIBRARY_PATH=$${SDK}/build-tools/%s/lib64 $$tool $$*" % build_tools_directory,
                 "EOF\n",
@@ -319,6 +339,14 @@ def create_android_sdk_rules(
     native.alias(
         name = "d8_jar_import",
         actual = "@android_gmaven_r8//jar",
+    )
+    native.alias(
+        name = "dx",
+        actual = select({
+            "d8_standalone_dexer": ":d8_compat_dx",
+            "dx_standalone_dexer": ":dx_binary",
+            "//conditions:default": ":d8_compat_dx",
+        }),
     )
 
 TAGDIR_TO_TAG_MAP = {
