@@ -24,12 +24,17 @@ ASSEMBLY_SOURCES = [".s", ".S", ".asm"]
 OBJECT_FILE_SOURCES = [".o"]
 HEADERS = [".h", ".inc", ".hpp", ".hh"]
 
+COMPILABLE_SRCS = CPP_SOURCES + NON_CPP_SOURCES + ASSEMBLY_SOURCES
+SRCS = COMPILABLE_SRCS + OBJECT_FILE_SOURCES + HEADERS
+NON_ARC_SRCS = [".m", ".mm"]
+
 extensions = struct(
     CPP_SOURCES = CPP_SOURCES,
     NON_CPP_SOURCES = NON_CPP_SOURCES,
     ASSEMBLY_SOURCES = ASSEMBLY_SOURCES,
-    OBJECT_FILE_SOURCES = OBJECT_FILE_SOURCES,
     HEADERS = HEADERS,
+    SRCS = SRCS,
+    NON_ARC_SRCS = NON_ARC_SRCS,
 )
 
 def _create_context_and_provider(
@@ -155,10 +160,8 @@ def _create_context_and_provider(
         objc_compilation_context_kwargs["includes"].extend(sdk_includes)
 
     if compilation_artifacts != None:
-        all_sources = []
-        all_sources.extend(compilation_artifacts.srcs)
-        all_sources.extend(compilation_artifacts.non_arc_srcs)
-        all_sources.extend(compilation_artifacts.private_hdrs)
+        all_sources = _filter_out_by_extension(compilation_artifacts.srcs, OBJECT_FILE_SOURCES) + \
+                      compilation_artifacts.non_arc_srcs
 
         if compilation_artifacts.archive != None:
             objc_provider_kwargs["library"] = [
@@ -167,9 +170,11 @@ def _create_context_and_provider(
         objc_provider_kwargs["source"].extend(all_sources)
 
         objc_compilation_context_kwargs["public_hdrs"].extend(
-            compilation_artifacts.additional_hdrs.to_list(),
+            compilation_artifacts.additional_hdrs,
         )
-        objc_compilation_context_kwargs["private_hdrs"].extend(compilation_artifacts.private_hdrs)
+        objc_compilation_context_kwargs["private_hdrs"].extend(
+            _filter_by_extension(compilation_artifacts.srcs, HEADERS),
+        )
 
         uses_cpp = False
         arc_and_non_arc_srcs = []
@@ -256,6 +261,12 @@ def _create_context_and_provider(
 
 def _is_cpp_source(source_file):
     return "." + source_file.extension in CPP_SOURCES
+
+def _filter_by_extension(file_list, extensions):
+    return [file for file in file_list if "." + file.extension in extensions]
+
+def _filter_out_by_extension(file_list, extensions):
+    return [file for file in file_list if "." + file.extension not in extensions]
 
 def _add_linkopts(objc_provider_kwargs, linkopts):
     non_sdk_linkopts = []

@@ -23,7 +23,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -42,6 +41,7 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
@@ -239,11 +239,6 @@ public class ObjcRuleClasses {
    */
   static final FileTypeSet PRECOMPILED_SRCS_TYPE = FileTypeSet.of(OBJECT_FILE_SOURCES);
 
-  static final FileTypeSet NON_ARC_SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".mm"));
-
-  // TODO(bazel-team): Restrict this to actual header files only.
-  static final FileTypeSet HDRS_TYPE = FileTypeSet.ANY_FILE;
-
   /**
    * Coverage note files which contain information to reconstruct the basic block graphs and assign
    * source line numbers to blocks.
@@ -297,18 +292,14 @@ public class ObjcRuleClasses {
           <p>
           These will be compiled separately from the source if modules are enabled.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("hdrs", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedFileTypes(HDRS_TYPE))
+          .add(attr("hdrs", LABEL_LIST).direct_compile_time_input().allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(textual_hdrs) -->
           The list of C, C++, Objective-C, and Objective-C++ files that are
           included as headers by source files in this rule or by users of this
           library. Unlike hdrs, these will not be compiled separately from the
           sources.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("textual_hdrs", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedFileTypes(HDRS_TYPE))
+          .add(attr("textual_hdrs", LABEL_LIST).direct_compile_time_input().allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(includes) -->
           List of <code>#include/#import</code> search paths to add to this target
           and all depending targets.
@@ -351,13 +342,6 @@ public class ObjcRuleClasses {
    */
   public static class CompilingRule implements RuleDefinition {
 
-    /**
-     * Rule class names for cc rules which are allowed as targets of the 'deps' attribute of this
-     * rule.
-     */
-    public static final ImmutableSet<String> ALLOWED_CC_DEPS_RULE_CLASSES =
-        ImmutableSet.of("cc_library", "cc_inc_library");
-
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
@@ -374,17 +358,14 @@ public class ObjcRuleClasses {
           ensure consistency in the architecture of provided .o files and that of the
           build to avoid missing symbol linker errors.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("srcs", LABEL_LIST).direct_compile_time_input().allowedFileTypes(SRCS_TYPE))
+          .add(attr("srcs", LABEL_LIST).direct_compile_time_input().allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(non_arc_srcs) -->
           The list of Objective-C files that are processed to create the
           library target that DO NOT use ARC.
           The files in this attribute are treated very similar to those in the
           srcs attribute, but are compiled without ARC enabled.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr("non_arc_srcs", LABEL_LIST)
-                  .direct_compile_time_input()
-                  .allowedFileTypes(NON_ARC_SRCS_TYPE))
+          .add(attr("non_arc_srcs", LABEL_LIST).direct_compile_time_input().allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(pch) -->
           Header file to prepend to every source file being compiled (both arc
           and non-arc).
@@ -401,8 +382,7 @@ public class ObjcRuleClasses {
           .override(
               attr("deps", LABEL_LIST)
                   .direct_compile_time_input()
-                  .allowedRuleClasses(ALLOWED_CC_DEPS_RULE_CLASSES)
-                  .mandatoryProviders(ObjcProvider.STARLARK_CONSTRUCTOR.id())
+                  .mandatoryProviders(CcInfo.PROVIDER.id())
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(runtime_deps) -->
           The list of framework targets that are late loaded at runtime.  They are included in the

@@ -908,16 +908,23 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     ObjcCommon.Builder builder = new ObjcCommon.Builder(purpose, ruleContext);
 
     if (!transpiledSources.isEmpty() || !transpiledHeaders.isEmpty()) {
-      CompilationArtifacts.Builder compilationArtifactsBuilder =
-          new CompilationArtifacts.Builder()
-              .setIntermediateArtifacts(intermediateArtifacts)
-              .addAdditionalHdrs(transpiledHeaders);
+      CompilationArtifacts compilationArtifacts;
       if (j2objcCompileWithARC(ruleContext)) {
-        compilationArtifactsBuilder.addSrcs(transpiledSources);
+        compilationArtifacts =
+            new CompilationArtifacts(
+                transpiledSources,
+                /* nonArcSrcs= */ ImmutableList.<Artifact>of(),
+                transpiledHeaders,
+                intermediateArtifacts);
       } else {
-        compilationArtifactsBuilder.addNonArcSrcs(transpiledSources);
+        compilationArtifacts =
+            new CompilationArtifacts(
+                /* srcs= */ ImmutableList.<Artifact>of(),
+                transpiledSources,
+                transpiledHeaders,
+                intermediateArtifacts);
       }
-      builder.setCompilationArtifacts(compilationArtifactsBuilder.build());
+      builder.setCompilationArtifacts(compilationArtifacts);
       builder.setHasModuleMap();
     }
 

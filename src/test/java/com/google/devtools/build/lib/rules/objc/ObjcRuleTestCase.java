@@ -20,7 +20,6 @@ import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstDerivedArtifactEndingWith;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -877,20 +876,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
                       .getSafePathString()));
     }
     return rootedPaths.build();
-  }
-
-  protected void checkErrorsWrongFileTypeForSrcsWhenCompiling(RuleType ruleType) throws Exception {
-    scratch.file(
-        "fg/BUILD",
-        "filegroup(",
-        "    name = 'fg',",
-        "    srcs = ['non_matching', 'matchingh.h', 'matchingc.c'],",
-        ")");
-    checkError(
-        "x1",
-        "x1",
-        "does not match expected type: " + SRCS_TYPE,
-        ruleType.target(scratch, "x1", "x1", "srcs", "['//fg:fg']"));
   }
 
   protected void checkClangCoptsForCompilationMode(

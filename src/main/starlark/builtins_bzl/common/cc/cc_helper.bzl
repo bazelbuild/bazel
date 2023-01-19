@@ -71,27 +71,35 @@ def _grep_includes_executable(grep_includes):
         return None
     return grep_includes.files_to_run.executable
 
-def _check_src_extension(file, allowed_src_files, allow_versioned_shared_libraries):
+def _check_file_extension(file, allowed_extensions, allow_versioned_shared_libraries):
     extension = "." + file.extension
-    if _matches_extension(extension, allowed_src_files) or (allow_versioned_shared_libraries and _is_versioned_shared_library_extension_valid(file.path)):
+    if _matches_extension(extension, allowed_extensions) or (allow_versioned_shared_libraries and _is_versioned_shared_library_extension_valid(file.path)):
         return True
     return False
 
-def _check_srcs_extensions(ctx, allowed_src_files, rule_name, allow_versioned_shared_libraries):
-    for src in ctx.attr.srcs:
-        if DefaultInfo in src:
-            files = src[DefaultInfo].files.to_list()
+def _check_file_extensions(attr_values, allowed_extensions, attr_name, label, rule_name, allow_versioned_shared_libraries):
+    for attr_value in attr_values:
+        if DefaultInfo in attr_value:
+            files = attr_value[DefaultInfo].files.to_list()
             if len(files) == 1 and files[0].is_source:
-                if not _check_src_extension(files[0], allowed_src_files, allow_versioned_shared_libraries) and not files[0].is_directory:
-                    fail("in srcs attribute of {} rule {}: source file '{}' is misplaced here".format(rule_name, ctx.label, str(src.label)))
+                if not _check_file_extension(files[0], allowed_extensions, allow_versioned_shared_libraries) and not files[0].is_directory:
+                    fail("in {} attribute of {} rule {}: source file '{}' is misplaced here".format(
+                        attr_name,
+                        rule_name,
+                        label,
+                        str(attr_value.label),
+                    ))
             else:
                 at_least_one_good = False
                 for file in files:
-                    if _check_src_extension(file, allowed_src_files, allow_versioned_shared_libraries) or file.is_directory:
+                    if _check_file_extension(file, allowed_extensions, allow_versioned_shared_libraries) or file.is_directory:
                         at_least_one_good = True
                         break
                 if not at_least_one_good:
-                    fail("'{}' does not produce any {} srcs files".format(str(src.label), rule_name), attr = "srcs")
+                    fail("'{}' does not produce any {} {} files".format(str(attr_value.label), rule_name, attr_name), attr = attr_name)
+
+def _check_srcs_extensions(ctx, allowed_extensions, rule_name, allow_versioned_shared_libraries):
+    _check_file_extensions(ctx.attr.srcs, allowed_extensions, "srcs", ctx.label, rule_name, allow_versioned_shared_libraries)
 
 def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_configuration):
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "no_stripping"):
@@ -239,7 +247,7 @@ def _collect_compilation_prerequisites(ctx, compilation_context):
             if DefaultInfo in src:
                 files = src[DefaultInfo].files.to_list()
                 for file in files:
-                    if _check_src_extension(file, extensions.CC_AND_OBJC, False):
+                    if _check_file_extension(file, extensions.CC_AND_OBJC, False):
                         direct.append(file)
 
     transitive.append(compilation_context.headers)
@@ -1010,7 +1018,7 @@ def _get_public_hdrs(ctx):
     for hdr in ctx.attr.hdrs:
         if DefaultInfo in hdr:
             for artifact in hdr[DefaultInfo].files.to_list():
-                if _check_src_extension(artifact, DISALLOWED_HDRS_FILES, True):
+                if _check_file_extension(artifact, DISALLOWED_HDRS_FILES, True):
                     continue
                 artifact_label_map[artifact] = hdr.label
     return _map_to_list(artifact_label_map)
@@ -1236,6 +1244,7 @@ cc_helper = struct(
     matches_extension = _matches_extension,
     get_static_mode_params_for_dynamic_library_libraries = _get_static_mode_params_for_dynamic_library_libraries,
     should_create_per_object_debug_info = _should_create_per_object_debug_info,
+    check_file_extensions = _check_file_extensions,
     check_srcs_extensions = _check_srcs_extensions,
     libraries_from_linking_context = _libraries_from_linking_context,
     additional_inputs_from_linking_context = _additional_inputs_from_linking_context,

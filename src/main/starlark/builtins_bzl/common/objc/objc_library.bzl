@@ -29,14 +29,31 @@ apple_common = _builtins.toplevel.apple_common
 def _attribute_error(attr_name, msg):
     fail("in attribute '" + attr_name + "': " + msg)
 
-def _validate_attributes(label):
+def _validate_attributes(srcs, non_arc_srcs, label):
+    cc_helper.check_file_extensions(
+        srcs,
+        extensions.SRCS,
+        "srcs",
+        label,
+        "objc_library",
+        False,
+    )
+    cc_helper.check_file_extensions(
+        non_arc_srcs,
+        extensions.NON_ARC_SRCS,
+        "non_arc_srcs",
+        label,
+        "objc_library",
+        False,
+    )
+
     if label.name.find("/") != -1:
         _attribute_error("name", "this attribute has unsupported character '/'")
 
 def _objc_library_impl(ctx):
     """Implementation of objc_library."""
 
-    _validate_attributes(label = ctx.label)
+    _validate_attributes(srcs = ctx.attr.srcs, non_arc_srcs = ctx.attr.non_arc_srcs, label = ctx.label)
 
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
 
