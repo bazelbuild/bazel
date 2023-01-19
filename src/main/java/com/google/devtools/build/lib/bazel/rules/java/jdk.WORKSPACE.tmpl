@@ -3,6 +3,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
 load("@bazel_tools//tools/jdk:remote_java_repository.bzl", "remote_java_repository")
+load("@bazel_tools//tools/jdk:universal_java_repository.bzl", "universal_java_repository")
 
 maybe(
     local_java_repository,
@@ -235,6 +236,12 @@ maybe(
     ],
     version = "18",
 )
+
+[maybe(
+  universal_java_repository,
+  "remotejdk{}_universal".format(version),
+  version = "{}".format(version),
+) for version in [11, 17, 18]]
 
 maybe(
     http_archive,
