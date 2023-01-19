@@ -18,19 +18,7 @@ import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Comp
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.Allowlist;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.SourceManifestAction;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.*;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
@@ -389,6 +377,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
                   // This matches the code below in collectDefaultRunfiles.
                   .addTransitiveArtifactsWrappedInStableOrder(javaCommon.getRuntimeClasspath())
                   .build(),
+              null,
               true));
       filesToBuildBuilder.add(runtimeClasspathArtifact);
 
@@ -403,9 +392,10 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
       // Make single jar reachable from the coverage environment because it needs to be executed
       // by the coverage collection script.
-      Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
-      coverageEnvironment.add(new Pair<>("SINGLE_JAR_TOOL", singleJar.getExecPathString()));
-      coverageSupportFiles.add(singleJar);
+      FilesToRunProvider singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+      coverageEnvironment.add(
+          new Pair<>("SINGLE_JAR_TOOL", singleJar.getExecutable().getExecPathString()));
+      coverageSupportFiles.addTransitive(singleJar.getFilesToRun());
     }
 
     javaCommon.addTransitiveInfoProviders(
