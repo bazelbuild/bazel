@@ -1,11 +1,20 @@
 package(default_visibility = ["//visibility:public"])
 
-filegroup(
+load("@bazel_tools//tools/universal_binary:universal_binary.bzl", "universal_binary")
+
+alias(
     name = "zipper",
-    srcs = select({
-        "//src/conditions:remote": ["//third_party/ijar:zipper"],
-        "//conditions:default": glob(["zipper/*"]),
+    actual = select({
+        "//src/conditions:universal": ":universal_zipper",
+        "//src/conditions:remote": "//third_party/ijar:zipper",
+        "//conditions:default": "zipper/zipper",
     }),
+)
+
+universal_binary(
+    name = "universal_zipper",
+    linux = "zipper_linux_binary",
+    darwin = "zipper_darwin_binary",
 )
 
 alias(
