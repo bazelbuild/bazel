@@ -180,9 +180,9 @@ public class ToplevelArtifactsDownloader {
           if (configuredTarget instanceof RuleConfiguredTarget) {
             var ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
             var isTestRule = isTestRuleName(ruleConfiguredTarget.getRuleClassString());
-            return !isTestRule;
+            return !isTestRule && downloadToplevel;
           }
-          return true;
+          return downloadToplevel;
         } catch (InterruptedException ignored) {
           Thread.currentThread().interrupt();
           return false;
