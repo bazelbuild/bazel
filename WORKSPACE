@@ -611,20 +611,20 @@ load("@rules_jvm_external//:defs.bzl", "maven_install")
 
 maven_install(
     artifacts = [
-        "com.github.ben-manes.caffeine:caffeine:2.9.2",
+        "com.github.ben-manes.caffeine:caffeine:3.0.5",
         "com.github.kevinstern:software-and-algorithms:1.0",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
         "com.google.api-client:google-api-client-gson:1.22.0",
         "com.google.api-client:google-api-client:1.22.0",
         "com.google.auth:google-auth-library-credentials:1.6.0",
         "com.google.auth:google-auth-library-oauth2-http:1.6.0",
-        "com.google.auto.service:auto-service-annotations:1.0",
+        "com.google.auto.service:auto-service-annotations:1.0.1",
         "com.google.auto.service:auto-service:1.0",
-        "com.google.auto.value:auto-value-annotations:1.8.2",
+        "com.google.auto.value:auto-value-annotations:1.9",
         "com.google.auto.value:auto-value:1.8.2",
-        "com.google.auto:auto-common:1.1.2",
+        "com.google.auto:auto-common:1.2.1",
         "com.google.code.findbugs:jsr305:3.0.2",
-        "com.google.code.gson:gson:2.8.6",
+        "com.google.code.gson:gson:2.9.0",
         "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.0",
         "com.google.errorprone:error_prone_annotation:2.16",
         "com.google.errorprone:error_prone_annotations:2.16",
@@ -667,15 +667,24 @@ maven_install(
         "org.apache.commons:commons-pool2:2.8.0",
         "org.apache.tomcat:tomcat-annotations-api:8.0.5",
         "org.apache.velocity:velocity:1.7",
-        "org.checkerframework:checker-qual:3.12.0",
+        "org.checkerframework:checker-qual:3.19.0",
         "org.ow2.asm:asm-analysis:9.2",
         "org.ow2.asm:asm-commons:9.2",
         "org.ow2.asm:asm-tree:9.2",
         "org.ow2.asm:asm-util:9.2",
         "org.ow2.asm:asm:9.2",
-        "org.pcollections:pcollections:2.1.2",
+        "org.pcollections:pcollections:3.1.4",
         "org.threeten:threeten-extra:1.5.0",
-        "org.tukaani:xz:1.9",
+    ],
+    excluded_artifacts = [
+        # org.apache.httpcomponents and org.eclipse.jgit:org.eclipse.jgit
+        # require java.security.jgss module to be embedded in the Bazel binary.
+        "org.apache.httpcomponents:httpclient",
+        "org.apache.httpcomponents:httpcore",
+        "org.eclipse.jgit:org.eclipse.jgit",
+        # We build protobuf Java library from source, exclude protobuf jars to be safe.
+        "com.google.protobuf:protobuf-java",
+        "com.google.protobuf:protobuf-javalite",
     ],
     repositories = [
         "https://repo1.maven.org/maven2",
