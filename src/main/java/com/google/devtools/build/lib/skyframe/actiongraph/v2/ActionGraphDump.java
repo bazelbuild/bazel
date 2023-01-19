@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
@@ -267,7 +268,10 @@ public class ActionGraphDump {
     }
 
     if (action instanceof TemplateExpansionAction) {
-      actionBuilder.setTemplateContent(((TemplateExpansionAction) action).getTemplate().toString());
+      actionBuilder.setTemplateContent(
+          ((TemplateExpansionAction) action)
+              .getTemplate()
+              .getContent(ArtifactPathResolver.IDENTITY));
       for (Substitution substitution : ((TemplateExpansionAction) action).getSubstitutions()) {
         try {
           actionBuilder.addSubstitutions(

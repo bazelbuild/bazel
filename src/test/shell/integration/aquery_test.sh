@@ -1455,7 +1455,7 @@ function test_aquery_include_template_substitution_for_template_expand_action() 
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
 
   cat > "$pkg/template.txt" <<'EOF'
-The token should be substituted: {TOKEN1}
+The token: {TOKEN1}
 EOF
 
   cat > "$pkg/test.bzl" <<'EOF'
@@ -1494,13 +1494,13 @@ EOF
     || fail "Expected success"
   cat output >> "$TEST_log"
 
-  assert_contains "Template: ARTIFACT: $pkg/template.txt" output
+  assert_contains "Template: The token: {TOKEN1}" output
   assert_contains "{{TOKEN1}: 123456}" output
 
   bazel aquery --output=jsonproto ${QUERY} > output 2> "$TEST_log" \
     || fail "Expected success"
 
-  assert_contains "\"templateContent\": \"ARTIFACT: $pkg/template.txt\"" output
+  assert_contains "\"templateContent\": \"The token" output
   assert_contains "\"key\": \"{TOKEN1}\"" output
   assert_contains "\"value\": \"123456\"" output
 }

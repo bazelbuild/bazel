@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
@@ -323,7 +324,10 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     if (action instanceof TemplateExpansionAction) {
       stringBuilder
           .append("  Template: ")
-          .append(((TemplateExpansionAction) action).getTemplate())
+          .append(
+              ((TemplateExpansionAction) action)
+                  .getTemplate()
+                  .getContent(ArtifactPathResolver.IDENTITY))
           .append("\n");
       stringBuilder.append("  Substitutions: [\n");
       for (Substitution substitution : ((TemplateExpansionAction) action).getSubstitutions()) {
