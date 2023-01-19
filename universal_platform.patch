@@ -1,0 +1,14 @@
+--- BUILD	2021-06-15 19:09:09.000000000 +0200
++++ BUILD	2022-12-06 14:59:05.000000000 +0100
+@@ -27,3 +27,11 @@
+     name = "incompatible",
+     constraint_setting = ":incompatible_setting",
+ )
++
++# Experimental constraint for cross-platform toolchains.
++constraint_setting(name = "universal_setting")
++
++constraint_value(
++    name = "universal",
++    constraint_setting = ":universal_setting",
++)

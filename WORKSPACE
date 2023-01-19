@@ -401,6 +401,7 @@ dist_http_archive(
 
 dist_http_archive(
     name = "platforms",
+    patches = ["//:universal_platform.patch"],
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
