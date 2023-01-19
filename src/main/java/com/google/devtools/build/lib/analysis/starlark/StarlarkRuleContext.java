@@ -1123,34 +1123,19 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   /**
-   * Builds a map: Label -> List of files from the given labels. It first looks into the
-   * files-to-run and then into files. If the label being iterated is an executable, then it will
-   * have the same behaviour as native rules special attributes (data, tools) in which only the
-   * executable file is mapped to the label. This allows executable targets to have the location
-   * expansion work with the singular form of location/execpath/rootpath.
+   * Builds a map: Label -> List of files from the given labels
    *
    * @param knownLabels List of known labels
    * @return Immutable map with immutable collections as values
    */
   public static ImmutableMap<Label, ImmutableCollection<Artifact>> makeLabelMap(
       Iterable<TransitiveInfoCollection> knownLabels) {
-
     ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> builder = ImmutableMap.builder();
 
-    for (TransitiveInfoCollection label : knownLabels) {
-      FilesToRunProvider filesToRun = label.getProvider(FilesToRunProvider.class);
-      if (filesToRun != null) {
-        Artifact executableArtifact = filesToRun.getExecutable();
-        builder.put(
-            AliasProvider.getDependencyLabel(label),
-            executableArtifact != null
-                ? ImmutableList.of(executableArtifact)
-                : filesToRun.getFilesToRun().toList());
-      } else {
-        builder.put(
-            AliasProvider.getDependencyLabel(label),
-            label.getProvider(FileProvider.class).getFilesToBuild().toList());
-      }
+    for (TransitiveInfoCollection current : knownLabels) {
+      builder.put(
+          AliasProvider.getDependencyLabel(current),
+          current.getProvider(FileProvider.class).getFilesToBuild().toList());
     }
 
     return builder.buildOrThrow();
