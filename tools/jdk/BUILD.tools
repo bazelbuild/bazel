@@ -15,6 +15,7 @@ load(
     "java_toolchain_alias",
 )
 load("//tools/python:private/defs.bzl", "py_binary", "py_test")
+load("@bazel_tools//tools/universal_binary:universal_binary.bzl", "universal_binary")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -167,6 +168,7 @@ alias(
         "//src/conditions:darwin_x86_64": ":ijar_prebuilt_binary_darwin_x86_64",
         "//src/conditions:darwin_arm64": ":ijar_prebuilt_binary_darwin_arm64",
         "//src/conditions:windows": ":ijar_prebuilt_binary_windows",
+        "//src/conditions:universal": ":ijar_universal_binary",
         "//conditions:default": "@remote_java_tools//:ijar_cc_binary",
     }),
 )
@@ -178,7 +180,14 @@ alias(
         "//src/conditions:darwin_x86_64": ":ijar_prebuilt_binary_darwin_x86_64",
         "//src/conditions:darwin_arm64": ":ijar_prebuilt_binary_darwin_arm64",
         "//src/conditions:windows": ":ijar_prebuilt_binary_windows",
+        "//src/conditions:universal": ":ijar_universal_binary",
     }),
+)
+
+universal_binary(
+    name = "ijar_universal_binary",
+    linux = ":ijar_prebuilt_binary_linux",
+    darwin = ":ijar_prebuilt_binary_darwin",
 )
 
 # On Windows, Java implementation of singlejar is used. We create a little
@@ -199,6 +208,7 @@ alias(
         "//src/conditions:darwin_x86_64": ":prebuilt_singlejar_darwin_x86_64",
         "//src/conditions:darwin_arm64": ":prebuilt_singlejar_darwin_arm64",
         "//src/conditions:windows": ":prebuilt_singlejar_windows",
+        "//src/conditions:universal": ":universal_singlejar",
         "//conditions:default": "@remote_java_tools//:singlejar_cc_bin",
     }),
 )
@@ -210,7 +220,14 @@ alias(
         "//src/conditions:darwin_x86_64": ":prebuilt_singlejar_darwin_x86_64",
         "//src/conditions:darwin_arm64": ":prebuilt_singlejar_darwin_arm64",
         "//src/conditions:windows": ":prebuilt_singlejar_windows",
+        "//src/conditions:universal": ":universal_singlejar",
     }),
+)
+
+universal_binary(
+    name = "universal_singlejar",
+    linux = ":prebuilt_singlejar_linux",
+    darwin = ":prebuilt_singlejar_darwin",
 )
 
 exports_files([
