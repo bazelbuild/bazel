@@ -26,6 +26,7 @@ import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -952,7 +953,9 @@ public class BzlLoadFunction implements SkyFunction {
       // Parse the load statement's module string as a label.
       // It must end in .bzl and not be in package "//external".
       try {
-        Label label = buildLabel.getRelativeWithRemapping(load.first, repoMapping);
+        Label label =
+            Label.parseWithPackageContext(
+                load.first, PackageContext.of(buildLabel.getPackageIdentifier(), repoMapping));
         checkValidLoadLabel(
             label,
             /* fromBuiltinsRepo= */ StarlarkBuiltinsValue.isBuiltinsRepo(base.getRepository()));

@@ -23,7 +23,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -121,8 +123,7 @@ public class SkydocMain {
   }
 
   public static void main(String[] args)
-      throws IOException, InterruptedException, LabelSyntaxException, EvalException,
-          DocstringParseException {
+      throws IOException, InterruptedException, LabelSyntaxException, DocstringParseException {
     OptionsParser parser =
         OptionsParser.builder()
             .optionsClasses(BuildLanguageOptions.class, SkydocOptions.class)
@@ -280,7 +281,10 @@ public class SkydocMain {
       ImmutableMap.Builder<String, ProviderInfo> providerInfoMap,
       ImmutableMap.Builder<String, StarlarkFunction> userDefinedFunctionMap,
       ImmutableMap.Builder<String, AspectInfo> aspectInfoMap)
-      throws InterruptedException, IOException, LabelSyntaxException, EvalException,
+      throws InterruptedException,
+          IOException,
+          LabelSyntaxException,
+          EvalException,
           StarlarkEvaluationException {
 
     List<RuleInfoWrapper> ruleInfoList = new ArrayList<>();
@@ -393,7 +397,10 @@ public class SkydocMain {
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
       List<AspectInfoWrapper> aspectInfoList)
-      throws InterruptedException, IOException, LabelSyntaxException, StarlarkEvaluationException,
+      throws InterruptedException,
+          IOException,
+          LabelSyntaxException,
+          StarlarkEvaluationException,
           EvalException {
     Path path = pathOfLabel(label, semantics);
 
@@ -442,7 +449,10 @@ public class SkydocMain {
     // process loads
     Map<String, Module> imports = new HashMap<>();
     for (String load : prog.getLoads()) {
-      Label relativeLabel = label.getRelativeWithRemapping(load, ImmutableMap.of());
+      Label relativeLabel =
+          Label.parseWithPackageContext(
+              load,
+              PackageContext.of(label.getPackageIdentifier(), RepositoryMapping.ALWAYS_FALLBACK));
       try {
         Module loadedModule =
             recursiveEval(semantics, relativeLabel, ruleInfoList, providerInfoList, aspectInfoList);
