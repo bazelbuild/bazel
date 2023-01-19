@@ -157,3 +157,13 @@ config_setting(
     },
     visibility = ["//visibility:public"],
 )
+
+# Experimental condition for cross-platform toolchains.
+# Must be a specialization of :remote to avoid multiple matches.
+config_setting(
+    name = "universal",
+    values = {"define": "EXECUTOR=remote"},
+    constraint_values = [
+        "@platforms//:universal",
+    ],
+)
