@@ -41,7 +41,8 @@ class BinaryLauncherBase {
   typedef std::unordered_map<std::wstring, std::wstring> ManifestFileMap;
 
  public:
-  BinaryLauncherBase(const LaunchDataParser::LaunchInfo& launch_info, int argc,
+  BinaryLauncherBase(const LaunchDataParser::LaunchInfo& launch_info,
+                     const std::wstring& launcher_path, int argc,
                      wchar_t* argv[]);
 
   virtual ~BinaryLauncherBase() = default;
@@ -77,13 +78,22 @@ class BinaryLauncherBase {
   // A launch function to be implemented for a specific language.
   virtual ExitCode Launch() = 0;
 
+  // Returns the path of the launcher's executable file.
+  //
+  // The returned path is always a long path, that is, it never contains 8.3
+  // style filenames.
+  std::wstring GetLauncherPath() const;
+
   // Return the runfiles directory of this binary.
   //
-  // The method appends ".exe.runfiles" to the first command line argument,
-  // converts forward slashes to back slashes, then returns that.
+  // The method appends ".exe.runfiles" to the path of the launcher executable,
+  // converts forward slashes to backslashes, then returns that.
   std::wstring GetRunfilesPath() const;
 
  private:
+  // The path of the launcher binary.
+  const std::wstring launcher_path;
+
   // A map to store all the launch information.
   const LaunchDataParser::LaunchInfo& launch_info;
 
@@ -127,7 +137,7 @@ class BinaryLauncherBase {
   // Expect the manifest file to be at
   //    1. <path>/<to>/<binary>/<target_name>.runfiles/MANIFEST
   // or 2. <path>/<to>/<binary>/<target_name>.runfiles_manifest
-  static std::wstring FindManifestFile(const wchar_t* argv0);
+  static std::wstring FindManifestFile(const wchar_t* launcher_path);
 
   // Parse manifest file into a map
   static void ParseManifestFile(ManifestFileMap* manifest_file_map,
