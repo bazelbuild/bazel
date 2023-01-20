@@ -98,6 +98,9 @@ public final class BazelMockCcSupport extends MockCcSupport {
       result.add(CcToolchainConfig.getCcToolchainConfigForCpu("darwin_arm64"));
     }
 
+    if (System.getProperty("os.arch").equals("s390x"))
+      result.add(CcToolchainConfig.getCcToolchainConfigForCpu("s390x"));
+
     return result.build();
   }
 }
