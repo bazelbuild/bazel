@@ -82,7 +82,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
     workspaceRoot = scratch.dir("/ws");
     differencer = new SequencedRecordingDifferencer();
     evaluationContext =
-        EvaluationContext.newBuilder().setNumThreads(8).setEventHandler(reporter).build();
+        EvaluationContext.newBuilder().setParallelism(8).setEventHandler(reporter).build();
     registryFactory = new FakeRegistry.Factory();
     AtomicReference<PathPackageLocator> packageLocator =
         new AtomicReference<>(

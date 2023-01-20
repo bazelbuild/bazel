@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -328,22 +329,16 @@ public final class SkyframeBuildView {
       EventBus eventBus,
       BugReporter bugReporter,
       boolean keepGoing,
-      int numThreads,
+      QuiescingExecutors executors,
       boolean strictConflictChecks,
-      boolean checkForActionConflicts,
-      int cpuHeavySkyKeysThreadPoolSize)
+      boolean checkForActionConflicts)
       throws InterruptedException, ViewCreationFailedException {
     enableAnalysis(true);
     ConfigureTargetsResult result;
     try (SilentCloseable c = Profiler.instance().profile("skyframeExecutor.configureTargets")) {
       result =
           skyframeExecutor.configureTargets(
-              eventHandler,
-              ctKeys,
-              topLevelAspectsKeys,
-              keepGoing,
-              numThreads,
-              cpuHeavySkyKeysThreadPoolSize);
+              eventHandler, ctKeys, topLevelAspectsKeys, keepGoing, executors);
     } finally {
       enableAnalysis(false);
     }
@@ -542,9 +537,7 @@ public final class SkyframeBuildView {
       boolean keepGoing,
       boolean strictConflictCheck,
       boolean checkForActionConflicts,
-      int numThreads,
-      int cpuHeavySkyKeysThreadPoolSize,
-      int mergedPhasesExecutionJobsCount,
+      QuiescingExecutors executors,
       boolean shouldDiscardAnalysisCache)
       throws InterruptedException,
           ViewCreationFailedException,
@@ -616,13 +609,7 @@ public final class SkyframeBuildView {
           enableAnalysis(true);
           evaluationResult =
               skyframeExecutor.evaluateBuildDriverKeys(
-                  eventHandler,
-                  buildDriverCTKeys,
-                  buildDriverAspectKeys,
-                  keepGoing,
-                  numThreads,
-                  cpuHeavySkyKeysThreadPoolSize,
-                  mergedPhasesExecutionJobsCount);
+                  eventHandler, buildDriverCTKeys, buildDriverAspectKeys, keepGoing, executors);
         } finally {
           // Required for incremental correctness.
           // We unconditionally reset the states here instead of in #analysisFinishedCallback since

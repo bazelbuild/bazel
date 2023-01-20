@@ -71,7 +71,10 @@ cc_binary(
     ],
     includes = ["."],  # For jni headers.
     linkopts = select({
-        "//src/conditions:darwin": ["-framework CoreServices"],
+        "//src/conditions:darwin": [
+            "-Wl,-framework,CoreServices",
+            "-Wl,-framework,IOKit",
+        ],
         "//conditions:default": [],
     }),
     linkshared = 1,

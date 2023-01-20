@@ -47,7 +47,8 @@ class JsonTraceFileWriter implements Runnable {
   private static final long SLIM_PROFILE_MAXIMAL_PAUSE_NS = Duration.ofMillis(100).toNanos();
   private static final long SLIM_PROFILE_MAXIMAL_DURATION_NS = Duration.ofMillis(250).toNanos();
 
-  private static final TaskData POISON_PILL = new TaskData(0, 0, null, "poison pill");
+  private static final TaskData POISON_PILL =
+      new TaskData(/* startTimeNanos= */ 0, /* eventType= */ null, "poison pill");
 
   JsonTraceFileWriter(
       OutputStream outStream,
@@ -107,7 +108,7 @@ class JsonTraceFileWriter implements Runnable {
     @Nullable
     TaskData maybeMerge(TaskData data) {
       long startTimeNanos = data.startTimeNanos;
-      long endTimeNanos = startTimeNanos + data.duration;
+      long endTimeNanos = startTimeNanos + data.durationNanos;
       if (count > 0 && startTimeNanos >= this.startTimeNanos && endTimeNanos <= this.endTimeNanos) {
         // Skips child tasks.
         return null;
@@ -152,8 +153,8 @@ class JsonTraceFileWriter implements Runnable {
   }
 
   private static boolean isCandidateForMerging(TaskData data) {
-    return data.duration > 0
-        && data.duration < SLIM_PROFILE_MAXIMAL_DURATION_NS
+    return data.durationNanos > 0
+        && data.durationNanos < SLIM_PROFILE_MAXIMAL_DURATION_NS
         && data.type != ProfilerTask.CRITICAL_PATH_COMPONENT;
   }
 

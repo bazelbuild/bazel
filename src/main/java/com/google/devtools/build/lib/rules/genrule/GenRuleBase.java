@@ -140,7 +140,9 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
     ImmutableMap<Label, NestedSet<Artifact>> labelMap =
         collectSources(ruleContext.getPrerequisites("srcs"));
-    NestedSet<Artifact> resolvedSrcs = NestedSetBuilder.fromNestedSets(labelMap.values()).build();
+    NestedSetBuilder<Artifact> resolvedSrcsBuilder = NestedSetBuilder.stableOrder();
+    labelMap.values().forEach(resolvedSrcsBuilder::addTransitive);
+    NestedSet<Artifact> resolvedSrcs = resolvedSrcsBuilder.build();
 
     // The CommandHelper class makes an explicit copy of this in the constructor, so flattening
     // here should be benign.
@@ -283,9 +285,9 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
   protected CommandHelper.Builder commandHelperBuilder(RuleContext ruleContext) {
     return CommandHelper.builder(ruleContext)
-        .addHostToolDependencies("tools")
+        .addToolDependencies("tools")
         .addToolDependencies("exec_tools")
-        .addHostToolDependencies("toolchains");
+        .addToolDependencies("toolchains");
   }
 
   /**

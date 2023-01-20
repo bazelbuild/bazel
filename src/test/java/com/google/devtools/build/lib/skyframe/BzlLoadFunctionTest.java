@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -88,6 +89,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
             Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
             ImmutableMap.of(),
+            QuiescingExecutorsImpl.forTesting(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
   }

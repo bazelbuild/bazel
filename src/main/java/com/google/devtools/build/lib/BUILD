@@ -190,11 +190,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//src/main/protobuf:any_java_proto",
         "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@com_google_protobuf//java/core",
     ],
 )
 
@@ -216,8 +216,8 @@ java_library(
         ":runtime/blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
-        "//src/main/protobuf:any_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
+        "@com_google_protobuf//java/core",
     ],
 )
 

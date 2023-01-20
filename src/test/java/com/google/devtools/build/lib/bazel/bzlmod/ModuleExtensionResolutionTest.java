@@ -127,7 +127,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     modulesRoot = scratch.dir("/modules");
     differencer = new SequencedRecordingDifferencer();
     evaluationContext =
-        EvaluationContext.newBuilder().setNumThreads(8).setEventHandler(reporter).build();
+        EvaluationContext.newBuilder().setParallelism(8).setEventHandler(reporter).build();
     FakeRegistry.Factory registryFactory = new FakeRegistry.Factory();
     registry = registryFactory.newFakeRegistry(modulesRoot.getPathString());
     AtomicReference<PathPackageLocator> packageLocator =

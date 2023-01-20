@@ -84,6 +84,8 @@ public final class InMemoryNodeEntryTest {
     assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isTrue();
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
+    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedList.WithHashSet)
+        .isEqualTo(isPartialReevaluation);
   }
 
   private static final IntVersion ZERO_VERSION = IntVersion.of(0L);
@@ -241,6 +243,8 @@ public final class InMemoryNodeEntryTest {
     assertThat(entry.isReadyToEvaluate()).isTrue();
     assertThat(entry.hasUnsignaledDeps()).isFalse();
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
+    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedList.WithHashSet)
+        .isEqualTo(isPartialReevaluation);
     SkyKey parent = key("parent");
     entry.addReverseDepAndCheckIfDone(parent);
     assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
@@ -303,6 +307,8 @@ public final class InMemoryNodeEntryTest {
     assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isTrue();
     assertThat(entry.isDone()).isFalse();
+    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedList.WithHashSet)
+        .isEqualTo(isPartialReevaluation);
 
     assertThatNodeEntry(entry)
         .addReverseDepAndCheckIfDone(null)

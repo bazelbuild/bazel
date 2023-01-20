@@ -77,18 +77,6 @@ public final class CommandHelper {
      * Adds tools, as a set of executable binaries, by fetching them from the given attribute on the
      * {@code ruleContext}. Populates manifests, remoteRunfiles and label map where required.
      */
-    @CanIgnoreReturnValue
-    public Builder addHostToolDependencies(String toolAttributeName) {
-      List<? extends TransitiveInfoCollection> dependencies =
-          ruleContext.getPrerequisites(toolAttributeName);
-      addToolDependencies(dependencies);
-      return this;
-    }
-
-    /**
-     * Adds tools, as a set of executable binaries, by fetching them from the given attribute on the
-     * {@code ruleContext}. Populates manifests, remoteRunfiles and label map where required.
-     */
     public Builder addToolDependencies(String toolAttributeName) {
       List<? extends TransitiveInfoCollection> dependencies =
           ruleContext.getPrerequisites(toolAttributeName);

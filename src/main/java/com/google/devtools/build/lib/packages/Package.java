@@ -1634,7 +1634,7 @@ public class Package {
           || !Objects.equals(cacheInstance.getLicense(), license)) {
         targets.put(
             filename,
-            new InputFile(
+            new VisibilityLicenseSpecifiedInputFile(
                 pkg, cacheInstance.getLabel(), cacheInstance.getLocation(), visibility, license));
       }
     }
@@ -1844,8 +1844,7 @@ public class Package {
               newInputFiles.put(
                   label.getName(),
                   noImplicitFileExport
-                      ? new InputFile(
-                          pkg, label, loc, ConstantRuleVisibility.PRIVATE, License.NO_LICENSE)
+                      ? new PrivateVisibilityInputFile(pkg, label, loc)
                       : new InputFile(pkg, label, loc));
             }
           }

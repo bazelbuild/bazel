@@ -771,7 +771,10 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     Verify.verify(
         !(testAction.isCoverageMode() && testAction.getSplitCoveragePostProcessing())
-            || testAction.getCoverageData().getPath().exists());
+            || actionExecutionContext
+                .getPathResolver()
+                .convertPath(testAction.getCoverageData().getPath())
+                .exists());
     Verify.verifyNotNull(spawnResults);
     Verify.verifyNotNull(testResultDataBuilder);
 

@@ -17,11 +17,12 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,21 +30,23 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * Helper class encapsulating string scanning state used during "heuristic"
- * expansion of labels embedded within rules.
+ * Helper class encapsulating string scanning state used during "heuristic" expansion of labels
+ * embedded within rules.
  */
 public final class LabelExpander {
   /**
-   * An exception that is thrown when a label is expanded to zero or multiple
-   * files during expansion.
+   * An exception that is thrown when a label is expanded to zero or multiple files during
+   * expansion.
    */
   public static class NotUniqueExpansionException extends Exception {
     public NotUniqueExpansionException(int sizeOfResultSet, String labelText) {
-      super("heuristic label expansion found '" + labelText + "', which expands to "
-          + sizeOfResultSet + " files"
-          + (sizeOfResultSet > 1
-              ? ", please use $(locations " + labelText + ") instead"
-              : ""));
+      super(
+          "heuristic label expansion found '"
+              + labelText
+              + "', which expands to "
+              + sizeOfResultSet
+              + " files"
+              + (sizeOfResultSet > 1 ? ", please use $(locations " + labelText + ") instead" : ""));
     }
   }
 
@@ -53,40 +56,39 @@ public final class LabelExpander {
   /**
    * CharMatcher to determine if a given character is valid for labels.
    *
-   * <p>The Build Concept Reference additionally allows '=' and ',' to appear in labels,
-   * but for the purposes of the heuristic, this function does not, as it would cause
-   * "--foo=:rule1,:rule2" to scan as a single possible label, instead of three
-   * ("--foo", ":rule1", ":rule2").
+   * <p>The Build Concept Reference additionally allows '=' and ',' to appear in labels, but for the
+   * purposes of the heuristic, this function does not, as it would cause "--foo=:rule1,:rule2" to
+   * scan as a single possible label, instead of three ("--foo", ":rule1", ":rule2").
    */
   private static final CharMatcher LABEL_CHAR_MATCHER =
       CharMatcher.inRange('a', 'z')
-      .or(CharMatcher.inRange('A', 'Z'))
-      .or(CharMatcher.inRange('0', '9'))
-      .or(CharMatcher.anyOf(":/_.-+" + PathFragment.SEPARATOR_CHAR))
-      .precomputed();
+          .or(CharMatcher.inRange('A', 'Z'))
+          .or(CharMatcher.inRange('0', '9'))
+          .or(CharMatcher.anyOf(":/_.-+" + PathFragment.SEPARATOR_CHAR))
+          .precomputed();
 
   /**
-   * Expands all references to labels embedded within a string using the
-   * provided expansion mapping from labels to artifacts.
+   * Expands all references to labels embedded within a string using the provided expansion mapping
+   * from labels to artifacts.
    *
-   * <p>Since this pass is heuristic, references to non-existent labels (such
-   * as arbitrary words) or invalid labels are simply ignored and are unchanged
-   * in the output. However, if the heuristic discovers a label, which
-   * identifies an existing target producing zero or multiple files, an error
-   * is reported.
+   * <p>Since this pass is heuristic, references to non-existent labels (such as arbitrary words) or
+   * invalid labels are simply ignored and are unchanged in the output. However, if the heuristic
+   * discovers a label, which identifies an existing target producing zero or multiple files, an
+   * error is reported.
    *
    * @param expression the expression to expand.
-   * @param labelMap the mapping from labels to artifacts, whose relative path
-   *     is to be used as the expansion.
-   * @param labelResolver the {@code Label} that can resolve label strings
-   *     to {@code Label} objects. The resolved label is either relative to
-   *     {@code labelResolver} or is a global label (i.e. starts with "//").
+   * @param labelMap the mapping from labels to artifacts, whose relative path is to be used as the
+   *     expansion.
+   * @param labelResolver the {@code Label} that can resolve label strings to {@code Label} objects.
+   *     The resolved label is either relative to {@code labelResolver} or is a global label (i.e.
+   *     starts with "//").
    * @return the expansion of the string.
-   * @throws NotUniqueExpansionException if a label that is present in the
-   *     mapping expands to zero or multiple files.
+   * @throws NotUniqueExpansionException if a label that is present in the mapping expands to zero
+   *     or multiple files.
    */
-  public static <T extends Iterable<Artifact>> String expand(@Nullable String expression,
-      Map<Label, T> labelMap, Label labelResolver) throws NotUniqueExpansionException {
+  public static <T extends Iterable<Artifact>> String expand(
+      @Nullable String expression, Map<Label, T> labelMap, Label labelResolver)
+      throws NotUniqueExpansionException {
     if (Strings.isNullOrEmpty(expression)) {
       return "";
     }
@@ -109,23 +111,22 @@ public final class LabelExpander {
   }
 
   /**
-   * Tries resolving a label text to a full label for the associated {@code
-   * Artifact}, using the provided mapping.
+   * Tries resolving a label text to a full label for the associated {@code Artifact}, using the
+   * provided mapping.
    *
-   * <p>The method succeeds if the label text can be resolved to a {@code
-   * Label} object, which is present in the {@code labelMap} and maps to
-   * exactly one {@code Artifact}.
+   * <p>The method succeeds if the label text can be resolved to a {@code Label} object, which is
+   * present in the {@code labelMap} and maps to exactly one {@code Artifact}.
    *
    * @param labelText the text to resolve.
-   * @param labelMap the mapping from labels to artifacts, whose relative path
-   *     is to be used as the expansion.
-   * @param labelResolver the {@code Label} that can resolve label strings
-   *     to {@code Label} objects. The resolved label is either relative to
-   *     {@code labelResolver} or is a global label (i.e. starts with "//").
-   * @return an absolute label to an {@code Artifact} if the resolving was
-   *     successful or the original label text.
-   * @throws NotUniqueExpansionException if a label that is present in the
-   *     mapping expands to zero or multiple files.
+   * @param labelMap the mapping from labels to artifacts, whose relative path is to be used as the
+   *     expansion.
+   * @param labelResolver the {@code Label} that can resolve label strings to {@code Label} objects.
+   *     The resolved label is either relative to {@code labelResolver} or is a global label (i.e.
+   *     starts with "//").
+   * @return an absolute label to an {@code Artifact} if the resolving was successful or the
+   *     original label text.
+   * @throws NotUniqueExpansionException if a label that is present in the mapping expands to zero
+   *     or multiple files.
    */
   private static <T extends Iterable<Artifact>> String tryResolvingLabelTextToArtifactPath(
       String labelText, Map<Label, T> labelMap, Label labelResolver)
@@ -155,10 +156,12 @@ public final class LabelExpander {
   @Nullable
   private static Label resolveLabelText(String labelText, Label labelResolver) {
     try {
-      return labelResolver.getRelativeWithRemapping(labelText, ImmutableMap.of());
+      return Label.parseWithPackageContext(
+          labelText,
+          PackageContext.of(
+              labelResolver.getPackageIdentifier(), RepositoryMapping.ALWAYS_FALLBACK));
     } catch (LabelSyntaxException e) {
-      // It's a heuristic, so quietly ignore "errors". Because Label.getRelative never
-      // returns null, we can use null to indicate an error.
+      // It's a heuristic, so quietly ignore "errors".
       return null;
     }
   }

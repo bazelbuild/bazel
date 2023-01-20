@@ -393,7 +393,7 @@ public final class ActionsTestUtil {
         EvaluationContext evaluationContext =
             EvaluationContext.newBuilder()
                 .setKeepGoing(false)
-                .setNumThreads(ResourceUsage.getAvailableProcessors())
+                .setParallelism(ResourceUsage.getAvailableProcessors())
                 .setEventHandler(new Reporter(new EventBus(), eventHandler))
                 .build();
         evaluationResult = evaluator.evaluate(depKeys, evaluationContext);

@@ -176,7 +176,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(1)
+            .setParallelism(1)
             .setEventHandler(reporter)
             .build();
     EvaluationResult<TestsForTargetPatternValue> result =

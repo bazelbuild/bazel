@@ -29,6 +29,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction.PathType;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -281,7 +282,9 @@ public final class LocationExpander {
         String arg, RepositoryMapping repositoryMapping, String workspaceRunfilesDirectory) {
       Label label;
       try {
-        label = root.getRelativeWithRemapping(arg, repositoryMapping);
+        label =
+            Label.parseWithPackageContext(
+                arg, PackageContext.of(root.getPackageIdentifier(), repositoryMapping));
       } catch (LabelSyntaxException e) {
         throw new IllegalStateException(
             String.format(

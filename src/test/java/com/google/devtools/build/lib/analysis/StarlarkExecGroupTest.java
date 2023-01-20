@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import java.io.IOException;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -146,24 +145,35 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
   }
 
   @Test
-  @Ignore("b/243148290")
   public void testIndirectExecTransitionWithToolchains() throws Exception {
-    // toolchain_2 is available on platform_2, so a passed through tool also needs to be on
-    // platform_2
     createToolchainsAndPlatforms();
+    useConfiguration(
+        "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
+        "--platforms=//platform:platform_1",
+        "--extra_execution_platforms=//platform:platform_1,//platform:platform_2",
+        "--incompatible_auto_exec_groups");
 
     scratch.file(
         "test/defs.bzl",
         "MyInfo = provider()",
-        "def _impl(ctx):",
-        "  return [MyInfo(dep = ctx.attr.dep)]",
+        "def _impl_parent(ctx):",
+        "  output = ctx.actions.declare_file('parent.out')",
+        "  ctx.actions.run(",
+        "    executable = '',",
+        "    progress_message = 'Test with AEG.',",
+        "    outputs = [output],",
+        "  )",
+        "  return [MyInfo(dep = ctx.attr.dep), DefaultInfo(files = depset([output]))]",
         "parent_rule = rule(",
-        "  implementation = _impl,",
+        "  implementation = _impl_parent,",
         "  attrs = {",
         "    'dep': attr.label(),",
+        "    '_use_auto_exec_groups': attr.bool(default = True),",
         "  },",
         "  toolchains = ['//rule:toolchain_type_2'],",
         ")",
+        "def _impl(ctx):",
+        "  return [MyInfo(dep = ctx.attr.dep)]",
         "pass_thru = rule(",
         "  implementation = _impl,",
         "  attrs = {",
@@ -178,8 +188,7 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         "load('//test:defs.bzl', 'parent_rule', 'pass_thru', 'simple_rule')",
         "parent_rule(name = 'parent', dep = ':passthru')",
         "pass_thru(name = 'passthru', dep = ':child')",
-        "simple_rule(name = 'child')",
-        "simple_rule(name = 'other-child')");
+        "simple_rule(name = 'child')");
 
     ConfiguredTarget target = getConfiguredTarget("//test:parent");
     Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "MyInfo");
@@ -187,8 +196,13 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
     BuildConfigurationValue passthruDepConfig =
         getConfiguration((ConfiguredTarget) ((StructImpl) dep.get(key)).getValue("dep"));
 
-    assertThat(passthruDepConfig.getFragment(PlatformConfiguration.class).getTargetPlatform())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platform:platform_2"));
+    // Action will be executed on '//platform:platform_1' plaform.
+    assertThat(
+            getGeneratingAction(target, "test/parent.out")
+                .getOwner()
+                .getExecutionPlatform()
+                .label())
+        .isEqualTo(passthruDepConfig.getFragment(PlatformConfiguration.class).getTargetPlatform());
   }
 
   @Test

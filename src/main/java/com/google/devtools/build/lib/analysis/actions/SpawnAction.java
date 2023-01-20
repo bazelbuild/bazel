@@ -466,6 +466,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
     env.addTo(fp);
     fp.addStringMap(getExecutionInfo());
+    fp.addBoolean(stripOutputPaths);
   }
 
   @Override

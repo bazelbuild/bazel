@@ -847,31 +847,11 @@ drawback of
 [making the build graph larger and less comprehensible](/extending/config#memory-and-performance-considerations).
 
 **Note**: Historically, Bazel didn't have the concept of execution platforms,
-and instead all build actions were considered to run on the host machine.
-Because of this, there is a single "host" configuration, and a "host" transition
-that can be used to build a dependency in the host configuration. Many rules
-still use the "host" transition for their tools, but this is currently
-deprecated and being migrated to use "exec" transitions where possible.
-
-There are numerous differences between the "host" and "exec" configurations:
-
-*   "host" is terminal, "exec" isn't: Once a dependency is in the "host"
-    configuration, no more transitions are allowed. You can keep making further
-    configuration transitions once you're in an "exec" configuration.
-*   "host" is monolithic, "exec" isn't: There is only one "host" configuration,
-    but there can be a different "exec" configuration for each execution
-    platform.
-*   "host" assumes you run tools on the same machine as Bazel, or on a
-    significantly similar machine. This is no longer true: you can run build
-    actions on your local machine, or on a remote executor, and there's no
-    guarantee that the remote executor is the same CPU and OS as your local
-    machine.
-
-Both the "exec" and "host" configurations apply the same option changes, (for example,
-set `--compilation_mode` from `--host_compilation_mode`, set `--cpu` from
-`--host_cpu`, etc). The difference is that the "host" configuration starts with
-the **default** values of all other flags, whereas the "exec" configuration
-starts with the **current** values of flags, based on the target configuration.
+and instead all build actions were considered to run on the host machine. Bazel
+versions before 6.0 created a distinct "host" configuration to represent this.
+If you see references to "host" in code or old documentation, that's what this
+refers to. We recommend using Bazel 6.0 or newer to avoid this extra conceptual
+overhead.
 
 <a name="fragments"></a>
 

@@ -81,7 +81,6 @@ the `@bazel_tools` built-in external repository.
 
 * Repository rules
   - [`git_repository`](/rules/lib/repo/git#git_repository)
-  - [`new_git_repository`](/rules/lib/repo/git#new_git_repository)
   - [`http_archive`](/rules/lib/repo/http#http_archive)
   - [`http_file`](/rules/lib/repo/http#http_archive)
   - [`http_jar`](/rules/lib/repo/http#http_jar)

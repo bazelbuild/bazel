@@ -86,20 +86,21 @@ public class GenRuleBaseRule implements RuleDefinition {
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(exec_tools) -->
-        A list of <i>tool</i> dependencies for this rule. This behaves exactly like the
-        <a href="#genrule.tools"><code>tools</code></a> attribute, except that these dependencies
-        will be configured for the rule's execution platform instead of the exec configuration.
-        This means that dependencies in <code>exec_tools</code> are not subject to the same
-        limitations as dependencies in <code>tools</code>. In particular, they are not required to
-        use the exec configuration for their own transitive dependencies. See
-        <a href="#genrule.tools"><code>tools</code></a> for further details.
+        <b>Deprecated. Use <code>tools</code> instead.</b>
 
         <p>
-          The Blaze team is migrating all uses of <code>tools</code> to use <code>exec_tools</code>
-          semantics. Users are encouraged to prefer <code>exec_tools</code> to <code>tools</code>
-          where this does not cause any issues. After the functional migration is complete, we may
-          rename <code>exec_tools</code> to <code>tools</code>.  You will receive a deprecation
-          warning and migration instructions before this happens.
+          A list of <i>tool</i> dependencies for this rule. This behaves exactly like the
+          <a href="#genrule.tools"><code>tools</code></a> attribute, except that these dependencies
+          will be configured for the rule's execution platform instead of the exec configuration.
+          This means that dependencies in <code>exec_tools</code> are not subject to the same
+          limitations as dependencies in <code>tools</code>. In particular, they are not required to
+          use the exec configuration for their own transitive dependencies. See
+          <a href="#genrule.tools"><code>tools</code></a> for further details.
+        </p>
+
+        <p>
+          The Blaze team has finished cleaning up users of the host transition, and now is migrating
+          users back to use <code>tools</code>.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(

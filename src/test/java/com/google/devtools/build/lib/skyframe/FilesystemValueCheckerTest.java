@@ -140,7 +140,7 @@ public final class FilesystemValueCheckerTest {
   private static final EvaluationContext EVALUATION_OPTIONS =
       EvaluationContext.newBuilder()
           .setKeepGoing(false)
-          .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+          .setParallelism(SkyframeExecutor.DEFAULT_THREAD_COUNT)
           .setEventHandler(NullEventHandler.INSTANCE)
           .build();
 
@@ -775,7 +775,7 @@ public final class FilesystemValueCheckerTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(1)
+            .setParallelism(1)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
 
@@ -1206,7 +1206,7 @@ public final class FilesystemValueCheckerTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(1)
+            .setParallelism(1)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     assertThat(evaluator.evaluate(ImmutableList.of(), evaluationContext).hasError()).isFalse();
@@ -1352,7 +1352,7 @@ public final class FilesystemValueCheckerTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(1)
+            .setParallelism(1)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     assertThat(
@@ -1407,7 +1407,7 @@ public final class FilesystemValueCheckerTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(1)
+            .setParallelism(1)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     assertThat(evaluator.evaluate(ImmutableList.of(actionKey), evaluationContext).hasError())

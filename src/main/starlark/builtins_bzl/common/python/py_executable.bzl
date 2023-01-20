@@ -16,6 +16,8 @@
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(
     ":common/python/common.bzl",
+    "TOOLCHAIN_TYPE",
+    "collect_imports",
     "collect_runfiles",
     "create_instrumented_files_info",
     "create_output_group_info",
@@ -44,7 +46,6 @@ load(
     "PY_RUNTIME_ATTR_NAME",
     "PY_RUNTIME_FRAGMENT_ATTR_NAME",
     "PY_RUNTIME_FRAGMENT_NAME",
-    "TOOLS_REPO",
 )
 
 _cc_common = _builtins.toplevel.cc_common
@@ -108,7 +109,7 @@ def py_executable_base_impl(ctx, *, semantics, is_test, inherited_environment = 
     main_py = determine_main(ctx)
     direct_sources = filter_to_py_srcs(ctx.files.srcs)
     output_sources = semantics.maybe_precompile(ctx, direct_sources)
-    imports = semantics.get_imports(ctx)
+    imports = collect_imports(ctx, semantics)
     executable, files_to_build = _compute_outputs(ctx, output_sources)
 
     runtime_details = _get_runtime_details(ctx, semantics)
@@ -220,15 +221,24 @@ def _get_runtime_details(ctx, semantics):
     flag_interpreter_path = getattr(fragment, PY_RUNTIME_FRAGMENT_ATTR_NAME)
 
     if flag_interpreter_path:
+        toolchain_runtime = None
         effective_runtime = None
         executable_interpreter_path = flag_interpreter_path
         runtime_files = depset()
     else:
-        attr_target = getattr(ctx.attr, PY_RUNTIME_ATTR_NAME)
-        if PyRuntimeInfo in attr_target:
-            effective_runtime = attr_target[PyRuntimeInfo]
+        if ctx.fragments.py.use_toolchains:
+            toolchain = ctx.toolchains[TOOLCHAIN_TYPE]
+            if not toolchain.py3_runtime:
+                fail("Python toolchain missing py3_runtime")
+            toolchain_runtime = toolchain.py3_runtime
+            effective_runtime = toolchain_runtime
         else:
-            fail("Unable to get Python runtime from {}".format(attr_target))
+            toolchain_runtime = None
+            attr_target = getattr(ctx.attr, PY_RUNTIME_ATTR_NAME)
+            if PyRuntimeInfo in attr_target:
+                effective_runtime = attr_target[PyRuntimeInfo]
+            else:
+                fail("Unable to get Python runtime from {}".format(attr_target))
 
         if effective_runtime.interpreter_path:
             runtime_files = depset()
@@ -250,7 +260,7 @@ def _get_runtime_details(ctx, semantics):
         # Optional PyRuntimeInfo: The runtime found from toolchain resolution.
         # This may be None because, within Google, toolchain resolution isn't
         # yet enabled.
-        toolchain_runtime = None,  # TODO: implement toolchain lookup
+        toolchain_runtime = toolchain_runtime,
         # Optional PyRuntimeInfo: The runtime that should be used. When
         # toolchain resolution is enabled, this is the same as
         # `toolchain_resolution`. Otherwise, this probably came from the
@@ -662,8 +672,9 @@ def _create_providers(
         semantics: BinarySemantics struct; see create_binary_semantics()
 
     Returns:
-        A value that rules can return. i.e. a list of providers or
-        a struct of providers.
+        A two-tuple of:
+        1. A dict of legacy providers.
+        2. A list of modern providers.
     """
     providers = [
         DefaultInfo(
@@ -675,6 +686,11 @@ def _create_providers(
         create_instrumented_files_info(ctx),
         _create_run_environment_info(ctx, inherited_environment),
     ]
+
+    # TODO(b/265840007): Make this non-conditional once Google enables
+    # --incompatible_use_python_toolchains.
+    if runtime_details.toolchain_runtime:
+        providers.append(runtime_details.toolchain_runtime)
 
     # TODO(b/163083591): Remove the PyCcLinkParamsProvider once binaries-in-deps
     # are cleaned up.
@@ -698,7 +714,7 @@ def _create_providers(
         )
 
     providers.append(py_info)
-    providers.append(create_output_group_info(py_info.transitive_sources))
+    providers.append(create_output_group_info(py_info.transitive_sources, output_groups))
 
     extra_legacy_providers, extra_providers = semantics.get_extra_providers(
         ctx,
@@ -706,9 +722,6 @@ def _create_providers(
         runtime_details = runtime_details,
     )
     providers.extend(extra_providers)
-    if output_groups:
-        providers.append(OutputGroupInfo(**output_groups))
-
     return extra_legacy_providers, providers
 
 def _create_run_environment_info(ctx, inherited_environment):
@@ -725,20 +738,25 @@ def _create_run_environment_info(ctx, inherited_environment):
         inherited_environment = inherited_environment,
     )
 
-def create_base_executable_rule(*, attrs, **kwargs):
+def create_base_executable_rule(*, attrs, fragments = [], **kwargs):
     """Create a function for defining for Python binary/test targets.
 
     Args:
         attrs: Rule attributes
+        fragments: List of str; extra config fragments that are required.
         **kwargs: Additional args to pass onto `rule()`
 
     Returns:
         A rule function
     """
+    if "py" not in fragments:
+        # The list might be frozen, so use concatentation
+        fragments = fragments + ["py"]
     return rule(
         # TODO: add ability to remove attrs, i.e. for imports attr
         attrs = EXECUTABLE_ATTRS | attrs,
-        toolchains = ["@" + TOOLS_REPO + "//tools/python:toolchain_type"] + cc_helper.use_cpp_toolchain(),  # Google-specific
+        toolchains = [TOOLCHAIN_TYPE] + cc_helper.use_cpp_toolchain(),
+        fragments = fragments,
         **kwargs
     )
 

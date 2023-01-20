@@ -256,7 +256,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   protected EvaluationContext newEvaluationContext() {
     return EvaluationContext.newBuilder()
-        .setNumThreads(loadingPhaseThreads)
+        .setParallelism(loadingPhaseThreads)
         .setEventHandler(universeEvalEventHandler)
         .build();
   }

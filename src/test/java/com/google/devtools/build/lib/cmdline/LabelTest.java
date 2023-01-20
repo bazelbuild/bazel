@@ -29,9 +29,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link Label}.
- */
+/** Tests for {@link Label}. */
 @RunWith(JUnit4.class)
 public class LabelTest {
 
@@ -162,127 +160,6 @@ public class LabelTest {
   }
 
   @Test
-  public void testGetRelativeWithAbsoluteLabel() throws Exception {
-    Label base = Label.parseCanonical("//foo/bar:baz");
-    Label l = base.getRelativeWithRemapping("//p1/p2:target", ImmutableMap.of());
-    assertThat(l.getPackageName()).isEqualTo("p1/p2");
-    assertThat(l.getName()).isEqualTo("target");
-  }
-
-  @Test
-  public void testGetRelativeWithRelativeLabel() throws Exception {
-    Label base = Label.parseCanonical("//foo/bar:baz");
-    Label l = base.getRelativeWithRemapping(":quux", ImmutableMap.of());
-    assertThat(l.getPackageName()).isEqualTo("foo/bar");
-    assertThat(l.getName()).isEqualTo("quux");
-  }
-
-  @Test
-  public void testGetRelativeWithIllegalLabel() throws Exception {
-    Label base = Label.parseCanonical("//foo/bar:baz");
-    assertThrows(
-        LabelSyntaxException.class,
-        () -> base.getRelativeWithRemapping("/p1/p2:target", ImmutableMap.of()));
-    assertThrows(
-        LabelSyntaxException.class,
-        () -> base.getRelativeWithRemapping("quux:", ImmutableMap.of()));
-    assertThrows(
-        LabelSyntaxException.class, () -> base.getRelativeWithRemapping(":", ImmutableMap.of()));
-    assertThrows(
-        LabelSyntaxException.class, () -> base.getRelativeWithRemapping("::", ImmutableMap.of()));
-  }
-
-  @Test
-  public void testGetRelativeWithDifferentRepo() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("repo", PathFragment.create("foo"));
-    Label base = Label.create(packageId, "bar");
-
-    Label relative = base.getRelativeWithRemapping("@remote//x:y", ImmutableMap.of());
-
-    assertThat(relative.getRepository()).isEqualTo(RepositoryName.create("remote"));
-    assertThat(relative.getPackageFragment()).isEqualTo(PathFragment.create("x"));
-    assertThat(relative.getName()).isEqualTo("y");
-  }
-
-  @Test
-  public void testGetRelativeWithoutRemappingBaseLabel() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("a", PathFragment.create("foo"));
-    Label base = Label.create(packageId, "bar");
-    ImmutableMap<String, RepositoryName> repoMapping =
-        ImmutableMap.of("a", RepositoryName.create("b"));
-    Label relative = base.getRelativeWithRemapping(":y", repoMapping);
-
-    // getRelative should only remap repositories passed in the string arg and not
-    // make changes to existing Labels
-    Label actual = Label.parseAbsoluteUnchecked("@a//foo:y");
-    assertThat(relative).isEqualTo(actual);
-  }
-
-  @Test
-  public void testGetRelativeWithDifferentRepoAndRemapping() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("repo", PathFragment.create("foo"));
-    Label base = Label.create(packageId, "bar");
-    ImmutableMap<String, RepositoryName> repoMapping =
-        ImmutableMap.of("a", RepositoryName.create("b"));
-    Label relative = base.getRelativeWithRemapping("@a//x:y", repoMapping);
-
-    Label actual = Label.parseAbsoluteUnchecked("@b//x:y");
-    assertThat(relative).isEqualTo(actual);
-  }
-
-  @Test
-  public void testGetRelativeWithRepoLocalAbsoluteLabel() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("repo", PathFragment.create("foo"));
-    Label base = Label.create(packageId, "bar");
-
-    Label relative = base.getRelativeWithRemapping("//x:y", ImmutableMap.of());
-
-    assertThat(relative.getRepository()).isEqualTo(packageId.getRepository());
-    assertThat(relative.getPackageFragment()).isEqualTo(PathFragment.create("x"));
-    assertThat(relative.getName()).isEqualTo("y");
-  }
-
-  @Test
-  public void testGetRelativeWithLocalRepoRelativeLabel() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("repo", PathFragment.create("foo"));
-    Label base = Label.create(packageId, "bar");
-
-    Label relative = base.getRelativeWithRemapping(":y", ImmutableMap.of());
-
-    assertThat(relative.getRepository()).isEqualTo(packageId.getRepository());
-    assertThat(relative.getPackageFragment()).isEqualTo(PathFragment.create("foo"));
-    assertThat(relative.getName()).isEqualTo("y");
-  }
-
-  @Test
-  public void testGetRelativeWithRepoAndReservedPackage() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("repo", PathFragment.create("foo"));
-    Label base = Label.create(packageId, "bar");
-
-    Label relative =
-        base.getRelativeWithRemapping(
-            "//conditions:default",
-            RepositoryMapping.create(ImmutableMap.of(), RepositoryName.create("repo")));
-
-    PackageIdentifier expected = PackageIdentifier.createInMainRepo("conditions");
-    assertThat(relative.getRepository()).isEqualTo(expected.getRepository());
-    assertThat(relative.getPackageFragment()).isEqualTo(expected.getPackageFragment());
-    assertThat(relative.getName()).isEqualTo("default");
-  }
-
-  @Test
-  public void testGetRelativeWithRemoteRepoToDefaultRepo() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("repo", PathFragment.create("foo"));
-    Label base = Label.create(packageId, "bar");
-
-    Label relative = base.getRelativeWithRemapping("@//x:y", ImmutableMap.of());
-
-    assertThat(relative.getRepository()).isEqualTo(RepositoryName.MAIN);
-    assertThat(relative.getPackageFragment()).isEqualTo(PathFragment.create("x"));
-    assertThat(relative.getName()).isEqualTo("y");
-  }
-
-  @Test
   public void testFactory() throws Exception {
     Label l = Label.create("foo/bar", "quux");
     assertThat(l.getPackageName()).isEqualTo("foo/bar");
@@ -296,10 +173,7 @@ public class LabelTest {
     Label l2 = Label.parseCanonical("//foo/bar:baz");
     Label l3 = Label.parseCanonical("//foo/bar:quux");
 
-    new EqualsTester()
-        .addEqualityGroup(l1, l2)
-        .addEqualityGroup(l3)
-        .testEquals();
+    new EqualsTester().addEqualityGroup(l1, l2).addEqualityGroup(l3).testEquals();
   }
 
   @Test
@@ -346,6 +220,7 @@ public class LabelTest {
 
   /**
    * Asserts that creating a label throws a SyntaxException.
+   *
    * @param label the label to create.
    */
   private static void assertSyntaxError(String expectedError, String label) {
@@ -359,12 +234,9 @@ public class LabelTest {
 
   @Test
   public void testBadCharacters() throws Exception {
-    assertSyntaxError("target names may not contain ':'",
-                      "//foo:bar:baz");
-    assertSyntaxError("target names may not contain ':'",
-                      "//foo:bar:");
-    assertSyntaxError("target names may not contain ':'",
-                      "//foo/bar::");
+    assertSyntaxError("target names may not contain ':'", "//foo:bar:baz");
+    assertSyntaxError("target names may not contain ':'", "//foo:bar:");
+    assertSyntaxError("target names may not contain ':'", "//foo/bar::");
   }
 
   @Test
@@ -388,9 +260,9 @@ public class LabelTest {
     assertSyntaxError(INVALID_TARGET_NAME, "//foo:./bar/baz");
     // TODO(bazel-team): enable when we have removed the "Workaround" in Label
     // that rewrites broken Labels by removing the trailing '.'
-    //assertSyntaxError(INVALID_PACKAGE_NAME,
+    // assertSyntaxError(INVALID_PACKAGE_NAME,
     //                  "//foo:bar/baz/.");
-    //assertSyntaxError(INVALID_PACKAGE_NAME,
+    // assertSyntaxError(INVALID_PACKAGE_NAME,
     //                  "//foo:.");
   }
 
@@ -401,11 +273,9 @@ public class LabelTest {
 
   @Test
   public void testSomeOtherBadLabels() throws Exception {
-    assertSyntaxError("package names may not end with '/'",
-                      "//foo/:bar");
+    assertSyntaxError("package names may not end with '/'", "//foo/:bar");
     assertSyntaxError("package names may not start with '/'", "///p:foo");
-    assertSyntaxError("package names may not contain '//' path separators",
-                      "//a//b:foo");
+    assertSyntaxError("package names may not contain '//' path separators", "//a//b:foo");
   }
 
   @Test
@@ -426,24 +296,22 @@ public class LabelTest {
 
   @Test
   public void testDoubleSlashPathSeparator() throws Exception {
-    assertSyntaxError("package names may not contain '//' path separators",
-                      "//foo//bar:baz");
-    assertSyntaxError("target names may not contain '//' path separator",
-                      "//foo:bar//baz");
+    assertSyntaxError("package names may not contain '//' path separators", "//foo//bar:baz");
+    assertSyntaxError("target names may not contain '//' path separator", "//foo:bar//baz");
   }
 
   @Test
   public void testNonPrintableCharacters() throws Exception {
     assertSyntaxError(
-      "target names may not contain non-printable characters: '\\x02'",
-      "//foo:..\002bar");
+        "target names may not contain non-printable characters: '\\x02'", "//foo:..\002bar");
   }
 
   /** Make sure that control characters - such as CR - are escaped on output. */
   @Test
   public void testInvalidLineEndings() throws Exception {
-    assertSyntaxError("invalid target name '..bar\\r': "
-        + "target names may not end with carriage returns", "//foo:..bar\r");
+    assertSyntaxError(
+        "invalid target name '..bar\\r': " + "target names may not end with carriage returns",
+        "//foo:..bar\r");
   }
 
   @Test
@@ -510,6 +378,22 @@ public class LabelTest {
     assertThat(Label.parseCanonical("@foo//bar:baz").getWorkspaceName()).isEqualTo("foo");
     assertThat(Label.parseCanonical("//bar:baz").getWorkspaceName()).isEmpty();
     assertThat(Label.parseCanonical("@//bar:baz").getWorkspaceName()).isEmpty();
+  }
+
+  @Test
+  public void testUnambiguousCanonicalForm() throws Exception {
+    assertThat(Label.parseCanonical("//foo/bar:baz").getUnambiguousCanonicalForm())
+        .isEqualTo("@@//foo/bar:baz");
+    assertThat(Label.parseCanonical("@foo//bar:baz").getUnambiguousCanonicalForm())
+        .isEqualTo("@@foo//bar:baz");
+    assertThat(
+            Label.create(
+                    PackageIdentifier.create(
+                        RepositoryName.create("foo").toNonVisible(RepositoryName.create("bar")),
+                        PathFragment.create("baz")),
+                    "quux")
+                .getUnambiguousCanonicalForm())
+        .isEqualTo("@@[unknown repo 'foo' requested from @bar]//baz:quux");
   }
 
   @Test

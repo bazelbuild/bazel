@@ -29,14 +29,31 @@ apple_common = _builtins.toplevel.apple_common
 def _attribute_error(attr_name, msg):
     fail("in attribute '" + attr_name + "': " + msg)
 
-def _validate_attributes(label):
+def _validate_attributes(srcs, non_arc_srcs, label):
+    cc_helper.check_file_extensions(
+        srcs,
+        extensions.SRCS,
+        "srcs",
+        label,
+        "objc_library",
+        False,
+    )
+    cc_helper.check_file_extensions(
+        non_arc_srcs,
+        extensions.NON_ARC_SRCS,
+        "non_arc_srcs",
+        label,
+        "objc_library",
+        False,
+    )
+
     if label.name.find("/") != -1:
         _attribute_error("name", "this attribute has unsupported character '/'")
 
 def _objc_library_impl(ctx):
     """Implementation of objc_library."""
 
-    _validate_attributes(label = ctx.label)
+    _validate_attributes(srcs = ctx.attr.srcs, non_arc_srcs = ctx.attr.non_arc_srcs, label = ctx.label)
 
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
 
@@ -70,7 +87,10 @@ def _objc_library_impl(ctx):
         dependency_attributes = ["deps", "data", "binary", "xctest_app"],
         extensions = extensions.NON_CPP_SOURCES + extensions.CPP_SOURCES + extensions.HEADERS,
         coverage_environment = cc_helper.get_coverage_environment(ctx, ctx.fragments.cpp, cc_toolchain),
-        coverage_support_files = cc_toolchain.coverage_files() if ctx.coverage_instrumented() else depset([]),
+        # TODO(cmita): Use ctx.coverage_instrumented() instead when rules_swift can access
+        # cc_toolchain.coverage_files and the coverage_support_files parameter of
+        # coverage_common.instrumented_files_info(...)
+        coverage_support_files = cc_toolchain.coverage_files() if ctx.configuration.coverage_enabled else depset([]),
         metadata_files = compilation_outputs.gcno_files() + compilation_outputs.pic_gcno_files(),
     )
 

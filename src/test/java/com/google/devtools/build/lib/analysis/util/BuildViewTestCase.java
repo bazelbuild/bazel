@@ -145,6 +145,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
@@ -339,6 +340,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         tsgm);
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     useConfiguration();
@@ -508,6 +510,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         tsgm);
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));

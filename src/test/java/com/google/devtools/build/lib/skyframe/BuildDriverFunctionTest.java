@@ -48,7 +48,7 @@ public class BuildDriverFunctionTest {
           }
 
           @Override
-          public void registerConflictFreeKeys(ImmutableSet<ActionLookupKey> keys) {
+          public void registerConflictFreeKeys(ImmutableSet<SkyKey> keys) {
             globalSet.addAll(keys);
           }
         };

@@ -5188,7 +5188,7 @@ public abstract class MemoizingEvaluatorTest {
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
               .setKeepGoing(keepGoing)
-              .setNumThreads(numThreads)
+              .setParallelism(numThreads)
               .setEventHandler(reporter)
               .build();
       BugReport.maybePropagateLastCrashIfInTest();

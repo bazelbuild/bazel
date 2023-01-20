@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
@@ -89,8 +90,10 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
@@ -624,11 +627,20 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         BuildConfigurationKey.withoutPlatformMapping(toolchainOptions);
 
     PlatformConfiguration platformConfig = configuration.getFragment(PlatformConfiguration.class);
+
+    boolean useAutoExecGroups;
+    if (rule.isAttrDefined("$use_auto_exec_groups", Type.BOOLEAN)) {
+      useAutoExecGroups = (boolean) rule.getAttr("$use_auto_exec_groups");
+    } else {
+      useAutoExecGroups = configuration.useAutoExecGroups();
+    }
+
     return computeUnloadedToolchainContexts(
         env,
         label,
         platformConfig != null && rule.useToolchainResolution(),
         l -> platformConfig != null && platformConfig.debugToolchainResolution(l),
+        useAutoExecGroups,
         toolchainConfig,
         toolchainTypes,
         defaultExecConstraintLabels,
@@ -649,6 +661,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Label label,
       boolean useToolchainResolution,
       Predicate<Label> debugResolution,
+      boolean useAutoExecGroups,
       BuildConfigurationKey configurationKey,
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
       ImmutableSet<Label> defaultExecConstraintLabels,
@@ -657,14 +670,29 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throws InterruptedException, ToolchainException {
 
     // Create a merged version of the exec groups that handles exec group inheritance properly.
-    ExecGroup defaultExecGroup =
-        ExecGroup.builder()
-            .toolchainTypes(toolchainTypes)
-            .execCompatibleWith(defaultExecConstraintLabels)
-            .copyFrom(null)
-            .build();
+    ExecGroup.Builder defaultExecGroupBuilder =
+        ExecGroup.builder().execCompatibleWith(defaultExecConstraintLabels).copyFrom(null);
+
+    Map<String, ExecGroup> allExecGroups = new HashMap<>();
+
+    // Add exec groups that the rule itself has defined (custom exec groups).
+    allExecGroups.putAll(execGroups);
+
+    if (useAutoExecGroups) {
+      // Create one exec group for each toolchain (automatic exec groups).
+      for (ToolchainTypeRequirement toolchainType : toolchainTypes) {
+        allExecGroups.put(
+            toolchainType.toolchainType().toString(),
+            ExecGroup.builder().addToolchainType(toolchainType).copyFrom(null).build());
+      }
+    } else {
+      // Add toolchain types iff toolchains are not asociated with automatic exec groups.
+      defaultExecGroupBuilder.toolchainTypes(toolchainTypes);
+    }
+
     ExecGroupCollection.Builder execGroupCollectionBuilder =
-        ExecGroupCollection.builder(defaultExecGroup, execGroups);
+        ExecGroupCollection.builder(
+            defaultExecGroupBuilder.build(), ImmutableMap.copyOf(allExecGroups));
 
     // Short circuit and end now if this target doesn't require toolchain resolution.
     if (!useToolchainResolution) {
@@ -682,9 +710,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     ToolchainContextKey.Builder toolchainContextKeyBuilder =
         ToolchainContextKey.key()
             .configurationKey(configurationKey)
-            .toolchainTypes(toolchainTypes)
             .execConstraintLabels(defaultExecConstraintLabels)
             .debugTarget(debugTarget);
+
+    // Add toolchain types only if automatic exec groups are not created for this target.
+    if (!useAutoExecGroups) {
+      toolchainContextKeyBuilder.toolchainTypes(toolchainTypes);
+    }
 
     if (parentExecutionPlatformLabel != null) {
       // Find out what execution platform the parent used, and force that.

@@ -537,6 +537,64 @@ EOF
   || fail "Expected test binary bazel-bin/a/test to be downloaded"
 }
 
+function do_test_non_test_toplevel_targets() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/17190.
+  #
+  # Test that when using --remote_download_toplevel with bazel test, outputs of
+  # non-test targets are downloaded. When using --remote_download_minimal with
+  # bazel test, outputs of non-test targets are not downloaded.
+
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+)
+
+cc_test(
+  name = 'test',
+  srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello test!" << std::endl; return 0; }
+EOF
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    $@ \
+    //a/... || fail "failed to test"
+}
+
+function test_non_test_toplevel_targets_toplevel() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  do_test_non_test_toplevel_targets --remote_download_toplevel
+
+  [[ -f bazel-bin/a/foo.txt ]] || fail "Expected a/foo.txt to be downloaded"
+}
+
+function test_non_test_toplevel_targets_minimal() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  do_test_non_test_toplevel_targets --remote_download_minimal
+
+  [[ ! -f bazel-bin/a/foo.txt ]] || fail "Expected a/foo.txt to not be downloaded"
+}
+
 function test_downloads_minimal_bep() {
   # Test that when using --remote_download_minimal all URI's in the BEP
   # are rewritten as bytestream://..
@@ -1523,6 +1581,90 @@ EOF
     //a:bin >& $TEST_log || fail "Failed to run //a:bin"
 
   expect_log "bin-message"
+}
+
+function test_java_rbe_coverage_produces_report() {
+  mkdir -p java/factorial
+
+  JAVA_TOOLS_ZIP="released"
+  COVERAGE_GENERATOR_DIR="released"
+
+  cd java/factorial
+
+  cat > BUILD <<'EOF'
+java_library(
+    name = "fact",
+    srcs = ["Factorial.java"],
+)
+java_test(
+    name = "fact-test",
+    size = "small",
+    srcs = ["FactorialTest.java"],
+    test_class = "factorial.FactorialTest",
+    deps = [
+        ":fact",
+    ],
+)
+EOF
+
+  cat > Factorial.java <<'EOF'
+package factorial;
+public class Factorial {
+  public static int factorial(int x) {
+    return x <= 0 ? 1 : x * factorial(x-1);
+  }
+}
+EOF
+
+  cat > FactorialTest.java <<'EOF'
+package factorial;
+import static org.junit.Assert.*;
+import org.junit.Test;
+public class FactorialTest {
+  @Test
+  public void testFactorialOfZeroIsOne() throws Exception {
+    assertEquals(Factorial.factorial(3),6);
+  }
+}
+EOF
+  cd ../..
+
+  cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
+
+  bazel coverage \
+    --test_output=all \
+    --experimental_fetch_all_coverage_outputs \
+    --experimental_split_coverage_postprocessing \
+    --remote_download_minimal \
+    --combined_report=lcov \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --instrumentation_filter=//java/factorial \
+    //java/factorial:fact-test &> $TEST_log || fail "Shouldn't fail"
+
+  # Test binary shouldn't be downloaded
+  [[ ! -e "bazel-bin/java/factorial/libfact.jar" ]] || fail "bazel-bin/java/factorial/libfact.jar shouldn't exist!"
+
+  local expected_result="SF:java/factorial/Factorial.java
+FN:2,factorial/Factorial::<init> ()V
+FN:4,factorial/Factorial::factorial (I)I
+FNDA:0,factorial/Factorial::<init> ()V
+FNDA:1,factorial/Factorial::factorial (I)I
+FNF:2
+FNH:1
+BRDA:4,0,0,1
+BRDA:4,0,1,1
+BRF:2
+BRH:2
+DA:2,0
+DA:4,1
+LH:1
+LF:2
+end_of_record"
+  cat bazel-testlogs/java/factorial/fact-test/coverage.dat > $TEST_log
+  expect_log "$expected_result"
+  cat bazel-out/_coverage/_coverage_report.dat > $TEST_log
+  expect_log "$expected_result"
 }
 
 run_suite "Build without the Bytes tests"

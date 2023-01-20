@@ -253,7 +253,7 @@ network. LinkedIn uses Bazel for building its iOS Apps.
 
 ### [Lyft](https://www.lyft.com/){: .external}
 
-Lyft is using Bazel for their iOS Apps ([source](https://twitter.com/SmileyKeith/status/1116486751806033920)).
+Lyft is using Bazel for their iOS ([source](https://twitter.com/SmileyKeith/status/1116486751806033920)) and Android Apps.
 
 ### [Makani](https://www.google.com/makani){: .external}
 Makani, now a Google subsidiary, develops energy kites and uses Bazel to build
@@ -342,6 +342,12 @@ details about their process, see their [engineering blog](https://eng.snap.com/b
 
 Stripe provides mobile payment solutions.  They are the main maintainers of the
 [Bazel Scala rules](https://github.com/bazelbuild/rules_scala){: .external}.
+
+### [Tinder](https://tinder.com){: .external}
+<img src="https://policies.tinder.com/static/b0327365f4c0a31c4337157c10e9fadf/c1b63/tinder_full_color_watermark.png" width="150" align="right">
+
+Tinder migrated its iOS app from CocoaPods to Bazel
+in 2021 ([source](https://medium.com/tinder/bazel-hermetic-toolchain-and-tooling-migration-c244dc0d3ae){: .external}).
 
 ### [Tink](https://tink.com/){: .external}
 <img src="https://cdn.tink.se/tink-logos/LOW/Tink_Black.png" width="150" align="right">
@@ -544,6 +550,12 @@ seamlessly from normal Java code.
 
 Heron is a realtime, distributed, fault-tolerant stream processing engine from
 Twitter.
+
+### [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer){: .external}
+
+<img src="https://www.code-intelligence.com/hubfs/Logos/CI%20Logos/Jazzer_einfach.png" width="120" align="right">
+
+Jazzer is a fuzzer for Java and other JVM-based languages that integrates with JUnit 5.
 
 ### [JGit](https://eclipse.org/jgit/){: .external}
 

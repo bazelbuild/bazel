@@ -118,7 +118,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setParallelism(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(reporter)
             .build();
     return skyframeExecutor.getEvaluator().evaluate(ImmutableList.copyOf(keys), evaluationContext);

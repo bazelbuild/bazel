@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -264,6 +265,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.injectExtraPrecomputedValues(
@@ -424,6 +426,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.invalidateFilesUnderPathForTesting(

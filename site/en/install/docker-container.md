@@ -126,9 +126,9 @@ Python 3.6.6
 
 root@5a99103747c6:/# bazel version
 Extracting Bazel installation...
-Build label: 0.17.1
+Build label: 6.0.0
 Build target: bazel-out/k8-opt/bin/src/main/java/com/google/devtools/build/lib/bazel/BazelServer_deploy.jar
-Build time: Fri Sep 14 10:39:25 2018 (1536921565)
-Build timestamp: 1536921565
-Build timestamp as int: 1536921565
+Build time: Mon Dec 19 15:52:35 2022 (1671465155)
+Build timestamp: 1671465155
+Build timestamp as int: 1671465155
 ```

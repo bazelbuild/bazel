@@ -18,7 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertNotNull;
 
-import com.android.builder.core.VariantType;
+import com.android.builder.core.VariantTypeImpl;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AarGeneratorAction.AarGeneratorOptions;
@@ -689,7 +689,7 @@ public class AarGeneratorActionTest {
             ImmutableList.<DependencyAndroidData>of(),
             resourcesOut,
             assetsOut,
-            VariantType.LIBRARY,
+            VariantTypeImpl.LIBRARY,
             null,
             /* filteredResources= */ ImmutableList.of(),
             true);

@@ -177,8 +177,8 @@ public class WorkerOptions extends OptionsBase {
       name = "experimental_worker_as_resource",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help = "If enabled, workers are acquired as resources from ResourceManager.")
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "No-op, will be removed soon.")
   public boolean workerAsResource;
 
   @Option(

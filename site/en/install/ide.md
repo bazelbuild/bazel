@@ -49,9 +49,10 @@ Plugin Repository and install the zip file from the IDE's plugin browser:
 
 ### Xcode {:#xcode}
 
-[Tulsi](https://tulsi.bazel.build){: .external} and
-[XCHammer](https://github.com/pinterest/xchammer){: .external} generate Xcode projects from
-Bazel `BUILD` files.
+[rules_xcodeproj](https://github.com/buildbuddy-io/rules_xcodeproj){: .external},
+[Tulsi](https://tulsi.bazel.build){: .external}, and
+[XCHammer](https://github.com/pinterest/xchammer){: .external} generate Xcode
+projects from Bazel `BUILD` files.
 
 ### Visual Studio Code {:#visual-studio-code}
 

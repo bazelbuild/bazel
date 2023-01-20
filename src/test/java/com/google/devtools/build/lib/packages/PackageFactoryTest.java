@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -260,10 +261,12 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
   @Test
   public void testCreationOfInputFiles() throws Exception {
+    setBuildLanguageOptions("--incompatible_no_implicit_file_export");
     scratch.file(
         "foo/BUILD",
-        "exports_files(['Z'])",
-        "cc_library(name='W', deps=['X', 'Y'])",
+        "exports_files(['Z'], visibility=[\"//visibility:public\"],"
+            + " licenses=[\"restricted\"])",
+        "cc_library(name='W', deps=['X', 'Y', 'A'])",
         "cc_library(name='X', srcs=['X'])",
         "cc_library(name='Y')");
     Package pkg = loadPackage("foo");
@@ -275,15 +278,32 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     // Y is a rule
     assertThat(pkg.getTarget("Y").getClass()).isSameInstanceAs(Rule.class);
 
-    // Z is a file
-    assertThat(pkg.getTarget("Z").getClass()).isSameInstanceAs(InputFile.class);
+    // Z is an export file with specified visibility and license specified
+    Target exportFileTarget = pkg.getTarget("Z");
+    assertThat(exportFileTarget.getClass())
+        .isSameInstanceAs(VisibilityLicenseSpecifiedInputFile.class);
+    assertThat(((VisibilityLicenseSpecifiedInputFile) exportFileTarget).isVisibilitySpecified())
+        .isTrue();
+    assertThat(exportFileTarget.getVisibility().getDeclaredLabels())
+        .containsExactly(ConstantRuleVisibility.PUBLIC_LABEL);
+    assertThat(((VisibilityLicenseSpecifiedInputFile) exportFileTarget).isLicenseSpecified())
+        .isTrue();
+    assertThat(exportFileTarget.getLicense().getLicenseTypes())
+        .containsExactly(LicenseType.RESTRICTED);
 
-    // A is nothing
-    NoSuchTargetException e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("A"));
+    // A is an input file with private visibility
+    Target inputFileTarget = pkg.getTarget("A");
+    assertThat(inputFileTarget.getClass()).isSameInstanceAs(PrivateVisibilityInputFile.class);
+    assertThat(((PrivateVisibilityInputFile) inputFileTarget).isVisibilitySpecified()).isTrue();
+    assertThat(inputFileTarget.getVisibility().getDeclaredLabels())
+        .containsExactly(ConstantRuleVisibility.PRIVATE_LABEL);
+
+    // B is nothing
+    NoSuchTargetException e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("B"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
-            "no such target '//foo:A': target 'A' not declared in package 'foo' defined by"
+            "no such target '//foo:B': target 'B' not declared in package 'foo' defined by"
                 + " /workspace/foo/BUILD (Tip: use `query \"//foo:*\"` to see all the targets in"
                 + " that package)");
 
@@ -292,7 +312,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     for (InputFile inputFile : pkg.getTargets(InputFile.class)) {
       inputFiles.add(inputFile.getName());
     }
-    assertThat(Lists.newArrayList(inputFiles)).containsExactly("BUILD", "Z").inOrder();
+    assertThat(Lists.newArrayList(inputFiles)).containsExactly("A", "BUILD", "Z").inOrder();
   }
 
   @Test

@@ -30,7 +30,6 @@ import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
@@ -566,11 +565,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       catastrophe = false;
     }
 
-    String errorMessage = Utils.grpcAwareErrorMessage(exception);
-    if (verboseFailures) {
-      // On --verbose_failures print the whole stack trace
-      errorMessage += "\n" + Throwables.getStackTraceAsString(exception);
-    }
+    String errorMessage = Utils.grpcAwareErrorMessage(exception, verboseFailures);
 
     if (exception.getCause() instanceof ExecutionStatusException) {
       ExecutionStatusException e = (ExecutionStatusException) exception.getCause();

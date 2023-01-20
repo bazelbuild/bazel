@@ -20,19 +20,12 @@ load("@_builtins//:common/objc/objc_common.bzl", "objc_common")
 objc_internal = _builtins.internal.objc_internal
 cc_common = _builtins.toplevel.cc_common
 
-def _build_variable_extensions(
-        ctx,
-        intermediate_artifacts,
-        variable_categories,
-        arc_enabled,
-        fully_link_archive = None,
-        objc_provider = None):
+def _build_variable_extensions(ctx, arc_enabled):
     extensions = {}
     if hasattr(ctx.attr, "pch") and ctx.attr.pch != None:
         extensions["pch_file"] = ctx.file.pch.path
 
-    if "MODULE_MAP_VARIABLES" in variable_categories:
-        extensions["modules_cache_path"] = ctx.genfiles_dir.path + "/" + "_objc_module_cache"
+    extensions["modules_cache_path"] = ctx.genfiles_dir.path + "/" + "_objc_module_cache"
 
     if arc_enabled:
         extensions["objc_arc"] = ""
@@ -263,9 +256,15 @@ def _register_compile_and_archive_actions_for_j2objc(
         objc_config = ctx.fragments.objc,
         objc_provider = None,
     )
-    return _register_compile_and_archive_actions(
+
+    return _cc_compile_and_link(
+        compilation_artifacts.srcs,
+        compilation_artifacts.non_arc_srcs,
+        [],
+        compilation_artifacts.additional_hdrs,
         common_variables,
         extra_compile_args,
+        priority_headers = [],
         generate_module_map_for_swift = True,
     )
 
@@ -274,13 +273,36 @@ def _register_compile_and_archive_actions(
         extra_compile_args = [],
         priority_headers = [],
         generate_module_map_for_swift = False):
+    ctx = common_variables.ctx
     return _cc_compile_and_link(
+        cc_helper.get_srcs(ctx),
+        _get_non_arc_srcs(ctx),
+        cc_helper.get_private_hdrs(ctx),
+        cc_helper.get_public_hdrs(ctx),
         common_variables,
         extra_compile_args,
         priority_headers,
-        variable_categories = ["MODULE_MAP_VARIABLES"],
         generate_module_map_for_swift = generate_module_map_for_swift,
     )
+
+# Returns a list of (Artifact, Label) tuples. Each tuple represents an input source
+# file and the label of the rule that generates it (or the label of the source file itself if it
+# is an input file).
+def _get_non_arc_srcs(ctx):
+    if not hasattr(ctx.attr, "non_arc_srcs"):
+        return []
+    artifact_label_map = {}
+    for src in ctx.attr.non_arc_srcs:
+        if DefaultInfo in src:
+            for artifact in src[DefaultInfo].files.to_list():
+                artifact_label_map[artifact] = src.label
+    return _map_to_list(artifact_label_map)
+
+def _map_to_list(m):
+    result = []
+    for k, v in m.items():
+        result.append((k, v))
+    return result
 
 def _get_grep_includes(ctx):
     if hasattr(ctx.executable, "_grep_includes"):
@@ -293,19 +315,19 @@ def _get_grep_includes(ctx):
     return None
 
 def _cc_compile_and_link(
+        srcs,
+        non_arc_srcs,
+        private_hdrs,
+        public_hdrs,
         common_variables,
         extra_compile_args,
         priority_headers,
-        variable_categories,
         generate_module_map_for_swift):
-    compilation_artifacts = common_variables.compilation_artifacts
     intermediate_artifacts = common_variables.intermediate_artifacts
     compilation_attributes = common_variables.compilation_attributes
     ctx = common_variables.ctx
     (objects, pic_objects) = _get_object_files(common_variables.ctx)
-    public_hdrs = []
-    public_hdrs.extend(compilation_attributes.hdrs.to_list())
-    public_hdrs.extend(compilation_artifacts.additional_hdrs.to_list())
+
     pch_header = _get_pch_file(common_variables)
     feature_configuration = _build_feature_configuration(
         common_variables,
@@ -323,20 +345,15 @@ def _cc_compile_and_link(
 
     purpose = "{}_objc_arc".format(_get_purpose(common_variables))
     arc_primary_module_map_fc = feature_configuration
-    arc_extensions = _build_variable_extensions(
-        ctx,
-        intermediate_artifacts,
-        variable_categories,
-        arc_enabled = True,
-    )
+    arc_extensions = _build_variable_extensions(ctx, arc_enabled = True)
     (arc_compilation_context, arc_compilation_outputs) = _compile(
         common_variables,
         arc_primary_module_map_fc,
         arc_extensions,
         extra_compile_args,
         priority_headers,
-        compilation_artifacts.srcs,
-        compilation_artifacts.private_hdrs,
+        srcs,
+        private_hdrs,
         public_hdrs,
         pch_header,
         module_map,
@@ -350,20 +367,15 @@ def _cc_compile_and_link(
         for_swift_module_map = False,
         support_parse_headers = False,
     )
-    non_arc_extensions = _build_variable_extensions(
-        ctx,
-        intermediate_artifacts,
-        variable_categories,
-        arc_enabled = False,
-    )
+    non_arc_extensions = _build_variable_extensions(ctx, arc_enabled = False)
     (non_arc_compilation_context, non_arc_compilation_outputs) = _compile(
         common_variables,
         non_arc_primary_module_map_fc,
         non_arc_extensions,
         extra_compile_args,
         priority_headers,
-        compilation_artifacts.non_arc_srcs,
-        compilation_artifacts.private_hdrs,
+        non_arc_srcs,
+        private_hdrs,
         public_hdrs,
         pch_header,
         module_map,
@@ -378,7 +390,7 @@ def _cc_compile_and_link(
             common_variables,
             intermediate_artifacts.swift_module_map,
             public_hdrs,
-            compilation_artifacts.private_hdrs,
+            private_hdrs,
             objc_compilation_context.public_textual_hdrs,
             pch_header,
             objc_compilation_context.cc_compilation_contexts,

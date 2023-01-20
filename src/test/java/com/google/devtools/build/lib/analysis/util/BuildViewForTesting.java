@@ -97,6 +97,7 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -210,19 +211,18 @@ public class BuildViewForTesting {
         aspectsParameters,
         viewOptions,
         keepGoing,
-        /*checkForActionConflicts=*/ true,
-        loadingPhaseThreads,
+        /* checkForActionConflicts= */ true,
+        QuiescingExecutorsImpl.forTesting(),
         topLevelOptions,
-        /*reportIncompatibleTargets=*/ true,
+        /* reportIncompatibleTargets= */ true,
         eventHandler,
         eventBus,
         BugReporter.defaultInstance(),
-        /*includeExecutionPhase=*/ false,
-        /*mergedPhasesExecutionJobsCount=*/ 0,
-        /*resourceManager=*/ null,
-        /*buildResultListener=*/ null,
-        /*executionSetupCallback=*/ null,
-        /*buildConfigurationsCreatedCallback=*/ null);
+        /* includeExecutionPhase= */ false,
+        /* resourceManager= */ null,
+        /* buildResultListener= */ null,
+        /* executionSetupCallback= */ null,
+        /* buildConfigurationsCreatedCallback= */ null);
   }
 
   /** Sets the configuration. Not thread-safe. */

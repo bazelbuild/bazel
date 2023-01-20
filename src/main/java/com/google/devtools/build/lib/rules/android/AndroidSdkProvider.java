@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -124,81 +123,133 @@ public final class AndroidSdkProvider extends NativeInfo
    */
   @Nullable
   public static AndroidSdkProvider fromRuleContext(RuleContext ruleContext) {
+    // Determine the toolchain type.
+    Label toolchainType = getToolchainTypeFromAttribute(ruleContext);
+    return fromRuleContext(ruleContext, ":android_sdk", toolchainType);
+  }
+
+  /**
+   * Returns the Android SDK associated with the rule being analyzed or null if the Android SDK is
+   * not specified.
+   *
+   * <p>First tries to read from toolchains if
+   * --incompatible_enable_android_toolchain_resolution=true, else, uses the legacy attribute..
+   */
+  @Nullable
+  public static AndroidSdkProvider fromRuleContext(
+      RuleContext ruleContext, String sdkAttribute, @Nullable Label toolchainType) {
     BuildConfigurationValue configuration = ruleContext.getConfiguration();
-    if (configuration != null
-        && configuration.hasFragment(AndroidConfiguration.class)
-        && configuration
+    if (configuration == null
+        || !configuration.hasFragment(AndroidConfiguration.class)
+        || !configuration
             .getFragment(AndroidConfiguration.class)
             .incompatibleUseToolchainResolution()) {
-      AttributeMap attributes = ruleContext.attributes();
-      if (ruleContext.getToolchainContext() == null) {
+      // Not using toolchain resolution, so use the legacy attribute-based lookup.
+      return ruleContext.getPrerequisite(sdkAttribute, AndroidSdkProvider.PROVIDER);
+    }
+
+    // Check if toolchain resolution is enabled.
+    if (ruleContext.getToolchainContext() == null) {
+      ruleContext.ruleError(
+          String.format(
+              "'%s' rule '%s' requested sdk toolchain resolution via"
+                  + " --incompatible_enable_android_toolchain_resolution but doesn't use"
+                  + " toolchain resolution.",
+              ruleContext.getRuleClassNameForLogging(), ruleContext.getLabel()));
+      return null;
+    }
+
+    ResolvedToolchainContext toolchainContext = ruleContext.getToolchainContext();
+    if (usingDummyToolchain(ruleContext, configuration, toolchainContext)) {
+      // The above method will have already shown an error.
+      return null;
+    }
+
+    if (toolchainType == null) {
+      ruleContext.ruleError(
+          String.format(
+              "'%s' rule '%s' requested sdk toolchain resolution via"
+                  + " --incompatible_enable_android_toolchain_resolution but doesn't have"
+                  + " toolchain type attribute '%s'.",
+              ruleContext.getRuleClassNameForLogging(),
+              ruleContext.getLabel(),
+              ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME));
+      return null;
+    }
+    ToolchainInfo info = toolchainContext.forToolchainType(toolchainType);
+    if (info == null) {
+      ruleContext.ruleError(
+          String.format(
+              "'%s' rule '%s' requested sdk toolchain resolution via"
+                  + " --incompatible_enable_android_toolchain_resolution but doesn't have a"
+                  + " toolchain for '%s'.",
+              ruleContext.getRuleClassNameForLogging(), ruleContext.getLabel(), toolchainType));
+      return null;
+    }
+    try {
+      return (AndroidSdkProvider) info.getValue("android_sdk_info");
+    } catch (EvalException e) {
+      ruleContext.ruleError(
+          String.format(
+              "Android SDK toolchain for %s didn't have an 'android_sdk_info' provider: %s",
+              ruleContext.getLabel(), e.getMessage()));
+      return null;
+    }
+  }
+
+  private static boolean usingDummyToolchain(
+      RuleContext ruleContext,
+      BuildConfigurationValue configuration,
+      ResolvedToolchainContext toolchainContext) {
+    Type<Label> depType =
+        ruleContext.getRule().getRuleClassObject().isStarlark()
+            ? BuildType.LABEL
+            : BuildType.NODEP_LABEL;
+    if (!ruleContext.attributes().has(ANDROID_SDK_DUMMY_TOOLCHAIN_ATTRIBUTE_NAME, depType)) {
+      // We can't tell, so assume not.
+      return false;
+    }
+
+    ImmutableSet<Label> resolvedToolchains = toolchainContext.resolvedToolchainLabels();
+    Label dummyToochain =
+        ruleContext.attributes().get(ANDROID_SDK_DUMMY_TOOLCHAIN_ATTRIBUTE_NAME, depType);
+    for (Label toolchain : resolvedToolchains) {
+      if (dummyToochain.equals(toolchain)) {
         ruleContext.ruleError(
+            // TODO(jcater): Decide whether to rewrite message to refer to --android_platforms.
+            // It's unclear if we should always tell users to use --android_platforms, or if
+            // there are still cases where --platforms is preferred.
             String.format(
                 "'%s' rule '%s' requested sdk toolchain resolution via"
-                    + " --incompatible_enable_android_toolchain_resolution but doesn't use"
-                    + " toolchain resolution.",
-                ruleContext.getRuleClassNameForLogging(), ruleContext.getLabel()));
-        return null;
-      }
-      Type<Label> depType =
-          ruleContext.getRule().getRuleClassObject().isStarlark()
-              ? BuildType.LABEL
-              : BuildType.NODEP_LABEL;
-      Label toolchainType = attributes.get(ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, depType);
-      if (toolchainType == null) {
-        ruleContext.ruleError(
-            String.format(
-                "'%s' rule '%s' requested sdk toolchain resolution via"
-                    + " --incompatible_enable_android_toolchain_resolution but doesn't have"
-                    + " toolchain type attribute '%s'.",
+                    + " --incompatible_enable_android_toolchain_resolution but hasn't set an"
+                    + " appropriate --platforms value: --platforms=%s",
                 ruleContext.getRuleClassNameForLogging(),
                 ruleContext.getLabel(),
-                ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME));
-        return null;
-      }
-      ResolvedToolchainContext toolchainContext = ruleContext.getToolchainContext();
-      if (attributes.has(ANDROID_SDK_DUMMY_TOOLCHAIN_ATTRIBUTE_NAME, depType)) {
-        ImmutableSet<Label> resolvedToolchains = toolchainContext.resolvedToolchainLabels();
-        Label dummyToochain = attributes.get(ANDROID_SDK_DUMMY_TOOLCHAIN_ATTRIBUTE_NAME, depType);
-        for (Label toolchain : resolvedToolchains) {
-          if (dummyToochain.equals(toolchain)) {
-            ruleContext.ruleError(
-                // TODO(jcater): Decide whether to rewrite message to refer to --android_platforms.
-                // It's unclear if we should always tell users to use --android_platforms, or if
-                // there are still cases where --platforms is preferred.
-                String.format(
-                    "'%s' rule '%s' requested sdk toolchain resolution via"
-                        + " --incompatible_enable_android_toolchain_resolution but hasn't set an"
-                        + " appropriate --platforms value: --platforms=%s",
-                    ruleContext.getRuleClassNameForLogging(),
-                    ruleContext.getLabel(),
-                    configuration.getFragment(PlatformConfiguration.class).getTargetPlatform()));
-            return null;
-          }
-        }
-      }
-      ToolchainInfo info = toolchainContext.forToolchainType(toolchainType);
-      if (info == null) {
-        ruleContext.ruleError(
-            String.format(
-                "'%s' rule '%s' requested sdk toolchain resolution via"
-                    + " --incompatible_enable_android_toolchain_resolution but doesn't have a"
-                    + " toolchain for '%s'.",
-                ruleContext.getRuleClassNameForLogging(), ruleContext.getLabel(), toolchainType));
-        return null;
-      }
-      try {
-        return (AndroidSdkProvider) info.getValue("android_sdk_info");
-      } catch (EvalException e) {
-        ruleContext.ruleError(
-            String.format(
-                "Android SDK toolchain for %s didn't have an 'android_sdk_info' provider: %s",
-                ruleContext.getLabel(), e.getMessage()));
-        return null;
+                configuration.getFragment(PlatformConfiguration.class).getTargetPlatform()));
+        return true;
       }
     }
 
-    return ruleContext.getPrerequisite(":android_sdk", AndroidSdkProvider.PROVIDER);
+    return false;
+  }
+
+  @Nullable
+  private static Label getToolchainTypeFromAttribute(RuleContext ruleContext) {
+    BuildConfigurationValue configuration = ruleContext.getConfiguration();
+    if (configuration == null
+        || !configuration.hasFragment(AndroidConfiguration.class)
+        || !configuration
+            .getFragment(AndroidConfiguration.class)
+            .incompatibleUseToolchainResolution()) {
+      // Not using toolchain resolution, so return null.
+      return null;
+    }
+
+    Type<Label> depType =
+        ruleContext.getRule().getRuleClassObject().isStarlark()
+            ? BuildType.LABEL
+            : BuildType.NODEP_LABEL;
+    return ruleContext.attributes().get(ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, depType);
   }
 
   /** Throws an error if the Android SDK cannot be found. */

@@ -29,8 +29,8 @@ import static java.util.stream.Collectors.toList;
 import static java.util.zip.ZipEntry.DEFLATED;
 import static java.util.zip.ZipEntry.STORED;
 
-import com.android.builder.core.VariantConfiguration;
-import com.android.builder.core.VariantType;
+import com.android.builder.core.DefaultManifestParser;
+import com.android.builder.core.VariantTypeImpl;
 import com.android.repository.Revision;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
@@ -259,7 +259,7 @@ public class ResourceLinker {
       logger.finer(
           new AaptCommandBuilder(aapt2)
               .forBuildToolsVersion(buildToolsVersion)
-              .forVariantType(VariantType.LIBRARY)
+              .forVariantType(VariantTypeImpl.LIBRARY)
               .add("link")
               .when(outputAsProto) // Used for testing: aapt2 does not output static libraries in
               // proto format.
@@ -290,7 +290,7 @@ public class ResourceLinker {
         logger.finer(
             new AaptCommandBuilder(aapt2)
                 .forBuildToolsVersion(buildToolsVersion)
-                .forVariantType(VariantType.LIBRARY)
+                .forVariantType(VariantTypeImpl.LIBRARY)
                 .add("link")
                 .add("--manifest", compiled.getManifest())
                 .add("--no-static-lib-packages")
@@ -411,7 +411,7 @@ public class ResourceLinker {
     logger.fine(
         new AaptCommandBuilder(aapt2)
             .forBuildToolsVersion(buildToolsVersion)
-            .forVariantType(VariantType.DEFAULT)
+            .forVariantType(VariantTypeImpl.BASE_APK)
             .add("link")
             .whenVersionIsAtLeast(new Revision(23))
             .thenAdd("--no-version-vectors")
@@ -599,7 +599,13 @@ public class ResourceLinker {
     Path packages = workingDirectory.resolve("packages");
     try (BufferedWriter writer = Files.newBufferedWriter(packages, StandardOpenOption.CREATE_NEW)) {
       for (CompiledResources resources : FluentIterable.from(include).append(compiled)) {
-        writer.append(VariantConfiguration.getManifestPackage(resources.getManifest().toFile()));
+        writer.append(
+            new DefaultManifestParser(
+                    resources.getManifest().toFile(),
+                    /* canParseManifest= */ () -> true,
+                    /* isManifestFileRequired= */ true,
+                    /* issueReporter= */ null)
+                .getPackage());
         writer.newLine();
       }
     }
@@ -630,7 +636,7 @@ public class ResourceLinker {
     logger.fine(
         new AaptCommandBuilder(aapt2)
             .forBuildToolsVersion(buildToolsVersion)
-            .forVariantType(VariantType.DEFAULT)
+            .forVariantType(VariantTypeImpl.BASE_APK)
             .add("optimize")
             .when(Objects.equals(logger.getLevel(), Level.FINE))
             .thenAdd("-v")
@@ -687,7 +693,7 @@ public class ResourceLinker {
       logger.fine(
           new AaptCommandBuilder(aapt2)
               .forBuildToolsVersion(buildToolsVersion)
-              .forVariantType(VariantType.DEFAULT)
+              .forVariantType(VariantTypeImpl.BASE_APK)
               .add("convert")
               .when(Objects.equals(logger.getLevel(), Level.FINE))
               .thenAdd("-v")

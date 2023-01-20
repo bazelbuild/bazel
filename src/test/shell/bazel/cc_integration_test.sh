@@ -234,54 +234,6 @@ EOF
     "Second build failed, tree artifact was not invalidated."
 }
 
-# This test tests that Bazel can produce dynamic libraries that have undefined
-# symbols on Mac and Linux. Not sure it is a sane default to allow undefined
-# symbols, but it's the default we had historically. This test creates
-# an executable (main) that defines bar(), and a shared library (plugin) that
-# calls bar(). When linking the libplugin.so, symbol 'bar' is undefined.
-#    +-----------------------------+     +----------------------------------+
-#    |  main                       |     |  libplugin.so                    |
-#    |                             |     |                                  |
-#    |   main() { return foo(); } +---------> foo() { return bar() - 42; }  |
-#    |                             |     |       +                          |
-#    |                             |     |       |                          |
-#    |   bar() { return 42; } <------------------+                          |
-#    |                             |     |                                  |
-#    +-----------------------------+     +----------------------------------+
-function test_undefined_dynamic_lookup() {
-  if is_windows; then
-    # Windows doesn't allow undefined symbols in shared libraries.
-    return 0
-  fi
-  mkdir -p "dynamic_lookup"
-  cat > "dynamic_lookup/BUILD" <<EOF
-cc_binary(
-  name = "libplugin.so",
-  srcs = ["plugin.cc"],
-  linkshared = 1,
-)
-
-cc_binary(
-    name = "main",
-    srcs = ["main.cc", "libplugin.so"],
-)
-EOF
-
-  cat > "dynamic_lookup/plugin.cc" <<EOF
-int bar();
-int foo() { return bar() - 42; }
-EOF
-
-  cat > "dynamic_lookup/main.cc" <<EOF
-int foo();
-int bar() { return 42; }
-int main() { return foo(); }
-EOF
-
-  bazel build //dynamic_lookup:main || fail "Bazel couldn't build the binary."
-  bazel run //dynamic_lookup:main || fail "Run of the binary failed."
-}
-
 function test_save_feature_state() {
   mkdir -p ea
   cat > ea/BUILD <<EOF
@@ -538,8 +490,8 @@ EOF
 
   cat > $pkg/script.lds << EOF
 VERS_42.0 {
-  local:
-    *;
+  global:
+    f;
 };
 EOF
 
@@ -608,9 +560,8 @@ function test_cc_starlark_api_additional_inputs() {
   cat >> "$pkg"/BUILD << EOF
 cc_bin(
     name = "g",
-    srcs = ["e.cc"],
-    data = [":f"],
-    linkstatic = 1,
+    srcs = ["f.cc"],
+    linkshared = 1,
     additional_linker_inputs = ["script.lds"],
     user_link_flags = [
         "-ldl",
@@ -627,9 +578,7 @@ EOF
   bazel build --experimental_cc_skylark_api_enabled_packages=, --verbose_failures \
     //"$pkg":g  &>"$TEST_log" || fail "Build failed"
 
-  nm bazel-bin/"$pkg"/g  | grep VERS_42.0 || fail "VERS_42.0 not in binary"
-
-  bazel-bin/"$pkg"/g | grep a1a2bcddcb2a1a || fail "output is incorrect"
+  nm -D bazel-bin/"$pkg"/libg.so  | grep VERS_42.0 || fail "VERS_42.0 not in binary"
 }
 
 function test_incompatible_validate_top_level_header_inclusions() {
@@ -1854,6 +1803,111 @@ EOF
   if [[ -n "$out" ]]; then
     fail "Expected no dependency on remote coverage tools, but got: $out"
   fi
+}
+
+# sanitizer features are opt-in so we check if the sanitizer library is
+# installed and skip the test if it isn't (e.g. centos-7-openjdk-11-gcc-10)
+function __is_installed() {
+  local lib="$1"
+
+  if [[ "$(uname -s | tr 'A-Z' 'a-z')" == "linux" ]]; then
+    return $(ldconfig -p | grep -q "$lib")
+  fi
+
+  # assume installed for darwin
+}
+
+function test_cc_toolchain_asan_feature() {
+  local feature=asan
+  __is_installed "lib$feature" || return 0
+
+  mkdir pkg
+  cat > pkg/BUILD <<EOF
+cc_binary(
+  name = 'example',
+  srcs = ['example.cc'],
+  features = ['$feature'],
+)
+EOF
+
+  # some versions of clang will optimize away the pointer assignment and
+  # dereference without volatile
+  # https://godbolt.org/z/of8cr3P8q
+  cat > pkg/example.cc <<EOF
+int main() {
+  volatile int* p;
+
+  {
+    volatile int x = 0;
+    p = &x;
+  }
+
+  return *p;
+}
+EOF
+
+  bazel run //pkg:example &> "$TEST_log" && fail "Should have failed due to $feature" || true
+  expect_log "ERROR: AddressSanitizer: stack-use-after-scope"
+}
+
+function test_cc_toolchain_tsan_feature() {
+  local feature=tsan
+  __is_installed "lib$feature" || return 0
+
+  mkdir pkg
+  cat > pkg/BUILD <<EOF
+cc_binary(
+  name = 'example',
+  srcs = ['example.cc'],
+  features = ['$feature'],
+)
+EOF
+
+  cat > pkg/example.cc <<EOF
+#include <thread>
+
+int value = 0;
+
+void increment() {
+  ++value;
+}
+
+int main() {
+  std::thread t1(increment);
+  std::thread t2(increment);
+  t1.join();
+  t2.join();
+
+  return value;
+}
+EOF
+
+  bazel run //pkg:example &> "$TEST_log" && fail "Should have failed due to $feature" || true
+  expect_log "WARNING: ThreadSanitizer: data race"
+}
+
+function test_cc_toolchain_ubsan_feature() {
+  local feature=ubsan
+  __is_installed "lib$feature" || return 0
+
+  mkdir pkg
+  cat > pkg/BUILD <<EOF
+cc_binary(
+  name = 'example',
+  srcs = ['example.cc'],
+  features = ['$feature'],
+)
+EOF
+
+  cat > pkg/example.cc <<EOF
+int main() {
+  int array[10];
+  return array[10];
+}
+EOF
+
+  bazel run //pkg:example &> "$TEST_log" && fail "Should have failed due to $feature" || true
+  expect_log "runtime error: index 10 out of bounds"
 }
 
 run_suite "cc_integration_test"

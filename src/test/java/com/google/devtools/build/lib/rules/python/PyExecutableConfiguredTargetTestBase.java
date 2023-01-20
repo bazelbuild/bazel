@@ -126,8 +126,6 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void pyRuntimeInfoIsPresent() throws Exception {
-    // Starlark implementation doesn't yet support toolchain resolution.
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
     useConfiguration("--incompatible_use_python_toolchains=true");
     scratch.file(
         "pkg/BUILD", //

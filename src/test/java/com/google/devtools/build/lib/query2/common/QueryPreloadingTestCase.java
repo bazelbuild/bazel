@@ -120,7 +120,7 @@ public abstract class QueryPreloadingTestCase extends PackageLoadingTestCase {
             .evaluate(
                 ImmutableSet.of(),
                 EvaluationContext.newBuilder()
-                    .setNumThreads(1)
+                    .setParallelism(1)
                     .setEventHandler(NullEventHandler.INSTANCE)
                     .build())
             .getWalkableGraph();

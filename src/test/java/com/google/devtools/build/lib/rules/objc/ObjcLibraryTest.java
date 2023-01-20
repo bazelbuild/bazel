@@ -27,8 +27,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -396,7 +394,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     checkError(
         "x",
         "x",
-        "does not produce any objc_library srcs files (expected " + SRCS_TYPE + ")",
+        "does not produce any objc_library srcs files",
         "filegroup(name = 'fg', srcs = [])",
         "objc_library(name = 'x', srcs = ['fg'])");
   }
@@ -421,9 +419,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     checkError(
         "x",
         "x",
-        "'//x:cc.cc' does not produce any objc_library non_arc_srcs files (expected "
-            + NON_ARC_SRCS_TYPE
-            + ")",
+        "non_arc_srcs attribute of objc_library rule @//x:x: source file '@//x:cc.cc' is misplaced"
+            + " here",
         "objc_library(name = 'x', non_arc_srcs = ['cc.cc'])");
   }
 
@@ -1155,11 +1152,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testPopulatesCompilationArtifacts() throws Exception {
     checkPopulatesCompilationArtifacts(RULE_TYPE);
-  }
-
-  @Test
-  public void testErrorsWrongFileTypeForSrcsWhenCompiling() throws Exception {
-    checkErrorsWrongFileTypeForSrcsWhenCompiling(RULE_TYPE);
   }
 
   @Test
@@ -2590,5 +2582,48 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(userLinkFlags)
         .containsAtLeast("-weak_framework", "WeakFrameworkFromLinkOpt")
         .inOrder();
+  }
+
+  @Test
+  public void testTreeArtifactSrcs() throws Exception {
+    doTestTreeAtrifactInAttributes("srcs");
+  }
+
+  @Test
+  public void testTreeArtifactNonArcSrcs() throws Exception {
+    doTestTreeAtrifactInAttributes("non_arc_srcs");
+  }
+
+  @Test
+  public void testTreeArtifactHdrs() throws Exception {
+    doTestTreeAtrifactInAttributes("hdrs");
+  }
+
+  private void doTestTreeAtrifactInAttributes(String attrName) throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "bar/create_tree_artifact.bzl",
+        "def _impl(ctx):",
+        "    tree = ctx.actions.declare_directory('dir')",
+        "    ctx.actions.run_shell(",
+        "        outputs = [tree],",
+        "        inputs = [],",
+        "        arguments = [tree.path],",
+        "        command = 'mkdir $1',",
+        "    )",
+        "    return [DefaultInfo(files = depset([tree]))]",
+        "create_tree_artifact = rule(implementation = _impl)");
+    scratch.file(
+        "bar/BUILD",
+        "load(':create_tree_artifact.bzl', 'create_tree_artifact')",
+        "create_tree_artifact(name = 'tree_artifact')",
+        "objc_library(",
+        "    name = 'lib',",
+        "    " + attrName + " = [':tree_artifact'],",
+        ")");
+
+    getConfiguredTarget("//bar:lib");
+
+    assertNoEvents();
   }
 }

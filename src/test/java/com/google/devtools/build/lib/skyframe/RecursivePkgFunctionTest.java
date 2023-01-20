@@ -69,7 +69,7 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setParallelism(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(reporter)
             .build();
     EvaluationResult<RecursivePkgValue> evaluationResult =

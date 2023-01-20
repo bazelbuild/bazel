@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.builder.core.VariantConfiguration;
+import com.android.builder.core.DefaultManifestParser;
 import com.android.utils.StdLogger;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
@@ -61,35 +61,32 @@ public class RClassGeneratorAction {
   public static final class Options extends OptionsBase {
 
     @Option(
-      name = "primaryRTxt",
-      defaultValue = "null",
-      converter = PathConverter.class,
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The path to the binary's R.txt file"
-    )
+        name = "primaryRTxt",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "The path to the binary's R.txt file")
     public Path primaryRTxt;
 
     @Option(
-      name = "primaryManifest",
-      defaultValue = "null",
-      converter = PathConverter.class,
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The path to the binary's AndroidManifest.xml file. This helps provide the package."
-    )
+        name = "primaryManifest",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "The path to the binary's AndroidManifest.xml file. This helps provide the package.")
     public Path primaryManifest;
 
     @Option(
-      name = "packageForR",
-      defaultValue = "null",
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Custom java package to generate the R class files."
-    )
+        name = "packageForR",
+        defaultValue = "null",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Custom java package to generate the R class files.")
     public String packageForR;
 
     @Option(
@@ -106,14 +103,13 @@ public class RClassGeneratorAction {
     public List<DependencySymbolFileProvider> libraries;
 
     @Option(
-      name = "classJarOutput",
-      defaultValue = "null",
-      converter = PathConverter.class,
-      category = "output",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Path for the generated jar of R.class files."
-    )
+        name = "classJarOutput",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path for the generated jar of R.class files.")
     public Path classJarOutput;
 
     @Option(
@@ -125,23 +121,21 @@ public class RClassGeneratorAction {
     public boolean finalFields;
 
     @Option(
-      name = "targetLabel",
-      defaultValue = "null",
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "A label to add to the output jar's manifest as 'Target-Label'"
-    )
+        name = "targetLabel",
+        defaultValue = "null",
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "A label to add to the output jar's manifest as 'Target-Label'")
     public String targetLabel;
 
     @Option(
-      name = "injectingRuleKind",
-      defaultValue = "null",
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "A string to add to the output jar's manifest as 'Injecting-Rule-Kind'"
-    )
+        name = "injectingRuleKind",
+        defaultValue = "null",
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "A string to add to the output jar's manifest as 'Injecting-Rule-Kind'")
     public String injectingRuleKind;
   }
 
@@ -168,7 +162,12 @@ public class RClassGeneratorAction {
         String appPackageName = options.packageForR;
         if (appPackageName == null) {
           appPackageName =
-              VariantConfiguration.getManifestPackage(options.primaryManifest.toFile());
+              new DefaultManifestParser(
+                      options.primaryManifest.toFile(),
+                      /* canParseManifest= */ () -> true,
+                      /* isManifestFileRequired= */ true,
+                      /* issueReporter= */ null)
+                  .getPackage();
         }
         Multimap<String, ResourceSymbols> libSymbolMap = ArrayListMultimap.create();
         ResourceSymbols fullSymbolValues =

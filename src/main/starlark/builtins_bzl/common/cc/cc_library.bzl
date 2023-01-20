@@ -579,7 +579,6 @@ attrs = {
     ),
     "linkstamp": attr.label(allow_single_file = True),
     "linkopts": attr.string_list(),
-    "nocopts": attr.string(),
     "includes": attr.string_list(),
     "defines": attr.string_list(),
     "copts": attr.string_list(),
@@ -610,6 +609,7 @@ attrs = {
 attrs.update(semantics.get_distribs_attr())
 attrs.update(semantics.get_loose_mode_in_hdrs_check_allowed_attr())
 attrs.update(semantics.get_implementation_deps_allowed_attr())
+attrs.update(semantics.get_nocopts_attr())
 
 cc_library = rule(
     implementation = _cc_library_impl,

@@ -114,7 +114,7 @@ public class FileFunctionTest {
   private static final EvaluationContext EVALUATION_OPTIONS =
       EvaluationContext.newBuilder()
           .setKeepGoing(false)
-          .setNumThreads(DEFAULT_THREAD_COUNT)
+          .setParallelism(DEFAULT_THREAD_COUNT)
           .setEventHandler(NullEventHandler.INSTANCE)
           .build();
 
@@ -1058,7 +1058,7 @@ public class FileFunctionTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            .setNumThreads(DEFAULT_THREAD_COUNT)
+            .setParallelism(DEFAULT_THREAD_COUNT)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<FileValue> result = evaluator.evaluate(keys, evaluationContext);
@@ -1208,7 +1208,7 @@ public class FileFunctionTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            .setNumThreads(DEFAULT_THREAD_COUNT)
+            .setParallelism(DEFAULT_THREAD_COUNT)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<FileValue> result = evaluator.evaluate(keys, evaluationContext);
@@ -1271,7 +1271,7 @@ public class FileFunctionTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            .setNumThreads(DEFAULT_THREAD_COUNT)
+            .setParallelism(DEFAULT_THREAD_COUNT)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<FileValue> result =
@@ -1302,7 +1302,7 @@ public class FileFunctionTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            .setNumThreads(DEFAULT_THREAD_COUNT)
+            .setParallelism(DEFAULT_THREAD_COUNT)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<FileValue> result =
@@ -1330,7 +1330,7 @@ public class FileFunctionTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            .setNumThreads(1)
+            .setParallelism(1)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     EvaluationResult<FileValue> result =

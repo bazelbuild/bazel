@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android.resources;
 
-import com.android.builder.core.VariantConfiguration;
-import com.android.builder.dependency.SymbolFileProvider;
+import com.android.builder.core.DefaultManifestParser;
+import com.android.manifmerger.ManifestProvider;
 import com.android.resources.ResourceType;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.LinkedHashMultimap;
@@ -86,7 +86,7 @@ public class ResourceSymbols {
           }
 
           initializers
-              .computeIfAbsent(ResourceType.getEnum(className), k -> new TreeMap<>())
+              .computeIfAbsent(ResourceTypeEnum.get(className), k -> new TreeMap<>())
               .put(name, initializer);
         } catch (IndexOutOfBoundsException e) {
           String s =
@@ -117,12 +117,25 @@ public class ResourceSymbols {
 
     @Override
     public String call() throws Exception {
-      return VariantConfiguration.getManifestPackage(manifest);
+      return new DefaultManifestParser(
+              manifest,
+              /* canParseManifest= */ () -> true,
+              /* isManifestFileRequired= */ true,
+              /* issueReporter= */ null)
+          .getPackage();
     }
   }
 
   /**
-   * Loads the SymbolTables from a list of SymbolFileProviders.
+   * An interface to make the {@link loadFrom} function below able to receive {@link
+   * DependencyAndroidData} and ${@link DependencySymbolProvider}
+   */
+  public interface SymbolFileProvider extends ManifestProvider {
+    File getSymbolFile();
+  }
+
+  /**
+   * Loads the SymbolTables from a list of DependencyAndroidData objects.
    *
    * @param dependencies The full set of library symbols to load.
    * @param executor The executor use during loading.
@@ -208,7 +221,11 @@ public class ResourceSymbols {
       throws IOException {
     RClassGenerator classWriter =
         RClassGenerator.with(
-            /*label=*/ null, classesOut, values, finalFields, /*annotateTransitiveFields=*/ false);
+            /* label= */ null,
+            classesOut,
+            values,
+            finalFields,
+            /* annotateTransitiveFields= */ false);
     for (String packageName : libMap.keySet()) {
       classWriter.write(packageName, ResourceSymbols.merge(libMap.get(packageName)).values);
     }

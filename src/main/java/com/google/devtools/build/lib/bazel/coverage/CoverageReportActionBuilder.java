@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.coverage;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -45,6 +48,7 @@ import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.Compression;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.test.CoverageReport;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
@@ -57,6 +61,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -146,6 +151,12 @@ public final class CoverageReportActionBuilder {
                 .getContext(SpawnStrategyResolver.class)
                 .exec(spawn, actionExecutionContext);
         actionExecutionContext.getEventHandler().handle(Event.info(locationMessage));
+        ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
+        ImmutableList<Path> files =
+            getOutputs().stream()
+                .map(artifact -> pathResolver.convertPath(artifact.getPath()))
+                .collect(toImmutableList());
+        actionExecutionContext.getEventHandler().post(new CoverageReport(files));
         return ActionResult.create(spawnResults);
       } catch (ExecException e) {
         throw ActionExecutionException.fromExecException(e, this);

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.python.PyCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.python.PyCommon;
@@ -77,6 +78,19 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   @Override
   public void validate(RuleContext ruleContext, PyCommon common) {
+    PythonConfiguration config = ruleContext.getFragment(PythonConfiguration.class);
+    if (config.getDisablePy2()) {
+      var attrs = ruleContext.attributes();
+      if (config.getDefaultPythonVersion().equals(PythonVersion.PY2)
+          || attrs.getOrDefault("python_version", Type.STRING, "UNSET").equals("PY2")
+          || attrs.getOrDefault("srcs_version", Type.STRING, "UNSET").equals("PY2")
+          || attrs.getOrDefault("srcs_version", Type.STRING, "UNSET").equals("PY2ONLY")) {
+        ruleContext.ruleError(
+            "Using Python 2 is not supported and disabled; see "
+                + "https://github.com/bazelbuild/bazel/issues/15684");
+        return;
+      }
+    }
   }
 
   @Override
@@ -116,18 +130,18 @@ public class BazelPythonSemantics implements PythonSemantics {
     PathFragment packageFragment = ruleContext.getLabel().getPackageIdentifier().getRunfilesPath();
     // Python scripts start with x.runfiles/ as the module space, so everything must be manually
     // adjusted to be relative to the workspace name.
-    packageFragment = PathFragment.create(ruleContext.getWorkspaceName())
-        .getRelative(packageFragment);
+    packageFragment =
+        PathFragment.create(ruleContext.getWorkspaceName()).getRelative(packageFragment);
     for (String importsAttr : ruleContext.getExpander().list("imports")) {
       if (importsAttr.startsWith("/")) {
-        ruleContext.attributeWarning("imports",
-            "ignoring invalid absolute path '" + importsAttr + "'");
+        ruleContext.attributeWarning(
+            "imports", "ignoring invalid absolute path '" + importsAttr + "'");
         continue;
       }
       PathFragment importsPath = packageFragment.getRelative(importsAttr);
       if (importsPath.containsUplevelReferences()) {
-        ruleContext.attributeError("imports",
-            "Path " + importsAttr + " references a path above the execution root");
+        ruleContext.attributeError(
+            "imports", "Path " + importsAttr + " references a path above the execution root");
       }
       result.add(importsPath.getPathString());
     }
@@ -242,7 +256,8 @@ public class BazelPythonSemantics implements PythonSemantics {
       if (OS.getCurrent() != OS.WINDOWS) {
         PathFragment shExecutable = ShToolchain.getPathForHost(ruleContext.getConfiguration());
         String pythonExecutableName = "python3";
-        // NOTE: keep the following line intact to support nix builds
+        // NOTE: keep the following line intact to support nix builds; nix patches
+        // this file to make it work for them; see https://github.com/bazelbuild/bazel/pull/11535
         String pythonShebang = "#!/usr/bin/env " + pythonExecutableName;
         ruleContext.registerAction(
             new SpawnAction.Builder()
@@ -278,7 +293,7 @@ public class BazelPythonSemantics implements PythonSemantics {
           // unix. See also https://github.com/bazelbuild/bazel/issues/7947#issuecomment-491385802.
           pythonBinary,
           executable,
-          /*useZipFile=*/ buildPythonZip);
+          /* useZipFile= */ buildPythonZip);
     }
   }
 
@@ -467,7 +482,7 @@ public class BazelPythonSemantics implements PythonSemantics {
         pythonBinary =
             workspaceName.getRelative(provider.getInterpreter().getRunfilesPath()).getPathString();
       }
-    } else  {
+    } else {
       // make use of the Python interpreter in an absolute path
       pythonBinary = bazelConfig.getPythonPath();
     }

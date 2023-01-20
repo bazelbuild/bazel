@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import static com.android.resources.ResourceType.DECLARE_STYLEABLE;
 import static com.android.resources.ResourceType.ID;
 import static com.android.resources.ResourceType.PUBLIC;
+import static com.android.resources.ResourceType.STYLEABLE;
 
 import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.Value;
@@ -30,6 +30,7 @@ import com.google.devtools.build.android.FullyQualifiedName.VirtualType;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml;
+import com.google.devtools.build.android.resources.ResourceTypeEnum;
 import com.google.devtools.build.android.resources.Visibility;
 import com.google.devtools.build.android.xml.ArrayXmlResourceValue;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
@@ -134,7 +135,7 @@ public class DataResourceXml implements DataResource {
             throw new XMLStreamException(
                 path + " contains an unrecognized resource type: " + start, start.getLocation());
           }
-          if (resourceType == DECLARE_STYLEABLE) {
+          if (resourceType == STYLEABLE) {
             // Styleables are special, as they produce multiple overwrite and combining values,
             // so we let the value handle the assignments.
             XmlResourceValues.parseDeclareStyleable(
@@ -250,7 +251,6 @@ public class DataResourceXml implements DataResource {
       case DRAWABLE:
       case ANIM:
       case ANIMATOR:
-      case DECLARE_STYLEABLE:
       case INTERPOLATOR:
       case MENU:
       case MIPMAP:
@@ -313,7 +313,6 @@ public class DataResourceXml implements DataResource {
       case DRAWABLE:
       case ANIM:
       case ANIMATOR:
-      case DECLARE_STYLEABLE:
       case INTERPOLATOR:
       case MENU:
       case MIPMAP:
@@ -341,9 +340,9 @@ public class DataResourceXml implements DataResource {
 
   private static ResourceType getResourceType(StartElement start) {
     if (XmlResourceValues.isItem(start)) {
-      return ResourceType.getEnum(XmlResourceValues.getElementType(start));
+      return ResourceTypeEnum.get(XmlResourceValues.getElementType(start));
     }
-    return ResourceType.getEnum(start.getName().getLocalPart());
+    return ResourceTypeEnum.get(start.getName().getLocalPart());
   }
 
   private final DataSource source;
@@ -421,8 +420,7 @@ public class DataResourceXml implements DataResource {
   }
 
   @Override
-  public int serializeTo(DataSourceTable sourceTable, OutputStream outStream)
-      throws IOException {
+  public int serializeTo(DataSourceTable sourceTable, OutputStream outStream) throws IOException {
     return xml.serializeTo(sourceTable.getSourceId(source), namespaces, outStream);
   }
 

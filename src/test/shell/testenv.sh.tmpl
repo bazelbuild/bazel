@@ -323,6 +323,7 @@ EOF
         "rules_license"
         "rules_proto"
         "rules_python"
+        "rules_pkg"
     )
     for repo in "${repos[@]}"; do
       reponame="${repo%"_for_testing"}"
@@ -547,6 +548,14 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 EOF
 }
 
+function add_rules_pkg_to_workspace() {
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+{rules_pkg}
+EOF
+}
+
 function add_rules_proto_to_workspace() {
   cat >> "$1"<<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -568,6 +577,7 @@ EOF
   add_rules_cc_to_workspace "WORKSPACE"
   add_rules_java_to_workspace "WORKSPACE"
   add_rules_license_to_workspace "WORKSPACE"
+  add_rules_pkg_to_workspace "WORKSPACE"
   add_rules_proto_to_workspace "WORKSPACE"
 
   maybe_setup_python_windows_workspace

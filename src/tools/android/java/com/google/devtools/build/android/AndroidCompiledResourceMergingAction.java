@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.builder.core.VariantConfiguration;
+import com.android.builder.core.DefaultManifestParser;
 import com.android.utils.StdLogger;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
@@ -183,7 +183,6 @@ public class AndroidCompiledResourceMergingAction {
         help =
             "Path to where an R.txt file declaring potentially-used resources should be written.")
     public Path rTxtOut;
-
   }
 
   public static void main(String[] args) throws Exception {
@@ -216,7 +215,12 @@ public class AndroidCompiledResourceMergingAction {
       if (packageForR == null) {
         packageForR =
             Strings.nullToEmpty(
-                VariantConfiguration.getManifestPackage(options.primaryManifest.toFile()));
+                new DefaultManifestParser(
+                        options.primaryManifest.toFile(),
+                        /* canParseManifest= */ () -> true,
+                        /* isManifestFileRequired= */ true,
+                        /* issueReporter= */ null)
+                    .getPackage());
       }
       AndroidResourceClassWriter resourceClassWriter =
           AndroidResourceClassWriter.createWith(

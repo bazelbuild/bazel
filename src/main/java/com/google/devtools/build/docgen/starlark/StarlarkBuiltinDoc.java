@@ -150,6 +150,11 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
     return methods.addAll(methodMap.values()).build();
   }
 
+  @Nullable
+  public StarlarkConstructorMethodDoc getConstructor() {
+    return javaConstructor;
+  }
+
   public String getSourceFile() {
     if (isTopLevel) {
       return NO_SOURCE_FILE_VALUE;

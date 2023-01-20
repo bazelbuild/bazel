@@ -140,10 +140,9 @@ public class ParallelEvaluatorTest {
         keepGoing,
         revalidationReceiver,
         GraphInconsistencyReceiver.THROWING,
-        () -> AbstractQueueVisitor.createExecutorService(200, "test-pool"),
+        AbstractQueueVisitor.create("test-pool", 200, ParallelEvaluatorErrorClassifier.instance()),
         new SimpleCycleDetector(),
-        /* cpuHeavySkyKeysThreadPoolSize= */ 0,
-        /* executionJobsThreadPoolSize= */ 0,
+        /* mergingSkyframeAnalysisExecutionPhases= */ false,
         UnnecessaryTemporaryStateDropperReceiver.NULL);
   }
 
@@ -2622,7 +2621,7 @@ public class ParallelEvaluatorTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(200)
+            .setParallelism(200)
             .setEventHandler(reporter)
             .build();
     evaluator.evaluate(ImmutableList.of(GraphTester.toSkyKey("top1")), evaluationContext);
@@ -3242,10 +3241,10 @@ public class ParallelEvaluatorTest {
             revalidationReceiver,
             GraphInconsistencyReceiver.THROWING,
             // We ought not need more than 1 thread for this test case.
-            () -> AbstractQueueVisitor.createExecutorService(1, "test-pool"),
+            AbstractQueueVisitor.create(
+                "test-pool", 1, ParallelEvaluatorErrorClassifier.instance()),
             new SimpleCycleDetector(),
-            /* cpuHeavySkyKeysThreadPoolSize= */ 0,
-            /* executionJobsThreadPoolSize= */ 0,
+            /* mergingSkyframeAnalysisExecutionPhases= */ false,
             dropperReceiver);
     // Then, when we evaluate key1,
     SkyValue resultValue = parallelEvaluator.eval(ImmutableList.of(key1)).get(key1);

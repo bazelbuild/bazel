@@ -147,10 +147,10 @@ public class EagerInvalidatorTest {
             keepGoing,
             new DirtyTrackingProgressReceiver(null),
             GraphInconsistencyReceiver.THROWING,
-            () -> AbstractQueueVisitor.createExecutorService(200, "test-pool"),
+            AbstractQueueVisitor.create(
+                "test-pool", 200, ParallelEvaluatorErrorClassifier.instance()),
             new SimpleCycleDetector(),
-            /* cpuHeavySkyKeysThreadPoolSize= */ 0,
-            /* executionJobsThreadPoolSize= */ 0,
+            /* mergingSkyframeAnalysisExecutionPhases= */ false,
             UnnecessaryTemporaryStateDropperReceiver.NULL);
     graphVersion = graphVersion.next();
     return evaluator.eval(ImmutableList.copyOf(keys));
