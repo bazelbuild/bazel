@@ -173,6 +173,7 @@ alias(
     name = "ijar_prebuilt_binary",
     actual = select({
         "//src/conditions:linux_x86_64": ":ijar_prebuilt_binary_linux",
+        "//src/conditions:linux_s390x": ":ijar_prebuilt_binary_linux",
         "//src/conditions:darwin": ":ijar_prebuilt_binary_darwin",
         "//src/conditions:windows": ":ijar_prebuilt_binary_windows",
     }),
@@ -203,6 +204,7 @@ alias(
     name = "prebuilt_singlejar",
     actual = select({
         "//src/conditions:linux_x86_64": ":prebuilt_singlejar_linux",
+        "//src/conditions:linux_s390x": ":prebuilt_singlejar_linux",
         "//src/conditions:darwin": ":prebuilt_singlejar_darwin",
         "//src/conditions:windows": ":prebuilt_singlejar_windows",
     }),
