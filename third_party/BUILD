@@ -657,6 +657,7 @@ java_import(
 java_library(
     name = "guava-testlib",
     exports = ["@maven//:com_google_guava_guava_testlib"],
+    testonly = 1,
 )
 
 distrib_java_import(

@@ -641,7 +641,7 @@ maven_install(
         "com.google.http-client:google-http-client-gson:1.41.4",
         "com.google.http-client:google-http-client:1.41.4",
         "com.google.j2objc:j2objc-annotations:1.3",
-        maven.artifact("com.squareup", "javapoet", "1.8.0", neverlink = True),
+        "com.squareup:javapoet:1.8.0",
         "commons-collections:commons-collections:3.2.2",
         "commons-lang:commons-lang:2.6",
         "io.github.java-diff-utils:java-diff-utils:4.0",
