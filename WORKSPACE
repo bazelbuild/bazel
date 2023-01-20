@@ -675,6 +675,7 @@ maven_install(
         "org.ow2.asm:asm:9.2",
         "org.pcollections:pcollections:3.1.4",
         "org.threeten:threeten-extra:1.5.0",
+        "org.tukaani:xz:1.9",
     ],
     excluded_artifacts = [
         # org.apache.httpcomponents and org.eclipse.jgit:org.eclipse.jgit

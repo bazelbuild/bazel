@@ -748,11 +748,10 @@ license(
     license_text = "truth_proto/LICENSE",
 )
 
-distrib_java_import(
+java_library(
     name = "xz",
     applicable_licenses = [":xz_license"],
-    enable_distributions = ["debian"],
-    jars = ["xz/xz-1.9.jar"],
+    exports = ["@maven//:org_tukaani_xz"],
 )
 
 license(
