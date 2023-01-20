@@ -18,6 +18,8 @@
 #include <fstream>
 #include <string>
 
+#include "src/main/cpp/util/path_platform.h"
+
 //  This is a replacement for
 //  third_party/bazel/src/main/java/com/google/devtools/build/lib/analysis/actions/LauncherFileWriteAction.java
 //
@@ -30,31 +32,46 @@
 //  appends each line of the launch info as a null-terminated string. At the
 //  end, the size of the launch data written is appended as a long value (8
 //  bytes).
+
+std::wstring windows_path(char* path) {
+  std::string error;
+  std::wstring wpath;
+  if (!blaze_util::AsAbsoluteWindowsPath(path, &wpath, &error)) {
+    fprintf(stderr, "Failed to make absolute path for %s: %s\n", path,
+            error.c_str());
+    exit(1);
+  }
+  return wpath;
+}
+
 int main(int argc, char** argv) {
   if (argc < 4) {
-    printf("Expected 3 arguments, got %d\n", argc);
+    fprintf(stderr, "Expected 3 arguments, got %d\n", argc);
     return 1;
   }
 
-  char* launcher_path = argv[1];
-  char* info_params = argv[2];
-  char* output_path = argv[3];
+  std::wstring wlauncher_path = windows_path(argv[1]);
+  std::wstring winfo_params = windows_path(argv[2]);
+  std::wstring woutput_path = windows_path(argv[3]);
 
-  std::ifstream src(launcher_path, std::ios::binary);
+  std::ifstream src(wlauncher_path, std::ios::binary);
   if (!src.good()) {
-    printf("Failed to open %s: %s\n", launcher_path, strerror(errno));
+    fprintf(stderr, "Failed to open %ls: %s\n", wlauncher_path.c_str(),
+            strerror(errno));
     return 1;
   }
-  std::ofstream dst(output_path, std::ios::binary);
+  std::ofstream dst(woutput_path, std::ios::binary);
   if (!dst.good()) {
-    printf("Failed to create %s: %s\n", output_path, strerror(errno));
+    fprintf(stderr, "Failed to create %ls: %s\n", woutput_path.c_str(),
+            strerror(errno));
     return 1;
   }
   dst << src.rdbuf();
 
-  std::ifstream info_file(info_params);
+  std::ifstream info_file(winfo_params);
   if (!info_file.good()) {
-    printf("Failed to open %s: %s\n", info_params, strerror(errno));
+    fprintf(stderr, "Failed to open %ls: %s\n", winfo_params.c_str(),
+            strerror(errno));
     return 1;
   }
   int64_t bytes = 0;
