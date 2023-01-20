@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -eu
+set -euv
 
 # Main deploy functions for the continuous build system
 # Just source this file and use the various method:
