@@ -484,6 +484,7 @@ DIST_DEPS = {
     "remotejdk11_linux_s390x": {
         "aliases": [
             "remotejdk11_linux_s390x_for_testing",
+            "openjdk11_linux_s390x_archive",
         ],
         "sha256": "a58fc0361966af0a5d5a31a2d8a208e3c9bb0f54f345596fd80b99ea9a39788b",
         "strip_prefix": "jdk-11.0.15+10",
@@ -605,6 +606,7 @@ DIST_DEPS = {
     "remotejdk17_linux_s390x": {
         "aliases": [
             "remotejdk17_linux_s390x_for_testing",
+            "openjdk17_linux_s390x_archive",
             "openjdk_linux_s390x_vanilla",
         ],
         "archive": "OpenJDK17U-jdk_s390x_linux_hotspot_17.0.4.1_1.tar.gz",
@@ -700,6 +702,18 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-linux_aarch64.tar.gz",
         ],
         "used_in": ["test_WORKSPACE_files"],
+    },
+    "remotejdk18_linux_s390x": {
+        "aliases": [
+            "remotejdk18_linux_s390x_for_testing",
+            "openjdk18_linux_s390x_archive",
+        ],
+        "sha256": "06d0f71e59b0d7112303a2eb95b1c3701054c868100837e642c6204ea71c0e2f",
+        "strip_prefix": "jdk-18.0.2.1+1",
+        "urls": [
+            "https://github.com/adoptium/temurin18-binaries/releases/download/jdk-18.0.2.1+1/OpenJDK18U-jdk_s390x_linux_hotspot_18.0.2.1_1.tar.gz",
+        ],
+        "used_in": [],
     },
     "remotejdk18_linux": {
         "aliases": [

@@ -404,7 +404,7 @@ dist_http_archive(
         patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
     )
     for version in ("17", "18")
-    for os in ("linux", "macos", "macos_aarch64", "win", "win_arm64")
+    for os in ("linux", "linux_s390x", "macos", "macos_aarch64", "win", "win_arm64")
 ]
 
 # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
@@ -473,6 +473,15 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
 dist_http_archive(
+    name = "openjdk11_linux_s390x_archive",
+    build_file_content = """
+java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
+exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
+""",
+)
+
+# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
+dist_http_archive(
     name = "openjdk11_darwin_archive",
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
@@ -517,7 +526,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
     )
     for version in ("17", "18")
-    for os in ("linux", "darwin", "darwin_aarch64", "windows", "windows_arm64")
+    for os in ("linux", "linux_s390x", "darwin", "darwin_aarch64", "windows", "windows_arm64")
 ]
 
 load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")

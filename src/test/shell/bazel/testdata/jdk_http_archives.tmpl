@@ -24,6 +24,12 @@ http_archive(
 
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
+    {openjdk11_linux_s390x_archive}
+    build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+http_archive(
     {openjdk11_darwin_archive}
     build_file_content = "java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])",
 )
@@ -50,6 +56,15 @@ http_archive(
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
     {openjdk17_linux_archive}
+    build_file_content = """
+java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
+exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
+""",
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+http_archive(
+    {openjdk17_linux_s390x_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -96,6 +111,15 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 # This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
     {openjdk18_linux_archive}
+    build_file_content = """
+java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
+exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
+""",
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+http_archive(
+    {openjdk18_linux_s390x_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])

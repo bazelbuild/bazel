@@ -588,11 +588,11 @@ filegroup(
         "@rules_python//:WORKSPACE",
     ] + [
         "@openjdk%s_%s_archive//:WORKSPACE" % (version, os)
-        for os in ("darwin", "darwin_aarch64", "linux", "windows", "windows_arm64")
+        for os in ("darwin", "darwin_aarch64", "linux", "linux_s390x", "windows", "windows_arm64")
         for version in ("17", "18")
     ] + [
         "@remotejdk%s_%s_for_testing//:WORKSPACE" % (version, os)
-        for os in ("macos", "macos_aarch64", "linux", "win", "win_arm64")
+        for os in ("macos", "macos_aarch64", "linux", "linux_s390x", "win", "win_arm64")
         for version in ("17", "18")
     ],
 )

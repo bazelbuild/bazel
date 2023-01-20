@@ -130,6 +130,17 @@ maybe(
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     remote_java_repository,
+    {remotejdk17_linux_s390x}
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:s390x",
+    ],
+    version = "17",
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    remote_java_repository,
     {remotejdk17_macos}
     target_compatible_with = [
         "@platforms//os:macos",
@@ -188,6 +199,17 @@ maybe(
     target_compatible_with = [
         "@platforms//os:linux",
         "@platforms//cpu:aarch64",
+    ],
+    version = "18",
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    remote_java_repository,
+    {remotejdk18_linux_s390x}
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:s390x",
     ],
     version = "18",
 )
