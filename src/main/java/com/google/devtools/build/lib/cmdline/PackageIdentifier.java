@@ -183,7 +183,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
    * package.
    */
   public String getUnambiguousCanonicalForm() {
-    return String.format("@@%s//%s", getRepository().getName(), getPackageFragment());
+    return String.format("@%s//%s", getRepository().getNameWithAt(), getPackageFragment());
   }
 
   /**
