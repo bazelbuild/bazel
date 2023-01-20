@@ -69,10 +69,10 @@ public final class StateMachineTest {
             keepGoing,
             revalidationReceiver,
             GraphInconsistencyReceiver.THROWING,
-            () -> AbstractQueueVisitor.createExecutorService(200, "test-pool"),
+            AbstractQueueVisitor.create(
+                "test-pool", 200, ParallelEvaluatorErrorClassifier.instance()),
             new SimpleCycleDetector(),
-            /* cpuHeavySkyKeysThreadPoolSize= */ 0,
-            /* executionJobsThreadPoolSize= */ 0,
+            /* mergingSkyframeAnalysisExecutionPhases= */ false,
             UnnecessaryTemporaryStateDropperReceiver.NULL)
         .eval(ImmutableList.of(root));
   }

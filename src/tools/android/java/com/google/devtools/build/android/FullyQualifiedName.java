@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.resources.ResourceTypeEnum;
 import com.google.devtools.build.android.xml.ResourcesAttribute;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.io.IOException;
@@ -84,7 +85,7 @@ public class FullyQualifiedName implements DataKey {
   }
 
   private static Type createTypeFrom(String rawType) {
-    ResourceType resourceType = ResourceType.getEnum(rawType);
+    ResourceType resourceType = ResourceTypeEnum.get(rawType);
     VirtualType virtualType = VirtualType.getEnum(rawType);
     if (resourceType != null) {
       return new ResourceTypeWrapper(resourceType);
@@ -164,7 +165,7 @@ public class FullyQualifiedName implements DataKey {
         Optional.ofNullable(emptyToNull(matcher.group("package")))
             .orElse(packageName.orElse(DEFAULT_PACKAGE)),
         ImmutableList.of(),
-        ResourceType.getEnum(matcher.group("type")),
+        ResourceTypeEnum.get(matcher.group("type")),
         matcher.group("name"));
   }
 
@@ -553,19 +554,23 @@ public class FullyQualifiedName implements DataKey {
         throw new IllegalArgumentException(
             String.format(INVALID_QUALIFIERS, DASH_JOINER.join(dirNameAndQualifiers)));
       }
-      config.normalize();
+      config.normalizeByAddingImpliedVersionQualifier();
 
       ImmutableList.Builder<String> builder = ImmutableList.<String>builder();
       // index 3 is past the country code, network code, and locale indices.
       for (int i = 0; i < FolderConfiguration.getQualifierCount(); ++i) {
         addIfNotNull(config.getQualifier(i), builder);
       }
-      return new Qualifiers(folderType, builder.build(), config.getLocaleQualifier() == null);
+      ResourceQualifier localeQualifier = config.getLocaleQualifier();
+      return new Qualifiers(
+          folderType,
+          builder.build(),
+          localeQualifier == null || localeQualifier == localeQualifier.getNullQualifier());
     }
 
     private static void addIfNotNull(
         ResourceQualifier qualifier, ImmutableList.Builder<String> builder) {
-      if (qualifier != null) {
+      if (qualifier != null && qualifier != qualifier.getNullQualifier()) {
         builder.add(qualifier.getFolderSegment());
       }
     }
@@ -591,7 +596,7 @@ public class FullyQualifiedName implements DataKey {
     }
   }
 
-  /** A factory for parsing an generating FullyQualified names with qualifiers and package. */
+  /** A factory for parsing a generating FullyQualified names with qualifiers and package. */
   public static class Factory {
 
     public static final String INVALID_QUALIFIED_NAME_MESSAGE_NO_MATCH =
@@ -601,7 +606,7 @@ public class FullyQualifiedName implements DataKey {
             Joiner.on(",")
                 .join(
                     ImmutableList.<String>builder()
-                        .add(ResourceType.getNames())
+                        .addAll(ResourceType.getClassNames())
                         .add(VirtualType.getNames())
                         .build()));
     public static final String INVALID_QUALIFIED_NAME_MESSAGE_NO_TYPE_OR_NAME =
@@ -611,7 +616,7 @@ public class FullyQualifiedName implements DataKey {
             Joiner.on(",")
                 .join(
                     ImmutableList.<String>builder()
-                        .add(ResourceType.getNames())
+                        .addAll(ResourceType.getClassNames())
                         .add(VirtualType.getNames())
                         .build()));
     private static final Pattern PARSING_REGEX =

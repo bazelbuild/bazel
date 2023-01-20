@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
@@ -697,8 +696,13 @@ public abstract class BuildIntegrationTestCase {
     return existingConfiguredTarget;
   }
 
-  protected BuildConfigurationCollection getConfigurationCollection() {
-    return runtimeWrapper.getConfigurationCollection();
+  protected BuildConfigurationValue getConfiguration() {
+    return runtimeWrapper.getConfiguration();
+  }
+
+  protected final BuildConfigurationValue getConfiguration(ConfiguredTarget ct) {
+    return getSkyframeExecutor()
+        .getConfiguration(NullEventHandler.INSTANCE, ct.getConfigurationKey());
   }
 
   /**
@@ -710,8 +714,7 @@ public abstract class BuildIntegrationTestCase {
    * falls back to the base top-level configuration.
    */
   protected BuildConfigurationValue getTargetConfiguration() {
-    BuildConfigurationValue baseConfiguration =
-        getConfigurationCollection().getTargetConfiguration();
+    BuildConfigurationValue baseConfiguration = getConfiguration();
     BuildResult result = getResult();
     if (result == null) {
       return baseConfiguration;
@@ -920,7 +923,7 @@ public abstract class BuildIntegrationTestCase {
    * <p>The returned set preserves the order of the input.
    */
   protected Set<String> artifactsToStrings(NestedSet<Artifact> artifacts) {
-    return AnalysisTestUtil.artifactsToStrings(getConfigurationCollection(), artifacts.toList());
+    return AnalysisTestUtil.artifactsToStrings(getConfiguration(), artifacts.toList());
   }
 
   protected ActionsTestUtil actionsTestUtil() {
@@ -933,11 +936,6 @@ public abstract class BuildIntegrationTestCase {
 
   protected NestedSet<Artifact> getFilesToBuild(TransitiveInfoCollection target) {
     return target.getProvider(FileProvider.class).getFilesToBuild();
-  }
-
-  protected final BuildConfigurationValue getConfiguration(ConfiguredTarget ct) {
-    return getSkyframeExecutor()
-        .getConfiguration(NullEventHandler.INSTANCE, ct.getConfigurationKey());
   }
 
   /** Returns the BuildRequest of the last call to buildTarget(). */

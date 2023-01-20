@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -141,13 +140,7 @@ final class RemoteSpawnCache implements SpawnCache {
         if (BulkTransferException.isOnlyCausedByCacheNotFoundException(e)) {
           // Intentionally left blank
         } else {
-          String errorMessage;
-          if (!verboseFailures) {
-            errorMessage = Utils.grpcAwareErrorMessage(e);
-          } else {
-            // On --verbose_failures print the whole stack trace
-            errorMessage = "\n" + Throwables.getStackTraceAsString(e);
-          }
+          String errorMessage = Utils.grpcAwareErrorMessage(e, verboseFailures);
           if (isNullOrEmpty(errorMessage)) {
             errorMessage = e.getClass().getSimpleName();
           }
@@ -189,7 +182,11 @@ final class RemoteSpawnCache implements SpawnCache {
             try (SilentCloseable c = prof.profile("RemoteCache.checkForConcurrentModifications")) {
               checkForConcurrentModifications();
             } catch (IOException | ForbiddenActionInputException e) {
-              remoteExecutionService.report(Event.warn(e.getMessage()));
+              String msg =
+                  "Skipping uploading outputs because of concurrent modifications "
+                      + "with --experimental_guard_against_concurrent_changes enabled: "
+                      + e.getMessage();
+              remoteExecutionService.report(Event.warn(msg));
               return;
             }
           }
@@ -202,7 +199,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
         private void checkForConcurrentModifications()
             throws IOException, ForbiddenActionInputException {
-          for (ActionInput input : action.getInputMap().values()) {
+          for (ActionInput input : action.getInputMap(true).values()) {
             if (input instanceof VirtualActionInput) {
               continue;
             }

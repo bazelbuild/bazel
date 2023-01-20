@@ -15,7 +15,7 @@
 package com.google.devtools.build.android.aapt2;
 
 import com.android.SdkConstants;
-import com.android.builder.core.VariantType;
+import com.android.builder.core.VariantTypeImpl;
 import com.android.repository.Revision;
 import com.android.resources.ResourceFolderType;
 import com.google.common.base.Preconditions;
@@ -221,7 +221,7 @@ public class ResourceCompiler {
         logger.fine(
             new AaptCommandBuilder(aapt2)
                 .forBuildToolsVersion(buildToolsVersion)
-                .forVariantType(VariantType.LIBRARY)
+                .forVariantType(VariantTypeImpl.LIBRARY)
                 .add("compile")
                 .add("-v")
                 .add("--legacy")
@@ -235,7 +235,7 @@ public class ResourceCompiler {
 
         Preconditions.checkArgument(
             Files.exists(compiledResourcePath),
-            "%s does not exists after aapt2 ran.",
+            "%s does not exist after aapt2 ran.",
             compiledResourcePath);
         results.add(compiledResourcePath);
       } catch (IOException e) {

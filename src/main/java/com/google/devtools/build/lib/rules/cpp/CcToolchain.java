@@ -147,7 +147,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
   /** Returns a function that will be called to retrieve root {@link CcToolchainVariables}. */
   protected AdditionalBuildVariablesComputer getAdditionalBuildVariablesComputer(
-      RuleContext ruleContextPossiblyInHostConfiguration) {
+      RuleContext ruleContextPossiblyInExecConfiguration) {
     return (AdditionalBuildVariablesComputer & Serializable)
         (options) -> CcToolchainVariables.EMPTY;
   }

@@ -34,10 +34,22 @@ def _py_runtime_pair_impl(ctx):
     else:
         py3_runtime = None
 
+    if _is_py2_disabled(ctx) and py2_runtime != None:
+        fail("Using Python 2 is not supported and disabled; see " +
+             "https://github.com/bazelbuild/bazel/issues/15684")
+
     return [platform_common.ToolchainInfo(
         py2_runtime = py2_runtime,
         py3_runtime = py3_runtime,
     )]
+
+def _is_py2_disabled(ctx):
+    # In Google, this file isn't bundled with Bazel, so we have to conditionally
+    # check for this flag.
+    # TODO: Remove this once a build with the flag is released in Google
+    if not hasattr(ctx.fragments.py, "disable_py"):
+        return False
+    return ctx.fragments.py.disable_py2
 
 py_runtime_pair = rule(
     implementation = _py_runtime_pair_impl,
@@ -61,6 +73,7 @@ The runtime to use for Python 3 targets. Must have `python_version` set to
 """,
         ),
     },
+    fragments = ["py"],
     doc = """\
 A toolchain rule for Python.
 

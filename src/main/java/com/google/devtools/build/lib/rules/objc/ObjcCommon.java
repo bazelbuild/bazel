@@ -28,6 +28,8 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWOR
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SOURCE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.UMBRELLA_HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.OBJECT_FILE_SOURCES;
 
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -49,6 +51,7 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -350,14 +353,16 @@ public final class ObjcCommon implements StarlarkValue {
       for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
         Iterable<Artifact> allSources =
             Iterables.concat(
-                artifacts.getSrcs(), artifacts.getNonArcSrcs(), artifacts.getPrivateHdrs());
+                FileType.except(artifacts.getSrcs(), OBJECT_FILE_SOURCES),
+                artifacts.getNonArcSrcs());
         objcProvider
             .addAll(LIBRARY, artifacts.getArchive().asSet())
             .addAll(SOURCE, allSources)
             .addAllDirect(SOURCE, allSources);
         objcCompilationContextBuilder.addPublicHeaders(
-            filterFileset(artifacts.getAdditionalHdrs().toList()));
-        objcCompilationContextBuilder.addPrivateHeaders(artifacts.getPrivateHdrs());
+            filterFileset(artifacts.getAdditionalHdrs()));
+        objcCompilationContextBuilder.addPrivateHeaders(
+            FileType.filter(artifacts.getSrcs(), HEADERS));
 
         if (artifacts.getArchive().isPresent()
             && J2ObjcLibrary.J2OBJC_SUPPORTED_RULES.contains(context.getRule().getRuleClass())) {

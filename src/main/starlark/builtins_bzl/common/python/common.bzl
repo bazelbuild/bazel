@@ -18,15 +18,17 @@ load(
     ":common/python/providers.bzl",
     "PyInfo",
 )
+load(":common/python/semantics.bzl", "TOOLS_REPO")
 
 _testing = _builtins.toplevel.testing
 _platform_common = _builtins.toplevel.platform_common
 _coverage_common = _builtins.toplevel.coverage_common
 
+TOOLCHAIN_TYPE = "@" + TOOLS_REPO + "//tools/python:toolchain_type"
+
 # Extensions without the dot
 _PYTHON_SOURCE_EXTENSIONS = ["py"]
 
-# Todo: rename this to "binary" and split off library-parts
 def create_binary_semantics_struct(
         *,
         create_executable,
@@ -71,8 +73,9 @@ def create_binary_semantics_struct(
             of additional environment variable to pass to build data generation.
         get_interpreter_path: Callable that returns an optional string, which is
             the path to the Python interpreter to use for running the binary.
-        get_imports: Callable that returns a depset of the target's import
-            paths.
+        get_imports: Callable that returns a list of the target's import
+            paths (from the `imports` attribute, so just the target's own import
+            path strings, not from dependencies).
         get_native_deps_dso_name: Callable that returns a string, which is the
             basename (with extension) of the native deps DSO library.
         get_native_deps_user_link_flags: Callable that returns a list of strings,
@@ -250,6 +253,13 @@ def filter_to_py_srcs(srcs):
     # as a valid extension.
     return [f for f in srcs if f.extension == "py"]
 
+def collect_imports(ctx, semantics):
+    return depset(direct = semantics.get_imports(ctx), transitive = [
+        dep[PyInfo].imports
+        for dep in ctx.attr.deps
+        if PyInfo in dep
+    ])
+
 def collect_runfiles(ctx, files):
     """Collects the necessary files from the rule's context.
 
@@ -399,10 +409,11 @@ def create_instrumented_files_info(ctx):
         extensions = _PYTHON_SOURCE_EXTENSIONS,
     )
 
-def create_output_group_info(transitive_sources):
+def create_output_group_info(transitive_sources, extra_groups):
     return OutputGroupInfo(
         compilation_prerequisites_INTERNAL_ = transitive_sources,
         compilation_outputs = transitive_sources,
+        **extra_groups
     )
 
 def maybe_add_test_execution_info(providers, ctx):

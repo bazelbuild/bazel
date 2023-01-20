@@ -102,6 +102,7 @@ import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryPermissionsRule;
 import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal;
+import com.google.devtools.build.lib.rules.cpp.GoogleLegacyStubs;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.objc.BazelObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.objc.ObjcStarlarkInternal;
@@ -111,6 +112,7 @@ import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
+import com.google.devtools.build.lib.rules.python.PyCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.python.PyInfo;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses.PySymlink;
 import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
@@ -160,9 +162,9 @@ public class BazelRuleClassProvider {
 
     @Override
     public StrictActionEnvOptions getExec() {
-      StrictActionEnvOptions host = (StrictActionEnvOptions) getDefault();
-      host.useStrictActionEnv = useStrictActionEnv;
-      return host;
+      StrictActionEnvOptions exec = (StrictActionEnvOptions) getDefault();
+      exec.useStrictActionEnv = useStrictActionEnv;
+      return exec;
     }
   }
 
@@ -471,7 +473,12 @@ public class BazelRuleClassProvider {
 
           builder.addStarlarkBootstrap(
               new PyBootstrap(
-                  PyInfo.PROVIDER, PyRuntimeInfo.PROVIDER, PyStarlarkTransitions.INSTANCE));
+                  PyInfo.PROVIDER,
+                  PyRuntimeInfo.PROVIDER,
+                  PyStarlarkTransitions.INSTANCE,
+                  new GoogleLegacyStubs.PyWrapCcHelper(),
+                  new GoogleLegacyStubs.PyWrapCcInfoProvider(),
+                  PyCcLinkParamsProvider.PROVIDER));
 
           builder.addSymlinkDefinition(PySymlink.PY2);
           builder.addSymlinkDefinition(PySymlink.PY3);
@@ -552,8 +559,8 @@ public class BazelRuleClassProvider {
       // searches PATH for "python3", so if we don't include this directory then we can't run PY3
       // targets with this toolchain if strict action environment is on.
       //
-      // Note that --action_env does not propagate to the host config, so it is not a viable
-      // workaround when a genrule is itself built in the host config (e.g. nested genrules). See
+      // Note that --action_env does not propagate to the exec config, so it is not a viable
+      // workaround when a genrule is itself built in the exec config (e.g. nested genrules). See
       // #8536.
       return "/bin:/usr/bin:/usr/local/bin";
     }

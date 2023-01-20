@@ -19,8 +19,8 @@ java_test(
         "**/*.java",
     ]),
     deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:android_common_30_1_3",
         "//src/tools/android/java/com/google/devtools/build/android/resources",
-        "//third_party:android_common_25_0_0",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

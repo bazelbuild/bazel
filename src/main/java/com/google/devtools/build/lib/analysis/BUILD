@@ -217,7 +217,6 @@ java_library(
         "actions/SymlinkTreeAction.java",
         "actions/SymlinkTreeActionContext.java",
         "buildinfo/BuildInfoFactory.java",
-        "config/BuildConfigurationCollection.java",
         "config/ConfigAwareRuleClassBuilder.java",
         "config/ConfigurationResolver.java",
         "config/DependencyEvaluationException.java",
@@ -2515,6 +2514,16 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "test/coverage_report",
+    srcs = ["test/CoverageReport.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
     ],
 )

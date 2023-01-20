@@ -30,9 +30,15 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 
 case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*|mingw*|cygwin*)
+  declare -r is_macos=false
   declare -r is_windows=true
   ;;
+darwin)
+  declare -r is_macos=true
+  declare -r is_windows=false
+  ;;
 *)
+  declare -r is_macos=false
   declare -r is_windows=false
   ;;
 esac
@@ -1449,7 +1455,7 @@ function test_aquery_include_template_substitution_for_template_expand_action() 
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
 
   cat > "$pkg/template.txt" <<'EOF'
-The token should be substituted: {TOKEN1}
+The token: {TOKEN1}
 EOF
 
   cat > "$pkg/test.bzl" <<'EOF'
@@ -1488,13 +1494,13 @@ EOF
     || fail "Expected success"
   cat output >> "$TEST_log"
 
-  assert_contains "Template: ARTIFACT: $pkg/template.txt" output
+  assert_contains "Template: The token: {TOKEN1}" output
   assert_contains "{{TOKEN1}: 123456}" output
 
   bazel aquery --output=jsonproto ${QUERY} > output 2> "$TEST_log" \
     || fail "Expected success"
 
-  assert_contains "\"templateContent\": \"ARTIFACT: $pkg/template.txt\"" output
+  assert_contains "\"templateContent\": \"The token" output
   assert_contains "\"key\": \"{TOKEN1}\"" output
   assert_contains "\"value\": \"123456\"" output
 }
@@ -1677,6 +1683,30 @@ EOF
 
   expect_log "Target: //peach:bar" "look in $TEST_log"
   expect_log "ActionKey:"
+}
+
+function test_cpp_compile_action_env() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg"
+
+  touch "$pkg/main.cpp"
+  cat > "$pkg/BUILD" <<'EOF'
+cc_binary(
+    name = "main",
+    srcs = ["main.cpp"],
+)
+EOF
+  bazel aquery --output=textproto \
+     "mnemonic(CppCompile,//$pkg:main)" >output 2> "$TEST_log" || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  if "$is_macos"; then
+    assert_contains '  key: "XCODE_VERSION_OVERRIDE"' output
+  elif "$is_windows"; then
+    assert_contains '  key: "INCLUDE"' output
+  else
+    assert_contains '  key: "PWD"' output
+  fi
 }
 
 # TODO(bazel-team): The non-text aquery output formats don't correctly handle

@@ -35,6 +35,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -52,6 +53,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -339,7 +341,7 @@ public final class RuleContext extends TargetContext
    */
   @Nullable
   public Aspect getMainAspect() {
-    return aspects.isEmpty() ? null : Iterables.getLast(aspects);
+    return Streams.findLast(aspects.stream()).orElse(null);
   }
 
   /**
@@ -677,7 +679,7 @@ public final class RuleContext extends TargetContext
   @Override
   public Artifact.DerivedArtifact getPackageRelativeArtifact(
       PathFragment relative, ArtifactRoot root) {
-    return getPackageRelativeArtifact(relative, root, /*contentBasedPath=*/ false);
+    return getPackageRelativeArtifact(relative, root, /* contentBasedPath= */ false);
   }
 
   /**
@@ -695,7 +697,7 @@ public final class RuleContext extends TargetContext
    * guaranteeing that it never clashes with artifacts created by rules in other packages.
    */
   public Artifact getPackageRelativeArtifact(String relative, ArtifactRoot root) {
-    return getPackageRelativeArtifact(relative, root, /*contentBasedPath=*/ false);
+    return getPackageRelativeArtifact(relative, root, /* contentBasedPath= */ false);
   }
 
   /**
@@ -725,7 +727,7 @@ public final class RuleContext extends TargetContext
   @Override
   public Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root) {
-    return getDerivedArtifact(rootRelativePath, root, /*contentBasedPath=*/ false);
+    return getDerivedArtifact(rootRelativePath, root, /* contentBasedPath= */ false);
   }
 
   /**
@@ -1096,10 +1098,10 @@ public final class RuleContext extends TargetContext
     new BazelStarlarkContext(
             BazelStarlarkContext.Phase.ANALYSIS,
             ruleClassProvider.getToolsRepository(),
-            /*fragmentNameToClass=*/ null,
+            /* fragmentNameToClass= */ null,
             getSymbolGenerator(),
             getLabel(),
-            /*networkAllowlistForTests=*/ null)
+            /* networkAllowlistForTests= */ null)
         .storeInThread(thread);
     return thread;
   }
@@ -1187,6 +1189,38 @@ public final class RuleContext extends TargetContext
     return targetPlatform.label();
   }
 
+  private boolean useAutoExecGroupsForRule() {
+    if (attributes().has("$use_auto_exec_groups")) {
+      return (boolean) attributes().get("$use_auto_exec_groups", Type.BOOLEAN);
+    } else {
+      return getConfiguration().useAutoExecGroups();
+    }
+  }
+
+  private boolean useAutoExecGroupsForAspect(Aspect aspect) {
+    ImmutableMap<String, Attribute> aspectAttributes = aspect.getDefinition().getAttributes();
+
+    if (aspectAttributes.containsKey("$use_auto_exec_groups")) {
+      return (boolean) aspectAttributes.get("$use_auto_exec_groups").getDefaultValueUnchecked();
+    } else {
+      return getConfiguration().useAutoExecGroups();
+    }
+  }
+
+  public boolean useAutoExecGroups() {
+    Aspect aspect = getMainAspect();
+
+    if (aspect == null) {
+      return useAutoExecGroupsForRule();
+    } else {
+      return useAutoExecGroupsForAspect(aspect);
+    }
+  }
+
+  /**
+   * Returns the toolchain context from the default exec group. Important note: In case automatic
+   * exec groups are enabled, use `getToolchainContext(Label toolchainType)` function.
+   */
   @Nullable
   public ResolvedToolchainContext getToolchainContext() {
     return toolchainContexts == null ? null : toolchainContexts.getDefaultToolchainContext();
@@ -1195,6 +1229,22 @@ public final class RuleContext extends TargetContext
   @Nullable
   private ResolvedToolchainContext getToolchainContext(String execGroup) {
     return toolchainContexts == null ? null : toolchainContexts.getToolchainContext(execGroup);
+  }
+
+  /**
+   * Returns the toolchain info from the default exec group in case automatic exec groups are not
+   * enabled. If they are enabled, retrieves toolchain info from the corresponding automatic exec
+   * group.
+   */
+  @Nullable
+  public ToolchainInfo getToolchainInfo(Label toolchainType) {
+    ResolvedToolchainContext toolchainContext;
+    if (useAutoExecGroups()) {
+      toolchainContext = toolchainContexts.getToolchainContext(toolchainType.toString());
+    } else {
+      toolchainContext = getToolchainContext();
+    }
+    return toolchainContext == null ? null : toolchainContext.forToolchainType(toolchainType);
   }
 
   public boolean hasToolchainContext(String execGroup) {
@@ -1330,15 +1380,6 @@ public final class RuleContext extends TargetContext
     return transitiveInfoCollectionToArtifact(attributeName, target);
   }
 
-  /**
-   * Equivalent to getPrerequisiteArtifact(), but also asserts that host-configuration is
-   * appropriate for the specified attribute.
-   */
-  // TODO(b/165916637): Fix callers to this method to use getPrerequisiteArtifact instead.
-  public Artifact getHostPrerequisiteArtifact(String attributeName) {
-    return getPrerequisiteArtifact(attributeName);
-  }
-
   @Nullable
   private Artifact transitiveInfoCollectionToArtifact(
       String attributeName, TransitiveInfoCollection target) {
@@ -1450,7 +1491,7 @@ public final class RuleContext extends TargetContext
   @Override
   public Artifact getImplicitOutputArtifact(ImplicitOutputsFunction function)
       throws InterruptedException {
-    return getImplicitOutputArtifact(function, /*contentBasedPath=*/ false);
+    return getImplicitOutputArtifact(function, /* contentBasedPath= */ false);
   }
 
   /**
@@ -1474,7 +1515,7 @@ public final class RuleContext extends TargetContext
 
   /** Only use from Starlark. Returns the implicit output artifact for a given output path. */
   public Artifact getImplicitOutputArtifact(String path) {
-    return getImplicitOutputArtifact(path, /*contentBasedPath=*/ false);
+    return getImplicitOutputArtifact(path, /* contentBasedPath= */ false);
   }
 
   /**
@@ -1582,12 +1623,16 @@ public final class RuleContext extends TargetContext
     return isVisible(rule.getLabel(), prerequisite);
   }
 
-  /** @return the set of features applicable for the current rule. */
+  /**
+   * @return the set of features applicable for the current rule.
+   */
   public ImmutableSet<String> getFeatures() {
     return enabledFeatures;
   }
 
-  /** @return the set of features that are disabled for the current rule. */
+  /**
+   * @return the set of features that are disabled for the current rule.
+   */
   public ImmutableSet<String> getDisabledFeatures() {
     return disabledFeatures;
   }

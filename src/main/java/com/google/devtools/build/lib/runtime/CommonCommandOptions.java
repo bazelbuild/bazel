@@ -209,7 +209,7 @@ public class CommonCommandOptions extends OptionsBase {
       oldName = "experimental_generate_json_trace_profile",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
           "If enabled, Bazel profiles the build and writes a JSON-format profile into a file in"
               + " the output base. View profile by loading into chrome://tracing. By default Bazel"
@@ -222,7 +222,7 @@ public class CommonCommandOptions extends OptionsBase {
       defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Specifies additional profile tasks to be included in the profile.")
   public List<ProfilerTask> additionalProfileTasks;
 
@@ -231,7 +231,7 @@ public class CommonCommandOptions extends OptionsBase {
       oldName = "experimental_slim_json_profile",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
           "Slims down the size of the JSON profile by merging events if the profile gets "
               + " too large.")
@@ -242,7 +242,7 @@ public class CommonCommandOptions extends OptionsBase {
       oldName = "experimental_include_primary_output",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
           "Includes the extra \"out\" attribute in action events that contains the exec path "
               + "to the action's primary output.")
@@ -252,7 +252,7 @@ public class CommonCommandOptions extends OptionsBase {
       name = "experimental_profile_include_target_label",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Includes target label in action events' JSON profile data.")
   public boolean profileIncludeTargetLabel;
 
@@ -260,7 +260,7 @@ public class CommonCommandOptions extends OptionsBase {
       name = "experimental_announce_profile_path",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, adds the JSON profile path to the log.")
   public boolean announceProfilePath;
 
@@ -268,7 +268,7 @@ public class CommonCommandOptions extends OptionsBase {
       name = "profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "If set, profile Bazel and write data to the specified "
@@ -286,8 +286,8 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
       name = "record_full_profiler_data",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
           "By default, Bazel profiler will record only aggregated data for fast but numerous "
               + "events (such as statting the file). If this option is enabled, profiler will "
@@ -298,32 +298,32 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
       name = "experimental_collect_worker_data_in_profiler",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, the profiler collects worker's aggregated resource data.")
   public boolean collectWorkerDataInProfiler;
 
   @Option(
       name = "experimental_collect_load_average_in_profiler",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, the profiler collects the system's overall load average.")
   public boolean collectLoadAverageInProfiler;
 
   @Option(
       name = "experimental_collect_system_network_usage",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, the profiler collects the system's network usage.")
   public boolean collectSystemNetworkUsage;
 
   @Option(
       name = "experimental_collect_resource_estimation",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, the profiler collects CPU and memory usage estimation for local actions.")
   public boolean collectResourceEstimation;
 
@@ -331,7 +331,7 @@ public class CommonCommandOptions extends OptionsBase {
       name = "memory_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "If set, write memory usage data to the specified file at phase ends and stable heap to"

@@ -61,9 +61,9 @@ public final class ConfigFeatureFlagOptions extends FragmentOptions {
 
   @Override
   public ConfigFeatureFlagOptions getExec() {
-    ConfigFeatureFlagOptions host = (ConfigFeatureFlagOptions) super.getExec();
-    host.enforceTransitiveConfigsForConfigFeatureFlag = false;
-    host.allFeatureFlagValuesArePresent = this.allFeatureFlagValuesArePresent;
-    return host;
+    ConfigFeatureFlagOptions exec = (ConfigFeatureFlagOptions) super.getExec();
+    exec.enforceTransitiveConfigsForConfigFeatureFlag = false;
+    exec.allFeatureFlagValuesArePresent = this.allFeatureFlagValuesArePresent;
+    return exec;
   }
 }

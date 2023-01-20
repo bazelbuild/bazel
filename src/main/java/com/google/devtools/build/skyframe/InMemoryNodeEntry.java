@@ -81,10 +81,12 @@ public class InMemoryNodeEntry implements NodeEntry {
   /**
    * This object represents the direct deps of the node, in groups if the {@code SkyFunction}
    * requested them that way. It contains either the in-progress direct deps, stored as a {@code
-   * GroupedList<SkyKey>} before the node is finished building, or the full direct deps, compressed
-   * in a memory-efficient way (via {@link GroupedList#compress}, after the node is done.
+   * GroupedList<SkyKey>} (constructed via {@link GroupedList.WithHashSet} if {@code
+   * key.supportsPartialReevaluation()}) before the node is finished building, or the full direct
+   * deps, compressed in a memory-efficient way (via {@link GroupedList#compress}, after the node is
+   * done.
    *
-   * <p>It is initialized lazily in getTemporaryDirectDeps() to save a little bit more memory.
+   * <p>It is initialized lazily in getTemporaryDirectDeps() to save a little memory.
    */
   protected Object directDeps = null;
 
@@ -570,8 +572,12 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized GroupedList<SkyKey> getTemporaryDirectDeps() {
     checkState(!isDone(), "temporary shouldn't be done: %s", this);
     if (directDeps == null) {
-      // Initialize lazily, to save a little bit of memory.
-      directDeps = new GroupedList<>();
+      // Initialize lazily, to save a little memory.
+      //
+      // If the key opts into partial reevaluation, tracking deps with a HashSet is worth the extra
+      // memory cost -- see SkyFunctionEnvironment.PartialReevaluation.
+      directDeps =
+          key.supportsPartialReevaluation() ? new GroupedList.WithHashSet<>() : new GroupedList<>();
     }
     return (GroupedList<SkyKey>) directDeps;
   }

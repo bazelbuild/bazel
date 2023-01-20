@@ -302,9 +302,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
           "If set to 'all', all local outputs referenced by BEP are uploaded to remote cache.\n"
               + "If set to 'minimal', local outputs referenced by BEP are not uploaded to the"
               + " remote cache, except for files that are important to the consumers of BEP (e.g."
-              + " test logs and timing profile).\n"
-              + "file:// scheme is used for the paths of local files and bytestream:// scheme is"
-              + " used for the paths of (already) uploaded files.\n"
+              + " test logs and timing profile). bytestream:// scheme is always used for the uri of"
+              + " files even if they are missing from remote cache.\n"
               + "Default to 'all'.")
   public RemoteBuildEventUploadMode remoteBuildEventUploadMode;
 
@@ -646,6 +645,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
           "If set to true, Bazel will mark inputs as tool inputs for the remote executor. This "
               + "can be used to implement remote persistent workers.")
   public boolean markToolInputs;
+
+  @Option(
+      name = "experimental_remote_discard_merkle_trees",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, discard in-memory copies of the input root's Merkle tree and associated "
+              + "input mappings during calls to GetActionResult() and Execute(). This reduces "
+              + "memory usage significantly, but does require Bazel to recompute them upon remote "
+              + "cache misses and retries.")
+  public boolean remoteDiscardMerkleTrees;
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.

@@ -91,7 +91,6 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -146,6 +145,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
@@ -223,7 +223,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected ActionKeyContext actionKeyContext;
 
   // Note that these configurations are virtual (they use only VFS)
-  protected BuildConfigurationCollection masterConfig;
   protected BuildConfigurationValue targetConfig; // "target" or "build" config
   protected BuildConfigurationValue execConfig;
   private List<String> configurationArgs;
@@ -341,6 +340,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         tsgm);
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     useConfiguration();
@@ -428,7 +428,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return PackageOverheadEstimator.NOOP_ESTIMATOR;
   }
 
-  protected final BuildConfigurationCollection createConfigurations(
+  protected final BuildConfigurationValue createConfiguration(
       ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
     optionsParser =
         OptionsParser.builder()
@@ -510,6 +510,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         tsgm);
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
@@ -617,8 +618,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ImmutableList<String> actualArgs =
         ImmutableList.<String>builder().addAll(getDefaultsForConfiguration()).add(args).build();
 
-    masterConfig = createConfigurations(starlarkOptions, actualArgs.toArray(new String[0]));
-    targetConfig = getTargetConfiguration();
+    targetConfig = createConfiguration(starlarkOptions, actualArgs.toArray(new String[0]));
     if (!scratch.resolve("platform/BUILD").exists()) {
       scratch.overwriteFile("platform/BUILD", "platform(name = 'exec')");
     }
@@ -642,7 +642,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * either identical to the targetConfig or {@code isExecConfiguration()} is true.
    */
   protected final void createBuildView() {
-    Preconditions.checkNotNull(masterConfig);
+    Preconditions.checkNotNull(targetConfig);
     Preconditions.checkState(
         getExecConfiguration().equals(getTargetConfiguration())
             || getExecConfiguration().isExecConfiguration(),
@@ -654,7 +654,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.handleAnalysisInvalidatingChange();
 
     view = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
-    view.setConfigurationsForTesting(event -> {}, masterConfig);
+    view.setConfigurationForTesting(event -> {}, targetConfig);
 
     view.setArtifactRoots(new PackageRootsNoSymlinkCreation(Root.fromPath(rootDirectory)));
   }
@@ -701,7 +701,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected final Collection<ConfiguredTarget> getDirectPrerequisites(ConfiguredTarget target)
       throws TransitionException, InvalidConfigurationException, InconsistentAspectOrderException,
           Failure {
-    return view.getDirectPrerequisitesForTesting(reporter, target, masterConfig);
+    return view.getDirectPrerequisitesForTesting(reporter, target, targetConfig);
   }
 
   protected final ConfiguredTarget getDirectPrerequisite(ConfiguredTarget target, String label)
@@ -719,7 +719,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     Label candidateLabel = Label.parseCanonical(label);
     for (ConfiguredTargetAndData candidate :
         view.getConfiguredTargetAndDataDirectPrerequisitesForTesting(
-            reporter, ctad.getConfiguredTarget(), masterConfig)) {
+            reporter, ctad.getConfiguredTarget(), targetConfig)) {
       if (candidate.getConfiguredTarget().getLabel().equals(candidateLabel)) {
         return candidate;
       }
@@ -767,12 +767,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected RuleContext getRuleContext(ConfiguredTarget target) throws Exception {
     return view.getRuleContextForTesting(
-        reporter, target, new StubAnalysisEnvironment(), masterConfig);
+        reporter, target, new StubAnalysisEnvironment(), targetConfig);
   }
 
   protected RuleContext getRuleContext(
       ConfiguredTarget target, AnalysisEnvironment analysisEnvironment) throws Exception {
-    return view.getRuleContextForTesting(reporter, target, analysisEnvironment, masterConfig);
+    return view.getRuleContextForTesting(reporter, target, analysisEnvironment, targetConfig);
   }
 
   /**
@@ -792,7 +792,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             reporter.handle(e);
           }
         };
-    return view.getRuleContextForTesting(target, eventHandler, masterConfig);
+    return view.getRuleContextForTesting(target, eventHandler, targetConfig);
   }
 
   /**
@@ -1365,7 +1365,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * <p>The returned set preserves the order of the input.
    */
   protected Set<String> artifactsToStrings(Iterable<? extends Artifact> artifacts) {
-    return AnalysisTestUtil.artifactsToStrings(masterConfig, artifacts);
+    return AnalysisTestUtil.artifactsToStrings(targetConfig, artifacts);
   }
 
   /**
@@ -1938,7 +1938,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected BuildConfigurationValue getTargetConfiguration() {
-    return masterConfig.getTargetConfiguration();
+    return targetConfig;
   }
 
   protected BuildConfigurationValue getExecConfiguration() {

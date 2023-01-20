@@ -1565,7 +1565,7 @@ public final class Attribute implements Comparable<Attribute> {
 
     /**
      * Returns the input type that the attribute expects. This is almost always a configuration
-     * fragment to be retrieved from the target's configuration (or the host configuration).
+     * fragment to be retrieved from the target's configuration (or the exec configuration).
      *
      * <p>It may also be {@link Void} to receive null. This is rarely necessary, but can be used,
      * e.g., if the attribute is named to match an attribute in another rule which is late-bound.

@@ -735,7 +735,7 @@ public class ExecutionTool {
                 .distinct()
                 .map((key) -> executor.getConfiguration(reporter, key))
                 .collect(toImmutableSet())
-            : ImmutableSet.of(analysisResult.getConfigurationCollection().getTargetConfiguration());
+            : ImmutableSet.of(analysisResult.getConfiguration());
 
     String productName = runtime.getProductName();
     try (SilentCloseable c =

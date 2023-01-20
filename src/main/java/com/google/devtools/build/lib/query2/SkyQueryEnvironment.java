@@ -168,7 +168,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   // The following fields are set in the #beforeEvaluateQuery method.
   protected MultisetSemaphore<PackageIdentifier> packageSemaphore;
-  protected WalkableGraph graph;
+  public WalkableGraph graph;
   protected GraphBackedRecursivePackageProvider graphBackedRecursivePackageProvider;
   protected ListeningExecutorService executor;
   private TargetPatternResolver<Target> resolver;
@@ -256,7 +256,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   protected EvaluationContext newEvaluationContext() {
     return EvaluationContext.newBuilder()
-        .setNumThreads(loadingPhaseThreads)
+        .setParallelism(loadingPhaseThreads)
         .setEventHandler(universeEvalEventHandler)
         .build();
   }

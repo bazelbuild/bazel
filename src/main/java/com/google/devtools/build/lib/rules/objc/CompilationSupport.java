@@ -27,11 +27,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.COMPILABLE_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPILED_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.STRIP;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
@@ -49,7 +44,6 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
@@ -200,19 +194,7 @@ public class CompilationSupport implements StarlarkValue {
    */
   static CompilationArtifacts compilationArtifacts(
       RuleContext ruleContext, IntermediateArtifacts intermediateArtifacts) {
-    PrerequisiteArtifacts srcs =
-        ruleContext.getPrerequisiteArtifacts("srcs").errorsForNonMatching(SRCS_TYPE);
-    return new CompilationArtifacts.Builder()
-        .addSrcs(srcs.filter(COMPILABLE_SRCS_TYPE).list())
-        .addNonArcSrcs(
-            ruleContext
-                .getPrerequisiteArtifacts("non_arc_srcs")
-                .errorsForNonMatching(NON_ARC_SRCS_TYPE)
-                .list())
-        .addPrivateHdrs(srcs.filter(HEADERS).list())
-        .addPrecompiledSrcs(srcs.filter(PRECOMPILED_SRCS_TYPE).list())
-        .setIntermediateArtifacts(intermediateArtifacts)
-        .build();
+    return new CompilationArtifacts(ruleContext, intermediateArtifacts);
   }
 
   /** Returns a list of framework library search paths. */

@@ -84,6 +84,7 @@ import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.Header;
+import com.google.devtools.build.android.resources.ResourceTypeEnum;
 import com.google.devtools.build.android.resources.Visibility;
 import com.google.devtools.build.android.xml.ResourcesAttribute.AttributeType;
 import com.google.protobuf.ExtensionRegistry;
@@ -273,7 +274,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
       String packageName = resourceTablePackage.getPackageName();
 
       for (Resources.Type resourceFormatType : resourceTablePackage.getTypeList()) {
-        ResourceType resourceType = ResourceType.getEnum(resourceFormatType.getName());
+        ResourceType resourceType = ResourceTypeEnum.get(resourceFormatType.getName());
 
         for (Resources.Entry resource : resourceFormatType.getEntryList()) {
           if (!"android".equals(packageName)) {
@@ -822,7 +823,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
 
       for (Package pkg : resourceTable.getPackageList()) {
         for (Resources.Type type : pkg.getTypeList()) {
-          ResourceType resourceType = ResourceType.getEnum(type.getName());
+          ResourceType resourceType = ResourceTypeEnum.get(type.getName());
           for (Resources.Entry entry : type.getEntryList()) {
             if (entry.getVisibility().getLevel() != Resources.Visibility.Level.PUBLIC) {
               continue;
@@ -853,7 +854,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
 
       for (Package pkg : resourceTable.getPackageList()) {
         for (Resources.Type type : pkg.getTypeList()) {
-          ResourceType resourceType = ResourceType.getEnum(type.getName());
+          ResourceType resourceType = ResourceTypeEnum.get(type.getName());
           for (Resources.Entry entry : type.getEntryList()) {
             if (entry.getVisibility().getLevel() == Resources.Visibility.Level.PUBLIC) {
               continue;

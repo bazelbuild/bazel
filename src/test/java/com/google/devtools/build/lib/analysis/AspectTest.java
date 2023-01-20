@@ -889,6 +889,27 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
+  public void aspectApplyingToPackageGroupIgnored() throws Exception {
+    AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
+    pkg("b");
+    pkg(
+        "a",
+        "package_group(name = 'group', packages = ['//b'])",
+        "java_binary(name = 'x', main_class = 'x.F', srcs = ['x.java'], visibility = [':group'])");
+    scratch.file("a/x.java", "");
+
+    // This exercises a code path that crashes if the PackageGroup is matched as an aspect provider.
+    AnalysisResult analysisResult =
+        update(
+            new EventBus(),
+            defaultFlags(),
+            ImmutableList.of(aspectApplyingToFiles.getName()),
+            "//a:group");
+    assertThat(analysisResult.getAspectsMap()).hasSize(1);
+  }
+
+  @Test
   public void duplicateTopLevelAspects_duplicateAspectsNotAllowed() throws Exception {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
     setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());

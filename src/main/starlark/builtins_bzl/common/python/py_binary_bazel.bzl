@@ -17,7 +17,7 @@ load(":common/python/semantics.bzl", "TOOLS_REPO")
 load(
     ":common/python/py_executable_bazel.bzl",
     "create_executable_rule",
-    "py_executable_impl",
+    "py_executable_bazel_impl",
 )
 load(":common/python/attributes.bzl", "AGNOSTIC_BINARY_ATTRS")
 
@@ -35,7 +35,11 @@ _PY_TEST_ATTRS = {
 }
 
 def _py_binary_impl(ctx):
-    return py_executable_impl(ctx = ctx, is_test = False)
+    return py_executable_bazel_impl(
+        ctx = ctx,
+        is_test = False,
+        inherited_environment = [],
+    )
 
 py_binary = create_executable_rule(
     implementation = _py_binary_impl,

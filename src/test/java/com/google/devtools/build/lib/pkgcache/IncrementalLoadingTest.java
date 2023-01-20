@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -472,6 +473,7 @@ public class IncrementalLoadingTest {
           Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
           ImmutableMap.of(),
+          QuiescingExecutorsImpl.forTesting(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
     }
@@ -562,6 +564,7 @@ public class IncrementalLoadingTest {
           Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
           ImmutableMap.of(),
+          QuiescingExecutorsImpl.forTesting(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
       skyframeExecutor.invalidateFilesUnderPathForTesting(

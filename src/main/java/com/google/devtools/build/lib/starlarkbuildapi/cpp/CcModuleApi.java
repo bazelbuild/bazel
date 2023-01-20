@@ -1013,24 +1013,72 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "[]",
             doc =
-                "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
-                    + "cc_toolchain_config_lib.bzl#L336\">features</a>."),
+                "Contains all flag specifications for one"
+                    + " feature.<p>Arguments:</p><p><code>name</code>: The feature's name. It is"
+                    + " possible to introduce a feature without a change to Bazel by adding a"
+                    + " 'feature' section to the toolchain and adding the corresponding string as"
+                    + " feature in the <code>BUILD</code> file.</p><p><code>enabled</code>: If"
+                    + " 'True', this feature is enabled unless a rule type explicitly marks it as"
+                    + " unsupported.</p><p><code>flag_sets</code>: A FlagSet list. If the given"
+                    + " feature is enabled, the flag sets will be applied for the actions are"
+                    + " specified for. </p><p><code>env_sets</code>: an EnvSet list. If the given"
+                    + " feature is enabled, the env sets will be applied for the actions they are"
+                    + " specified for. </p><p><code>requires</code>: A list of feature sets"
+                    + " defining when this feature is supported by the  toolchain. The feature is"
+                    + " supported if any of the feature sets fully apply, that is, when all"
+                    + " features of a feature set are enabled. If <code>requires</code> is omitted,"
+                    + " the feature is supported independently of which other features are enabled."
+                    + " Use this for example to filter flags depending on the build mode enabled"
+                    + " (opt / fastbuild / dbg). </p><p><code>implies</code>: A string list of"
+                    + " features or action configs that are automatically enabled when this feature"
+                    + " is enabled. If any of the implied features or action configs cannot be"
+                    + " enabled, this feature will (silently) not be enabled either."
+                    + " </p><p><code>provides</code>: A list of names this feature conflicts with."
+                    + " </p>A feature cannot be enabled if:</br>- <code>provides</code> contains"
+                    + " the name of a different feature or action config that we want to"
+                    + " enable.</br>- <code>provides</code> contains the same value as a 'provides'"
+                    + " in a different feature or action config that we want to enable. Use this in"
+                    + " order to ensure that incompatible features cannot be accidentally activated"
+                    + " at the same time, leading to hard to diagnose compiler errors."),
         @Param(
             name = "action_configs",
             positional = false,
             named = true,
             defaultValue = "[]",
             doc =
-                "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
-                    + "cc_toolchain_config_lib.bzl#L461\">action_configs</a>."),
+                "An action config corresponds to a Bazel action, and allows selection of a tool"
+                    + " based on activated features. Action config activation occurs by the same"
+                    + " semantics as features: a feature can 'require' or 'imply' an action config"
+                    + " in the same way that it would another"
+                    + " feature.<p>Arguments:</p><p><code>action_name</code>: The name of the Bazel"
+                    + " action that this config applies to, e.g. 'c-compile' or"
+                    + " 'c-module-compile'.</p><p><code>enabled</code>: If 'True', this action is"
+                    + " enabled unless a rule type explicitly marks it as"
+                    + " unsupported.</p><p><code>tools</code>: The tool applied to the action will"
+                    + " be the first tool with a feature set that matches the feature"
+                    + " configuration.  An error will be thrown if no tool matches a provided"
+                    + " feature configuration - for that reason, it's a good idea to provide a"
+                    + " default tool with an empty feature set.</p><p><code>flag_sets</code>: If"
+                    + " the given action config is enabled, the flag sets will be applied to the"
+                    + " corresponding action.</p><p><code>implies</code>: A list of features or"
+                    + " action configs that are automatically enabled when this action config is"
+                    + " enabled. If any of the implied features or action configs cannot be"
+                    + " enabled, this action config will (silently) not be enabled either.</p>"),
         @Param(
             name = "artifact_name_patterns",
             positional = false,
             named = true,
             defaultValue = "[]",
             doc =
-                "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
-                    + "cc_toolchain_config_lib.bzl#L516\">artifact_name_patterns</a>."),
+                "The name for an artifact of a given category of input or output artifacts to an"
+                    + " action.<p>Arguments:</p><p><code>category_name</code>: The category of"
+                    + " artifacts that this selection applies to. This field is compared against a"
+                    + " list of categories defined in Bazel. Example categories include"
+                    + " \"linked_output\" or the artifact for this selection. Together with the"
+                    + " extension it is used to create an artifact name based on the target"
+                    + " name.</p><p><code>extension</code>: The extension for creating the artifact"
+                    + " for this selection. Together with the prefix it is used to create an"
+                    + " artifact name based on the target name.</p>"),
         @Param(
             name = "cxx_builtin_include_directories",
             positional = false,
@@ -1102,16 +1150,16 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "[]",
             doc =
-                "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
-                    + "cc_toolchain_config_lib.bzl#L400\">tool_paths</a>."),
+                "Tool locations.<p>Arguments:</p><p><code>name</code>: Name of the"
+                    + " tool.</p><p><code>path</code>: Location of the tool; Can be absolute path"
+                    + " (in case of non hermetic toolchain), or path relative to the cc_toolchain's"
+                    + " package.</p>"),
         @Param(
             name = "make_variables",
             positional = false,
             named = true,
             defaultValue = "[]",
-            doc =
-                "A list of <a href=\"https://github.com/bazelbuild/bazel/blob/master/tools/cpp/"
-                    + "cc_toolchain_config_lib.bzl#L86\">make_variables</a>."),
+            doc = "A make variable that is made accessible to rules."),
         @Param(
             name = "builtin_sysroot",
             positional = false,

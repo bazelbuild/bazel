@@ -54,6 +54,8 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
    * com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget} and {@link
    * com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget} for
    * which it is always <b>null</b>.
+   *
+   * <p>If this changes, {@link AspectResolver#aspecMatchesConfiguredTarget} should be updated.
    */
   @Nullable
   BuildConfigurationKey getConfigurationKey();

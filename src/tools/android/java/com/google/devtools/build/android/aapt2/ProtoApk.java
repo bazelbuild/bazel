@@ -46,6 +46,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.xml.XmlEscapers;
 import com.google.devtools.build.android.AndroidResourceOutputs.UniqueZipBuilder;
+import com.google.devtools.build.android.resources.ResourceTypeEnum;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.Closeable;
@@ -202,7 +203,7 @@ public class ProtoApk implements Closeable {
     Type.Builder dstTypeBuilder = Resources.Type.newBuilder(type);
     dstTypeBuilder.clearEntry();
 
-    ResourceType resourceType = ResourceType.getEnum(type.getName());
+    ResourceType resourceType = ResourceTypeEnum.get(type.getName());
     for (Entry entry : type.getEntryList()) {
       if (resourceFilter.test(resourceType, entry.getName())) {
         copyEntry(resToKeep, dstTypeBuilder, entry);
@@ -400,7 +401,7 @@ public class ProtoApk implements Closeable {
         for (Resources.Type type : pkg.getTypeList()) {
           ResourceTypeVisitor typeVisitor =
               pkgVisitor.enteringResourceType(
-                  type.getTypeId().getId(), ResourceType.getEnum(type.getName()));
+                  type.getTypeId().getId(), ResourceTypeEnum.get(type.getName()));
           if (typeVisitor != null) {
             for (Entry entry : type.getEntryList()) {
               ResourceValueVisitor entryVisitor =

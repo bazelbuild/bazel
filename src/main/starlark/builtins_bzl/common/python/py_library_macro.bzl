@@ -13,6 +13,7 @@
 # limitations under the License.
 """Implementation of macro-half of py_library rule."""
 
+load(":common/python/py_library_bazel.bzl", py_library_rule = "py_library")
+
 def py_library(**kwargs):
-    _ = kwargs  # @unused
-    pass
+    py_library_rule(**kwargs)

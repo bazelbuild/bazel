@@ -162,6 +162,9 @@ def _get_linkstatic_default(ctx):
         # Binaries link statically.
         return True
 
+def _get_nocopts_attr():
+    return {}
+
 semantics = struct(
     ALLOWED_RULES_IN_DEPS = [
         "cc_library",
@@ -201,4 +204,5 @@ semantics = struct(
     get_coverage_attrs = _get_coverage_attrs,
     get_coverage_env = _get_coverage_env,
     get_proto_aspects = _get_proto_aspects,
+    get_nocopts_attr = _get_nocopts_attr,
 )

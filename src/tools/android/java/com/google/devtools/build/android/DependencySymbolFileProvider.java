@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.builder.dependency.SymbolFileProvider;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.android.resources.ResourceSymbols;
 import java.io.File;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -22,7 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /** Represents the R.txt symbol file and AndroidManifest (provides Java package) of libraries. */
-class DependencySymbolFileProvider implements SymbolFileProvider {
+class DependencySymbolFileProvider implements ResourceSymbols.SymbolFileProvider {
 
   private final File symbolFile;
   private final File manifest;
@@ -55,13 +55,13 @@ class DependencySymbolFileProvider implements SymbolFileProvider {
   }
 
   @Override
-  public File getSymbolFile() {
-    return symbolFile;
+  public String getName() {
+    return "";
   }
 
   @Override
-  public boolean isOptional() {
-    return false;
+  public File getSymbolFile() {
+    return symbolFile;
   }
 
   @Override

@@ -67,7 +67,6 @@ import java.io.PrintWriter;
 import java.util.List;
 import java.util.Set;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -646,7 +645,6 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  @Ignore("b/198254254")
   public void testDeps() throws Exception {
     writeBuildFiles3();
     writeBuildFilesWithConfigurableAttributes();
@@ -684,16 +682,22 @@ public abstract class AbstractQueryTest<T> {
       if (analysisMock.isThisBazel()) {
         implicitDeps = " + " + helper.getToolsRepository() + "//tools/def_parser:def_parser";
       }
+      String expectedDependencies =
+          helper.getToolsRepository()
+              + "//tools/cpp:malloc + //configurable:main + "
+              + "//configurable:main.cc + //configurable:adep + //configurable:bdep + "
+              + "//configurable:defaultdep + //conditions:a + //conditions:b "
+              + implicitDeps;
+      if (includeCppToolchainDependencies()) {
+        expectedDependencies += " + //tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain";
+      }
       assertThat(eval("deps(//configurable:main, 1)" + TestConstants.CC_DEPENDENCY_CORRECTION))
-          .containsExactlyElementsIn(
-              eval(
-                  helper.getToolsRepository()
-                      + "//tools/cpp:malloc + //configurable:main + "
-                      + "//configurable:main.cc + //configurable:adep + //configurable:bdep + "
-                      + "//configurable:defaultdep + //conditions:a + //conditions:b + "
-                      + "//tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain"
-                      + implicitDeps));
+          .containsExactlyElementsIn(eval(expectedDependencies));
     }
+  }
+
+  protected boolean includeCppToolchainDependencies() {
+    return true;
   }
 
   @Test
@@ -1007,7 +1011,6 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  @Ignore("b/198254254")
   public void testNoImplicitDeps() throws Exception {
     writeFile("x/BUILD", "cc_binary(name='x', srcs=['x.cc'])");
 
@@ -1031,9 +1034,11 @@ public abstract class AbstractQueryTest<T> {
     String toolchainDepsExpr = "//tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain";
 
     // Test all combinations of --[no]host_deps and --[no]implicit_deps on //x:x
-    assertEqualsFiltered(
-        targetDepsExpr + " + " + hostDepsExpr + implicitDepsExpr + " + " + toolchainDepsExpr,
-        "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION);
+    String expected = targetDepsExpr + " + " + hostDepsExpr + implicitDepsExpr;
+    if (includeCppToolchainDependencies()) {
+      expected += " + " + toolchainDepsExpr;
+    }
+    assertEqualsFiltered(expected, "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION);
     assertEqualsFiltered(
         targetDepsExpr + " + " + hostDepsExpr,
         "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION,

@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -65,7 +66,6 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
-import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -86,8 +86,10 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ComputedT
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
@@ -583,6 +585,17 @@ final class AspectFunction implements SkyFunction {
       // there are no chances of toolchains being used, so skip it.
       return null;
     }
+
+    ImmutableMap<String, Attribute> aspectAttributes = aspect.getDefinition().getAttributes();
+
+    boolean useAutoExecGroups;
+    if (aspectAttributes.containsKey("$use_auto_exec_groups")) {
+      useAutoExecGroups =
+          (boolean) aspectAttributes.get("$use_auto_exec_groups").getDefaultValueUnchecked();
+    } else {
+      useAutoExecGroups = configuration.useAutoExecGroups();
+    }
+
     // Determine what toolchains are needed by this target.
     try {
       return ConfiguredTargetFunction.computeUnloadedToolchainContexts(
@@ -590,6 +603,7 @@ final class AspectFunction implements SkyFunction {
           key.getLabel(),
           !configuration.getOptions().hasNoConfig(),
           Predicates.alwaysFalse(),
+          useAutoExecGroups,
           configuration.getKey(),
           aspect.getDefinition().getToolchainTypes(),
           aspect.getDefinition().execCompatibleWith(),
@@ -859,10 +873,7 @@ final class AspectFunction implements SkyFunction {
       return createAliasAspect(
           env, associatedTarget, key, aspect, key.withLabel(label), transitivePackages);
     } else if (AspectResolver.aspectMatchesConfiguredTarget(
-        associatedConfiguredTarget,
-        associatedTarget instanceof Rule,
-        associatedTarget instanceof InputFile,
-        aspect)) {
+        associatedConfiguredTarget, associatedTarget instanceof Rule, aspect)) {
       try {
         CurrentRuleTracker.beginConfiguredAspect(aspect.getAspectClass());
         configuredAspect =

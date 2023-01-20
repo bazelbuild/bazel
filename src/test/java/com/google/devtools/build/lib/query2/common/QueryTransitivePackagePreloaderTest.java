@@ -90,10 +90,8 @@ public class QueryTransitivePackagePreloaderTest {
   public void setUpMocks() {
     closeable = MockitoAnnotations.openMocks(this);
     when(contextBuilder.setKeepGoing(ArgumentMatchers.anyBoolean())).thenReturn(contextBuilder);
-    when(contextBuilder.setNumThreads(ArgumentMatchers.anyInt())).thenReturn(contextBuilder);
+    when(contextBuilder.setParallelism(ArgumentMatchers.anyInt())).thenReturn(contextBuilder);
     when(contextBuilder.setEventHandler(ArgumentMatchers.any())).thenReturn(contextBuilder);
-    when(contextBuilder.setUseForkJoinPool(ArgumentMatchers.anyBoolean()))
-        .thenReturn(contextBuilder);
     when(contextBuilder.build()).thenReturn(context);
   }
 

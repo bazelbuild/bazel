@@ -4,7 +4,7 @@
 # extract all Android rules and tools out of Bazel and into rules_android
 # and tools_android.
 
-load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 filegroup(
     name = "srcs",
@@ -84,5 +84,9 @@ pkg_tar(
         "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker_deploy.jar",
         "//src/tools/android/java/com/google/devtools/build/android:all_android_tools_deploy.jar",
     ],
+    remap_paths = {
+        "src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker_deploy.jar": "ImportDepsChecker_deploy.jar",
+        "src/tools/android/java/com/google/devtools/build/android:all_android_tools_deploy.jar": "all_android_tools_deploy.jar",
+    },
     visibility = ["//src/test/shell/bazel:__subpackages__"],
 )

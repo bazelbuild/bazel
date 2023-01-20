@@ -28,10 +28,14 @@ import java.io.StringWriter;
 import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
@@ -119,8 +123,18 @@ public class WorkRequestHandler implements AutoCloseable {
   final WorkerMessageProcessor messageProcessor;
 
   private final BiConsumer<Integer, Thread> cancelCallback;
-
+  /**
+   * A scheduler that runs garbage collection after a certain amount of CPU time has passed. In our
+   * experience, explicit GC reclaims much more than implicit GC. This scheduler helps make sure
+   * very busy workers don't grow ridiculously large.
+   */
   private final CpuTimeBasedGcScheduler gcScheduler;
+  /**
+   * A scheduler that runs garbage collection after a certain amount of time without any activity.
+   * In our experience, explicit GC reclaims much more than implicit GC. This scheduler helps make
+   * sure workers don't hang on to excessive memory after they are done working.
+   */
+  private final IdleGcScheduler idleGcScheduler;
 
   /**
    * If set, this worker will stop handling requests and shut itself down. This can happen if
@@ -190,7 +204,8 @@ public class WorkRequestHandler implements AutoCloseable {
         stderr,
         messageProcessor,
         cpuUsageBeforeGc,
-        cancelCallback);
+        cancelCallback,
+        Duration.ZERO);
   }
 
   /**
@@ -207,12 +222,14 @@ public class WorkRequestHandler implements AutoCloseable {
       PrintStream stderr,
       WorkerMessageProcessor messageProcessor,
       Duration cpuUsageBeforeGc,
-      BiConsumer<Integer, Thread> cancelCallback) {
+      BiConsumer<Integer, Thread> cancelCallback,
+      Duration idleTimeBeforeGc) {
     this.callback = callback;
     this.stderr = stderr;
     this.messageProcessor = messageProcessor;
     this.gcScheduler = new CpuTimeBasedGcScheduler(cpuUsageBeforeGc);
     this.cancelCallback = cancelCallback;
+    this.idleGcScheduler = new IdleGcScheduler(idleTimeBeforeGc);
   }
 
   /** A wrapper class for the callback BiFunction */
@@ -247,6 +264,7 @@ public class WorkRequestHandler implements AutoCloseable {
     private final WorkerMessageProcessor messageProcessor;
     private Duration cpuUsageBeforeGc = Duration.ZERO;
     private BiConsumer<Integer, Thread> cancelCallback;
+    private Duration idleTimeBeforeGc = Duration.ZERO;
 
     /**
      * Creates a {@code WorkRequestHandlerBuilder}.
@@ -309,10 +327,17 @@ public class WorkRequestHandler implements AutoCloseable {
       return this;
     }
 
+    /** Sets the time without any work that should elapse before forcing a GC. */
+    @CanIgnoreReturnValue
+    public WorkRequestHandlerBuilder setIdleTimeBeforeGc(Duration idleTimeBeforeGc) {
+      this.idleTimeBeforeGc = idleTimeBeforeGc;
+      return this;
+    }
+
     /** Returns a WorkRequestHandler instance with the values in this Builder. */
     public WorkRequestHandler build() {
       return new WorkRequestHandler(
-          callback, stderr, messageProcessor, cpuUsageBeforeGc, cancelCallback);
+          callback, stderr, messageProcessor, cpuUsageBeforeGc, cancelCallback, idleTimeBeforeGc);
     }
   }
 
@@ -335,6 +360,7 @@ public class WorkRequestHandler implements AutoCloseable {
     try {
       while (!shutdownWorker.get()) {
         WorkRequest request = messageProcessor.readWorkRequest();
+        idleGcScheduler.markActivity(true);
         if (request == null) {
           break;
         }
@@ -348,6 +374,7 @@ public class WorkRequestHandler implements AutoCloseable {
       stderr.println("Error reading next WorkRequest: " + e);
       e.printStackTrace(stderr);
     } finally {
+      idleGcScheduler.stop();
       // TODO(b/220878242): Give the outstanding requests a chance to send a "shutdown" response,
       // but also try to kill stuck threads. For now, we just interrupt the remaining threads.
       // We considered doing System.exit here, but that is hard to test and would deny the callers
@@ -399,6 +426,7 @@ public class WorkRequestHandler implements AutoCloseable {
               RequestInfo requestInfo = activeRequests.get(request.getRequestId());
               if (requestInfo == null) {
                 // Already cancelled
+                idleGcScheduler.markActivity(!activeRequests.isEmpty());
                 return;
               }
               try {
@@ -412,6 +440,7 @@ public class WorkRequestHandler implements AutoCloseable {
                 }
               } finally {
                 activeRequests.remove(request.getRequestId());
+                idleGcScheduler.markActivity(!activeRequests.isEmpty());
               }
             },
             threadName);
@@ -423,6 +452,7 @@ public class WorkRequestHandler implements AutoCloseable {
             stderr.println("Error thrown by worker thread, shutting down worker.");
             e.printStackTrace(stderr);
             currentThread.interrupt();
+            idleGcScheduler.stop();
           }
         });
     RequestInfo previous = activeRequests.putIfAbsent(request.getRequestId(), new RequestInfo(t));
@@ -522,6 +552,66 @@ public class WorkRequestHandler implements AutoCloseable {
   @Override
   public void close() throws IOException {
     messageProcessor.close();
+  }
+
+  /** Schedules GC when the worker has been idle for a while */
+  private static class IdleGcScheduler {
+    private Instant lastActivity = Instant.EPOCH;
+    private Instant lastGc = Instant.EPOCH;
+    /** Minimum duration from the end of activity until we perform an idle GC. */
+    private final Duration idleTimeBeforeGc;
+
+    private final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
+    private ScheduledFuture<?> futureGc = null;
+
+    /**
+     * Creates a new scheduler.
+     *
+     * @param idleTimeBeforeGc The time from the last activity until attempting GC.
+     */
+    public IdleGcScheduler(Duration idleTimeBeforeGc) {
+      this.idleTimeBeforeGc = idleTimeBeforeGc;
+    }
+
+    synchronized void start() {
+      if (!idleTimeBeforeGc.isZero()) {
+        futureGc =
+            executor.schedule(this::maybeDoGc, idleTimeBeforeGc.toMillis(), TimeUnit.MILLISECONDS);
+      }
+    }
+
+    /**
+     * Should be called whenever there is some sort of activity starting or ending. Better to call
+     * too often.
+     */
+    synchronized void markActivity(boolean anythingActive) {
+      lastActivity = Instant.now();
+      if (futureGc != null) {
+        futureGc.cancel(false);
+        futureGc = null;
+      }
+      if (!anythingActive) {
+        start();
+      }
+    }
+
+    private void maybeDoGc() {
+      if (lastGc.isBefore(lastActivity)
+          && lastActivity.isBefore(Instant.now().minus(idleTimeBeforeGc))) {
+        System.gc();
+        lastGc = Instant.now();
+      } else {
+        start();
+      }
+    }
+
+    synchronized void stop() {
+      if (futureGc != null) {
+        futureGc.cancel(false);
+        futureGc = null;
+      }
+      executor.shutdown();
+    }
   }
 
   /**

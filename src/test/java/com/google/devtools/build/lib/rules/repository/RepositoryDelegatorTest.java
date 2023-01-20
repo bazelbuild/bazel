@@ -268,7 +268,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(8)
+            .setParallelism(8)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<SkyValue> result =
@@ -341,7 +341,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(8)
+            .setParallelism(8)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<SkyValue> result =
@@ -366,7 +366,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(8)
+            .setParallelism(8)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<SkyValue> result =
@@ -413,7 +413,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(8)
+            .setParallelism(8)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<SkyValue> result =
@@ -442,7 +442,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(8)
+            .setParallelism(8)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<SkyValue> result =
@@ -465,7 +465,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(8)
+            .setParallelism(8)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<SkyValue> result =
@@ -486,7 +486,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(8)
+            .setParallelism(8)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<SkyValue> result =

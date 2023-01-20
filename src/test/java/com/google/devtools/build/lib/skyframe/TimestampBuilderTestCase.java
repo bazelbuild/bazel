@@ -327,7 +327,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       }
 
       private void setGeneratingActions()
-          throws ActionConflictException, InterruptedException,
+          throws ActionConflictException,
+              InterruptedException,
               Actions.ArtifactGeneratedByOtherRuleException {
         if (evaluator.getExistingValue(ACTION_LOOKUP_KEY) == null) {
           differencer.inject(
@@ -338,7 +339,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                           actionKeyContext,
                           ImmutableList.copyOf(actions),
                           ACTION_LOOKUP_KEY,
-                          /*outputFiles=*/ null))));
+                          /* outputFiles= */ null))));
         }
       }
 
@@ -364,8 +365,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             options,
             new ActionCacheChecker(
                 actionCache, null, actionKeyContext, ALWAYS_EXECUTE_FILTER, null),
-            /*outputService=*/ null,
-            /*trackIncrementalState=*/ true);
+            /* outputService= */ null,
+            /* trackIncrementalState= */ true);
         skyframeActionExecutor.setActionExecutionProgressReportingObjects(
             () -> "", EMPTY_COMPLETION_RECEIVER);
 
@@ -383,7 +384,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
         EvaluationContext evaluationContext =
             EvaluationContext.newBuilder()
                 .setKeepGoing(keepGoing)
-                .setNumThreads(threadCount)
+                .setParallelism(threadCount)
                 .setEventHandler(reporter)
                 .build();
         EvaluationResult<SkyValue> result = evaluator.evaluate(keys, evaluationContext);

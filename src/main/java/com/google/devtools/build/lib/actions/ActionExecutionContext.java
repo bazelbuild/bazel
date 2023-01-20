@@ -327,6 +327,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         reason.append(", execution platform: ");
         reason.append(owner.getExecutionPlatform().label());
       }
+      reason.append(", mnemonic: ");
+      reason.append(owner.getMnemonic());
       reason.append("]");
     }
 

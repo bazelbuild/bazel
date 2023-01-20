@@ -109,7 +109,7 @@ tokens:
   bazel query ' "//foo:bar=wiz" '   # single-quotes for shell, double-quotes for Bazel.
   ```
 
-  Keywords, when quoted, are treated as ordinary words. For example, `some` is a
+  Keywords and operators, when quoted, are treated as ordinary words. For example, `some` is a
   keyword but "some" is a word. Both `foo` and "foo" are words.
 
   However, be careful when using single or double quotes in target names. When

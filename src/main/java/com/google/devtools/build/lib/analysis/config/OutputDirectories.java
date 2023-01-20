@@ -73,11 +73,6 @@ public class OutputDirectories {
    * build step, you're guaranteed not to have to rebuild it. The important exception has to do with
    * multiple configurations: every configuration in the build must have a different output
    * directory name so that their artifacts do not conflict.
-   *
-   * <p>The host configuration is special-cased: in order to guarantee that its output directory is
-   * always separate from that of the target configuration, we simply pin it to "host". We do this
-   * so that the build works even if the two configurations are too close (which is common) and so
-   * that the path of artifacts in the host configuration is a bit more readable.
    */
   public enum OutputDirectory {
     BIN("bin"),

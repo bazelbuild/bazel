@@ -162,30 +162,30 @@ effect at link time (such as `-l`) should be specified in
 #### `--host_copt={{ "<var>" }}cc-option{{ "</var>" }}` {:#host-copt}
 
 This option takes an argument which is to be passed to the compiler for source files
-that are compiled in the host configuration. This is analogous to
+that are compiled in the exec configuration. This is analogous to
 the [`--copt`](#copt) option, but applies only to the
-host configuration.
+exec configuration.
 
 #### `--host_conlyopt={{ "<var>" }}cc-option{{ "</var>" }}` {:#host-conlyopt}
 
 This option takes an argument which is to be passed to the compiler for C source files
-that are compiled in the host configuration. This is analogous to
+that are compiled in the exec configuration. This is analogous to
 the [`--conlyopt`](#cconlyopt) option, but applies only
-to the host configuration.
+to the exec configuration.
 
 #### `--host_cxxopt={{ "<var>" }}cc-option{{ "</var>" }}` {:#host-cxxopt}
 
 This option takes an argument which is to be passed to the compiler for C++ source files
-that are compiled in the host configuration. This is analogous to
+that are compiled in the exec configuration. This is analogous to
 the [`--cxxopt`](#cxxopt) option, but applies only to the
-host configuration.
+exec configuration.
 
 #### `--host_linkopt={{ "<var>" }}linker-option{{ "</var>" }}` {:#host-linkopt}
 
 This option takes an argument which is to be passed to the linker for source files
-that are compiled in the host configuration. This is analogous to
+that are compiled in the exec configuration. This is analogous to
 the [`--linkopt`](#linkopt) option, but applies only to
-the host configuration.
+the exec configuration.
 
 #### `--conlyopt={{ "<var>" }}cc-option{{ "</var>" }}` {:#cconlyopt}
 
@@ -634,7 +634,7 @@ settings for `--compiler`.
 #### `--host_crosstool_top={{ "<var>" }}label{{ "</var>" }}` {:#host-crosstool-top}
 
 If not specified, Bazel uses the value of `--crosstool_top` to compile
-code in the host configuration, such as tools run during the build. The main purpose of this flag
+code in the exec configuration, such as tools run during the build. The main purpose of this flag
 is to enable cross-compilation.
 
 #### `--apple_crosstool_top={{ "<var>" }}label{{ "</var>" }}` {:#apple-crosstool-top}
@@ -678,7 +678,7 @@ source files.
 #### `--host_java_toolchain={{ "<var>" }}label{{ "</var>" }}` {:#host-java-toolchain}
 
 If not specified, bazel uses the value of `--java_toolchain` to compile
-code in the host configuration, such as for tools run during the build. The main purpose of this flag
+code in the exec configuration, such as for tools run during the build. The main purpose of this flag
 is to enable cross-compilation.
 
 #### `--javabase=({{ "<var>" }}label{{ "</var>" }})` {:#javabase}
@@ -690,7 +690,7 @@ _bazel test_, and for Java binaries built by `java_binary` and
 
 #### `--host_javabase={{ "<var>" }}label{{ "</var>" }}` {:#host-javabase}
 
-This option sets the _label_ of the base Java installation to use in the host configuration,
+This option sets the _label_ of the base Java installation to use in the exec configuration,
 for example for host build tools including JavaBuilder and Singlejar.
 
 This does not select the Java compiler that is used to compile Java
@@ -1295,7 +1295,7 @@ Stamping can be enabled or disabled explicitly on a per-rule basis using the
 a rule sets `stamp = -1` (the default for `*_binary` rules), this option
 determines whether stamping is enabled.
 
-Bazel never stamps binaries that are built for the host configuration,
+Bazel never stamps binaries that are built for the exec configuration,
 regardless of this option or the `stamp` attribute. For rules that set `stamp =
 0` (the default for `*_test` rules), stamping is disabled regardless of
 `--[no]stamp`. Specifying `--stamp` does not force targets to be rebuilt if

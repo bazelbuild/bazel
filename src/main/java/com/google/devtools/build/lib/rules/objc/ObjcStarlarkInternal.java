@@ -192,7 +192,7 @@ public class ObjcStarlarkInternal implements StarlarkValue {
     if (starlarkRuleContext != null) {
       return CompilationSupport.compilationArtifacts(starlarkRuleContext.getRuleContext());
     } else {
-      return new CompilationArtifacts.Builder().build();
+      return new CompilationArtifacts();
     }
   }
 

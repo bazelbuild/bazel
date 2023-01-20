@@ -63,10 +63,7 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
       // Since transitionFactory2 causes no changes, use transitionFactory1 directly.
       return transitionFactory1;
     } else if (isFinal(transitionFactory2)) {
-      // When the second transition is null there's no need to compose. But this also improves
-      // performance: host transitions are common, and ConfiguredTargetFunction has special
-      // optimized logic to handle them. If they were buried in the last segment of a
-      // ComposingTransition, those optimizations wouldn't trigger.
+      // When the second transition is null there's no need to compose.
       return transitionFactory2;
     }
 

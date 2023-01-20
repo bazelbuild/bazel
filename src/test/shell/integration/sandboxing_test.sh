@@ -250,4 +250,71 @@ EOF
   done
 }
 
+function test_sandbox_hardening_with_cgroups_v1() {
+  if ! grep -E '^cgroup +[^ ]+ +cgroup +.*memory.*' /proc/mounts; then
+    echo "No cgroup v1 memory controller mounted, skipping test"
+    return 0
+  fi
+  memmount=$(grep -E '^cgroup +[^ ]+ +cgroup +.*memory.*' /proc/mounts | cut -d' ' -f2)
+  if ! grep -E '^[0-9]*:[^:]*memory[^:]*:' /proc/self/cgroup &>/dev/null; then
+    echo "Does not use cgroups v1, skipping test"
+    return 0
+  fi
+  memsubdir=$(grep -E '^[0-9]*:[^:]*memory[^:]*:' /proc/self/cgroup | cut -d: -f3)
+  memdir="$memmount$memsubdir"
+  if [[ ! -w "$memdir" ]]; then
+    echo "Cgroups v1 directory not writable, skipping test"
+    return 0
+  fi
+
+  mkdir pkg
+  cat >pkg/BUILD <<EOF
+genrule(name = "pkg", outs = ["pkg.out"], cmd = "pwd; echo >\$@")
+EOF
+  local genfiles_base="$(bazel info ${PRODUCT_NAME}-genfiles)"
+
+  bazel build --genrule_strategy=linux-sandbox \
+    --experimental_sandbox_memory_limit=1000000 //pkg \
+    >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
+  rm -f ${genfiles_base}/pkg/pkg.out
+  bazel build --genrule_strategy=linux-sandbox \
+    --experimental_sandbox_memory_limit=100 //pkg \
+    >"${TEST_log}" 2>&1 && fail "Expected build to fail" || true
+}
+
+function test_sandbox_hardening_with_cgroups_v2() {
+  if ! grep -E '^cgroup2 +[^ ]+ +cgroup2 ' /proc/mounts; then
+    echo "No cgroup2 mounted, skipping test"
+    return 0
+  fi
+  if ! grep -E '^0::' /proc/self/cgroup &>/dev/null; then
+    echo "Does not use cgroups v2, skipping test"
+    return 0
+  fi
+  if ! XDG_RUNTIME_DIR=/run/user/$( id -u ) systemd-run --user --scope true; then
+    echo "Not able to use systemd, skipping test"
+    return 0
+  fi
+
+  mkdir pkg
+  cat >pkg/BUILD <<EOF
+genrule(name = "pkg", outs = ["pkg.out"], cmd = "pwd; echo >\$@")
+EOF
+  local genfiles_base="$(bazel info ${PRODUCT_NAME}-genfiles)"
+  # Need to make sure the bazel server runs under systemd, too.
+  bazel shutdown
+
+  XDG_RUNTIME_DIR=/run/user/$( id -u ) systemd-run --user --scope \
+  bazel build --genrule_strategy=linux-sandbox \
+    --experimental_sandbox_memory_limit=1000000 //pkg \
+    >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
+  rm -f ${genfiles_base}/pkg/pkg.out
+
+  bazel shutdown
+  XDG_RUNTIME_DIR=/run/user/$( id -u ) systemd-run --user --scope \
+  bazel build --genrule_strategy=linux-sandbox \
+    --experimental_sandbox_memory_limit=100 //pkg \
+    >"${TEST_log}" 2>&1 && fail "Expected build to fail" || true
+}
+
 run_suite "sandboxing"

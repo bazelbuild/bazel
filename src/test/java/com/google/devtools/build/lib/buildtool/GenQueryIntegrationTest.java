@@ -83,7 +83,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testiDuplicateName() throws Exception {
+  public void testDuplicateName() throws Exception {
     write("one/BUILD", "sh_library(name='foo')");
     write("two/BUILD", "sh_library(name='foo')");
     write(

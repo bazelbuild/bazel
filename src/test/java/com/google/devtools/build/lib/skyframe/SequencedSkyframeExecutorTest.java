@@ -102,6 +102,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
@@ -770,7 +771,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setParallelism(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(reporter)
             .build();
     return skyframeExecutor.getEvaluator().evaluate(roots, evaluationContext);
@@ -2554,13 +2555,15 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   private void syncSkyframeExecutor() throws InterruptedException, AbruptExitException {
-    skyframeExecutor.sync(
-        reporter,
-        skyframeExecutor.getPackageLocator().get(),
-        UUID.randomUUID(),
-        /*clientEnv=*/ ImmutableMap.of(),
-        /*repoEnvOption=*/ ImmutableMap.of(),
-        tsgm,
-        options);
+    var unused =
+        skyframeExecutor.sync(
+            reporter,
+            skyframeExecutor.getPackageLocator().get(),
+            UUID.randomUUID(),
+            /* clientEnv= */ ImmutableMap.of(),
+            /* repoEnvOption= */ ImmutableMap.of(),
+            tsgm,
+            QuiescingExecutorsImpl.forTesting(),
+            options);
   }
 }

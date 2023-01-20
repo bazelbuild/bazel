@@ -36,7 +36,7 @@ public class WorkerOptions extends OptionsBase {
    * Defines a resource converter for named values in the form [name=]value, where the value is
    * {@link ResourceConverter.FLAG_SYNTAX}. If no name is provided (used when setting a default),
    * the empty string is used as the key. The default value for unspecified mnemonics is defined in
-   * {@link WorkerPool.createWorkerPools}. "auto" currently returns the default.
+   * {@link WorkerPoolImpl.createWorkerPools}. "auto" currently returns the default.
    */
   public static class MultiResourceConverter extends Converter.Contextless<Entry<String, Integer>> {
 
@@ -177,8 +177,8 @@ public class WorkerOptions extends OptionsBase {
       name = "experimental_worker_as_resource",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help = "If enabled, workers are acquired as resources from ResourceManager.")
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "No-op, will be removed soon.")
   public boolean workerAsResource;
 
   @Option(

@@ -503,17 +503,17 @@ public class BuildDriverFunction implements SkyFunction {
     ActionLookupValuesCollectionResult collect(ActionLookupKey key) throws InterruptedException;
 
     /** Register with the helper that the {@code keys} are conflict-free. */
-    void registerConflictFreeKeys(ImmutableSet<ActionLookupKey> keys);
+    void registerConflictFreeKeys(ImmutableSet<SkyKey> keys);
   }
 
   @AutoValue
   abstract static class ActionLookupValuesCollectionResult {
     abstract Sharder<ActionLookupValue> collectedValues();
 
-    abstract ImmutableSet<ActionLookupKey> visitedKeys();
+    abstract ImmutableSet<SkyKey> visitedKeys();
 
     static ActionLookupValuesCollectionResult create(
-        Sharder<ActionLookupValue> collectedValues, ImmutableSet<ActionLookupKey> visitedKeys) {
+        Sharder<ActionLookupValue> collectedValues, ImmutableSet<SkyKey> visitedKeys) {
       return new AutoValue_BuildDriverFunction_ActionLookupValuesCollectionResult(
           collectedValues, visitedKeys);
     }

@@ -1248,6 +1248,9 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testNoCoptsDisabled() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     reporter.removeHandler(failFastHandler);
     scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'], nocopts = 'abc')");
     useConfiguration("--incompatible_disable_nocopts");

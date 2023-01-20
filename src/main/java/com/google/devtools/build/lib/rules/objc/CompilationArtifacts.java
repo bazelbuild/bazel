@@ -14,15 +14,15 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.COMPILABLE_SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPILED_SRCS_TYPE;
+
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.util.FileType;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
@@ -34,102 +34,47 @@ import net.starlark.java.eval.StarlarkValue;
  * of this class.
  */
 final class CompilationArtifacts implements StarlarkValue {
-  static class Builder {
-    // TODO(bazel-team): Should these be sets instead of just iterables?
-    private Iterable<Artifact> srcs = ImmutableList.of();
-    private Iterable<Artifact> nonArcSrcs = ImmutableList.of();
-    private NestedSetBuilder<Artifact> additionalHdrs = NestedSetBuilder.stableOrder();
-    private Iterable<Artifact> privateHdrs = ImmutableList.of();
-    private Iterable<Artifact> precompiledSrcs = ImmutableList.of();
-    private IntermediateArtifacts intermediateArtifacts;
-
-    @CanIgnoreReturnValue
-    Builder addSrcs(Iterable<Artifact> srcs) {
-      this.srcs = Iterables.concat(this.srcs, srcs);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    Builder addNonArcSrcs(Iterable<Artifact> nonArcSrcs) {
-      this.nonArcSrcs = Iterables.concat(this.nonArcSrcs, nonArcSrcs);
-      return this;
-    }
-
-    /**
-     * Adds header artifacts that should be directly accessible to dependers, but aren't specified
-     * in the hdrs attribute. Note that the underlying infrastructure may flatten the nested set.
-     */
-    @CanIgnoreReturnValue
-    Builder addAdditionalHdrs(NestedSet<Artifact> additionalHdrs) {
-      this.additionalHdrs.addTransitive(additionalHdrs);
-      return this;
-    }
-
-    /**
-     * Adds header artifacts that should be directly accessible to dependers, but aren't specified
-     * in the hdrs attribute.
-     */
-    @CanIgnoreReturnValue
-    Builder addAdditionalHdrs(Iterable<Artifact> additionalHdrs) {
-      this.additionalHdrs.addAll(additionalHdrs);
-      return this;
-    }
-
-    /**
-     * Adds header artifacts that should not be directly accessible to dependers. {@code
-     * privateHdrs} should not be a {@link NestedSet}, as it will be flattened when added.
-     */
-    @CanIgnoreReturnValue
-    Builder addPrivateHdrs(Iterable<Artifact> privateHdrs) {
-      this.privateHdrs = Iterables.concat(this.privateHdrs, privateHdrs);
-      return this;
-    }
-
-    /** Adds precompiled sources (.o files). */
-    @CanIgnoreReturnValue
-    Builder addPrecompiledSrcs(Iterable<Artifact> precompiledSrcs) {
-      // TODO(ulfjack): These are ignored *except* for a check below whether they are empty.
-      this.precompiledSrcs = Iterables.concat(this.precompiledSrcs, precompiledSrcs);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
-      Preconditions.checkState(this.intermediateArtifacts == null,
-          "intermediateArtifacts is already set to: %s", this.intermediateArtifacts);
-      this.intermediateArtifacts = intermediateArtifacts;
-      return this;
-    }
-
-    CompilationArtifacts build() {
-      Optional<Artifact> archive = Optional.absent();
-      if (!Iterables.isEmpty(srcs)
-          || !Iterables.isEmpty(nonArcSrcs)
-          || !Iterables.isEmpty(precompiledSrcs)) {
-        archive = Optional.of(intermediateArtifacts.archive());
-      }
-      return new CompilationArtifacts(
-          srcs, nonArcSrcs, additionalHdrs.build(), privateHdrs, archive);
-    }
-  }
-
   private final Iterable<Artifact> srcs;
   private final Iterable<Artifact> nonArcSrcs;
+  private final Iterable<Artifact> additionalHdrs;
   private final Optional<Artifact> archive;
-  private final NestedSet<Artifact> additionalHdrs;
-  private final Iterable<Artifact> privateHdrs;
 
-  private CompilationArtifacts(
+  public CompilationArtifacts() {
+    this.srcs = ImmutableList.<Artifact>of();
+    this.nonArcSrcs = ImmutableList.<Artifact>of();
+    this.additionalHdrs = ImmutableList.<Artifact>of();
+    this.archive = Optional.absent();
+  }
+
+  public CompilationArtifacts(
+      RuleContext ruleContext, IntermediateArtifacts intermediateArtifacts) {
+    this(
+        ruleContext.getPrerequisiteArtifacts("srcs").list(),
+        ruleContext.getPrerequisiteArtifacts("non_arc_srcs").list(),
+        ImmutableList.<Artifact>of(),
+        intermediateArtifacts);
+  }
+
+  public CompilationArtifacts(
       Iterable<Artifact> srcs,
       Iterable<Artifact> nonArcSrcs,
-      NestedSet<Artifact> additionalHdrs,
-      Iterable<Artifact> privateHdrs,
-      Optional<Artifact> archive) {
-    this.srcs = Preconditions.checkNotNull(srcs);
-    this.nonArcSrcs = Preconditions.checkNotNull(nonArcSrcs);
-    this.additionalHdrs = Preconditions.checkNotNull(additionalHdrs);
-    this.privateHdrs = Preconditions.checkNotNull(privateHdrs);
-    this.archive = Preconditions.checkNotNull(archive);
+      Iterable<Artifact> additionalHdrs,
+      IntermediateArtifacts intermediateArtifacts) {
+    this.srcs = srcs;
+    this.nonArcSrcs = nonArcSrcs;
+    this.additionalHdrs = additionalHdrs;
+
+    // Note: the condition under which we set an archive artifact needs to match the condition for
+    // which we create the archive in compilation_support.bzl.  In particular, if srcs are all
+    // headers, we don't generate an archive.
+    if (!Iterables.isEmpty(FileType.filter(srcs, COMPILABLE_SRCS_TYPE))
+        || !Iterables.isEmpty(FileType.filter(srcs, PRECOMPILED_SRCS_TYPE))
+        || Iterables.any(srcs, Artifact::isTreeArtifact)
+        || !Iterables.isEmpty(nonArcSrcs)) {
+      this.archive = Optional.of(intermediateArtifacts.archive());
+    } else {
+      this.archive = Optional.absent();
+    }
   }
 
   Iterable<Artifact> getSrcs() {
@@ -151,26 +96,13 @@ final class CompilationArtifacts implements StarlarkValue {
   }
 
   /** Returns the public headers that aren't included in the hdrs attribute. */
-  NestedSet<Artifact> getAdditionalHdrs() {
+  Iterable<Artifact> getAdditionalHdrs() {
     return additionalHdrs;
   }
 
   @StarlarkMethod(name = "additional_hdrs", documented = false, structField = true)
-  public Depset getAdditionalHdrsForStarlark() {
-    return Depset.of(Artifact.TYPE, getAdditionalHdrs());
-  }
-
-  /**
-   * Returns the private headers from the srcs attribute, which may by imported by any source or
-   * header in this target, but not by sources or headers of dependers.
-   */
-  Iterable<Artifact> getPrivateHdrs() {
-    return privateHdrs;
-  }
-
-  @StarlarkMethod(name = "private_hdrs", documented = false, structField = true)
-  public Sequence<Artifact> getPrivateHdrsForStarlark() {
-    return StarlarkList.immutableCopyOf(getPrivateHdrs());
+  public Sequence<Artifact> getAdditionalHdrsForStarlark() {
+    return StarlarkList.immutableCopyOf(getAdditionalHdrs());
   }
 
   /**

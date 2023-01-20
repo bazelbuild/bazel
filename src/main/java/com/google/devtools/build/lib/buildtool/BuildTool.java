@@ -177,6 +177,7 @@ public class BuildTool {
         return;
       }
 
+      env.getSkyframeExecutor().setMergedSkyframeAnalysisExecution(false);
       AnalysisResult analysisResult =
           AnalysisPhaseRunner.execute(env, request, buildOptions, validator);
 
@@ -206,7 +207,7 @@ public class BuildTool {
           analysisResult = analysisResult.withExclusiveIfLocalTestsAsParallelTests();
         }
 
-        result.setBuildConfigurationCollection(analysisResult.getConfigurationCollection());
+        result.setBuildConfiguration(analysisResult.getConfiguration());
         result.setActualTargets(analysisResult.getTargetsToBuild());
         result.setTestTargets(analysisResult.getTargetsToTest());
 
@@ -309,7 +310,7 @@ public class BuildTool {
       throws InterruptedException, TargetParsingException, LoadingFailedException,
           AbruptExitException, ViewCreationFailedException, BuildFailedException, TestExecException,
           InvalidConfigurationException, RepositoryMappingResolutionException {
-
+    env.getSkyframeExecutor().setMergedSkyframeAnalysisExecution(true);
     // Target pattern evaluation.
     TargetPatternPhaseValue loadingResult;
     Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
@@ -336,7 +337,7 @@ public class BuildTool {
                 buildOptions,
                 loadingResult,
                 () -> executionTool.prepareForExecution(request.getId()),
-                result::setBuildConfigurationCollection);
+                result::setBuildConfiguration);
         buildCompleted = true;
         executionTool.handleConvenienceSymlinks(analysisAndExecutionResult);
       } catch (InvalidConfigurationException

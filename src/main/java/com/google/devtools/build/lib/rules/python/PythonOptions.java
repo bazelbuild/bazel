@@ -120,6 +120,18 @@ public class PythonOptions extends FragmentOptions {
   public boolean incompatiblePy3IsDefault;
 
   @Option(
+      name = "incompatible_python_disable_py2",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, using Python 2 settings will cause an error. This includes "
+              + "python_version=PY2, srcs_version=PY2, and srcs_version=PY2ONLY. See "
+              + "https://github.com/bazelbuild/bazel/issues/15684 for more information.")
+  public boolean disablePy2;
+
+  @Option(
       name = "incompatible_py2_outputs_are_suffixed",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
@@ -193,7 +205,7 @@ public class PythonOptions extends FragmentOptions {
       converter = TargetPythonVersionConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Overrides the Python version for the host configuration. Can be \"PY2\" or \"PY3\".")
+      help = "Overrides the Python version for the exec configuration. Can be \"PY2\" or \"PY3\".")
   public PythonVersion hostForcePython;
 
   private static final OptionDefinition HOST_FORCE_PYTHON_DEFINITION =
@@ -342,6 +354,7 @@ public class PythonOptions extends FragmentOptions {
     hostPythonOptions.incompatibleDefaultToExplicitInitPy = incompatibleDefaultToExplicitInitPy;
     hostPythonOptions.incompatibleDisallowLegacyPyProvider = incompatibleDisallowLegacyPyProvider;
     hostPythonOptions.incompatibleRemoveOldPythonVersionApi = incompatibleRemoveOldPythonVersionApi;
+    hostPythonOptions.disablePy2 = disablePy2;
 
     // Save host options in case of a further exec->host transition.
     hostPythonOptions.hostForcePython = hostForcePython;

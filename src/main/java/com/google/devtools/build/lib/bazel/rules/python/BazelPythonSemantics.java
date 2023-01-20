@@ -36,10 +36,10 @@ import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
-import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.python.PyCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.python.PyCommon;
@@ -62,8 +62,6 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   public static final Runfiles.EmptyFilesSupplier GET_INIT_PY_FILES =
       new PythonUtils.GetInitPyFiles((Predicate<PathFragment> & Serializable) source -> false);
-  private static final Template STUB_TEMPLATE =
-      Template.forResource(BazelPythonSemantics.class, "python_stub_template.txt");
 
   public static final PathFragment ZIP_RUNFILES_DIRECTORY_NAME = PathFragment.create("runfiles");
 
@@ -80,6 +78,19 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   @Override
   public void validate(RuleContext ruleContext, PyCommon common) {
+    PythonConfiguration config = ruleContext.getFragment(PythonConfiguration.class);
+    if (config.getDisablePy2()) {
+      var attrs = ruleContext.attributes();
+      if (config.getDefaultPythonVersion().equals(PythonVersion.PY2)
+          || attrs.getOrDefault("python_version", Type.STRING, "UNSET").equals("PY2")
+          || attrs.getOrDefault("srcs_version", Type.STRING, "UNSET").equals("PY2")
+          || attrs.getOrDefault("srcs_version", Type.STRING, "UNSET").equals("PY2ONLY")) {
+        ruleContext.ruleError(
+            "Using Python 2 is not supported and disabled; see "
+                + "https://github.com/bazelbuild/bazel/issues/15684");
+        return;
+      }
+    }
   }
 
   @Override
@@ -119,18 +130,18 @@ public class BazelPythonSemantics implements PythonSemantics {
     PathFragment packageFragment = ruleContext.getLabel().getPackageIdentifier().getRunfilesPath();
     // Python scripts start with x.runfiles/ as the module space, so everything must be manually
     // adjusted to be relative to the workspace name.
-    packageFragment = PathFragment.create(ruleContext.getWorkspaceName())
-        .getRelative(packageFragment);
+    packageFragment =
+        PathFragment.create(ruleContext.getWorkspaceName()).getRelative(packageFragment);
     for (String importsAttr : ruleContext.getExpander().list("imports")) {
       if (importsAttr.startsWith("/")) {
-        ruleContext.attributeWarning("imports",
-            "ignoring invalid absolute path '" + importsAttr + "'");
+        ruleContext.attributeWarning(
+            "imports", "ignoring invalid absolute path '" + importsAttr + "'");
         continue;
       }
       PathFragment importsPath = packageFragment.getRelative(importsAttr);
       if (importsPath.containsUplevelReferences()) {
-        ruleContext.attributeError("imports",
-            "Path " + importsAttr + " references a path above the execution root");
+        ruleContext.attributeError(
+            "imports", "Path " + importsAttr + " references a path above the execution root");
       }
       result.add(importsPath.getPathString());
     }
@@ -159,19 +170,21 @@ public class BazelPythonSemantics implements PythonSemantics {
     // The python code coverage tool to use, if any.
     String coverageTool = getCoverageTool(ruleContext, common);
 
-    // Version information for host config diagnostic warning.
+    // Version information for exec config diagnostic warning.
     PythonVersion attrVersion = PyCommon.readPythonVersionFromAttribute(ruleContext.attributes());
     boolean attrVersionSpecifiedExplicitly = attrVersion != null;
     if (!attrVersionSpecifiedExplicitly) {
       attrVersion = config.getDefaultPythonVersion();
     }
 
+    Artifact bootstrapTemplate = getBootstrapTemplate(ruleContext, common);
+
     // Create the stub file.
     ruleContext.registerAction(
         new TemplateExpansionAction(
             ruleContext.getActionOwner(),
+            bootstrapTemplate,
             stubOutput,
-            STUB_TEMPLATE,
             ImmutableList.of(
                 Substitution.of("%shebang%", getStubShebang(ruleContext, common)),
                 Substitution.of("%main%", common.determineMainExecutableSource()),
@@ -243,7 +256,8 @@ public class BazelPythonSemantics implements PythonSemantics {
       if (OS.getCurrent() != OS.WINDOWS) {
         PathFragment shExecutable = ShToolchain.getPathForHost(ruleContext.getConfiguration());
         String pythonExecutableName = "python3";
-        // NOTE: keep the following line intact to support nix builds
+        // NOTE: keep the following line intact to support nix builds; nix patches
+        // this file to make it work for them; see https://github.com/bazelbuild/bazel/pull/11535
         String pythonShebang = "#!/usr/bin/env " + pythonExecutableName;
         ruleContext.registerAction(
             new SpawnAction.Builder()
@@ -279,14 +293,13 @@ public class BazelPythonSemantics implements PythonSemantics {
           // unix. See also https://github.com/bazelbuild/bazel/issues/7947#issuecomment-491385802.
           pythonBinary,
           executable,
-          /*useZipFile=*/ buildPythonZip);
+          /* useZipFile= */ buildPythonZip);
     }
   }
 
   /** Registers an action to create a Windows Python launcher at {@code pythonLauncher}. */
   private static void createWindowsExeLauncher(
-      RuleContext ruleContext, String pythonBinary, Artifact pythonLauncher, boolean useZipFile)
-      throws InterruptedException {
+      RuleContext ruleContext, String pythonBinary, Artifact pythonLauncher, boolean useZipFile) {
     LaunchInfo launchInfo =
         LaunchInfo.builder()
             .addKeyValuePair("binary_type", "Python")
@@ -337,7 +350,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     }
     // We put the whole runfiles tree under the ZIP_RUNFILES_DIRECTORY_NAME directory, by doing this
     // , we avoid the conflict between default workspace name "__main__" and __main__.py file.
-    // Note: This name has to be the same with the one in python_stub_template.txt.
+    // Note: This name has to be the same with the one in python_bootstrap_template.txt.
     return ZIP_RUNFILES_DIRECTORY_NAME.getRelative(zipRunfilesPath).toString();
   }
 
@@ -427,6 +440,17 @@ public class BazelPythonSemantics implements PythonSemantics {
         : ruleContext.getPrerequisite(":py_interpreter", PyRuntimeInfo.PROVIDER);
   }
 
+  private static Artifact getBootstrapTemplate(RuleContext ruleContext, PyCommon common) {
+    PyRuntimeInfo provider = getRuntime(ruleContext, common);
+    if (provider != null) {
+      Artifact bootstrapTemplate = provider.getBootstrapTemplate();
+      if (bootstrapTemplate != null) {
+        return bootstrapTemplate;
+      }
+    }
+    return ruleContext.getPrerequisiteArtifact("$default_bootstrap_template");
+  }
+
   private static void addRuntime(
       RuleContext ruleContext, PyCommon common, Runfiles.Builder builder) {
     PyRuntimeInfo provider = getRuntime(ruleContext, common);
@@ -458,7 +482,7 @@ public class BazelPythonSemantics implements PythonSemantics {
         pythonBinary =
             workspaceName.getRelative(provider.getInterpreter().getRunfilesPath()).getPathString();
       }
-    } else  {
+    } else {
       // make use of the Python interpreter in an absolute path
       pythonBinary = bazelConfig.getPythonPath();
     }

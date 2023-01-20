@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.Worker;
 import com.google.devtools.build.lib.worker.WorkerFactory;
 import com.google.devtools.build.lib.worker.WorkerKey;
-import com.google.devtools.build.lib.worker.WorkerPool;
+import com.google.devtools.build.lib.worker.WorkerPoolImpl;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.time.Duration;
@@ -86,9 +86,9 @@ public final class ResourceManagerTest {
     rm.setWorkerPool(createWorkerPool());
   }
 
-  private WorkerPool createWorkerPool() {
-    return new WorkerPool(
-        new WorkerPool.WorkerPoolConfig(
+  private WorkerPoolImpl createWorkerPool() {
+    return new WorkerPoolImpl(
+        new WorkerPoolImpl.WorkerPoolConfig(
             new WorkerFactory(fs.getPath("/workerBase")) {
               @Override
               public Worker create(WorkerKey key) {
@@ -779,9 +779,9 @@ public final class ResourceManagerTest {
     CountDownLatch slowLatch = new CountDownLatch(2);
     CountDownLatch fastLatch = new CountDownLatch(1);
 
-    WorkerPool workerPool =
-        new WorkerPool(
-            new WorkerPool.WorkerPoolConfig(
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            new WorkerPoolImpl.WorkerPoolConfig(
                 new WorkerFactory(fs.getPath("/workerBase")) {
                   int numOfSlowWorkers = 0;
 

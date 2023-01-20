@@ -53,6 +53,13 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class GraphlessQueryTest extends AbstractQueryTest<Target> {
+
+  @Override
+  protected boolean includeCppToolchainDependencies() {
+    // These don't exist in graphless mode.
+    return false;
+  }
+
   @Override
   public void boundedRdepsWithError() throws Exception {
     writeFile(

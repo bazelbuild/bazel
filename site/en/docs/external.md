@@ -355,8 +355,8 @@ Avoid using `repository_ctx.execute` when possible. For example, when using a no
 library that has a build using Make, it is preferable to use `repository_ctx.download()` and then
 write a BUILD file that builds it, instead of running `ctx.execute(["make"])`.
 
-Prefer [`http_archive`](/rules/lib/repo/http#http_archive) to `git_repository` and
-`new_git_repository`. The reasons are:
+Prefer [`http_archive`](/rules/lib/repo/http#http_archive) to `git_repository`.
+The reasons are:
 
 * Git repository rules depend on system `git(1)` whereas the HTTP downloader is built
   into Bazel and has no system dependencies.

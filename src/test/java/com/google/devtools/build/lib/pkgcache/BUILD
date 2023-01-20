@@ -97,6 +97,7 @@ java_library(
     name = "IncrementalLoadingTest_lib",
     srcs = ["IncrementalLoadingTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
@@ -160,6 +161,7 @@ java_test(
     name = "PackageLoadingTest",
     srcs = ["PackageLoadingTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
@@ -191,6 +193,7 @@ java_test(
     name = "BuildFileModificationTest",
     srcs = ["BuildFileModificationTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
@@ -237,6 +240,7 @@ java_library(
     name = "LoadingPhaseRunnerTest_lib",
     srcs = ["LoadingPhaseRunnerTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",

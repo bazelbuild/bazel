@@ -95,10 +95,10 @@ public class BazelPythonConfiguration extends Fragment {
                 + "is less likely to experience import name collisions.")
     public boolean experimentalPythonImportAllRepositories;
 
-    /** Make Python configuration options available for host configurations as well */
+    /** Make Python configuration options available for exec configurations as well */
     @Override
     public FragmentOptions getExec() {
-      return clone(); // host options are the same as target options
+      return clone(); // exec options are the same as target options
     }
   }
 
@@ -148,6 +148,10 @@ public class BazelPythonConfiguration extends Fragment {
     return options.pythonTop;
   }
 
+  @StarlarkMethod(
+      name = "python_path",
+      structField = true,
+      doc = "The value of the --python_path flag.")
   public String getPythonPath() {
     return options.pythonPath == null ? "python" : options.pythonPath;
   }

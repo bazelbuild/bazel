@@ -247,7 +247,6 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    *     LabelValidator#validateTargetName}.
    * @throws LabelSyntaxException if either of the arguments was invalid.
    */
-  // TODO(b/200024947): Remove this...?
   public static Label create(String packageName, String targetName) throws LabelSyntaxException {
     return createUnvalidated(
         PackageIdentifier.parse(packageName),
@@ -258,7 +257,6 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * Similar factory to above, but takes a package identifier to allow external repository labels to
    * be created.
    */
-  // TODO(b/200024947): Remove this...?
   public static Label create(PackageIdentifier packageId, String targetName)
       throws LabelSyntaxException {
     return createUnvalidated(
@@ -517,42 +515,12 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       },
       useStarlarkThread = true)
   public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {
-    return getRelativeWithRemapping(
-        relName,
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).repoMapping());
-  }
-
-  /**
-   * Resolves a relative or absolute label name. If given name is absolute, then this method calls
-   * {@link #parseAbsolute}. Otherwise, it calls {@link #getLocalTargetLabel}.
-   *
-   * <p>For example: {@code :quux} relative to {@code //foo/bar:baz} is {@code //foo/bar:quux};
-   * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux};
-   * {@code @repo//foo:bar} relative to anything will be {@code @repo//foo:bar} if {@code @repo} is
-   * not in {@code repositoryMapping} but will be {@code @other_repo//foo:bar} if there is an entry
-   * {@code @repo -> @other_repo} in {@code repositoryMapping}.
-   *
-   * @param relName the relative label name; must be non-empty
-   * @param repositoryMapping the map of local repository names in external repository to global
-   *     repository names in main repo; can be empty, but not null
-   */
-  // TODO(b/200024947): Remove this.
-  public Label getRelativeWithRemapping(String relName, RepositoryMapping repositoryMapping)
-      throws LabelSyntaxException {
-    Preconditions.checkNotNull(repositoryMapping);
-    if (relName.isEmpty()) {
-      throw new LabelSyntaxException("empty package-relative label");
-    }
     return parseWithPackageContext(
-        relName, PackageContext.of(packageIdentifier, repositoryMapping));
-  }
-
-  // TODO(b/200024947): Remove this.
-  public Label getRelativeWithRemapping(
-      String relName, ImmutableMap<String, RepositoryName> repositoryMapping)
-      throws LabelSyntaxException {
-    return getRelativeWithRemapping(
-        relName, RepositoryMapping.createAllowingFallback(repositoryMapping));
+        relName,
+        PackageContext.of(
+            packageIdentifier,
+            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
+                .repoMapping()));
   }
 
   @Override

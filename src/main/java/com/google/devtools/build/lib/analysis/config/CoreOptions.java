@@ -170,6 +170,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "disabled.")
   public boolean strictFilesets;
 
+  // This option is only used during execution. However, it is a required input to the analysis
+  // phase, as otherwise flipping this flag would not invalidate already-executed actions.
+  @Option(
+      name = "experimental_writable_outputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, the file permissions of action outputs are set to 0755 instead of 0555")
+  public boolean experimentalWritableOutputs;
+
   @Option(
       name = "experimental_strict_fileset_output",
       defaultValue = "false",
@@ -897,6 +908,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " of failing. This is to help use cquery diagnose failures in select.")
   public boolean debugSelectsAlwaysSucceed;
 
+  @Option(
+      name = "experimental_throttle_action_cache_check",
+      defaultValue = "false",
+      converter = BooleanConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "Whether to throttle the check whether an action is cached.")
+  public boolean throttleActionCacheCheck;
+
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     /**
@@ -920,68 +941,69 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Override
   public FragmentOptions getExec() {
-    CoreOptions host = (CoreOptions) getDefault();
+    CoreOptions exec = (CoreOptions) getDefault();
 
-    host.affectedByStarlarkTransition = affectedByStarlarkTransition;
-    host.outputDirectoryNamingScheme = outputDirectoryNamingScheme;
-    host.compilationMode = hostCompilationMode;
-    host.isExec = false;
-    host.execConfigurationDistinguisherScheme = execConfigurationDistinguisherScheme;
-    host.outputPathsMode = outputPathsMode;
-    host.enableRunfiles = enableRunfiles;
-    host.executionInfoModifier = executionInfoModifier;
-    host.commandLineBuildVariables = commandLineBuildVariables;
-    host.enforceConstraints = enforceConstraints;
-    host.mergeGenfilesDirectory = mergeGenfilesDirectory;
-    host.platformInOutputDir = platformInOutputDir;
-    host.cpu = hostCpu;
-    host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
-    host.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
-    host.checkTestonlyForOutputFiles = checkTestonlyForOutputFiles;
-    host.useAutoExecGroups = useAutoExecGroups;
+    exec.affectedByStarlarkTransition = affectedByStarlarkTransition;
+    exec.outputDirectoryNamingScheme = outputDirectoryNamingScheme;
+    exec.compilationMode = hostCompilationMode;
+    exec.isExec = false;
+    exec.execConfigurationDistinguisherScheme = execConfigurationDistinguisherScheme;
+    exec.outputPathsMode = outputPathsMode;
+    exec.enableRunfiles = enableRunfiles;
+    exec.executionInfoModifier = executionInfoModifier;
+    exec.commandLineBuildVariables = commandLineBuildVariables;
+    exec.enforceConstraints = enforceConstraints;
+    exec.mergeGenfilesDirectory = mergeGenfilesDirectory;
+    exec.platformInOutputDir = platformInOutputDir;
+    exec.cpu = hostCpu;
+    exec.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
+    exec.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
+    exec.checkTestonlyForOutputFiles = checkTestonlyForOutputFiles;
+    exec.useAutoExecGroups = useAutoExecGroups;
+    exec.experimentalWritableOutputs = experimentalWritableOutputs;
 
     // === Runfiles ===
-    host.buildRunfilesManifests = buildRunfilesManifests;
-    host.buildRunfiles = buildRunfiles;
-    host.legacyExternalRunfiles = legacyExternalRunfiles;
-    host.remotableSourceManifestActions = remotableSourceManifestActions;
-    host.skipRunfilesManifests = skipRunfilesManifests;
-    host.alwaysIncludeFilesToBuildInData = alwaysIncludeFilesToBuildInData;
+    exec.buildRunfilesManifests = buildRunfilesManifests;
+    exec.buildRunfiles = buildRunfiles;
+    exec.legacyExternalRunfiles = legacyExternalRunfiles;
+    exec.remotableSourceManifestActions = remotableSourceManifestActions;
+    exec.skipRunfilesManifests = skipRunfilesManifests;
+    exec.alwaysIncludeFilesToBuildInData = alwaysIncludeFilesToBuildInData;
 
     // === Filesets ===
-    host.strictFilesetOutput = strictFilesetOutput;
-    host.strictFilesets = strictFilesets;
+    exec.strictFilesetOutput = strictFilesetOutput;
+    exec.strictFilesets = strictFilesets;
 
     // === Linkstamping ===
     // Disable all link stamping for the exec configuration, to improve action
     // cache hit rates for tools.
-    host.stampBinaries = false;
+    exec.stampBinaries = false;
 
     // === Visibility ===
-    host.checkVisibility = checkVisibility;
+    exec.checkVisibility = checkVisibility;
 
     // === Licenses ===
-    host.checkLicenses = checkLicenses;
+    exec.checkLicenses = checkLicenses;
 
     // === Pass on C++ compiler features.
-    host.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
+    exec.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
 
     // Save host options in case of a further exec->host transition.
-    host.hostCpu = hostCpu;
-    host.hostCompilationMode = hostCompilationMode;
+    exec.hostCpu = hostCpu;
+    exec.hostCompilationMode = hostCompilationMode;
 
-    // Pass host action environment variables
-    host.actionEnvironment = hostActionEnvironment;
-    host.hostActionEnvironment = hostActionEnvironment;
+    // Pass exec action environment variables
+    exec.actionEnvironment = hostActionEnvironment;
+    exec.hostActionEnvironment = hostActionEnvironment;
 
     // Pass archived tree artifacts filter.
-    host.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
+    exec.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
 
-    host.enableAspectHints = enableAspectHints;
-    host.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
+    exec.enableAspectHints = enableAspectHints;
+    exec.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
 
-    host.usePlatformsRepoForConstraints = usePlatformsRepoForConstraints;
-    return host;
+    exec.usePlatformsRepoForConstraints = usePlatformsRepoForConstraints;
+    return exec;
   }
 
   /// Normalizes --define flags, preserving the last one to appear in the event of conflicts.

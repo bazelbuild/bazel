@@ -13,6 +13,8 @@
 # limitations under the License.
 """Common functions that are specific to Bazel rule implementation"""
 
+load(":common/python/providers.bzl", "PyCcLinkParamsProvider")
+
 _py_builtins = _builtins.internal.py_builtins
 _CcInfo = _builtins.toplevel.CcInfo
 _cc_common = _builtins.toplevel.cc_common
@@ -35,8 +37,10 @@ def collect_cc_info(ctx, extra_deps = []):
     for dep in deps:
         if _CcInfo in dep:
             cc_infos.append(dep[_CcInfo])
+
         if PyCcLinkParamsProvider in dep:
             cc_infos.append(dep[PyCcLinkParamsProvider].cc_info)
+
     return _cc_common.merge_cc_infos(cc_infos = cc_infos)
 
 def maybe_precompile(ctx, srcs):
@@ -72,12 +76,15 @@ def get_imports(ctx):
     )
     result = []
     for import_str in ctx.attr.imports:
+        # todo: check if $(location) expansion is done here
         import_str = ctx.expand_make_variables(import_str)
         if import_str.startswith("/"):
             continue
-        import_path = "{}/{}".format(prefix, expanded)
+        import_path = "{}/{}".format(prefix, import_str)
 
         # TODO: Reject paths with uplevel references (see
-        # PathFragment#containsUplevelReferences)
+        # PathFragment#containsUplevelReferences). Basically, we want to
+        # prevent imports="../../../../../" (or similar) from "escaping" out
+        # of the runfiles tree.
         result.append(import_path)
     return result

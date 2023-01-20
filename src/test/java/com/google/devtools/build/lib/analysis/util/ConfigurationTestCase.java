@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentFactory;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -149,6 +149,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
 
@@ -166,22 +167,23 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   }
 
   /**
-   * Returns a {@link BuildConfigurationCollection} with the given non-default options.
+   * Returns a {@link BuildConfigurationValue} with the given non-default options.
    *
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
-  protected BuildConfigurationCollection createCollection(String... args) throws Exception {
-    return createCollection(ImmutableMap.of(), args);
+  protected BuildConfigurationValue createConfiguration(String... args) throws Exception {
+    return createConfiguration(ImmutableMap.of(), args);
   }
 
   /**
-   * Variation of {@link #createCollection(String...)} that also supports Starlark-defined options.
+   * Variation of {@link #createConfiguration(String...)} that also supports Starlark-defined
+   * options.
    *
    * @param starlarkOptions map of Starlark-defined options where the keys are option names (in the
    *     form of label-like strings) and the values are option values
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
-  protected BuildConfigurationCollection createCollection(
+  protected BuildConfigurationValue createConfiguration(
       ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
 
     BuildOptions targetOptions = parseBuildOptions(starlarkOptions, args);
@@ -244,7 +246,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
   protected BuildConfigurationValue create(String... args) throws Exception {
-    return createCollection(args).getTargetConfiguration();
+    return createConfiguration(args);
   }
 
   /**
@@ -256,7 +258,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
    */
   protected BuildConfigurationValue create(
       ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
-    return createCollection(starlarkOptions, args).getTargetConfiguration();
+    return createConfiguration(starlarkOptions, args);
   }
 
   /**

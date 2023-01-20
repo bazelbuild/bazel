@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -30,21 +29,12 @@ import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.TokenKind;
 
 /** An struct-like Info (provider instance) for providers defined in Starlark. */
-public final class StarlarkInfo extends StructImpl implements HasBinary {
+public class StarlarkInfo extends StructImpl implements HasBinary {
   private final Provider provider;
 
   // For a n-element info, the table contains n key strings, sorted,
   // followed by the n corresponding legal Starlark values.
   private final Object[] table;
-
-  // A format string with one %s placeholder for the missing field name.
-  // If null, uses the default format specified by the provider.
-  // TODO(adonovan): make the provider determine the error message
-  // (but: this has implications for struct+struct, the equivalence
-  // relation, and other observable behaviors).
-  // Perhaps it should be a property of the StarlarkInfo instance, but
-  // defined by a subclass?
-  @Nullable private final String unknownFieldError;
 
   // TODO(adonovan): restrict type of provider to StarlarkProvider?
   // Do we ever need StarlarkInfos of BuiltinProviders? Such BuiltinProviders could
@@ -55,15 +45,10 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
   // The efficient table algorithms would be a nice addition to the Starlark
   // interpreter, to allow other clients to define their own fast structs
   // (or to define a standard one). See also comments at Info about upcoming clean-ups.
-  private StarlarkInfo(
-      Provider provider,
-      Object[] table,
-      @Nullable Location loc,
-      @Nullable String unknownFieldError) {
+  StarlarkInfo(Provider provider, Object[] table, @Nullable Location loc) {
     super(loc);
     this.provider = provider;
     this.table = table;
-    this.unknownFieldError = unknownFieldError;
   }
 
   @Override
@@ -72,7 +57,7 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
   }
 
   // Converts a map to a table of sorted keys followed by corresponding values.
-  private static Object[] toTable(Map<String, Object> values) {
+  static Object[] toTable(Map<String, Object> values) {
     int n = values.size();
     Object[] table = new Object[n + n];
     int i = 0;
@@ -128,7 +113,7 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
       }
     }
 
-    return new StarlarkInfo(provider, table, loc, /*unknownFieldError=*/ null);
+    return new StarlarkInfo(provider, table, loc);
   }
 
   // Permutes array elements from alternating keys/values form,
@@ -248,14 +233,6 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
     return ImmutableList.copyOf(keys);
   }
 
-  /** Returns the per-instance error message, if specified, or the provider's message otherwise. */
-  @Override
-  public String getErrorMessageForUnknownField(String name) {
-    return unknownFieldError != null
-        ? String.format(unknownFieldError, name) + allAttributesSuffix()
-        : super.getErrorMessageForUnknownField(name);
-  }
-
   @Override
   public boolean isImmutable() {
     // If the provider is not yet exported, the hash code of the object is subject to change.
@@ -289,50 +266,7 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
    */
   public static StarlarkInfo create(
       Provider provider, Map<String, Object> values, @Nullable Location loc) {
-    return new StarlarkInfo(provider, toTable(values), loc, /*unknownFieldError=*/ null);
-  }
-
-  /**
-   * Creates a schemaless provider instance with the given provider type, field values, and
-   * unknown-field error message.
-   *
-   * <p>This is used to create structs for special purposes, such as {@code ctx.attr} and the {@code
-   * native} module. The creation location will be {@link Location#BUILTIN}.
-   *
-   * <p>{@code unknownFieldError} is a string format, as for {@link
-   * Provider#getErrorMessageFormatForUnknownField}.
-   *
-   * @deprecated Do not use this method. Instead, create a new subclass of {@link BuiltinProvider}
-   *     with the desired error message format, and create a corresponding {@link NativeInfo}
-   *     subclass.
-   */
-  // TODO(bazel-team): Make the special structs that need a custom error message use a different
-  // provider (subclassing BuiltinProvider) and a different StructImpl implementation. Then remove
-  // this functionality, thereby saving a string pointer field for the majority of providers that
-  // don't need it. However, this is tricky: if the error message is a property of the provider,
-  // then each flavor of struct must have a distinct provider of a unique class, and this would be
-  // observable to Starlark code. What would be their names: "struct", or something else? Should
-  // struct+struct fail when different flavors are mixed (as happens today when adding info
-  // instances of different providers)? Or should it return a new struct picking the provider of one
-  // operand arbitrarily (as it does today for custom error strings)? Or ignore providers and return
-  // a plain old struct, always? Or only if they differ? Or should we abolish struct+struct
-  // altogether? In other words, the advice in the @deprecated tag above is not compatible.
-  //
-  // brandjon notes: nearly all the uses of custom errors are for objects that properly should be
-  // Structures but not structs. They only leveraged the struct machinery for historical reasons and
-  // convenience.
-  // For instance, ctx.attr should have a custom error message, but should not support concatenation
-  // (it fails today but only because you can't produce two ctx.attr's that don't have common
-  // fields). It also should not support to_json().
-  // It's possible someone was crazy enough to take ctx.attr.to_json(), but we can probably break
-  // that case without causing too much trouble.
-  // If we migrate all these cases of non-providers away, whatever is left should be happy to use a
-  // default error message, and we can eliminate this extra detail.
-  @Deprecated
-  public static StarlarkInfo createWithCustomMessage(
-      Provider provider, Map<String, Object> values, String unknownFieldError) {
-    Preconditions.checkNotNull(unknownFieldError);
-    return new StarlarkInfo(provider, toTable(values), Location.BUILTIN, unknownFieldError);
+    return new StarlarkInfo(provider, toTable(values), loc);
   }
 
   @Nullable
@@ -393,6 +327,6 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
       zi++;
     }
 
-    return new StarlarkInfo(xprov, ztable, Location.BUILTIN, x.unknownFieldError);
+    return new StarlarkInfo(xprov, ztable, Location.BUILTIN);
   }
 }

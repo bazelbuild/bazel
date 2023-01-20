@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
-/** Rule definition for {@code py_runtime} */
+/** Fake rule definition for {@code py_runtime} for generated doc purposes. */
 public final class PyRuntimeRule implements RuleDefinition {
 
   @Override
@@ -84,7 +84,7 @@ public final class PyRuntimeRule implements RuleDefinition {
                 .allowedValues(PyRuleClasses.TARGET_PYTHON_ATTR_VALUE_SET))
 
         /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(stub_shebang) -->
-        "Shebang" expression prepended to the bootstrapping Python stub script
+        "Shebang" expression prepended to the bootstrapping Python script
         used when executing <code>py_binary</code> targets.
 
         <p>See <a href="https://github.com/bazelbuild/bazel/issues/8685">issue 8685</a> for
@@ -93,6 +93,16 @@ public final class PyRuntimeRule implements RuleDefinition {
         <p>Does not apply to Windows.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("stub_shebang", STRING).value(PyRuntimeInfo.DEFAULT_STUB_SHEBANG))
+
+        /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(bootstrap_template) -->
+        Previously referred to as the "Python stub script", this is the
+              entrypoint to every Python executable target.
+              <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("bootstrap_template", LABEL)
+                .value(env.getToolsLabel(PyRuntimeInfo.DEFAULT_BOOTSTRAP_TEMPLATE))
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .singleArtifact())
         .add(attr("output_licenses", LICENSE))
         .build();
   }
@@ -102,7 +112,7 @@ public final class PyRuntimeRule implements RuleDefinition {
     return Metadata.builder()
         .name("py_runtime")
         .ancestors(BaseRuleClasses.NativeBuildRule.class)
-        .factoryClass(PyRuntime.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

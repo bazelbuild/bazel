@@ -19,7 +19,6 @@ load(":common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "Gr
 load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 
 CcInfo = _builtins.toplevel.CcInfo
-ProtoInfo = _builtins.toplevel.ProtoInfo
 DebugPackageInfo = _builtins.toplevel.DebugPackageInfo
 cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal

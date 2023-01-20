@@ -27,12 +27,11 @@ fi
 GOOGLE_API_PROTOS="$(grep -o '".*\.proto"' third_party/googleapis/BUILD.bazel | sed 's/"//g' | sed 's|^|third_party/googleapis/|g')"
 PROTO_FILES=$(find third_party/remoteapis ${GOOGLE_API_PROTOS} third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto src/main/java/com/google/devtools/build/lib/packages/metrics/package_metrics.proto -name "*.proto")
 # For protobuf jars, derived/jars/com_google_protobuf/java/core/libcore.jar must be in front of derived/jars/com_google_protobuf/java/core/liblite.jar, so we sort jars here
-LIBRARY_JARS=$(find $ADDITIONAL_JARS third_party -name '*.jar' | sort | grep -Fv JavaBuilder | grep -Fv third_party/guava/guava | grep -ve 'third_party/grpc/grpc.*jar' | grep -Fv third_party/netty_tcnative | tr "\n" " ")
+LIBRARY_JARS=$(find $ADDITIONAL_JARS third_party -name '*.jar' | sort | grep -Fv JavaBuilder | grep -ve 'third_party/grpc/grpc.*jar' | grep -Fv third_party/netty_tcnative | tr "\n" " ")
 GRPC_JAVA_VERSION=1.47.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
-GUAVA_VERSION=31.1
-GUAVA_JARS=$(find third_party/guava -name '*.jar' | grep -e ".*${GUAVA_VERSION}.*jar" | tr "\n" " ")
-LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS} ${GUAVA_JARS}"
+MAVEN_JARS=$(find maven -name '*.jar' | tr "\n" " ")
+LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS} ${MAVEN_JARS}"
 
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java} tools/java/runfiles ${OUTPUT_DIR}/src)
 # Exclude source files that are not needed for Bazel itself, which avoids dependencies like truth.
@@ -311,6 +310,9 @@ EOF
   mkdir -p ${BAZEL_TOOLS_REPO}/platforms
   cp tools/platforms/BUILD.tools ${BAZEL_TOOLS_REPO}/platforms/BUILD
 
+  # Set up @maven properly
+  cp maven/BUILD.vendor maven/BUILD
+
   # Overwrite tools.WORKSPACE, this is only for the bootstrap binary
   chmod u+w "${OUTPUT_DIR}/classes/com/google/devtools/build/lib/bazel/rules/tools.WORKSPACE"
   cat <<EOF >${OUTPUT_DIR}/classes/com/google/devtools/build/lib/bazel/rules/tools.WORKSPACE
@@ -465,6 +467,7 @@ function run_bazel_jar() {
       --startup_time=329 --extract_data_time=523 \
       --rc_source=/dev/null --isatty=1 \
       --build_python_zip \
+      --override_repository=maven="$(get_cwd)/maven" \
       "${client_env[@]}" \
       --client_cwd="$(get_cwd)" \
       "${@}"

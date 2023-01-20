@@ -248,18 +248,17 @@ public final class AnalysisPhaseRunner {
               request.getViewOptions(),
               request.getKeepGoing(),
               request.getCheckForActionConflicts(),
-              request.getLoadingPhaseThreadCount(),
+              env.getQuiescingExecutors(),
               request.getTopLevelArtifactContext(),
               request.reportIncompatibleTargets(),
               env.getReporter(),
               env.getEventBus(),
               env.getRuntime().getBugReporter(),
-              /*includeExecutionPhase=*/ false,
-              /*mergedPhasesExecutionJobsCount=*/ 0,
-              /*resourceManager=*/ null,
-              /*buildResultListener=*/ null,
+              /* includeExecutionPhase= */ false,
+              /* resourceManager= */ null,
+              /* buildResultListener= */ null,
               /*executionSetupCallback*/ null,
-              /*buildConfigurationsCreatedCallback=*/ null);
+              /* buildConfigurationsCreatedCallback= */ null);
     } catch (BuildFailedException | TestExecException | AbruptExitException unexpected) {
       throw new IllegalStateException("Unexpected execution exception type: ", unexpected);
     }

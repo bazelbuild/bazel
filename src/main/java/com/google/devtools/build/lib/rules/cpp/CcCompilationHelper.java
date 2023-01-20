@@ -2009,7 +2009,7 @@ public final class CcCompilationHelper {
         }
       }
       if (dwoFile != null) {
-        // Host targets don't produce .dwo files.
+        // Exec configuration targets don't produce .dwo files.
         result.addPicDwoFile(dwoFile);
       }
       if (gcnoFile != null) {
@@ -2080,7 +2080,7 @@ public final class CcCompilationHelper {
         }
       }
       if (noPicDwoFile != null) {
-        // Host targets don't produce .dwo files.
+        // Exec configuration targets don't produce .dwo files.
         result.addDwoFile(noPicDwoFile);
       }
       if (gcnoFile != null) {

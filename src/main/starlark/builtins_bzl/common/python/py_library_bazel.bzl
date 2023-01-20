@@ -14,16 +14,19 @@
 """Implementation of py_library for Bazel."""
 
 load(
-    ":common/python/attributes.bzl",
-    "IMPORTS_ATTR",
+    ":common/python/attributes_bazel.bzl",
+    "IMPORTS_ATTRS",
 )
 load(
     ":common/python/common.bzl",
-    "collect_cc_info",
     "create_library_semantics_struct",
+    "union_attrs",
+)
+load(
+    ":common/python/common_bazel.bzl",
+    "collect_cc_info",
     "get_imports",
     "maybe_precompile",
-    "union_attrs",
 )
 load(
     ":common/python/py_library.bzl",
@@ -34,7 +37,7 @@ load(
 
 _BAZEL_LIBRARY_ATTRS = union_attrs(
     LIBRARY_ATTRS,
-    IMPORTS_ATTR,
+    IMPORTS_ATTRS,
 )
 
 def create_library_semantics_bazel():

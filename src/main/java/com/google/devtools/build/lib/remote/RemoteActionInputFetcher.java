@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.reactivex.rxjava3.core.Completable;
@@ -49,13 +51,15 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   private final RemoteCache remoteCache;
 
   RemoteActionInputFetcher(
+      Reporter reporter,
       String buildRequestId,
       String commandId,
       RemoteCache remoteCache,
       Path execRoot,
       TempPathGenerator tempPathGenerator,
-      ImmutableList<Pattern> patternsToDownload) {
-    super(execRoot, tempPathGenerator, patternsToDownload);
+      ImmutableList<Pattern> patternsToDownload,
+      OutputPermissions outputPermissions) {
+    super(reporter, execRoot, tempPathGenerator, patternsToDownload, outputPermissions);
     this.buildRequestId = Preconditions.checkNotNull(buildRequestId);
     this.commandId = Preconditions.checkNotNull(commandId);
     this.remoteCache = Preconditions.checkNotNull(remoteCache);

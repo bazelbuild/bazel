@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -92,6 +93,7 @@ final class ActionMetadataHandler implements MetadataHandler {
       ActionInputMap inputArtifactData,
       boolean forInputDiscovery,
       boolean archivedTreeArtifactsEnabled,
+      OutputPermissions outputPermissions,
       ImmutableSet<Artifact> outputs,
       XattrProvider xattrProvider,
       TimestampGranularityMonitor tsgm,
@@ -103,6 +105,7 @@ final class ActionMetadataHandler implements MetadataHandler {
         inputArtifactData,
         forInputDiscovery,
         archivedTreeArtifactsEnabled,
+        outputPermissions,
         outputs,
         xattrProvider,
         tsgm,
@@ -116,6 +119,7 @@ final class ActionMetadataHandler implements MetadataHandler {
   private final ActionInputMap inputArtifactData;
   private final boolean forInputDiscovery;
   private final boolean archivedTreeArtifactsEnabled;
+  private final OutputPermissions outputPermissions;
   private final ImmutableMap<PathFragment, FileArtifactValue> filesetMapping;
 
   private final Set<Artifact> omittedOutputs = Sets.newConcurrentHashSet();
@@ -134,6 +138,7 @@ final class ActionMetadataHandler implements MetadataHandler {
       ActionInputMap inputArtifactData,
       boolean forInputDiscovery,
       boolean archivedTreeArtifactsEnabled,
+      OutputPermissions outputPermissions,
       ImmutableSet<Artifact> outputs,
       XattrProvider xattrProvider,
       TimestampGranularityMonitor tsgm,
@@ -145,6 +150,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     this.inputArtifactData = checkNotNull(inputArtifactData);
     this.forInputDiscovery = forInputDiscovery;
     this.archivedTreeArtifactsEnabled = archivedTreeArtifactsEnabled;
+    this.outputPermissions = outputPermissions;
     this.outputs = checkNotNull(outputs);
     this.xattrProvider = xattrProvider;
     this.tsgm = checkNotNull(tsgm);
@@ -169,8 +175,9 @@ final class ActionMetadataHandler implements MetadataHandler {
   ActionMetadataHandler transformAfterInputDiscovery(OutputStore store) {
     return new ActionMetadataHandler(
         inputArtifactData,
-        /*forInputDiscovery=*/ false,
+        /* forInputDiscovery= */ false,
         archivedTreeArtifactsEnabled,
+        outputPermissions,
         outputs,
         xattrProvider,
         tsgm,
@@ -286,7 +293,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     // If necessary, we first call chmod the output file. The FileArtifactValue may use a
     // FileContentsProxy, which is based on ctime (affected by chmod).
     if (executionMode.get()) {
-      setPathReadOnlyAndExecutableIfFile(artifactPathResolver.toPath(artifact));
+      setPathPermissionsIfFile(artifactPathResolver.toPath(artifact));
     }
 
     value = constructFileArtifactValueFromFilesystem(artifact);
@@ -329,13 +336,13 @@ final class ActionMetadataHandler implements MetadataHandler {
     // initialized, so this should hold unless the action itself has deleted the root.
     if (!treeDir.isDirectory(Symlinks.FOLLOW)) {
       if (chmod) {
-        setPathReadOnlyAndExecutableIfFile(treeDir);
+        setPathPermissionsIfFile(treeDir);
       }
       return TreeArtifactValue.MISSING_TREE_ARTIFACT;
     }
 
     if (chmod) {
-      setPathReadOnlyAndExecutable(treeDir);
+      setPathPermissions(treeDir);
     }
 
     TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
@@ -344,7 +351,7 @@ final class ActionMetadataHandler implements MetadataHandler {
         treeDir,
         (parentRelativePath, type) -> {
           if (chmod && type != Dirent.Type.SYMLINK) {
-            setPathReadOnlyAndExecutable(treeDir.getRelative(parentRelativePath));
+            setPathPermissions(treeDir.getRelative(parentRelativePath));
           }
           if (type == Dirent.Type.DIRECTORY) {
             return; // The final TreeArtifactValue does not contain child directories.
@@ -673,13 +680,13 @@ final class ActionMetadataHandler implements MetadataHandler {
         fileStateValue.getDigest(), fileStateValue.getContentsProxy(), stat.getSize());
   }
 
-  private static void setPathReadOnlyAndExecutableIfFile(Path path) throws IOException {
+  private void setPathPermissionsIfFile(Path path) throws IOException {
     if (path.isFile(Symlinks.NOFOLLOW)) {
-      setPathReadOnlyAndExecutable(path);
+      setPathPermissions(path);
     }
   }
 
-  private static void setPathReadOnlyAndExecutable(Path path) throws IOException {
-    path.chmod(0555);
+  private void setPathPermissions(Path path) throws IOException {
+    path.chmod(outputPermissions.getPermissionsMode());
   }
 }

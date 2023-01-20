@@ -216,7 +216,8 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     for (TestSummary summary : summaries) {
       if (TestResult.isBlazeTestStatusPassed(summary.getStatus())) {
         stats.passCount++;
-      } else if (summary.getStatus() == BlazeTestStatus.NO_STATUS) {
+      } else if (summary.getStatus() == BlazeTestStatus.NO_STATUS
+          || summary.getStatus() == BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING) {
         stats.noStatusCount++;
       } else if (summary.getStatus() == BlazeTestStatus.FAILED_TO_BUILD) {
         stats.failedToBuildCount++;

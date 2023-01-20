@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -33,8 +32,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
-import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -108,7 +105,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -350,27 +346,13 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     Reporter reporter = new Reporter(commonReporter);
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     reporter.addHandler(storedEventHandler);
-    ExecutorService executorServiceForSkyframe =
-        AbstractQueueVisitor.createExecutorService(
-            skyframeThreads, "skyframe-threadpool-for-package-loader");
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            // Technically, the Skyframe codepath we use shuts down the executor it creates and uses
-            // (say, if we used #setNumThreads but not also #setExecutorServiceSupplier). Still,
-            // since this is brittle and not explicitly tested, we act defensively and provide our
-            // own executor that we explicitly shutdown ourselves.
-            .setExecutorServiceSupplier(Suppliers.ofInstance(executorServiceForSkyframe))
-            .setNumThreads(skyframeThreads)
+            .setParallelism(skyframeThreads)
             .setEventHandler(reporter)
             .build();
-    try {
-      return loadPackagesInternal(keys, evaluationContext, storedEventHandler);
-    } finally {
-      if (!executorServiceForSkyframe.isShutdown()) {
-        ExecutorUtil.uninterruptibleShutdownNow(executorServiceForSkyframe);
-      }
-    }
+    return loadPackagesInternal(keys, evaluationContext, storedEventHandler);
   }
 
   private Result loadPackagesInternal(

@@ -148,4 +148,4 @@ public class ConditionalEdges {
     }
     return conditions;
   }
-};
+}

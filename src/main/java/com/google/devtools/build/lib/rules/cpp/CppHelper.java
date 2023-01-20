@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
@@ -368,17 +367,11 @@ public class CppHelper {
 
   private static CcToolchainProvider getToolchainFromPlatformConstraints(
       RuleContext ruleContext, Label toolchainType) throws RuleErrorException {
-    ResolvedToolchainContext toolchainContext = ruleContext.getToolchainContext();
-    ToolchainInfo toolchainInfo = toolchainContext.forToolchainType(toolchainType);
+    ToolchainInfo toolchainInfo = ruleContext.getToolchainInfo(toolchainType);
     if (toolchainInfo == null) {
       throw ruleContext.throwWithRuleError(
-          String.format(
-              "Unable to find a CC toolchain using toolchain resolution"
-                  + " (target %s, target platform %s, exec platform %s)."
-                  + " Did you properly set --platforms?",
-              ruleContext.getLabel(),
-              toolchainContext.targetPlatform().label(),
-              toolchainContext.executionPlatform().label()));
+          "Unable to find a CC toolchain using toolchain resolution. Did you properly set"
+              + " --platforms?");
     }
     try {
       return (CcToolchainProvider) toolchainInfo.getValue("cc");

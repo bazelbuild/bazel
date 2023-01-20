@@ -34,8 +34,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.graph.Digraph;
-import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
@@ -61,7 +59,6 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.GeneratedFile;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
-import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -169,16 +166,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         createPostFactoStreamCallback(out, options, env.getMainRepoMapping()));
   }
 
-  private static Iterable<Target> getSortedLabels(Digraph<Target> result) {
-    return Iterables.transform(
-        result.getTopologicalOrder(new FormatUtils.TargetOrdering()), Node::getLabel);
-  }
-
-  @Override
-  protected Iterable<Target> getOrderedTargets(Digraph<Target> result, QueryOptions options) {
-    return options.orderOutput == OrderOutput.FULL ? getSortedLabels(result) : result.getLabels();
-  }
-
   /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
   public Build.Target toTargetProtoBuffer(Target target) throws InterruptedException {
     return toTargetProtoBuffer(target, /*extraDataForAttrHash=*/ "");
@@ -244,7 +231,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         }
         // Include explicit elements for all direct inputs and outputs of a rule; this goes beyond
         // what is available from the attributes above, since it may also (depending on options)
-        // include implicit outputs, host-configuration outputs, and default values.
+        // include implicit outputs, exec-configuration outputs, and default values.
         rule.getSortedLabels(dependencyFilter)
             .forEach(input -> rulePb.addRuleInput(input.toString()));
         rule.getOutputFiles().stream()

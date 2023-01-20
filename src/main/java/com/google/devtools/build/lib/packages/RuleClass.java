@@ -994,7 +994,7 @@ public class RuleClass {
 
     /**
      * Declares that the implementation of the associated rule class requires the given fragments to
-     * be present in this rule's host and target configurations.
+     * be present.
      *
      * <p>The value is inherited by subclasses.
      */

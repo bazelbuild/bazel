@@ -64,10 +64,9 @@ public class NoConfigTransition implements PatchTransition {
     // FragmentOptions and propagate them to this configuration. Those flags should also be
     // ineligible outputs for other transitions because they're not meant for rule logic.  That
     // would guarantee consistency of flags like --check_visibility while still preventing forking.
-    return BuildOptions.builder().addFragmentOptions(options.get(CoreOptions.class)).build();
-
-    // return BuildOptions
-    //  .getDefaultBuildOptionsForFragments(options.underlying().getFragmentClasses());
+    return BuildOptions.builder()
+        .addFragmentOptions(options.get(CoreOptions.class).getDefault())
+        .build();
   }
 
   /** Returns a {@link TransitionFactory} instance that generates the transition. */

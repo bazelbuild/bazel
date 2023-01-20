@@ -37,12 +37,13 @@ import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.zip.GZIPOutputStream;
@@ -90,7 +91,7 @@ public final class Profiler {
     final ProfilerTask type;
 
     private SlowTask(TaskData taskData) {
-      this.durationNanos = taskData.duration;
+      this.durationNanos = taskData.durationNanos;
       this.description = taskData.description;
       this.type = taskData.type;
     }
@@ -129,50 +130,40 @@ public final class Profiler {
   static class TaskData implements TraceData {
     final long threadId;
     final long startTimeNanos;
-    final int id;
     final ProfilerTask type;
-    final MnemonicData mnemonic;
     final String description;
 
-    long duration;
+    long durationNanos;
 
-    TaskData(
-        int id,
-        long startTimeNanos,
-        ProfilerTask eventType,
-        MnemonicData mnemonic,
-        String description) {
-      this.id = id;
+    TaskData(long startTimeNanos, long durationNanos, ProfilerTask eventType, String description) {
       this.threadId = Thread.currentThread().getId();
       this.startTimeNanos = startTimeNanos;
+      this.durationNanos = durationNanos;
       this.type = eventType;
-      this.mnemonic = mnemonic;
       this.description = Preconditions.checkNotNull(description);
     }
 
-    TaskData(int id, long startTimeNanos, ProfilerTask eventType, String description) {
-      this(id, startTimeNanos, eventType, MnemonicData.getEmptyMnemonic(), description);
+    TaskData(long startTimeNanos, ProfilerTask eventType, String description) {
+      this(startTimeNanos, /* durationNanos= */ -1, eventType, description);
     }
 
-    TaskData(long threadId, long startTimeNanos, long duration, String description) {
-      this.id = -1;
+    TaskData(long threadId, long startTimeNanos, long durationNanos, String description) {
       this.type = ProfilerTask.UNKNOWN;
-      this.mnemonic = MnemonicData.getEmptyMnemonic();
       this.threadId = threadId;
       this.startTimeNanos = startTimeNanos;
-      this.duration = duration;
+      this.durationNanos = durationNanos;
       this.description = description;
     }
 
     @Override
     public String toString() {
-      return "Thread " + threadId + ", task " + id + ", type " + type + ", " + description;
+      return "Thread " + threadId + ", type " + type + ", " + description;
     }
 
     @Override
     public void writeTraceData(JsonWriter jsonWriter, long profileStartTimeNanos)
         throws IOException {
-      String eventType = duration == 0 ? "i" : "X";
+      String eventType = durationNanos == 0 ? "i" : "X";
       jsonWriter.setIndent("  ");
       jsonWriter.beginObject();
       jsonWriter.setIndent("");
@@ -186,8 +177,8 @@ public final class Profiler {
       jsonWriter
           .name("ts")
           .value(TimeUnit.NANOSECONDS.toMicros(startTimeNanos - profileStartTimeNanos));
-      if (duration != 0) {
-        jsonWriter.name("dur").value(TimeUnit.NANOSECONDS.toMicros(duration));
+      if (durationNanos != 0) {
+        jsonWriter.name("dur").value(TimeUnit.NANOSECONDS.toMicros(durationNanos));
       }
       jsonWriter.name("pid").value(1);
 
@@ -197,19 +188,15 @@ public final class Profiler {
           // Primary outputs are non-mergeable, thus incompatible with slim profiles.
           jsonWriter.name("out").value(actionTaskData.primaryOutputPath);
         }
-        if (actionTaskData.targetLabel != null) {
+        if (actionTaskData.targetLabel != null || actionTaskData.mnemonic != null) {
           jsonWriter.name("args");
           jsonWriter.beginObject();
-          jsonWriter.name("target").value(actionTaskData.targetLabel);
-          if (mnemonic.hasBeenSet()) {
-            jsonWriter.name("mnemonic").value(mnemonic.getValueForJson());
+          if (actionTaskData.targetLabel != null) {
+            jsonWriter.name("target").value(actionTaskData.targetLabel);
           }
-          jsonWriter.endObject();
-        }
-        if (mnemonic.hasBeenSet()) {
-          jsonWriter.name("args");
-          jsonWriter.beginObject();
-          jsonWriter.name("mnemonic").value(mnemonic.getValueForJson());
+          if (actionTaskData.mnemonic != null) {
+            jsonWriter.name("mnemonic").value(actionTaskData.mnemonic);
+          }
           jsonWriter.endObject();
         }
       }
@@ -237,18 +224,20 @@ public final class Profiler {
   static final class ActionTaskData extends TaskData {
     @Nullable final String primaryOutputPath;
     @Nullable final String targetLabel;
+    @Nullable final String mnemonic;
 
     ActionTaskData(
-        int id,
         long startTimeNanos,
+        long durationNanos,
         ProfilerTask eventType,
-        MnemonicData mnemonic,
+        @Nullable String mnemonic,
         String description,
         @Nullable String primaryOutputPath,
         @Nullable String targetLabel) {
-      super(id, startTimeNanos, eventType, mnemonic, description);
+      super(startTimeNanos, durationNanos, eventType, description);
       this.primaryOutputPath = primaryOutputPath;
       this.targetLabel = targetLabel;
+      this.mnemonic = mnemonic;
     }
   }
 
@@ -292,7 +281,7 @@ public final class Profiler {
     }
 
     // @ThreadSafe
-    Iterable<SlowTask> getSlowestTasks() {
+    ImmutableList<SlowTask> getSlowestTasks() {
       // This is slow, but since it only happens during the end of the invocation, it's OK.
       Extrema<SlowTask> mergedExtrema = Extrema.max(SIZE);
       for (int i = 0; i < SHARDS; i++) {
@@ -307,27 +296,11 @@ public final class Profiler {
     }
   }
 
-  static final class CounterData extends TaskData {
-    private final double counterValue;
-
-    public CounterData(long timeNanos, ProfilerTask type, double counterValue) {
-      super(/* id= */ -1, timeNanos, type, String.valueOf(counterValue));
-      this.counterValue = counterValue;
-    }
-
-    public double getCounterValue() {
-      return counterValue;
-    }
-  }
-
   private Clock clock;
-  private ImmutableSet<ProfilerTask> profiledTasks;
+  private Set<ProfilerTask> profiledTasks;
   private volatile long profileStartTime;
   private volatile boolean recordAllDurations = false;
   private Duration profileCpuStartTime;
-
-  /** This counter provides a unique id for every task, used to provide a parent/child relation. */
-  private AtomicInteger taskId = new AtomicInteger();
 
   /**
    * The reference to the current writer, if any. If the referenced writer is null, then disk writes
@@ -471,7 +444,7 @@ public final class Profiler {
     Preconditions.checkState(!isActive(), "Profiler already active");
     initHistograms();
 
-    this.profiledTasks = profiledTasks;
+    this.profiledTasks = profiledTasks.isEmpty() ? profiledTasks : EnumSet.copyOf(profiledTasks);
     this.clock = clock;
     this.actionCountStartTime = Duration.ofNanos(clock.nanoTime());
     this.actionCountTimeSeries = new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
@@ -480,10 +453,8 @@ public final class Profiler {
     this.collectTaskHistograms = collectTaskHistograms;
     this.includePrimaryOutput = includePrimaryOutput;
     this.includeTargetLabel = includeTargetLabel;
-
-    // Reset state for the new profiling session.
-    taskId.set(0);
     this.recordAllDurations = recordAllDurations;
+
     JsonTraceFileWriter writer = null;
     if (stream != null && format != null) {
       switch (format) {
@@ -655,8 +626,8 @@ public final class Profiler {
       // #clear.
       JsonTraceFileWriter currentWriter = writerRef.get();
       if (wasTaskSlowEnoughToRecord(type, duration)) {
-        TaskData data = new TaskData(taskId.incrementAndGet(), startTimeNanos, type, description);
-        data.duration = duration;
+        TaskData data = new TaskData(startTimeNanos, type, description);
+        data.durationNanos = duration;
         if (currentWriter != null) {
           currentWriter.enqueue(data);
         }
@@ -729,13 +700,8 @@ public final class Profiler {
   }
 
   private SilentCloseable reallyProfile(ProfilerTask type, String description) {
-    // ProfilerInfo.allTasksById is supposed to be an id -> Task map, but it is in fact a List,
-    // which means that we cannot drop tasks to which we had already assigned ids. Therefore,
-    // non-leaf tasks must not have a minimum duration. However, we don't quite consistently
-    // enforce this, and Blaze only works because we happen not to add child tasks to those parent
-    // tasks that have a minimum duration.
-    TaskData taskData = new TaskData(taskId.incrementAndGet(), clock.nanoTime(), type, description);
-    return () -> completeTask(taskData);
+    final long startTimeNanos = clock.nanoTime();
+    return () -> completeTask(startTimeNanos, type, description);
   }
 
   /**
@@ -758,7 +724,6 @@ public final class Profiler {
    * @param description task description. May be stored until the end of the build.
    */
   public SilentCloseable profile(ProfilerTask type, String description) {
-    Preconditions.checkNotNull(description);
     return (isActive() && isProfiling(type)) ? reallyProfile(type, description) : NOP;
   }
 
@@ -767,9 +732,7 @@ public final class Profiler {
    * profiling.
    */
   public SilentCloseable profile(ProfilerTask type, Supplier<String> description) {
-    return (isActive() && isProfiling(type))
-        ? reallyProfile(type, Preconditions.checkNotNull(description.get()))
-        : NOP;
+    return (isActive() && isProfiling(type)) ? reallyProfile(type, description.get()) : NOP;
   }
 
   /**
@@ -808,16 +771,15 @@ public final class Profiler {
       String targetLabel) {
     Preconditions.checkNotNull(description);
     if (isActive() && isProfiling(type)) {
-      TaskData taskData =
-          new ActionTaskData(
-              taskId.incrementAndGet(),
-              clock.nanoTime(),
+      final long startTimeNanos = clock.nanoTime();
+      return () ->
+          completeAction(
+              startTimeNanos,
               type,
-              new MnemonicData(mnemonic),
               description,
+              mnemonic,
               includePrimaryOutput ? primaryOutput : null,
               includeTargetLabel ? targetLabel : null);
-      return () -> completeTask(taskData);
     } else {
       return NOP;
     }
@@ -825,7 +787,7 @@ public final class Profiler {
 
   public SilentCloseable profileAction(
       ProfilerTask type, String description, String primaryOutput, String targetLabel) {
-    return profileAction(type, null, description, primaryOutput, targetLabel);
+    return profileAction(type, /* mnemonic= */ null, description, primaryOutput, targetLabel);
   }
 
   private static final SilentCloseable NOP = () -> {};
@@ -836,33 +798,57 @@ public final class Profiler {
   }
 
   /** Records the end of the task. */
-  private void completeTask(TaskData data) {
+  private void completeTask(long startTimeNanos, ProfilerTask type, String description) {
     if (isActive()) {
-      long endTime = clock.nanoTime();
-      data.duration = endTime - data.startTimeNanos;
-      boolean shouldRecordTask = wasTaskSlowEnoughToRecord(data.type, data.duration);
-      JsonTraceFileWriter writer = writerRef.get();
+      long endTimeNanos = clock.nanoTime();
+      long duration = endTimeNanos - startTimeNanos;
+      boolean shouldRecordTask = wasTaskSlowEnoughToRecord(type, duration);
       if (shouldRecordTask) {
-        if (writer != null) {
-          writer.enqueue(data);
-        }
-        if (actionCountTimeSeries != null && countAction(data.type, data)) {
-          synchronized (this) {
-            actionCountTimeSeries.addRange(
-                Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTime));
-          }
-        }
-        if (actionCacheCountTimeSeries != null && data.type == ProfilerTask.ACTION_CHECK) {
-          synchronized (this) {
-            actionCacheCountTimeSeries.addRange(
-                Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTime));
-          }
-        }
-        SlowestTaskAggregator aggregator = slowestTasks[data.type.ordinal()];
-        if (aggregator != null) {
-          aggregator.add(data);
-        }
+        recordTask(new TaskData(startTimeNanos, duration, type, description));
       }
+    }
+  }
+
+  private void completeAction(
+      long startTimeNanos,
+      ProfilerTask type,
+      String description,
+      String mnemonic,
+      @Nullable String primaryOutput,
+      @Nullable String targetLabel) {
+    if (isActive()) {
+      long endTimeNanos = clock.nanoTime();
+      long duration = endTimeNanos - startTimeNanos;
+      boolean shouldRecordTask = wasTaskSlowEnoughToRecord(type, duration);
+      if (shouldRecordTask) {
+        recordTask(
+            new ActionTaskData(
+                startTimeNanos, duration, type, mnemonic, description, primaryOutput, targetLabel));
+      }
+    }
+  }
+
+  private void recordTask(TaskData data) {
+    JsonTraceFileWriter writer = writerRef.get();
+    if (writer != null) {
+      writer.enqueue(data);
+    }
+    long endTimeNanos = data.startTimeNanos + data.durationNanos;
+    if (actionCountTimeSeries != null && countAction(data.type, data)) {
+      synchronized (this) {
+        actionCountTimeSeries.addRange(
+            Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
+      }
+    }
+    if (actionCacheCountTimeSeries != null && data.type == ProfilerTask.ACTION_CHECK) {
+      synchronized (this) {
+        actionCacheCountTimeSeries.addRange(
+            Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
+      }
+    }
+    SlowestTaskAggregator aggregator = slowestTasks[data.type.ordinal()];
+    if (aggregator != null) {
+      aggregator.add(data);
     }
   }
 

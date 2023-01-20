@@ -78,7 +78,7 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
   }
 
   /**
-   * Tests that [for tool] tags are added to the progress messages of actions in the host
+   * Tests that [for tool] tags are added to the progress messages of actions in the exec
    * configuration, but not in the target configuration.
    */
   @Test

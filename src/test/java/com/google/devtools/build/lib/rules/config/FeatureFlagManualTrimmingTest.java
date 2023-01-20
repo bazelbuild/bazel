@@ -653,7 +653,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagInHostConfiguration_HasDefaultValue() throws Exception {
+  public void featureFlagInExecConfiguration_hasDefaultValue() throws Exception {
     scratch.file(
         "test/BUILD",
         "load(':host_transition.bzl', 'host_transition')",
@@ -690,7 +690,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagInHostConfiguration_HasNoTransitiveConfigEnforcement() throws Exception {
+  public void featureFlagInExecConfiguration_hasNoTransitiveConfigEnforcement() throws Exception {
     scratch.file(
         "test/BUILD",
         "load(':host_transition.bzl', 'host_transition')",
