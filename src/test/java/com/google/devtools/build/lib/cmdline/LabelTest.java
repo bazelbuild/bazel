@@ -29,9 +29,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link Label}.
- */
+/** Tests for {@link Label}. */
 @RunWith(JUnit4.class)
 public class LabelTest {
 
@@ -175,10 +173,7 @@ public class LabelTest {
     Label l2 = Label.parseCanonical("//foo/bar:baz");
     Label l3 = Label.parseCanonical("//foo/bar:quux");
 
-    new EqualsTester()
-        .addEqualityGroup(l1, l2)
-        .addEqualityGroup(l3)
-        .testEquals();
+    new EqualsTester().addEqualityGroup(l1, l2).addEqualityGroup(l3).testEquals();
   }
 
   @Test
@@ -225,6 +220,7 @@ public class LabelTest {
 
   /**
    * Asserts that creating a label throws a SyntaxException.
+   *
    * @param label the label to create.
    */
   private static void assertSyntaxError(String expectedError, String label) {
@@ -238,12 +234,9 @@ public class LabelTest {
 
   @Test
   public void testBadCharacters() throws Exception {
-    assertSyntaxError("target names may not contain ':'",
-                      "//foo:bar:baz");
-    assertSyntaxError("target names may not contain ':'",
-                      "//foo:bar:");
-    assertSyntaxError("target names may not contain ':'",
-                      "//foo/bar::");
+    assertSyntaxError("target names may not contain ':'", "//foo:bar:baz");
+    assertSyntaxError("target names may not contain ':'", "//foo:bar:");
+    assertSyntaxError("target names may not contain ':'", "//foo/bar::");
   }
 
   @Test
@@ -267,9 +260,9 @@ public class LabelTest {
     assertSyntaxError(INVALID_TARGET_NAME, "//foo:./bar/baz");
     // TODO(bazel-team): enable when we have removed the "Workaround" in Label
     // that rewrites broken Labels by removing the trailing '.'
-    //assertSyntaxError(INVALID_PACKAGE_NAME,
+    // assertSyntaxError(INVALID_PACKAGE_NAME,
     //                  "//foo:bar/baz/.");
-    //assertSyntaxError(INVALID_PACKAGE_NAME,
+    // assertSyntaxError(INVALID_PACKAGE_NAME,
     //                  "//foo:.");
   }
 
@@ -280,11 +273,9 @@ public class LabelTest {
 
   @Test
   public void testSomeOtherBadLabels() throws Exception {
-    assertSyntaxError("package names may not end with '/'",
-                      "//foo/:bar");
+    assertSyntaxError("package names may not end with '/'", "//foo/:bar");
     assertSyntaxError("package names may not start with '/'", "///p:foo");
-    assertSyntaxError("package names may not contain '//' path separators",
-                      "//a//b:foo");
+    assertSyntaxError("package names may not contain '//' path separators", "//a//b:foo");
   }
 
   @Test
@@ -305,24 +296,22 @@ public class LabelTest {
 
   @Test
   public void testDoubleSlashPathSeparator() throws Exception {
-    assertSyntaxError("package names may not contain '//' path separators",
-                      "//foo//bar:baz");
-    assertSyntaxError("target names may not contain '//' path separator",
-                      "//foo:bar//baz");
+    assertSyntaxError("package names may not contain '//' path separators", "//foo//bar:baz");
+    assertSyntaxError("target names may not contain '//' path separator", "//foo:bar//baz");
   }
 
   @Test
   public void testNonPrintableCharacters() throws Exception {
     assertSyntaxError(
-      "target names may not contain non-printable characters: '\\x02'",
-      "//foo:..\002bar");
+        "target names may not contain non-printable characters: '\\x02'", "//foo:..\002bar");
   }
 
   /** Make sure that control characters - such as CR - are escaped on output. */
   @Test
   public void testInvalidLineEndings() throws Exception {
-    assertSyntaxError("invalid target name '..bar\\r': "
-        + "target names may not end with carriage returns", "//foo:..bar\r");
+    assertSyntaxError(
+        "invalid target name '..bar\\r': " + "target names may not end with carriage returns",
+        "//foo:..bar\r");
   }
 
   @Test
@@ -389,6 +378,22 @@ public class LabelTest {
     assertThat(Label.parseCanonical("@foo//bar:baz").getWorkspaceName()).isEqualTo("foo");
     assertThat(Label.parseCanonical("//bar:baz").getWorkspaceName()).isEmpty();
     assertThat(Label.parseCanonical("@//bar:baz").getWorkspaceName()).isEmpty();
+  }
+
+  @Test
+  public void testUnambiguousCanonicalForm() throws Exception {
+    assertThat(Label.parseCanonical("//foo/bar:baz").getUnambiguousCanonicalForm())
+        .isEqualTo("@@//foo/bar:baz");
+    assertThat(Label.parseCanonical("@foo//bar:baz").getUnambiguousCanonicalForm())
+        .isEqualTo("@@foo//bar:baz");
+    assertThat(
+            Label.create(
+                    PackageIdentifier.create(
+                        RepositoryName.create("foo").toNonVisible(RepositoryName.create("bar")),
+                        PathFragment.create("baz")),
+                    "quux")
+                .getUnambiguousCanonicalForm())
+        .isEqualTo("@@[unknown repo 'foo' requested from @bar]//baz:quux");
   }
 
   @Test
