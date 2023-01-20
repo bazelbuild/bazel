@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
+import com.google.devtools.build.lib.metrics.TriStateDurationAccumulator.State;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.NetworkMetricsCollector;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -61,12 +62,57 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAccumulator;
 import java.util.stream.Stream;
+
+class TriStateDurationAccumulator {
+
+  enum State {
+    Empty,
+    Valid,
+    Invalid
+  }
+
+  private final State state;
+  private final Duration duration;
+  private TriStateDurationAccumulator(State state, Duration duration) {
+    this.state = state;
+    this.duration = duration;
+  }
+  private TriStateDurationAccumulator(State state) {
+    this.state = state;
+    this.duration = Duration.ZERO;
+  }
+
+  public TriStateDurationAccumulator plus(Duration duration) {
+    if (state == State.Invalid) {
+      return this;
+    }
+    if (duration != null) {
+      return new TriStateDurationAccumulator(State.Valid, getDuration().plus(duration));
+    } else {
+      return new TriStateDurationAccumulator(State.Invalid);
+    }
+  }
+
+  static public TriStateDurationAccumulator empty(){
+    return new TriStateDurationAccumulator(State.Empty);
+  }
+
+  public State getState() {
+    return state;
+  }
+
+  public Duration getDuration() {
+    return duration;
+  }
+}
 
 class MetricsCollector {
   private final CommandEnvironment env;
@@ -174,6 +220,16 @@ class MetricsCollector {
   @AllowConcurrentEvents
   public void actionResultReceived(ActionResultReceivedEvent event) {
     spawnStats.countActionResult(event.getActionResult());
+    ActionStats actionStats =
+        actionStatsMap.computeIfAbsent(event.getAction().getMnemonic(), ActionStats::new);
+    Optional<Duration> systemTime = event.getActionResult()
+        .cumulativeCommandExecutionSystemTime();
+    actionStats.systemTime.updateAndGet(t->t.plus(systemTime.orElse(null)));
+    Optional<Duration> userTime = event.getActionResult()
+        .cumulativeCommandExecutionUserTime();
+    if (userTime.isPresent()) {
+      actionStats.userTime.updateAndGet(t->t.plus(userTime.orElse(null)));
+    }
   }
 
   @SuppressWarnings("unused")
@@ -235,6 +291,33 @@ class MetricsCollector {
     return buildMetrics.build();
   }
 
+  private ActionData buildActionData(ActionStats actionStats) {
+    NanosToMillisSinceEpochConverter nanosToMillisSinceEpochConverter =
+        BlazeClock.createNanosToMillisSinceEpochConverter();
+    ActionData.Builder builder = ActionData.newBuilder()
+        .setMnemonic(actionStats.mnemonic)
+        .setFirstStartedMs(
+            nanosToMillisSinceEpochConverter.toEpochMillis(
+                actionStats.firstStarted.longValue()))
+        .setLastEndedMs(
+            nanosToMillisSinceEpochConverter.toEpochMillis(
+                actionStats.lastEnded.longValue()))
+        .setActionsExecuted(actionStats.numActions.get());
+    TriStateDurationAccumulator systemTime = actionStats.systemTime.get();
+    if (systemTime.getState() == State.Valid) {
+      builder.setSystemTime(com.google.protobuf.Duration.newBuilder()
+          .setSeconds(systemTime.getDuration().getSeconds())
+          .setNanos(systemTime.getDuration().getNano()));
+    }
+    TriStateDurationAccumulator userTime = actionStats.userTime.get();
+    if (userTime.getState() == State.Valid) {
+      builder.setUserTime(com.google.protobuf.Duration.newBuilder()
+          .setSeconds(userTime.getDuration().getSeconds())
+          .setNanos(userTime.getDuration().getNano()));
+    }
+    return builder.build();
+  }
+
   private static final int MAX_ACTION_DATA = 20;
 
   private ActionSummary finishActionSummary() {
@@ -250,16 +333,7 @@ class MetricsCollector {
     actionStatsStream.forEach(
         action ->
             actionSummary.addActionData(
-                ActionData.newBuilder()
-                    .setMnemonic(action.mnemonic)
-                    .setFirstStartedMs(
-                        nanosToMillisSinceEpochConverter.toEpochMillis(
-                            action.firstStarted.longValue()))
-                    .setLastEndedMs(
-                        nanosToMillisSinceEpochConverter.toEpochMillis(
-                            action.lastEnded.longValue()))
-                    .setActionsExecuted(action.numActions.get())
-                    .build()));
+                buildActionData(action)));
 
     ImmutableMap<String, Integer> spawnSummary = spawnStats.getSummary();
     actionSummary.setActionsExecuted(spawnSummary.getOrDefault("total", 0));
@@ -327,12 +401,16 @@ class MetricsCollector {
     final LongAccumulator lastEnded;
     final AtomicLong numActions;
     final String mnemonic;
+    final AtomicReference<TriStateDurationAccumulator> systemTime;
+    final AtomicReference<TriStateDurationAccumulator> userTime;
 
     ActionStats(String mnemonic) {
       this.mnemonic = mnemonic;
       firstStarted = new LongAccumulator(Math::min, Long.MAX_VALUE);
       lastEnded = new LongAccumulator(Math::max, 0);
       numActions = new AtomicLong();
+      systemTime = new AtomicReference<>(TriStateDurationAccumulator.empty());
+      userTime = new AtomicReference<>(TriStateDurationAccumulator.empty());
     }
   }
 }
