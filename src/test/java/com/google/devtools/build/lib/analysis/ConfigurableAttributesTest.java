@@ -152,7 +152,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
               (builder, env) ->
                   builder.add(
                       attr("dep", BuildType.LABEL)
-                          .value(Label.parseAbsoluteUnchecked("//foo:default"))
+                          .value(Label.parseCanonicalUnchecked("//foo:default"))
                           .allowedFileTypes(FileTypeSet.ANY_FILE)));
 
   private static final MockRule RULE_WITH_NO_PLATFORM =

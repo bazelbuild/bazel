@@ -198,7 +198,7 @@ final class LocationFunctionBuilder {
   private final Map<Label, Collection<Artifact>> labelMap = new HashMap<>();
 
   LocationFunctionBuilder(String rootLabel, boolean multiple) {
-    this.root = Label.parseAbsoluteUnchecked(rootLabel);
+    this.root = Label.parseCanonicalUnchecked(rootLabel);
     this.multiple = multiple;
   }
 
@@ -222,7 +222,7 @@ final class LocationFunctionBuilder {
   @CanIgnoreReturnValue
   public LocationFunctionBuilder add(String label, String... paths) {
     labelMap.put(
-        Label.parseAbsoluteUnchecked(label),
+        Label.parseCanonicalUnchecked(label),
         Arrays.stream(paths)
             .map(LocationFunctionBuilder::makeArtifact)
             .collect(Collectors.toList()));

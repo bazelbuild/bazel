@@ -159,7 +159,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     Map<Label, Object> starlarkOptions =
         getConfiguration(getConfiguredTarget("//test:arizona")).getOptions().getStarlarkOptions();
     assertThat(starlarkOptions).hasSize(1);
-    assertThat(starlarkOptions.get(Label.parseAbsoluteUnchecked("//test:formation")))
+    assertThat(starlarkOptions.get(Label.parseCanonicalUnchecked("//test:formation")))
         .isEqualTo("canyon-transitioned");
   }
 
@@ -207,7 +207,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
             getConfiguration(getConfiguredTarget("//test:foo"))
                 .getOptions()
                 .getStarlarkOptions()
-                .get(Label.parseAbsoluteUnchecked("//options:fruit")))
+                .get(Label.parseCanonicalUnchecked("//options:fruit")))
         .isEqualTo("apple-eaten");
 
     scratch.overwriteFile(
@@ -219,7 +219,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
             getConfiguration(getConfiguredTarget("//test:foo"))
                 .getOptions()
                 .getStarlarkOptions()
-                .get(Label.parseAbsoluteUnchecked("//options:fruit")))
+                .get(Label.parseCanonicalUnchecked("//options:fruit")))
         .isEqualTo("orange-eaten");
   }
 
@@ -237,7 +237,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
 
     assertThat(
             getConfiguration(getConfiguredTarget("//test:foo")).getOptions().getStarlarkOptions())
-        .containsExactly(Label.parseAbsoluteUnchecked("//options:usually_apple"), "apple-eaten");
+        .containsExactly(Label.parseCanonicalUnchecked("//options:usually_apple"), "apple-eaten");
 
     scratch.overwriteFile(
         "options/BUILD",
@@ -249,6 +249,6 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
 
     assertThat(
             getConfiguration(getConfiguredTarget("//test:foo")).getOptions().getStarlarkOptions())
-        .containsExactly(Label.parseAbsoluteUnchecked("//options:usually_orange"), "orange-eaten");
+        .containsExactly(Label.parseCanonicalUnchecked("//options:usually_orange"), "orange-eaten");
   }
 }

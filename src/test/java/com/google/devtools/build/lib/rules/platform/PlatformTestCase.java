@@ -58,7 +58,7 @@ public class PlatformTestCase extends BuildViewTestCase {
     private String defaultConstraintValue = null;
 
     public ConstraintBuilder(String name) {
-      this.label = Label.parseAbsoluteUnchecked(name);
+      this.label = Label.parseCanonicalUnchecked(name);
     }
 
     @CanIgnoreReturnValue
@@ -111,12 +111,12 @@ public class PlatformTestCase extends BuildViewTestCase {
     private ImmutableMap<String, String> execProperties;
 
     public PlatformBuilder(String name) {
-      this.label = Label.parseAbsoluteUnchecked(name);
+      this.label = Label.parseCanonicalUnchecked(name);
     }
 
     @CanIgnoreReturnValue
     public PlatformBuilder setParent(String parentLabel) {
-      this.parentLabel = Label.parseAbsoluteUnchecked(parentLabel);
+      this.parentLabel = Label.parseCanonicalUnchecked(parentLabel);
       return this;
     }
 

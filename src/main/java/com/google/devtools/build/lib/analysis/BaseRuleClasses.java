@@ -285,7 +285,7 @@ public class BaseRuleClasses {
     if (testRuntimeLabelList == null) {
       testRuntimeLabelList =
           ImmutableList.of(
-              Label.parseAbsoluteUnchecked(
+              Label.parseCanonicalUnchecked(
                   env.getToolsRepository() + TOOLS_TEST_RUNTIME_TARGET_PATTERN));
     }
     return testRuntimeLabelList;

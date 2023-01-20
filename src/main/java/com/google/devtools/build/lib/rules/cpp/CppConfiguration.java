@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.cpp.CcModule.isBuiltIn;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -206,7 +205,7 @@ public final class CppConfiguration extends Fragment
     if (cppOptions.getFdoOptimize() != null) {
       if (cppOptions.getFdoOptimize().startsWith("//")) {
         try {
-          fdoProfileLabel = Label.parseAbsolute(cppOptions.getFdoOptimize(), ImmutableMap.of());
+          fdoProfileLabel = Label.parseCanonical(cppOptions.getFdoOptimize());
         } catch (LabelSyntaxException e) {
           throw new InvalidConfigurationException(e);
         }

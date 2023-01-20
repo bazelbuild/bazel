@@ -64,20 +64,20 @@ public class PackageTest {
   @Test
   public void testBuildPartialPopulatesImplicitTestSuiteIgnoresManualTests() throws Exception {
     Package.Builder pkgBuilder = pkgBuilder("test_pkg");
-    Label testLabel = Label.parseAbsoluteUnchecked("//test_pkg:my_test");
+    Label testLabel = Label.parseCanonicalUnchecked("//test_pkg:my_test");
     addRule(pkgBuilder, testLabel, FAUX_TEST_CLASS);
 
-    Label manualTestLabel = Label.parseAbsoluteUnchecked("//test_pkg:my_manual_test");
+    Label manualTestLabel = Label.parseCanonicalUnchecked("//test_pkg:my_manual_test");
     Rule tag2Rule = addRule(pkgBuilder, manualTestLabel, FAUX_TEST_CLASS);
     tag2Rule.setAttributeValue(
         FAUX_TEST_CLASS.getAttributeByName("tags"), ImmutableList.of("manual"), /*explicit=*/ true);
 
-    Label taggedTestLabel = Label.parseAbsoluteUnchecked("//test_pkg:my_tagged_test");
+    Label taggedTestLabel = Label.parseCanonicalUnchecked("//test_pkg:my_tagged_test");
     Rule taggedTestRule = addRule(pkgBuilder, taggedTestLabel, FAUX_TEST_CLASS);
     taggedTestRule.setAttributeValue(
         FAUX_TEST_CLASS.getAttributeByName("tags"), ImmutableList.of("tag1"), /*explicit=*/ true);
 
-    Label taggedManualTestLabel = Label.parseAbsoluteUnchecked("//test_pkg:my_tagged_manual_test");
+    Label taggedManualTestLabel = Label.parseCanonicalUnchecked("//test_pkg:my_tagged_manual_test");
     Rule taggedManualTestRule = addRule(pkgBuilder, taggedManualTestLabel, FAUX_TEST_CLASS);
     taggedManualTestRule.setAttributeValue(
         FAUX_TEST_CLASS.getAttributeByName("tags"),
@@ -97,12 +97,12 @@ public class PackageTest {
   public void testBuildPartialPopulatesImplicitTestSuiteValueOnlyForRequestedTags()
       throws Exception {
     Package.Builder pkgBuilder = pkgBuilder("test_pkg");
-    Label tag1Label = Label.parseAbsoluteUnchecked("//test_pkg:my_test_tag_1");
+    Label tag1Label = Label.parseCanonicalUnchecked("//test_pkg:my_test_tag_1");
     Rule tag1Rule = addRule(pkgBuilder, tag1Label, FAUX_TEST_CLASS);
     tag1Rule.setAttributeValue(
         FAUX_TEST_CLASS.getAttributeByName("tags"), ImmutableList.of("tag1"), /*explicit=*/ true);
 
-    Label tag2Label = Label.parseAbsoluteUnchecked("//test_pkg:my_test_tag_2");
+    Label tag2Label = Label.parseCanonicalUnchecked("//test_pkg:my_test_tag_2");
     Rule tag2Rule = addRule(pkgBuilder, tag2Label, FAUX_TEST_CLASS);
     tag2Rule.setAttributeValue(
         FAUX_TEST_CLASS.getAttributeByName("tags"), ImmutableList.of("tag2"), /*explicit=*/ true);
@@ -122,12 +122,12 @@ public class PackageTest {
   @Test
   public void testBuildPartialPopulatesImplicitTestSuitesMatchingTags() throws Exception {
     Package.Builder pkgBuilder = pkgBuilder("test_pkg");
-    Label matchingLabel = Label.parseAbsoluteUnchecked("//test_pkg:matching");
+    Label matchingLabel = Label.parseCanonicalUnchecked("//test_pkg:matching");
     Rule matchingRule = addRule(pkgBuilder, matchingLabel, FAUX_TEST_CLASS);
     matchingRule.setAttributeValue(
         FAUX_TEST_CLASS.getAttributeByName("tags"), ImmutableList.of("tag1"), /*explicit=*/ true);
 
-    Label excludedLabel = Label.parseAbsoluteUnchecked("//test_pkg:excluded");
+    Label excludedLabel = Label.parseCanonicalUnchecked("//test_pkg:excluded");
     Rule excludedRule = addRule(pkgBuilder, excludedLabel, FAUX_TEST_CLASS);
     excludedRule.setAttributeValue(
         FAUX_TEST_CLASS.getAttributeByName("tags"),
@@ -143,7 +143,7 @@ public class PackageTest {
   @Test
   public void testBuildPartialPopulatesImplicitTestSuiteValueIdempotently() throws Exception {
     Package.Builder pkgBuilder = pkgBuilder("test_pkg");
-    Label testLabel = Label.parseAbsoluteUnchecked("//test_pkg:my_test");
+    Label testLabel = Label.parseCanonicalUnchecked("//test_pkg:my_test");
     addRule(pkgBuilder, testLabel, FAUX_TEST_CLASS);
 
     // Ensure targets are accumulated.

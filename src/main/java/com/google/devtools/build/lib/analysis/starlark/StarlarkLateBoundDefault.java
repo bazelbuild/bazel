@@ -72,9 +72,10 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
     if (annotation.defaultLabel().isEmpty()) {
       return null;
     }
-    Label defaultLabel = annotation.defaultInToolRepository()
-        ? Label.parseAbsoluteUnchecked(toolsRepository + annotation.defaultLabel())
-        : Label.parseAbsoluteUnchecked(annotation.defaultLabel());
+    Label defaultLabel =
+        annotation.defaultInToolRepository()
+            ? Label.parseCanonicalUnchecked(toolsRepository + annotation.defaultLabel())
+            : Label.parseCanonicalUnchecked(annotation.defaultLabel());
     return defaultLabel;
   }
 

@@ -1442,7 +1442,7 @@ public final class CcCompilationHelper {
 
     if (shouldProvideHeaderModules()) {
       CppModuleMap cppModuleMap = ccCompilationContext.getCppModuleMap();
-      Label moduleMapLabel = Label.parseAbsoluteUnchecked(cppModuleMap.getName());
+      Label moduleMapLabel = Label.parseCanonicalUnchecked(cppModuleMap.getName());
       Collection<Artifact> modules = createModuleAction(result, cppModuleMap);
       Collection<Artifact> separateModules = ImmutableList.of();
       if (!separateModuleHeaders.isEmpty()) {
@@ -1915,7 +1915,7 @@ public final class CcCompilationHelper {
     CppCompileActionBuilder builder = initializeCompileAction(moduleMapArtifact);
 
     builder.setSemantics(semantics);
-    Label label = Label.parseAbsoluteUnchecked(cppModuleMap.getName());
+    Label label = Label.parseCanonicalUnchecked(cppModuleMap.getName());
 
     // A header module compile action is just like a normal compile action, but:
     // - the compiled source file is the module map

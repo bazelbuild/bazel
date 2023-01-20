@@ -71,12 +71,12 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
   public void testPlatformLookup() throws Exception {
     ConfiguredTargetKey linuxKey =
         ConfiguredTargetKey.builder()
-            .setLabel(Label.parseAbsoluteUnchecked("//platforms:linux"))
+            .setLabel(Label.parseCanonicalUnchecked("//platforms:linux"))
             .setConfigurationKey(targetConfigKey)
             .build();
     ConfiguredTargetKey macKey =
         ConfiguredTargetKey.builder()
-            .setLabel(Label.parseAbsoluteUnchecked("//platforms:mac"))
+            .setLabel(Label.parseCanonicalUnchecked("//platforms:mac"))
             .setConfigurationKey(targetConfigKey)
             .build();
     GetPlatformInfoKey key = GetPlatformInfoKey.create(ImmutableList.of(linuxKey, macKey));
@@ -98,7 +98,7 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
 
     ConfiguredTargetKey targetKey =
         ConfiguredTargetKey.builder()
-            .setLabel(Label.parseAbsoluteUnchecked("//invalid:not_a_platform"))
+            .setLabel(Label.parseCanonicalUnchecked("//invalid:not_a_platform"))
             .setConfigurationKey(targetConfigKey)
             .build();
     GetPlatformInfoKey key = GetPlatformInfoKey.create(ImmutableList.of(targetKey));
@@ -121,7 +121,7 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
   public void testPlatformLookup_targetDoesNotExist() throws Exception {
     ConfiguredTargetKey targetKey =
         ConfiguredTargetKey.builder()
-            .setLabel(Label.parseAbsoluteUnchecked("//fake:missing"))
+            .setLabel(Label.parseCanonicalUnchecked("//fake:missing"))
             .setConfigurationKey(targetConfigKey)
             .build();
     GetPlatformInfoKey key = GetPlatformInfoKey.create(ImmutableList.of(targetKey));

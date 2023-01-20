@@ -203,7 +203,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         "baz");
     scratch.appendFile("toolchain/BUILD", "toolchain_type(name = 'extra_optional_toolchain')");
     Label extraOptionalToolchainTypeLabel =
-        Label.parseAbsoluteUnchecked("//toolchain:extra_optional_toolchain");
+        Label.parseCanonicalUnchecked("//toolchain:extra_optional_toolchain");
     ToolchainTypeRequirement extraOptionalToolchainType =
         ToolchainTypeRequirement.builder(extraOptionalToolchainTypeLabel).mandatory(false).build();
     rewriteWorkspace(
@@ -231,7 +231,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
   @Test
   public void resolve_multiple() throws Exception {
-    Label secondToolchainTypeLabel = Label.parseAbsoluteUnchecked("//second:toolchain_type");
+    Label secondToolchainTypeLabel = Label.parseCanonicalUnchecked("//second:toolchain_type");
     ToolchainTypeRequirement secondToolchainTypeRequirement =
         ToolchainTypeRequirement.create(secondToolchainTypeLabel);
     ToolchainTypeInfo secondToolchainTypeInfo = ToolchainTypeInfo.create(secondToolchainTypeLabel);
@@ -295,7 +295,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
   @Test
   public void resolve_multiple_optional() throws Exception {
-    Label secondToolchainTypeLabel = Label.parseAbsoluteUnchecked("//second:toolchain_type");
+    Label secondToolchainTypeLabel = Label.parseCanonicalUnchecked("//second:toolchain_type");
     ToolchainTypeRequirement secondToolchainTypeRequirement =
         ToolchainTypeRequirement.builder(secondToolchainTypeLabel).mandatory(false).build();
     ToolchainTypeInfo secondToolchainTypeInfo = ToolchainTypeInfo.create(secondToolchainTypeLabel);
@@ -340,7 +340,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
   @Test
   public void resolve_multiple_optional_missing() throws Exception {
-    Label secondToolchainTypeLabel = Label.parseAbsoluteUnchecked("//second:toolchain_type");
+    Label secondToolchainTypeLabel = Label.parseCanonicalUnchecked("//second:toolchain_type");
     ToolchainTypeRequirement secondToolchainTypeRequirement =
         ToolchainTypeRequirement.builder(secondToolchainTypeLabel).mandatory(false).build();
     ToolchainTypeInfo secondToolchainTypeInfo = ToolchainTypeInfo.create(secondToolchainTypeLabel);
@@ -373,7 +373,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThat(unloadedToolchainContext).hasToolchainType(secondToolchainTypeLabel);
     assertThat(unloadedToolchainContext)
         .resolvedToolchainLabels()
-        .doesNotContain(Label.parseAbsoluteUnchecked("//main:second_toolchain_linux_impl"));
+        .doesNotContain(Label.parseCanonicalUnchecked("//main:second_toolchain_linux_impl"));
     assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux");
     assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
   }
@@ -391,7 +391,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         "register_execution_platforms('//platforms:linux')");
 
     // Set up an alias for the toolchain type.
-    Label aliasedToolchainTypeLabel = Label.parseAbsoluteUnchecked("//alias:toolchain_type");
+    Label aliasedToolchainTypeLabel = Label.parseCanonicalUnchecked("//alias:toolchain_type");
     scratch.file(
         "alias/BUILD", "alias(name = 'toolchain_type', actual = '//toolchain:test_toolchain')");
 
@@ -456,7 +456,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .execConstraintLabels(Label.parseAbsoluteUnchecked("//sample:demo_b"))
+            .execConstraintLabels(Label.parseCanonicalUnchecked("//sample:demo_b"))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -481,7 +481,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
             .toolchainTypes(
                 testToolchainType,
                 ToolchainTypeRequirement.create(
-                    Label.parseAbsoluteUnchecked("//fake/toolchain:type_1")))
+                    Label.parseCanonicalUnchecked("//fake/toolchain:type_1")))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -527,9 +527,9 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
             .toolchainTypes(
                 testToolchainType,
                 ToolchainTypeRequirement.create(
-                    Label.parseAbsoluteUnchecked("//fake/toolchain:type_1")),
+                    Label.parseCanonicalUnchecked("//fake/toolchain:type_1")),
                 ToolchainTypeRequirement.create(
-                    Label.parseAbsoluteUnchecked("//fake/toolchain:type_2")))
+                    Label.parseCanonicalUnchecked("//fake/toolchain:type_2")))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -665,7 +665,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
             .toolchainTypes(testToolchainType)
-            .execConstraintLabels(Label.parseAbsoluteUnchecked("//constraints:linux"))
+            .execConstraintLabels(Label.parseCanonicalUnchecked("//constraints:linux"))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -686,7 +686,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
             .toolchainTypes(testToolchainType)
-            .execConstraintLabels(Label.parseAbsoluteUnchecked("//platforms:linux"))
+            .execConstraintLabels(Label.parseCanonicalUnchecked("//platforms:linux"))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -739,9 +739,9 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
             .configurationKey(targetConfigKey)
             .toolchainTypes(
                 ToolchainTypeRequirement.create(
-                    Label.parseAbsoluteUnchecked("//a:toolchain_type_A")),
+                    Label.parseCanonicalUnchecked("//a:toolchain_type_A")),
                 ToolchainTypeRequirement.create(
-                    Label.parseAbsoluteUnchecked("//b:toolchain_type_B")))
+                    Label.parseCanonicalUnchecked("//b:toolchain_type_B")))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -775,7 +775,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
             .toolchainTypes(testToolchainType)
-            .forceExecutionPlatform(Label.parseAbsoluteUnchecked("//platforms:linux"))
+            .forceExecutionPlatform(Label.parseCanonicalUnchecked("//platforms:linux"))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -800,7 +800,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .forceExecutionPlatform(Label.parseAbsoluteUnchecked("//platforms:linux"))
+            .forceExecutionPlatform(Label.parseCanonicalUnchecked("//platforms:linux"))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);

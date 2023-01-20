@@ -3774,7 +3774,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         ")");
     ConfiguredTarget ct = getConfiguredTarget("//java/com/foo:foo");
     assertThat(ct.getProvider(RequiredConfigFragmentsProvider.class).getStarlarkOptions())
-        .containsExactly(Label.parseAbsoluteUnchecked("//java/com/foo:flag1"));
+        .containsExactly(Label.parseCanonicalUnchecked("//java/com/foo:flag1"));
   }
 
   @Test

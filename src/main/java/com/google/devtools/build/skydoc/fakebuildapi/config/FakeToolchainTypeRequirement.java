@@ -22,7 +22,7 @@ public class FakeToolchainTypeRequirement implements StarlarkToolchainTypeRequir
 
   @Override
   public Label toolchainType() {
-    return Label.parseAbsoluteUnchecked("//fake");
+    return Label.parseCanonicalUnchecked("//fake");
   }
 
   @Override

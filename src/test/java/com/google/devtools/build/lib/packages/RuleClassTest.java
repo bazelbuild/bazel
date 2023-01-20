@@ -1304,8 +1304,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("tags", STRING_LIST));
 
-    Label toolchain = Label.parseAbsoluteUnchecked("//toolchain");
-    Label constraint = Label.parseAbsoluteUnchecked("//constraint");
+    Label toolchain = Label.parseCanonicalUnchecked("//toolchain");
+    Label constraint = Label.parseCanonicalUnchecked("//constraint");
 
     // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
     ruleClassBuilder.addExecGroups(

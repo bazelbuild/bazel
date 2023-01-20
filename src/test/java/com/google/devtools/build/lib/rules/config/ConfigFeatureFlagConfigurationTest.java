@@ -32,7 +32,7 @@ import org.junit.runners.JUnit4;
 public final class ConfigFeatureFlagConfigurationTest {
   @Test
   public void getFeatureFlagValue_returnsValueOfFlagWhenRequestingSetFlag() throws Exception {
-    Label ruleLabel = Label.parseAbsoluteUnchecked("//a:a");
+    Label ruleLabel = Label.parseCanonicalUnchecked("//a:a");
     Optional<String> flagValue =
         getConfigurationWithFlags(ImmutableMap.of(ruleLabel, "valued"))
             .getFeatureFlagValue(new LabelArtifactOwner(ruleLabel));
@@ -44,8 +44,8 @@ public final class ConfigFeatureFlagConfigurationTest {
   public void getFeatureFlagValue_returnsEmptyOptionalWhenRequestingFlagNotInInput()
       throws Exception {
     Optional<String> flagValue =
-        getConfigurationWithFlags(ImmutableMap.of(Label.parseAbsoluteUnchecked("//a:a"), "valued"))
-            .getFeatureFlagValue(new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//b:b")));
+        getConfigurationWithFlags(ImmutableMap.of(Label.parseCanonicalUnchecked("//a:a"), "valued"))
+            .getFeatureFlagValue(new LabelArtifactOwner(Label.parseCanonicalUnchecked("//b:b")));
     assertThat(flagValue).isEmpty();
   }
 
@@ -57,7 +57,7 @@ public final class ConfigFeatureFlagConfigurationTest {
   @Test
   public void getOutputDirectoryName_returnsNonNullWhenFlagMapIsNonEmpty() throws Exception {
     assertThat(
-            getConfigurationWithFlags(ImmutableMap.of(Label.parseAbsoluteUnchecked("//a:a"), "ok"))
+            getConfigurationWithFlags(ImmutableMap.of(Label.parseCanonicalUnchecked("//a:a"), "ok"))
                 .getOutputDirectoryName())
         .isNotNull();
   }
@@ -67,12 +67,12 @@ public final class ConfigFeatureFlagConfigurationTest {
       throws Exception {
     Map<Label, String> firstOrder =
         ImmutableMap.of(
-            Label.parseAbsoluteUnchecked("//b:b"), "first",
-            Label.parseAbsoluteUnchecked("//a:a"), "second");
+            Label.parseCanonicalUnchecked("//b:b"), "first",
+            Label.parseCanonicalUnchecked("//a:a"), "second");
     Map<Label, String> reverseOrder =
         ImmutableMap.of(
-            Label.parseAbsoluteUnchecked("//a:a"), "second",
-            Label.parseAbsoluteUnchecked("//b:b"), "first");
+            Label.parseCanonicalUnchecked("//a:a"), "second",
+            Label.parseCanonicalUnchecked("//b:b"), "first");
     assertThat(getConfigurationWithFlags(reverseOrder).getOutputDirectoryName())
         .isEqualTo(getConfigurationWithFlags(firstOrder).getOutputDirectoryName());
   }
@@ -81,12 +81,12 @@ public final class ConfigFeatureFlagConfigurationTest {
   public void getOutputDirectoryName_returnsDifferentValueForDifferentFlags() throws Exception {
     Map<Label, String> someFlags =
         ImmutableMap.of(
-            Label.parseAbsoluteUnchecked("//a:a"), "first",
-            Label.parseAbsoluteUnchecked("//b:b"), "second");
+            Label.parseCanonicalUnchecked("//a:a"), "first",
+            Label.parseCanonicalUnchecked("//b:b"), "second");
     Map<Label, String> otherFlags =
         ImmutableMap.of(
-            Label.parseAbsoluteUnchecked("//c:c"), "first",
-            Label.parseAbsoluteUnchecked("//d:d"), "second");
+            Label.parseCanonicalUnchecked("//c:c"), "first",
+            Label.parseCanonicalUnchecked("//d:d"), "second");
     assertThat(getConfigurationWithFlags(otherFlags).getOutputDirectoryName())
         .isNotEqualTo(getConfigurationWithFlags(someFlags).getOutputDirectoryName());
   }
@@ -95,12 +95,12 @@ public final class ConfigFeatureFlagConfigurationTest {
   public void getOutputDirectoryName_returnsDifferentValueForDifferentValues() throws Exception {
     Map<Label, String> someFlags =
         ImmutableMap.of(
-            Label.parseAbsoluteUnchecked("//a:a"), "first",
-            Label.parseAbsoluteUnchecked("//b:b"), "second");
+            Label.parseCanonicalUnchecked("//a:a"), "first",
+            Label.parseCanonicalUnchecked("//b:b"), "second");
     Map<Label, String> otherFlags =
         ImmutableMap.of(
-            Label.parseAbsoluteUnchecked("//a:a"), "worst",
-            Label.parseAbsoluteUnchecked("//b:b"), "heckin");
+            Label.parseCanonicalUnchecked("//a:a"), "worst",
+            Label.parseCanonicalUnchecked("//b:b"), "heckin");
     assertThat(getConfigurationWithFlags(otherFlags).getOutputDirectoryName())
         .isNotEqualTo(getConfigurationWithFlags(someFlags).getOutputDirectoryName());
   }
@@ -109,12 +109,12 @@ public final class ConfigFeatureFlagConfigurationTest {
   public void getOutputDirectoryName_differentiatesLabelAndValue() throws Exception {
     Map<Label, String> someFlags =
         ImmutableMap.of(
-            Label.parseAbsoluteUnchecked("//a:a"), "firestarter",
-            Label.parseAbsoluteUnchecked("//b:b"), "second");
+            Label.parseCanonicalUnchecked("//a:a"), "firestarter",
+            Label.parseCanonicalUnchecked("//b:b"), "second");
     Map<Label, String> otherFlags =
         ImmutableMap.of(
-            Label.parseAbsoluteUnchecked("//a:afire"), "starter",
-            Label.parseAbsoluteUnchecked("//b:b"), "second");
+            Label.parseCanonicalUnchecked("//a:afire"), "starter",
+            Label.parseCanonicalUnchecked("//b:b"), "second");
     assertThat(getConfigurationWithFlags(otherFlags).getOutputDirectoryName())
         .isNotEqualTo(getConfigurationWithFlags(someFlags).getOutputDirectoryName());
   }
@@ -122,11 +122,11 @@ public final class ConfigFeatureFlagConfigurationTest {
   @Test
   public void getOutputDirectoryName_returnsDifferentValueForSubsetOfFlagValuePairs()
       throws Exception {
-    Map<Label, String> someFlags = ImmutableMap.of(Label.parseAbsoluteUnchecked("//a:a"), "first");
+    Map<Label, String> someFlags = ImmutableMap.of(Label.parseCanonicalUnchecked("//a:a"), "first");
     Map<Label, String> moreFlags =
         ImmutableMap.of(
-            Label.parseAbsoluteUnchecked("//a:a"), "first",
-            Label.parseAbsoluteUnchecked("//b:b"), "second");
+            Label.parseCanonicalUnchecked("//a:a"), "first",
+            Label.parseCanonicalUnchecked("//b:b"), "second");
     assertThat(getConfigurationWithFlags(moreFlags).getOutputDirectoryName())
         .isNotEqualTo(getConfigurationWithFlags(someFlags).getOutputDirectoryName());
   }

@@ -132,7 +132,7 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
       RepositoryName toolsRepository) {
     return LabelLateBoundDefault.fromTargetConfiguration(
         AppleConfiguration.class,
-        Label.parseAbsoluteUnchecked(
+        Label.parseCanonicalUnchecked(
             toolsRepository + AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL),
         (Attribute.LateBoundDefault.Resolver<AppleConfiguration, Label> & Serializable)
             (rule, attributes, appleConfig) -> appleConfig.getXcodeConfigLabel());

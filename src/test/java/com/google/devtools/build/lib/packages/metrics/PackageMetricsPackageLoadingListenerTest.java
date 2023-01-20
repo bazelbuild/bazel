@@ -220,34 +220,34 @@ public class PackageMetricsPackageLoadingListenerTest {
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
             "my/pkg1",
-            /*targets=*/ ImmutableMap.of(),
-            ImmutableList.of(Label.parseAbsoluteUnchecked("//load:1.bzl"))),
+            /* targets= */ ImmutableMap.of(),
+            ImmutableList.of(Label.parseCanonicalUnchecked("//load:1.bzl"))),
         StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 100,
-        /*packageOverhead=*/ OptionalLong.empty());
+        /* loadTimeNanos= */ 100,
+        /* packageOverhead= */ OptionalLong.empty());
 
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
             "my/pkg2",
-            /*targets=*/ ImmutableMap.of(),
+            /* targets= */ ImmutableMap.of(),
             ImmutableList.of(
-                Label.parseAbsoluteUnchecked("//load:1.bzl"),
-                Label.parseAbsoluteUnchecked("//load:2.bzl"))),
+                Label.parseCanonicalUnchecked("//load:1.bzl"),
+                Label.parseCanonicalUnchecked("//load:2.bzl"))),
         StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 100,
-        /*packageOverhead=*/ OptionalLong.empty());
+        /* loadTimeNanos= */ 100,
+        /* packageOverhead= */ OptionalLong.empty());
 
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
             "my/pkg3",
-            /*targets=*/ ImmutableMap.of(),
+            /* targets= */ ImmutableMap.of(),
             ImmutableList.of(
-                Label.parseAbsoluteUnchecked("//load:1.bzl"),
-                Label.parseAbsoluteUnchecked("//load:2.bzl"),
-                Label.parseAbsoluteUnchecked("//load:3.bzl"))),
+                Label.parseCanonicalUnchecked("//load:1.bzl"),
+                Label.parseCanonicalUnchecked("//load:2.bzl"),
+                Label.parseCanonicalUnchecked("//load:3.bzl"))),
         StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 100,
-        /*packageOverhead=*/ OptionalLong.empty());
+        /* loadTimeNanos= */ 100,
+        /* packageOverhead= */ OptionalLong.empty());
   }
 
   @Test
@@ -493,9 +493,9 @@ public class PackageMetricsPackageLoadingListenerTest {
     Package mockPackage1 =
         mockPackage(
             "my/pkg1",
-            /*targets=*/ ImmutableMap.of("target1", mock(Target.class)),
-            /*starlarkDependencies=*/ ImmutableList.of(
-                Label.parseAbsoluteUnchecked("//load:1.bzl")));
+            /* targets= */ ImmutableMap.of("target1", mock(Target.class)),
+            /* starlarkDependencies= */ ImmutableList.of(
+                Label.parseCanonicalUnchecked("//load:1.bzl")));
     when(mockPackage1.getComputationSteps()).thenReturn(1000L);
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage1,
@@ -506,11 +506,11 @@ public class PackageMetricsPackageLoadingListenerTest {
     Package mockPackage2 =
         mockPackage(
             "my/pkg2",
-            /*targets=*/ ImmutableMap.of(
+            /* targets= */ ImmutableMap.of(
                 "target1", mock(Target.class), "target2", mock(Target.class)),
-            /*starlarkDependencies=*/ ImmutableList.of(
-                Label.parseAbsoluteUnchecked("//load:1.bzl"),
-                Label.parseAbsoluteUnchecked("//load:2.bzl")));
+            /* starlarkDependencies= */ ImmutableList.of(
+                Label.parseCanonicalUnchecked("//load:1.bzl"),
+                Label.parseCanonicalUnchecked("//load:2.bzl")));
     when(mockPackage2.getComputationSteps()).thenReturn(100L);
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage2,
@@ -521,17 +521,17 @@ public class PackageMetricsPackageLoadingListenerTest {
     Package mockPackage3 =
         mockPackage(
             "my/pkg3",
-            /*targets=*/ ImmutableMap.of(
+            /* targets= */ ImmutableMap.of(
                 "target1",
                 mock(Target.class),
                 "target2",
                 mock(Target.class),
                 "target3",
                 mock(Target.class)),
-            /*starlarkDependencies=*/ ImmutableList.of(
-                Label.parseAbsoluteUnchecked("//load:1.bzl"),
-                Label.parseAbsoluteUnchecked("//load:2.bzl"),
-                Label.parseAbsoluteUnchecked("//load:3.bzl")));
+            /* starlarkDependencies= */ ImmutableList.of(
+                Label.parseCanonicalUnchecked("//load:1.bzl"),
+                Label.parseCanonicalUnchecked("//load:2.bzl"),
+                Label.parseCanonicalUnchecked("//load:3.bzl")));
     when(mockPackage3.getComputationSteps()).thenReturn(10L);
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage3,

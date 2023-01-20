@@ -33,8 +33,8 @@ public class PrecomputedValueCodecTest {
             new PrecomputedValue(PathFragment.create("java serializable 2")),
             new PrecomputedValue("first string"),
             new PrecomputedValue("second string"),
-            new PrecomputedValue(Label.parseAbsoluteUnchecked("//foo:bar")),
-            new PrecomputedValue(Label.parseAbsoluteUnchecked("//foo:baz")))
+            new PrecomputedValue(Label.parseCanonicalUnchecked("//foo:bar")),
+            new PrecomputedValue(Label.parseCanonicalUnchecked("//foo:baz")))
         .runTests();
   }
 }

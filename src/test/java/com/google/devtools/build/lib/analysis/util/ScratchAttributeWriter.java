@@ -148,7 +148,7 @@ public class ScratchAttributeWriter {
    */
   public static ScratchAttributeWriter fromLabelString(
       BuildViewTestCase testCase, String ruleName, String labelString) {
-    return fromLabel(testCase, ruleName, Label.parseAbsoluteUnchecked(labelString));
+    return fromLabel(testCase, ruleName, Label.parseCanonicalUnchecked(labelString));
   }
 
   /**

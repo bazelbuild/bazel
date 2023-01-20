@@ -432,8 +432,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Package pkg = validPackageWithoutErrors(skyKey);
     assertThat((Iterable<Label>) pkg.getTarget("foo").getAssociatedRule().getAttr("srcs"))
         .containsExactly(
-            Label.parseAbsoluteUnchecked("//foo:b.txt"),
-            Label.parseAbsoluteUnchecked("//foo:c/c.txt"))
+            Label.parseCanonicalUnchecked("//foo:b.txt"),
+            Label.parseCanonicalUnchecked("//foo:c/c.txt"))
         .inOrder();
     scratch.file("foo/d.txt");
     getSkyframeExecutor()
@@ -444,9 +444,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
     pkg = validPackageWithoutErrors(skyKey);
     assertThat((Iterable<Label>) pkg.getTarget("foo").getAssociatedRule().getAttr("srcs"))
         .containsExactly(
-            Label.parseAbsoluteUnchecked("//foo:b.txt"),
-            Label.parseAbsoluteUnchecked("//foo:c/c.txt"),
-            Label.parseAbsoluteUnchecked("//foo:d.txt"))
+            Label.parseCanonicalUnchecked("//foo:b.txt"),
+            Label.parseCanonicalUnchecked("//foo:c/c.txt"),
+            Label.parseCanonicalUnchecked("//foo:d.txt"))
         .inOrder();
   }
 
@@ -559,7 +559,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
       throws NoSuchTargetException {
     List<Label> expectedLabels = new ArrayList<>();
     for (String item : expected) {
-      expectedLabels.add(Label.parseAbsoluteUnchecked(item));
+      expectedLabels.add(Label.parseCanonicalUnchecked(item));
     }
     assertThat(getSrcs(pkg, targetName)).containsExactlyElementsIn(expectedLabels).inOrder();
   }

@@ -141,7 +141,7 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
 
     useConfiguration(
         ImmutableMap.of(
-            "//test:my_label_flag", Label.parseAbsoluteUnchecked("//test:command_line")));
+            "//test:my_label_flag", Label.parseCanonicalUnchecked("//test:command_line")));
 
     ConfiguredTarget b = getConfiguredTarget("//test:my_rule");
     assertThat(b.get("value")).isEqualTo("command_line_value");
@@ -169,7 +169,7 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     useConfiguration(
         ImmutableMap.of(
-            "//test:my_label_flag", Label.parseAbsoluteUnchecked("//test:command_line")));
+            "//test:my_label_flag", Label.parseCanonicalUnchecked("//test:command_line")));
     getConfiguredTarget("//test:selector");
     assertContainsEvent(
         "configurable attribute \"value\" in //test:selector doesn't match this configuration");
@@ -197,7 +197,7 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     useConfiguration(
         ImmutableMap.of(
-            "//test:my_label_flag", Label.parseAbsoluteUnchecked("//test:command_line")));
+            "//test:my_label_flag", Label.parseCanonicalUnchecked("//test:command_line")));
     getConfiguredTarget("//test:selector");
     assertContainsEvent(
         "configurable attribute \"value\" in //test:selector doesn't match this configuration");

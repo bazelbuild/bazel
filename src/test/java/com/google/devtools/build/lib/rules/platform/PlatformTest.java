@@ -71,17 +71,17 @@ public class PlatformTest extends BuildViewTestCase {
 
     // Check the CPU and OS.
     ConstraintSettingInfo cpuConstraint =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//autoconfig:cpu"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//autoconfig:cpu"));
     ConstraintSettingInfo osConstraint =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//autoconfig:os"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//autoconfig:os"));
     assertThat(hostPlatformProvider.constraints().get(cpuConstraint))
         .isEqualTo(
             ConstraintValueInfo.create(
-                cpuConstraint, Label.parseAbsoluteUnchecked("//autoconfig:x86_32")));
+                cpuConstraint, Label.parseCanonicalUnchecked("//autoconfig:x86_32")));
     assertThat(hostPlatformProvider.constraints().get(osConstraint))
         .isEqualTo(
             ConstraintValueInfo.create(
-                osConstraint, Label.parseAbsoluteUnchecked("//autoconfig:linux")));
+                osConstraint, Label.parseCanonicalUnchecked("//autoconfig:linux")));
 
     // Check the target platform.
     ConfiguredTarget targetPlatform = getConfiguredTarget("//autoconfig:target");
@@ -94,10 +94,10 @@ public class PlatformTest extends BuildViewTestCase {
     assertThat(targetPlatformProvider.constraints().get(cpuConstraint))
         .isEqualTo(
             ConstraintValueInfo.create(
-                cpuConstraint, Label.parseAbsoluteUnchecked("//autoconfig:x86_64")));
+                cpuConstraint, Label.parseCanonicalUnchecked("//autoconfig:x86_64")));
     assertThat(targetPlatformProvider.constraints().get(osConstraint))
         .isEqualTo(
             ConstraintValueInfo.create(
-                osConstraint, Label.parseAbsoluteUnchecked("//autoconfig:linux")));
+                osConstraint, Label.parseCanonicalUnchecked("//autoconfig:linux")));
   }
 }

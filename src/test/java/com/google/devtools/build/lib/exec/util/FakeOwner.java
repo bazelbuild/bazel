@@ -81,8 +81,8 @@ public class FakeOwner implements ActionExecutionMetadata {
   @Override
   public ActionOwner getOwner() {
     return ActionOwner.create(
-        Label.parseAbsoluteUnchecked(ownerLabel),
-        /*aspectDescriptors=*/ ImmutableList.of(),
+        Label.parseCanonicalUnchecked(ownerLabel),
+        /* aspectDescriptors= */ ImmutableList.of(),
         new Location("dummy-file", 0, 0),
         mnemonic,
         "dummy-target-kind",
@@ -91,7 +91,7 @@ public class FakeOwner implements ActionExecutionMetadata {
             BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
             BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
         "additionalProgressInfo",
-        /* execProperties=*/ ImmutableMap.of(),
+        /* execProperties= */ ImmutableMap.of(),
         null);
   }
 

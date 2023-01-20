@@ -71,12 +71,12 @@ public class ConstraintValueLookupUtilTest extends ToolchainTestCase {
   public void testConstraintValueLookup() throws Exception {
     ConfiguredTargetKey linuxKey =
         ConfiguredTargetKey.builder()
-            .setLabel(Label.parseAbsoluteUnchecked("//constraints:linux"))
+            .setLabel(Label.parseCanonicalUnchecked("//constraints:linux"))
             .setConfigurationKey(targetConfigKey)
             .build();
     ConfiguredTargetKey macKey =
         ConfiguredTargetKey.builder()
-            .setLabel(Label.parseAbsoluteUnchecked("//constraints:mac"))
+            .setLabel(Label.parseCanonicalUnchecked("//constraints:mac"))
             .setConfigurationKey(targetConfigKey)
             .build();
     GetConstraintValueInfoKey key =
@@ -99,7 +99,7 @@ public class ConstraintValueLookupUtilTest extends ToolchainTestCase {
 
     ConfiguredTargetKey targetKey =
         ConfiguredTargetKey.builder()
-            .setLabel(Label.parseAbsoluteUnchecked("//invalid:not_a_constraint"))
+            .setLabel(Label.parseCanonicalUnchecked("//invalid:not_a_constraint"))
             .setConfigurationKey(targetConfigKey)
             .build();
     GetConstraintValueInfoKey key = GetConstraintValueInfoKey.create(ImmutableList.of(targetKey));
@@ -122,7 +122,7 @@ public class ConstraintValueLookupUtilTest extends ToolchainTestCase {
   public void testConstraintValueLookup_targetDoesNotExist() throws Exception {
     ConfiguredTargetKey targetKey =
         ConfiguredTargetKey.builder()
-            .setLabel(Label.parseAbsoluteUnchecked("//fake:missing"))
+            .setLabel(Label.parseCanonicalUnchecked("//fake:missing"))
             .setConfigurationKey(targetConfigKey)
             .build();
     GetConstraintValueInfoKey key = GetConstraintValueInfoKey.create(ImmutableList.of(targetKey));

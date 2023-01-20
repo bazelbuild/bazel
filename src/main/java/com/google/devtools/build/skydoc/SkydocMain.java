@@ -146,7 +146,7 @@ public class SkydocMain {
     outputPath = skydocOptions.outputFilePath;
     depRoots = ImmutableList.copyOf(skydocOptions.depRoots);
 
-    Label targetFileLabel = Label.parseAbsolute(targetFileLabelString, ImmutableMap.of());
+    Label targetFileLabel = Label.parseCanonical(targetFileLabelString);
 
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
     ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();

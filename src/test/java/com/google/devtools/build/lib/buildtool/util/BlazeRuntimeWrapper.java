@@ -242,7 +242,7 @@ public class BlazeRuntimeWrapper {
   }
 
   public void addStarlarkOption(String label, Object value) {
-    starlarkOptions.put(Label.parseAbsoluteUnchecked(label).getCanonicalForm(), value);
+    starlarkOptions.put(Label.parseCanonicalUnchecked(label).getCanonicalForm(), value);
   }
 
   public ImmutableList<String> getOptions() {
@@ -406,7 +406,7 @@ public class BlazeRuntimeWrapper {
                 .create(
                     AttributeTransitionData.builder()
                         .attributes(FakeAttributeMapper.empty())
-                        .executionPlatform(Label.parseAbsoluteUnchecked("//platform:exec"))
+                        .executionPlatform(Label.parseCanonicalUnchecked("//platform:exec"))
                         .build())
                 .apply(
                     new BuildOptionsView(targetOptions, targetOptions.getFragmentClasses()),

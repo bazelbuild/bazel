@@ -369,7 +369,7 @@ public class RewindingTestsHelper {
           if (type == EventType.GET_BATCH
               && order == Order.BEFORE
               && context == Reason.PREFETCH
-              && isActionExecutionKey(key, Label.parseAbsoluteUnchecked("//foo:dep"))) {
+              && isActionExecutionKey(key, Label.parseCanonicalUnchecked("//foo:dep"))) {
             try {
               testCase
                   .getSkyframeExecutor()
@@ -505,8 +505,8 @@ public class RewindingTestsHelper {
     CountDownLatch looseHeaderDepDeclared = new CountDownLatch(1);
     CountDownLatch gensrcRestarted = new CountDownLatch(1);
     CountDownLatch cppRestarted = new CountDownLatch(1);
-    Label cppLabel = Label.parseAbsoluteUnchecked("//test:loser");
-    Label gensrcLabel = Label.parseAbsoluteUnchecked("//test:gensrc");
+    Label cppLabel = Label.parseCanonicalUnchecked("//test:loser");
+    Label gensrcLabel = Label.parseCanonicalUnchecked("//test:gensrc");
     testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
           if (EventType.ADD_REVERSE_DEP.equals(type)
@@ -2510,8 +2510,8 @@ public class RewindingTestsHelper {
     CountDownLatch depDone = new CountDownLatch(1);
     CountDownLatch failExecuting = new CountDownLatch(1);
     CountDownLatch depRewound = new CountDownLatch(1);
-    Label fail = Label.parseAbsoluteUnchecked("//foo:fail");
-    Label dep = Label.parseAbsoluteUnchecked("//foo:dep");
+    Label fail = Label.parseCanonicalUnchecked("//foo:fail");
+    Label dep = Label.parseCanonicalUnchecked("//foo:dep");
     addSpawnShim(
         "Executing genrule //foo:fail",
         (spawn, context) -> {

@@ -429,7 +429,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             configuration
                 .getOptions()
                 .getStarlarkOptions()
-                .get(Label.parseAbsoluteUnchecked("//test:cute-animal-fact")))
+                .get(Label.parseCanonicalUnchecked("//test:cute-animal-fact")))
         .isEqualTo("puffins mate for life");
   }
 
@@ -453,7 +453,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             configuration
                 .getOptions()
                 .getStarlarkOptions()
-                .get(Label.parseAbsoluteUnchecked("//test:cute-animal-fact")))
+                .get(Label.parseCanonicalUnchecked("//test:cute-animal-fact")))
         .isEqualTo("puffins mate for life");
   }
 
@@ -579,7 +579,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().getStarlarkOptions())
-        .doesNotContainKey(Label.parseAbsoluteUnchecked("//test:cute-animal-fact"));
+        .doesNotContainKey(Label.parseCanonicalUnchecked("//test:cute-animal-fact"));
   }
 
   @Test
@@ -644,7 +644,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             configuration
                 .getOptions()
                 .getStarlarkOptions()
-                .get(Label.parseAbsoluteUnchecked("//test:cute-animal-fact")))
+                .get(Label.parseCanonicalUnchecked("//test:cute-animal-fact")))
         .isEqualTo("cows produce more milk when they listen to soothing music <- TRUE");
   }
 
@@ -668,7 +668,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             configuration
                 .getOptions()
                 .getStarlarkOptions()
-                .get(Label.parseAbsoluteUnchecked("//test:cute-animal-fact")))
+                .get(Label.parseCanonicalUnchecked("//test:cute-animal-fact")))
         .isEqualTo("rats are ticklish <- TRUE");
   }
 
@@ -763,11 +763,11 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
     ImmutableMap<Label, Object> starlarkOptions =
         getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions();
-    assertThat(starlarkOptions.get(Label.parseAbsoluteUnchecked("//test:cute-animal-fact")))
+    assertThat(starlarkOptions.get(Label.parseCanonicalUnchecked("//test:cute-animal-fact")))
         .isEqualTo("puffins mate for life");
-    assertThat(starlarkOptions).doesNotContainKey(Label.parseAbsoluteUnchecked("//test:fact"));
+    assertThat(starlarkOptions).doesNotContainKey(Label.parseCanonicalUnchecked("//test:fact"));
     assertThat(starlarkOptions.keySet())
-        .containsExactly(Label.parseAbsoluteUnchecked("//test:cute-animal-fact"));
+        .containsExactly(Label.parseCanonicalUnchecked("//test:cute-animal-fact"));
   }
 
   @Test
@@ -801,7 +801,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
             configuration
                 .getOptions()
                 .getStarlarkOptions()
-                .get(Label.parseAbsoluteUnchecked("//test:cute-animal-fact")))
+                .get(Label.parseCanonicalUnchecked("//test:cute-animal-fact")))
         .isEqualTo("puffins mate for life");
   }
 
@@ -1684,7 +1684,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions();
     assertNoEvents();
     assertThat(
-            (List<?>) starlarkOptions.get(Label.parseAbsoluteUnchecked("//test:cute-animal-fact")))
+            (List<?>) starlarkOptions.get(Label.parseCanonicalUnchecked("//test:cute-animal-fact")))
         .containsExactly("puffins mate for life");
   }
 
@@ -1785,7 +1785,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
                 .get(PlatformOptions.class)
                 .platforms)
         .containsExactly(
-            Label.parseAbsoluteUnchecked(
+            Label.parseCanonicalUnchecked(
                 TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":host"));
   }
 
@@ -1833,7 +1833,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
                 .getOptions()
                 .get(PlatformOptions.class)
                 .platforms)
-        .containsExactly(Label.parseAbsoluteUnchecked("//platforms:my_other_platform"));
+        .containsExactly(Label.parseCanonicalUnchecked("//platforms:my_other_platform"));
   }
 
   /* If the transition doesn't change --cpu, it doesn't constitute a platform change. */
@@ -1876,7 +1876,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
                 .getOptions()
                 .get(PlatformOptions.class)
                 .platforms)
-        .containsExactly(Label.parseAbsoluteUnchecked("//platforms:my_platform"));
+        .containsExactly(Label.parseCanonicalUnchecked("//platforms:my_platform"));
   }
 
   @Test

@@ -76,7 +76,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
                               attr(":latebound_attr", LABEL)
                                   .value(
                                       Attribute.LateBoundDefault.fromConstantForTesting(
-                                          Label.parseAbsoluteUnchecked("//foo:latebound_dep")))
+                                          Label.parseCanonicalUnchecked("//foo:latebound_dep")))
                                   .cfg(TransitionFactories.of(CHANGE_FOO_FLAG_TRANSITION)))
                           .requiresConfigurationFragments(LateBoundSplitUtil.TestFragment.class));
 

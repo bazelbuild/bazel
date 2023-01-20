@@ -94,11 +94,11 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
 
     BuildConfigurationValue config = createConfiguration("--cpu=piii");
     assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//tools/cpp:toolchain"));
 
     BuildConfigurationValue execConfig = createExec();
     assertThat(execConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//tools/cpp:toolchain"));
   }
 
   @Test

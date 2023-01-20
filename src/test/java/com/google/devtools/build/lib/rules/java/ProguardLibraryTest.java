@@ -116,11 +116,11 @@ public class ProguardLibraryTest extends BuildViewTestCase {
           .add(attr("host_attrs", STRING_LIST))
           .add(
               attr("$implicit_target", LABEL)
-                  .value(Label.parseAbsoluteUnchecked("//test/implicit:implicit_target")))
+                  .value(Label.parseCanonicalUnchecked("//test/implicit:implicit_target")))
           .add(
               attr("$implicit_host", LABEL)
                   .cfg(ExecutionTransitionFactory.create())
-                  .value(Label.parseAbsoluteUnchecked("//test/implicit:implicit_host")))
+                  .value(Label.parseCanonicalUnchecked("//test/implicit:implicit_host")))
           .build();
     }
 
@@ -194,7 +194,7 @@ public class ProguardLibraryTest extends BuildViewTestCase {
       return new AspectDefinition.Builder(this)
           .add(
               attr("$implicit_target", LABEL)
-                  .value(Label.parseAbsoluteUnchecked("//test/implicit:implicit_target")))
+                  .value(Label.parseCanonicalUnchecked("//test/implicit:implicit_target")))
           .build();
     }
 

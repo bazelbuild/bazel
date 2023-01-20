@@ -124,27 +124,27 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
         "platform(name = 'mac',",
         "    constraint_values = ['//constraints:mac', '//constraints:non_default_value'])");
 
-    setting = ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraints:os"));
+    setting = ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraints:os"));
     linuxConstraint =
-        ConstraintValueInfo.create(setting, Label.parseAbsoluteUnchecked("//constraints:linux"));
+        ConstraintValueInfo.create(setting, Label.parseCanonicalUnchecked("//constraints:linux"));
     macConstraint =
-        ConstraintValueInfo.create(setting, Label.parseAbsoluteUnchecked("//constraints:mac"));
+        ConstraintValueInfo.create(setting, Label.parseCanonicalUnchecked("//constraints:mac"));
     defaultedSetting =
         ConstraintSettingInfo.create(
-            Label.parseAbsoluteUnchecked("//constraints:setting_with_default"));
+            Label.parseCanonicalUnchecked("//constraints:setting_with_default"));
     defaultedConstraint =
         ConstraintValueInfo.create(
-            defaultedSetting, Label.parseAbsoluteUnchecked("//constraints:non_default_value"));
+            defaultedSetting, Label.parseCanonicalUnchecked("//constraints:non_default_value"));
 
     linuxPlatform =
         PlatformInfo.builder()
-            .setLabel(Label.parseAbsoluteUnchecked("//platforms:linux"))
+            .setLabel(Label.parseCanonicalUnchecked("//platforms:linux"))
             .addConstraint(linuxConstraint)
             .addConstraint(defaultedConstraint)
             .build();
     macPlatform =
         PlatformInfo.builder()
-            .setLabel(Label.parseAbsoluteUnchecked("//platforms:mac"))
+            .setLabel(Label.parseCanonicalUnchecked("//platforms:mac"))
             .addConstraint(macConstraint)
             .addConstraint(defaultedConstraint)
             .build();
@@ -226,11 +226,11 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
         "toolchain_type(name = 'test_toolchain')",
         "toolchain_type(name = 'optional_toolchain')");
 
-    testToolchainTypeLabel = Label.parseAbsoluteUnchecked("//toolchain:test_toolchain");
+    testToolchainTypeLabel = Label.parseCanonicalUnchecked("//toolchain:test_toolchain");
     testToolchainType = ToolchainTypeRequirement.create(testToolchainTypeLabel);
     testToolchainTypeInfo = ToolchainTypeInfo.create(testToolchainTypeLabel);
 
-    optionalToolchainTypeLabel = Label.parseAbsoluteUnchecked("//toolchain:optional_toolchain");
+    optionalToolchainTypeLabel = Label.parseCanonicalUnchecked("//toolchain:optional_toolchain");
     optionalToolchainType =
         ToolchainTypeRequirement.builder(optionalToolchainTypeLabel).mandatory(false).build();
     optionalToolchainTypeInfo = ToolchainTypeInfo.create(optionalToolchainTypeLabel);

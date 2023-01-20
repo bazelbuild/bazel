@@ -54,7 +54,7 @@ public class AspectDefinitionTest {
 
   private static final class P4 implements TransitiveInfoProvider {}
 
-  private static final Label FAKE_LABEL = Label.parseAbsoluteUnchecked("//fake/label.bzl");
+  private static final Label FAKE_LABEL = Label.parseCanonicalUnchecked("//fake/label.bzl");
 
   private static final StarlarkProviderIdentifier STARLARK_P1 =
       StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P1"));
@@ -100,15 +100,17 @@ public class AspectDefinitionTest {
 
   @Test
   public void testAspectWithImplicitOrLateboundAttribute_addsToAttributeMap() throws Exception {
-    Attribute implicit = attr("$runtime", BuildType.LABEL)
-        .value(Label.parseAbsoluteUnchecked("//run:time"))
-        .build();
+    Attribute implicit =
+        attr("$runtime", BuildType.LABEL)
+            .value(Label.parseCanonicalUnchecked("//run:time"))
+            .build();
     LabelLateBoundDefault<Void> latebound =
-        LateBoundDefault.fromConstantForTesting(Label.parseAbsoluteUnchecked("//run:away"));
-    AspectDefinition simple = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-        .add(implicit)
-        .add(attr(":latebound", BuildType.LABEL).value(latebound))
-        .build();
+        LateBoundDefault.fromConstantForTesting(Label.parseCanonicalUnchecked("//run:away"));
+    AspectDefinition simple =
+        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+            .add(implicit)
+            .add(attr(":latebound", BuildType.LABEL).value(latebound))
+            .build();
     assertThat(simple.getAttributes()).containsEntry("$runtime", implicit);
     assertThat(simple.getAttributes()).containsKey(":latebound");
     assertThat(simple.getAttributes().get(":latebound").getLateBoundDefault())
@@ -123,10 +125,10 @@ public class AspectDefinitionTest {
             new AspectDefinition.Builder(TEST_ASPECT_CLASS)
                 .add(
                     attr("$runtime", BuildType.LABEL)
-                        .value(Label.parseAbsoluteUnchecked("//run:time")))
+                        .value(Label.parseCanonicalUnchecked("//run:time")))
                 .add(
                     attr("$runtime", BuildType.LABEL)
-                        .value(Label.parseAbsoluteUnchecked("//oops"))));
+                        .value(Label.parseCanonicalUnchecked("//oops"))));
   }
 
   @Test
@@ -137,7 +139,7 @@ public class AspectDefinitionTest {
             new AspectDefinition.Builder(TEST_ASPECT_CLASS)
                 .add(
                     attr("invalid", BuildType.LABEL)
-                        .value(Label.parseAbsoluteUnchecked("//run:time"))
+                        .value(Label.parseCanonicalUnchecked("//run:time"))
                         .allowedFileTypes(FileTypeSet.NO_FILE))
                 .build());
   }

@@ -373,7 +373,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "   attrs = { 'dep' : attr.label(aspects = [MyAspect]) },",
         ")");
     StarlarkProvider.Key providerKey =
-        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//test:aspect.bzl"), "p");
+        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//test:aspect.bzl"), "p");
     scratch.file(
         "test/BUILD",
         "load('//test:aspect.bzl', 'my_rule')",

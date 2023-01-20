@@ -68,7 +68,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   public Label getMockCrosstoolLabel() {
-    return Label.parseAbsoluteUnchecked("@bazel_tools//tools/cpp:toolchain");
+    return Label.parseCanonicalUnchecked("@bazel_tools//tools/cpp:toolchain");
   }
 
   @Override

@@ -84,9 +84,9 @@ public class TypeCheckedTagTest {
     assertThat(getattr(typeCheckedTag, "foo"))
         .isEqualTo(
             StarlarkList.immutableOf(
-                Label.parseAbsoluteUnchecked("@myrepo//mypkg:thing1"),
-                Label.parseAbsoluteUnchecked("@myrepo//pkg:thing2"),
-                Label.parseAbsoluteUnchecked("@other_repo//pkg:thing3")));
+                Label.parseCanonicalUnchecked("@myrepo//mypkg:thing1"),
+                Label.parseCanonicalUnchecked("@myrepo//pkg:thing2"),
+                Label.parseCanonicalUnchecked("@other_repo//pkg:thing3")));
   }
 
   @Test

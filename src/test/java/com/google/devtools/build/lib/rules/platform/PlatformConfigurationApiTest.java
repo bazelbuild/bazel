@@ -56,7 +56,7 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
                 new StarlarkProvider.Key(Label.parseCanonical("//verify:verify.bzl"), "result"));
 
     Label hostPlatform = (Label) info.getValue("host_platform");
-    assertThat(hostPlatform).isEqualTo(Label.parseAbsoluteUnchecked("//platforms:test_platform"));
+    assertThat(hostPlatform).isEqualTo(Label.parseCanonicalUnchecked("//platforms:test_platform"));
   }
 
   @Test
@@ -87,6 +87,7 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
                 new StarlarkProvider.Key(Label.parseCanonical("//verify:verify.bzl"), "result"));
 
     Label targetPlatform = (Label) info.getValue("target_platform");
-    assertThat(targetPlatform).isEqualTo(Label.parseAbsoluteUnchecked("//platforms:test_platform"));
+    assertThat(targetPlatform)
+        .isEqualTo(Label.parseCanonicalUnchecked("//platforms:test_platform"));
   }
 }

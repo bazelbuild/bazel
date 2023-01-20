@@ -106,15 +106,11 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   private ImmutableSortedMap<Label, String> getFlagValuesFromOutputFile(Artifact flagDict) {
     String fileContents =
         ((FileWriteAction) getActionGraph().getGeneratingAction(flagDict)).getFileContents();
-    return Splitter.on('\n')
-        .withKeyValueSeparator(":::")
-        .split(fileContents)
-        .entrySet()
-        .stream()
+    return Splitter.on('\n').withKeyValueSeparator(":::").split(fileContents).entrySet().stream()
         .collect(
             toImmutableSortedMap(
                 Ordering.natural(),
-                (entry) -> Label.parseAbsoluteUnchecked(entry.getKey()),
+                (entry) -> Label.parseCanonicalUnchecked(entry.getKey()),
                 Map.Entry::getValue));
   }
 
@@ -572,7 +568,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
         Iterables.getOnlyElement(ruleContext.getPrerequisiteConfiguredTargets("exports_flag"))
             .getConfiguration();
 
-    Label childLabel = Label.parseAbsoluteUnchecked("//test:read_flag");
+    Label childLabel = Label.parseCanonicalUnchecked("//test:read_flag");
     assertThat(getFlagMapFromConfiguration(childConfiguration).keySet())
         .containsExactly(childLabel);
   }

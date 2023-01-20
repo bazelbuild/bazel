@@ -116,9 +116,9 @@ public class LocalConfigPlatformFunctionTest {
   @RunWith(JUnit4.class)
   public static class FunctionTest extends BuildViewTestCase {
     private static final ConstraintSettingInfo CPU_CONSTRAINT =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("@platforms//cpu:cpu"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("@platforms//cpu:cpu"));
     private static final ConstraintSettingInfo OS_CONSTRAINT =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("@platforms//os:os"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("@platforms//os:os"));
 
     @Before
     public void addLocalConfigPlatform()
@@ -140,7 +140,7 @@ public class LocalConfigPlatformFunctionTest {
       ConstraintValueInfo expectedCpuConstraint =
           ConstraintValueInfo.create(
               CPU_CONSTRAINT,
-              Label.parseAbsoluteUnchecked(
+              Label.parseCanonicalUnchecked(
                   LocalConfigPlatformFunction.cpuToConstraint(CPU.getCurrent())));
       assertThat(hostPlatformProvider.constraints().has(CPU_CONSTRAINT)).isTrue();
       assertThat(hostPlatformProvider.constraints().get(CPU_CONSTRAINT))
@@ -149,7 +149,7 @@ public class LocalConfigPlatformFunctionTest {
       ConstraintValueInfo expectedOsConstraint =
           ConstraintValueInfo.create(
               OS_CONSTRAINT,
-              Label.parseAbsoluteUnchecked(
+              Label.parseCanonicalUnchecked(
                   LocalConfigPlatformFunction.osToConstraint(OS.getCurrent())));
       assertThat(hostPlatformProvider.constraints().has(OS_CONSTRAINT)).isTrue();
       assertThat(hostPlatformProvider.constraints().get(OS_CONSTRAINT))

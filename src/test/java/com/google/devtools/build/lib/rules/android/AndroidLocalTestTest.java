@@ -292,7 +292,7 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
 
     ConfiguredTarget ct = getConfiguredTarget("//java/com/google/android/foo:local_test");
     assertThat(ct.getProvider(RequiredConfigFragmentsProvider.class).getStarlarkOptions())
-        .containsExactly(Label.parseAbsoluteUnchecked("//java/com/google/android/foo:flag1"));
+        .containsExactly(Label.parseCanonicalUnchecked("//java/com/google/android/foo:flag1"));
   }
 
   @Override

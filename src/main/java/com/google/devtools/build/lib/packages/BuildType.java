@@ -523,7 +523,7 @@ public final class BuildType {
     public static final String DEFAULT_CONDITION_KEY = "//conditions:default";
 
     static final Label DEFAULT_CONDITION_LABEL =
-        Label.parseAbsoluteUnchecked(DEFAULT_CONDITION_KEY);
+        Label.parseCanonicalUnchecked(DEFAULT_CONDITION_KEY);
 
     private final Type<T> originalType;
 

@@ -65,14 +65,14 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
                 ImmutableSetMultimap.<ToolchainTypeInfo, Label>builder()
                     .put(
                         testToolchainTypeInfo,
-                        Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"))
+                        Label.parseCanonicalUnchecked("//extra:extra_toolchain_linux_impl"))
                     .build())
             .build();
 
     // Create the prerequisites.
     ConfiguredTargetAndData toolchain =
         getConfiguredTargetAndData(
-            Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"), targetConfig);
+            Label.parseCanonicalUnchecked("//extra:extra_toolchain_linux_impl"), targetConfig);
 
     // Resolve toolchains.
     ResolvedToolchainContext toolchainContext =
@@ -139,14 +139,14 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
                 ImmutableSetMultimap.<ToolchainTypeInfo, Label>builder()
                     .put(
                         optionalToolchainTypeInfo,
-                        Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"))
+                        Label.parseCanonicalUnchecked("//extra:extra_toolchain_linux_impl"))
                     .build())
             .build();
 
     // Create the prerequisites.
     ConfiguredTargetAndData toolchain =
         getConfiguredTargetAndData(
-            Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"), targetConfig);
+            Label.parseCanonicalUnchecked("//extra:extra_toolchain_linux_impl"), targetConfig);
 
     // Resolve toolchains.
     ResolvedToolchainContext toolchainContext =
@@ -219,14 +219,14 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
                 ImmutableSetMultimap.<ToolchainTypeInfo, Label>builder()
                     .put(
                         testToolchainTypeInfo,
-                        Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"))
+                        Label.parseCanonicalUnchecked("//extra:extra_toolchain_linux_impl"))
                     .build())
             .build();
 
     // Create the prerequisites.
     ConfiguredTargetAndData testToolchain =
         getConfiguredTargetAndData(
-            Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"), targetConfig);
+            Label.parseCanonicalUnchecked("//extra:extra_toolchain_linux_impl"), targetConfig);
 
     // Resolve toolchains.
     ResolvedToolchainContext toolchainContext =
@@ -274,13 +274,14 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
                 ImmutableMap.of(testToolchainTypeLabel, testToolchainTypeInfo))
             .setToolchainTypeToResolved(
                 ImmutableSetMultimap.<ToolchainTypeInfo, Label>builder()
-                    .put(testToolchainTypeInfo, Label.parseAbsoluteUnchecked("//alias:toolchain"))
+                    .put(testToolchainTypeInfo, Label.parseCanonicalUnchecked("//alias:toolchain"))
                     .build())
             .build();
 
     // Create the prerequisites.
     ConfiguredTargetAndData toolchain =
-        getConfiguredTargetAndData(Label.parseAbsoluteUnchecked("//alias:toolchain"), targetConfig);
+        getConfiguredTargetAndData(
+            Label.parseCanonicalUnchecked("//alias:toolchain"), targetConfig);
 
     // Resolve toolchains.
     ResolvedToolchainContext toolchainContext =
@@ -318,14 +319,14 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
                 ImmutableSetMultimap.<ToolchainTypeInfo, Label>builder()
                     .put(
                         testToolchainTypeInfo,
-                        Label.parseAbsoluteUnchecked("//foo:not_a_toolchain"))
+                        Label.parseCanonicalUnchecked("//foo:not_a_toolchain"))
                     .build())
             .build();
 
     // Create the prerequisites, which is not actually a valid toolchain.
     ConfiguredTargetAndData toolchain =
         getConfiguredTargetAndData(
-            Label.parseAbsoluteUnchecked("//foo:not_a_toolchain"), targetConfig);
+            Label.parseCanonicalUnchecked("//foo:not_a_toolchain"), targetConfig);
     assertThrows(
         ToolchainException.class,
         () ->
@@ -339,7 +340,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
   public void load_withTemplateVariables() throws Exception {
     // Add new toolchain rule that provides template variables.
     Label variableToolchainTypeLabel =
-        Label.parseAbsoluteUnchecked("//variable:variable_toolchain_type");
+        Label.parseCanonicalUnchecked("//variable:variable_toolchain_type");
     ToolchainTypeRequirement variableToolchainType =
         ToolchainTypeRequirement.create(variableToolchainTypeLabel);
     ToolchainTypeInfo variableToolchainTypeInfo =
@@ -382,19 +383,17 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
                 ImmutableSetMultimap.<ToolchainTypeInfo, Label>builder()
                     .put(
                         variableToolchainTypeInfo,
-                        Label.parseAbsoluteUnchecked("//variable:variable_toolchain_impl"))
+                        Label.parseCanonicalUnchecked("//variable:variable_toolchain_impl"))
                     .build())
             .build();
 
     // Create the prerequisites.
     ConfiguredTargetAndData toolchain =
         getConfiguredTargetAndData(
-            Label.parseAbsoluteUnchecked("//variable:variable_toolchain_impl"), targetConfig);
+            Label.parseCanonicalUnchecked("//variable:variable_toolchain_impl"), targetConfig);
     ResolvedToolchainContext toolchainContext =
         ResolvedToolchainContext.load(
-            unloadedToolchainContext,
-            "test",
-            ImmutableList.of(toolchain));
+            unloadedToolchainContext, "test", ImmutableList.of(toolchain));
     assertThat(toolchainContext).isNotNull();
     assertThat(toolchainContext).hasToolchainType(variableToolchainTypeLabel);
     assertThat(toolchainContext.templateVariableProviders()).hasSize(1);

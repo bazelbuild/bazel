@@ -220,7 +220,7 @@ public class TestRuleClassProvider {
           .requiresConfigurationFragments(PlatformConfiguration.class)
           .addToolchainTypes(
               ToolchainTypeRequirement.create(
-                  Label.parseAbsoluteUnchecked("//toolchain:test_toolchain")))
+                  Label.parseCanonicalUnchecked("//toolchain:test_toolchain")))
           .build();
     }
 

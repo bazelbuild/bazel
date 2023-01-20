@@ -44,7 +44,7 @@ public class FakeAttributeMapper implements AttributeMap {
 
   @Override
   public Label getLabel() {
-    return Label.parseAbsoluteUnchecked("//fake:rule");
+    return Label.parseCanonicalUnchecked("//fake:rule");
   }
 
   @Override

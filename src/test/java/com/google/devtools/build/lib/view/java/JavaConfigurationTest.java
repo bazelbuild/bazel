@@ -43,7 +43,7 @@ public class JavaConfigurationTest extends ConfigurationTestCase {
     scratch.file("foo/BUILD", "filegroup(name='bar')", "filegroup(name='baz')");
     config = create("--java_launcher=//foo:bar");
     cfg = config.getFragment(JavaConfiguration.class);
-    assertThat(Label.parseAbsoluteUnchecked("//foo:bar")).isEqualTo(cfg.getJavaLauncherLabel());
+    assertThat(Label.parseCanonicalUnchecked("//foo:bar")).isEqualTo(cfg.getJavaLauncherLabel());
   }
 
   @Test
@@ -51,11 +51,13 @@ public class JavaConfigurationTest extends ConfigurationTestCase {
     BuildConfigurationValue config = createConfiguration();
     assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(
-            Label.parseAbsoluteUnchecked(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain"));
+            Label.parseCanonicalUnchecked(
+                TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain"));
 
     BuildConfigurationValue execConfig = createExec();
     assertThat(execConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(
-            Label.parseAbsoluteUnchecked(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain"));
+            Label.parseCanonicalUnchecked(
+                TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain"));
   }
 }

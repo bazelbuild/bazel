@@ -147,7 +147,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         targetsWithCounts.entrySet().stream()
             .collect(
                 toImmutableMap(
-                    entry -> Label.parseAbsoluteUnchecked(entry.getKey()), Entry::getValue));
+                    entry -> Label.parseCanonicalUnchecked(entry.getKey()), Entry::getValue));
     ImmutableMap<Label, Integer> actual =
         expected.keySet().stream().collect(toImmutableMap(label -> label, actualSet::count));
     assertThat(actual).containsExactlyEntriesIn(expected);

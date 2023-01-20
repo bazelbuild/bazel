@@ -74,7 +74,7 @@ public final class BuildOptions implements Cloneable {
   public static Map<Label, Object> labelizeStarlarkOptions(Map<String, Object> starlarkOptions) {
     return starlarkOptions.entrySet().stream()
         .collect(
-            Collectors.toMap(e -> Label.parseAbsoluteUnchecked(e.getKey()), Map.Entry::getValue));
+            Collectors.toMap(e -> Label.parseCanonicalUnchecked(e.getKey()), Map.Entry::getValue));
   }
 
   public static BuildOptions getDefaultBuildOptionsForFragments(

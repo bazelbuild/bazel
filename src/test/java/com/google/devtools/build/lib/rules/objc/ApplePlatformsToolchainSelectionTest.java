@@ -44,16 +44,17 @@ public class ApplePlatformsToolchainSelectionTest extends ObjcRuleTestCase {
   }
 
   private static final ConstraintSettingInfo CPU_CONSTRAINT =
-      ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked(
-          TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:cpu"));
+      ConstraintSettingInfo.create(
+          Label.parseCanonicalUnchecked(TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:cpu"));
 
   private static final ConstraintSettingInfo OS_CONSTRAINT =
-      ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked(
-          TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:os"));
+      ConstraintSettingInfo.create(
+          Label.parseCanonicalUnchecked(TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:os"));
 
   private static final ToolchainTypeInfo CPP_TOOLCHAIN_TYPE =
-      ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked(
-          TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type"));
+      ToolchainTypeInfo.create(
+          Label.parseCanonicalUnchecked(
+              TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type"));
 
   private static final String EXTRA_SDK_TOOLCHAINS_FLAG =
       "--extra_toolchains=//tools/build_defs/apple/toolchains:all";
@@ -67,8 +68,10 @@ public class ApplePlatformsToolchainSelectionTest extends ObjcRuleTestCase {
     DeclaredToolchainInfo darwinToolchainInfo =
         PlatformProviderUtils.declaredToolchainInfo(darwinToolchain);
     assertThat(darwinToolchainInfo).isNotNull();
-    assertThat(darwinToolchainInfo.toolchainLabel()).isEqualTo(Label.parseAbsoluteUnchecked(
-            "//" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + ":cc-compiler-darwin_x86_64"));
+    assertThat(darwinToolchainInfo.toolchainLabel())
+        .isEqualTo(
+            Label.parseCanonicalUnchecked(
+                "//" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + ":cc-compiler-darwin_x86_64"));
     assertThat(darwinToolchainInfo.toolchainType()).isEqualTo(CPP_TOOLCHAIN_TYPE);
 
     // Verify the macOS platform.
@@ -87,8 +90,10 @@ public class ApplePlatformsToolchainSelectionTest extends ObjcRuleTestCase {
     DeclaredToolchainInfo iosDeviceToolchainInfo =
         PlatformProviderUtils.declaredToolchainInfo(iosDeviceToolchain);
     assertThat(iosDeviceToolchainInfo).isNotNull();
-    assertThat(iosDeviceToolchainInfo.toolchainLabel()).isEqualTo(Label.parseAbsoluteUnchecked(
-            "//" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + ":cc-compiler-ios_arm64"));
+    assertThat(iosDeviceToolchainInfo.toolchainLabel())
+        .isEqualTo(
+            Label.parseCanonicalUnchecked(
+                "//" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + ":cc-compiler-ios_arm64"));
     assertThat(iosDeviceToolchainInfo.toolchainType()).isEqualTo(CPP_TOOLCHAIN_TYPE);
 
     // Verify the iOS 64 bit device platform.
@@ -115,7 +120,7 @@ public class ApplePlatformsToolchainSelectionTest extends ObjcRuleTestCase {
     List<Label> platforms = crosstoolBuildOptions.get(PlatformOptions.class).platforms;
     assertThat(platforms)
         .containsExactly(
-            Label.parseAbsoluteUnchecked(
+            Label.parseCanonicalUnchecked(
                 TestConstants.CONSTRAINTS_PACKAGE_ROOT + "apple:darwin_x86_64"));
 
     ConfiguredTarget darwinPlatform = getConfiguredTarget(platforms.get(0).toString());
@@ -125,7 +130,7 @@ public class ApplePlatformsToolchainSelectionTest extends ObjcRuleTestCase {
     ConstraintValueInfo expectedCpuConstraint =
         ConstraintValueInfo.create(
             CPU_CONSTRAINT,
-            Label.parseAbsoluteUnchecked(TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64"));
+            Label.parseCanonicalUnchecked(TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64"));
     assertThat(darwinPlatformInfo.constraints().has(CPU_CONSTRAINT)).isTrue();
     assertThat(darwinPlatformInfo.constraints().get(CPU_CONSTRAINT))
         .isEqualTo(expectedCpuConstraint);
@@ -133,7 +138,7 @@ public class ApplePlatformsToolchainSelectionTest extends ObjcRuleTestCase {
     ConstraintValueInfo expectedOsConstraint =
         ConstraintValueInfo.create(
             OS_CONSTRAINT,
-            Label.parseAbsoluteUnchecked(TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:osx"));
+            Label.parseCanonicalUnchecked(TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:osx"));
     assertThat(darwinPlatformInfo.constraints().has(OS_CONSTRAINT)).isTrue();
     assertThat(darwinPlatformInfo.constraints().get(OS_CONSTRAINT))
         .isEqualTo(expectedOsConstraint);
@@ -156,7 +161,7 @@ public class ApplePlatformsToolchainSelectionTest extends ObjcRuleTestCase {
     List<Label> platforms = crosstoolBuildOptions.get(PlatformOptions.class).platforms;
     assertThat(platforms)
         .containsExactly(
-            Label.parseAbsoluteUnchecked(
+            Label.parseCanonicalUnchecked(
                 TestConstants.CONSTRAINTS_PACKAGE_ROOT + "apple:ios_arm64"));
 
     ConfiguredTarget iosPlatform = getConfiguredTarget(platforms.get(0).toString());
@@ -166,7 +171,7 @@ public class ApplePlatformsToolchainSelectionTest extends ObjcRuleTestCase {
     ConstraintValueInfo expectedCpuConstraint =
         ConstraintValueInfo.create(
             CPU_CONSTRAINT,
-            Label.parseAbsoluteUnchecked(TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64"));
+            Label.parseCanonicalUnchecked(TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64"));
     assertThat(iosPlatformInfo.constraints().has(CPU_CONSTRAINT)).isTrue();
     assertThat(iosPlatformInfo.constraints().get(CPU_CONSTRAINT))
         .isEqualTo(expectedCpuConstraint);
@@ -174,7 +179,7 @@ public class ApplePlatformsToolchainSelectionTest extends ObjcRuleTestCase {
     ConstraintValueInfo expectedOsConstraint =
         ConstraintValueInfo.create(
             OS_CONSTRAINT,
-            Label.parseAbsoluteUnchecked(TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios"));
+            Label.parseCanonicalUnchecked(TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios"));
     assertThat(iosPlatformInfo.constraints().has(OS_CONSTRAINT)).isTrue();
     assertThat(iosPlatformInfo.constraints().get(OS_CONSTRAINT))
         .isEqualTo(expectedOsConstraint);

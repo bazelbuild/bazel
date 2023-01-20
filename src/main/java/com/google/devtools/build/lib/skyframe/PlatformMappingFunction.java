@@ -217,10 +217,9 @@ final class PlatformMappingFunction implements SkyFunction {
 
     String line = it.next();
     try {
-      // It is ok for us to use an empty repository mapping in this instance because all platform
-      // labels used in the mapping file should be relative to the root repository. Repository
-      // mappings however only apply within a repository imported by the root repository.
-      return Label.parseAbsolute(line, /*repositoryMapping=*/ ImmutableMap.of());
+      // TODO(https://github.com/bazelbuild/bazel/issues/17127): This should be passed throw the
+      //   main repo mapping!
+      return Label.parseCanonical(line);
     } catch (LabelSyntaxException e) {
       throw parsingException("Expected platform label but got " + line, e);
     }

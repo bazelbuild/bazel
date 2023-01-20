@@ -868,8 +868,7 @@ public class AspectTest extends AnalysisTestCase {
     ConfiguredAspect aspect = Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     AspectApplyingToFiles.Provider provider =
         aspect.getProvider(AspectApplyingToFiles.Provider.class);
-    assertThat(provider.getLabel())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//a:x_deploy.jar"));
+    assertThat(provider.getLabel()).isEqualTo(Label.parseCanonicalUnchecked("//a:x_deploy.jar"));
   }
 
   @Test

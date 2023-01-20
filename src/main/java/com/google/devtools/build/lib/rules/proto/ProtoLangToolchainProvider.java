@@ -44,7 +44,7 @@ public abstract class ProtoLangToolchainProvider {
   public static final String PROVIDER_NAME = "ProtoLangToolchainInfo";
   public static final StarlarkProvider.Key starlarkProtoLangToolchainKey =
       new StarlarkProvider.Key(
-          Label.parseAbsoluteUnchecked("@_builtins//:common/proto/proto_common.bzl"),
+          Label.parseCanonicalUnchecked("@_builtins//:common/proto/proto_common.bzl"),
           PROVIDER_NAME);
   public static final StarlarkProviderIdentifier PROVIDER_ID =
       StarlarkProviderIdentifier.forKey(starlarkProtoLangToolchainKey);

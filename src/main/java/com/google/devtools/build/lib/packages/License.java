@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -164,8 +163,7 @@ public final class License implements LicenseApi {
     for (String str : licStrings) {
       if (str.startsWith("exception=")) {
         try {
-          Label label =
-              Label.parseAbsolute(str.substring("exception=".length()), ImmutableMap.of());
+          Label label = Label.parseCanonical(str.substring("exception=".length()));
           exceptions.add(label);
         } catch (LabelSyntaxException e) {
           throw new LicenseParsingException(e.getMessage());

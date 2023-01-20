@@ -138,7 +138,7 @@ public class StarlarkInfoTest {
   /** Creates an exported schemaless provider type with builtin location. */
   private static StarlarkProvider makeExportedProvider() {
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//package:target"), "provider");
+        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//package:target"), "provider");
     return StarlarkProvider.builder(Location.BUILTIN).setExported(key).build();
   }
 

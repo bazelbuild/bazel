@@ -134,7 +134,7 @@ public class SpawnActionTest extends BuildViewTestCase {
   public void testExecutionInfo_fromExecutionPlatform() throws Exception {
     ActionOwner actionOwner =
         ActionOwner.create(
-            Label.parseAbsoluteUnchecked("//target"),
+            Label.parseCanonicalUnchecked("//target"),
             ImmutableList.of(),
             new Location("dummy-file", 0, 0),
             "dummy-configuration-mnemonic",

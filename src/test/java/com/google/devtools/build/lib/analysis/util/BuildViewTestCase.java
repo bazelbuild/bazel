@@ -1109,7 +1109,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /** Returns the configurations in which the given label has already been configured. */
   protected Set<BuildConfigurationKey> getKnownConfigurations(String label) throws Exception {
-    Label parsed = Label.parseAbsoluteUnchecked(label);
+    Label parsed = Label.parseCanonicalUnchecked(label);
     Set<BuildConfigurationKey> cts = new HashSet<>();
     for (Map.Entry<SkyKey, SkyValue> e :
         skyframeExecutor.getEvaluator().getDoneValues().entrySet()) {
@@ -1583,7 +1583,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getGenfilesArtifact(
         packageRelativePath,
         ConfiguredTargetKey.builder()
-            .setLabel(Label.parseAbsoluteUnchecked(owner))
+            .setLabel(Label.parseCanonicalUnchecked(owner))
             .setConfiguration(config)
             .build(),
         config);
@@ -1790,7 +1790,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   private ConfiguredTargetKey makeConfiguredTargetKey(String label) {
     return ConfiguredTargetKey.builder()
-        .setLabel(Label.parseAbsoluteUnchecked(label))
+        .setLabel(Label.parseCanonicalUnchecked(label))
         .setConfiguration(getConfiguration(label))
         .build();
   }

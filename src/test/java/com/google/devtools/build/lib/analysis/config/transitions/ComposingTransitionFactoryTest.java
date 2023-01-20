@@ -38,8 +38,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ComposingTransitionFactoryTest {
   // Use starlark flags for the test since they are easy to set and check.
-  private static final Label FLAG_1 = Label.parseAbsoluteUnchecked("//flag1");
-  private static final Label FLAG_2 = Label.parseAbsoluteUnchecked("//flag2");
+  private static final Label FLAG_1 = Label.parseCanonicalUnchecked("//flag1");
+  private static final Label FLAG_2 = Label.parseCanonicalUnchecked("//flag2");
   private EventHandler eventHandler;
 
   @Before

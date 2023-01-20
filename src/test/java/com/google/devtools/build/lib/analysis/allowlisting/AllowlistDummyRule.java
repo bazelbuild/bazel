@@ -37,7 +37,7 @@ public final class AllowlistDummyRule {
                   (builder, env) ->
                       builder.add(
                           Allowlist.getAttributeFromAllowlistName("dummy")
-                              .value(Label.parseAbsoluteUnchecked("//allowlist:allowlist"))));
+                              .value(Label.parseCanonicalUnchecked("//allowlist:allowlist"))));
 
   /** Has to be public to make factory initialization logic happy. **/
   public static class RuleFactory implements RuleConfiguredTargetFactory {

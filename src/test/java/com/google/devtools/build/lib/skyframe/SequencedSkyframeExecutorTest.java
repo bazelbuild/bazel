@@ -664,9 +664,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     assertThrows(
         InterruptedException.class,
         () ->
-            packageProvider.getLoadedTarget(Label.parseAbsoluteUnchecked("//python/hello:hello")));
-    Target target = packageProvider.getLoadedTarget(
-        Label.parseAbsoluteUnchecked("//python/hello:hello"));
+            packageProvider.getLoadedTarget(Label.parseCanonicalUnchecked("//python/hello:hello")));
+    Target target =
+        packageProvider.getLoadedTarget(Label.parseCanonicalUnchecked("//python/hello:hello"));
     assertThat(target).isNotNull();
   }
 
