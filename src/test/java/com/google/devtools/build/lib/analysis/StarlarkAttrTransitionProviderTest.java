@@ -2504,6 +2504,56 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         .containsExactly(Label.parseAbsoluteUnchecked("//platforms:my_platform"));
   }
 
+  /*
+   * If the transition claims to change --cpu but doesn't, it doesn't constitute a platform change
+   * and also doesn't affect any other options (such as affectedByStarlarkTransition).
+   */
+  @Test
+  public void testCpuNoOpChangeIsFullyNoOp() throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "platforms/BUILD",
+        "platform(name = 'my_platform',",
+        "    parents = ['" + TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":host'],",
+        "    constraint_values = [],",
+        ")");
+    scratch.file(
+        "test/starlark/my_rule.bzl",
+        "def transition_func(settings, attr):",
+        // Leave --cpu unchanged, but still trigger the full transition logic that would be
+        // bypassed by returning {}.
+        "  return settings",
+        "my_transition = transition(implementation = transition_func,",
+        "  inputs = [",
+        "    '//command_line_option:cpu',",
+        "  ],",
+        "  outputs = [",
+        "    '//command_line_option:cpu',",
+        "  ]",
+        ")",
+        "def impl(ctx): ",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = impl,",
+        "  attrs = {",
+        "    'dep':  attr.label(cfg = my_transition),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'test', dep = ':main1')",
+        "cc_binary(name = 'main1', srcs = ['main1.c'])");
+
+    ConfiguredTarget topLevel = getConfiguredTarget("//test/starlark:test");
+    ConfiguredTarget dep =
+        getDirectPrerequisite(getConfiguredTarget("//test/starlark:test"), "//test/starlark:main1");
+    assertThat(getConfiguration(dep).getOptions())
+        .isEqualTo(getConfiguration(topLevel).getOptions());
+  }
+
   @Test
   public void testEffectiveNoopTransitionTrimsInputBuildSettings() throws Exception {
     writeAllowlistFile();
