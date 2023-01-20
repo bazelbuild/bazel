@@ -608,6 +608,7 @@ load("@rules_jvm_external//:setup.bzl", "rules_jvm_external_setup")
 rules_jvm_external_setup()
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
+load("@rules_jvm_external//:specs.bzl", "maven")
 
 maven_install(
     artifacts = [
@@ -635,29 +636,50 @@ maven_install(
         "com.google.flogger:flogger:0.5.1",
         "com.google.flogger:google-extensions:0.5.1",
         "com.google.guava:failureaccess:1.0.1",
-        "com.google.guava:guava-testlib:31.1-jre",
+        maven.artifact("com.google.guava", "guava-testlib", "31.1-jre", testonly = True),
         "com.google.guava:guava:31.1-jre",
         "com.google.http-client:google-http-client-gson:1.41.4",
         "com.google.http-client:google-http-client:1.41.4",
         "com.google.j2objc:j2objc-annotations:1.3",
-        "com.squareup:javapoet:1.8.0",
+        maven.artifact("com.squareup", "javapoet", "1.8.0", neverlink = True),
         "commons-collections:commons-collections:3.2.2",
         "commons-lang:commons-lang:2.6",
         "io.github.java-diff-utils:java-diff-utils:4.0",
         "io.grpc:grpc-api:1.47.0",
         "io.grpc:grpc-auth:1.47.0",
         "io.grpc:grpc-context:1.47.0",
+        "io.grpc:grpc-core:1.47.0",
         "io.grpc:grpc-netty:1.47.0",
         "io.grpc:grpc-protobuf-lite:1.47.0",
         "io.grpc:grpc-protobuf:1.47.0",
         "io.grpc:grpc-stub:1.47.0",
-        "io.netty:netty-all:4.1.87.Final",
+        "io.netty:netty-buffer:4.1.87.Final",
+        "io.netty:netty-codec-http2:4.1.87.Final",
+        "io.netty:netty-codec-http:4.1.87.Final",
+        "io.netty:netty-codec:4.1.87.Final",
+        "io.netty:netty-common:4.1.87.Final",
+        "io.netty:netty-handler-proxy:4.1.87.Final",
+        "io.netty:netty-handler:4.1.87.Final",
+        "io.netty:netty-resolver-dns:4.1.87.Final",
+        "io.netty:netty-resolver:4.1.87.Final",
         "io.netty:netty-tcnative-boringssl-static:2.0.56.Final",
+        "io.netty:netty-tcnative-boringssl-static:jar:linux-x86_64:2.0.56.Final",
         "io.netty:netty-tcnative-classes:2.0.56.Final",
+        "io.netty:netty-transport-classes-epoll:4.1.87.Final",
+        "io.netty:netty-transport-classes-kqueue:4.1.87.Final",
+        "io.netty:netty-transport-native-epoll:jar:linux-aarch_64:4.1.87.Final",
+        "io.netty:netty-transport-native-epoll:jar:linux-aarch_64:4.1.87.Final",
+        "io.netty:netty-transport-native-epoll:jar:linux-x86_64:4.1.87.Final",
+        "io.netty:netty-transport-native-kqueue:jar:osx-aarch_64:4.1.87.Final",
+        "io.netty:netty-transport-native-kqueue:jar:osx-aarch_64:4.1.87.Final",
+        "io.netty:netty-transport-native-kqueue:jar:osx-x86_64:4.1.87.Final",
+        "io.netty:netty-transport-native-kqueue:jar:osx-x86_64:4.1.87.Final",
         "io.netty:netty-transport-native-unix-common:jar:linux-aarch_64:4.1.87.Final",
         "io.netty:netty-transport-native-unix-common:jar:linux-x86_64:4.1.87.Final",
         "io.netty:netty-transport-native-unix-common:jar:osx-aarch_64:4.1.87.Final",
         "io.netty:netty-transport-native-unix-common:jar:osx-x86_64:4.1.87.Final",
+        "io.netty:netty-transport-sctp:4.1.87.Final",
+        "io.netty:netty-transport:4.1.87.Final",
         "io.reactivex.rxjava3:rxjava:3.1.2",
         "javax.activation:javax.activation-api:1.2.0",
         "javax.annotation:javax.annotation-api:1.3.2",
@@ -690,6 +712,9 @@ maven_install(
     repositories = [
         "https://repo1.maven.org/maven2",
     ],
+    maven_install_json = "//:maven_install.json",
+    fail_if_repin_required = True,
+    strict_visibility = True,
 )
 
 load("@maven//:defs.bzl", "pinned_maven_install")
