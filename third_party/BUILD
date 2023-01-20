@@ -642,6 +642,12 @@ java_library(
 
 # Testing
 
+# TODO: Remove this target after migrating to java-diff-utils
+java_import(
+    name = "diffutils",
+    jars = ["diffutils/diffutils-1.3.0.jar"],
+)
+
 java_library(
     name = "guava-testlib",
     exports = ["@maven//:com_google_guava_guava_testlib"],
