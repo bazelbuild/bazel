@@ -673,6 +673,7 @@ maven_install(
         "io.netty:netty-transport-native-epoll:jar:linux-x86_64:4.1.87.Final",
         "io.netty:netty-transport-native-kqueue:jar:osx-aarch_64:4.1.87.Final",
         "io.netty:netty-transport-native-kqueue:jar:osx-x86_64:4.1.87.Final",
+        "io.netty:netty-transport-native-unix-common:4.1.87.Final",
         "io.netty:netty-transport-native-unix-common:jar:linux-aarch_64:4.1.87.Final",
         "io.netty:netty-transport-native-unix-common:jar:linux-x86_64:4.1.87.Final",
         "io.netty:netty-transport-native-unix-common:jar:osx-aarch_64:4.1.87.Final",
