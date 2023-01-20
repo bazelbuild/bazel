@@ -163,32 +163,38 @@ java_library(
     ],
 )
 
-java_library(
+distrib_java_import(
     name = "asm",
-    exports = ["@maven//:org_ow2_asm_asm"],
+    enable_distributions = ["debian"],
+    jars = ["asm/asm-9.2.jar"],
+    srcjar = "asm/asm-9.2-sources.jar",
 )
 
-java_library(
+java_import(
     name = "asm-analysis",
-    exports = ["@maven//:org_ow2_asm_asm_analysis"],
+    jars = ["asm/asm-analysis-9.2.jar"],
+    srcjar = "asm/asm-analysis-9.2-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
-java_library(
+java_import(
     name = "asm-commons",
-    exports = ["@maven//:org_ow2_asm_asm_commons"],
+    jars = ["asm/asm-commons-9.2.jar"],
+    srcjar = "asm/asm-commons-9.2-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
-java_library(
+java_import(
     name = "asm-tree",
-    exports = ["@maven//:org_ow2_asm_asm_tree"],
+    jars = ["asm/asm-tree-9.2.jar"],
+    srcjar = "asm/asm-tree-9.2-sources.jar",
     runtime_deps = [":asm"],
 )
 
-java_library(
+java_import(
     name = "asm-util",
-    exports = ["@maven//:org_ow2_asm_asm_util"],
+    jars = ["asm/asm-util-9.2.jar"],
+    srcjar = "asm/asm-util-9.2-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
