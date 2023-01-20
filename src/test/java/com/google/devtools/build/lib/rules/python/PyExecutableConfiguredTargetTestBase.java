@@ -169,6 +169,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void py3IsDefaultFlag_SetsDefaultPythonVersion() throws Exception {
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled
     setBuildLanguageOptions(
         "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     scratch.file(
@@ -191,6 +192,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void py3IsDefaultFlag_DoesntOverrideExplicitVersion() throws Exception {
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled
     setBuildLanguageOptions(
         "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY2"));
@@ -206,6 +208,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void versionAttrWorks_WhenNotDefaultValue() throws Exception {
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled
     setBuildLanguageOptions(
         "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY2"));
@@ -222,7 +225,9 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void versionAttrTakesPrecedence_NonDefaultValue() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
 
     assertPythonVersionIs_UnderNewConfig("//pkg:foo", PythonVersion.PY3, "--python_version=PY2");
@@ -230,7 +235,9 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void versionAttrTakesPrecedence_DefaultValue() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
 
     assertPythonVersionIs_UnderNewConfig("//pkg:foo", PythonVersion.PY3, "--python_version=PY2");
@@ -238,6 +245,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void canBuildWithDifferentVersionAttrs() throws Exception {
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled
     setBuildLanguageOptions(
         "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     scratch.file(
@@ -251,7 +259,9 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void incompatibleSrcsVersion() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     reporter.removeHandler(failFastHandler); // We assert below that we don't fail at analysis.
     scratch.file(
         "pkg/BUILD",

@@ -167,8 +167,6 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         ")");
     useConfiguration(
         "--extra_toolchains=//pkg:usertoolchain", "--incompatible_use_python_toolchains=true");
-    // Starlark implementation doesn't yet support toolchain resolution
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
     ConfiguredTarget target = getConfiguredTarget("//pkg:pybin");
     assertThat(collectRunfiles(target).toList())
         .containsAtLeast(getSourceArtifact("pkg/data.txt"), getSourceArtifact("pkg/userdata.txt"));

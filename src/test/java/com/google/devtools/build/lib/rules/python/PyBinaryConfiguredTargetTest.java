@@ -51,6 +51,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void python2WithPy3SrcsVersionDependency() throws Exception {
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled
     setBuildLanguageOptions(
         "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     declareBinDependingOnLibWithVersions("PY2", "PY3");
@@ -62,6 +63,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void python2WithPy3OnlySrcsVersionDependency() throws Exception {
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled
     setBuildLanguageOptions(
         "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     declareBinDependingOnLibWithVersions("PY2", "PY3ONLY");
@@ -71,6 +73,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void python3WithPy2OnlySrcsVersionDependency_NewSemantics() throws Exception {
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled
     setBuildLanguageOptions(
         "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     declareBinDependingOnLibWithVersions("PY3", "PY2ONLY");

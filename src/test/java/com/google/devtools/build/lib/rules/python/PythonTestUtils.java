@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.rules.python;
 
+import static org.junit.Assume.assumeTrue;
 
+import com.google.devtools.build.lib.testutil.TestConstants;
 
 /** Helpers for Python tests. */
 public class PythonTestUtils {
@@ -22,6 +24,13 @@ public class PythonTestUtils {
   // Static utilities class.
   private PythonTestUtils() {}
 
+  /**
+   * Skips the test if the product isn't bazel. This is mostly to skip tests for py2 support that
+   * the Google implementation would otherwise fail on.
+   */
+  public static void assumeIsBazel() {
+    assumeTrue(TestConstants.PRODUCT_NAME.equals("bazel")); // Google has py2 disabled.
+  }
   /**
    * Stub method that is used to annotate that the calling test case assumes the default Python
    * version is PY2.

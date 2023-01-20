@@ -58,6 +58,7 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
 
   @Test
   public void simpleCase() throws Exception {
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled.
     setBuildLanguageOptions(
         "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     scratch.file(
@@ -117,6 +118,7 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
 
   @Test
   public void twoContradictoryRequirements() throws Exception {
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled.
     setBuildLanguageOptions(
         "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     scratch.file(
@@ -154,6 +156,7 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
 
   @Test
   public void toplevelSelfContradictory() throws Exception {
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled.
     setBuildLanguageOptions(
         "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     scratch.file(
@@ -181,6 +184,7 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
 
   @Test
   public void indirectDependencies() throws Exception {
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled.
     setBuildLanguageOptions(
         "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     // A <- B <- C <- bin, where only B has the constraint.
@@ -223,6 +227,7 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
 
   @Test
   public void onlyReportTopmost() throws Exception {
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled.
     setBuildLanguageOptions(
         "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     // A <- B <- C <- bin, where A and C have the constraint.
@@ -266,6 +271,7 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
 
   @Test
   public void oneTopmostReachesAnother() throws Exception {
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled.
     setBuildLanguageOptions(
         "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     // A <- B <- C, where A and C have the constraint.
@@ -312,6 +318,7 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
 
   @Test
   public void multiplePathsToRequirement() throws Exception {
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled.
     setBuildLanguageOptions(
         "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     // Diamond graph A <- B, A <- C, B <- bin, C <- bin, where only A has the constraint.
@@ -355,7 +362,9 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
 
   @Test
   public void noSrcsVersionButIntroducesRequirement() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
+    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled.
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
     // A <- B <- C <- bin, B introduces the requirement but not via srcs_version.
     // dummy_rule propagates sources and sets the py3-only bit.
     scratch.file(
