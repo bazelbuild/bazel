@@ -464,6 +464,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
       throw new ReportedException(e);
     } catch (AspectCreationException e) {
+      if (!e.getMessage().isEmpty()) {
+        // Report the error to the user.
+        env.getListener().handle(Event.error(null, e.getMessage()));
+      }
       throw new ReportedException(
           new ConfiguredValueCreationException(
               targetAndConfiguration, e.getMessage(), e.getCauses(), e.getDetailedExitCode()));
