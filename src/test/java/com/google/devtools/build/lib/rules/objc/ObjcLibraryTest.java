@@ -32,7 +32,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -384,8 +383,14 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setAndCreateFiles("hdrs", "a.h")
         .setList("deps", "//baselib:baselib")
         .write();
-    ObjcProvider provider = providerForTarget("//lib:lib");
+
+    ObjcProvider provider = objcProviderForTarget("//lib:lib");
     assertThat(provider.get(LIBRARY).toList())
+        .containsExactlyElementsIn(archiveAction("//baselib:baselib").getOutputs());
+
+    CcLinkingContext ccLinkingContext =
+        getConfiguredTarget("//lib:lib").get(CcInfo.PROVIDER).getCcLinkingContext();
+    assertThat(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries())
         .containsExactlyElementsIn(archiveAction("//baselib:baselib").getOutputs());
   }
 
@@ -944,7 +949,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setAndCreateFiles("hdrs", "c.h", "d.h")
         .setList("deps", "//objc:lib_dep")
         .write();
-    ObjcProvider objcProvider = providerForTarget("//objc2:lib");
+    ObjcProvider objcProvider = objcProviderForTarget("//objc2:lib");
     assertThat(objcProvider.get(CC_LIBRARY).toList()).isEmpty();
   }
 
@@ -1071,9 +1076,13 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             .setAndCreateFiles("hdrs", "c.h", "d.h")
             .setList("deps", "//objc:lib")
             .write();
+
     assertThat(getArifactPaths(target, LIBRARY)).containsExactly("objc/liblib.a");
     assertThat(getArifactPaths(depender, LIBRARY)).containsExactly(
         "objc/liblib.a", "objc2/liblib.a");
+    assertThat(getArifactPathsOfLibraries(target)).containsExactly("objc/liblib.a");
+    assertThat(getArifactPathsOfLibraries(depender))
+        .containsExactly("objc/liblib.a", "objc2/liblib.a");
     assertThat(getArifactPathsOfHeaders(target))
         .containsExactly("objc/a.h", "objc/b.h", "objc/private.h");
     assertThat(getArifactPathsOfHeaders(depender))
@@ -1087,13 +1096,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         target.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(artifactKey));
   }
 
-  private static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
-    return Artifact.toRootRelativePaths(
-        target.get(CcInfo.PROVIDER).getCcCompilationContext().getDeclaredIncludeSrcs());
-  }
-
   @Test
-  public void testWeakSdkFrameworks_objcProvider() throws Exception {
+  public void testCollectsWeakSdkFrameworksTransitively() throws Exception {
     createLibraryTargetWriter("//base_lib:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setList("weak_sdk_frameworks", "foo")
@@ -1104,11 +1108,18 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("deps", "//base_lib:lib")
         .write();
 
-    ObjcProvider baseProvider = providerForTarget("//base_lib:lib");
-    ObjcProvider dependerProvider = providerForTarget("//depender_lib:lib");
-
+    ObjcProvider baseProvider = objcProviderForTarget("//base_lib:lib");
+    ObjcProvider dependerProvider = objcProviderForTarget("//depender_lib:lib");
     assertThat(baseProvider.get(WEAK_SDK_FRAMEWORK).toList()).containsExactly("foo");
     assertThat(dependerProvider.get(WEAK_SDK_FRAMEWORK).toList()).containsExactly("foo", "bar");
+
+    ImmutableList<String> baseLinkFlags = getCcInfoUserLinkFlagsFromTarget("//base_lib:lib");
+    assertThat(baseLinkFlags).containsExactly("-weak_framework", "foo").inOrder();
+    ImmutableList<String> dependerLinkFlags =
+        getCcInfoUserLinkFlagsFromTarget("//depender_lib:lib");
+    assertThat(dependerLinkFlags)
+        .containsExactly("-weak_framework", "bar", "-weak_framework", "foo")
+        .inOrder();
   }
 
   @Test
@@ -1145,8 +1156,12 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setList("sdk_dylibs", "libdy1", "libdy2")
         .write();
-    ObjcProvider provider = providerForTarget("//lib:lib");
-    assertThat(provider.get(SDK_DYLIB).toList()).containsExactly("libdy1", "libdy2").inOrder();
+
+    ObjcProvider provider = objcProviderForTarget("//lib:lib");
+    assertThat(provider.get(SDK_DYLIB).toList()).containsExactly("libdy1", "libdy2");
+
+    CcLinkingContext ccLinkingContext = ccInfoForTarget("//lib:lib").getCcLinkingContext();
+    assertThat(ccLinkingContext.getFlattenedUserLinkFlags()).containsExactly("-ldy1", "-ldy2");
   }
 
   @Test
@@ -1410,7 +1425,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setAndCreateFiles("hdrs", "c.h", "d.h")
         .setList("deps", "//cc:lib", "//third_party/cc_lib:cc_lib_impl")
         .write();
-    ObjcProvider objcProvider = providerForTarget("//objc2:lib");
+    ObjcProvider objcProvider = objcProviderForTarget("//objc2:lib");
 
     Iterable<String> linkerInputArtifacts =
         Iterables.transform(
@@ -1439,14 +1454,18 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("deps", "//base_lib:lib")
         .write();
 
-    ObjcProvider baseProvider = providerForTarget("//base_lib:lib");
-    ObjcProvider dependerProvider = providerForTarget("//depender_lib:lib");
+    ObjcProvider baseProvider = objcProviderForTarget("//base_lib:lib");
+    ObjcProvider dependerProvider = objcProviderForTarget("//depender_lib:lib");
+    assertThat(baseProvider.get(SDK_FRAMEWORK).toList()).containsExactly("foo");
+    assertThat(dependerProvider.get(SDK_FRAMEWORK).toList()).containsExactly("foo", "bar");
 
-    Set<String> baseFrameworks = ImmutableSet.of("foo");
-    Set<String> dependerFrameworks = ImmutableSet.of("foo", "bar");
-    assertThat(baseProvider.get(SDK_FRAMEWORK).toList()).containsExactlyElementsIn(baseFrameworks);
-    assertThat(dependerProvider.get(SDK_FRAMEWORK).toList())
-        .containsExactlyElementsIn(dependerFrameworks);
+    ImmutableList<String> baseLinkFlags = getCcInfoUserLinkFlagsFromTarget("//base_lib:lib");
+    assertThat(baseLinkFlags).containsExactly("-framework", "foo").inOrder();
+    ImmutableList<String> dependerLinkFlags =
+        getCcInfoUserLinkFlagsFromTarget("//depender_lib:lib");
+    assertThat(dependerLinkFlags)
+        .containsExactly("-framework", "bar", "-framework", "foo")
+        .inOrder();
 
     // Make sure that the archive action does not actually include the frameworks. This is needed
     // for creating binaries but is ignored for libraries.
@@ -1931,7 +1950,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    deps = [':foo'],",
         ")");
 
-    ObjcProvider dependerProvider = providerForTarget("//x:bar");
+    ObjcProvider dependerProvider = objcProviderForTarget("//x:bar");
     assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.SOURCE)))
         .containsExactly("bar.m", "bar_impl.h");
 

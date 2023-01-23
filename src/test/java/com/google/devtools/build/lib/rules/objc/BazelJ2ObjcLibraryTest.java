@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionTemplate;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
@@ -95,17 +96,22 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testJ2ObjCInformationExportedFromJ2ObjcLibrary() throws Exception {
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
         "//java/com/google/dummy/test:transpile");
+
     ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly("libjre_core_lib.a", "libtest_j2objc.a");
+
+    CcLinkingContext ccLinkingContext =
+        j2objcLibraryTarget.get(CcInfo.PROVIDER).getCcLinkingContext();
+    assertThat(baseArtifactNames(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
+        .containsExactly("libjre_core_lib.a", "libtest_j2objc.a");
+
     CcCompilationContext ccCompilationContext =
         j2objcLibraryTarget.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(baseArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
         .containsExactly("jre_core.h", "test.h");
 
-    String execPath =
-        getConfiguration(j2objcLibraryTarget).getBinDirectory(RepositoryName.MAIN).getExecPath()
-            + "/";
+    String execPath = getRuleContext(j2objcLibraryTarget).getBinFragment() + "/";
     assertThat(
             Iterables.transform(
                 ccCompilationContext.getIncludeDirs(), PathFragment::getSafePathString))
@@ -151,17 +157,20 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget target = getConfiguredTarget("//java/com/google/test:transpile");
     ObjcProvider provider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    String genfilesFragment =
-        getConfiguration(target).getGenfilesFragment(RepositoryName.MAIN).toString();
     assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly("libjre_core_lib.a", "libtest_j2objc.a");
+
+    CcLinkingContext ccLinkingContext = target.get(CcInfo.PROVIDER).getCcLinkingContext();
+    assertThat(baseArtifactNames(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
+        .containsExactly("libjre_core_lib.a", "libtest_j2objc.a");
+
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(baseArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
         .containsExactly("jre_core.h", "test.h");
 
-    String execPath =
-        getConfiguration(target).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
+    String execPath = getRuleContext(target).getBinFragment() + "/";
+    String genfilesFragment = getRuleContext(target).getGenfilesFragment().toString();
     assertThat(
             Iterables.transform(
                 ccCompilationContext.getIncludeDirs(), PathFragment::getSafePathString))
@@ -198,6 +207,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
         "//java/com/google/dummy/test/proto:transpile");
+
     ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly(
@@ -205,6 +215,16 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             "libproto_runtime.a",
             "libtest_j2objc.a",
             "libtest_proto_j2objc.a");
+
+    CcLinkingContext ccLinkingContext =
+        j2objcLibraryTarget.get(CcInfo.PROVIDER).getCcLinkingContext();
+    assertThat(baseArtifactNames(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
+        .containsExactly(
+            "libjre_core_lib.a",
+            "libproto_runtime.a",
+            "libtest_j2objc.a",
+            "libtest_proto_j2objc.a");
+
     CcCompilationContext ccCompilationContext =
         j2objcLibraryTarget.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(baseArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
@@ -438,12 +458,19 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testExplicitJreDeps() throws Exception {
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
         "//java/com/google/dummy/test:transpile");
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    CcCompilationContext ccCompilationContext =
-        j2objcLibraryTarget.get(CcInfo.PROVIDER).getCcCompilationContext();
+
     // jre_io_lib and jre_emul_lib should be excluded.
+    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly("libjre_core_lib.a", "libtest_j2objc.a");
+
+    CcLinkingContext ccLinkingContext =
+        j2objcLibraryTarget.get(CcInfo.PROVIDER).getCcLinkingContext();
+    assertThat(baseArtifactNames(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
+        .containsExactly("libjre_core_lib.a", "libtest_j2objc.a");
+
+    CcCompilationContext ccCompilationContext =
+        j2objcLibraryTarget.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(baseArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
         .containsExactly("jre_core.h", "test.h");
   }
@@ -528,8 +555,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     Artifact mappingFile = getFirstArtifactEndingWith(
         mappingFileProvider.getHeaderMappingFiles(), "lib1.mapping.j2objc");
     SpawnAction headerMappingAction = (SpawnAction) getGeneratingAction(mappingFile);
-    String execPath =
-        getConfiguration(target).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
+    String execPath = getRuleContext(target).getBinFragment() + "/";
     assertThat(baseArtifactNames(headerMappingAction.getInputs()))
         .containsAtLeast("libOne.java", "jar.srcjar");
     assertThat(headerMappingAction.getArguments().get(0))
@@ -626,9 +652,10 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   protected Artifact j2objcArchive(String j2objcLibraryTarget, String javaTargetName)
       throws Exception {
     ConfiguredTarget target = getConfiguredTarget(j2objcLibraryTarget);
-    ObjcProvider provider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
+    CcLinkingContext ccLinkingContext = target.get(CcInfo.PROVIDER).getCcLinkingContext();
     String archiveName = String.format("lib%s_j2objc.a", javaTargetName);
-    return getFirstArtifactEndingWith(provider.get(ObjcProvider.LIBRARY), archiveName);
+    return getFirstArtifactEndingWith(
+        ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries(), archiveName);
   }
 
   @Test
@@ -648,13 +675,17 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     ObjcProvider provider = objcTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly("libjre_core_lib.a", "libtest_j2objc.a", "liblib.a");
+
+    CcLinkingContext ccLinkingContext = objcTarget.get(CcInfo.PROVIDER).getCcLinkingContext();
+    assertThat(baseArtifactNames(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
+        .containsExactly("libjre_core_lib.a", "libtest_j2objc.a", "liblib.a");
+
     CcCompilationContext ccCompilationContext =
         objcTarget.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(baseArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
         .containsExactly("jre_core.h", "test.h");
 
-    String execPath =
-        getConfiguration(objcTarget).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
+    String execPath = getRuleContext(objcTarget).getBinFragment() + "/";
     assertThat(
             Iterables.transform(
                 ccCompilationContext.getIncludeDirs(), PathFragment::getSafePathString))
@@ -693,13 +724,18 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly(
             "libjre_core_lib.a", "libdummyOne_j2objc.a", "libdummyTwo_j2objc.a", "liblib.a");
+
+    CcLinkingContext ccLinkingContext = objcTarget.get(CcInfo.PROVIDER).getCcLinkingContext();
+    assertThat(baseArtifactNames(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
+        .containsExactly(
+            "libjre_core_lib.a", "libdummyOne_j2objc.a", "libdummyTwo_j2objc.a", "liblib.a");
+
     CcCompilationContext ccCompilationContext =
         objcTarget.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(baseArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
         .containsExactly("jre_core.h", "dummyOne.h", "dummyTwo.h");
 
-    String execPath =
-        getConfiguration(objcTarget).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
+    String execPath = getRuleContext(objcTarget).getBinFragment() + "/";
     assertThat(
             Iterables.transform(
                 ccCompilationContext.getIncludeDirs(), PathFragment::getSafePathString))
@@ -749,9 +785,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     CommandAction linkAction = linkAction("//x:test");
     ConfiguredTarget target = getConfiguredTargetInAppleBinaryTransition("//x:test");
-    String binDir =
-        removeConfigFragment(
-            getConfiguration(target).getBinDirectory(RepositoryName.MAIN).getExecPathString());
+    String binDir = removeConfigFragment(getRuleContext(target).getBinFragment().toString());
     ParameterFileWriteAction paramAction = paramFileWriteActionForLinkAction(linkAction);
     Iterable<String> paramFileArgs = paramAction.getCommandLine().arguments();
     assertThat(removeConfigFragment(ImmutableList.copyOf(paramFileArgs)))
@@ -1025,10 +1059,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget objcTarget = getConfiguredTarget("//examples:lib");
 
-    ObjcProvider provider = objcTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-
     // The only way that //examples:lib can see inner's archive is through the Starlark rule.
+    ObjcProvider provider = objcTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY))).contains("libinner_j2objc.a");
+
+    CcLinkingContext ccLinkingContext = objcTarget.get(CcInfo.PROVIDER).getCcLinkingContext();
+    assertThat(baseArtifactNames(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
+        .contains("libinner_j2objc.a");
   }
 
   @Test
@@ -1126,6 +1163,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/dummy/test/proto:transpile");
+
     ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(baseArtifactNames(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly(
@@ -1133,6 +1171,16 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             "libalt_proto_runtime.a",
             "libtest_j2objc.a",
             "libtest_proto_j2objc.a");
+
+    CcLinkingContext ccLinkingContext =
+        j2objcLibraryTarget.get(CcInfo.PROVIDER).getCcLinkingContext();
+    assertThat(baseArtifactNames(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
+        .containsExactly(
+            "libjre_core_lib.a",
+            "libalt_proto_runtime.a",
+            "libtest_j2objc.a",
+            "libtest_proto_j2objc.a");
+
     CcCompilationContext ccCompilationContext =
         j2objcLibraryTarget.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(baseArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
@@ -1158,9 +1206,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     Artifact dependencyMappingFile = getBinArtifact("test.dependency_mapping.j2objc", javaTarget);
     Artifact archiveSourceMappingFile =
         getBinArtifact("test.archive_source_mapping.j2objc", javaTarget);
-    String execPath =
-        removeConfigFragment(
-            getConfiguration(javaTarget).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/");
+    String execPath = removeConfigFragment(getRuleContext(javaTarget).getBinFragment() + "/");
 
     assertContainsSublist(
         removeConfigFragment(ImmutableList.copyOf(paramFileArgsForAction(action))),
@@ -1236,10 +1282,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     CommandAction compileAction = Iterables.getOnlyElement(compileActions);
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/dummy/test:transpile");
-    String genfilesFragment =
-        getConfiguration(j2objcLibraryTarget).getGenfilesFragment(RepositoryName.MAIN).toString();
-    String binFragment =
-        getConfiguration(j2objcLibraryTarget).getBinFragment(RepositoryName.MAIN).toString();
+    String genfilesFragment = getRuleContext(j2objcLibraryTarget).getGenfilesFragment().toString();
+    String binFragment = getRuleContext(j2objcLibraryTarget).getBinFragment().toString();
 
     String commandLine = Joiner.on(" ").join(compileAction.getArguments());
     ImmutableList<String> expectedArgs =

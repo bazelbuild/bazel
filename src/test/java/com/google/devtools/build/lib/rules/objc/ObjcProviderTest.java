@@ -64,7 +64,7 @@ public class ObjcProviderTest {
   @Test
   public void emptyProvider() {
     ObjcProvider empty = objcProviderBuilder().build();
-    assertThat(empty.get(ObjcProvider.SDK_DYLIB).toList()).isEmpty();
+    assertThat(empty.get(ObjcProvider.SOURCE).toList()).isEmpty();
   }
 
   @Test

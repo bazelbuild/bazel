@@ -21,7 +21,7 @@ import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -66,10 +66,19 @@ public class ObjcImportTest extends ObjcRuleTestCase {
         "    name = 'lib',",
         "    deps = ['//imp:imp'],",
         ")");
-    ObjcProvider provider = providerForTarget("//lib:lib");
+
+    ObjcProvider provider = objcProviderForTarget("//lib:lib");
     assertThat(Artifact.asExecPaths(provider.get(ObjcProvider.IMPORTED_LIBRARY)))
         .containsExactly("imp/precomp_lib.a")
         .inOrder();
+
+    Artifact library =
+        ccInfoForTarget("//lib:lib")
+            .getCcLinkingContext()
+            .getLibraries()
+            .getSingleton()
+            .getStaticLibrary();
+    assertThat(library.getRunfilesPath().toString()).isEqualTo("imp/precomp_lib.a");
   }
 
   @Test
@@ -107,10 +116,12 @@ public class ObjcImportTest extends ObjcRuleTestCase {
         "    archives = ['imp.a'],",
         "    sdk_dylibs = ['libdy1', 'libdy2'],",
         ")");
-    ObjcProvider provider = providerForTarget("//imp:imp");
-    assertThat(provider.get(ObjcProvider.SDK_DYLIB).toList())
-        .containsExactly("libdy1", "libdy2")
-        .inOrder();
+
+    ObjcProvider provider = objcProviderForTarget("//imp:imp");
+    assertThat(provider.get(ObjcProvider.SDK_DYLIB).toList()).containsExactly("libdy1", "libdy2");
+
+    CcLinkingContext ccLinkingContext = ccInfoForTarget("//imp:imp").getCcLinkingContext();
+    assertThat(ccLinkingContext.getFlattenedUserLinkFlags()).containsExactly("-ldy1", "-ldy2");
   }
 
   @Test
@@ -157,6 +168,8 @@ public class ObjcImportTest extends ObjcRuleTestCase {
 
     assertThat(getArifactPaths(getConfiguredTarget("//imp:imp"), IMPORTED_LIBRARY))
         .containsExactly("imp/precomp_lib.a", "imp/precomp_dep.a");
+    assertThat(getArifactPathsOfLibraries(getConfiguredTarget("//imp:imp")))
+        .containsExactly("imp/precomp_lib.a", "imp/precomp_dep.a");
     assertThat(getArifactPathsOfHeaders(getConfiguredTarget("//imp:imp")))
         .containsExactly("imp/precomp_dep.h");
   }
@@ -165,10 +178,5 @@ public class ObjcImportTest extends ObjcRuleTestCase {
       ConfiguredTarget target, ObjcProvider.Key<Artifact> artifactKey) {
     return Artifact.toRootRelativePaths(
         target.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(artifactKey));
-  }
-
-  private static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
-    return Artifact.toRootRelativePaths(
-        target.get(CcInfo.PROVIDER).getCcCompilationContext().getDeclaredIncludeSrcs());
   }
 }
