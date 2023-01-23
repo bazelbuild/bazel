@@ -17,12 +17,16 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
+import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ExecGroup;
+import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -271,5 +275,131 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
     assertThat(defaultExecGroupToolchains).isNotEmpty();
     assertThat(toolchainInfo).isNotNull();
+  }
+
+  @Test
+  public void twoToolchains_createTwoExecutionGroups() throws Exception {
+    createCustomRule(
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    ExecGroupCollection execGroups = getRuleContext(target).getExecGroups();
+
+    assertThat(execGroups.execGroups().keySet())
+        .containsExactly("//rule:toolchain_type_1", "//rule:toolchain_type_2");
+    ExecGroup execGroupTT1 = execGroups.getExecGroup("//rule:toolchain_type_1");
+    assertThat(execGroupTT1.toolchainTypes())
+        .containsExactly(
+            ToolchainTypeRequirement.create(Label.parseCanonical("//rule:toolchain_type_1")));
+    assertThat(execGroupTT1.execCompatibleWith()).isEmpty();
+    ExecGroup execGroupTT2 = execGroups.getExecGroup("//rule:toolchain_type_2");
+    assertThat(execGroupTT2.toolchainTypes())
+        .containsExactly(
+            ToolchainTypeRequirement.create(Label.parseCanonical("//rule:toolchain_type_2")));
+    assertThat(execGroupTT2.execCompatibleWith()).isEmpty();
+  }
+
+  @Test
+  public void twoToolchains_threeToolchainContexts() throws Exception {
+    createCustomRule(
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    ImmutableSet<String> toolchainContextsKeys =
+        getRuleContext(target).getToolchainContexts().getContextMap().keySet();
+
+    assertThat(toolchainContextsKeys)
+        .containsExactly(
+            ExecGroup.DEFAULT_EXEC_GROUP_NAME,
+            "//rule:toolchain_type_1",
+            "//rule:toolchain_type_2");
+  }
+
+  @Test
+  public void defaultExecGroupHasNoToolchains() throws Exception {
+    createCustomRule(
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    ResolvedToolchainContext defaultExecGroupContext =
+        getRuleContext(target).getToolchainContexts().getDefaultToolchainContext();
+
+    assertThat(defaultExecGroupContext).isNotNull();
+    assertThat(defaultExecGroupContext.toolchainTypes()).isEmpty();
+  }
+
+  @Test
+  public void defaultExecGroupHasBasicExecutionPlatform() throws Exception {
+    createCustomRule(
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    ResolvedToolchainContext defaultExecGroupContext =
+        getRuleContext(target).getToolchainContexts().getDefaultToolchainContext();
+
+    assertThat(defaultExecGroupContext).isNotNull();
+    assertThat(defaultExecGroupContext.executionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
+
+  @Test
+  public void independentExecPlatformForAction_toolchainType1() throws Exception {
+    createCustomRule(
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    Action generatedAction = getGeneratingAction(target, "test/custom_rule_name_dummy_output.jar");
+
+    assertThat(generatedAction.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
+
+  @Test
+  public void independentExecPlatformForAction_toolchainType2() throws Exception {
+    createCustomRule(
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_2',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    Action generatedAction = getGeneratingAction(target, "test/custom_rule_name_dummy_output.jar");
+
+    assertThat(generatedAction.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
+  }
+
+  @Test
+  public void actionWithTwoToolchains_automaticExecGroupsDisabled_error() throws Exception {
+    createCustomRule(
+        /* actionParameters= */ "",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertContainsEvent(
+        Pattern.compile(
+            "Unable to find an execution platform for toolchains \\[(//rule:toolchain_type_1,"
+                + " //rule:toolchain_type_2)|(//rule:toolchain_type_2, //rule:toolchain_type_1)\\]"
+                + " and target platform //platforms:platform_1 from available execution platforms"
+                + " \\[//platforms:platform_1, //platforms:platform_2,"
+                + " //third_party/local_config_platform:host\\]"));
   }
 }
