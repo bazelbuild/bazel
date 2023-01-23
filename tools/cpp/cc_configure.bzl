@@ -170,6 +170,7 @@ cc_autoconf = repository_rule(
         "CPLUS_INCLUDE_PATH",
         "DEVELOPER_DIR",
         "GCOV",
+        "LIBTOOL",
         "HOMEBREW_RUBY_PATH",
         "SYSTEMROOT",
         "USER",
