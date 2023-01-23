@@ -61,7 +61,8 @@ public class NodeDroppingInconsistencyReceiver implements GraphInconsistencyRece
     if (inconsistency == Inconsistency.RESET_REQUESTED) {
       return otherKeys == null;
     }
-    if (inconsistency == Inconsistency.ALREADY_DECLARED_CHILD_MISSING) {
+    if (inconsistency == Inconsistency.ALREADY_DECLARED_CHILD_MISSING
+        || inconsistency == Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD) {
       // For already declared child missing inconsistency, key is the parent while `otherKeys`
       // are the children (dependency nodes).
       SkyFunctionName expectedStateKeyType =

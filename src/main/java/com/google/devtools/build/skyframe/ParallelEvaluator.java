@@ -71,7 +71,8 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       QuiescingExecutor executor,
       CycleDetector cycleDetector,
       boolean mergingSkyframeAnalysisExecutionPhases,
-      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
+      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver,
+      boolean heuristicallyDropNodes) {
     super(
         graph,
         graphVersion,
@@ -86,8 +87,44 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         graphInconsistencyReceiver,
         executor,
         cycleDetector,
-        mergingSkyframeAnalysisExecutionPhases);
+        mergingSkyframeAnalysisExecutionPhases,
+        heuristicallyDropNodes);
     this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
+  }
+
+  public ParallelEvaluator(
+      ProcessableGraph graph,
+      Version graphVersion,
+      Version minimalVersion,
+      ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
+      ExtendedEventHandler reporter,
+      NestedSetVisitor.VisitedState emittedEventState,
+      EventFilter storedEventFilter,
+      ErrorInfoManager errorInfoManager,
+      boolean keepGoing,
+      DirtyTrackingProgressReceiver progressReceiver,
+      GraphInconsistencyReceiver graphInconsistencyReceiver,
+      QuiescingExecutor executor,
+      CycleDetector cycleDetector,
+      boolean mergingSkyframeAnalysisExecutionPhases,
+      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
+    this(
+        graph,
+        graphVersion,
+        minimalVersion,
+        skyFunctions,
+        reporter,
+        emittedEventState,
+        storedEventFilter,
+        errorInfoManager,
+        keepGoing,
+        progressReceiver,
+        graphInconsistencyReceiver,
+        executor,
+        cycleDetector,
+        mergingSkyframeAnalysisExecutionPhases,
+        unnecessaryTemporaryStateDropperReceiver,
+        /* heuristicallyDropNodes= */ false);
   }
 
   private void informProgressReceiverThatValueIsDone(SkyKey key, NodeEntry entry)
