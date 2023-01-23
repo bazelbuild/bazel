@@ -23,7 +23,7 @@ public enum ArtifactCategory {
   STATIC_LIBRARY("lib", ".a", ".lib"),
   ALWAYSLINK_STATIC_LIBRARY("lib", ".lo", ".lo.lib"),
   DYNAMIC_LIBRARY("lib", ".so", ".dylib", ".dll"),
-  EXECUTABLE("", "", ".exe"),
+  EXECUTABLE("", "", ".exe", ".wasm"),
   INTERFACE_LIBRARY("lib", ".ifso", ".tbd", ".if.lib", ".lib"),
   PIC_FILE("", ".pic"),
   INCLUDED_FILE_LIST("", ".d"),
