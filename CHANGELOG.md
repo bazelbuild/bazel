@@ -10,6 +10,20 @@ Cherry picks:
      2f39c04ea4b93788bfef5c475b7dd40a8a289aef.
 ```
 
+This release contains contributions from many people at Google, as well as .
+
+## Release 7.0.0-pre.20230104.2 (2023-01-23)
+
+```
+Baseline: 89d34ac23a8f46b3b89ac4730d7a20da375f5fae
+
+Cherry picks:
+
+   + cf95a2be1de5e29d38fc1f35e662c678bb70fcdd:
+     Automated rollback of commit
+     2f39c04ea4b93788bfef5c475b7dd40a8a289aef.
+```
+
 Incompatible changes:
 
   - When multiple --deleted_packages options are passed on the
