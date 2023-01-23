@@ -103,8 +103,8 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "pkg/BUILD",
         "py_runtime(",
         "    name = 'my_py_runtime',",
-        "    interpreter_path = '/system/python2',",
-        "    python_version = 'PY2',",
+        "    interpreter_path = '/system/python3',",
+        "    python_version = 'PY3',",
         ")",
         "py_binary(",
         "    name = 'pybin',",
@@ -114,7 +114,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         analysisMock.pySupport().createPythonTopEntryPoint(mockToolsConfig, "//pkg:my_py_runtime");
     useConfiguration("--incompatible_use_python_toolchains=false", "--python_top=" + pythonTop);
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:pybin"));
-    assertThat(path).isEqualTo("/system/python2");
+    assertThat(path).isEqualTo("/system/python3");
   }
 
   @Test
@@ -149,8 +149,8 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "pkg/BUILD",
         "py_runtime(",
         "    name = 'my_py_runtime',",
-        "    interpreter_path = '/system/python2',",
-        "    python_version = 'PY2',",
+        "    interpreter_path = '/system/python3',",
+        "    python_version = 'PY3',",
         ")",
         "py_binary(",
         "    name = 'pybin',",
@@ -163,7 +163,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "--python_top=" + pythonTop,
         "--python_path=/better/not/be/this/one");
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:pybin"));
-    assertThat(path).isEqualTo("/system/python2");
+    assertThat(path).isEqualTo("/system/python3");
   }
 
   // TODO(brandjon): Move generic toolchain tests that don't access legacy behavior to
@@ -177,12 +177,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "toolchains/BUILD",
         "load('" + TOOLCHAIN_BZL + "', 'py_runtime_pair')",
         "py_runtime(",
-        "    name = 'py2_runtime',",
-        "    interpreter_path = '/system/python2',",
-        "    python_version = 'PY2',",
-        "    stub_shebang = '#!/usr/bin/env python',",
-        ")",
-        "py_runtime(",
         "    name = 'py3_runtime',",
         "    interpreter_path = '/system/python3',",
         "    python_version = 'PY3',",
@@ -190,7 +184,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         ")",
         "py_runtime_pair(",
         "    name = 'py_runtime_pair',",
-        "    py2_runtime = ':py2_runtime',",
         "    py3_runtime = ':py3_runtime',",
         ")",
         "toolchain(",
@@ -199,12 +192,12 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "    toolchain_type = '" + TOOLCHAIN_TYPE + "',",
         ")",
         "py_runtime_pair(",
-        "    name = 'py_runtime_pair_for_py2_only',",
-        "    py2_runtime = ':py2_runtime',",
+        "    name = 'py_runtime_pair_for_py3_only',",
+        "    py3_runtime = ':py3_runtime',",
         ")",
         "toolchain(",
-        "    name = 'py_toolchain_for_py2_only',",
-        "    toolchain = ':py_runtime_pair_for_py2_only',",
+        "    name = 'py_toolchain_for_py3_only',",
+        "    toolchain = ':py_runtime_pair_for_py3_only',",
         "    toolchain_type = '" + TOOLCHAIN_TYPE + "',",
         ")");
   }
@@ -215,11 +208,6 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         "py_binary(",
-        "    name = 'py2_bin',",
-        "    srcs = ['py2_bin.py'],",
-        "    python_version = 'PY2',",
-        ")",
-        "py_binary(",
         "    name = 'py3_bin',",
         "    srcs = ['py3_bin.py'],",
         "    python_version = 'PY3',",
@@ -228,17 +216,12 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "--incompatible_use_python_toolchains=true",
         "--extra_toolchains=//toolchains:py_toolchain");
 
-    ConfiguredTarget py2 = getConfiguredTarget("//pkg:py2_bin");
     ConfiguredTarget py3 = getConfiguredTarget("//pkg:py3_bin");
 
-    String py2Path = getInterpreterPathFromStub(py2);
     String py3Path = getInterpreterPathFromStub(py3);
-    assertThat(py2Path).isEqualTo("/system/python2");
     assertThat(py3Path).isEqualTo("/system/python3");
 
-    String py2Shebang = getShebangFromStub(py2);
     String py3Shebang = getShebangFromStub(py3);
-    assertThat(py2Shebang).isEqualTo("#!/usr/bin/env python");
     assertThat(py3Shebang).isEqualTo("#!/usr/bin/env python3");
   }
 
@@ -248,41 +231,21 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         "py_binary(",
-        "    name = 'py2_bin',",
-        "    srcs = ['py2_bin.py'],",
-        "    python_version = 'PY2',",
+        "    name = 'py3_bin',",
+        "    srcs = ['py3_bin.py'],",
+        "    python_version = 'PY3',",
         ")");
     useConfiguration(
         "--incompatible_use_python_toolchains=true",
-        "--extra_toolchains=//toolchains:py_toolchain_for_py2_only");
+        "--extra_toolchains=//toolchains:py_toolchain_for_py3_only");
 
-    String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py2_bin"));
-    assertThat(path).isEqualTo("/system/python2");
+    String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py3_bin"));
+    assertThat(path).isEqualTo("/system/python3");
   }
 
   @Test
   public void toolchainTakesPrecedenceOverLegacyFlags() throws Exception {
     defineToolchains();
-    scratch.file(
-        "pkg/BUILD",
-        "py_binary(",
-        "    name = 'py2_bin',",
-        "    srcs = ['py2_bin.py'],",
-        "    python_version = 'PY2',",
-        ")");
-    useConfiguration(
-        "--incompatible_use_python_toolchains=true",
-        "--extra_toolchains=//toolchains:py_toolchain",
-        "--python_path=/better/not/be/this/one");
-
-    String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py2_bin"));
-    assertThat(path).isEqualTo("/system/python2");
-  }
-
-  @Test
-  public void toolchainIsMissingNeededRuntime() throws Exception {
-    defineToolchains();
-    reporter.removeHandler(failFastHandler);
     scratch.file(
         "pkg/BUILD",
         "py_binary(",
@@ -292,10 +255,11 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         ")");
     useConfiguration(
         "--incompatible_use_python_toolchains=true",
-        "--extra_toolchains=//toolchains:py_toolchain_for_py2_only");
+        "--extra_toolchains=//toolchains:py_toolchain",
+        "--python_path=/better/not/be/this/one");
 
-    getConfiguredTarget("//pkg:py3_bin");
-    assertContainsEvent("The Python toolchain does not provide a runtime for Python version PY3");
+    String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py3_bin"));
+    assertThat(path).isEqualTo("/system/python3");
   }
 
   /**
@@ -330,16 +294,16 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   /**
-   * Defines a PY2 py_binary target at //pkg:pybin, configures it to use the custom toolchain
+   * Defines a py_binary target at //pkg:pybin, configures it to use the custom toolchain
    * //toolchains:custom, and attempts to retrieve it with {@link #getConfiguredTarget}.
    */
-  private void analyzePy2BinaryTargetUsingCustomToolchain() throws Exception {
+  private void analyzePyBinaryTargetUsingCustomToolchain() throws Exception {
     scratch.file(
         "pkg/BUILD",
         "py_binary(",
         "    name = 'pybin',",
         "    srcs = ['pybin.py'],",
-        "    python_version = 'PY2',",
+        "    python_version = 'PY3',",
         ")");
     useConfiguration(
         "--incompatible_use_python_toolchains=true",
@@ -352,14 +316,13 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     defineCustomToolchain(
         "return platform_common.ToolchainInfo(",
-        "    py2_runtime = PyRuntimeInfo(",
-        "        interpreter_path = '/system/python2',",
-        "        python_version = 'PY2')",
+        "    py3_runtime = PyRuntimeInfo(",
+        "        interpreter_path = '/system/python3',",
+        "        python_version = 'PY3')",
         ")");
-    // Use PY2 binary to test that we still validate the PY3 field even when it's not needed.
-    analyzePy2BinaryTargetUsingCustomToolchain();
+    analyzePyBinaryTargetUsingCustomToolchain();
     assertContainsEvent(
-        "Error parsing the Python toolchain's ToolchainInfo: field 'py3_runtime' is missing");
+        "Error parsing the Python toolchain's ToolchainInfo: field 'py2_runtime' is missing");
   }
 
   @Test
@@ -367,16 +330,15 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     defineCustomToolchain(
         "return platform_common.ToolchainInfo(",
-        "    py2_runtime = PyRuntimeInfo(",
-        "        interpreter_path = '/system/python2',",
-        "        python_version = 'PY2'),",
-        "    py3_runtime = 'abc',",
+        "    py3_runtime = PyRuntimeInfo(",
+        "        interpreter_path = '/system/python3',",
+        "        python_version = 'PY3'),",
+        "    py2_runtime = 'abc',",
         ")");
-    // Use PY2 binary to test that we still validate the PY3 field even when it's not needed.
-    analyzePy2BinaryTargetUsingCustomToolchain();
+    analyzePyBinaryTargetUsingCustomToolchain();
     assertContainsEvent(
         "Error parsing the Python toolchain's ToolchainInfo: Expected a PyRuntimeInfo in field "
-            + "'py3_runtime', but got 'string'");
+            + "'py2_runtime', but got 'string'");
   }
 
   @Test
@@ -384,16 +346,12 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     defineCustomToolchain(
         "return platform_common.ToolchainInfo(",
-        "    py2_runtime = PyRuntimeInfo(",
-        "        interpreter_path = '/system/python2',",
-        "        python_version = 'PY2'),",
         "    py3_runtime = PyRuntimeInfo(",
         "        interpreter_path = '/system/python3',",
         // python_version is erroneously set to PY2 for the PY3 field.
         "        python_version = 'PY2'),",
         ")");
-    // Use PY2 binary to test that we still validate the PY3 field even when it's not needed.
-    analyzePy2BinaryTargetUsingCustomToolchain();
+    analyzePyBinaryTargetUsingCustomToolchain();
     assertContainsEvent(
         "Error retrieving the Python runtime from the toolchain: Expected field 'py3_runtime' to "
             + "have a runtime with python_version = 'PY3', but got python_version = 'PY2'");

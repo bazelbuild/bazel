@@ -34,9 +34,10 @@ def _py_runtime_pair_impl(ctx):
     else:
         py3_runtime = None
 
-    if _is_py2_disabled(ctx) and py2_runtime != None:
-        fail("Using Python 2 is not supported and disabled; see " +
-             "https://github.com/bazelbuild/bazel/issues/15684")
+    # TODO: Uncomment this after --incompatible_python_disable_py2 defaults to true
+    # if _is_py2_disabled(ctx) and py2_runtime != None:
+    #     fail("Using Python 2 is not supported and disabled; see " +
+    #          "https://github.com/bazelbuild/bazel/issues/15684")
 
     return [platform_common.ToolchainInfo(
         py2_runtime = py2_runtime,
