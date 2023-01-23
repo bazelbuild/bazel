@@ -50,6 +50,17 @@ linker_mode = struct(
     LINKING_STATIC = "static_linking_mode",
 )
 
+ios_cpus = struct(
+    IOS_SIMULATOR_TARGET_CPUS = ["ios_x86_64", "ios_i386", "ios_sim_arm64"],
+    IOS_DEVICE_TARGET_CPUS = ["ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s", "ios_arm64e"],
+    WATCHOS_SIMULATOR_TARGET_CPUS = ["watchos_i386", "watchos_x86_64", "watchos_arm64"],
+    WATCHOS_DEVICE_TARGET_CPUS = ["watchos_armv7k", "watchos_arm64_32", "watchos_device_arm64", "watchos_device_arm64e"],
+    TVOS_SIMULATOR_TARGET_CPUS = ["tvos_x86_64", "tvos_sim_arm64"],
+    TVOS_DEVICE_TARGET_CPUS = ["tvos_arm64"],
+    CATALYST_TARGET_CPUS = ["catalyst_x86_64"],
+    MACOS_TARGET_CPUS = ["darwin_x86_64", "darwin_arm64", "darwin_arm64e", "darwin"],
+)
+
 SYSROOT_FLAG = "--sysroot="
 
 def _build_linking_context_from_libraries(ctx, libraries):
@@ -740,16 +751,15 @@ def _get_cc_flags_make_variable(ctx, common, cc_toolchain):
     cc_flags.extend(feature_config_cc_flags)
     return {"CC_FLAGS": " ".join(cc_flags)}
 
-def _expand_nested_variable(ctx, additional_vars, exp, execpath = True):
+def _expand_nested_variable(ctx, additional_vars, exp, execpath = True, targets = []):
     # If make variable is predefined path variable(like $(location ...))
     # we will expand it first.
     if exp.find(" ") != -1:
         if not execpath:
             if exp.startswith("location"):
                 exp = exp.replace("location", "rootpath", 1)
-        targets = []
         if ctx.attr.data != None:
-            targets = ctx.attr.data
+            targets.extend(ctx.attr.data)
         return ctx.expand_location("$({})".format(exp), targets = targets)
 
     # Recursively expand nested make variables, but since there is no recursion
@@ -773,7 +783,7 @@ def _expand_nested_variable(ctx, additional_vars, exp, execpath = True):
         fail("potentially unbounded recursion during expansion of {}".format(exp))
     return exp
 
-def _expand(ctx, expression, additional_make_variable_substitutions, execpath = True):
+def _expand(ctx, expression, additional_make_variable_substitutions, execpath = True, targets = []):
     idx = 0
     last_make_var_end = 0
     result = []
@@ -815,7 +825,7 @@ def _expand(ctx, expression, additional_make_variable_substitutions, execpath = 
                 #   last_make_var_end  make_var_start make_var_end
                 result.append(expression[last_make_var_end:make_var_start - 1])
                 make_var = expression[make_var_start + 1:make_var_end]
-                exp = _expand_nested_variable(ctx, additional_make_variable_substitutions, make_var, execpath)
+                exp = _expand_nested_variable(ctx, additional_make_variable_substitutions, make_var, execpath, targets)
                 result.append(exp)
 
                 # Update indexes.
@@ -1221,6 +1231,31 @@ def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_fi
     )
     return info
 
+def _is_apple_platform(cpu):
+    return cpu in ios_cpus.IOS_SIMULATOR_TARGET_CPUS or \
+           cpu in ios_cpus.IOS_DEVICE_TARGET_CPUS or \
+           cpu in ios_cpus.WATCHOS_SIMULATOR_TARGET_CPUS or \
+           cpu in ios_cpus.WATCHOS_DEVICE_TARGET_CPUS or \
+           cpu in ios_cpus.TVOS_SIMULATOR_TARGET_CPUS or \
+           cpu in ios_cpus.TVOS_DEVICE_TARGET_CPUS or \
+           cpu in ios_cpus.CATALYST_TARGET_CPUS or \
+           cpu in ios_cpus.MACOS_TARGET_CPUS
+
+def _linkopts(ctx, additional_make_variable_substitutions, cc_toolchain):
+    linkopts = getattr(ctx.attr, "linkopts", [])
+    if len(linkopts) == 0:
+        return []
+    targets = []
+    for additional_linker_input in getattr(ctx.attr, "additional_linker_inputs", []):
+        targets.append(additional_linker_input)
+    tokens = []
+    for linkopt in linkopts:
+        expanded_linkopt = _expand(ctx, linkopt, additional_make_variable_substitutions, targets = targets)
+        _tokenize(tokens, expanded_linkopt)
+    if _is_apple_platform(cc_toolchain.cpu) and "-static" in tokens:
+        fail("in linkopts attribute of cc_library rule {}: Apple builds do not support statically linked binaries".format(ctx.label))
+    return tokens
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -1276,4 +1311,5 @@ cc_helper = struct(
     system_include_dirs = _system_include_dirs,
     get_coverage_environment = _get_coverage_environment,
     create_cc_instrumented_files_info = _create_cc_instrumented_files_info,
+    linkopts = _linkopts,
 )

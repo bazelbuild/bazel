@@ -227,11 +227,6 @@ public final class CcCommon implements StarlarkValue {
     return mergedOutputGroups;
   }
 
-  @StarlarkMethod(name = "linkopts", structField = true, documented = false)
-  public Sequence<String> getLinkoptsForStarlark() {
-    return StarlarkList.immutableCopyOf(getLinkopts());
-  }
-
   /**
    * Returns our own linkopts from the rule attribute. This determines linker options to use when
    * building this target and anything that depends on it.

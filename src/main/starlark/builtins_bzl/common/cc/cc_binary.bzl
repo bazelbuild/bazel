@@ -430,7 +430,8 @@ def _create_transitive_linking_actions(
         link_target_type,
         pdb_file,
         win_def_file,
-        additional_linkopts):
+        additional_linkopts,
+        additional_make_variable_substitutions):
     cc_compilation_outputs_with_only_objects = cc_common.create_compilation_outputs(objects = None, pic_objects = None)
     deps_cc_info = CcInfo(linking_context = deps_cc_linking_context)
     libraries_for_current_cc_linking_context = []
@@ -479,7 +480,7 @@ def _create_transitive_linking_actions(
     linker_inputs = cc_common.create_linker_input(
         owner = ctx.label,
         libraries = depset(libraries_for_current_cc_linking_context),
-        user_link_flags = common.linkopts + additional_linkopts,
+        user_link_flags = cc_helper.linkopts(ctx, additional_make_variable_substitutions, cc_toolchain) + additional_linkopts,
         additional_inputs = depset(common.linker_scripts + compilation_context.transitive_compilation_prerequisites().to_list()),
     )
     current_cc_linking_context = cc_common.create_linking_context(linker_inputs = depset([linker_inputs]))
@@ -752,6 +753,7 @@ def cc_binary_impl(ctx, additional_linkopts):
         pdb_file,
         win_def_file,
         additional_linkopts,
+        additional_make_variable_substitutions,
     )
 
     cc_linking_outputs_binary_library = cc_linking_outputs_binary.library_to_link

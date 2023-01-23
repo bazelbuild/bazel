@@ -102,7 +102,6 @@ def _cc_library_impl(ctx):
     has_compilation_outputs = not cc_helper.is_compilation_outputs_empty(compilation_outputs)
     linking_context = CcInfo().linking_context
     empty_archive_linking_context = CcInfo().linking_context
-    is_google = True
 
     linking_contexts = cc_helper.get_linking_contexts_from_deps(ctx.attr.deps)
     linking_contexts.extend(cc_helper.get_linking_contexts_from_deps(ctx.attr.implementation_deps))
@@ -125,7 +124,6 @@ def _cc_library_impl(ctx):
     if has_compilation_outputs:
         dll_name_suffix = ""
         win_def_file = None
-        def_file = None
         if cc_common.is_enabled(
             feature_configuration = feature_configuration,
             feature_name = "targets_windows",
@@ -152,7 +150,7 @@ def _cc_library_impl(ctx):
             additional_inputs = _filter_linker_scripts(ctx.files.deps),
             linking_contexts = linking_contexts,
             grep_includes = ctx.executable._grep_includes,
-            user_link_flags = common.linkopts,
+            user_link_flags = cc_helper.linkopts(ctx, additional_make_variable_substitutions, cc_toolchain),
             alwayslink = ctx.attr.alwayslink,
             disallow_dynamic_library = not create_dynamic_library,
             linked_dll_name_suffix = dll_name_suffix,
@@ -182,7 +180,7 @@ def _cc_library_impl(ctx):
     else:
         linking_outputs = struct(library_to_link = None)
 
-    _add_linker_artifacts_output_groups(ctx, output_group_builder, linking_outputs)
+    _add_linker_artifacts_output_groups(output_group_builder, linking_outputs)
 
     precompiled_libraries = _convert_precompiled_libraries_to_library_to_link(
         ctx,
@@ -205,12 +203,12 @@ def _cc_library_impl(ctx):
     if has_compilation_outputs:
         contexts_to_merge.append(linking_context)
     else:
-        user_link_flags = common.linkopts
+        user_link_flags = cc_helper.linkopts(ctx, additional_make_variable_substitutions, cc_toolchain)
         linker_scripts = _filter_linker_scripts(ctx.files.deps)
-        if len(common.linkopts) > 0 or len(linker_scripts) > 0 or not semantics.should_create_empty_archive():
+        if len(user_link_flags) > 0 or len(linker_scripts) > 0 or not semantics.should_create_empty_archive():
             linker_input = cc_common.create_linker_input(
                 owner = ctx.label,
-                user_link_flags = common.linkopts,
+                user_link_flags = user_link_flags,
                 additional_inputs = depset(linker_scripts),
             )
             contexts_to_merge.append(cc_common.create_linking_context(linker_inputs = depset([linker_input])))
@@ -321,6 +319,7 @@ def _cc_library_impl(ctx):
     providers.append(instrumented_files_info)
 
     if ctx.fragments.cpp.enable_legacy_cc_provider():
+        # buildifier: disable=rule-impl-return
         return struct(
             cc = cc_internal.create_cc_provider(cc_info = cc_info),
             providers = providers,
@@ -328,7 +327,7 @@ def _cc_library_impl(ctx):
     else:
         return providers
 
-def _add_linker_artifacts_output_groups(ctx, output_group_builder, linking_outputs):
+def _add_linker_artifacts_output_groups(output_group_builder, linking_outputs):
     archive_file = []
     dynamic_library = []
 
@@ -595,6 +594,7 @@ attrs = {
         flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
     ),
     "win_def_file": attr.label(allow_single_file = [".def"]),
+    # buildifier: disable=attr-license
     "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     "_stl": semantics.get_stl(),
     "_grep_includes": attr.label(
