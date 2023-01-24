@@ -13,8 +13,7 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-distrib_java_import(
+java_library(
     name = "javapoet",
-    enable_distributions = ["debian"],
-    jars = ["javapoet-1.8.0.jar"],
+    exports = ["@maven//:com_squareup_javapoet"],
 )
