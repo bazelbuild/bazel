@@ -159,7 +159,8 @@ void Md5Digest::Finish(unsigned char digest[16]) {
 
   /* Put the 64-bit file length in *bits* at the end of the buffer.  */
   unsigned int size = (ctx_buffer_len < 56 ? 64 : 128);
-  uint32_t words[2] = { count[0] << 3, (count[1] << 3) | (count[0] >> 29) };
+  uint32_t words[2] = { htole32(count[0] << 3),
+                       htole32((count[1] << 3) | (count[0] >> 29)) };
   memcpy(ctx_buffer + size - 8, words, 8);
 
   memcpy(ctx_buffer + ctx_buffer_len, kPadding, size - 8 - ctx_buffer_len);
@@ -206,10 +207,18 @@ void Md5Digest::Transform(
   // ROTATE_LEFT rotates x left n bits.
 #define ROTATE_LEFT(x, n) (((x) << (n)) | ((x) >> (32-(n))))
 
+// SET reads 4 input bytes in little-endian byte order and stores them
+// in a properly aligned word in host byte order.
+#define SET(n) \
+      (x[(n)] =  (uint32_t) bufferp[(n) * 4] | \
+          ((uint32_t) bufferp[(n) * 4 + 1] << 8) | \
+          ((uint32_t) bufferp[(n) * 4 + 2] << 16) | \
+          ((uint32_t) bufferp[(n) * 4 + 3] << 24))
+
   // FF, GG, HH, and II transformations for rounds 1, 2, 3, and 4.
   // Rotation is separate from addition to prevent recomputation.
-#define FF(a, b, c, d, s, ac) { \
-      (a) += F((b), (c), (d)) + ((*x_pos++ = *cur_word++)) + \
+#define FF(a, b, c, d, s, x, ac) { \
+      (a) += F((b), (c), (d)) + (x) + \
           static_cast<uint32_t>(ac); \
       (a) = ROTATE_LEFT((a), (s)); \
       (a) += (b); \
@@ -242,33 +251,31 @@ void Md5Digest::Transform(
   uint32_t d = state[3];
   uint32_t x[16];
 
-  const uint32_t *cur_word = reinterpret_cast<const uint32_t*>(buffer);
-  const uint32_t *end_word = cur_word + (len / sizeof(uint32_t));
+  const uint8_t *bufferp = reinterpret_cast<const uint8_t*>(buffer);
 
-  while (cur_word < end_word) {
-    uint32_t *x_pos = x;
+  do {
     uint32_t prev_a = a;
     uint32_t prev_b = b;
     uint32_t prev_c = c;
     uint32_t prev_d = d;
 
     // Round 1
-    FF(a, b, c, d, S11, 0xd76aa478);  // 1
-    FF(d, a, b, c, S12, 0xe8c7b756);  // 2
-    FF(c, d, a, b, S13, 0x242070db);  // 3
-    FF(b, c, d, a, S14, 0xc1bdceee);  // 4
-    FF(a, b, c, d, S11, 0xf57c0faf);  // 5
-    FF(d, a, b, c, S12, 0x4787c62a);  // 6
-    FF(c, d, a, b, S13, 0xa8304613);  // 7
-    FF(b, c, d, a, S14, 0xfd469501);  // 8
-    FF(a, b, c, d, S11, 0x698098d8);  // 9
-    FF(d, a, b, c, S12, 0x8b44f7af);  // 10
-    FF(c, d, a, b, S13, 0xffff5bb1);  // 11
-    FF(b, c, d, a, S14, 0x895cd7be);  // 12
-    FF(a, b, c, d, S11, 0x6b901122);  // 13
-    FF(d, a, b, c, S12, 0xfd987193);  // 14
-    FF(c, d, a, b, S13, 0xa679438e);  // 15
-    FF(b, c, d, a, S14, 0x49b40821);  // 16
+    FF(a, b, c, d, S11, SET(0), 0xd76aa478);  // 1
+    FF(d, a, b, c, S12, SET(1), 0xe8c7b756);  // 2
+    FF(c, d, a, b, S13, SET(2), 0x242070db);  // 3
+    FF(b, c, d, a, S14, SET(3), 0xc1bdceee);  // 4
+    FF(a, b, c, d, S11, SET(4), 0xf57c0faf);  // 5
+    FF(d, a, b, c, S12, SET(5), 0x4787c62a);  // 6
+    FF(c, d, a, b, S13, SET(6), 0xa8304613);  // 7
+    FF(b, c, d, a, S14, SET(7), 0xfd469501);  // 8
+    FF(a, b, c, d, S11, SET(8), 0x698098d8);  // 9
+    FF(d, a, b, c, S12, SET(9), 0x8b44f7af);  // 10
+    FF(c, d, a, b, S13, SET(10), 0xffff5bb1);  // 11
+    FF(b, c, d, a, S14, SET(11), 0x895cd7be);  // 12
+    FF(a, b, c, d, S11, SET(12), 0x6b901122);  // 13
+    FF(d, a, b, c, S12, SET(13), 0xfd987193);  // 14
+    FF(c, d, a, b, S13, SET(14), 0xa679438e);  // 15
+    FF(b, c, d, a, S14, SET(15), 0x49b40821);  // 16
 
     // Round 2
     GG(a, b, c, d, x[ 1], S21, 0xf61e2562);  // 17
@@ -328,7 +335,8 @@ void Md5Digest::Transform(
     b += prev_b;
     c += prev_c;
     d += prev_d;
-  }
+    bufferp += 64;
+  } while (len -= 64);
 
   state[0] = a;
   state[1] = b;
@@ -338,7 +346,11 @@ void Md5Digest::Transform(
 
 string Md5Digest::String() const {
   string result;
-  b2a_hex(reinterpret_cast<const uint8_t*>(state), &result, 16);
+  unsigned int state_le[4];
+  //Make sure state_le[4] is in little-endian format.
+  for(int i = 0; i < 4; i++)
+      state_le[i] = htole32(state[i]);
+  b2a_hex(reinterpret_cast<const uint8_t*>(state_le), &result, 16);
   return result;
 }
 
