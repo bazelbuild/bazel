@@ -611,24 +611,28 @@ load("@rules_jvm_external//:defs.bzl", "maven_install")
 
 maven_install(
     artifacts = [
-       "com.google.guava:guava:31.1-jre",
-       "com.google.guava:guava-testlib:31.1-jre",
-       "com.google.guava:failureaccess:1.0.1",
-       "com.google.errorprone:error_prone_annotations:2.16",
-       "com.google.errorprone:error_prone_type_annotations:2.16",
-       "com.google.code.findbugs:jsr305:3.0.2",
-       "com.google.j2objc:j2objc-annotations:1.3",
-       "com.github.stephenc.jcip:jcip-annotations:1.0-1",
-       "org.checkerframework:checker-qual:3.12.0",
+        "com.google.guava:guava:31.1-jre",
+        "com.google.guava:guava-testlib:31.1-jre",
+        "com.google.guava:failureaccess:1.0.1",
+        "com.google.errorprone:error_prone_annotations:2.16",
+        "com.google.errorprone:error_prone_type_annotations:2.16",
+        "com.google.code.findbugs:jsr305:3.0.2",
+        "com.google.j2objc:j2objc-annotations:1.3",
+        "com.github.stephenc.jcip:jcip-annotations:1.0-1",
+        "org.checkerframework:checker-qual:3.12.0",
+        "com.ryanharter.auto.value:auto-value-gson-extension:1.3.1",
+        "com.ryanharter.auto.value:auto-value-gson-runtime:1.3.1",
+        "com.ryanharter.auto.value:auto-value-gson-factory:1.3.1",
     ],
+    maven_install_json = "//:maven_install.json",
     repositories = [
         "https://dl.google.com/android/maven2",
         "https://repo1.maven.org/maven2",
     ],
-    maven_install_json = "//:maven_install.json",
 )
 
 load("@maven//:defs.bzl", "pinned_maven_install")
+
 pinned_maven_install()
 
 
