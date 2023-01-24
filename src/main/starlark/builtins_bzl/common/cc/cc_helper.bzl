@@ -762,9 +762,10 @@ def _expand_nested_variable(ctx, additional_vars, exp, execpath = True, targets 
         if not execpath:
             if exp.startswith("location"):
                 exp = exp.replace("location", "rootpath", 1)
+        data_targets = []
         if ctx.attr.data != None:
-            targets.extend(ctx.attr.data)
-        return ctx.expand_location("$({})".format(exp), targets = targets)
+            data_targets = ctx.attr.data
+        return ctx.expand_location("$({})".format(exp), targets = targets + data_targets)
 
     # Recursively expand nested make variables, but since there is no recursion
     # in Starlark we will do it via for loop.
