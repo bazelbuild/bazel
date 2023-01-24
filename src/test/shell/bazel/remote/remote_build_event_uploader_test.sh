@@ -312,6 +312,29 @@ EOF
   expect_bes_file_uploaded command.profile.gz
 }
 
+function test_upload_minimal_upload_buildlogs() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ['foo.txt'],
+  cmd  = 'echo "stdout" && echo "stderr" >&2 && exit 1',
+  tags = ['no-remote'],
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --experimental_remote_build_event_upload=minimal \
+      --build_event_json_file=bep.json \
+      //a:foo >& $TEST_log || true
+
+  cat bep.json > $TEST_log
+  expect_log "stdout.*bytestream://" || fail "should upload stdout"
+  expect_log "stderr.*bytestream://" || fail "should upload stderr"
+  expect_log "command.profile.gz.*bytestream://" || fail "should upload profile data"
+}
+
 function test_upload_minimal_upload_profile() {
   mkdir -p a
   cat > a/BUILD <<EOF

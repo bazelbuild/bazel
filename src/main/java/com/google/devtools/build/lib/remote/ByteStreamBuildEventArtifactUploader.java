@@ -63,6 +63,8 @@ import javax.annotation.Nullable;
 class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     implements BuildEventArtifactUploader {
   private static final Pattern TEST_LOG_PATTERN = Pattern.compile(".*/bazel-out/[^/]*/testlogs/.*");
+  private static final Pattern BUILD_LOG_PATTERN =
+      Pattern.compile(".*/bazel-out/_tmp/actions/std(err|out)-.*");
 
   private final Executor executor;
   private final ExtendedEventHandler reporter;
@@ -218,14 +220,15 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         path.getDigest() != null && !path.isRemote() && !path.isDirectory() && !path.isOmitted();
 
     if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL) {
-      result = result && (isTestLog(path) || isProfile(path));
+      result = result && (isLog(path) || isProfile(path));
     }
 
     return result;
   }
 
-  private boolean isTestLog(PathMetadata path) {
-    return TEST_LOG_PATTERN.matcher(path.getPath().getPathString()).matches();
+  private boolean isLog(PathMetadata path) {
+    return TEST_LOG_PATTERN.matcher(path.getPath().getPathString()).matches()
+        || BUILD_LOG_PATTERN.matcher(path.getPath().getPathString()).matches();
   }
 
   private boolean isProfile(PathMetadata path) {
