@@ -1064,4 +1064,38 @@ EOF
   expect_log "//${package}:hint"
 }
 
+function test_same_pkg_direct_rdeps_loads_only_inputs_packages() {
+  mkdir -p "pkg1"
+  mkdir -p "pkg2"
+  mkdir -p "pkg3"
+
+  cat > "pkg1/BUILD" <<EOF
+sh_library(name = "t1", deps = [":t2", "//pkg2:t3"])
+sh_library(name = "t2")
+EOF
+
+  cat > "pkg2/BUILD" <<EOF
+sh_library(name = "t3")
+EOF
+
+  cat > "pkg3/BUILD" <<EOF
+sh_library(name = "t4", deps = [":t5"])
+sh_library(name = "t5")
+EOF
+
+  bazel query --experimental_ui_debug_all_events \
+     "same_pkg_direct_rdeps(//pkg1:t2+//pkg3:t5)"  >& $TEST_log \
+    || fail "Expected success"
+
+  expect_log "Loading package: pkg1"
+  expect_log "Loading package: pkg3"
+  # For graphless query mode, pkg2 should not be loaded because
+  # same_pkg_direct_rdeps only cares about the targets in the same package
+  # as its inputs.
+  expect_not_log "Loading package: pkg2"
+  # the result of "same_pkg_direct_rdeps(//pkg1:t2+//pkg3:t5)"
+  expect_log "//pkg1:t1"
+  expect_log "//pkg3:t4"
+}
+
 run_suite "${PRODUCT_NAME} query tests"
