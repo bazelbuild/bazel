@@ -356,9 +356,25 @@ wait $childPid
 # If interrupted by a signal, use the signal as the exit code. But allow
 # the child to actually finish from the signal we sent _it_ via signal_child.
 # (Waiting on a stopped process is a no-op).
-# Only once - if we receive multiple signals (of any sort), give up.
+# Only once - if we receive multiple signals (except SIGWINCH), give up.
+# SIGWINCH is special since it is sent for every window resize event.
 exitCode=$?
-wait $childPid
+
+# This exitcode indicates that the child received a SIGWINCH (likely forwarded
+# by us).
+sigwinch_exit=$((128+$(kill -l SIGWINCH)))
+only_sigwinch_exit=0
+if [ $exitCode == $sigwinch_exit ]; then
+  only_sigwinch_exit=1
+fi
+while true; do
+  wait $childPid
+  curExitCode=$?
+  if [ $only_sigwinch_exit != 1 ] || [ $curExitCode != $sigwinch_exit ]; then
+    break
+  fi
+done
+
 
 # By this point, we have everything we're willing to wait for. Tidy up our own
 # processes and move on.
