@@ -527,11 +527,6 @@ public final class CcCommon implements StarlarkValue {
     return getDefinesFromAttribute(DEFINES_ATTRIBUTE);
   }
 
-  @StarlarkMethod(name = "defines", structField = true, documented = false)
-  public Sequence<String> getDefinesForStarlark() {
-    return StarlarkList.immutableCopyOf(getDefines());
-  }
-
   /**
    * Returns a list of define tokens from "local_defines" attribute.
    *
@@ -542,11 +537,6 @@ public final class CcCommon implements StarlarkValue {
    */
   public List<String> getNonTransitiveDefines() {
     return getDefinesFromAttribute(LOCAL_DEFINES_ATTRIBUTE);
-  }
-
-  @StarlarkMethod(name = "local_defines", structField = true, documented = false)
-  public Sequence<String> getLocalDefinesForStarlark() {
-    return StarlarkList.immutableCopyOf(getNonTransitiveDefines());
   }
 
   private List<String> getDefinesFromAttribute(String attr) {
