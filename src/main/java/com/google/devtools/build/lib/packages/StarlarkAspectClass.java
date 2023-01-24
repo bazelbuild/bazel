@@ -22,10 +22,12 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 public final class StarlarkAspectClass implements AspectClass {
   private final Label extensionLabel;
   private final String exportedName;
+  private final String name;
 
   public StarlarkAspectClass(Label extensionLabel, String exportedName) {
     this.extensionLabel = extensionLabel;
     this.exportedName = exportedName;
+    this.name = extensionLabel + "%" + exportedName;
   }
 
   public Label getExtensionLabel() {
@@ -38,7 +40,7 @@ public final class StarlarkAspectClass implements AspectClass {
 
   @Override
   public String getName() {
-    return extensionLabel + "%" + exportedName;
+    return name;
   }
 
   @Override

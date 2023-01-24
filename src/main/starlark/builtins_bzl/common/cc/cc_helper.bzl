@@ -61,6 +61,10 @@ ios_cpus = struct(
     MACOS_TARGET_CPUS = ["darwin_x86_64", "darwin_arm64", "darwin_arm64e", "darwin"],
 )
 
+cpp_file_types = struct(
+    LINKER_SCRIPT = ["ld", "lds", "ldscript"],
+)
+
 SYSROOT_FLAG = "--sysroot="
 
 def _build_linking_context_from_libraries(ctx, libraries):
@@ -758,9 +762,10 @@ def _expand_nested_variable(ctx, additional_vars, exp, execpath = True, targets 
         if not execpath:
             if exp.startswith("location"):
                 exp = exp.replace("location", "rootpath", 1)
+        data_targets = []
         if ctx.attr.data != None:
-            targets.extend(ctx.attr.data)
-        return ctx.expand_location("$({})".format(exp), targets = targets)
+            data_targets = ctx.attr.data
+        return ctx.expand_location("$({})".format(exp), targets = targets + data_targets)
 
     # Recursively expand nested make variables, but since there is no recursion
     # in Starlark we will do it via for loop.
@@ -1256,6 +1261,41 @@ def _linkopts(ctx, additional_make_variable_substitutions, cc_toolchain):
         fail("in linkopts attribute of cc_library rule {}: Apple builds do not support statically linked binaries".format(ctx.label))
     return tokens
 
+def _defines_attribute(ctx, additional_make_variable_substitutions, attr_name):
+    defines = getattr(ctx.attr, attr_name, [])
+    if len(defines) == 0:
+        return []
+    targets = []
+    for dep in ctx.attr.deps:
+        targets.append(dep)
+    result = []
+    for define in defines:
+        expanded_define = _expand(ctx, define, additional_make_variable_substitutions, targets = targets)
+        tokens = []
+        _tokenize(tokens, expanded_define)
+        if len(tokens) == 1:
+            result.append(tokens[0])
+        elif len(tokens) == 0:
+            fail("empty definition not allowed", attr = attr_name)
+        else:
+            fail("definition contains too many tokens (found {}, expecting exactly one)".format(len(tokens)), attr = attr_name)
+
+    return result
+
+def _defines(ctx, additional_make_variable_substitutions):
+    return _defines_attribute(ctx, additional_make_variable_substitutions, "defines")
+
+def _local_defines(ctx, additional_make_variable_substitutions):
+    return _defines_attribute(ctx, additional_make_variable_substitutions, "local_defines")
+
+def _linker_scripts(ctx):
+    result = []
+    for dep in ctx.attr.deps:
+        for f in dep.files.to_list():
+            if f.extension in cpp_file_types.LINKER_SCRIPT:
+                result.append(f)
+    return result
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -1312,4 +1352,7 @@ cc_helper = struct(
     get_coverage_environment = _get_coverage_environment,
     create_cc_instrumented_files_info = _create_cc_instrumented_files_info,
     linkopts = _linkopts,
+    defines = _defines,
+    local_defines = _local_defines,
+    linker_scripts = _linker_scripts,
 )

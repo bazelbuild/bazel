@@ -481,7 +481,7 @@ def _create_transitive_linking_actions(
         owner = ctx.label,
         libraries = depset(libraries_for_current_cc_linking_context),
         user_link_flags = cc_helper.linkopts(ctx, additional_make_variable_substitutions, cc_toolchain) + additional_linkopts,
-        additional_inputs = depset(common.linker_scripts + compilation_context.transitive_compilation_prerequisites().to_list()),
+        additional_inputs = depset(cc_helper.linker_scripts(ctx) + compilation_context.transitive_compilation_prerequisites().to_list()),
     )
     current_cc_linking_context = cc_common.create_linking_context(linker_inputs = depset([linker_inputs]))
 
@@ -646,8 +646,8 @@ def cc_binary_impl(ctx, additional_linkopts):
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
         user_compile_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions),
-        defines = common.defines,
-        local_defines = common.local_defines + cc_helper.get_local_defines_for_runfiles_lookup(ctx),
+        defines = cc_helper.defines(ctx, additional_make_variable_substitutions),
+        local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx),
         loose_includes = common.loose_include_dirs,
         system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
         private_hdrs = cc_helper.get_private_hdrs(ctx),
