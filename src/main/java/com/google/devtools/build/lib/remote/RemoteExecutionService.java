@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.Protos.CacheSalt;
 import com.google.devtools.build.lib.exec.SpawnInputExpander.InputWalker;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -425,18 +426,16 @@ public class RemoteExecutionService {
 
   @Nullable
   private static ByteString buildSalt(Spawn spawn) {
+    CacheSalt.Builder saltBuilder = CacheSalt.newBuilder()
+        .setMayBeExecutedRemotely(Spawns.mayBeExecutedRemotely(spawn));
+
     String workspace =
         spawn.getExecutionInfo().get(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE);
     if (workspace != null) {
-      Platform platform =
-          Platform.newBuilder()
-              .addProperties(
-                  Platform.Property.newBuilder().setName("workspace").setValue(workspace).build())
-              .build();
-      return platform.toByteString();
+      saltBuilder.setWorkspace(workspace);
     }
 
-    return null;
+    return saltBuilder.build().toByteString();
   }
 
   /**

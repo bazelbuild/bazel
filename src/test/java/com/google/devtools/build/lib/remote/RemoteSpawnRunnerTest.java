@@ -152,7 +152,7 @@ public class RemoteSpawnRunnerTest {
 
   // The action key of the Spawn returned by newSimpleSpawn().
   private final String simpleActionId =
-      "eb45b20cc979d504f96b9efc9a08c48103c6f017afa09c0df5c70a5f92a98ea8";
+      "31aea267dc597b047a9b6993100415b6406f82822318dc8988e4164a535b51ee";
 
   @Before
   public final void setUp() throws Exception {
@@ -557,7 +557,7 @@ public class RemoteSpawnRunnerTest {
     Digest logDigest = digestUtil.computeAsUtf8("bla");
     Path logPath =
         logDir
-            .getRelative("b9a727771337fd8ce54821f4805e2d451c4739e92fec6f8ecdb18ff9d1983b27")
+            .getRelative("e0a5a3561464123504c1240b3587779cdfd6adee20f72aa136e388ecfd570c12")
             .getRelative("logname");
     ExecuteResponse resp =
         ExecuteResponse.newBuilder()
