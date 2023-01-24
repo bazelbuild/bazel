@@ -61,6 +61,10 @@ ios_cpus = struct(
     MACOS_TARGET_CPUS = ["darwin_x86_64", "darwin_arm64", "darwin_arm64e", "darwin"],
 )
 
+cpp_file_types = struct(
+    LINKER_SCRIPT = ["ld", "lds", "ldscript"],
+)
+
 SYSROOT_FLAG = "--sysroot="
 
 def _build_linking_context_from_libraries(ctx, libraries):
@@ -1283,6 +1287,14 @@ def _defines(ctx, additional_make_variable_substitutions):
 def _local_defines(ctx, additional_make_variable_substitutions):
     return _defines_attribute(ctx, additional_make_variable_substitutions, "local_defines")
 
+def _linker_scripts(ctx):
+    result = []
+    for dep in ctx.attr.deps:
+        for f in dep.files.to_list():
+            if f.extension in cpp_file_types.LINKER_SCRIPT:
+                result.append(f)
+    return result
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -1341,4 +1353,5 @@ cc_helper = struct(
     linkopts = _linkopts,
     defines = _defines,
     local_defines = _local_defines,
+    linker_scripts = _linker_scripts,
 )

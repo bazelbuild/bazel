@@ -730,11 +730,6 @@ public final class CcCommon implements StarlarkValue {
         /* prefixConsumer= */ true);
   }
 
-  @StarlarkMethod(name = "linker_scripts", structField = true, documented = false)
-  public Sequence<Artifact> getLinkerScriptsForStarlark() {
-    return StarlarkList.immutableCopyOf(getLinkerScripts());
-  }
-
   /** Returns any linker scripts found in the "deps" attribute of the rule. */
   List<Artifact> getLinkerScripts() {
     return ruleContext.getPrerequisiteArtifacts("deps").filter(CppFileTypes.LINKER_SCRIPT).list();
