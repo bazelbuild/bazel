@@ -45,10 +45,8 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
   private long contentLength = -1;
   /** the path header in the http request */
   private String path;
-  /** the offset at which to download */
-  private long offset;
   /** the bytes to skip in a full or chunked response */
-  private OptionalInt skipBytes;
+  private int skipBytes;
 
   public HttpDownloadHandler(
       Credentials credentials, ImmutableList<Entry<String, String>> extraHttpHeaders) {
@@ -91,14 +89,6 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
       if (contentLengthSet) {
         contentLength = HttpUtil.getContentLength(response);
       }
-      if (offset != 0) {
-        // We are in a retried download and received a full response.
-        // We need to skip `offset` bytes of the response to continue writing from the offset.
-        if (!skipBytes.isPresent()) {
-          // This is the first chunk, or the full response.
-          skipBytes = OptionalInt.of((int)offset);
-        }
-      }
       downloadSucceeded = response.status().equals(HttpResponseStatus.OK);
       if (!downloadSucceeded) {
         out = new ByteArrayOutputStream();
@@ -111,13 +101,13 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
 
       ByteBuf content = ((HttpContent) msg).content();
       int readableBytes = content.readableBytes();
-      if (skipBytes.isPresent() && skipBytes.getAsInt() > 0) {
-        int skipNow = skipBytes.getAsInt();
+      if (skipBytes > 0) {
+        int skipNow = skipBytes;
         if (skipNow >= readableBytes) {
           skipNow = readableBytes;
         }
         content.readerIndex(content.readerIndex() + skipNow);
-        skipBytes = OptionalInt.of(skipBytes.getAsInt() - skipNow);
+        skipBytes -= skipNow;
         readableBytes = readableBytes - skipNow;
       }
       content.readBytes(out, readableBytes);
@@ -152,8 +142,7 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
     DownloadCommand cmd = (DownloadCommand) msg;
     out = cmd.out();
     path = constructPath(cmd.uri(), cmd.digest().getHash(), cmd.casDownload());
-    offset = cmd.offset();
-    skipBytes = OptionalInt.empty();
+    skipBytes = (int)cmd.offset();
     HttpRequest request = buildRequest(path, constructHost(cmd.uri()));
     addCredentialHeaders(request, cmd.uri());
     addExtraRemoteHeaders(request);
