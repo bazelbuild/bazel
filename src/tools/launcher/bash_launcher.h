@@ -22,9 +22,10 @@ namespace launcher {
 
 class BashBinaryLauncher : public BinaryLauncherBase {
  public:
-  BashBinaryLauncher(const LaunchDataParser::LaunchInfo& launch_info, int argc,
+  BashBinaryLauncher(const LaunchDataParser::LaunchInfo& launch_info,
+                     const std::wstring& launcher_path, int argc,
                      wchar_t* argv[])
-      : BinaryLauncherBase(launch_info, argc, argv) {}
+      : BinaryLauncherBase(launch_info, launcher_path, argc, argv) {}
   ~BashBinaryLauncher() override = default;
   ExitCode Launch() override;
 };
