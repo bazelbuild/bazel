@@ -621,6 +621,7 @@ maven_install(
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
         "org.checkerframework:checker-qual:3.12.0",
         "com.google.code.gson:gson:2.8.6",
+        "com.squareup:javapoet:1.12.0",
         "com.ryanharter.auto.value:auto-value-gson-extension:1.3.1",
         "com.ryanharter.auto.value:auto-value-gson-runtime:1.3.1",
         "com.ryanharter.auto.value:auto-value-gson-factory:1.3.1",
