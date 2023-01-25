@@ -588,8 +588,10 @@ TEST_F(RunfilesTest, ManifestBasedRlocationWithRepoMapping_fromMain) {
   string uid = LINE_AS_STRING();
   unique_ptr<MockFile> rm(MockFile::Create(
       "foo" + uid + ".repo_mapping",
-      {",my_module,_main", ",my_protobuf,protobuf~3.19.2",
-       ",my_workspace,_main", "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
+      {",config.json,config.json~1.2.3", ",my_module,_main",
+       ",my_protobuf,protobuf~3.19.2", ",my_workspace,_main",
+       "protobuf~3.19.2,config.json,config.json~1.2.3",
+       "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
   ASSERT_TRUE(rm != nullptr);
   unique_ptr<MockFile> mf(MockFile::Create(
       "foo" + uid + ".runfiles_manifest",
@@ -646,8 +648,10 @@ TEST_F(RunfilesTest, ManifestBasedRlocationWithRepoMapping_fromOtherRepo) {
   string uid = LINE_AS_STRING();
   unique_ptr<MockFile> rm(MockFile::Create(
       "foo" + uid + ".repo_mapping",
-      {",my_module,_main", ",my_protobuf,protobuf~3.19.2",
-       ",my_workspace,_main", "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
+      {",config.json,config.json~1.2.3", ",my_module,_main",
+       ",my_protobuf,protobuf~3.19.2", ",my_workspace,_main",
+       "protobuf~3.19.2,config.json,config.json~1.2.3",
+       "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
   ASSERT_TRUE(rm != nullptr);
   unique_ptr<MockFile> mf(MockFile::Create(
       "foo" + uid + ".runfiles_manifest",
@@ -701,8 +705,10 @@ TEST_F(RunfilesTest, DirectoryBasedRlocationWithRepoMapping_fromMain) {
   string uid = LINE_AS_STRING();
   unique_ptr<MockFile> rm(MockFile::Create(
       "foo" + uid + ".runfiles/_repo_mapping",
-      {",my_module,_main", ",my_protobuf,protobuf~3.19.2",
-       ",my_workspace,_main", "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
+      {",config.json,config.json~1.2.3", ",my_module,_main",
+       ",my_protobuf,protobuf~3.19.2", ",my_workspace,_main",
+       "protobuf~3.19.2,config.json,config.json~1.2.3",
+       "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
   ASSERT_TRUE(rm != nullptr);
   string dir = rm->DirName();
   string argv0(dir.substr(0, dir.size() - string(".runfiles").size()));
@@ -748,8 +754,10 @@ TEST_F(RunfilesTest, DirectoryBasedRlocationWithRepoMapping_fromOtherRepo) {
   string uid = LINE_AS_STRING();
   unique_ptr<MockFile> rm(MockFile::Create(
       "foo" + uid + ".runfiles/_repo_mapping",
-      {",my_module,_main", ",my_protobuf,protobuf~3.19.2",
-       ",my_workspace,_main", "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
+      {",config.json,config.json~1.2.3", ",my_module,_main",
+       ",my_protobuf,protobuf~3.19.2", ",my_workspace,_main",
+       "protobuf~3.19.2,config.json,config.json~1.2.3",
+       "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
   ASSERT_TRUE(rm != nullptr);
   string dir = rm->DirName();
   string argv0(dir.substr(0, dir.size() - string(".runfiles").size()));
@@ -792,8 +800,10 @@ TEST_F(RunfilesTest,
   string uid = LINE_AS_STRING();
   unique_ptr<MockFile> rm(MockFile::Create(
       "foo" + uid + ".runfiles/_repo_mapping",
-      {",my_module,_main", ",my_protobuf,protobuf~3.19.2",
-       ",my_workspace,_main", "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
+      {",config.json,config.json~1.2.3", ",my_module,_main",
+       ",my_protobuf,protobuf~3.19.2", ",my_workspace,_main",
+       "protobuf~3.19.2,config.json,config.json~1.2.3",
+       "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
   ASSERT_TRUE(rm != nullptr);
   string dir = rm->DirName();
   string argv0(dir.substr(0, dir.size() - string(".runfiles").size()));
