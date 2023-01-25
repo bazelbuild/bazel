@@ -765,7 +765,14 @@ def _expand_nested_variable(ctx, additional_vars, exp, execpath = True, targets 
         data_targets = []
         if ctx.attr.data != None:
             data_targets = ctx.attr.data
-        return ctx.expand_location("$({})".format(exp), targets = targets + data_targets)
+
+        # Make sure we do not duplicate targets.
+        unified_targets_set = {}
+        for data_target in data_targets:
+            unified_targets_set[data_target] = True
+        for target in targets:
+            unified_targets_set[target] = True
+        return ctx.expand_location("$({})".format(exp), targets = unified_targets_set.keys())
 
     # Recursively expand nested make variables, but since there is no recursion
     # in Starlark we will do it via for loop.

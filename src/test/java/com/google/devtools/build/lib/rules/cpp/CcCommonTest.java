@@ -286,6 +286,24 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testExpandedDefinesDuplicateTargets() throws Exception {
+    scratch.file("data/BUILD", "cc_library(name = 'a', srcs = ['foo.cc'])");
+    ConfiguredTarget expandedDefines =
+        scratchConfiguredTarget(
+            "expanded_defines",
+            "expand_srcs",
+            "cc_library(name = 'expand_srcs',",
+            "           srcs = ['defines.cc'],",
+            "           data = ['//data:a'],",
+            "           deps = ['//data:a'],",
+            "           defines = ['FOO=$(location //data:a)'])");
+    String depPath =
+        getFilesToBuild(getConfiguredTarget("//data:a")).getSingleton().getExecPathString();
+    assertThat(expandedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+        .containsExactly(String.format("FOO=%s", depPath));
+  }
+
+  @Test
   public void testStartEndLib() throws Exception {
     getAnalysisMock()
         .ccSupport()
