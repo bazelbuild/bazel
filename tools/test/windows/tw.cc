@@ -1298,8 +1298,10 @@ bool StartSubprocess(const Path& path, const std::wstring& args,
 }
 
 bool ArchiveUndeclaredOutputs(const UndeclaredOutputs& undecl) {
-  if (undecl.root.Get().empty()) {
-    // TEST_UNDECLARED_OUTPUTS_DIR was undefined, there's nothing to archive.
+  if (undecl.root.Get().empty() || undecl.zip.Get().empty()) {
+    // TEST_UNDECLARED_OUTPUTS_DIR was undefined, so there's nothing to archive,
+    // or TEST_UNDECLARED_OUTPUTS_ZIP was undefined as
+    // --nozip_undeclared_test_outputs was specified.
     return true;
   }
 
