@@ -256,6 +256,8 @@ upper_tabs:
         path: /extending/repo
       - title: Configuring
         path: /extending/config
+      - title: Platforms and toolchains
+        path: /extending/platforms
     - name: Writing rules
       contents:
       - title: Creating a rule
@@ -293,8 +295,6 @@ upper_tabs:
         status: external
     - name: Design docs
       contents:
-      - title: Platforms
-        path: /extending/platforms
       - title: Execution groups
         path: /extending/exec-groups
       - title: Toolchains
