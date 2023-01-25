@@ -22,17 +22,24 @@ import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.protobuf.ProtocolStringList;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.List;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link CrashFailureDetails}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class CrashFailureDetailsTest {
 
   private static final String TEST_EXCEPTION_NAME =
       "com.google.devtools.build.lib.util.CrashFailureDetailsTest$TestException";
+
+  @After
+  public void restoreDefaultOomDetector() {
+    CrashFailureDetails.setOomDetector(() -> false);
+  }
 
   @Test
   public void nestedThrowables() {
@@ -147,11 +154,32 @@ public final class CrashFailureDetailsTest {
   }
 
   @Test
-  public void detailedExtitConstruction_otherCrash() {
+  public void detailedExitConstruction_otherCrash() {
     assertThat(
             CrashFailureDetails.detailedExitCodeForThrowable(new IllegalStateException())
                 .getExitCode())
         .isEqualTo(ExitCode.BLAZE_INTERNAL_ERROR);
+  }
+
+  private enum ThrowableType {
+    OUT_OF_MEMORY_ERROR(new OutOfMemoryError()),
+    ILLEGAL_STATE_EXCEPTION(new IllegalStateException());
+
+    ThrowableType(Throwable throwable) {
+      this.throwable = throwable;
+    }
+
+    @SuppressWarnings("ImmutableEnumChecker")
+    final Throwable throwable;
+  }
+
+  @Test
+  public void detailExitConstruction_crashWithOomDetector_returnsOomCrash(
+      @TestParameter ThrowableType throwableType) {
+    CrashFailureDetails.setOomDetector(() -> true);
+    assertThat(
+            CrashFailureDetails.detailedExitCodeForThrowable(throwableType.throwable).getExitCode())
+        .isEqualTo(ExitCode.OOM_ERROR);
   }
 
   private static TestException functionForStackFrameTests_A(TestException cause) {

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.ThrowableOrBuilder;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 
 /** Factory methods for producing {@link Crash}-type {@link FailureDetail} messages. */
@@ -45,7 +46,14 @@ public class CrashFailureDetails {
    */
   private static final int MAX_STACK_TRACE_SIZE = 1000;
 
+  private static BooleanSupplier oomDetector = () -> false;
+
   private CrashFailureDetails() {}
+
+  /** Registers a predicate to use for more aggressive {@link OutOfMemoryError} detection. */
+  public static void setOomDetector(BooleanSupplier oomDetector) {
+    CrashFailureDetails.oomDetector = oomDetector;
+  }
 
   public static DetailedExitCode detailedExitCodeForThrowable(Throwable throwable) {
     return DetailedExitCode.of(forThrowable(throwable));
@@ -59,7 +67,8 @@ public class CrashFailureDetails {
     Crash.Builder crashBuilder =
         Crash.newBuilder()
             .setCode(
-                (getRootCauseToleratingCycles(throwable) instanceof OutOfMemoryError)
+                (getRootCauseToleratingCycles(throwable) instanceof OutOfMemoryError
+                        || oomDetector.getAsBoolean())
                     ? Crash.Code.CRASH_OOM
                     : Crash.Code.CRASH_UNKNOWN);
     addCause(crashBuilder, throwable, Sets.newIdentityHashSet());
