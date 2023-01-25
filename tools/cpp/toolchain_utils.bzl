@@ -19,7 +19,7 @@ Utilities to help work with c++ toolchains.
 
 CPP_TOOLCHAIN_TYPE = "@bazel_tools//tools/cpp:toolchain_type"
 
-def find_cpp_toolchain(ctx):
+def find_cpp_toolchain(ctx, *, mandatory = True):
     """
     Finds the c++ toolchain.
 
@@ -29,6 +29,9 @@ def find_cpp_toolchain(ctx):
 
     Args:
       ctx: The rule context for which to find a toolchain.
+      mandatory: This is currently a no-op. In future releases of Bazel, if this
+        is set to False, this function will return None rather than fail if no
+        toolchain is found.
 
     Returns:
       A CcToolchainProvider.
