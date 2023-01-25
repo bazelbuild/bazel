@@ -243,13 +243,19 @@ public class CppHelper {
   @Nullable
   public static CcToolchainProvider getToolchainUsingDefaultCcToolchainAttribute(
       RuleContext ruleContext) throws RuleErrorException {
+    return getToolchainUsingDefaultCcToolchainAttribute(ruleContext, true);
+  }
+
+  @Nullable
+  public static CcToolchainProvider getToolchainUsingDefaultCcToolchainAttribute(
+      RuleContext ruleContext, boolean mandatory) throws RuleErrorException {
     if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME)) {
-      return getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
+      return getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, mandatory);
     } else if (ruleContext
         .attributes()
         .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK)) {
       return getToolchain(
-          ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK);
+          ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK, mandatory);
     }
     return null;
   }
@@ -314,10 +320,12 @@ public class CppHelper {
 
   /**
    * Makes sure that the given info collection has a {@link CcToolchainProvider} (gives an error
-   * otherwise), and returns a reference to that {@link CcToolchainProvider}.
+   * otherwise), and returns a reference to that {@link CcToolchainProvider}. May return
+   * {@code null} if {@code mandatory} is {@code false}.
    */
-  public static CcToolchainProvider getToolchain(RuleContext ruleContext, String toolchainAttribute)
-      throws RuleErrorException {
+  @Nullable
+  public static CcToolchainProvider getToolchain(RuleContext ruleContext, String toolchainAttribute,
+      boolean mandatory) throws RuleErrorException {
     if (!ruleContext.isAttrDefined(toolchainAttribute, LABEL)) {
       throw ruleContext.throwWithRuleError(
           String.format(
@@ -326,7 +334,7 @@ public class CppHelper {
               toolchainAttribute));
     }
     TransitiveInfoCollection dep = ruleContext.getPrerequisite(toolchainAttribute);
-    return getToolchain(ruleContext, dep);
+    return getToolchain(ruleContext, dep, mandatory);
   }
 
   /**
@@ -336,15 +344,21 @@ public class CppHelper {
    */
   public static CcToolchainProvider getToolchain(
       RuleContext ruleContext, TransitiveInfoCollection dep) throws RuleErrorException {
-    Label toolchainType = getToolchainTypeFromRuleClass(ruleContext);
-    return getToolchain(ruleContext, dep, toolchainType);
+    return getToolchain(ruleContext, dep, true);
   }
 
   public static CcToolchainProvider getToolchain(
-      RuleContext ruleContext, TransitiveInfoCollection dep, Label toolchainType)
+      RuleContext ruleContext, TransitiveInfoCollection dep, boolean mandatory)
+      throws RuleErrorException {
+    Label toolchainType = getToolchainTypeFromRuleClass(ruleContext);
+    return getToolchain(ruleContext, dep, toolchainType, mandatory);
+  }
+
+  public static CcToolchainProvider getToolchain(
+      RuleContext ruleContext, TransitiveInfoCollection dep, Label toolchainType, boolean mandatory)
       throws RuleErrorException {
     if (toolchainType != null && useToolchainResolution(ruleContext)) {
-      return getToolchainFromPlatformConstraints(ruleContext, toolchainType);
+      return getToolchainFromPlatformConstraints(ruleContext, toolchainType, mandatory);
     }
     return getToolchainFromLegacyToolchain(ruleContext, dep);
   }
@@ -366,12 +380,15 @@ public class CppHelper {
   }
 
   private static CcToolchainProvider getToolchainFromPlatformConstraints(
-      RuleContext ruleContext, Label toolchainType) throws RuleErrorException {
+      RuleContext ruleContext, Label toolchainType, boolean mandatory) throws RuleErrorException {
     ToolchainInfo toolchainInfo = ruleContext.getToolchainInfo(toolchainType);
     if (toolchainInfo == null) {
-      throw ruleContext.throwWithRuleError(
-          "Unable to find a CC toolchain using toolchain resolution. Did you properly set"
-              + " --platforms?");
+      if (mandatory) {
+        throw ruleContext.throwWithRuleError(
+            "Unable to find a CC toolchain using toolchain resolution. Did you properly set"
+                + " --platforms?");
+      }
+      return null;
     }
     try {
       return (CcToolchainProvider) toolchainInfo.getValue("cc");

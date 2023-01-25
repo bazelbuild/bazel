@@ -32,7 +32,10 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.Type;
 import javax.annotation.Nullable;
 
 /** Implementation of the {@code cc_toolchain_alias} rule. */
@@ -50,6 +53,7 @@ public class CcToolchainAliasRule implements RuleDefinition {
         .add(
             attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                 .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
+        .add(attr("mandatory", Type.BOOLEAN).value(true))
         .requiresConfigurationFragments(PlatformConfiguration.class)
         .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
         .build();
@@ -72,7 +76,14 @@ public class CcToolchainAliasRule implements RuleDefinition {
         throws InterruptedException, RuleErrorException, ActionConflictException {
 
       CcToolchainProvider ccToolchainProvider =
-          CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+          CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext,
+              ruleContext.attributes().get("mandatory", Type.BOOLEAN));
+      if (ccToolchainProvider == null) {
+        return new RuleConfiguredTargetBuilder(ruleContext)
+            .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
+            .setFilesToBuild(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
+            .build();
+      }
 
       TemplateVariableInfo templateVariableInfo =
           CcToolchain.createMakeVariableProvider(
