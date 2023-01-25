@@ -150,10 +150,17 @@ upper_tabs:
       - heading: Optimizing Bazel
       - title: Best practices
         path: /configure/best-practices
-      - title: Optimize memory
-        path: /configure/memory
       - title: Using Bazel on Windows
         path: /configure/windows
+      - heading: Build performance
+      - title: Extracting build performance metrics
+        path: /configure/build-performance-metrics
+      - title: Breaking down build performance
+        path: /configure/build-performance-breakdown
+      - title: JSON trace profile
+        path: /configure/json-trace-profile
+      - title: Optimize memory
+        path: /configure/memory
     - name: Remote execution
       contents:
       - heading: Remote build execution (RBE)
