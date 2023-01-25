@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -1536,48 +1535,17 @@ public abstract class Artifact
       Collection<? super Artifact> output,
       ArtifactExpander artifactExpander,
       boolean keepEmptyTreeArtifacts) {
-    addExpandedArtifacts(
-        artifacts, output, Functions.identity(), artifactExpander, keepEmptyTreeArtifacts);
-  }
-
-  /**
-   * Converts a collection of artifacts into the outputs computed by outputFormatter and adds them
-   * to a given collection. Middleman artifacts and tree artifacts are expanded once.
-   *
-   * <p>The constructed list never contains middleman artifacts. If {@code keepEmptyTreeArtifacts}
-   * is true, a tree artifact will be included in the constructed list when it expands into zero
-   * file artifacts. Otherwise, only the file artifacts the tree artifact expands into will be
-   * included.
-   */
-  private static <E> void addExpandedArtifacts(
-      Iterable<? extends Artifact> artifacts,
-      Collection<? super E> output,
-      Function<? super Artifact, E> outputFormatter,
-      ArtifactExpander artifactExpander,
-      boolean keepEmptyTreeArtifacts) {
     for (Artifact artifact : artifacts) {
       if (artifact.isMiddlemanArtifact() || artifact.isTreeArtifact()) {
-        expandArtifact(artifact, output, outputFormatter, artifactExpander, keepEmptyTreeArtifacts);
+        List<Artifact> expandedArtifacts = new ArrayList<>();
+        artifactExpander.expand(artifact, expandedArtifacts);
+        output.addAll(expandedArtifacts);
+        if (keepEmptyTreeArtifacts && artifact.isTreeArtifact() && expandedArtifacts.isEmpty()) {
+          output.add(artifact);
+        }
       } else {
-        output.add(outputFormatter.apply(artifact));
+        output.add(artifact);
       }
-    }
-  }
-
-  private static <E> void expandArtifact(
-      Artifact middleman,
-      Collection<? super E> output,
-      Function<? super Artifact, E> outputFormatter,
-      ArtifactExpander artifactExpander,
-      boolean keepEmptyTreeArtifacts) {
-    Preconditions.checkArgument(middleman.isMiddlemanArtifact() || middleman.isTreeArtifact());
-    List<Artifact> artifacts = new ArrayList<>();
-    artifactExpander.expand(middleman, artifacts);
-    for (Artifact artifact : artifacts) {
-      output.add(outputFormatter.apply(artifact));
-    }
-    if (keepEmptyTreeArtifacts && middleman.isTreeArtifact() && artifacts.isEmpty()) {
-      output.add(outputFormatter.apply(middleman));
     }
   }
 
