@@ -46,7 +46,7 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
   /** the path header in the http request */
   private String path;
   /** the bytes to skip in a full or chunked response */
-  private int skipBytes;
+  private long skipBytes;
 
   public HttpDownloadHandler(
       Credentials credentials, ImmutableList<Entry<String, String>> extraHttpHeaders) {
@@ -102,8 +102,12 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
       ByteBuf content = ((HttpContent) msg).content();
       int readableBytes = content.readableBytes();
       if (skipBytes > 0) {
-        int skipNow = skipBytes;
-        if (skipNow >= readableBytes) {
+        int skipNow;
+        if (skipBytes < readableBytes) {
+          // readableBytes is an int, meaning skipBytes < readableBytes <= INT_MAX.
+          // So, this conversion is safe.
+          skipNow = (int)skipBytes;
+        } else {
           skipNow = readableBytes;
         }
         content.readerIndex(content.readerIndex() + skipNow);
@@ -142,7 +146,7 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
     DownloadCommand cmd = (DownloadCommand) msg;
     out = cmd.out();
     path = constructPath(cmd.uri(), cmd.digest().getHash(), cmd.casDownload());
-    skipBytes = (int)cmd.offset();
+    skipBytes = cmd.offset();
     HttpRequest request = buildRequest(path, constructHost(cmd.uri()));
     addCredentialHeaders(request, cmd.uri());
     addExtraRemoteHeaders(request);
