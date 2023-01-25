@@ -107,7 +107,7 @@ public class ToolchainRule implements RuleDefinition {
         .build();
   }
 }
-/*<!-- #BLAZE_RULE (NAME = toolchain, FAMILY = Platform)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = toolchain, FAMILY = Platforms and Toolchains)[GENERIC_RULE] -->
 
 <p>This rule declares a specific toolchain's type and constraints so that it can be selected
 during toolchain resolution. See the
