@@ -171,7 +171,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_objc_linking_info_migration",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
