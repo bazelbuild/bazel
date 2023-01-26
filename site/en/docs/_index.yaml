@@ -115,12 +115,18 @@ landing_page:
       path: /configure/toolchain-resolution
     - heading: Code coverage with Bazel
       path: /configure/coverage
-    - heading: Best practices
+    - heading: Optimizing Bazel: Best practices
       path: /configure/best-practices
-    - heading: Running Bazel with limited RAM
-      path: /configure/memory
     - heading: Using Bazel on Windows
       path: /configure/windows
+    - heading: Extracting build performance metrics
+      path: /configure/build-performance-metrics
+    - heading: Breaking down build performance
+      path: /configure/build-performance-breakdown
+    - heading: JSON trace profile
+      path: /configure/json-trace-profile
+    - heading: Optimize memory
+      path: /configure/memory
 
   # Remote distrubution row
   - options:
