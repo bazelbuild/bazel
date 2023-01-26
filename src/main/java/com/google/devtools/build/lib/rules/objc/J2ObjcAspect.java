@@ -303,7 +303,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
       try {
         CcToolchainProvider ccToolchain =
-            CppHelper.getToolchain(ruleContext, ":j2objc_cc_toolchain", /*mandatory*/true);
+            CppHelper.getToolchain(ruleContext, ":j2objc_cc_toolchain");
         ImmutableList<String> extraCompileArgs =
             j2objcCompileWithARC(ruleContext)
                 ? ImmutableList.of("-fno-strict-overflow", "-fobjc-arc-exceptions")
