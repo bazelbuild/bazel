@@ -70,7 +70,7 @@ public class JacocoLCOVFormatter {
       private Map<String, ISourceFileCoverage> sourceToFileCoverage = new TreeMap<>();
 
       private String getExecPathForEntryName(String classPath) {
-        if (execPathsOfUninstrumentedFiles.isEmpty()) {
+        if (!execPathsOfUninstrumentedFiles.isPresent()) {
           return classPath;
         }
 
