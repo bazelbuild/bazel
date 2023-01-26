@@ -19,12 +19,6 @@
 
 ${ruleFamily.summary}
 
-<h2>Context</h2>
-This set of rules exist to help model specific hardware platforms you are
-building for and the tools you may use to compile code for those platforms.
-The user should be familiar with the concepts explained
-<a href="//extending/platforms">here</a>.
-
 #if (!$singlePage)
 <h2>Rules</h2>
 <ul>

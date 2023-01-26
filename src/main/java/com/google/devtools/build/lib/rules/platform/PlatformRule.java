@@ -135,14 +135,24 @@ public class PlatformRule implements RuleDefinition {
         .build();
   }
 }
+/*<!-- #FAMILY_SUMMARY -->
+
+<p>
+This set of rules exists to allow you to model specific hardware platforms you are
+building for and specify the specific tools you may need to compile code for those platforms.
+The user should be familiar with the concepts explained <a href="/extending/platforms">here</a>.
+</p>
+
+<!-- #END_FAMILY_SUMMARY -->*/
+
 /*<!-- #BLAZE_RULE (NAME = platform, FAMILY = Platforms and Toolchains)[GENERIC_RULE] -->
 
 <p>This rule defines a new platform -- a named collection of constraint choices
 (such as cpu architecture or compiler version) describing an environment in
 which part of the build may run.
 
-For more details, see the
-<a href="https://bazel.build/docs/platforms">Platforms</a> page.
+For more details, see the <a href="//extending/platforms">Platforms</a> page.
+
 
 <h4 id="platform_examples">Example</h4>
 <p>
