@@ -37,7 +37,7 @@ def _validate_spec(ctx, spec_file):
     ctx.actions.run(
         mnemonic = "ValidateProguard",
         progress_message = "Validating proguard configuration %{input}",
-        executable = toolchain.proguard_allowlister.executable,
+        executable = toolchain.proguard_allowlister,
         arguments = [args],
         inputs = [spec_file],
         outputs = [validated_proguard_spec],
