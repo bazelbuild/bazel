@@ -115,7 +115,7 @@ landing_page:
       path: /configure/toolchain-resolution
     - heading: Code coverage with Bazel
       path: /configure/coverage
-    - heading: Optimizing Bazel: Best practices
+    - heading: "Optimizing Bazel: Best practices"
       path: /configure/best-practices
     - heading: Using Bazel on Windows
       path: /configure/windows
