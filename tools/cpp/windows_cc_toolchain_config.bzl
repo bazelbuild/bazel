@@ -373,6 +373,7 @@ def _impl(ctx):
 
         archive_param_file_feature = feature(
             name = "archive_param_file",
+            enabled = True,
         )
 
         compiler_param_file_feature = feature(
@@ -1209,6 +1210,7 @@ def _impl(ctx):
         if ctx.attr.cpu == "x64_windows" and ctx.attr.compiler == "mingw-gcc":
             archive_param_file_feature = feature(
                 name = "archive_param_file",
+                enabled = True,
             )
 
             compiler_param_file_feature = feature(
