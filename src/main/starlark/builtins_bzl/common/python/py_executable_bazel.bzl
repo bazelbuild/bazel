@@ -65,9 +65,18 @@ the `srcs` of Python targets as required.
             cfg = "exec",
             executable = True,
         ),
-        # TODO: Remove this attribute; it's basically a no-op in Bazel due
-        # to toolchain resolution.
-        "_py_interpreter": attr.label(),
+        "_py_interpreter": attr.label(
+            default = configuration_field(
+                fragment = "bazel_py",
+                name = "python_top",
+            ),
+        ),
+        # TODO: This appears to be vestigial. It's only added because
+        # GraphlessQueryTest.testLabelsOperator relies on it to test for
+        # query behavior of implicit dependencies.
+        "_py_toolchain_type": attr.label(
+            default = "@" + TOOLS_REPO + "//tools/python:toolchain_type",
+        ),
         "_bootstrap_template": attr.label(
             allow_single_file = True,
             default = "@" + TOOLS_REPO + "//tools/python:python_bootstrap_template.txt",
@@ -118,7 +127,6 @@ def create_binary_semantics_bazel():
         # keep-sorted end
     )
 
-# todo: implement by getting coverage files from the runtime
 def _get_coverage_deps(ctx, runtime_details):
     _ = ctx, runtime_details  # @unused
     return []
@@ -137,7 +145,7 @@ def _get_stamp_flag(ctx):
 
 def _should_create_init_files(ctx):
     if ctx.attr.legacy_create_init == -1:
-        return ctx.fragments.py.default_to_explicit_init_py
+        return not ctx.fragments.py.default_to_explicit_init_py
     else:
         return bool(ctx.attr.legacy_create_init)
 
@@ -276,8 +284,11 @@ def _expand_bootstrap_template(
         template = ctx.file._bootstrap_template,
         output = output,
         substitutions = {
-            "%shebang": shebang,
-            "%main": main_py.short_path,
+            "%shebang%": shebang,
+            "%main%": "{}/{}".format(
+                ctx.workspace_name,
+                main_py.short_path,
+            ),
             "%python_binary%": runtime_details.executable_interpreter_path,
             "%coverage_tool%": coverage_tool_runfiles_path,
             "%imports%": ":".join(imports.to_list()),
@@ -321,17 +332,18 @@ def _create_zip_file(ctx, *, output, original_nonzip_executable, executable_for_
     legacy_external_runfiles = _py_builtins.get_legacy_external_runfiles(ctx)
 
     manifest = ctx.actions.args()
-    manifest.use_param_file("%s", use_always = True)
+    manifest.use_param_file("@%s", use_always = True)
     manifest.set_param_file_format("multiline")
 
-    manifest.add("__main__.py=%s", executable_for_zip_file)
+    manifest.add("__main__.py={}".format(executable_for_zip_file.path))
     manifest.add("__init__.py=")
     manifest.add(
-        "%s=",
-        _get_zip_runfiles_path("__init__.py", workspace_name, legacy_external_runfiles),
+        "{}=".format(
+            _get_zip_runfiles_path("__init__.py", workspace_name, legacy_external_runfiles),
+        ),
     )
     for path in runfiles.empty_filenames.to_list():
-        manifest.add("%s=", _get_zip_runfiles_path(path, workspace_name, legacy_external_runfiles))
+        manifest.add("{}=".format(_get_zip_runfiles_path(path, workspace_name, legacy_external_runfiles)))
 
     def map_zip_runfiles(file):
         if file != original_nonzip_executable and file != output:
@@ -354,6 +366,7 @@ def _create_zip_file(ctx, *, output, original_nonzip_executable, executable_for_
     zip_cli_args = ctx.actions.args()
     zip_cli_args.add("cC")
     zip_cli_args.add(output)
+
     ctx.actions.run(
         executable = ctx.executable._zipper,
         arguments = [zip_cli_args, manifest],
@@ -366,9 +379,13 @@ def _create_zip_file(ctx, *, output, original_nonzip_executable, executable_for_
 
 def _get_zip_runfiles_path(path, workspace_name, legacy_external_runfiles):
     if legacy_external_runfiles and path.startswith(_EXTERNAL_PATH_PREFIX):
-        zip_runfiles_path = paths.relativize(_EXTERNAL_PATH_PREFIX, path)
+        zip_runfiles_path = paths.relativize(path, _EXTERNAL_PATH_PREFIX)
     else:
-        zip_runfiles_path = "{}/{}".format(workspace_name, path)
+        # NOTE: External runfiles (artifacts in other repos) will have a leading
+        # path component of "../" so that they refer outside the main workspace
+        # directory and into the runfiles root. By normalizing, we simplify e.g.
+        # "workspace/../foo/bar" to simply "foo/bar" and
+        zip_runfiles_path = paths.normalize("{}/{}".format(workspace_name, path))
     return "{}/{}".format(_ZIP_RUNFILES_DIRECTORY_NAME, zip_runfiles_path)
 
 def _create_executable_zip_file(ctx, *, output, zip_file):
@@ -402,7 +419,10 @@ def _get_interpreter_path(ctx, *, runtime, flag_interpreter_path):
         if runtime.interpreter_path:
             interpreter_path = runtime.interpreter_path
         else:
-            interpreter_path = runtime.interpreter.short_path
+            interpreter_path = "{}/{}".format(
+                ctx.workspace_name,
+                runtime.interpreter.short_path,
+            )
     elif flag_interpreter_path:
         interpreter_path = flag_interpreter_path
     else:

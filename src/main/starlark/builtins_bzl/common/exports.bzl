@@ -25,11 +25,8 @@ load("@_builtins//:common/objc/linking_support.bzl", "linking_support")
 load("@_builtins//:common/proto/proto_common.bzl", "proto_common_do_not_use")
 load("@_builtins//:common/proto/proto_library.bzl", "proto_library")
 load("@_builtins//:common/proto/proto_lang_toolchain_wrapper.bzl", "proto_lang_toolchain")
-load("@_builtins//:common/python/py_binary_macro.bzl", "py_binary")
 load("@_builtins//:common/python/py_internal.bzl", "py_internal")
-load("@_builtins//:common/python/py_library_macro.bzl", "py_library")
 load("@_builtins//:common/python/py_runtime_macro.bzl", "py_runtime")
-load("@_builtins//:common/python/py_test_macro.bzl", "py_test")
 load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyInfo", "PyRuntimeInfo")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 load("@_builtins//:common/cc/cc_library.bzl", "cc_library")
@@ -67,9 +64,6 @@ exported_rules = {
     "+cc_library": cc_library,
     "proto_lang_toolchain": proto_lang_toolchain,
     "+py_runtime": py_runtime,
-    "-py_binary": py_binary,
-    "-py_test": py_test,
-    "-py_library": py_library,
     "+cc_toolchain_alias": cc_toolchain_alias,
 }
 
