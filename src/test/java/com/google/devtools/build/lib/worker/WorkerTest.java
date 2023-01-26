@@ -65,7 +65,7 @@ public final class WorkerTest {
   }
 
   private TestWorker createTestWorker(byte[] outputStreamBytes, WorkerProtocolFormat protocolFormat)
-      throws IOException {
+      throws IOException, InterruptedException {
     Preconditions.checkState(
         workerForCleanup == null, "createTestWorker can only be called once per test");
 
@@ -171,7 +171,7 @@ public final class WorkerTest {
   }
 
   private void verifyGetResponseFailure(String responseString, String expectedError)
-      throws IOException {
+      throws IOException, InterruptedException {
     TestWorker testWorker =
         createTestWorker((responseString + System.lineSeparator()).getBytes(UTF_8), JSON);
     IOException ex = assertThrows(IOException.class, () -> testWorker.getResponse(0));
@@ -179,25 +179,27 @@ public final class WorkerTest {
   }
 
   @Test
-  public void testGetResponse_badJson_throws() throws IOException {
+  public void testGetResponse_badJson_throws() throws IOException, InterruptedException {
     verifyGetResponseFailure(
         "{ \"output\": \"I'm missing a bracket\"", "Could not parse json work request correctly");
   }
 
   @Test
-  public void testGetResponse_json_multipleExitCode_fails() throws IOException {
+  public void testGetResponse_json_multipleExitCode_fails()
+      throws IOException, InterruptedException {
     verifyGetResponseFailure(
         "{\"exitCode\":1,\"exitCode\":1}", "Work response cannot have more than one exit code");
   }
 
   @Test
-  public void testGetResponse_json_multipleOutput_fails() throws IOException {
+  public void testGetResponse_json_multipleOutput_fails() throws IOException, InterruptedException {
     verifyGetResponseFailure(
         "{\"output\":\"\",\"output\":\"\"}", "Work response cannot have more than one output");
   }
 
   @Test
-  public void testGetResponse_json_multipleRequestId_fails() throws IOException {
+  public void testGetResponse_json_multipleRequestId_fails()
+      throws IOException, InterruptedException {
     verifyGetResponseFailure(
         "{\"requestId\":0,\"requestId\":0}", "Work response cannot have more than one requestId");
   }

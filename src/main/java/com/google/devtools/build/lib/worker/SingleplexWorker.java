@@ -71,7 +71,7 @@ class SingleplexWorker extends Worker {
     this.workDir = workDir;
   }
 
-  protected Subprocess createProcess() throws IOException {
+  protected Subprocess createProcess() throws IOException, InterruptedException {
     this.shutdownHook =
         new Thread(
             () -> {
@@ -105,7 +105,7 @@ class SingleplexWorker extends Worker {
   @Override
   public void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
-      throws IOException {
+      throws IOException, InterruptedException {
     if (process == null) {
       process = createProcess();
       recordingInputStream = new RecordingInputStream(process.getInputStream());
