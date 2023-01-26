@@ -335,7 +335,7 @@ version may be grouped with `.bazelrc` configs":
 
 ```python
 build:java8 --java_language_version=8
-build:java8 --java_runtime_version=localjdk_8
+build:java8 --java_runtime_version=local_jdk_8
 build:java11 --java_language_version=11
 build:java11 --java_runtime_version=remotejdk_11
 ```
