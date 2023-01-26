@@ -47,7 +47,7 @@ You can use these keyboard controls to navigate:
     between two events.
 *   Press `?` to learn about all controls.
 
-## `bazel analyze-profile`
+### `bazel analyze-profile`
 
 The Bazel subcommand [`analyze-profile`](/docs/user-manual#analyze-profile)
 consumes a profile format and prints cumulative statistics for
