@@ -171,9 +171,6 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   }
 
   private static boolean isTargetConfig(ConfigurationForOutput config) {
-    if (config.mnemonic.endsWith("-noconfig")) {
-      return false;
-    }
     return !Boolean.parseBoolean(getOptionValue(config, "CoreOptions", "is exec configuration"));
   }
 
@@ -195,7 +192,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     // Should be: target configuration, target configuration without test.
     assertThat(fullJson).isNotNull();
     assertThat(fullJson.has("configuration-IDs")).isTrue();
-    assertThat(fullJson.get("configuration-IDs").getAsJsonArray().size()).isEqualTo(3);
+    assertThat(fullJson.get("configuration-IDs").getAsJsonArray().size()).isEqualTo(2);
   }
 
   private boolean skipNoConfig(JsonElement configHash) {
@@ -316,7 +313,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
       assertThat(config).isNotNull();
       numConfigs++;
     }
-    assertThat(numConfigs).isEqualTo(3); // Target + target w/o test + nonConfig.
+    assertThat(numConfigs).isEqualTo(2); // Target + target w/o test.
   }
 
   @Test
