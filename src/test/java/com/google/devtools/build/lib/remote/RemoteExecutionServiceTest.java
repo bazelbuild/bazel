@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.exec.Protos.CacheSalt;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
@@ -258,7 +259,7 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void buildRemoteAction_differentiateWorkspace_generateActionSalt() throws Exception {
+  public void buildRemoteAction_generateActionSalt_differentiateWorkspaceCache() throws Exception {
     Spawn spawn =
         new SpawnBuilder("dummy")
             .withExecutionInfo(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE, "aa")
@@ -268,10 +269,23 @@ public class RemoteExecutionServiceTest {
 
     RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
 
-    Platform expected =
-        Platform.newBuilder()
-            .addProperties(Platform.Property.newBuilder().setName("workspace").setValue("aa"))
+    CacheSalt expected =
+        CacheSalt.newBuilder().setMayBeExecutedRemotely(true).setWorkspace("aa").build();
+    assertThat(remoteAction.getAction().getSalt()).isEqualTo(expected.toByteString());
+  }
+
+  @Test
+  public void buildRemoteAction_generateActionSalt_noRemoteExec() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("dummy")
+            .withExecutionInfo(ExecutionRequirements.NO_REMOTE_EXEC, "")
             .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
+
+    CacheSalt expected = CacheSalt.newBuilder().setMayBeExecutedRemotely(false).build();
     assertThat(remoteAction.getAction().getSalt()).isEqualTo(expected.toByteString());
   }
 

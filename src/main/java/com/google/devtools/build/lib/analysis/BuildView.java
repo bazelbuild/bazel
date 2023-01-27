@@ -91,6 +91,7 @@ import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryM
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisAndExecutionResult;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
+import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -220,7 +221,8 @@ public class BuildView {
       @Nullable ResourceManager resourceManager,
       @Nullable BuildResultListener buildResultListener,
       @Nullable ExecutionSetup executionSetupCallback,
-      @Nullable BuildConfigurationsCreated buildConfigurationsCreatedCallback)
+      @Nullable BuildConfigurationsCreated buildConfigurationsCreatedCallback,
+      @Nullable BuildDriverKeyTestContext buildDriverKeyTestContext)
       throws ViewCreationFailedException,
           InvalidConfigurationException,
           InterruptedException,
@@ -426,7 +428,8 @@ public class BuildView {
                 checkForActionConflicts,
                 executors,
                 /* shouldDiscardAnalysisCache= */ viewOptions.discardAnalysisCache
-                    || !skyframeExecutor.tracksStateForIncrementality());
+                    || !skyframeExecutor.tracksStateForIncrementality(),
+                buildDriverKeyTestContext);
       } else {
         skyframeAnalysisResult =
             skyframeBuildView.configureTargets(

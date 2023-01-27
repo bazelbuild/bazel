@@ -13,7 +13,9 @@
 # limitations under the License.
 """Common functions that are specific to Bazel rule implementation"""
 
+load(":common/paths.bzl", "paths")
 load(":common/python/providers.bzl", "PyCcLinkParamsProvider")
+load(":common/python/common.bzl", "is_bool")
 
 _py_builtins = _builtins.internal.py_builtins
 _CcInfo = _builtins.toplevel.CcInfo
@@ -76,15 +78,26 @@ def get_imports(ctx):
     )
     result = []
     for import_str in ctx.attr.imports:
-        # todo: check if $(location) expansion is done here
-        import_str = ctx.expand_make_variables(import_str)
+        import_str = ctx.expand_make_variables("imports", import_str, {})
         if import_str.startswith("/"):
             continue
-        import_path = "{}/{}".format(prefix, import_str)
 
-        # TODO: Reject paths with uplevel references (see
-        # PathFragment#containsUplevelReferences). Basically, we want to
-        # prevent imports="../../../../../" (or similar) from "escaping" out
-        # of the runfiles tree.
+        # To prevent "escaping" out of the runfiles tree, we normalize
+        # the path and ensure it doesn't have up-level references.
+        import_path = paths.normalize("{}/{}".format(prefix, import_str))
+        if import_path.startswith("../") or import_path == "..":
+            fail("Path '{}' references a path above the execution root".format(
+                import_str,
+            ))
         result.append(import_path)
     return result
+
+def convert_legacy_create_init_to_int(kwargs):
+    """Convert "legacy_create_init" key to int, in-place.
+
+    Args:
+        kwargs: The kwargs to modify. The key "legacy_create_init", if present
+            and bool, will be converted to its integer value, in place.
+    """
+    if is_bool(kwargs.get("legacy_create_init")):
+        kwargs["legacy_create_init"] = 1 if kwargs["legacy_create_init"] else 0

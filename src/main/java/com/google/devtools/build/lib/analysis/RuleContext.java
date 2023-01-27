@@ -1219,7 +1219,7 @@ public final class RuleContext extends TargetContext
 
   /**
    * Returns the toolchain context from the default exec group. Important note: In case automatic
-   * exec groups are enabled, use `getToolchainContext(Label toolchainType)` function.
+   * exec groups are enabled, use `getToolchainInfo(Label toolchainType)` function.
    */
   @Nullable
   public ResolvedToolchainContext getToolchainContext() {

@@ -237,6 +237,12 @@ final class PathLabelVisitor {
 
     private void enqueue(Target from, Attribute attribute, Label label)
         throws InterruptedException, NoSuchThingException {
+      if (mode == VisitorMode.SAME_PKG_DIRECT_RDEPS) {
+        // Only track same-package dependencies to avoid loading unneeded packages.
+        if (!label.getPackageIdentifier().equals(from.getLabel().getPackageIdentifier())) {
+          return;
+        }
+      }
       Target target = targetProvider.getTarget(eventHandler, label);
       enqueue(from, attribute, target);
     }

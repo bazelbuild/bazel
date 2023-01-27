@@ -19,7 +19,7 @@ load("//tools/build_defs/repo:http.bzl", "http_archive", "http_jar")
 def _remote_android_tools_extensions_impl(_ctx):
     http_archive(
         name = "android_tools",
-        sha256 = "1afa4b7e13c82523c8b69e87f8d598c891ec7e2baa41d9e24e08becd723edb4d",  # do_not_remove_this_android_tools_update_marker
+        sha256 = "1afa4b7e13c82523c8b69e87f8d598c891ec7e2baa41d9e24e08becd723edb4d",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
         url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.0.tar.gz",
     )
     http_jar(

@@ -338,3 +338,13 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
     ],
 )
+
+java_library(
+    name = "ps_info_collector",
+    srcs = ["PsInfoCollector.java"],
+    deps = [
+        "//third_party:auto_value",
+        "//third_party:flogger",
+        "//third_party:guava",
+    ],
+)

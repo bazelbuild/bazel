@@ -185,3 +185,17 @@ message SpawnExec {
   // Timing, size and memory statistics.
   SpawnMetrics metrics = 20;
 }
+
+// Additional information that should be taken into account when
+// computing the key of an action, thereby ensuring that actions remain
+// distinct.
+message CacheSalt {
+  // Whether or not the action may be executed remotely, if remote
+  // execution were to be enabled. This ensures that adding/removing the
+  // "no-remote-exec" tag from a target forces a local/remote rebuild.
+  bool may_be_executed_remotely = 1;
+
+  // Requires the execution service do NOT share caches across different
+  // workspace.
+  string workspace = 2;
+}

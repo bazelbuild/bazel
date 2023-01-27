@@ -277,7 +277,7 @@ public class CgroupsInfo {
     return cgroupsNode;
   }
 
-  static CgroupsInfo getInstance() throws IOException {
+  public static CgroupsInfo getInstance() throws IOException {
     if (instance == null) {
       synchronized (CgroupsInfo.class) {
         if (instance == null) {
@@ -295,7 +295,7 @@ public class CgroupsInfo {
    * @param dirName Base name of the directory created. In cgroups v2, <code>.scope</code> gets
    *     appended.
    */
-  String createMemoryLimitCgroupDir(String dirName, int memoryLimit) throws IOException {
+  public String createMemoryLimitCgroupDir(String dirName, int memoryLimit) throws IOException {
     File cgroupsDir;
     if (isCgroupsV2) {
       cgroupsDir = new File(blazeDir, dirName + ".scope");

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -314,31 +315,9 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void toolchainInfoFieldIsMissing() throws Exception {
     reporter.removeHandler(failFastHandler);
-    defineCustomToolchain(
-        "return platform_common.ToolchainInfo(",
-        "    py3_runtime = PyRuntimeInfo(",
-        "        interpreter_path = '/system/python3',",
-        "        python_version = 'PY3')",
-        ")");
+    defineCustomToolchain("return platform_common.ToolchainInfo()", "");
     analyzePyBinaryTargetUsingCustomToolchain();
-    assertContainsEvent(
-        "Error parsing the Python toolchain's ToolchainInfo: field 'py2_runtime' is missing");
-  }
-
-  @Test
-  public void toolchainInfoFieldHasBadType() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    defineCustomToolchain(
-        "return platform_common.ToolchainInfo(",
-        "    py3_runtime = PyRuntimeInfo(",
-        "        interpreter_path = '/system/python3',",
-        "        python_version = 'PY3'),",
-        "    py2_runtime = 'abc',",
-        ")");
-    analyzePyBinaryTargetUsingCustomToolchain();
-    assertContainsEvent(
-        "Error parsing the Python toolchain's ToolchainInfo: Expected a PyRuntimeInfo in field "
-            + "'py2_runtime', but got 'string'");
+    assertContainsEvent(Pattern.compile("py3_runtime.*missing"));
   }
 
   @Test
@@ -352,9 +331,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "        python_version = 'PY2'),",
         ")");
     analyzePyBinaryTargetUsingCustomToolchain();
-    assertContainsEvent(
-        "Error retrieving the Python runtime from the toolchain: Expected field 'py3_runtime' to "
-            + "have a runtime with python_version = 'PY3', but got python_version = 'PY2'");
+    assertContainsEvent(Pattern.compile("py3_runtime.*python_version.*got.*PY2"));
   }
 
   @Test

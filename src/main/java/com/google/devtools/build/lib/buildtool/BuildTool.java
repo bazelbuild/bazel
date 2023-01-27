@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
@@ -337,13 +338,29 @@ public class BuildTool {
                 buildOptions,
                 loadingResult,
                 () -> executionTool.prepareForExecution(request.getId()),
-                result::setBuildConfiguration);
+                result::setBuildConfiguration,
+                new BuildDriverKeyTestContext() {
+                  @Override
+                  public String getTestStrategy() {
+                    return request.getOptions(ExecutionOptions.class).testStrategy;
+                  }
+
+                  @Override
+                  public boolean forceExclusiveTestsInParallel() {
+                    return executionTool.getTestActionContext().forceExclusiveTestsInParallel();
+                  }
+
+                  @Override
+                  public boolean forceExclusiveIfLocalTestsInParallel() {
+                    return executionTool
+                        .getTestActionContext()
+                        .forceExclusiveIfLocalTestsInParallel();
+                  }
+                });
         buildCompleted = true;
         executionTool.handleConvenienceSymlinks(analysisAndExecutionResult);
       } catch (InvalidConfigurationException
-          | TargetParsingException
           | RepositoryMappingResolutionException
-          | LoadingFailedException
           | ViewCreationFailedException
           | BuildFailedException
           | TestExecException e) {

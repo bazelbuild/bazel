@@ -222,7 +222,8 @@ public class BuildViewForTesting {
         /* resourceManager= */ null,
         /* buildResultListener= */ null,
         /* executionSetupCallback= */ null,
-        /* buildConfigurationsCreatedCallback= */ null);
+        /* buildConfigurationsCreatedCallback= */ null,
+        /* buildDriverKeyTestContext= */ null);
   }
 
   /** Sets the configuration. Not thread-safe. */

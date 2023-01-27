@@ -1,3 +1,23 @@
+## Release 7.0.0-pre.20230118.2 (2023-01-26)
+
+```
+Baseline: b310a8aaf35d73d1310b2a914a459a9f32a04d0d
+
+Cherry picks:
+
+   + ab71a1002c9c53a8061336e40f91204a2a32c38e:
+     Rollback
+     https://github.com/bazelbuild/bazel/commit/414824173363e579d34afc
+     1aa16bc97a220743dc to fix breakage in an internal use case
+```
+
+Incompatible changes:
+
+  - query --output=proto --order_output=deps now returns targets in
+    topological order (previously there was no ordering).
+
+This release contains contributions from many people at Google, as well as Anthony Ter-Saakov, Benjamin Lee, Benjamin Peterson, Ben Lee, Brentley Jones, Ed Schouten, Emil Kattainen, Fabian Meumertzheim, Fabian Meumertzheim, Fahrzin Hemmati, Halil Sener, Keith Smiley, Maxwell Elliott, mohamadk, Oliver Lee, Patrick Balestra, Red Daly, Severin Strobl, Simon Mavi Stewart, Stiopa Koltsov, tbaing, Thulio Ferraz Assis, Ulf Adams, Xavier Bonaventura.
+
 ## Release 7.0.0-pre.20230104.2 (2023-01-23)
 
 ```

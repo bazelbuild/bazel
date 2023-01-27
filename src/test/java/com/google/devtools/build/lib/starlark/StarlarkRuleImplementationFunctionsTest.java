@@ -3335,6 +3335,25 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
+  public void testDisablingRunfilesSymlinkChecksIsPrivateAPI() throws Exception {
+    scratch.file(
+        "abc/rule.bzl",
+        "def _impl(ctx):",
+        " ctx.runfiles(skip_conflict_checking = True)",
+        " return []",
+        "",
+        "r = rule(implementation = _impl)");
+    scratch.file("abc/BUILD", "load(':rule.bzl', 'r')", "", "r(name = 'foo')");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//abc:foo"));
+
+    assertThat(error)
+        .hasMessageThat()
+        .contains("Error in runfiles: Rule in 'abc' cannot use private API");
+  }
+
+  @Test
   public void testDeclareSharedArtifact_differentFileRoot() throws Exception {
     scratch.file(
         "test/rule.bzl",

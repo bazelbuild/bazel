@@ -58,8 +58,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
   private final Location location;
 
   // For schemaful providers, the sorted list of allowed field names.
-  // The requirement for sortedness comes from StarlarkInfo.createFromNamedArgs,
-  // as it lets us verify table ⊆ schema in O(n) time without temporaries.
+  // The requirement for sortedness comes from StarlarkInfoWithSchema and lets us bisect the fields.
   @Nullable private final ImmutableList<String> schema;
 
   // Optional custom initializer callback. If present, it is invoked with the same positional and
@@ -180,11 +179,11 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     }
 
     Object initResult = Starlark.fastcall(thread, init, positional, named);
-    return StarlarkInfo.createFromNamedArgs(
-        this,
-        toNamedArgs(initResult, "return value of provider init()"),
-        schema,
-        thread.getCallerLocation());
+    // The code-path for providers with schema could be optimised to skip the call to toNamedArgs.
+    // As it is, we copy the map to an alternating key-value Object array, and then extract just
+    // the values into another array.
+    return createFromNamedArgs(
+        toNamedArgs(initResult, "return value of provider init()"), thread.getCallerLocation());
   }
 
   private Object fastcallRawConstructor(StarlarkThread thread, Object[] positional, Object[] named)
@@ -192,7 +191,13 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     if (positional.length > 0) {
       throw Starlark.errorf("%s: unexpected positional arguments", getName());
     }
-    return StarlarkInfo.createFromNamedArgs(this, named, schema, thread.getCallerLocation());
+    return createFromNamedArgs(named, thread.getCallerLocation());
+  }
+
+  private StarlarkInfo createFromNamedArgs(Object[] named, Location loc) throws EvalException {
+    return schema != null
+        ? StarlarkInfoWithSchema.createFromNamedArgs(this, named, loc)
+        : StarlarkInfoNoSchema.createFromNamedArgs(this, named, loc);
   }
 
   private static final class RawConstructor implements StarlarkCallable {

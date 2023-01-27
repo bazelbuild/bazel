@@ -74,6 +74,7 @@ public class CollectLocalResourceUsage extends Thread {
       boolean collectLoadAverage,
       boolean collectSystemNetworkUsage,
       boolean collectResourceManagerEstimation) {
+    super("collect-local-resources");
     this.bugReporter = checkNotNull(bugReporter);
     this.collectWorkerDataInProfiler = collectWorkerDataInProfiler;
     this.workerMetricsCollector = workerMetricsCollector;
@@ -174,13 +175,15 @@ public class CollectLocalResourceUsage extends Thread {
 
       int workerMemoryUsageMb = 0;
       if (collectWorkerDataInProfiler) {
-        workerMemoryUsageMb =
-            this.workerMetricsCollector.collectMetrics().stream()
-                    .map(WorkerMetric::getWorkerStat)
-                    .filter(Objects::nonNull)
-                    .mapToInt(WorkerMetric.WorkerStat::getUsedMemoryInKB)
-                    .sum()
-                / 1024;
+        try (SilentCloseable c = Profiler.instance().profile("Worker metrics collection")) {
+          workerMemoryUsageMb =
+              this.workerMetricsCollector.collectMetrics().stream()
+                      .map(WorkerMetric::getWorkerStat)
+                      .filter(Objects::nonNull)
+                      .mapToInt(WorkerMetric.WorkerStat::getUsedMemoryInKB)
+                      .sum()
+                  / 1024;
+        }
       }
       double loadAverage = 0;
       if (collectLoadAverage) {

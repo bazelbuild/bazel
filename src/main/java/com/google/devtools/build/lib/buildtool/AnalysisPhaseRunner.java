@@ -257,8 +257,9 @@ public final class AnalysisPhaseRunner {
               /* includeExecutionPhase= */ false,
               /* resourceManager= */ null,
               /* buildResultListener= */ null,
-              /*executionSetupCallback*/ null,
-              /* buildConfigurationsCreatedCallback= */ null);
+              /* executionSetupCallback= */ null,
+              /* buildConfigurationsCreatedCallback= */ null,
+              /* buildDriverKeyTestContext= */ null);
     } catch (BuildFailedException | TestExecException | AbruptExitException unexpected) {
       throw new IllegalStateException("Unexpected execution exception type: ", unexpected);
     }

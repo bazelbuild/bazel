@@ -86,7 +86,7 @@ public abstract class Worker {
    */
   public abstract void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
-      throws IOException;
+      throws IOException, InterruptedException;
 
   /**
    * Sends a WorkRequest to the worker.
