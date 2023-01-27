@@ -1522,30 +1522,26 @@ public abstract class Artifact
   }
 
   /**
-   * Adds a collection of artifacts to a given collection, with middleman actions and tree artifacts
-   * expanded once.
+   * Adds an artifact to a collection, expanding it once if it's a middleman or tree artifact.
    *
-   * <p>The constructed list never contains middleman artifacts. If {@code keepEmptyTreeArtifacts}
-   * is true, a tree artifact will be included in the constructed list when it expands into zero
-   * file artifacts. Otherwise, only the file artifacts the tree artifact expands into will be
-   * included.
+   * <p>A middleman artifact is never added to the collection. If {@code keepEmptyTreeArtifacts} is
+   * true, a tree artifact will be added to the collection when it expands into zero file artifacts.
+   * Otherwise, only the file artifacts the tree artifact expands into will be added.
    */
-  static void addExpandedArtifacts(
-      Iterable<Artifact> artifacts,
+  static void addExpandedArtifact(
+      Artifact artifact,
       Collection<? super Artifact> output,
       ArtifactExpander artifactExpander,
       boolean keepEmptyTreeArtifacts) {
-    for (Artifact artifact : artifacts) {
-      if (artifact.isMiddlemanArtifact() || artifact.isTreeArtifact()) {
-        List<Artifact> expandedArtifacts = new ArrayList<>();
-        artifactExpander.expand(artifact, expandedArtifacts);
-        output.addAll(expandedArtifacts);
-        if (keepEmptyTreeArtifacts && artifact.isTreeArtifact() && expandedArtifacts.isEmpty()) {
-          output.add(artifact);
-        }
-      } else {
+    if (artifact.isMiddlemanArtifact() || artifact.isTreeArtifact()) {
+      List<Artifact> expandedArtifacts = new ArrayList<>();
+      artifactExpander.expand(artifact, expandedArtifacts);
+      output.addAll(expandedArtifacts);
+      if (keepEmptyTreeArtifacts && artifact.isTreeArtifact() && expandedArtifacts.isEmpty()) {
         output.add(artifact);
       }
+    } else {
+      output.add(artifact);
     }
   }
 
