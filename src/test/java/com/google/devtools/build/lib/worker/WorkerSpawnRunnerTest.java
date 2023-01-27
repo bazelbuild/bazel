@@ -334,6 +334,9 @@ public class WorkerSpawnRunnerTest {
         .isEqualTo(WorkRequest.newBuilder().setRequestId(0).build());
     assertThat(argumentCaptor.getAllValues().get(1))
         .isEqualTo(WorkRequest.newBuilder().setRequestId(0).setCancel(true).build());
+    // Wait until thread produced by WorkerSpawnRunner.finishWorkAsync is finshed and returned
+    // resources via resourceHandle.
+    Thread.sleep(50);
     verify(resourceHandle).close();
     verify(resourceHandle, times(0)).invalidateAndClose();
   }
