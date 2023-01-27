@@ -471,7 +471,7 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
                 .setLabel(target.getOriginalLabel())
                 .setConfigurationKey(target.getConfigurationKey())
                 .setExecutionPlatformLabel(
-                    Label.parseAbsoluteUnchecked("//platforms:local_platform_b"))
+                    Label.parseCanonicalUnchecked("//platforms:local_platform_b"))
                 .build());
 
     assertThat(toolchainCollection).isNotNull();
@@ -526,9 +526,9 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     return update(
         new EventBus(),
         defaultFlags().with(Flag.KEEP_GOING),
-        /*explicitTargetPatterns=*/ ImmutableSet.of(Label.parseAbsoluteUnchecked(label)),
-        /*aspects=*/ ImmutableList.of(),
-        /*aspectsParameters=*/ ImmutableMap.of(),
+        /* explicitTargetPatterns= */ ImmutableSet.of(Label.parseCanonicalUnchecked(label)),
+        /* aspects= */ ImmutableList.of(),
+        /* aspectsParameters= */ ImmutableMap.of(),
         label);
   }
 

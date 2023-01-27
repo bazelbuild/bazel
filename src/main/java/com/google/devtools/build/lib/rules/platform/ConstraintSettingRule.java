@@ -77,7 +77,7 @@ public class ConstraintSettingRule implements RuleDefinition {
         .build();
   }
 }
-/*<!-- #BLAZE_RULE (NAME = constraint_setting, FAMILY = Platform)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = constraint_setting, FAMILY = Platforms and Toolchains)[GENERIC_RULE] -->
 
 <p>This rule is used to introduce a new constraint type for which a platform may specify a value.
 For instance, you might define a <code>constraint_setting</code> named "glibc_version" to represent

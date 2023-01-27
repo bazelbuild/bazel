@@ -118,6 +118,8 @@ abstract class AbstractParallelEvaluator {
 
   protected final Cache<SkyKey, SkyKeyComputeState> stateCache = Caffeine.newBuilder().build();
 
+  private final boolean heuristicallyDropNodes;
+
   AbstractParallelEvaluator(
       ProcessableGraph graph,
       Version graphVersion,
@@ -132,7 +134,8 @@ abstract class AbstractParallelEvaluator {
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       QuiescingExecutor executor,
       CycleDetector cycleDetector,
-      boolean mergingSkyframeAnalysisExecutionPhases) {
+      boolean mergingSkyframeAnalysisExecutionPhases,
+      boolean heuristicallyDropNodes) {
     this.graph = graph;
     this.cycleDetector = cycleDetector;
     this.evaluatorContext =
@@ -151,6 +154,7 @@ abstract class AbstractParallelEvaluator {
             () -> new NodeEntryVisitor(executor, progressReceiver, Evaluate::new, stateCache),
             /* mergingSkyframeAnalysisExecutionPhases= */ mergingSkyframeAnalysisExecutionPhases,
             stateCache);
+    this.heuristicallyDropNodes = heuristicallyDropNodes;
   }
 
   /**
@@ -1108,14 +1112,16 @@ abstract class AbstractParallelEvaluator {
     }
 
     for (SkyKey newDep : newlyAddedNewDeps) {
-      // TODO(b/261019506): When heuristically dropping node is enabled, declared dep might be
-      //  missing and the check below will fail leading to blaze crash.
       NodeEntry depEntry =
-          checkNotNull(
-              newlyAddedNewDepNodes.get().get(newDep),
-              "Missing already declared dep %s (parent=%s)",
-              newDep,
-              skyKey);
+          heuristicallyDropNodes
+              ? getOrRecreateDepEntry(
+                  newDep, newlyAddedNewDepNodes.get(), skyKey, Reason.RDEP_ADDITION)
+              : checkNotNull(
+                  newlyAddedNewDepNodes.get().get(newDep),
+                  "Missing already declared dep %s (parent=%s)",
+                  newDep,
+                  skyKey);
+
       DependencyState triState = depEntry.addReverseDepAndCheckIfDone(skyKey);
       switch (maybeHandleUndoneDepForDoneEntry(entry, depEntry, triState, skyKey, newDep)) {
         case DEP_DONE_SELF_SIGNALLED:
@@ -1138,6 +1144,29 @@ abstract class AbstractParallelEvaluator {
         previouslyRegisteredNewDeps);
 
     return !selfSignalled;
+  }
+
+  /**
+   * Returns a {@link NodeEntry} for {@code depKey}.
+   *
+   * <p>If {@code depKey} is present in {@code depEntries}, its corresponding entry is returned.
+   * Otherwise, if the evaluator permits {@link Inconsistency#ALREADY_DECLARED_CHILD_MISSING}, the
+   * entry will be recreated.
+   */
+  private NodeEntry getOrRecreateDepEntry(
+      SkyKey depKey, NodeBatch depEntries, SkyKey requestor, Reason reason)
+      throws InterruptedException {
+    NodeEntry depEntry = depEntries.get(depKey);
+    if (depEntry != null) {
+      return depEntry;
+    }
+
+    ImmutableList<SkyKey> missing = ImmutableList.of(depKey);
+    evaluatorContext
+        .getGraphInconsistencyReceiver()
+        .noteInconsistencyAndMaybeThrow(
+            requestor, missing, Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
+    return checkNotNull(graph.createIfAbsentBatch(requestor, reason, missing).get(depKey), depKey);
   }
 
   private enum MaybeHandleUndoneDepResult {

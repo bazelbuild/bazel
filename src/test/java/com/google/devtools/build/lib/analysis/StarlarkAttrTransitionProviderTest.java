@@ -1128,7 +1128,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
   }
 
   private Object getStarlarkOption(ConfiguredTarget target, String absName) {
-    return getStarlarkOptions(target).get(Label.parseAbsoluteUnchecked(absName));
+    return getStarlarkOptions(target).get(Label.parseCanonicalUnchecked(absName));
   }
 
   private String getTransitionDirectoryNameFragment(ConfiguredTarget target) {
@@ -1157,7 +1157,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(dep)
                 .getOptions()
                 .getStarlarkOptions()
-                .get(Label.parseAbsoluteUnchecked("//test/starlark:the-answer")))
+                .get(Label.parseCanonicalUnchecked("//test/starlark:the-answer")))
         .isEqualTo(StarlarkInt.of(42));
   }
 
@@ -1180,7 +1180,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(test)
                 .getOptions()
                 .getStarlarkOptions()
-                .get(Label.parseAbsoluteUnchecked("//test/starlark:the-answer")))
+                .get(Label.parseCanonicalUnchecked("//test/starlark:the-answer")))
         .isEqualTo(7);
 
     @SuppressWarnings("unchecked")
@@ -1191,7 +1191,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
             getConfiguration(dep)
                 .getOptions()
                 .getStarlarkOptions()
-                .get(Label.parseAbsoluteUnchecked("//test/starlark:the-answer")))
+                .get(Label.parseCanonicalUnchecked("//test/starlark:the-answer")))
         .isEqualTo(StarlarkInt.of(42));
   }
 
@@ -1923,7 +1923,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
 
     assertThat(getConfiguration(middle).getOptions().getStarlarkOptions().entrySet())
         .containsExactly(
-            Maps.immutableEntry(Label.parseAbsoluteUnchecked("//test:zee"), "zeesball"));
+            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test:zee"), "zeesball"));
 
     assertThat(getTransitionDirectoryNameFragment(middle))
         .isEqualTo(
@@ -1948,8 +1948,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
 
     assertThat(getConfiguration(bottom).getOptions().getStarlarkOptions().entrySet())
         .containsExactly(
-            Maps.immutableEntry(Label.parseAbsoluteUnchecked("//test:zee"), "zeesball"),
-            Maps.immutableEntry(Label.parseAbsoluteUnchecked("//test:xan"), "xansball"));
+            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test:zee"), "zeesball"),
+            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test:xan"), "xansball"));
     assertThat(getTransitionDirectoryNameFragment(bottom))
         .isEqualTo(
             BuildConfigurationFunction.transitionDirectoryNameFragment(
@@ -1979,7 +1979,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
 
     assertThat(getConfiguration(middle).getOptions().getStarlarkOptions().entrySet())
         .containsExactly(
-            Maps.immutableEntry(Label.parseAbsoluteUnchecked("//test:zee"), "zeesball"));
+            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test:zee"), "zeesball"));
 
     assertThat(getTransitionDirectoryNameFragment(middle))
         .isEqualTo(
@@ -1997,8 +1997,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
 
     assertThat(getConfiguration(bottom).getOptions().getStarlarkOptions().entrySet())
         .containsExactly(
-            Maps.immutableEntry(Label.parseAbsoluteUnchecked("//test:zee"), "zeesball"),
-            Maps.immutableEntry(Label.parseAbsoluteUnchecked("//test:xan"), "xansball"));
+            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test:zee"), "zeesball"),
+            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test:xan"), "xansball"));
     assertThat(getTransitionDirectoryNameFragment(bottom))
         .isEqualTo(
             BuildConfigurationFunction.transitionDirectoryNameFragment(
@@ -2407,7 +2407,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     // --platforms to PlatformOptions.computeTargetPlatform(), which defaults to the host.
     assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
         .containsExactly(
-            Label.parseAbsoluteUnchecked(
+            Label.parseCanonicalUnchecked(
                 TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":host"));
   }
 
@@ -2453,7 +2453,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     ConfiguredTarget dep =
         getDirectPrerequisite(getConfiguredTarget("//test/starlark:test"), "//test/starlark:main1");
     assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
-        .containsExactly(Label.parseAbsoluteUnchecked("//platforms:my_other_platform"));
+        .containsExactly(Label.parseCanonicalUnchecked("//platforms:my_other_platform"));
   }
 
   /* If the transition doesn't change --cpu, it doesn't constitute a platform change. */
@@ -2498,7 +2498,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     ConfiguredTarget dep =
         getDirectPrerequisite(getConfiguredTarget("//test/starlark:test"), "//test/starlark:main1");
     assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
-        .containsExactly(Label.parseAbsoluteUnchecked("//platforms:my_platform"));
+        .containsExactly(Label.parseCanonicalUnchecked("//platforms:my_platform"));
   }
 
   /*
@@ -2836,7 +2836,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         ")");
 
     useConfiguration(ImmutableMap.of("//test/starlark:input_only", "not_the_default"));
-    Label inputOnlySetting = Label.parseAbsoluteUnchecked("//test/starlark:input_only");
+    Label inputOnlySetting = Label.parseCanonicalUnchecked("//test/starlark:input_only");
     ConfiguredTarget transitionedDep =
         getDirectPrerequisite(
             getConfiguredTarget("//test/starlark:transitioned_main"), "//test/starlark:main");

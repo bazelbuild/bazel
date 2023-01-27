@@ -3387,6 +3387,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             .setKeepGoing(keepGoing)
             .setParallelism(numThreads)
             .setEventHandler(eventHandler)
+            .setHeuristicallyDropNodes(heuristicallyDropNodes)
             .build();
     return memoizingEvaluator.evaluate(roots, evaluationContext);
   }

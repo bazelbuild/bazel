@@ -360,6 +360,6 @@ public abstract class AndroidStarlarkTest extends AndroidBuildViewTestCase {
 
     ConfiguredTarget ct = getConfiguredTarget("//:lib");
     assertThat(getMyInfoFromTarget(ct).getValue("foo"))
-        .isEqualTo(Label.parseAbsoluteUnchecked("//:new_sdk"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//:new_sdk"));
   }
 }

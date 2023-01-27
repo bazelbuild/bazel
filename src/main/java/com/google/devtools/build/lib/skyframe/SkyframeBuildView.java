@@ -538,7 +538,8 @@ public final class SkyframeBuildView {
       boolean strictConflictCheck,
       boolean checkForActionConflicts,
       QuiescingExecutors executors,
-      boolean shouldDiscardAnalysisCache)
+      boolean shouldDiscardAnalysisCache,
+      BuildDriverKeyTestContext buildDriverKeyTestContext)
       throws InterruptedException,
           ViewCreationFailedException,
           BuildFailedException,
@@ -567,12 +568,14 @@ public final class SkyframeBuildView {
                         ctKey,
                         topLevelArtifactContext,
                         strictConflictCheck,
-                        /*explicitlyRequested=*/ explicitTargetPatterns.contains(ctKey.getLabel()),
+                        /* explicitlyRequested= */ explicitTargetPatterns.contains(
+                            ctKey.getLabel()),
                         determineTestType(
                             testsToRun,
                             labelTargetMap,
                             ctKey.getLabel(),
-                            topLevelArtifactContext.runTestsExclusively())))
+                            buildDriverKeyTestContext,
+                            eventHandler)))
             .collect(ImmutableSet.toImmutableSet());
 
     ImmutableSet<BuildDriverKey> buildDriverAspectKeys =
@@ -921,21 +924,42 @@ public final class SkyframeBuildView {
       ImmutableSet<Label> testsToRun,
       ImmutableMap<Label, Target> labelTargetMap,
       Label label,
-      boolean runTestsExclusively) {
+      BuildDriverKeyTestContext buildDriverKeyTestContext,
+      ExtendedEventHandler eventHandler) {
     if (testsToRun == null || !testsToRun.contains(label)) {
       return TestType.NOT_TEST;
     }
     Target target = labelTargetMap.get(label);
-    if (target instanceof Rule) {
-      if (runTestsExclusively || TargetUtils.isExclusiveTestRule((Rule) target)) {
-        return TestType.EXCLUSIVE;
-      } else if (TargetUtils.isExclusiveIfLocalTestRule((Rule) target)) {
-        return TestType.EXCLUSIVE_IF_LOCAL;
-      } else {
-        return TestType.PARALLEL;
-      }
+
+    if (!(target instanceof Rule)) {
+      return TestType.NOT_TEST;
     }
-    return TestType.NOT_TEST;
+
+    TestType fromExplicitFlagOrTag;
+    if (buildDriverKeyTestContext.getTestStrategy().equals("exclusive")
+        || TargetUtils.isExclusiveTestRule((Rule) target)) {
+      fromExplicitFlagOrTag = TestType.EXCLUSIVE;
+    } else if (TargetUtils.isExclusiveIfLocalTestRule((Rule) target)) {
+      fromExplicitFlagOrTag = TestType.EXCLUSIVE_IF_LOCAL;
+    } else {
+      fromExplicitFlagOrTag = TestType.PARALLEL;
+    }
+
+    if ((fromExplicitFlagOrTag == TestType.EXCLUSIVE
+            && buildDriverKeyTestContext.forceExclusiveTestsInParallel())
+        || (fromExplicitFlagOrTag == TestType.EXCLUSIVE_IF_LOCAL
+            && buildDriverKeyTestContext.forceExclusiveIfLocalTestsInParallel())) {
+      eventHandler.handle(
+          Event.warn(
+              label
+                  + " is tagged "
+                  + fromExplicitFlagOrTag.getMsg()
+                  + ", but --test_strategy="
+                  + buildDriverKeyTestContext.getTestStrategy()
+                  + " forces parallel test execution."));
+      return TestType.PARALLEL;
+    }
+    return fromExplicitFlagOrTag;
   }
 
   // When we check for action conflicts that occur with a TopLevelAspectKey, a reference to the
@@ -1299,5 +1323,14 @@ public final class SkyframeBuildView {
     ImmutableSet<Artifact> getCoverageArtifacts(
         Set<ConfiguredTarget> configuredTargets, Set<ConfiguredTarget> allTargetsToTest)
         throws InterruptedException;
+  }
+
+  /** Encapsulates the context required to construct a test BuildDriverKey. */
+  public interface BuildDriverKeyTestContext {
+    String getTestStrategy();
+
+    boolean forceExclusiveTestsInParallel();
+
+    boolean forceExclusiveIfLocalTestsInParallel();
   }
 }

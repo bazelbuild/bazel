@@ -17,19 +17,24 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
+import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
+import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Test for automatic exec groups. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class AutoExecGroupsTest extends BuildViewTestCase {
   /**
    * Sets up two toolchains types, each with a single toolchain implementation and a single
@@ -119,19 +124,22 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
   /**
    * Creates custom rule which produces action with `actionParameters`, adds `extraAttributes` and
-   * defines `toolchains`.
+   * defines `toolchains`. Depending on `actionRunCommand` parameter, `actions.run` or
+   * `actions.run_shell` is created.
    */
-  private void createCustomRule(String actionParameters, String extraAttributes, String toolchains)
+  private void createCustomRule(
+      String action, String actionParameters, String extraAttributes, String toolchains)
       throws Exception {
     scratch.file(
         "test/defs.bzl",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file(ctx.label.name + '_dummy_output.jar')",
-        "  ctx.actions.run(",
-        "    ",
+        "  " + action + "(",
         actionParameters,
         "    outputs = [output_jar],",
-        "    executable = '//toolchain:foo_toolchain',",
+        action.equals("ctx.actions.run")
+            ? "    executable = '//toolchain:foo_toolchain',"
+            : "    command = 'echo',",
         "  )",
         "  return [DefaultInfo(files = depset([output_jar]))]",
         "custom_rule = rule(",
@@ -150,8 +158,14 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void automaticExecutionGroups_disabledAndAttributeFalse_disabled() throws Exception {
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void automaticExecutionGroups_disabledAndAttributeFalse_disabled(String action)
+      throws Exception {
     createCustomRule(
+        /* action= */ action,
         /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
         /* extraAttributes= */ "'_use_auto_exec_groups': attr.bool(default = False),",
         /* toolchains= */ "['//rule:toolchain_type_1']");
@@ -164,8 +178,14 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void automaticExecutionGroups_disabledAndAttributeTrue_enabled() throws Exception {
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void automaticExecutionGroups_disabledAndAttributeTrue_enabled(String action)
+      throws Exception {
     createCustomRule(
+        /* action= */ action,
         /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
         /* extraAttributes= */ "'_use_auto_exec_groups': attr.bool(default = True),",
         /* toolchains= */ "['//rule:toolchain_type_1']");
@@ -178,8 +198,14 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void automaticExecutionGroups_disabledAndAttributeNotSet_disabled() throws Exception {
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void automaticExecutionGroups_disabledAndAttributeNotSet_disabled(String action)
+      throws Exception {
     createCustomRule(
+        /* action= */ action,
         /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
         /* extraAttributes= */ "",
         /* toolchains= */ "['//rule:toolchain_type_1']");
@@ -192,8 +218,14 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void automaticExecutionGroups_enabledAndAttributeFalse_disabled() throws Exception {
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void automaticExecutionGroups_enabledAndAttributeFalse_disabled(String action)
+      throws Exception {
     createCustomRule(
+        /* action= */ action,
         /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
         /* extraAttributes= */ "'_use_auto_exec_groups': attr.bool(default = False),",
         /* toolchains= */ "['//rule:toolchain_type_1']");
@@ -207,8 +239,14 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void automaticExecutionGroups_enabledAndAttributeTrue_enabled() throws Exception {
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void automaticExecutionGroups_enabledAndAttributeTrue_enabled(String action)
+      throws Exception {
     createCustomRule(
+        /* action= */ action,
         /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
         /* extraAttributes= */ "'_use_auto_exec_groups': attr.bool(default = True)",
         /* toolchains= */ "['//rule:toolchain_type_1']");
@@ -222,8 +260,14 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void automaticExecutionGroups_enabledAndAttributeNotSet_enabled() throws Exception {
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void automaticExecutionGroups_enabledAndAttributeNotSet_enabled(String action)
+      throws Exception {
     createCustomRule(
+        /* action= */ action,
         /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
         /* extraAttributes= */ "",
         /* toolchains= */ "['//rule:toolchain_type_1']");
@@ -237,8 +281,14 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void getToolchainInfoAndContext_automaticExecGroupsEnabled() throws Exception {
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void getToolchainInfoAndContext_automaticExecGroupsEnabled(String action)
+      throws Exception {
     createCustomRule(
+        /* action= */ action,
         /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
         /* extraAttributes= */ "",
         /* toolchains= */ "['//rule:toolchain_type_1']");
@@ -256,8 +306,14 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void getToolchainInfoAndContext_automaticExecGroupsDisabled() throws Exception {
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void getToolchainInfoAndContext_automaticExecGroupsDisabled(String action)
+      throws Exception {
     createCustomRule(
+        /* action= */ action,
         /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
         /* extraAttributes= */ "",
         /* toolchains= */ "['//rule:toolchain_type_1']");
@@ -271,5 +327,167 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
     assertThat(defaultExecGroupToolchains).isNotEmpty();
     assertThat(toolchainInfo).isNotNull();
+  }
+
+  @Test
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void twoToolchains_createTwoExecutionGroups(String action) throws Exception {
+    createCustomRule(
+        /* action= */ action,
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    ExecGroupCollection execGroups = getRuleContext(target).getExecGroups();
+
+    assertThat(execGroups.execGroups().keySet())
+        .containsExactly("//rule:toolchain_type_1", "//rule:toolchain_type_2");
+    ExecGroup execGroupTT1 = execGroups.getExecGroup("//rule:toolchain_type_1");
+    assertThat(execGroupTT1.toolchainTypes())
+        .containsExactly(
+            ToolchainTypeRequirement.create(Label.parseCanonical("//rule:toolchain_type_1")));
+    assertThat(execGroupTT1.execCompatibleWith()).isEmpty();
+    ExecGroup execGroupTT2 = execGroups.getExecGroup("//rule:toolchain_type_2");
+    assertThat(execGroupTT2.toolchainTypes())
+        .containsExactly(
+            ToolchainTypeRequirement.create(Label.parseCanonical("//rule:toolchain_type_2")));
+    assertThat(execGroupTT2.execCompatibleWith()).isEmpty();
+  }
+
+  @Test
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void twoToolchains_threeToolchainContexts(String action) throws Exception {
+    createCustomRule(
+        /* action= */ action,
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    ImmutableSet<String> toolchainContextsKeys =
+        getRuleContext(target).getToolchainContexts().getContextMap().keySet();
+
+    assertThat(toolchainContextsKeys)
+        .containsExactly(
+            ExecGroup.DEFAULT_EXEC_GROUP_NAME,
+            "//rule:toolchain_type_1",
+            "//rule:toolchain_type_2");
+  }
+
+  @Test
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void defaultExecGroupHasNoToolchains(String action) throws Exception {
+    createCustomRule(
+        /* action= */ action,
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    ResolvedToolchainContext defaultExecGroupContext =
+        getRuleContext(target).getToolchainContexts().getDefaultToolchainContext();
+
+    assertThat(defaultExecGroupContext).isNotNull();
+    assertThat(defaultExecGroupContext.toolchainTypes()).isEmpty();
+  }
+
+  @Test
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void defaultExecGroupHasBasicExecutionPlatform(String action) throws Exception {
+    createCustomRule(
+        /* action= */ action,
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    ResolvedToolchainContext defaultExecGroupContext =
+        getRuleContext(target).getToolchainContexts().getDefaultToolchainContext();
+
+    assertThat(defaultExecGroupContext).isNotNull();
+    assertThat(defaultExecGroupContext.executionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
+
+  @Test
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void independentExecPlatformForAction_toolchainType1(String action) throws Exception {
+    createCustomRule(
+        /* action= */ action,
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    Action generatedAction = getGeneratingAction(target, "test/custom_rule_name_dummy_output.jar");
+
+    assertThat(generatedAction.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
+
+  @Test
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void independentExecPlatformForAction_toolchainType2(String action) throws Exception {
+    createCustomRule(
+        /* action= */ action,
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_2',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    Action generatedAction = getGeneratingAction(target, "test/custom_rule_name_dummy_output.jar");
+
+    assertThat(generatedAction.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
+  }
+
+  @Test
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void actionWithTwoToolchains_automaticExecGroupsDisabled_error(String action)
+      throws Exception {
+    createCustomRule(
+        /* action= */ action,
+        /* actionParameters= */ "",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertContainsEvent(
+        Pattern.compile(
+            "Unable to find an execution platform for toolchains \\[(//rule:toolchain_type_1,"
+                + " //rule:toolchain_type_2)|(//rule:toolchain_type_2, //rule:toolchain_type_1)\\]"
+                + " and target platform //platforms:platform_1 from available execution platforms"
+                + " \\[//platforms:platform_1, //platforms:platform_2,"
+                + " //third_party/local_config_platform:host\\]"));
   }
 }

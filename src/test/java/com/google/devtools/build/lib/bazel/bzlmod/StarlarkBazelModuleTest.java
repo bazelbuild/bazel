@@ -53,7 +53,7 @@ public class StarlarkBazelModuleTest {
         .setName("maven")
         .setDoc("")
         .setLocation(Location.BUILTIN)
-        .setDefinitionEnvironmentLabel(Label.parseAbsoluteUnchecked("//:rje.bzl"))
+        .setDefinitionEnvironmentLabel(Label.parseCanonicalUnchecked("//:rje.bzl"))
         .setImplementation(() -> "maven");
   }
 

@@ -712,7 +712,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
       // If toolchain and exec_groups are both defined, verify they are compatible.
       if (useAutoExecGroups && toolchainUnchecked != Starlark.NONE) {
-        Label toolchainLabel = Label.parseAbsoluteUnchecked((String) toolchainUnchecked);
+        Label toolchainLabel = Label.parseCanonicalUnchecked((String) toolchainUnchecked);
         if (ruleContext.getExecGroups().getExecGroup(execGroup).toolchainTypes().stream()
             .map(ToolchainTypeRequirement::toolchainType)
             .noneMatch(toolchainLabel::equals)) {

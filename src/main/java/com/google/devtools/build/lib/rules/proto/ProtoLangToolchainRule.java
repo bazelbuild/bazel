@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.packages.Type;
  */
 public class ProtoLangToolchainRule implements RuleDefinition {
   private static final Label DEFAULT_PROTO_COMPILER =
-      Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
+      Label.parseCanonicalUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
   private static final Attribute.LabelLateBoundDefault<?> PROTO_COMPILER =
       Attribute.LabelLateBoundDefault.fromTargetConfiguration(
           ProtoConfiguration.class,

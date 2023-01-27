@@ -26,4 +26,6 @@ PY_RUNTIME_ATTR_NAME = "_py_interpreter"
 PY_RUNTIME_FRAGMENT_NAME = "bazel_py"
 PY_RUNTIME_FRAGMENT_ATTR_NAME = "python_path"
 
-BUILD_DATA_SYMLINK_PATH = "pyglib/build_data.txt"
+BUILD_DATA_SYMLINK_PATH = None
+
+IS_BAZEL = True

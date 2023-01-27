@@ -75,7 +75,7 @@ public class ConstraintValueRule implements RuleDefinition {
         .build();
   }
 }
-/*<!-- #BLAZE_RULE (NAME = constraint_value, FAMILY = Platform)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = constraint_value, FAMILY = Platforms and Toolchains)[GENERIC_RULE] -->
 
 This rule introduces a new value for a given constraint type.
 

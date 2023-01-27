@@ -163,7 +163,7 @@ public class CcStarlarkInternal implements StarlarkValue {
               // thus a dependency of the def_parser.
               || label.startsWith("@bazel_tools//tools/cpp")
           ? null
-          : Label.parseAbsoluteUnchecked("@bazel_tools//tools/def_parser:def_parser");
+          : Label.parseCanonicalUnchecked("@bazel_tools//tools/def_parser:def_parser");
     }
 
     @Override
@@ -187,7 +187,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     public Object getDefault(AttributeMap rule) {
       return rule.getOrDefault("tags", Type.STRING_LIST, ImmutableList.of()).contains("__CC_STL__")
           ? null
-          : Label.parseAbsoluteUnchecked("@//third_party/stl");
+          : Label.parseCanonicalUnchecked("@//third_party/stl");
     }
 
     @Override

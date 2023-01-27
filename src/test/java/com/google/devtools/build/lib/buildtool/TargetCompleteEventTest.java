@@ -153,7 +153,7 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
     Artifact main =
         ((RuleConfiguredTarget) fooTarget)
             .getArtifactByOutputLabel(
-                Label.parseAbsoluteUnchecked("//validation_actions:foo0.main"));
+                Label.parseCanonicalUnchecked("//validation_actions:foo0.main"));
     FileStateType mainType =
         targetCompleteEventRef.get().getCompletionContext().getFileArtifactValue(main).getType();
     assertThat(CompletionContext.isGuaranteedToBeOutputFile(mainType)).isTrue();

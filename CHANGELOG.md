@@ -1,3 +1,64 @@
+## Release 7.0.0-pre.20230118.2 (2023-01-26)
+
+```
+Baseline: b310a8aaf35d73d1310b2a914a459a9f32a04d0d
+
+Cherry picks:
+
+   + ab71a1002c9c53a8061336e40f91204a2a32c38e:
+     Rollback
+     https://github.com/bazelbuild/bazel/commit/414824173363e579d34afc
+     1aa16bc97a220743dc to fix breakage in an internal use case
+```
+
+Incompatible changes:
+
+  - query --output=proto --order_output=deps now returns targets in
+    topological order (previously there was no ordering).
+
+This release contains contributions from many people at Google, as well as Anthony Ter-Saakov, Benjamin Lee, Benjamin Peterson, Ben Lee, Brentley Jones, Ed Schouten, Emil Kattainen, Fabian Meumertzheim, Fabian Meumertzheim, Fahrzin Hemmati, Halil Sener, Keith Smiley, Maxwell Elliott, mohamadk, Oliver Lee, Patrick Balestra, Red Daly, Severin Strobl, Simon Mavi Stewart, Stiopa Koltsov, tbaing, Thulio Ferraz Assis, Ulf Adams, Xavier Bonaventura.
+
+## Release 7.0.0-pre.20230104.2 (2023-01-23)
+
+```
+Baseline: 89d34ac23a8f46b3b89ac4730d7a20da375f5fae
+
+Cherry picks:
+
+   + cf95a2be1de5e29d38fc1f35e662c678bb70fcdd:
+     Automated rollback of commit
+     2f39c04ea4b93788bfef5c475b7dd40a8a289aef.
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 7.0.0-pre.20230104.2 (2023-01-23)
+
+```
+Baseline: 89d34ac23a8f46b3b89ac4730d7a20da375f5fae
+
+Cherry picks:
+
+   + cf95a2be1de5e29d38fc1f35e662c678bb70fcdd:
+     Automated rollback of commit
+     2f39c04ea4b93788bfef5c475b7dd40a8a289aef.
+```
+
+Incompatible changes:
+
+  - When multiple --deleted_packages options are passed on the
+    command line, they will be concatenated instead of the latest one
+    taking effect.
+  - This has the side effect of changing the message on unsuccessful
+    builds from
+  - JSON profile: Use doubles instead of strings for counter series.
+
+Important changes:
+
+  - removed outdated ctx.host_configuration
+
+This release contains contributions from many people at Google, as well as Amanda L Martin, Benjamin Lee, Benjamin Peterson, Benjamin Peterson, Fabian Meumertzheim, Fahrzin Hemmati, keertk, Patrick Balestra, Sara Adams, Sascha Moecker, Siddhesh Bhupendra Kuakde, Stiopa Koltsov.
+
 ## Release 7.0.0-pre.20221212.2 (2022-12-23)
 
 ```

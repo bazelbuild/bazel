@@ -35,6 +35,7 @@ public class EvaluationContext {
   private final boolean isExecutionPhase;
   private final boolean mergingSkyframeAnalysisExecutionPhases;
   private final UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver;
+  private final boolean heuristicallyDropNodes;
 
   protected EvaluationContext(
       int parallelism,
@@ -43,7 +44,8 @@ public class EvaluationContext {
       ExtendedEventHandler eventHandler,
       boolean isExecutionPhase,
       boolean mergingSkyframeAnalysisExecutionPhases,
-      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
+      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver,
+      boolean heuristicallyDropNodes) {
     this.parallelism = parallelism;
     this.executor = executor;
     this.keepGoing = keepGoing;
@@ -51,6 +53,7 @@ public class EvaluationContext {
     this.isExecutionPhase = isExecutionPhase;
     this.mergingSkyframeAnalysisExecutionPhases = mergingSkyframeAnalysisExecutionPhases;
     this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
+    this.heuristicallyDropNodes = heuristicallyDropNodes;
   }
 
   public int getParallelism() {
@@ -113,6 +116,10 @@ public class EvaluationContext {
     return unnecessaryTemporaryStateDropperReceiver;
   }
 
+  public boolean getHeuristicallyDropNodes() {
+    return heuristicallyDropNodes;
+  }
+
   public Builder builder() {
     return newBuilder().copyFrom(this);
   }
@@ -131,6 +138,7 @@ public class EvaluationContext {
     protected boolean mergingSkyframeAnalysisExecutionPhases;
     protected UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver =
         UnnecessaryTemporaryStateDropperReceiver.NULL;
+    protected boolean heuristicallyDropNodes;
 
     protected Builder() {}
 
@@ -192,6 +200,12 @@ public class EvaluationContext {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setHeuristicallyDropNodes(boolean heuristicallyDropNodes) {
+      this.heuristicallyDropNodes = heuristicallyDropNodes;
+      return this;
+    }
+
     public EvaluationContext build() {
       return new EvaluationContext(
           parallelism,
@@ -200,7 +214,8 @@ public class EvaluationContext {
           eventHandler,
           isExecutionPhase,
           mergingSkyframeAnalysisExecutionPhases,
-          unnecessaryTemporaryStateDropperReceiver);
+          unnecessaryTemporaryStateDropperReceiver,
+          heuristicallyDropNodes);
     }
   }
 }

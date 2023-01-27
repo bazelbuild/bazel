@@ -83,8 +83,8 @@ import org.junit.runners.JUnit4;
 public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
 
   private static final Label TARGET_PLATFORM_LABEL =
-      Label.parseAbsoluteUnchecked("//platform:target");
-  private static final Label EXEC_PLATFORM_LABEL = Label.parseAbsoluteUnchecked("//platform:exec");
+      Label.parseCanonicalUnchecked("//platform:target");
+  private static final Label EXEC_PLATFORM_LABEL = Label.parseCanonicalUnchecked("//platform:exec");
 
   /**
    * A mock {@link SkyFunction} that just calls {@link ConfiguredTargetFunction#computeDependencies}

@@ -2213,19 +2213,9 @@ Example:
 
 ### `analyze-profile` {:#analyze-profile}
 
-The `analyze-profile` command analyzes data previously gathered
-during the build using `--profile` option. It provides several
-options to either perform analysis of the build execution or export data in
-the specified format.
-
-The following options are supported:
-
-* `--dump` displays all gathered data in a
-  human-readable format. However,
-  this it does not support other formats yet.
-
-For format details and usage help, see
-[Troubleshooting performance by profiling](/rules/performance#performance-profiling).
+The `analyze-profile` command analyzes a
+[JSON trace profile](/config/json-trace-profile) previously gathered during a
+Bazel invocation.
 
 ### `canonicalize-flags` {:#canonicalize-flags}
 

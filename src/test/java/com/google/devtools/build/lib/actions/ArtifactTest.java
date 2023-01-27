@@ -339,7 +339,7 @@ public final class ArtifactTest {
                 .build());
 
     PathFragment pathFragment = PathFragment.create("src/foo.cc");
-    ArtifactOwner owner = new LabelArtifactOwner(Label.parseAbsoluteUnchecked("//foo:bar"));
+    ArtifactOwner owner = new LabelArtifactOwner(Label.parseCanonicalUnchecked("//foo:bar"));
     SourceArtifact sourceArtifact = new SourceArtifact(artifactRoot, pathFragment, owner);
     SourceArtifact deserialized1 =
         (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));

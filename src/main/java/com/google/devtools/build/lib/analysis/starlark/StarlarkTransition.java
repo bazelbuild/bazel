@@ -70,7 +70,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       RequiredConfigFragmentsProvider.Builder requiredFragments, BuildOptionDetails optionDetails) {
     for (String optionStarlarkName : Iterables.concat(getInputs(), getOutputs())) {
       if (!optionStarlarkName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
-        requiredFragments.addStarlarkOption(Label.parseAbsoluteUnchecked(optionStarlarkName));
+        requiredFragments.addStarlarkOption(Label.parseCanonicalUnchecked(optionStarlarkName));
       } else {
         String optionNativeName = optionStarlarkName.substring(COMMAND_LINE_OPTION_PREFIX.length());
         // A null optionsClass means the flag is invalid. Starlark transitions independently catch
@@ -389,7 +389,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     return ImmutableSet.copyOf(
         toGet.stream()
             .filter(setting -> !setting.startsWith(COMMAND_LINE_OPTION_PREFIX))
-            .map(Label::parseAbsoluteUnchecked)
+            .map(absName -> Label.parseCanonicalUnchecked(absName))
             .collect(Collectors.toSet()));
   }
 

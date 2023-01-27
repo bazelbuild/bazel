@@ -139,7 +139,7 @@ public class CoreOptionConverters {
 
     protected DefaultLabelConverter(String defaultValue) {
       this.defaultValue =
-          defaultValue.equals("null") ? null : Label.parseAbsoluteUnchecked(defaultValue);
+          defaultValue.equals("null") ? null : Label.parseCanonicalUnchecked(defaultValue);
     }
 
     @Override

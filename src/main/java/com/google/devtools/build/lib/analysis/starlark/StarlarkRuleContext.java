@@ -937,8 +937,13 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       Boolean collectData,
       Boolean collectDefault,
       Object symlinks,
-      Object rootSymlinks)
+      Object rootSymlinks,
+      boolean skipConflictChecking,
+      StarlarkThread thread)
       throws EvalException, TypeException {
+    if (skipConflictChecking) {
+      checkPrivateAccess(thread);
+    }
     checkMutable("runfiles");
     Runfiles.Builder builder =
         new Runfiles.Builder(
@@ -971,9 +976,10 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       builder.addTransitiveArtifacts(transitiveArtifacts);
     }
     if (isDepset(symlinks)) {
+      // If Starlark code directly manipulates symlinks, activate more stringent validity checking.
+      checkConflicts = true;
       builder.addSymlinks(((Depset) symlinks).getSet(SymlinkEntry.class));
     } else if (isNonEmptyDict(symlinks)) {
-      // If Starlark code directly manipulates symlinks, activate more stringent validity checking.
       checkConflicts = true;
       for (Map.Entry<String, Artifact> entry :
           Dict.cast(symlinks, String.class, Artifact.class, "symlinks").entrySet()) {
@@ -981,6 +987,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       }
     }
     if (isDepset(rootSymlinks)) {
+      checkConflicts = true;
       builder.addRootSymlinks(((Depset) rootSymlinks).getSet(SymlinkEntry.class));
     } else if (isNonEmptyDict(rootSymlinks)) {
       checkConflicts = true;
@@ -990,7 +997,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       }
     }
     Runfiles runfiles = builder.build();
-    if (checkConflicts) {
+    if (checkConflicts && !skipConflictChecking) {
       runfiles.setConflictPolicy(Runfiles.ConflictPolicy.ERROR);
     }
     return runfiles;
