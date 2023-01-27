@@ -73,14 +73,16 @@ CcSharedLibraryInfo = provider(
     },
 )
 
+# For each target, find out whether it should be linked statically or
+# dynamically.
 def _separate_static_and_dynamic_link_libraries(
         direct_children,
         can_be_linked_dynamically,
         preloaded_deps_direct_labels):
     node = None
     all_children = list(direct_children)
-    link_statically_labels = {}
-    link_dynamically_labels = {}
+    targets_to_be_linked_statically_map = {}
+    targets_to_be_linked_dynamically_set = {}
 
     seen_labels = {}
 
@@ -97,12 +99,12 @@ def _separate_static_and_dynamic_link_libraries(
         seen_labels[node_label] = True
 
         if node_label in can_be_linked_dynamically:
-            link_dynamically_labels[node_label] = True
+            targets_to_be_linked_dynamically_set[node_label] = True
         elif node_label not in preloaded_deps_direct_labels:
-            link_statically_labels[node_label] = node.linkable_more_than_once
+            targets_to_be_linked_statically_map[node_label] = node.linkable_more_than_once
             all_children.extend(node.children)
 
-    return (link_statically_labels, link_dynamically_labels)
+    return (targets_to_be_linked_statically_map, targets_to_be_linked_dynamically_set)
 
 def _create_linker_context(ctx, linker_inputs):
     return cc_common.create_linking_context(
@@ -142,6 +144,8 @@ def _build_exports_map_from_only_dynamic_deps(merged_shared_library_infos):
             exports_map[export] = linker_input
     return exports_map
 
+# The map points from the target that can only be linked once to the
+# cc_shared_library target that already links it.
 def _build_link_once_static_libs_map(merged_shared_library_infos):
     link_once_static_libs_map = {}
     for entry in merged_shared_library_infos.to_list():
@@ -251,7 +255,7 @@ def _filter_inputs(
         preloaded_deps_direct_labels,
         link_once_static_libs_map):
     linker_inputs = []
-    curr_link_once_static_libs_map = {}
+    curr_link_once_static_libs_set = {}
 
     graph_structure_aspect_nodes = []
     dependency_linker_inputs = []
@@ -267,16 +271,25 @@ def _filter_inputs(
         if owner in transitive_exports:
             can_be_linked_dynamically[owner] = True
 
-    (link_statically_labels, link_dynamically_labels) = _separate_static_and_dynamic_link_libraries(
+    # The targets_to_be_linked_statically_map points to whether the target to
+    # be linked statically can be linked more than once.
+    (targets_to_be_linked_statically_map, targets_to_be_linked_dynamically_set) = _separate_static_and_dynamic_link_libraries(
         graph_structure_aspect_nodes,
         can_be_linked_dynamically,
         preloaded_deps_direct_labels,
     )
 
+    # We keep track of precompiled_only_dynamic_libraries, so that we can add
+    # them to runfiles.
     precompiled_only_dynamic_libraries = []
-    unaccounted_for_libs = []
     exports = {}
     linker_inputs_seen = {}
+
+    # We use this dictionary to give an error if a target containing only
+    # precompiled dynamic libraries is placed directly in roots. If such a
+    # precompiled dynamic library is needed it would be because a target in the
+    # parallel cc_library graph actually needs it. Therefore the precompiled
+    # dynamic library should be made a dependency of that cc_library instead.
     dynamic_only_roots = {}
     linked_statically_but_not_exported = {}
     for linker_input in dependency_linker_inputs:
@@ -285,11 +298,21 @@ def _filter_inputs(
             continue
         linker_inputs_seen[stringified_linker_input] = True
         owner = str(linker_input.owner)
-        if owner in link_dynamically_labels:
-            dynamic_linker_input = transitive_exports[owner]
-            linker_inputs.append(dynamic_linker_input)
-        elif owner in link_statically_labels:
+        if owner in targets_to_be_linked_dynamically_set:
+            # Link the library in this iteration dynamically,
+            # transitive_exports contains the artifacts produced by a
+            # cc_shared_library
+            linker_inputs.append(transitive_exports[owner])
+        elif owner in targets_to_be_linked_statically_map:
             if owner in link_once_static_libs_map:
+                # We are building a dictionary that will allow us to give
+                # proper errors for libraries that have been linked multiple
+                # times elsewhere but haven't been exported. The values in the
+                # link_once_static_libs_map dictionary are the
+                # cc_shared_library targets. In this iteration we know of at
+                # least one target (i.e. owner) which is being linked
+                # statically by the cc_shared_library
+                # link_once_static_libs_map[owner] but is not being exported
                 linked_statically_but_not_exported.setdefault(link_once_static_libs_map[owner], []).append(owner)
 
             is_direct_export = owner in direct_exports
@@ -311,41 +334,26 @@ def _filter_inputs(
             if len(static_libraries) and owner in dynamic_only_roots:
                 dynamic_only_roots.pop(owner)
 
+            linker_input_to_be_linked_statically = linker_input
             if is_direct_export:
-                wrapped_library = _wrap_static_library_with_alwayslink(
+                linker_input_to_be_linked_statically = _wrap_static_library_with_alwayslink(
                     ctx,
                     feature_configuration,
                     cc_toolchain,
                     linker_input,
                 )
+            elif _check_if_target_should_be_exported_with_filter(
+                linker_input.owner,
+                ctx.label,
+                ctx.attr.exports_filter,
+                _get_permissions(ctx),
+            ):
+                exports[owner] = True
 
-                if not link_statically_labels[owner]:
-                    curr_link_once_static_libs_map[owner] = True
-                linker_inputs.append(wrapped_library)
-            else:
-                can_be_linked_statically = False
+            linker_inputs.append(linker_input_to_be_linked_statically)
 
-                for static_dep_path in ctx.attr.static_deps:
-                    static_dep_path_label = ctx.label.relative(static_dep_path)
-                    if _check_if_target_under_path(linker_input.owner, static_dep_path_label):
-                        can_be_linked_statically = True
-                        break
-
-                if _check_if_target_should_be_exported_with_filter(
-                    linker_input.owner,
-                    ctx.label,
-                    ctx.attr.exports_filter,
-                    _get_permissions(ctx),
-                ):
-                    exports[owner] = True
-                    can_be_linked_statically = True
-
-                if can_be_linked_statically:
-                    if not link_statically_labels[owner]:
-                        curr_link_once_static_libs_map[owner] = True
-                    linker_inputs.append(linker_input)
-                else:
-                    unaccounted_for_libs.append(linker_input.owner)
+            if not targets_to_be_linked_statically_map[owner]:
+                curr_link_once_static_libs_set[owner] = True
 
     if dynamic_only_roots:
         message = ("Do not place libraries which only contain a " +
@@ -356,8 +364,7 @@ def _filter_inputs(
         fail(message)
 
     _throw_linked_but_not_exported_errors(linked_statically_but_not_exported)
-    _throw_error_if_unaccounted_libs(unaccounted_for_libs)
-    return (exports, linker_inputs, curr_link_once_static_libs_map.keys(), precompiled_only_dynamic_libraries)
+    return (exports, linker_inputs, curr_link_once_static_libs_set.keys(), precompiled_only_dynamic_libraries)
 
 def _throw_linked_but_not_exported_errors(error_libs_dict):
     if not error_libs_dict:
@@ -375,28 +382,6 @@ def _throw_linked_but_not_exported_errors(error_libs_dict):
     error_builder.append("then add those libraries to roots or exports_filter for each cc_shared_library.\n")
 
     fail("".join(error_builder))
-
-def _throw_error_if_unaccounted_libs(unaccounted_for_libs):
-    if not unaccounted_for_libs:
-        return
-    libs_message = []
-    different_repos = {}
-    for unaccounted_lib in unaccounted_for_libs:
-        different_repos[unaccounted_lib.workspace_name] = True
-        if len(libs_message) < 10:
-            libs_message.append(str(unaccounted_lib))
-
-    if len(unaccounted_for_libs) > 10:
-        libs_message.append("(and " + str(len(unaccounted_for_libs) - 10) + " others)\n")
-
-    static_deps_message = []
-    for repo in different_repos:
-        static_deps_message.append("        \"@" + repo + "//:__subpackages__\",")
-
-    fail("The following libraries cannot be linked either statically or dynamically:\n" +
-         "\n".join(libs_message) + "\nTo ignore which libraries get linked" +
-         " statically for now, add the following to 'static_deps':\n" +
-         "\n".join(static_deps_message))
 
 def _same_package_or_above(label_a, label_b):
     if label_a.workspace_name != label_b.workspace_name:
@@ -420,6 +405,14 @@ def _get_permissions(ctx):
 
 def _cc_shared_library_impl(ctx):
     semantics.check_experimental_cc_shared_library(ctx)
+
+    if len(ctx.attr.static_deps) and not cc_common.check_experimental_cc_shared_library():
+        fail(
+            "This attribute is a no-op and its usage" +
+            " is forbidden after cc_shared_library is no longer experimental. " +
+            "Remove it from every cc_shared_library target",
+            attr = "static_deps",
+        )
 
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
     feature_configuration = cc_common.configure_features(
@@ -460,7 +453,7 @@ def _cc_shared_library_impl(ctx):
 
     link_once_static_libs_map = _build_link_once_static_libs_map(merged_cc_shared_library_info)
 
-    (exports, linker_inputs, link_once_static_libs, precompiled_only_dynamic_libraries) = _filter_inputs(
+    (exports, linker_inputs, curr_link_once_static_libs_set, precompiled_only_dynamic_libraries) = _filter_inputs(
         ctx,
         feature_configuration,
         cc_toolchain,
@@ -544,8 +537,8 @@ def _cc_shared_library_impl(ctx):
     for export in ctx.attr.roots:
         export_label = str(export.label)
         if GraphNodeInfo in export and export[GraphNodeInfo].no_exporting:
-            if export_label in link_once_static_libs:
-                link_once_static_libs.remove(export_label)
+            if export_label in curr_link_once_static_libs_set:
+                curr_link_once_static_libs_set.remove(export_label)
             continue
         exports[export_label] = True
 
@@ -554,13 +547,13 @@ def _cc_shared_library_impl(ctx):
     ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + exports.keys()), output = exports_debug_file)
 
     link_once_static_libs_debug_file = ctx.actions.declare_file(ctx.label.name + "_link_once_static_libs.txt")
-    ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + link_once_static_libs), output = link_once_static_libs_debug_file)
+    ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + curr_link_once_static_libs_set), output = link_once_static_libs_debug_file)
 
     debug_files.append(exports_debug_file)
     debug_files.append(link_once_static_libs_debug_file)
 
     if not ctx.fragments.cpp.experimental_link_static_libraries_once():
-        link_once_static_libs = []
+        curr_link_once_static_libs_set = {}
 
     library = []
     if linking_outputs.library_to_link.resolved_symlink_dynamic_library != None:
@@ -589,7 +582,7 @@ def _cc_shared_library_impl(ctx):
         CcSharedLibraryInfo(
             dynamic_deps = merged_cc_shared_library_info,
             exports = exports.keys(),
-            link_once_static_libs = link_once_static_libs,
+            link_once_static_libs = curr_link_once_static_libs_set,
             linker_input = cc_common.create_linker_input(
                 owner = ctx.label,
                 libraries = depset([linking_outputs.library_to_link] + precompiled_only_dynamic_libraries),

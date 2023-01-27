@@ -106,11 +106,6 @@ cc_shared_library(
         "foo",
         "a_suffix",
     ],
-    static_deps = [
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux",
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux2",
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:prebuilt",
-    ],
     user_link_flags = select({
         "//src/conditions:linux": [
             "-Wl,-rpath,kittens",
@@ -207,11 +202,6 @@ cc_shared_library(
         ":is_bazel": ["@test_repo//:bar"],
         "//conditions:default": [],
     }),
-    static_deps = [
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:barX",
-        "@test_repo//:bar",
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux2",
-    ],
     user_link_flags = select({
         "//src/conditions:linux": [
             "-Wl,--version-script=$(location :bar.lds)",
@@ -486,20 +476,6 @@ runfiles_test(
         "//conditions:default": False,
     }),
     target_under_test = ":python_test",
-)
-
-build_failure_test(
-    name = "static_deps_error_test",
-    messages = select({
-        ":is_bazel": [
-            "@//:__subpackages__",
-            "@test_repo//:__subpackages__",
-        ],
-        "//conditions:default": [
-            "@//:__subpackages__",
-        ],
-    }),
-    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:unaccounted_for_libs_so",
 )
 
 no_exporting_static_lib_test(
