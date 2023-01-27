@@ -506,7 +506,8 @@ public final class FilesystemValueCheckerTest {
             batchStat.getBatchStat(fs),
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /*trustRemoteArtifacts=*/ false,
-            (ignored, ignored2) -> {});
+            (ignored, ignored2) -> {},
+            /*leaseService=*/ null);
   }
 
   private TreeFileArtifact createTreeFileArtifactWithContent(
@@ -802,7 +803,8 @@ public final class FilesystemValueCheckerTest {
                     batchStatter,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
                     /* trustRemoteArtifacts= */ false,
-                    (ignored, ignored2) -> {}))
+                    (ignored, ignored2) -> {},
+                    /*leaseService=*/ null))
         .isEmpty();
 
     tsgm.waitForTimestampGranularity(OutErr.SYSTEM_OUT_ERR);
@@ -818,7 +820,8 @@ public final class FilesystemValueCheckerTest {
                     batchStatter,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
                     /* trustRemoteArtifacts= */ false,
-                    (ignored, ignored2) -> {}))
+                    (ignored, ignored2) -> {},
+                    /*leaseService=*/ null))
         .containsExactly(actionKey);
     assertThat(
             new FilesystemValueChecker(tsgm, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
@@ -827,7 +830,8 @@ public final class FilesystemValueCheckerTest {
                     batchStatter,
                     ModifiedFileSet.EVERYTHING_DELETED,
                     /* trustRemoteArtifacts= */ false,
-                    (ignored, ignored2) -> {}))
+                    (ignored, ignored2) -> {},
+                    /*leaseService=*/ null))
         .containsExactly(actionKey);
     assertThat(
             new FilesystemValueChecker(tsgm, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
@@ -836,7 +840,8 @@ public final class FilesystemValueCheckerTest {
                     batchStatter,
                     new ModifiedFileSet.Builder().modify(file.getExecPath()).build(),
                     /* trustRemoteArtifacts= */ false,
-                    (ignored, ignored2) -> {}))
+                    (ignored, ignored2) -> {},
+                    /*leaseService=*/ null))
         .containsExactly(actionKey);
     assertThat(
             new FilesystemValueChecker(tsgm, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
@@ -847,7 +852,8 @@ public final class FilesystemValueCheckerTest {
                         .modify(file.getExecPath().getParentDirectory())
                         .build(),
                     /* trustRemoteArtifacts= */ false,
-                    (ignored, ignored2) -> {}))
+                    (ignored, ignored2) -> {},
+                    /*leaseService=*/ null))
         .isEmpty();
     assertThat(
             new FilesystemValueChecker(tsgm, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
@@ -856,7 +862,8 @@ public final class FilesystemValueCheckerTest {
                     batchStatter,
                     ModifiedFileSet.NOTHING_MODIFIED,
                     /* trustRemoteArtifacts= */ false,
-                    (ignored, ignored2) -> {}))
+                    (ignored, ignored2) -> {},
+                    /*leaseService=*/ null))
         .isEmpty();
   }
 
@@ -904,7 +911,8 @@ public final class FilesystemValueCheckerTest {
                 batchStat.getBatchStat(fs),
                 modifiedSet.getModifiedFileSet(tree.getExecPath()),
                 /*trustRemoteArtifacts=*/ false,
-                mockModifiedOutputsReceiver);
+                mockModifiedOutputsReceiver,
+                /*leaseService=*/ null);
 
     assertThat(dirtyActionKeys).isEmpty();
     assertThat(modifiedOutputsCaptor.getAllValues()).isEmpty();
@@ -928,7 +936,8 @@ public final class FilesystemValueCheckerTest {
                 batchStat.getBatchStat(fs),
                 modifiedSet.getModifiedFileSet(tree.getExecPath()),
                 /*trustRemoteArtifacts=*/ false,
-                mockModifiedOutputsReceiver);
+                mockModifiedOutputsReceiver,
+                /*leaseService=*/ null);
 
     assertThat(dirtyActionKeys).containsExactly(actionKey);
     assertThat(modifiedOutputsCaptor.getAllValues()).containsExactly(tree);
@@ -955,7 +964,8 @@ public final class FilesystemValueCheckerTest {
                 batchStat.getBatchStat(fs),
                 ModifiedFileSet.EVERYTHING_MODIFIED,
                 /* trustRemoteArtifacts= */ false,
-                mockModifiedOutputsReceiver);
+                mockModifiedOutputsReceiver,
+                /*leaseService=*/ null);
 
     assertThat(dirtyActionKeys).containsExactly(actionKey);
     assertThat(modifiedOutputsCaptor.getAllValues()).containsExactly(tree);
@@ -980,7 +990,8 @@ public final class FilesystemValueCheckerTest {
                 batchStat.getBatchStat(fs),
                 modifiedSet.getModifiedFileSet(treeFile.getExecPath()),
                 /*trustRemoteArtifacts=*/ false,
-                mockModifiedOutputsReceiver);
+                mockModifiedOutputsReceiver,
+                /*leaseService=*/ null);
 
     assertThat(dirtyActionKeys).containsExactly(actionKey);
     assertThat(modifiedOutputsCaptor.getAllValues()).containsExactly(treeFile);
@@ -1006,7 +1017,8 @@ public final class FilesystemValueCheckerTest {
                 batchStat.getBatchStat(fs),
                 modifiedSet.getModifiedFileSet(newFile.getExecPath()),
                 /*trustRemoteArtifacts=*/ false,
-                mockModifiedOutputsReceiver);
+                mockModifiedOutputsReceiver,
+                /*leaseService=*/ null);
 
     assertThat(dirtyActionValues).containsExactly(actionKey);
     assertThat(modifiedOutputsCaptor.getAllValues()).containsExactly(tree);
@@ -1031,7 +1043,8 @@ public final class FilesystemValueCheckerTest {
                 batchStat.getBatchStat(fs),
                 modifiedSet.getModifiedFileSet(newFile.getExecPath()),
                 /*trustRemoteArtifacts=*/ false,
-                mockModifiedOutputsReceiver);
+                mockModifiedOutputsReceiver,
+                /*leaseService=*/ null);
 
     assertThat(dirtyActionKeys).containsExactly(actionKey);
     assertThat(modifiedOutputsCaptor.getAllValues()).containsExactly(tree);
@@ -1056,7 +1069,8 @@ public final class FilesystemValueCheckerTest {
                 batchStat.getBatchStat(fs),
                 modifiedSet.getModifiedFileSet(treeFile.getExecPath()),
                 /*trustRemoteArtifacts=*/ false,
-                mockModifiedOutputsReceiver);
+                mockModifiedOutputsReceiver,
+                /*leaseService=*/ null);
 
     assertThat(dirtyActionKeys).containsExactly(actionKey);
     assertThat(modifiedOutputsCaptor.getAllValues()).containsExactly(treeFile, tree);
@@ -1089,7 +1103,8 @@ public final class FilesystemValueCheckerTest {
                 batchStat.getBatchStat(fs),
                 ModifiedFileSet.EVERYTHING_MODIFIED,
                 /*trustRemoteArtifacts=*/ false,
-                mockModifiedOutputsReceiver);
+                mockModifiedOutputsReceiver,
+                /*leaseService=*/ null);
 
     assertThat(dirtyActionKeys).containsExactly(actionKey1, actionKey2);
     assertThat(modifiedOutputsCaptor.getAllValues()).containsExactly(tree1File, tree2, tree2File);
@@ -1125,7 +1140,8 @@ public final class FilesystemValueCheckerTest {
                     .modify((reportFirst ? tree1File : tree2File).getExecPath())
                     .build(),
                 /*trustRemoteArtifacts=*/ false,
-                mockModifiedOutputsReceiver);
+                mockModifiedOutputsReceiver,
+                /*leaseService=*/ null);
 
     assertThat(dirtyActionKeys).containsExactly(reportFirst ? actionKey1 : actionKey2);
     assertThat(modifiedOutputsCaptor.getAllValues())
@@ -1171,7 +1187,8 @@ public final class FilesystemValueCheckerTest {
                     .modify(treeCFile.getExecPath())
                     .build(),
                 /*trustRemoteArtifacts=*/ false,
-                mockModifiedOutputsReceiver);
+                mockModifiedOutputsReceiver,
+                /*leaseService=*/ null);
 
     assertThat(dirtyActionKeys).containsExactly(actionKey1, actionKey3);
     assertThat(modifiedOutputsCaptor.getAllValues())
@@ -1196,7 +1213,8 @@ public final class FilesystemValueCheckerTest {
                 batchStat.getBatchStat(fs),
                 ModifiedFileSet.NOTHING_MODIFIED,
                 /*trustRemoteArtifacts=*/ false,
-                mockModifiedOutputsReceiver);
+                mockModifiedOutputsReceiver,
+                /*leaseService=*/ null);
 
     assertThat(dirtyActionKeys).isEmpty();
     assertThat(modifiedOutputsCaptor.getAllValues()).isEmpty();
@@ -1367,7 +1385,8 @@ public final class FilesystemValueCheckerTest {
                     /* batchStatter= */ null,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
                     /* trustRemoteArtifacts= */ true,
-                    (ignored, ignored2) -> {}))
+                    (ignored, ignored2) -> {},
+                    /*leaseService=*/ null))
         .isEmpty();
 
     // Create the "out1" artifact on the filesystem and test that it invalidates the generating
@@ -1380,7 +1399,8 @@ public final class FilesystemValueCheckerTest {
                     /* batchStatter= */ null,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
                     /* trustRemoteArtifacts= */ true,
-                    (ignored, ignored2) -> {}))
+                    (ignored, ignored2) -> {},
+                    /*leaseService=*/ null))
         .containsExactly(actionKey1);
   }
 
@@ -1419,7 +1439,8 @@ public final class FilesystemValueCheckerTest {
                     /* batchStatter= */ null,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
                     /* trustRemoteArtifacts= */ false,
-                    (ignored, ignored2) -> {}))
+                    (ignored, ignored2) -> {},
+                    /*leaseService=*/ null))
         .isEmpty();
 
     // Create dir/foo on the local disk and test that it invalidates the associated sky key.
@@ -1432,7 +1453,8 @@ public final class FilesystemValueCheckerTest {
                     /* batchStatter= */ null,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
                     /* trustRemoteArtifacts= */ false,
-                    (ignored, ignored2) -> {}))
+                    (ignored, ignored2) -> {},
+                    /*leaseService=*/ null))
         .containsExactly(actionKey);
   }
 

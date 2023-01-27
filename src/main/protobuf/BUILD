@@ -220,6 +220,16 @@ java_proto_library(
     deps = [":remote_execution_log_proto"],
 )
 
+proto_library(
+    name = "remote_lease_proto",
+    srcs = ["remote_lease.proto"],
+)
+
+java_proto_library(
+    name = "remote_lease_java_proto",
+    deps = [":remote_lease_proto"],
+)
+
 java_library_srcs(
     name = "remote_execution_log_java_proto_srcs",
     deps = [":remote_execution_log_java_proto"],

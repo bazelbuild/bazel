@@ -187,7 +187,8 @@ public class ActionCacheCheckerTest {
             metadataHandler,
             /* artifactExpander= */ null,
             platform,
-            /* loadCachedOutputMetadata= */ true);
+            /* loadCachedOutputMetadata= */ true,
+            /* leaseService= */ null);
     if (token != null) {
       // Real action execution would happen here.
       ActionExecutionContext context = mock(ActionExecutionContext.class);
@@ -452,7 +453,8 @@ public class ActionCacheCheckerTest {
                 new FakeMetadataHandler(),
                 /* artifactExpander= */ null,
                 /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
-                /* loadCachedOutputMetadata= */ true))
+                /* loadCachedOutputMetadata= */ true,
+                /* leaseService= */ null))
         .isNotNull();
   }
 
@@ -579,7 +581,8 @@ public class ActionCacheCheckerTest {
             metadataHandler,
             /* artifactExpander= */ null,
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
-            /* loadCachedOutputMetadata= */ true);
+            /* loadCachedOutputMetadata= */ true,
+            /* leaseService= */ null);
 
     assertThat(output.getPath().exists()).isFalse();
     assertThat(token).isNull();
@@ -609,7 +612,8 @@ public class ActionCacheCheckerTest {
             metadataHandler,
             /* artifactExpander= */ null,
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
-            /* loadCachedOutputMetadata= */ false);
+            /* loadCachedOutputMetadata= */ false,
+            /* leaseService= */ null);
 
     assertThat(output.getPath().exists()).isFalse();
     assertThat(token).isNotNull();
@@ -784,7 +788,8 @@ public class ActionCacheCheckerTest {
             metadataHandler,
             /* artifactExpander= */ null,
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
-            /* loadCachedOutputMetadata= */ true);
+            /* loadCachedOutputMetadata= */ true,
+            /* leaseService= */ null);
 
     assertThat(token).isNull();
     assertThat(output.getPath().exists()).isFalse();
@@ -883,7 +888,8 @@ public class ActionCacheCheckerTest {
             metadataHandler,
             /* artifactExpander= */ null,
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
-            /* loadCachedOutputMetadata= */ true);
+            /* loadCachedOutputMetadata= */ true,
+            /* leaseService= */ null);
 
     TreeArtifactValue expectedMetadata =
         createTreeMetadata(
@@ -1045,7 +1051,8 @@ public class ActionCacheCheckerTest {
             metadataHandler,
             /* artifactExpander= */ null,
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
-            /* loadCachedOutputMetadata= */ true);
+            /* loadCachedOutputMetadata= */ true,
+            /* leaseService= */ null);
 
     assertThat(token).isNull();
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());

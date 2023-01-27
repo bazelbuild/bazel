@@ -20,6 +20,11 @@ import com.google.common.util.concurrent.ListenableFuture;
 /** Supports querying a remote cache whether it contains a list of blobs. */
 public interface MissingDigestsFinder {
 
+  enum Intention {
+    WRITE,
+    READ;
+  }
+
   /**
    * Returns a set of digests that the remote cache does not know about. The returned set is
    * guaranteed to be a subset of {@code digests}.
@@ -27,5 +32,5 @@ public interface MissingDigestsFinder {
    * @param digests The list of digests to look for.
    */
   ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
-      RemoteActionExecutionContext context, Iterable<Digest> digests);
+      RemoteActionExecutionContext context, Intention intention, Iterable<Digest> digests);
 }

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.LeaseService;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -39,13 +41,22 @@ import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
-/** Output service implementation for the remote module */
+/**
+ * Output service implementation for the remote module
+ */
 public class RemoteOutputService implements OutputService {
 
-  @Nullable private RemoteActionInputFetcher actionInputFetcher;
+  @Nullable
+  private RemoteActionInputFetcher actionInputFetcher;
+  @Nullable
+  private RemoteLeaseService remoteLeaseService;
 
   void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher) {
     this.actionInputFetcher = Preconditions.checkNotNull(actionInputFetcher, "actionInputFetcher");
+  }
+
+  void setRemoteLeaseService(RemoteLeaseService remoteLeaseService) {
+    this.remoteLeaseService = remoteLeaseService;
   }
 
   @Override
@@ -66,13 +77,15 @@ public class RemoteOutputService implements OutputService {
       Iterable<Artifact> outputArtifacts,
       boolean rewindingEnabled) {
     Preconditions.checkNotNull(actionInputFetcher, "actionInputFetcher");
+    Preconditions.checkNotNull(remoteLeaseService, "remoteLeaseService");
     return new RemoteActionFileSystem(
         delegateFileSystem,
         execRootFragment,
         relativeOutputPath,
         inputArtifactData,
         outputArtifacts,
-        actionInputFetcher);
+        actionInputFetcher,
+        remoteLeaseService);
   }
 
   @Override
@@ -92,6 +105,9 @@ public class RemoteOutputService implements OutputService {
   @Override
   public ModifiedFileSet startBuild(
       EventHandler eventHandler, UUID buildId, boolean finalizeActions) throws AbruptExitException {
+    if (remoteLeaseService != null) {
+      remoteLeaseService.startBuild();
+    }
     return ModifiedFileSet.EVERYTHING_MODIFIED;
   }
 
@@ -104,7 +120,9 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public void finalizeBuild(boolean buildSuccessful) {
-    // Intentionally left empty.
+    if (remoteLeaseService != null) {
+      remoteLeaseService.finalizeBuild();
+    }
   }
 
   @Override
@@ -113,9 +131,27 @@ public class RemoteOutputService implements OutputService {
   }
 
   @Override
-  public void finalizeAction(Action action, MetadataHandler metadataHandler) {
+  public void finalizeAction(Action action, MetadataHandler metadataHandler) throws IOException {
     if (actionInputFetcher != null) {
       actionInputFetcher.finalizeAction(action, metadataHandler);
+    }
+
+    if (remoteLeaseService != null) {
+      for (var output : action.getOutputs()) {
+        if (output.isTreeArtifact()) {
+          var metadata = metadataHandler.getTreeArtifactValue((Artifact.SpecialArtifact) output);
+          for (var treeFileMetadata : metadata.getChildValues().values()) {
+            if (treeFileMetadata.isRemote()) {
+              remoteLeaseService.add((FileArtifactValue.RemoteFileArtifactValue) treeFileMetadata);
+            }
+          }
+        } else {
+          var metadata = metadataHandler.getMetadata(output);
+          if (metadata != null && metadata.isRemote()) {
+            remoteLeaseService.add((FileArtifactValue.RemoteFileArtifactValue) metadata);
+          }
+        }
+      }
     }
   }
 
@@ -163,7 +199,14 @@ public class RemoteOutputService implements OutputService {
             relativeOutputPath,
             actionInputMap,
             ImmutableList.of(),
-            actionInputFetcher);
+            actionInputFetcher,
+            remoteLeaseService);
     return ArtifactPathResolver.createPathResolver(remoteFileSystem, fileSystem.getPath(execRoot));
+  }
+
+  @Nullable
+  @Override
+  public LeaseService getLeaseService() {
+    return remoteLeaseService;
   }
 }

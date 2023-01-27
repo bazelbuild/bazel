@@ -178,7 +178,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
   @Override
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
-      RemoteActionExecutionContext context, Iterable<Digest> digests) {
+      RemoteActionExecutionContext context, Intention intention, Iterable<Digest> digests) {
     if (Iterables.isEmpty(digests)) {
       return Futures.immediateFuture(ImmutableSet.of());
     }

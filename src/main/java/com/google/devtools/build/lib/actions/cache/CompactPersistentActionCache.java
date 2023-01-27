@@ -503,6 +503,8 @@ public class CompactPersistentActionCache implements ActionCache {
           PathFragment.create(getStringForIndex(indexer, VarInt.getVarInt(source)));
     }
 
+    // TODO(chiwang): setting expiredAtEpochMilli to 0 for now. Save/Load it once the implementation
+    //  details in other part are clear.
     return RemoteFileArtifactValue.create(
         digest, size, locationIndex, actionId, materializationExecPath);
   }

@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -131,6 +132,7 @@ public final class RemoteModule extends BlazeModule {
   @Nullable private ExecutorService executorService;
   @Nullable private RemoteActionContextProvider actionContextProvider;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
+  @Nullable private RemoteLeaseService remoteLeaseService;
   @Nullable private ToplevelArtifactsDownloader toplevelArtifactsDownloader;
   @Nullable private RemoteOptions remoteOptions;
   @Nullable private RemoteOutputService remoteOutputService;
@@ -256,6 +258,7 @@ public final class RemoteModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     Preconditions.checkState(actionContextProvider == null, "actionContextProvider must be null");
     Preconditions.checkState(actionInputFetcher == null, "actionInputFetcher must be null");
+    Preconditions.checkState(remoteLeaseService == null, "remoteLeaseService must be null");
     Preconditions.checkState(remoteOptions == null, "remoteOptions must be null");
     Preconditions.checkState(tempPathGenerator == null, "tempPathGenerator must be null");
     Preconditions.checkState(patternsToDownload == null, "patternsToDownload must be null");
@@ -830,6 +833,7 @@ public final class RemoteModule extends BlazeModule {
     remoteDownloaderSupplier.set(null);
     actionContextProvider = null;
     actionInputFetcher = null;
+    remoteLeaseService = null;
     toplevelArtifactsDownloader = null;
     remoteOptions = null;
     remoteOutputService = null;
@@ -975,6 +979,22 @@ public final class RemoteModule extends BlazeModule {
                 return null;
               });
       env.getEventBus().register(toplevelArtifactsDownloader);
+
+      boolean verboseFailures = false;
+      ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
+      if (executionOptions != null) {
+        verboseFailures = executionOptions.verboseFailures;
+      }
+      remoteLeaseService = new RemoteLeaseService(
+          env.getBuildRequestId(),
+          env.getCommandId().toString(),
+          verboseFailures,
+          env.getBlazeWorkspace().getCacheDirectory(),
+          env.getReporter(),
+          actionContextProvider.getRemoteCache(),
+          remoteOptions.remoteCacheAge,
+          remoteOptions.remoteCacheRenewInternal);
+      remoteOutputService.setRemoteLeaseService(remoteLeaseService);
     }
   }
 

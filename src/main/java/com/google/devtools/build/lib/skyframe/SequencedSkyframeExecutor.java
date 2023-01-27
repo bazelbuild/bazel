@@ -84,6 +84,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.LeaseService;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -788,6 +789,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         new FilesystemValueChecker(
             Preconditions.checkNotNull(tsgm.get()), syscallCache, fsvcThreads);
     BatchStat batchStatter = outputService == null ? null : outputService.getBatchStatter();
+    LeaseService leaseService = outputService == null ? null : outputService.getLeaseService();
     recordingDiffer.invalidate(
         fsvc.getDirtyActionValues(
             memoizingEvaluator.getValues(),
@@ -804,7 +806,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               if (dirtyOutputsCount <= MODIFIED_OUTPUT_PATHS_SAMPLE_SIZE) {
                 outputDirtyFilesExecPathSample.offer(artifact.getExecPathString());
               }
-            }));
+            },
+            leaseService));
     logger.atInfo().log("Found %d modified files from last build", modifiedFiles.get());
     long stopTime = System.nanoTime();
     Profiler.instance()

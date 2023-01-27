@@ -167,7 +167,7 @@ public final class BlazeWorkspace {
    * run concurrent instances of blaze in different clients without attempting to concurrently write
    * to the same action cache on disk, which might not be safe.
    */
-  private Path getCacheDirectory() {
+  public Path getCacheDirectory() {
     return getOutputBase().getChild("action_cache");
   }
 

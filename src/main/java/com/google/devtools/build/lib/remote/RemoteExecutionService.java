@@ -788,8 +788,7 @@ public class RemoteExecutionService {
     }
   }
 
-  private void injectRemoteArtifacts(RemoteAction action, ActionResultMetadata metadata)
-      throws IOException {
+  private void injectRemoteArtifacts(RemoteAction action, ActionResultMetadata metadata) throws IOException {
     FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
     checkState(actionFileSystem instanceof RemoteActionFileSystem);
 

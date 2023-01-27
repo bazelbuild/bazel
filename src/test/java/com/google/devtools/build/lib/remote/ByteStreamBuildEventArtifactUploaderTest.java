@@ -365,7 +365,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
             outputRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
             outputs,
             ImmutableList.of(artifact),
-            actionInputFetcher);
+            actionInputFetcher,
+            mock(RemoteLeaseService.class));
     Path remotePath = remoteFs.getPath(artifact.getPath().getPathString());
     assertThat(remotePath.getFileSystem()).isEqualTo(remoteFs);
     LocalFile file =
@@ -428,7 +429,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     PathConverter pathConverter = artifactUploader.upload(files).get();
 
     // assert
-    verify(digestQuerier).findMissingDigests(any(), any());
+    verify(digestQuerier).findMissingDigests(any(), any(), any());
     verify(remoteCache).uploadFile(any(), eq(localDigest), any());
     assertThat(pathConverter.apply(remoteFile)).contains(remoteDigest.getHash());
     assertThat(pathConverter.apply(localFile)).contains(localDigest.getHash());
@@ -468,9 +469,11 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     doAnswer(
             invocationOnMock ->
                 missingDigestsFinder.findMissingDigests(
-                    invocationOnMock.getArgument(0), invocationOnMock.getArgument(1)))
+                    invocationOnMock.getArgument(0),
+                    invocationOnMock.getArgument(1),
+                    invocationOnMock.getArgument(2)))
         .when(cacheClient)
-        .findMissingDigests(any(), any());
+        .findMissingDigests(any(), any(), any());
 
     return new RemoteCache(
         CacheCapabilities.getDefaultInstance(), cacheClient, remoteOptions, DIGEST_UTIL);
@@ -500,7 +503,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     @Override
     public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
-        RemoteActionExecutionContext context, Iterable<Digest> digests) {
+        RemoteActionExecutionContext context, Intention intention, Iterable<Digest> digests) {
       ImmutableSet.Builder<Digest> missingDigests = ImmutableSet.builder();
       for (Digest digest : digests) {
         if (!knownDigests.contains(digest)) {
@@ -517,7 +520,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     @Override
     public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
-        RemoteActionExecutionContext context, Iterable<Digest> digests) {
+        RemoteActionExecutionContext context, Intention intention, Iterable<Digest> digests) {
       return Futures.immediateFuture(ImmutableSet.copyOf(digests));
     }
   }

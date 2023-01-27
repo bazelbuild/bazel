@@ -99,6 +99,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
+import com.google.devtools.build.lib.vfs.LeaseService;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
@@ -601,22 +602,23 @@ public final class SkyframeActionExecutor {
     RemoteOptions remoteOptions;
     SortedMap<String, String> remoteDefaultProperties;
     EventHandler handler;
-    boolean loadCachedOutputMetadata;
-
     if (cacheHitSemaphore != null) {
       try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, "acquiring semaphore")) {
         cacheHitSemaphore.acquire();
       }
     }
+    boolean loadCachedOutputMetadata = false;
+    LeaseService leaseService = null;
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, action.describe())) {
       remoteOptions = this.options.getOptions(RemoteOptions.class);
       remoteDefaultProperties =
           remoteOptions != null
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
-      loadCachedOutputMetadata =
-          outputService
-              != null; // Only load cached output metadata if remote output service is available
+      if (outputService != null) {
+        loadCachedOutputMetadata = true; // Only load cached output metadata if remote output service is available
+        leaseService = outputService.getLeaseService();
+      }
       handler =
           options.getOptions(BuildRequestOptions.class).explanationPath != null ? reporter : null;
       token =
@@ -629,7 +631,8 @@ public final class SkyframeActionExecutor {
               metadataHandler,
               artifactExpander,
               remoteDefaultProperties,
-              loadCachedOutputMetadata);
+              loadCachedOutputMetadata,
+              leaseService);
 
       if (token == null) {
         boolean eventPosted = false;
@@ -671,7 +674,8 @@ public final class SkyframeActionExecutor {
                     metadataHandler,
                     artifactExpander,
                     remoteDefaultProperties,
-                    loadCachedOutputMetadata);
+                    loadCachedOutputMetadata,
+                    leaseService);
           }
         }
 

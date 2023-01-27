@@ -84,6 +84,7 @@ import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.MissingDigestsFinder.Intention;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
@@ -1336,7 +1337,9 @@ public class RemoteExecutionServiceTest {
     assertThat(manifest.getActionResult()).isEqualTo(expectedResult.build());
 
     ImmutableList<Digest> toQuery = ImmutableList.of(fooDigest, quxDigest, barDigest);
-    assertThat(getFromFuture(cache.findMissingDigests(remoteActionExecutionContext, toQuery)))
+    assertThat(
+            getFromFuture(
+                cache.findMissingDigests(remoteActionExecutionContext, Intention.WRITE, toQuery)))
         .isEmpty();
   }
 
@@ -1379,7 +1382,7 @@ public class RemoteExecutionServiceTest {
     assertThat(
             getFromFuture(
                 cache.findMissingDigests(
-                    remoteActionExecutionContext, ImmutableList.of(barDigest))))
+                    remoteActionExecutionContext, Intention.WRITE, ImmutableList.of(barDigest))))
         .isEmpty();
   }
 
@@ -1447,7 +1450,9 @@ public class RemoteExecutionServiceTest {
     assertThat(manifest.getActionResult()).isEqualTo(expectedResult.build());
 
     ImmutableList<Digest> toQuery = ImmutableList.of(wobbleDigest, quxDigest, barDigest);
-    assertThat(getFromFuture(cache.findMissingDigests(remoteActionExecutionContext, toQuery)))
+    assertThat(
+            getFromFuture(
+                cache.findMissingDigests(remoteActionExecutionContext, Intention.WRITE, toQuery)))
         .isEmpty();
   }
 
@@ -1525,7 +1530,7 @@ public class RemoteExecutionServiceTest {
     assertThat(
             getFromFuture(
                 cache.findMissingDigests(
-                    remoteActionExecutionContext, ImmutableSet.of(emptyDigest))))
+                    remoteActionExecutionContext, Intention.WRITE, ImmutableSet.of(emptyDigest))))
         .containsExactly(emptyDigest);
   }
 

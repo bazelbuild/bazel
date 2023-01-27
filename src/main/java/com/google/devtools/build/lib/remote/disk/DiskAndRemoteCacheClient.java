@@ -21,6 +21,7 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
@@ -108,15 +109,48 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
+      RemoteActionExecutionContext context, Intention intention, Iterable<Digest> digests) {
+    switch (intention) {
+      case READ:
+        return findMissingDigestsForRead(context, digests);
+      case WRITE:
+        return findMissingDigestsForWrite(context, digests);
+    }
+
+    throw new IllegalStateException("unreachable");
+  }
+
+  private ListenableFuture<ImmutableSet<Digest>> findMissingDigestsForRead(
+      RemoteActionExecutionContext context, Iterable<Digest> digests) {
+    if (context.getReadCachePolicy().allowRemoteCache()
+        && context.getReadCachePolicy().allowDiskCache()) {
+      ListenableFuture<ImmutableSet<Digest>> remoteQuery =
+          remoteCache.findMissingDigests(context, Intention.READ, digests);
+      ListenableFuture<ImmutableSet<Digest>> diskQuery =
+          diskCache.findMissingDigests(context, Intention.READ, digests);
+      return Futures.whenAllSucceed(remoteQuery, diskQuery)
+          .call(
+              () -> ImmutableSet.copyOf(Sets.intersection(remoteQuery.get(), diskQuery.get())),
+              directExecutor());
+    } else if (context.getReadCachePolicy().allowRemoteCache()) {
+      return remoteCache.findMissingDigests(context, Intention.READ, digests);
+    } else if (context.getReadCachePolicy().allowDiskCache()) {
+      return diskCache.findMissingDigests(context, Intention.READ, digests);
+    } else {
+      return immediateFuture(ImmutableSet.copyOf(digests));
+    }
+  }
+
+  private ListenableFuture<ImmutableSet<Digest>> findMissingDigestsForWrite(
       RemoteActionExecutionContext context, Iterable<Digest> digests) {
     ListenableFuture<ImmutableSet<Digest>> diskQuery = immediateFuture(ImmutableSet.of());
     if (context.getWriteCachePolicy().allowDiskCache()) {
-      diskQuery = diskCache.findMissingDigests(context, digests);
+      diskQuery = diskCache.findMissingDigests(context, Intention.WRITE, digests);
     }
 
     ListenableFuture<ImmutableSet<Digest>> remoteQuery = immediateFuture(ImmutableSet.of());
     if (context.getWriteCachePolicy().allowRemoteCache()) {
-      remoteQuery = remoteCache.findMissingDigests(context, digests);
+      remoteQuery = remoteCache.findMissingDigests(context, Intention.WRITE, digests);
     }
 
     ListenableFuture<ImmutableSet<Digest>> diskQueryFinal = diskQuery;

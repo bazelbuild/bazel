@@ -42,10 +42,12 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
+import com.google.devtools.build.lib.vfs.LeaseService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -199,11 +201,18 @@ public class ActionCacheChecker {
       NestedSet<Artifact> actionInputs,
       MetadataHandler metadataHandler,
       boolean checkOutput,
-      @Nullable CachedOutputMetadata cachedOutputMetadata) {
+      @Nullable CachedOutputMetadata cachedOutputMetadata,
+      @Nullable LeaseService leaseService) {
     Map<String, FileArtifactValue> mdMap = new HashMap<>();
     if (checkOutput) {
       for (Artifact artifact : action.getOutputs()) {
         FileArtifactValue metadata = getCachedMetadata(cachedOutputMetadata, artifact);
+        if (leaseService != null && metadata != null && metadata.isRemote()) {
+          if (!leaseService.isAlive(
+              metadata.getDigest(), metadata.getSize(), metadata.getLocationIndex())) {
+            metadata = null;
+          }
+        }
         if (metadata == null) {
           metadata = getMetadataMaybe(metadataHandler, artifact);
         }
@@ -434,7 +443,8 @@ public class ActionCacheChecker {
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       Map<String, String> remoteDefaultPlatformProperties,
-      boolean loadCachedOutputMetadata)
+      boolean loadCachedOutputMetadata,
+      @Nullable LeaseService leaseService)
       throws InterruptedException {
     // TODO(bazel-team): (2010) For RunfilesAction/SymlinkAction and similar actions that
     // produce only symlinks we should not check whether inputs are valid at all - all that matters
@@ -494,7 +504,8 @@ public class ActionCacheChecker {
         clientEnv,
         outputPermissions,
         remoteDefaultPlatformProperties,
-        cachedOutputMetadata)) {
+        cachedOutputMetadata,
+        leaseService)) {
       if (entry != null) {
         removeCacheEntry(action);
       }
@@ -524,7 +535,8 @@ public class ActionCacheChecker {
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       Map<String, String> remoteDefaultPlatformProperties,
-      @Nullable CachedOutputMetadata cachedOutputMetadata)
+      @Nullable CachedOutputMetadata cachedOutputMetadata,
+      @Nullable LeaseService leaseService)
       throws InterruptedException {
     // Unconditional execution can be applied only for actions that are allowed to be executed.
     if (unconditionalExecution(action)) {
@@ -544,7 +556,7 @@ public class ActionCacheChecker {
       actionCache.accountMiss(MissReason.CORRUPTED_CACHE_ENTRY);
       return true;
     } else if (validateArtifacts(
-        entry, action, actionInputs, metadataHandler, true, cachedOutputMetadata)) {
+        entry, action, actionInputs, metadataHandler, true, cachedOutputMetadata, leaseService)) {
       reportChanged(handler, action);
       actionCache.accountMiss(MissReason.DIFFERENT_FILES);
       return true;
@@ -747,7 +759,8 @@ public class ActionCacheChecker {
           action.getInputs(),
           metadataHandler,
           false,
-          /*cachedOutputMetadata=*/ null)) {
+          /*cachedOutputMetadata=*/ null,
+          /*leaseService=*/ null)) {
         reportChanged(handler, action);
         actionCache.accountMiss(MissReason.DIFFERENT_FILES);
         changed = true;
@@ -788,7 +801,8 @@ public class ActionCacheChecker {
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       Map<String, String> remoteDefaultPlatformProperties,
-      boolean loadCachedOutputMetadata)
+      boolean loadCachedOutputMetadata,
+      @Nullable LeaseService leaseService)
       throws InterruptedException {
     if (action != null) {
       removeCacheEntry(action);
@@ -802,7 +816,8 @@ public class ActionCacheChecker {
         metadataHandler,
         artifactExpander,
         remoteDefaultPlatformProperties,
-        loadCachedOutputMetadata);
+        loadCachedOutputMetadata,
+        leaseService);
   }
 
   /** Returns an action key. It is always set to the first output exec path string. */

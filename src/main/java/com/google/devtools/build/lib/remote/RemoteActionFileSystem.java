@@ -51,6 +51,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.ReadableByteChannel;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -74,6 +75,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   private final ActionInputMap inputArtifactData;
   private final ImmutableMap<PathFragment, Artifact> outputMapping;
   private final RemoteActionInputFetcher inputFetcher;
+  private final RemoteLeaseService remoteLeaseService;
+
   private final RemoteInMemoryFileSystem remoteOutputTree;
 
   @Nullable private MetadataInjector metadataInjector = null;
@@ -84,7 +87,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
       Iterable<Artifact> outputArtifacts,
-      RemoteActionInputFetcher inputFetcher) {
+      RemoteActionInputFetcher inputFetcher,
+      RemoteLeaseService remoteLeaseService) {
     super(localDelegate);
     this.execRoot = checkNotNull(execRootFragment, "execRootFragment");
     this.outputBase = execRoot.getRelative(checkNotNull(relativeOutputPath, "relativeOutputPath"));
@@ -92,6 +96,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     this.outputMapping =
         stream(outputArtifacts).collect(toImmutableMap(Artifact::getExecPath, a -> a));
     this.inputFetcher = checkNotNull(inputFetcher, "inputFetcher");
+    this.remoteLeaseService = remoteLeaseService;
+
     this.remoteOutputTree = new RemoteInMemoryFileSystem(getDigestFunction());
   }
 

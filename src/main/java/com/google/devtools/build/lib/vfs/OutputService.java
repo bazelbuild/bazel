@@ -236,4 +236,9 @@ public interface OutputService {
   default BulkDeleter bulkDeleter() {
     return null;
   }
+
+  @Nullable
+  default LeaseService getLeaseService() {
+    return null;
+  }
 }

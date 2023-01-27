@@ -34,6 +34,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
+import com.google.devtools.build.lib.remote.common.MissingDigestsFinder.Intention;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -115,11 +116,11 @@ public class RemoteCache extends AbstractReferenceCounted {
    * guaranteed to be a subset of {@code digests}.
    */
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
-      RemoteActionExecutionContext context, Iterable<Digest> digests) {
+      RemoteActionExecutionContext context, Intention intention, Iterable<Digest> digests) {
     if (Iterables.isEmpty(digests)) {
       return immediateFuture(ImmutableSet.of());
     }
-    return cacheProtocol.findMissingDigests(context, digests);
+    return cacheProtocol.findMissingDigests(context, intention, digests);
   }
 
   /** Returns whether the action cache supports updating action results. */

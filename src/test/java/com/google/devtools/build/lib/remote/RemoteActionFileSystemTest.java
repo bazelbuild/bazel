@@ -82,7 +82,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
             outputRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
             inputs,
             outputs,
-            inputFetcher);
+            inputFetcher,
+            mock(RemoteLeaseService.class));
     remoteActionFileSystem.updateContext(metadataInjector);
     remoteActionFileSystem.createDirectoryAndParents(outputRoot.getRoot().asPath().asFragment());
     return remoteActionFileSystem;

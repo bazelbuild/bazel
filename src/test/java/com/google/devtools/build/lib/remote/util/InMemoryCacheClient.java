@@ -146,7 +146,7 @@ public class InMemoryCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
-      RemoteActionExecutionContext context, Iterable<Digest> digests) {
+      RemoteActionExecutionContext context, Intention intention, Iterable<Digest> digests) {
     return executorService.submit(
         () -> {
           ImmutableSet.Builder<Digest> missingBuilder = ImmutableSet.builder();
