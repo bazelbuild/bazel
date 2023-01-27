@@ -173,7 +173,7 @@ def _create_executable(
     is_windows = _py_builtins.get_current_os_name() == "windows"
 
     if is_windows:
-        if not executable.name.extension == "exe":
+        if not executable.extension == "exe":
             fail("Should not happen: somehow we are generating a non-.exe file on windows")
         base_executable_name = executable.basename[0:-4]
     else:
