@@ -41,6 +41,7 @@ maven.install(
     "https://dl.google.com/android/maven2",
     "https://repo1.maven.org/maven2",
   ],
+  # TODO(pcloudy): Re-enable lock file after updating maven_install.json
   lock_file = "//:maven_install.json",
 )
 
