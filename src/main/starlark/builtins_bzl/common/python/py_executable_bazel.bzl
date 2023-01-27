@@ -223,7 +223,7 @@ def _create_executable(
         _create_windows_exe_launcher(
             ctx,
             output = executable,
-            is_for_zip = build_zip_enabled,
+            use_zip_file = build_zip_enabled,
             python_binary_path = runtime_details.executable_interpreter_path,
         )
         if not build_zip_enabled:
