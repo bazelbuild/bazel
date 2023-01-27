@@ -73,7 +73,6 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
@@ -165,9 +164,8 @@ public final class Utils {
             .setSpawnMetrics(spawnMetrics)
             .setRemote(true)
             .setDigest(
-                Optional.of(
-                    SpawnResult.Digest.of(
-                        actionKey.getDigest().getHash(), actionKey.getDigest().getSizeBytes())));
+                SpawnResult.Digest.of(
+                    actionKey.getDigest().getHash(), actionKey.getDigest().getSizeBytes()));
     if (exitCode != 0) {
       builder.setFailureDetail(
           FailureDetail.newBuilder()

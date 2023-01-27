@@ -111,7 +111,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
@@ -151,7 +150,7 @@ public class RemoteSpawnRunnerTest {
   @Mock private SpawnRunner localRunner;
 
   // The action key of the Spawn returned by newSimpleSpawn().
-  private final String simpleActionId =
+  private static final String SIMPLE_ACTION_ID =
       "31aea267dc597b047a9b6993100415b6406f82822318dc8988e4164a535b51ee";
 
   @Before
@@ -517,7 +516,7 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
     RemoteExecutionService service = runner.getRemoteExecutionService();
     Digest logDigest = digestUtil.computeAsUtf8("bla");
-    Path logPath = logDir.getRelative(simpleActionId).getRelative("logname");
+    Path logPath = logDir.getRelative(SIMPLE_ACTION_ID).getRelative("logname");
     ExecuteResponse resp =
         ExecuteResponse.newBuilder()
             .putServerLogs(
@@ -595,7 +594,7 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
     RemoteExecutionService service = runner.getRemoteExecutionService();
     Digest logDigest = digestUtil.computeAsUtf8("bla");
-    Path logPath = logDir.getRelative(simpleActionId).getRelative("logname");
+    Path logPath = logDir.getRelative(SIMPLE_ACTION_ID).getRelative("logname");
     com.google.rpc.Status timeoutStatus =
         com.google.rpc.Status.newBuilder().setCode(Code.DEADLINE_EXCEEDED.getNumber()).build();
     ExecuteResponse resp =
@@ -1211,10 +1210,9 @@ public class RemoteSpawnRunnerTest {
 
     assertThat(res.getDigest())
         .isEqualTo(
-            Optional.of(
-                SpawnResult.Digest.of(
-                    requestCaptor.getValue().getActionKey().getDigest().getHash(),
-                    requestCaptor.getValue().getActionKey().getDigest().getSizeBytes())));
+            SpawnResult.Digest.of(
+                requestCaptor.getValue().getActionKey().getDigest().getHash(),
+                requestCaptor.getValue().getActionKey().getDigest().getSizeBytes()));
   }
 
   @Test

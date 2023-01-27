@@ -89,7 +89,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
 import org.junit.Before;
@@ -320,10 +319,9 @@ public class RemoteSpawnCacheTest {
     verify(service, never()).uploadOutputs(any(), any());
     assertThat(result.getDigest())
         .isEqualTo(
-            Optional.of(
-                SpawnResult.Digest.of(
-                    actionKeyCaptor.getValue().getDigest().getHash(),
-                    actionKeyCaptor.getValue().getDigest().getSizeBytes())));
+            SpawnResult.Digest.of(
+                actionKeyCaptor.getValue().getDigest().getHash(),
+                actionKeyCaptor.getValue().getDigest().getSizeBytes()));
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isTrue();
