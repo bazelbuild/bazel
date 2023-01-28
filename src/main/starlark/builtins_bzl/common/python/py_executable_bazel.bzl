@@ -397,7 +397,7 @@ def _get_zip_runfiles_path(path, workspace_name, legacy_external_runfiles):
         # NOTE: External runfiles (artifacts in other repos) will have a leading
         # path component of "../" so that they refer outside the main workspace
         # directory and into the runfiles root. By normalizing, we simplify e.g.
-        # "workspace/../foo/bar" to simply "foo/bar" and
+        # "workspace/../foo/bar" to simply "foo/bar".
         zip_runfiles_path = paths.normalize("{}/{}".format(workspace_name, path))
     return "{}/{}".format(_ZIP_RUNFILES_DIRECTORY_NAME, zip_runfiles_path)
 
@@ -427,7 +427,6 @@ def _get_cc_details_for_binary(ctx, extra_deps):
     )
 
 def _get_interpreter_path(ctx, *, runtime, flag_interpreter_path):
-    _ = ctx  # @unused
     if runtime:
         if runtime.interpreter_path:
             interpreter_path = runtime.interpreter_path
@@ -436,6 +435,14 @@ def _get_interpreter_path(ctx, *, runtime, flag_interpreter_path):
                 ctx.workspace_name,
                 runtime.interpreter.short_path,
             )
+
+            # NOTE: External runfiles (artifacts in other repos) will have a
+            # leading path component of "../" so that they refer outside the
+            # main workspace directory and into the runfiles root. By
+            # normalizing, we simplify e.g. "workspace/../foo/bar" to simply
+            # "foo/bar"
+            interpreter_path = paths.normalize(interpreter_path)
+
     elif flag_interpreter_path:
         interpreter_path = flag_interpreter_path
     else:

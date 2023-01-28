@@ -301,6 +301,16 @@ def _maybe_get_runtime_from_ctx(ctx):
     """
     if ctx.fragments.py.use_toolchains:
         toolchain = ctx.toolchains[TOOLCHAIN_TYPE]
+
+        # Hack around the fact that the autodetecting Python toolchain, which is
+        # automatically registered, does not yet support Windows. In this case,
+        # we want to return null so that _get_interpreter_path falls back on
+        # --python_path. See tools/python/toolchain.bzl.
+        # TODO(#7844): Remove this hack when the autodetecting toolchain has a
+        # Windows implementation.
+        if toolchain.py2_runtime and toolchain.py2_runtime.interpreter_path == "/_magic_pyruntime_sentinel_do_not_use":
+            return None, None
+
         if not hasattr(toolchain, "py3_runtime"):
             fail("Python toolchain field 'py3_runtime' is missing")
         if not toolchain.py3_runtime:
