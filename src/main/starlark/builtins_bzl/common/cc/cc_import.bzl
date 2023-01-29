@@ -59,7 +59,7 @@ def _perform_error_checks(
 
     if (interface_library_artifact != None and
         not cc_helper.is_interface_library_extension_valid(interface_library_artifact.basename)):
-        fail("'interface_library' does not produce any cc_import interface_library files (expected .ifso, .tbd, .dll.a, .dylib, .so, or .lib)")
+        fail("'interface_library' does not produce any cc_import interface_library files (expected .ifso, .tbd, .dll.a, .dylib, .so or .lib)")
 
 def _create_archive_action(
         ctx,

@@ -88,7 +88,7 @@ def _grep_includes_executable(grep_includes):
 
 def _check_file_extension(file, allowed_extensions, allow_versioned_shared_libraries):
     extension = "." + file.extension
-    if _matches_extension(extension, allowed_extensions) or (allow_versioned_shared_libraries and _is_versioned_shared_library_extension_valid(file.path)):
+    if _matches_extension(extension, allowed_extensions) or (allow_versioned_shared_libraries and _is_versioned_library_extension_valid(file.path)):
         return True
     return False
 
