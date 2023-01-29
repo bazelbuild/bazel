@@ -162,7 +162,11 @@ public final class SpawnLogModule extends BlazeModule {
         spawnLogContext.close();
         if (!outputStreams.isEmpty()) {
           InputStream in = rawOutput.getInputStream();
-          StableSort.stableSort(in, outputStreams);
+          if (spawnLogContext.needSort()) {
+            StableSort.stableSort(in, outputStreams);
+          } else {
+            StableSort.ignoreSort(in, outputStreams);
+          }
           outputStreams.close();
         }
         done = true;

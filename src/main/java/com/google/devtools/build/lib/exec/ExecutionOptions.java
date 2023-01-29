@@ -473,6 +473,17 @@ public class ExecutionOptions extends OptionsBase {
   public PathFragment executionLogJsonFile;
 
   @Option(
+      name = "execution_log_sort",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "When logging the executed spawns into files of the delimited Spawn protos, according to "
+              + " src/main/protobuf/spawn.proto, this flag can determine whether to sort log in"
+              + " a stable order or not, can be disabled to optimize memory performance.")
+  public boolean executionLogSort;
+
+  @Option(
       name = "experimental_split_xml_generation",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,

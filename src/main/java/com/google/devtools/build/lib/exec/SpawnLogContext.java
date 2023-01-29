@@ -332,4 +332,8 @@ public class SpawnLogContext implements ActionContext {
         .setSizeBytes(fileSize)
         .build();
   }
+
+  public boolean needSort() {
+    return executionOptions.executionLogSort;
+  }
 }

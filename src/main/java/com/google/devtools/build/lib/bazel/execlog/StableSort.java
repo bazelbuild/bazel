@@ -57,6 +57,13 @@ public final class StableSort {
     stableSort(read(in), out);
   }
 
+  public static void ignoreSort(InputStream in, MessageOutputStream out) throws IOException {
+    ImmutableList<SpawnExec> inputs = read(in);
+    for (SpawnExec ex : inputs) {
+      out.write(ex);
+    }
+  }
+
   private static void stableSort(List<SpawnExec> inputs, MessageOutputStream out)
       throws IOException {
     // A map from each output to a SpawnExec that produced it
