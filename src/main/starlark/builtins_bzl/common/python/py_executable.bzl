@@ -308,7 +308,12 @@ def _maybe_get_runtime_from_ctx(ctx):
         # --python_path. See tools/python/toolchain.bzl.
         # TODO(#7844): Remove this hack when the autodetecting toolchain has a
         # Windows implementation.
-        if toolchain.py2_runtime and toolchain.py2_runtime.interpreter_path == "/_magic_pyruntime_sentinel_do_not_use":
+        if (
+            # BazelPyBinaryConfiguredTargetTest.toolchainInfoFieldHasBadVersion purposefully
+            # omits the py2_runtime attribute to test for other error messages.
+            hasattr(toolchain, "py2_runtime") and toolchain.py2_runtime and
+            toolchain.py2_runtime.interpreter_path == "/_magic_pyruntime_sentinel_do_not_use"
+        ):
             return None, None
 
         if not hasattr(toolchain, "py3_runtime"):
