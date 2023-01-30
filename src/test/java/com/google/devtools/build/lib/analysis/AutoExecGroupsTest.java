@@ -490,4 +490,86 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
                 + " \\[//platforms:platform_1, //platforms:platform_2,"
                 + " //third_party/local_config_platform:host\\]"));
   }
+
+  @Test
+  public void ctxToolchains_automaticExecGroupsEnabled() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  toolchain_info = ctx.toolchains['//rule:toolchain_type_1']",
+        "  if toolchain_info == None:",
+        "    fail('Toolchain info is None.')",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = 'exec'),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_1'],",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name')");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void ctxToolchains_automaticExecGroupsEnabled_wrongToolchainError() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  toolchain_info = ctx.toolchains['//rule:wrong_toolchain_type']",
+        "  if toolchain_info == None:",
+        "    fail('Toolchain info is None.')",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = 'exec'),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_1'],",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name')");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertContainsEvent(
+        "In custom_rule rule //test:custom_rule_name, toolchain type //rule:wrong_toolchain_type"
+            + " was requested but only types [//rule:toolchain_type_1] are configured");
+  }
+
+  @Test
+  public void ctxToolchainsPrint_automaticExecGroupsEnabled() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  print(ctx.toolchains)",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = 'exec'),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_1'],",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name')");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertContainsEvent("<toolchain_context.resolved_labels: //rule:toolchain_type_1>");
+  }
 }
