@@ -1910,4 +1910,71 @@ EOF
   expect_log "runtime error: index 10 out of bounds"
 }
 
+function setup_find_optional_cpp_toolchain() {
+  mkdir -p pkg
+
+  cat > pkg/BUILD <<'EOF'
+load(":rules.bzl", "my_rule")
+
+my_rule(
+    name = "my_rule",
+)
+
+platform(
+    name = "exotic_platform",
+    constraint_values = [
+        "@platforms//cpu:wasm64",
+        "@platforms//os:windows",
+    ],
+)
+EOF
+
+  cat > pkg/rules.bzl <<'EOF'
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain", "use_cpp_toolchain")
+
+def _my_rule_impl(ctx):
+    out = ctx.actions.declare_file(ctx.attr.name)
+    toolchain = find_cpp_toolchain(ctx, mandatory = False)
+    if toolchain:
+        ctx.actions.write(out, "Toolchain found")
+    else:
+        ctx.actions.write(out, "Toolchain not found")
+    return [DefaultInfo(files = depset([out]))]
+
+my_rule = rule(
+    implementation = _my_rule_impl,
+    attrs = {
+        "_cc_toolchain": attr.label(
+            default = "@bazel_tools//tools/cpp:optional_current_cc_toolchain",
+        ),
+    },
+    toolchains = use_cpp_toolchain(mandatory = False),
+)
+EOF
+}
+
+function test_find_optional_cpp_toolchain_present_without_toolchain_resolution() {
+  setup_find_optional_cpp_toolchain
+
+  bazel build //pkg:my_rule --noincompatible_enable_cc_toolchain_resolution \
+    &> "$TEST_log" || fail "Build failed"
+  assert_contains "Toolchain found" bazel-bin/pkg/my_rule
+}
+
+function test_find_optional_cpp_toolchain_present_with_toolchain_resolution() {
+  setup_find_optional_cpp_toolchain
+
+  bazel build //pkg:my_rule --incompatible_enable_cc_toolchain_resolution \
+    &> "$TEST_log" || fail "Build failed"
+  assert_contains "Toolchain found" bazel-bin/pkg/my_rule
+}
+
+function test_find_optional_cpp_toolchain_not_present_with_toolchain_resolution() {
+  setup_find_optional_cpp_toolchain
+
+  bazel build //pkg:my_rule --incompatible_enable_cc_toolchain_resolution \
+    --platforms=//pkg:exotic_platform &> "$TEST_log" || fail "Build failed"
+  assert_contains "Toolchain not found" bazel-bin/pkg/my_rule
+}
+
 run_suite "cc_integration_test"
