@@ -19,7 +19,7 @@ cc_binary(
 cc_shared_library(
     name = "should_fail_shared_lib",
     dynamic_deps = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:bar_so"],
-    roots = [
+    deps = [
         ":intermediate",
     ],
     tags = TAGS,
@@ -34,7 +34,7 @@ cc_library(
 
 cc_shared_library(
     name = "permissions_fail_so",
-    roots = [
+    deps = [
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:bar",
     ],
     tags = TAGS,
@@ -69,7 +69,7 @@ cc_shared_library(
         ":b_so",
         ":b2_so",
     ],
-    roots = [
+    deps = [
         ":a",
     ],
     tags = TAGS,
@@ -87,7 +87,7 @@ cc_binary(
 
 cc_shared_library(
     name = "b_so",
-    roots = [
+    deps = [
         ":b",
     ],
     tags = TAGS,
@@ -95,7 +95,7 @@ cc_shared_library(
 
 cc_shared_library(
     name = "b2_so",
-    roots = [
+    deps = [
         ":b",
     ],
     tags = TAGS,

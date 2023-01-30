@@ -251,6 +251,7 @@ def _filter_inputs(
         ctx,
         feature_configuration,
         cc_toolchain,
+        deps,
         transitive_exports,
         preloaded_deps_direct_labels,
         link_once_static_libs_map):
@@ -260,7 +261,7 @@ def _filter_inputs(
     graph_structure_aspect_nodes = []
     dependency_linker_inputs = []
     direct_exports = {}
-    for export in ctx.attr.roots:
+    for export in deps:
         direct_exports[str(export.label)] = True
         dependency_linker_inputs.extend(export[CcInfo].linking_context.linker_inputs.to_list())
         graph_structure_aspect_nodes.append(export[GraphNodeInfo])
@@ -403,16 +404,40 @@ def _get_permissions(ctx):
         return ctx.attr.permissions
     return None
 
+def _get_deps(ctx):
+    if len(ctx.attr.deps) and len(ctx.attr.roots):
+        fail(
+            "You are using the attribute 'roots' and 'deps'. 'deps' is the " +
+            "new name for the attribute 'roots'. The attribute 'roots' will be" +
+            "removed in the future",
+            attr = "roots",
+        )
+
+    deps = ctx.attr.deps
+    if not len(deps):
+        deps = ctx.attr.roots
+
+    return deps
+
 def _cc_shared_library_impl(ctx):
     semantics.check_experimental_cc_shared_library(ctx)
 
-    if len(ctx.attr.static_deps) and not cc_common.check_experimental_cc_shared_library():
-        fail(
-            "This attribute is a no-op and its usage" +
-            " is forbidden after cc_shared_library is no longer experimental. " +
-            "Remove it from every cc_shared_library target",
-            attr = "static_deps",
-        )
+    if not cc_common.check_experimental_cc_shared_library():
+        if len(ctx.attr.static_deps):
+            fail(
+                "This attribute is a no-op and its usage" +
+                " is forbidden after cc_shared_library is no longer experimental. " +
+                "Remove it from every cc_shared_library target",
+                attr = "static_deps",
+            )
+        if len(ctx.attr.roots):
+            fail(
+                "This attribute has been renamed to 'deps'. Simply rename the" +
+                " attribute on the target.",
+                attr = "roots",
+            )
+
+    deps = _get_deps(ctx)
 
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
     feature_configuration = cc_common.configure_features(
@@ -424,7 +449,7 @@ def _cc_shared_library_impl(ctx):
 
     merged_cc_shared_library_info = _merge_cc_shared_library_infos(ctx)
     exports_map = _build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_info)
-    for export in ctx.attr.roots:
+    for export in deps:
         # Do not check for overlap between targets matched by the current
         # rule's exports_filter and what is in exports_map. A library in roots
         # will have to be linked in statically into the current rule with 100%
@@ -457,6 +482,7 @@ def _cc_shared_library_impl(ctx):
         ctx,
         feature_configuration,
         cc_toolchain,
+        deps,
         exports_map,
         preloaded_deps_direct_labels,
         link_once_static_libs_map,
@@ -534,7 +560,7 @@ def _cc_shared_library_impl(ctx):
 
     runfiles = runfiles.merge(ctx.runfiles(files = precompiled_only_dynamic_libraries_runfiles))
 
-    for export in ctx.attr.roots:
+    for export in deps:
         export_label = str(export.label)
         if GraphNodeInfo in export and export[GraphNodeInfo].no_exporting:
             if export_label in curr_link_once_static_libs_set:
@@ -654,6 +680,7 @@ cc_shared_library = rule(
         "preloaded_deps": attr.label_list(providers = [CcInfo]),
         "win_def_file": attr.label(allow_single_file = [".def"]),
         "roots": attr.label_list(providers = [CcInfo], aspects = [graph_structure_aspect]),
+        "deps": attr.label_list(providers = [CcInfo], aspects = [graph_structure_aspect]),
         "static_deps": attr.string_list(),
         "user_link_flags": attr.string_list(),
         "_def_parser": semantics.get_def_parser(),
