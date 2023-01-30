@@ -129,6 +129,7 @@ function test_java_8_android_binary_worker_strategy() {
     --persistent_android_dex_desugar \
     --worker_verbose &> $TEST_log
   expect_log "Created new non-sandboxed Desugar worker (id [0-9]\+)"
+  expect_log "Created new non-sandboxed DexBuilder worker (id [0-9]\+)"
 }
 
 run_suite "Android desugarer integration tests"
