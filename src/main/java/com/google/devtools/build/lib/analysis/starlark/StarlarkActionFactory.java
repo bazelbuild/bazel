@@ -457,6 +457,13 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
   }
 
+  private void verifyAutomaticExecGroupExists(String execGroup, RuleContext ctx)
+      throws EvalException {
+    if (!ctx.hasToolchainContext(execGroup)) {
+      throw Starlark.errorf("Action declared for non-existent toolchain '%s'.", execGroup);
+    }
+  }
+
   private void checkValidGroupName(String execGroup) throws EvalException {
     if (!StarlarkExecGroupCollection.isValidGroupName(execGroup)) {
       throw Starlark.errorf("Invalid name for exec group '%s'.", execGroup);
@@ -726,7 +733,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       builder.setExecGroup(execGroup);
     } else if (useAutoExecGroups && toolchainUnchecked != Starlark.NONE) {
       String toolchain = (String) toolchainUnchecked;
-      verifyExecGroupExists(toolchain, ruleContext);
+      verifyAutomaticExecGroupExists(toolchain, ruleContext);
       builder.setExecGroup(toolchain);
     } else {
       builder.setExecGroup(ExecGroup.DEFAULT_EXEC_GROUP_NAME);

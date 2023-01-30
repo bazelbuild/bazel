@@ -600,6 +600,26 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     "{action: ctx.actions.run}",
     "{action: ctx.actions.run_shell}",
   })
+  public void toolchainNotDefinedButUsedInAction(String action) throws Exception {
+    createCustomRule(
+        /* action= */ action,
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "[]",
+        /* execGroups= */ "");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertContainsEvent("Action declared for non-existent toolchain '//rule:toolchain_type_1'");
+  }
+
+  @Test
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
   public void customExecGroupsAndToolchain(String action) throws Exception {
     String customExecGroups =
         "    'custom_exec_group': exec_group(\n"
