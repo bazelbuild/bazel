@@ -69,6 +69,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   @Override
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
+        .addBlazeModule(new RemoteModule())
         .addBlazeModule(new BuildSummaryStatsModule())
         .addBlazeModule(new BlockWaitingModule());
   }
@@ -79,7 +80,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         .addAll(super.getSpawnModules())
         .add(new StandaloneModule())
         .add(new CredentialModule())
-        .add(new RemoteModule())
         .add(new DynamicExecutionModule())
         .build();
   }
@@ -414,5 +414,46 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "my_rule(name = 'two_remote', local = False, chain_length = 2)");
 
     buildTarget("//a:one_local", "//a:two_local", "//a:one_remote", "//a:two_remote");
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_exitWithCode39() throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write(
+        "a/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['foo.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  srcs = ['foo.out', 'bar.in'],",
+        "  outs = ['bar.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        "  tags = ['no-remote-exec'],",
+        ")");
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    getOutputPath("a/foo.out").delete();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+
+    // Act: Evict blobs from remote cache and do an incremental build
+    getFileSystem().getPath(worker.getCasPath().getSafePathString()).deleteTreesBelow();
+    write("a/bar.in", "updated bar");
+    var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+
+    // Assert: Exit code is 39
+    assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
   }
 }

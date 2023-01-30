@@ -20,15 +20,18 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
-import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -96,19 +99,16 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   protected Completable onErrorResumeNext(Throwable error) {
     if (error instanceof BulkTransferException) {
       if (((BulkTransferException) error).onlyCausedByCacheNotFoundException()) {
-        BulkTransferException bulkAnnotatedException = new BulkTransferException();
-        for (Throwable t : error.getSuppressed()) {
-          IOException annotatedException =
-              new IOException(
-                  String.format(
-                      "Failed to fetch file with hash '%s' because it does not"
-                          + " exist remotely. --remote_download_outputs=minimal"
-                          + " does not work if your remote cache evicts files"
-                          + " during builds.",
-                      ((CacheNotFoundException) t).getMissingDigest().getHash()));
-          bulkAnnotatedException.add(annotatedException);
-        }
-        error = bulkAnnotatedException;
+        error =
+            new EnvironmentalExecException(
+                (BulkTransferException) error,
+                FailureDetail.newBuilder()
+                    .setMessage(
+                        "Failed to fetch blobs because they do not exist remotely."
+                            + " --remote_download_outputs=minimal does not work if your remote"
+                            + " cache evicts blobs during builds")
+                    .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_EVICTED))
+                    .build());
       }
     }
     return Completable.error(error);
