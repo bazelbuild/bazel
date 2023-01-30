@@ -45,8 +45,6 @@ load(
     "BUILD_DATA_SYMLINK_PATH",
     "IS_BAZEL",
     "PY_RUNTIME_ATTR_NAME",
-    "PY_RUNTIME_FRAGMENT_ATTR_NAME",
-    "PY_RUNTIME_FRAGMENT_NAME",
 )
 
 _cc_common = _builtins.toplevel.cc_common
@@ -227,10 +225,9 @@ def _get_runtime_details(ctx, semantics):
     #
     # TODO(b/230428071): Remove this once Google's --python_binary flag is removed.
     # TOOD(bazelbuild/bazel#7901): Remove this once --python_path flag is removed.
-    fragment = getattr(ctx.fragments, PY_RUNTIME_FRAGMENT_NAME)
-    flag_interpreter_path = getattr(fragment, PY_RUNTIME_FRAGMENT_ATTR_NAME)
 
     if IS_BAZEL:
+        flag_interpreter_path = ctx.fragments.bazel_py.python_path
         toolchain_runtime, effective_runtime = _maybe_get_runtime_from_ctx(ctx)
         if not effective_runtime:
             # Clear these just in case
@@ -238,15 +235,10 @@ def _get_runtime_details(ctx, semantics):
             effective_runtime = None
 
     else:  # Google code path
-        # TODO(b/230428071): This codepath can go away once Google's
-        # --python_binary flag is removed.
-        if flag_interpreter_path:
-            toolchain_runtime = None
-            effective_runtime = None
-        else:
-            toolchain_runtime, effective_runtime = _maybe_get_runtime_from_ctx(ctx)
-            if not effective_runtime:
-                fail("should have found runtime")
+        flag_interpreter_path = None
+        toolchain_runtime, effective_runtime = _maybe_get_runtime_from_ctx(ctx)
+        if not effective_runtime:
+            fail("Unable to find Python runtime")
 
     if effective_runtime:
         direct = []  # List of files
