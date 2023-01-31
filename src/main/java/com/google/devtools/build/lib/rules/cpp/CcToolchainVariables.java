@@ -669,6 +669,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    */
   @Immutable
   public abstract static class LibraryToLinkValue extends VariableValueAdapter {
+
+    private static final Interner<LibraryToLinkValue> interner = BlazeInterners.newWeakInterner();
+
     public static final String OBJECT_FILES_FIELD_NAME = "object_files";
     public static final String NAME_FIELD_NAME = "name";
     public static final String TYPE_FIELD_NAME = "type";
@@ -677,23 +680,27 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     private static final String LIBRARY_TO_LINK_VARIABLE_TYPE_NAME = "structure (LibraryToLink)";
 
     public static LibraryToLinkValue forDynamicLibrary(String name) {
-      return new ForDynamicLibrary(name);
+      return interner.intern(new ForDynamicLibrary(name));
     }
 
     public static LibraryToLinkValue forVersionedDynamicLibrary(String name) {
-      return new ForVersionedDynamicLibrary(name);
+      return interner.intern(new ForVersionedDynamicLibrary(name));
     }
 
     public static LibraryToLinkValue forInterfaceLibrary(String name) {
-      return new ForInterfaceLibrary(name);
+      return interner.intern(new ForInterfaceLibrary(name));
     }
 
     public static LibraryToLinkValue forStaticLibrary(String name, boolean isWholeArchive) {
-      return isWholeArchive ? new ForStaticLibraryWholeArchive(name) : new ForStaticLibrary(name);
+      return isWholeArchive
+          ? interner.intern(new ForStaticLibraryWholeArchive(name))
+          : interner.intern(new ForStaticLibrary(name));
     }
 
     public static LibraryToLinkValue forObjectFile(String name, boolean isWholeArchive) {
-      return isWholeArchive ? new ForObjectFileWholeArchive(name) : new ForObjectFile(name);
+      return isWholeArchive
+          ? interner.intern(new ForObjectFileWholeArchive(name))
+          : interner.intern(new ForObjectFile(name));
     }
 
     public static LibraryToLinkValue forObjectFileGroup(
@@ -701,8 +708,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       Preconditions.checkNotNull(objects);
       Preconditions.checkArgument(!objects.isEmpty());
       return isWholeArchive
-          ? new ForObjectFileGroupWholeArchive(objects)
-          : new ForObjectFileGroup(objects);
+          ? interner.intern(new ForObjectFileGroupWholeArchive(objects))
+          : interner.intern(new ForObjectFileGroup(objects));
     }
 
     @Nullable
