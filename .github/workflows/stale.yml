@@ -44,7 +44,7 @@ jobs:
           This pull request has been automatically closed due to inactivity. If you're still interested in pursuing this, please reach 
           out to a maintainer and/or add the "not stale" label. Thanks!
         stale-issue-label: 'stale'
-        exempt-issue-labels: 'not stale,awaiting-bazeler,'
+        exempt-issue-labels: 'not stale,awaiting-bazeler'
         stale-pr-label: 'stale'
         exempt-pr-labels: 'not stale,awaiting-review,awaiting-PR-merge'
         exempt-draft-pr: true
