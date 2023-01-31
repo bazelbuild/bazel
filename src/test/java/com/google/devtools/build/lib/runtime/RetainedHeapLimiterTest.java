@@ -16,15 +16,12 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
-import com.google.devtools.build.lib.server.FailureDetails;
-import com.google.devtools.build.lib.util.AbruptExitException;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,26 +38,10 @@ public final class RetainedHeapLimiterTest {
   }
 
   @Test
-  public void noTenuredSpaceFound() throws AbruptExitException {
-    RetainedHeapLimiter underTest = RetainedHeapLimiter.create(BugReporter.defaultInstance());
-
-    AbruptExitException e =
-        assertThrows(
-            AbruptExitException.class, () -> underTest.setThreshold(/*listening=*/ false, 80));
-    FailureDetails.FailureDetail failureDetail = e.getDetailedExitCode().getFailureDetail();
-    assertThat(failureDetail.getMessage())
-        .contains("unable to watch for GC events to exit JVM when 80% of heap is used");
-    assertThat(failureDetail.getMemoryOptions().getCode())
-        .isEqualTo(
-            FailureDetails.MemoryOptions.Code
-                .EXPERIMENTAL_OOM_MORE_EAGERLY_NO_TENURED_COLLECTORS_FOUND);
-  }
-
-  @Test
   public void underThreshold_noOom() throws Exception {
     RetainedHeapLimiter underTest = RetainedHeapLimiter.create(BugReporter.defaultInstance());
 
-    underTest.setThreshold(/*listening=*/ true, 99);
+    underTest.setThreshold(99);
 
     underTest.handle(percentUsedAfterOtherGc(100));
     underTest.handle(percentUsedAfterForcedGc(89));
@@ -71,7 +52,7 @@ public final class RetainedHeapLimiterTest {
     BugReporter bugReporter = mock(BugReporter.class);
     RetainedHeapLimiter underTest = RetainedHeapLimiter.create(bugReporter);
 
-    underTest.setThreshold(/*listening=*/ true, 90);
+    underTest.setThreshold(90);
 
     // Triggers GC, and tells RetainedHeapLimiter to OOM if too much memory used next time.
     underTest.handle(percentUsedAfterOtherGc(91));
@@ -90,7 +71,7 @@ public final class RetainedHeapLimiterTest {
   public void externalGcNoTrigger() throws Exception {
     RetainedHeapLimiter underTest = RetainedHeapLimiter.create(BugReporter.defaultInstance());
 
-    underTest.setThreshold(/*listening=*/ true, 90);
+    underTest.setThreshold(90);
 
     // No trigger because cause was "System.gc()".
     underTest.handle(percentUsedAfterForcedGc(91));
@@ -103,7 +84,7 @@ public final class RetainedHeapLimiterTest {
   public void triggerReset() throws Exception {
     RetainedHeapLimiter underTest = RetainedHeapLimiter.create(BugReporter.defaultInstance());
 
-    underTest.setThreshold(/*listening=*/ true, 90);
+    underTest.setThreshold(90);
 
     underTest.handle(percentUsedAfterOtherGc(91));
 
@@ -119,7 +100,7 @@ public final class RetainedHeapLimiterTest {
     BugReporter bugReporter = mock(BugReporter.class);
     RetainedHeapLimiter underTest = RetainedHeapLimiter.create(bugReporter);
 
-    underTest.setThreshold(/*listening=*/ true, 90);
+    underTest.setThreshold(90);
 
     underTest.handle(percentUsedAfterOtherGc(91));
     underTest.handle(percentUsedAfterOtherGc(91));
@@ -131,11 +112,11 @@ public final class RetainedHeapLimiterTest {
   }
 
   private static MemoryPressureEvent percentUsedAfterForcedGc(int percentUsed) {
-    return percentUsedAfterGc(/*wasManualGc=*/ true, percentUsed);
+    return percentUsedAfterGc(/* wasManualGc= */ true, percentUsed);
   }
 
   private static MemoryPressureEvent percentUsedAfterOtherGc(int percentUsed) {
-    return percentUsedAfterGc(/*wasManualGc=*/ false, percentUsed);
+    return percentUsedAfterGc(/* wasManualGc= */ false, percentUsed);
   }
 
   private static MemoryPressureEvent percentUsedAfterGc(boolean wasManualGc, int percentUsed) {

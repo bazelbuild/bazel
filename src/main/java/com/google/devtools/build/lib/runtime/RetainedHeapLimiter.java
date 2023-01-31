@@ -57,19 +57,12 @@ final class RetainedHeapLimiter {
   }
 
   @ThreadSafety.ThreadCompatible // Can only be called on the logical main Bazel thread.
-  void setThreshold(boolean listening, int oomMoreEagerlyThreshold) throws AbruptExitException {
+  void setThreshold(int oomMoreEagerlyThreshold) throws AbruptExitException {
     if (oomMoreEagerlyThreshold < 0 || oomMoreEagerlyThreshold > 100) {
       throw createExitException(
           "--experimental_oom_more_eagerly_threshold must be a percent between 0 and 100 but was "
               + oomMoreEagerlyThreshold,
           MemoryOptions.Code.EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE);
-    }
-    if (!listening && oomMoreEagerlyThreshold != 100) {
-      throw createExitException(
-          "No tenured GC collectors were found: unable to watch for GC events to exit JVM when "
-              + oomMoreEagerlyThreshold
-              + "% of heap is used",
-          MemoryOptions.Code.EXPERIMENTAL_OOM_MORE_EAGERLY_NO_TENURED_COLLECTORS_FOUND);
     }
     this.occupiedHeapPercentageThreshold = oomMoreEagerlyThreshold;
   }

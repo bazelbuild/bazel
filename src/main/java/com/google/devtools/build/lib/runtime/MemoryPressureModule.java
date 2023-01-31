@@ -17,29 +17,25 @@ package com.google.devtools.build.lib.runtime;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.skyframe.HighWaterMarkLimiter;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import javax.annotation.Nullable;
 
 /**
  * A {@link BlazeModule} that installs a {@link MemoryPressureListener} that reacts to memory
  * pressure events.
  */
-public class MemoryPressureModule extends BlazeModule {
+public final class MemoryPressureModule extends BlazeModule {
   private RetainedHeapLimiter retainedHeapLimiter;
-  @Nullable private MemoryPressureListener memoryPressureListener;
+  private MemoryPressureListener memoryPressureListener;
 
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-
     retainedHeapLimiter = RetainedHeapLimiter.create(runtime.getBugReporter());
     memoryPressureListener = MemoryPressureListener.create(retainedHeapLimiter);
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
-    if (memoryPressureListener != null) {
-      memoryPressureListener.setEventBus(env.getEventBus());
-    }
+    memoryPressureListener.setEventBus(env.getEventBus());
 
     CommonCommandOptions commonOptions = env.getOptions().getOptions(CommonCommandOptions.class);
     HighWaterMarkLimiter highWaterMarkLimiter =
@@ -48,16 +44,13 @@ public class MemoryPressureModule extends BlazeModule {
             env.getSyscallCache(),
             commonOptions.skyframeHighWaterMarkMemoryThreshold);
 
-    retainedHeapLimiter.setThreshold(
-        /*listening=*/ memoryPressureListener != null, commonOptions.oomMoreEagerlyThreshold);
+    retainedHeapLimiter.setThreshold(commonOptions.oomMoreEagerlyThreshold);
 
     env.getEventBus().register(highWaterMarkLimiter);
   }
 
   @Override
   public void afterCommand() {
-    if (memoryPressureListener != null) {
-      memoryPressureListener.setEventBus(null);
-    }
+    memoryPressureListener.setEventBus(null);
   }
 }
