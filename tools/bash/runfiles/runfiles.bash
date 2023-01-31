@@ -142,7 +142,10 @@ function rlocation() {
 
   if [[ -f "$RUNFILES_REPO_MAPPING" ]]; then
     local -r target_repo_apparent_name=$(echo "$1" | cut -d / -f 1)
-    local -r remainder=$(echo "$1" | cut -d / -f 2-)
+     # Use -s to get an empty remainder if the argument does not contain a slash.
+    # The repo mapping should not be applied to single segment paths, which may
+    # be root symlinks.
+    local -r remainder=$(echo "$1" | cut -s -d / -f 2-)
     if [[ -n "$remainder" ]]; then
       if [[ -z "${2+x}" ]]; then
         local -r source_repo=$(runfiles_current_repository 2)

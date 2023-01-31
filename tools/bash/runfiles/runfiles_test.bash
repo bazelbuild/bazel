@@ -216,10 +216,12 @@ function test_directory_based_runfiles_with_repo_mapping_from_main() {
   export RUNFILES_DIR=${tmpdir}/mock/runfiles
   mkdir -p "$RUNFILES_DIR"
   cat > "$RUNFILES_DIR/_repo_mapping" <<EOF
+,config.json,config.json~1.2.3
 ,my_module,_main
 ,my_protobuf,protobuf~3.19.2
 ,my_workspace,_main
 protobuf~3.19.2,protobuf,protobuf~3.19.2
+protobuf~3.19.2,config.json,config.json~1.2.3
 EOF
   export RUNFILES_MANIFEST_FILE=
   source "$runfiles_lib_path"
@@ -258,10 +260,12 @@ function test_directory_based_runfiles_with_repo_mapping_from_other_repo() {
   export RUNFILES_DIR=${tmpdir}/mock/runfiles
   mkdir -p "$RUNFILES_DIR"
   cat > "$RUNFILES_DIR/_repo_mapping" <<EOF
+,config.json,config.json~1.2.3
 ,my_module,_main
 ,my_protobuf,protobuf~3.19.2
 ,my_workspace,_main
 protobuf~3.19.2,protobuf,protobuf~3.19.2
+protobuf~3.19.2,config.json,config.json~1.2.3
 EOF
   export RUNFILES_MANIFEST_FILE=
   source "$runfiles_lib_path"
@@ -296,10 +300,12 @@ function test_manifest_based_runfiles_with_repo_mapping_from_main() {
   local tmpdir="$(mktemp -d $TEST_TMPDIR/tmp.XXXXXXXX)"
 
   cat > "$tmpdir/foo.repo_mapping" <<EOF
+,config.json,config.json~1.2.3
 ,my_module,_main
 ,my_protobuf,protobuf~3.19.2
 ,my_workspace,_main
 protobuf~3.19.2,protobuf,protobuf~3.19.2
+protobuf~3.19.2,config.json,config.json~1.2.3
 EOF
   export RUNFILES_DIR=
   export RUNFILES_MANIFEST_FILE="$tmpdir/foo.runfiles_manifest"
@@ -344,10 +350,12 @@ function test_manifest_based_runfiles_with_repo_mapping_from_other_repo() {
   local tmpdir="$(mktemp -d $TEST_TMPDIR/tmp.XXXXXXXX)"
 
   cat > "$tmpdir/foo.repo_mapping" <<EOF
+,config.json,config.json~1.2.3
 ,my_module,_main
 ,my_protobuf,protobuf~3.19.2
 ,my_workspace,_main
 protobuf~3.19.2,protobuf,protobuf~3.19.2
+protobuf~3.19.2,config.json,config.json~1.2.3
 EOF
   export RUNFILES_DIR=
   export RUNFILES_MANIFEST_FILE="$tmpdir/foo.runfiles_manifest"
