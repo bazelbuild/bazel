@@ -193,11 +193,12 @@ def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_config
         ctx.actions.write(output = runtime_objects_list, content = file_content, is_executable = False)
         additional_meta_data = [runtime_objects_list]
 
-    instrumented_files_provider = common.instrumented_files_info_from_compilation_context(
-        files = instrumented_object_files,
-        with_base_line_coverage = not ctx.attr._is_test,
-        compilation_context = compilation_context,
-        additional_metadata = additional_meta_data,
+    instrumented_files_provider = cc_helper.create_cc_instrumented_files_info(
+        ctx = ctx,
+        cc_config = cpp_config,
+        cc_toolchain = cc_toolchain,
+        metadata_files = additional_meta_data + cc_compilation_outputs.gcno_files() + cc_compilation_outputs.pic_gcno_files(),
+        virtual_to_original_headers = compilation_context.virtual_to_original_headers(),
     )
     output_groups = cc_helper.build_output_groups_for_emitting_compile_providers(
         cc_compilation_outputs,

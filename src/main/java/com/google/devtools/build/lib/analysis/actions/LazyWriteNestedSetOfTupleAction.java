@@ -26,26 +26,28 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
 import java.io.OutputStream;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Tuple;
 
 /**
- * Lazily writes the content of a nested set of pairsToWrite to an output file.
+ * Lazily writes the content of a nested set of tuplesToWrite to an output file.
  *
- * <p>For each pair <string1, string2> it writes a line string1:string2 to the output file.
+ * <p>Writes delimiter separated Tuple elements to the output file.
  */
-public final class LazyWriteNestedSetOfPairAction extends AbstractFileWriteAction {
+public final class LazyWriteNestedSetOfTupleAction extends AbstractFileWriteAction {
 
-  private final NestedSet<Pair<String, String>> pairsToWrite;
+  private final NestedSet<Tuple> tuplesToWrite;
   private String fileContents;
+  private final String delimiter;
 
-  public LazyWriteNestedSetOfPairAction(
-      ActionOwner owner, Artifact output, NestedSet<Pair<String, String>> pairsToWrite) {
+  public LazyWriteNestedSetOfTupleAction(
+      ActionOwner owner, Artifact output, NestedSet<Tuple> tuplesToWrite, String delimiter) {
     super(
         owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, /* makeExecutable= */ false);
-    this.pairsToWrite = pairsToWrite;
+    this.tuplesToWrite = tuplesToWrite;
+    this.delimiter = delimiter;
   }
 
   @Override
@@ -53,7 +55,7 @@ public final class LazyWriteNestedSetOfPairAction extends AbstractFileWriteActio
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {
-        out.write(getContents().getBytes(UTF_8));
+        out.write(getContents(delimiter).getBytes(UTF_8));
       }
     };
   }
@@ -65,18 +67,21 @@ public final class LazyWriteNestedSetOfPairAction extends AbstractFileWriteActio
       @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
-    actionKeyContext.addNestedSetToFingerprint(fp, pairsToWrite);
+    actionKeyContext.addNestedSetToFingerprint(fp, tuplesToWrite);
   }
 
-  private String getContents() {
+  private String getContents(String delimiter) {
     if (fileContents == null) {
       StringBuilder stringBuilder = new StringBuilder();
-      for (Pair<String, String> pair : pairsToWrite.toList()) {
-        stringBuilder
-            .append(pair.first)
-            .append(":")
-            .append(pair.second)
-            .append(System.lineSeparator());
+      for (Tuple tuple : tuplesToWrite.toList()) {
+        if (tuple.isEmpty()) {
+          continue;
+        }
+        stringBuilder.append(tuple.get(0));
+        for (int i = 1; i < tuple.size(); i++) {
+          stringBuilder.append(delimiter).append(tuple.get(i));
+        }
+        stringBuilder.append(System.lineSeparator());
       }
       fileContents = stringBuilder.toString();
     }

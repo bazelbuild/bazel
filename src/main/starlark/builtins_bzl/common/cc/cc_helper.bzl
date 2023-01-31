@@ -1110,14 +1110,14 @@ def _get_coverage_environment(ctx, cc_config, cc_toolchain):
         env["FDO_DIR"] = cc_config.fdo_instrument()
     return env
 
-def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_files):
+def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_files, virtual_to_original_headers = None):
     extensions = CC_SOURCE + \
                  C_SOURCE + \
                  CC_HEADER + \
                  ASSESMBLER_WITH_C_PREPROCESSOR + \
                  ASSEMBLER
     coverage_environment = {}
-    if ctx.coverage_instrumented():
+    if ctx.configuration.coverage_enabled:
         coverage_environment = _get_coverage_environment(ctx, cc_config, cc_toolchain)
     coverage_support_files = cc_toolchain.coverage_files() if ctx.coverage_instrumented() else depset([])
     info = coverage_common.instrumented_files_info(
@@ -1128,6 +1128,7 @@ def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_fi
         metadata_files = metadata_files,
         coverage_support_files = coverage_support_files,
         coverage_environment = coverage_environment,
+        reported_to_actual_sources = virtual_to_original_headers,
     )
     return info
 

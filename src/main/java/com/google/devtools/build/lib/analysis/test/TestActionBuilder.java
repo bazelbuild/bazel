@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfPairAction;
+import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfTupleAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
@@ -282,10 +282,11 @@ public final class TestActionBuilder {
             ruleContext.getUniqueDirectoryArtifact(
                 "_coverage_helpers", "reported_to_actual_sources.txt");
         ruleContext.registerAction(
-            new LazyWriteNestedSetOfPairAction(
+            new LazyWriteNestedSetOfTupleAction(
                 ruleContext.getActionOwner(),
                 reportedToActualSourcesArtifact,
-                instrumentedFiles.getReportedToActualSources()));
+                instrumentedFiles.getReportedToActualSources(),
+                ":"));
         inputsBuilder.add(reportedToActualSourcesArtifact);
         extraTestEnv.put(
             COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE,

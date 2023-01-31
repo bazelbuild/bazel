@@ -77,6 +77,7 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Tuple;
 
 /** Common parts of the implementation of cc rules. */
 public final class CcCommon implements StarlarkValue {
@@ -757,41 +758,10 @@ public final class CcCommon implements StarlarkValue {
     return ruleContext.getPrerequisiteArtifact("$def_parser");
   }
 
-  @StarlarkMethod(
-      name = "instrumented_files_info_from_compilation_context",
-      documented = false,
-      parameters = {
-        @Param(name = "files", positional = false, named = true),
-        @Param(name = "with_base_line_coverage", positional = false, named = true),
-        @Param(name = "compilation_context", positional = false, named = true),
-        @Param(name = "additional_metadata", positional = false, named = true),
-      })
-  public InstrumentedFilesInfo getInstrumentedFilesProviderFromCompilationContextForStarlark(
-      Sequence<?> files,
-      boolean withBaselineCoverage,
-      Object compilationContext,
-      Sequence<?> additionalMetadata)
-      throws EvalException {
-    try {
-      CcCompilationContext ccCompilationContext = (CcCompilationContext) compilationContext;
-      Sequence<Artifact> metadata =
-          additionalMetadata == null
-              ? null
-              : Sequence.cast(additionalMetadata, Artifact.class, "files");
-      return getInstrumentedFilesProvider(
-          Sequence.cast(files, Artifact.class, "files"),
-          withBaselineCoverage,
-          ccCompilationContext.getVirtualToOriginalHeaders(),
-          metadata);
-    } catch (RuleErrorException e) {
-      throw new EvalException(e);
-    }
-  }
-
   public InstrumentedFilesInfo getInstrumentedFilesProvider(
       Iterable<Artifact> files,
       boolean withBaselineCoverage,
-      NestedSet<Pair<String, String>> virtualToOriginalHeaders,
+      NestedSet<Tuple> virtualToOriginalHeaders,
       @Nullable Iterable<Artifact> additionalMetadata)
       throws RuleErrorException {
     return InstrumentedFilesCollector.collect(
