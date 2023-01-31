@@ -38,7 +38,7 @@ jobs:
         stale-pr-message: >
           Thank you for contributing to the Bazel repository!
           This pull request has been marked as stale since it has not had any activity in the last 30 days. It will be closed in the next 
-          7 days unless any other activity occurs or one of the following labels are added: "awaiting-review", "awaiting-PR-merge".
+          14 days unless any other activity occurs or one of the following labels are added: "awaiting-review", "awaiting-PR-merge".
           Please provide a status update or let us know when you're ready.
         close-pr-message: >
           This pull request has been automatically closed due to inactivity. If you're still interested in pursuing this, please reach 
