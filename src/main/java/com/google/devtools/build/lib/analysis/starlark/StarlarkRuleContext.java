@@ -916,6 +916,10 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     return attributesCollection.getExecutableRunfilesMap().get(executable);
   }
 
+  boolean areRunfilesFromDeps(FilesToRunProvider executable) {
+    return attributesCollection.getExecutableRunfilesMap().containsValue(executable);
+  }
+
   @Override
   public Artifact getStableWorkspaceStatus() throws InterruptedException, EvalException {
     checkMutable("info_file");

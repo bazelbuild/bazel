@@ -48,9 +48,15 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "rule/test_toolchain.bzl",
         "def _impl(ctx):",
-        "    return [platform_common.ToolchainInfo()]",
+        "    return [platform_common.ToolchainInfo(",
+        "      tool = ctx.executable._tool,",
+        "      files_to_run = ctx.attr._tool[DefaultInfo].files_to_run,",
+        "    )]",
         "test_toolchain = rule(",
         "    implementation = _impl,",
+        "    attrs = {",
+        "       '_tool': attr.label(default='//toolchain:b_tool', executable=True, cfg='exec'),",
+        "    },",
         ")");
     scratch.file(
         "rule/BUILD",
@@ -60,6 +66,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "toolchain/BUILD",
         "load('//rule:test_toolchain.bzl', 'test_toolchain')",
+        "genrule(name = 'a_tool', outs = ['atool'], cmd = '', executable = True)",
+        "genrule(name = 'b_tool', outs = ['btool'], cmd = '', executable = True)",
         "test_toolchain(",
         "    name = 'foo',",
         ")",
@@ -142,15 +150,16 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         actionParameters,
         "    outputs = [output_jar],",
         action.equals("ctx.actions.run")
-            ? "    executable = '//toolchain:foo_toolchain',"
+            ? (actionParameters.contains("executable =") // avoid adding executable parameter twice
+                ? ""
+                : "executable = ctx.toolchains['//rule:toolchain_type_1'].tool,")
             : "    command = 'echo',",
         "  )",
         "  return [DefaultInfo(files = depset([output_jar]))]",
         "custom_rule = rule(",
         "  implementation = _impl,",
         "  attrs = {",
-        "    'dep': attr.label(cfg = 'exec'),",
-        "     ",
+        "    '_tool': attr.label(default = '//toolchain:a_tool', cfg = 'exec', executable = True),",
         extraAttributes,
         "  },",
         "  exec_groups = {",
@@ -342,6 +351,164 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
     assertThat(defaultExecGroupToolchains).isNotEmpty();
     assertThat(toolchainInfo).isNotNull();
+  }
+
+  @Test
+  public void toolInExecutableIdentified_noToolchainParameter_noError() throws Exception {
+    createCustomRule(
+        /* action= */ "ctx.actions.run",
+        /* actionParameters= */ "executable = ctx.executable._tool, ",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']",
+        /* execGroups= */ "");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void toolInExecutableUnidentified_noToolchainParameter_reportsError() throws Exception {
+    createCustomRule(
+        /* action= */ "ctx.actions.run",
+        /* actionParameters= */ "executable = ctx.toolchains['//rule:toolchain_type_1'].tool, ",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']",
+        /* execGroups= */ "");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertContainsEvent(
+        "Couldn't identify if tools are from implicit dependencies or a toolchain. Please set"
+            + " the toolchain parameter.");
+  }
+
+  @Test
+  public void toolWithFilesToRunInExecutableUnidentified_noToolchainParameter_reportsError()
+      throws Exception {
+    createCustomRule(
+        /* action= */ "ctx.actions.run",
+        /* actionParameters= */ "executable ="
+            + " ctx.toolchains['//rule:toolchain_type_1'].files_to_run, ",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']",
+        /* execGroups= */ "");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertContainsEvent(
+        "Couldn't identify if tools are from implicit dependencies or a toolchain. Please set"
+            + " the toolchain parameter.");
+  }
+
+  @Test
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void toolInToolsUnidentified_noToolchainParameter_reportsError(String action)
+      throws Exception {
+    createCustomRule(
+        /* action= */ action,
+        /* actionParameters= */ "tools = [ctx.toolchains['//rule:toolchain_type_1'].tool],",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']",
+        /* execGroups= */ "");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertContainsEvent(
+        "Couldn't identify if tools are from implicit dependencies or a toolchain. Please set"
+            + " the toolchain parameter.");
+  }
+
+  @Test
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void toolWithFilesToRunInToolsUnidentified_noToolchainParameter_reportsError(String action)
+      throws Exception {
+    createCustomRule(
+        /* action= */ action,
+        /* actionParameters= */ "tools = [ctx.toolchains['//rule:toolchain_type_1'].files_to_run],",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']",
+        /* execGroups= */ "");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertContainsEvent(
+        "Couldn't identify if tools are from implicit dependencies or a toolchain. Please set"
+            + " the toolchain parameter.");
+  }
+
+  @Test
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void depsetInTools_noToolchainParameter_reportsError(String action) throws Exception {
+    createCustomRule(
+        /* action= */ action,
+        /* actionParameters= */ "tools = [depset([ctx.executable._tool])], ",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']",
+        /* execGroups= */ "");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertContainsEvent(
+        "Couldn't identify if tools are from implicit dependencies or a toolchain. Please set"
+            + " the toolchain parameter.");
+  }
+
+  @Test
+  public void toolInExecutableUnidentified_toolchainParameter_noError() throws Exception {
+    createCustomRule(
+        /* action= */ "ctx.actions.run",
+        /* actionParameters= */ "executable = ctx.toolchains['//rule:toolchain_type_1'].tool, "
+            + "toolchain = '//rule:toolchain_type_1',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']",
+        /* execGroups= */ "");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void toolInExecutableUnidentified_toolchainParameterNone_noError() throws Exception {
+    // Setting toolchain parameter that doesn't match what is used in the executable is technically
+    // an error. However, we cannot detect this error at analysis time.
+    // It's possible to construct a correct case where executable is from a provider from a
+    // dependency that is not a toolchain (like proto_lang_toolchain). In this case the user should
+    // set `toolchain = None` (because we wouldn't/couldn't detect where executable is coming from)
+    createCustomRule(
+        /* action= */ "ctx.actions.run",
+        /* actionParameters= */ "executable = ctx.toolchains['//rule:toolchain_type_1'].tool, "
+            + "toolchain = None,",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']",
+        /* execGroups= */ "");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertNoEvents();
   }
 
   @Test
@@ -603,7 +770,10 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void toolchainNotDefinedButUsedInAction(String action) throws Exception {
     createCustomRule(
         /* action= */ action,
-        /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
+        /* actionParameters= */ (action.equals("ctx.actions.run")
+                ? "executable = ctx.executable._tool, "
+                : "")
+            + "toolchain = '//rule:toolchain_type_1',",
         /* extraAttributes= */ "",
         /* toolchains= */ "[]",
         /* execGroups= */ "");
@@ -659,7 +829,10 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     createCustomRule(
         /* action= */ action,
         /* actionParameters= */ "toolchain = '//rule:toolchain_type_2', "
-            + "exec_group = 'custom_exec_group',",
+            + "exec_group = 'custom_exec_group',"
+            + (action.equals("ctx.actions.run")
+                ? "executable = ctx.toolchains['//rule:toolchain_type_2'].tool, "
+                : ""),
         /* extraAttributes= */ "",
         /* toolchains= */ "['//rule:toolchain_type_2']",
         /* execGroups= */ customExecGroups);

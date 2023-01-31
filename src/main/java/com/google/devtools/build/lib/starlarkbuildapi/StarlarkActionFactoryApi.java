@@ -50,8 +50,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
               + " file. Creating that action will require passing the returned <code>File</code>"
               + " object to the action's construction function.<p>Note that <a"
               + " href='https://bazel.build/extending/rules#files'>predeclared output files</a> do"
-              + " not need to be (and cannot be) declared using this function."
-              + " You can obtain their <code>File</code> objects from <a"
+              + " not need to be (and cannot be) declared using this function. You can obtain their"
+              + " <code>File</code> objects from <a"
               + " href=\"ctx.html#outputs\"><code>ctx.outputs</code></a> instead. <a"
               + " href=\"https://github.com/bazelbuild/examples/tree/main/rules/computed_dependencies/hash.bzl\">See"
               + " example of use</a>.",
@@ -473,7 +473,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
               @ParamType(type = String.class),
               @ParamType(type = NoneType.class),
             },
-            defaultValue = "None",
+            defaultValue = "unbound",
             named = true,
             positional = false,
             doc =
@@ -710,7 +710,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
               @ParamType(type = String.class),
               @ParamType(type = NoneType.class),
             },
-            defaultValue = "None",
+            defaultValue = "unbound",
             named = true,
             positional = false,
             doc =
