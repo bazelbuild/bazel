@@ -250,7 +250,7 @@ private so long as it lives in the same package as the definition of the
 ## Load visibility {:#load-visibility}
 
 **Load visibility** controls whether a `.bzl` file may be loaded from other
-`BUILD` or `.bzl` files.
+`BUILD` or `.bzl` files outside the current package.
 
 In the same way that target visibility protects source code that is encapsulated
 by targets, load visibility protects build logic that is encapsulated by `.bzl`
