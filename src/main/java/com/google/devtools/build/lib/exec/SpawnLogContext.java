@@ -155,11 +155,11 @@ public class SpawnLogContext implements ActionContext {
     builder.setExitCode(result.exitCode());
     builder.setRemoteCacheHit(result.isCacheHit());
     builder.setRunner(result.getRunnerName());
-    if (result.getDigest().isPresent()) {
+    if (result.getDigest() != null) {
       builder
           .getDigestBuilder()
-          .setHash(result.getDigest().get().getHash())
-          .setSizeBytes(result.getDigest().get().getSizeBytes());
+          .setHash(result.getDigest().getHash())
+          .setSizeBytes(result.getDigest().getSizeBytes());
     }
 
     String progressMessage = spawn.getResourceOwner().getProgressMessage();
@@ -262,9 +262,15 @@ public class SpawnLogContext implements ActionContext {
         if (dirent.getType() == Dirent.Type.DIRECTORY) {
           listDirectoryContents(child, addFile, metadataProvider);
         } else {
+          String pathString;
+          if (child.startsWith(execRoot)) {
+            pathString = child.relativeTo(execRoot).toString();
+          } else {
+            pathString = child.toString();
+          }
           addFile.accept(
               File.newBuilder()
-                  .setPath(child.relativeTo(execRoot).toString())
+                  .setPath(pathString)
                   .setDigest(computeDigest(null, child, metadataProvider, xattrProvider))
                   .build());
         }

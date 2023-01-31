@@ -264,9 +264,11 @@ public final class RunfilesTest {
         tempFile(
             "foo.repo_mapping",
             ImmutableList.of(
+                ",config.json,config.json~1.2.3",
                 ",my_module,_main",
                 ",my_protobuf,protobuf~3.19.2",
                 ",my_workspace,_main",
+                "protobuf~3.19.2,config.json,config.json~1.2.3",
                 "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
     Path mf =
         tempFile(
@@ -318,9 +320,11 @@ public final class RunfilesTest {
         tempFile(
             "foo.repo_mapping",
             ImmutableList.of(
+                ",config.json,config.json~1.2.3",
                 ",my_module,_main",
                 ",my_protobuf,protobuf~3.19.2",
                 ",my_workspace,_main",
+                "protobuf~3.19.2,config.json,config.json~1.2.3",
                 "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
     Path mf =
         tempFile(
@@ -367,9 +371,11 @@ public final class RunfilesTest {
         tempFile(
             "foo.repo_mapping",
             ImmutableList.of(
+                ",config.json,config.json~1.2.3",
                 ",my_module,_main",
                 ",my_protobuf,protobuf~3.19.2",
                 ",my_workspace,_main",
+                "protobuf~3.19.2,config.json,config.json~1.2.3",
                 "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
     Path mf =
         tempFile(
@@ -419,9 +425,11 @@ public final class RunfilesTest {
         tempFile(
             dir.resolve("_repo_mapping").toString(),
             ImmutableList.of(
+                ",config.json,config.json~1.2.3",
                 ",my_module,_main",
                 ",my_protobuf,protobuf~3.19.2",
                 ",my_workspace,_main",
+                "protobuf~3.19.2,config.json,config.json~1.2.3",
                 "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
     Runfiles r = Runfiles.createDirectoryBasedForTesting(dir.toString()).withSourceRepository("");
 
@@ -458,9 +466,11 @@ public final class RunfilesTest {
         tempFile(
             dir.resolve("_repo_mapping").toString(),
             ImmutableList.of(
+                ",config.json,config.json~1.2.3",
                 ",my_module,_main",
                 ",my_protobuf,protobuf~3.19.2",
                 ",my_workspace,_main",
+                "protobuf~3.19.2,config.json,config.json~1.2.3",
                 "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
     Runfiles r = Runfiles.createDirectoryBasedForTesting(dir.toString()).unmapped();
 
@@ -497,9 +507,11 @@ public final class RunfilesTest {
         tempFile(
             dir.resolve("_repo_mapping").toString(),
             ImmutableList.of(
+                ",config.json,config.json~1.2.3",
                 ",my_module,_main",
                 ",my_protobuf,protobuf~3.19.2",
                 ",my_workspace,_main",
+                "protobuf~3.19.2,config.json,config.json~1.2.3",
                 "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
     Runfiles r =
         Runfiles.createDirectoryBasedForTesting(dir.toString())

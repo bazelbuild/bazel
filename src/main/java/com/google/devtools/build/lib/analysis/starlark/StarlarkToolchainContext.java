@@ -16,15 +16,15 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
-import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
-import javax.annotation.Nullable;
+import java.util.function.Function;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
@@ -38,7 +38,7 @@ import net.starlark.java.eval.StarlarkValue;
 @AutoValue
 public abstract class StarlarkToolchainContext implements ToolchainContextApi {
 
-  private static final ToolchainContextApi NO_OP =
+  public static final ToolchainContextApi TOOLCHAINS_NOT_VALID =
       new ToolchainContextApi() {
         @Override
         public Object getIndex(
@@ -54,15 +54,23 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
         }
       };
 
-  public static ToolchainContextApi create(@Nullable ResolvedToolchainContext toolchainContext) {
-    if (toolchainContext == null) {
-      return NO_OP;
-    }
+  public static ToolchainContextApi create(
+      String targetDescription,
+      Function<Label, ToolchainInfo> resolveToolchainInfoFunc,
+      ImmutableSet<Label> resolvedToolchainTypeLabels) {
+    Preconditions.checkNotNull(targetDescription);
+    Preconditions.checkNotNull(resolveToolchainInfoFunc);
+    Preconditions.checkNotNull(resolvedToolchainTypeLabels);
 
-    return new AutoValue_StarlarkToolchainContext(toolchainContext);
+    return new AutoValue_StarlarkToolchainContext(
+        targetDescription, resolveToolchainInfoFunc, resolvedToolchainTypeLabels);
   }
 
-  protected abstract ResolvedToolchainContext toolchainContext();
+  protected abstract String targetDescription();
+
+  protected abstract Function<Label, ToolchainInfo> resolveToolchainInfoFunc();
+
+  protected abstract ImmutableSet<Label> resolvedToolchainTypeLabels();
 
   @Override
   public boolean isImmutable() {
@@ -73,10 +81,7 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
   public void repr(Printer printer) {
     printer.append("<toolchain_context.resolved_labels: ");
     printer.append(
-        toolchainContext().toolchains().keySet().stream()
-            .map(ToolchainTypeInfo::typeLabel)
-            .map(Label::toString)
-            .collect(joining(", ")));
+        resolvedToolchainTypeLabels().stream().map(Label::toString).collect(joining(", ")));
     printer.append(">");
   }
 
@@ -99,6 +104,7 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
     }
   }
 
+
   @Override
   public StarlarkValue getIndex(
       StarlarkThread starlarkThread, StarlarkSemantics semantics, Object key) throws EvalException {
@@ -110,24 +116,22 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
       // rule definition.
       throw Starlark.errorf(
           "In %s, toolchain type %s was requested but only types [%s] are configured",
-          toolchainContext().targetDescription(),
+          targetDescription(),
           toolchainTypeLabel,
-          toolchainContext().toolchainTypes().stream()
-              .map(ToolchainTypeRequirement::toolchainType)
-              .map(Label::toString)
-              .collect(joining(", ")));
+          resolvedToolchainTypeLabels().stream().map(Label::toString).collect(joining(", ")));
     }
-    ToolchainInfo toolchainInfo = toolchainContext().forToolchainType(toolchainTypeLabel);
+    ToolchainInfo toolchainInfo = resolveToolchainInfoFunc().apply(toolchainTypeLabel);
     if (toolchainInfo == null) {
       return Starlark.NONE;
     }
     return toolchainInfo;
   }
 
+
   @Override
   public boolean containsKey(StarlarkThread starlarkThread, StarlarkSemantics semantics, Object key)
       throws EvalException {
     Label toolchainTypeLabel = transformKey(starlarkThread, key);
-    return toolchainContext().requestedToolchainTypeLabels().containsKey(toolchainTypeLabel);
+    return resolvedToolchainTypeLabels().contains(toolchainTypeLabel);
   }
 }

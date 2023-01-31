@@ -242,6 +242,18 @@ public class PlatformOptions extends FragmentOptions {
     return exec;
   }
 
+  @Override
+  public PlatformOptions getNormalized() {
+    PlatformOptions result = (PlatformOptions) clone();
+    result.extraToolchains = dedupeOnly(result.extraToolchains);
+    // Only the first entry of platforms is used (it should have been Label and not List<Label>)
+    // So drop all but the first entry.
+    if (result.platforms.size() > 1) {
+      result.platforms = ImmutableList.of(result.platforms.get(0));
+    }
+    return result;
+  }
+
   /** Returns the intended target platform value based on options defined in this fragment. */
   public Label computeTargetPlatform() {
     // Handle default values for the host and target platform.

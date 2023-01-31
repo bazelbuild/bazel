@@ -57,12 +57,9 @@ constraint_value(
 
 cc_toolchain_alias(name = "current_cc_toolchain")
 
-# In future versions of Bazel, this target will not fail if no C++ toolchain is
-# available. Instead, it will not advertise the cc_common.CcToolchainInfo
-# provider.
-alias(
+cc_toolchain_alias(
     name = "optional_current_cc_toolchain",
-    actual = ":current_cc_toolchain",
+    mandatory = False,
 )
 
 cc_host_toolchain_alias(name = "current_cc_host_toolchain")

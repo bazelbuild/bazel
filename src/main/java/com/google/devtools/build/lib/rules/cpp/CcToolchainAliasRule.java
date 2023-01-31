@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.Type;
 import javax.annotation.Nullable;
 
 /** Implementation of the {@code cc_toolchain_alias} rule. */
@@ -50,6 +51,7 @@ public class CcToolchainAliasRule implements RuleDefinition {
         .add(
             attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                 .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
+        .add(attr("mandatory", Type.BOOLEAN).value(true))
         .requiresConfigurationFragments(PlatformConfiguration.class)
         .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
         .build();

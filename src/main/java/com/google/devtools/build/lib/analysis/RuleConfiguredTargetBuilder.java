@@ -209,7 +209,7 @@ public final class RuleConfiguredTargetBuilder {
 
     if (ruleContext.getRule().hasAnalysisTestTransition()) {
       NestedSet<Label> labels = transitiveLabels();
-      int depCount = labels.toList().size();
+      int depCount = labels.memoizedFlattenAndGetSize();
       if (depCount > ruleContext.getConfiguration().analysisTestingDepsLimit()) {
         ruleContext.ruleError(
             String.format(

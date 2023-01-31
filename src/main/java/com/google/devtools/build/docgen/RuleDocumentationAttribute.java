@@ -54,6 +54,9 @@ public class RuleDocumentationAttribute
               "Dictionary: <a href=\"${link build-ref#labels}\">label</a> -> String")
           .put(BuildType.LABEL_LIST, "List of <a href=\"${link build-ref#labels}\">labels</a>")
           .put(
+              BuildType.GENQUERY_SCOPE_TYPE_LIST,
+              "List of <a href=\"${link build-ref#labels}\">labels</a>")
+          .put(
               BuildType.LABEL_DICT_UNARY,
               "Dictionary mapping strings to <a href=\"${link build-ref#labels}\">labels</a>")
           .put(BuildType.LICENSE, "Licence type")

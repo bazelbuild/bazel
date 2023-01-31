@@ -59,6 +59,7 @@ the `srcs` of Python targets as required.
         "_launcher": attr.label(
             cfg = "target",
             default = "@" + TOOLS_REPO + "//tools/launcher:launcher",
+            executable = True,
         ),
         "_windows_launcher_maker": attr.label(
             default = "@" + TOOLS_REPO + "//tools/launcher:launcher_maker",
@@ -197,6 +198,8 @@ def _create_executable(
     )
 
     extra_files_to_build = []
+
+    # NOTE: --build_python_zip defauls to true on Windows
     build_zip_enabled = ctx.fragments.py.build_python_zip
 
     # When --build_python_zip is enabled, then the zip file becomes
@@ -206,11 +209,12 @@ def _create_executable(
 
     # The logic here is a bit convoluted. Essentially, there are 3 types of
     # executables produced:
-    # 1. A bootstrap template based program.
-    # 2. A self-executable zip file of a bootstrap template based program.
-    # 3. For Windows, a native Windows executable that finds and launches
+    # 1. (non-Windows) A bootstrap template based program.
+    # 2. (non-Windows) A self-executable zip file of a bootstrap template based program.
+    # 3. (Windows) A native Windows executable that finds and launches
     #    the actual underlying Bazel program (one of the above). Note that
-    #    it implicitly assumes one of the above is located next to it.
+    #    it implicitly assumes one of the above is located next to it, and
+    #    that --build_python_zip defaults to true for Windows.
 
     should_create_executable_zip = False
     bootstrap_output = None
@@ -223,7 +227,7 @@ def _create_executable(
         _create_windows_exe_launcher(
             ctx,
             output = executable,
-            is_for_zip = build_zip_enabled,
+            use_zip_file = build_zip_enabled,
             python_binary_path = runtime_details.executable_interpreter_path,
         )
         if not build_zip_enabled:
@@ -240,16 +244,25 @@ def _create_executable(
             fail("Should not occur: bootstrap_output should not be used " +
                  "when creating an executable zip")
         _create_executable_zip_file(ctx, output = executable, zip_file = zip_file)
-    else:
-        if bootstrap_output == None:
-            fail("Should not occur: bootstrap_output should set when " +
-                 "build a bootstrap-template-based executable")
+    elif bootstrap_output:
         _expand_bootstrap_template(
             ctx,
             output = bootstrap_output,
             is_for_zip = build_zip_enabled,
             **common_bootstrap_template_kwargs
         )
+    else:
+        # Otherwise, this should be the Windows case of launcher + zip.
+        # Double check this just to make sure.
+        if not is_windows or not build_zip_enabled:
+            fail(("Should not occur: The non-executable-zip and " +
+                  "non-boostrap-template case should have windows and zip " +
+                  "both true, but got " +
+                  "is_windows={is_windows} " +
+                  "build_zip_enabled={build_zip_enabled}").format(
+                is_windows = is_windows,
+                build_zip_enabled = build_zip_enabled,
+            ))
 
     return create_executable_result_struct(
         extra_files_to_build = depset(extra_files_to_build),
@@ -320,8 +333,8 @@ def _create_windows_exe_launcher(
 
     ctx.actions.run(
         executable = ctx.executable._windows_launcher_maker,
-        arguments = [launch_info],
-        inputs = [ctx.file._launcher],
+        arguments = [ctx.executable._launcher.path, launch_info, output.path],
+        inputs = [ctx.executable._launcher],
         outputs = [output],
         mnemonic = "PyBuildLauncher",
         progress_message = "Creating launcher for %{label}",
@@ -384,7 +397,7 @@ def _get_zip_runfiles_path(path, workspace_name, legacy_external_runfiles):
         # NOTE: External runfiles (artifacts in other repos) will have a leading
         # path component of "../" so that they refer outside the main workspace
         # directory and into the runfiles root. By normalizing, we simplify e.g.
-        # "workspace/../foo/bar" to simply "foo/bar" and
+        # "workspace/../foo/bar" to simply "foo/bar".
         zip_runfiles_path = paths.normalize("{}/{}".format(workspace_name, path))
     return "{}/{}".format(_ZIP_RUNFILES_DIRECTORY_NAME, zip_runfiles_path)
 
@@ -414,7 +427,6 @@ def _get_cc_details_for_binary(ctx, extra_deps):
     )
 
 def _get_interpreter_path(ctx, *, runtime, flag_interpreter_path):
-    _ = ctx  # @unused
     if runtime:
         if runtime.interpreter_path:
             interpreter_path = runtime.interpreter_path
@@ -423,6 +435,14 @@ def _get_interpreter_path(ctx, *, runtime, flag_interpreter_path):
                 ctx.workspace_name,
                 runtime.interpreter.short_path,
             )
+
+            # NOTE: External runfiles (artifacts in other repos) will have a
+            # leading path component of "../" so that they refer outside the
+            # main workspace directory and into the runfiles root. By
+            # normalizing, we simplify e.g. "workspace/../foo/bar" to simply
+            # "foo/bar"
+            interpreter_path = paths.normalize(interpreter_path)
+
     elif flag_interpreter_path:
         interpreter_path = flag_interpreter_path
     else:
