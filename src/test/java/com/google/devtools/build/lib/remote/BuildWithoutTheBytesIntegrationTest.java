@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.io.IOException;
 import org.junit.After;
 import org.junit.Test;
@@ -439,6 +440,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     // Populate remote cache
     buildTarget("//a:bar");
+    var bytes = FileSystemUtils.readContent(getOutputPath("a/foo.out"));
+    var hashCode = getDigestHashFunction().getHashFunction().hashBytes(bytes);
     getOutputPath("a/foo.out").delete();
     getOutputPath("a/bar.out").delete();
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
@@ -454,6 +457,11 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
 
     // Assert: Exit code is 39
+    assertThat(error.getMessage())
+        .contains(
+            "--remote_download_outputs=minimal does not work if your remote cache evicts blobs"
+                + " during builds");
+    assertThat(error.getMessage()).contains(String.format("%s/%s", hashCode, bytes.length));
     assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
   }
 }
