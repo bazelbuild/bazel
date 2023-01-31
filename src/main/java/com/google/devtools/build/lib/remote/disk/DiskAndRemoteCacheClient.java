@@ -183,31 +183,53 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
     }
   }
 
+  private ListenableFuture<CachedActionResult> downloadActionResultFromRemote(
+      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+    return Futures.transformAsync(
+        remoteCache.downloadActionResult(context, actionKey, inlineOutErr),
+        (cachedActionResult) -> {
+          if (cachedActionResult == null) {
+            return immediateFuture(null);
+          } else {
+            return Futures.transform(
+                diskCache.uploadActionResult(context, actionKey, cachedActionResult.actionResult()),
+                v -> cachedActionResult,
+                directExecutor());
+          }
+        },
+        directExecutor());
+  }
+
   @Override
   public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
-    if (context.getReadCachePolicy().allowDiskCache()
-        && diskCache.containsActionResult(actionKey)) {
-      return diskCache.downloadActionResult(context, actionKey, inlineOutErr);
+    ListenableFuture<CachedActionResult> future = immediateFuture(null);
+
+    if (context.getReadCachePolicy().allowDiskCache()) {
+      // If Build without the Bytes is enabled, the future will likely return null
+      // and fallback to remote cache because AC integrity check is enabled and referenced blobs are
+      // probably missing from disk cache due to BwoB.
+      //
+      // TODO(chiwang): With lease service, instead of doing the integrity check against local
+      // filesystem, we can check whether referenced blobs are alive in the lease service to
+      // increase the cache-hit rate for disk cache.
+      future = diskCache.downloadActionResult(context, actionKey, inlineOutErr);
     }
 
     if (context.getReadCachePolicy().allowRemoteCache()) {
-      return Futures.transformAsync(
-          remoteCache.downloadActionResult(context, actionKey, inlineOutErr),
-          (cachedActionResult) -> {
-            if (cachedActionResult == null) {
-              return immediateFuture(null);
-            } else {
-              return Futures.transform(
-                  diskCache.uploadActionResult(
-                      context, actionKey, cachedActionResult.actionResult()),
-                  v -> cachedActionResult,
-                  directExecutor());
-            }
-          },
-          directExecutor());
-    } else {
-      return immediateFuture(null);
+      future =
+          Futures.transformAsync(
+              future,
+              (result) -> {
+                if (result == null) {
+                  return downloadActionResultFromRemote(context, actionKey, inlineOutErr);
+                } else {
+                  return immediateFuture(result);
+                }
+              },
+              directExecutor());
     }
+
+    return future;
   }
 }
