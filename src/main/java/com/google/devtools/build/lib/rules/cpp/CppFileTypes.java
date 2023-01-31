@@ -204,7 +204,9 @@ public final class CppFileTypes {
   // Minimized bitcode file emitted by the ThinLTO compile step and used just for LTO indexing.
   public static final FileType LTO_INDEXING_OBJECT_FILE = FileType.of(".indexing.o");
 
-  public static final FileType SHARED_LIBRARY = FileType.of(".so", ".dylib", ".dll");
+  // TODO(bazel-team): File types should not be read from this hard-coded list but should come from
+  // the toolchain instead. See https://github.com/bazelbuild/bazel/issues/17117
+  public static final FileType SHARED_LIBRARY = FileType.of(".so", ".dylib", ".dll", ".pyd");
   // Unix shared libraries can be passed to linker, but not .dll on Windows
   public static final FileType UNIX_SHARED_LIBRARY = FileType.of(".so", ".dylib");
   public static final FileType INTERFACE_SHARED_LIBRARY =
