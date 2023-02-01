@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKOPT;
@@ -600,11 +599,6 @@ public class CompilationSupport implements StarlarkValue {
       throw ruleContext.throwWithRuleError(e);
     }
 
-    LinkTargetType linkType =
-        secondaryObjcProvider.flagIs(USES_CPP)
-            ? LinkTargetType.OBJCPP_EXECUTABLE
-            : LinkTargetType.OBJC_EXECUTABLE;
-
     ObjcVariablesExtension.Builder extensionBuilder =
         new ObjcVariablesExtension.Builder()
             .setRuleContext(ruleContext)
@@ -665,7 +659,7 @@ public class CompilationSupport implements StarlarkValue {
             .addNonCodeLinkerInputs(ImmutableList.copyOf(attributes.linkInputs()))
             .addNonCodeLinkerInputs(ImmutableList.of(inputFileList))
             .setShouldCreateStaticLibraries(false)
-            .setDynamicLinkType(linkType)
+            .setDynamicLinkType(LinkTargetType.OBJC_EXECUTABLE)
             .setLinkingMode(LinkingMode.STATIC)
             .addLinkopts(ImmutableList.copyOf(extraLinkArgs));
 
