@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -150,13 +151,13 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "test/my_rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _dep_rule_impl(ctx):",
-        "   objc_provider = apple_common.new_objc_provider(linkopt=depset(['mock_linkopt']))",
+        "   objc_provider = apple_common.new_objc_provider(strict_include=depset(['foo']))",
         "   return struct(foo = objc_provider)",
         "",
         "def _root_rule_impl(ctx):",
         "   dep = ctx.attr.deps[0]",
         "   return MyInfo(",
-        "      linkopt = dep.objc.linkopt,",
+        "      strict_include = dep.objc.strict_include,",
         "   )",
         "",
         "root_rule = rule(implementation = _root_rule_impl,",
@@ -176,9 +177,9 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//test:test");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
-    Depset linkoptSet = (Depset) myInfo.getValue("linkopt");
+    Depset strictIncludes = (Depset) myInfo.getValue("strict_include");
 
-    assertThat(linkoptSet.getSet(String.class).toList()).containsExactly("mock_linkopt");
+    assertThat(strictIncludes.getSet(String.class).toList()).containsExactly("foo");
   }
 
   @Test
@@ -992,18 +993,56 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
   @Test
   public void testStarlarkCanCreateObjcProviderFromObjcProvider() throws Exception {
-    ConfiguredTarget starlarkTarget =
-        createObjcProviderStarlarkTarget(
-            "   dep = ctx.attr.deps[0]",
-            "   frameworks = depset(['framework_from_impl'])",
-            "   created_provider = apple_common.new_objc_provider\\",
-            "(providers=[dep[apple_common.Objc]], sdk_framework=frameworks)",
-            "   return [created_provider]");
+    scratch.file("examples/rule/BUILD");
+    scratch.file(
+        "examples/rule/objc_rules.bzl",
+        "def library_impl(ctx):",
+        "   lib = ctx.label.name + '.a'",
+        "   file = ctx.actions.declare_file(lib)",
+        "   ctx.actions.run_shell(outputs=[file], command='echo')",
+        "   return [apple_common.new_objc_provider(j2objc_library=depset([file]))]",
+        "library = rule(implementation = library_impl)",
+        "def binary_impl(ctx):",
+        "   dep = ctx.attr.deps[0]",
+        "   lib = ctx.label.name + '.a'",
+        "   file = ctx.actions.declare_file(lib)",
+        "   ctx.actions.run_shell(outputs=[file], command='echo')",
+        "   created_provider = apple_common.new_objc_provider(",
+        "      providers=[dep[apple_common.Objc]],",
+        "      j2objc_library=depset([file]),",
+        "   )",
+        "   return [created_provider]",
+        "binary = rule(",
+        "    implementation = binary_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(",
+        "             allow_files = False,",
+        "             mandatory = False,",
+        "             providers = [[apple_common.Objc]],",
+        "        )",
+        "    })");
 
-    Depset foundFrameworks = starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).sdkFramework();
+    scratch.file(
+        "examples/objc_starlark/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//examples/rule:objc_rules.bzl', 'library', 'binary')",
+        "binary(",
+        "   name='bin',",
+        "   deps=[':lib'],",
+        ")",
+        "library(",
+        "   name = 'lib',",
+        ")");
 
-    assertThat(foundFrameworks.toList())
-        .containsExactly("framework_from_dep", "framework_from_impl");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/objc_starlark:bin");
+
+    ImmutableList<Artifact> libraries =
+        starlarkTarget
+            .get(ObjcProvider.STARLARK_CONSTRUCTOR)
+            .get(ObjcProvider.J2OBJC_LIBRARY)
+            .toList();
+
+    assertThat(ActionsTestUtil.baseArtifactNames(libraries)).containsExactly("lib.a", "bin.a");
   }
 
   @Test
@@ -1083,7 +1122,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "def swift_binary_impl(ctx):",
         "   objc_provider = ctx.attr.deps[0][apple_common.Objc]",
         "   return MyInfo(",
-        "      empty_value=objc_provider.linkopt,",
+        "      empty_value=objc_provider.j2objc_library,",
         "   )",
         "swift_binary = rule(",
         "   implementation = swift_binary_impl,",

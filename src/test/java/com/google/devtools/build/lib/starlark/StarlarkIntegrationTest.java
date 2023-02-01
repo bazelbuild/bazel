@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
 import net.starlark.java.eval.NoneType;
@@ -3608,7 +3609,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/extension.bzl",
         "def custom_rule_impl(ctx):",
-        "  return struct(foo = apple_common.new_objc_provider(linkopt=depset(['foo'])))",
+        "  return struct(foo = apple_common.new_objc_provider(strict_include=depset(['foo'])))",
         "",
         "custom_rule = rule(implementation = custom_rule_impl)");
 
@@ -3625,9 +3626,12 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ObjcProvider providerFromFoo = (ObjcProvider) target.get("foo");
 
     // The modern key and the canonical legacy key "objc" are set to the one available ObjcProvider.
-    assertThat(providerFromModernKey.get(ObjcProvider.LINKOPT).toList()).containsExactly("foo");
-    assertThat(providerFromObjc.get(ObjcProvider.LINKOPT).toList()).containsExactly("foo");
-    assertThat(providerFromFoo.get(ObjcProvider.LINKOPT).toList()).containsExactly("foo");
+    assertThat(providerFromModernKey.getStrictDependencyIncludes())
+        .containsExactly(PathFragment.create("foo"));
+    assertThat(providerFromObjc.getStrictDependencyIncludes())
+        .containsExactly(PathFragment.create("foo"));
+    assertThat(providerFromFoo.getStrictDependencyIncludes())
+        .containsExactly(PathFragment.create("foo"));
   }
 
   @Test
@@ -3636,9 +3640,10 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/extension.bzl",
         "def custom_rule_impl(ctx):",
-        "  return struct(providers = [apple_common.new_objc_provider(linkopt=depset(['prov']))],",
-        "       bah = apple_common.new_objc_provider(linkopt=depset(['bah'])),",
-        "       objc = apple_common.new_objc_provider(linkopt=depset(['objc'])))",
+        "  return struct(providers =",
+        "       [apple_common.new_objc_provider(strict_include=depset(['prov']))],",
+        "       bah = apple_common.new_objc_provider(strict_include=depset(['bah'])),",
+        "       objc = apple_common.new_objc_provider(strict_include=depset(['objc'])))",
         "",
         "custom_rule = rule(implementation = custom_rule_impl)");
 
@@ -3654,9 +3659,12 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ObjcProvider providerFromObjc = (ObjcProvider) target.get("objc");
     ObjcProvider providerFromBah = (ObjcProvider) target.get("bah");
 
-    assertThat(providerFromModernKey.get(ObjcProvider.LINKOPT).toList()).containsExactly("prov");
-    assertThat(providerFromObjc.get(ObjcProvider.LINKOPT).toList()).containsExactly("objc");
-    assertThat(providerFromBah.get(ObjcProvider.LINKOPT).toList()).containsExactly("bah");
+    assertThat(providerFromModernKey.getStrictDependencyIncludes())
+        .containsExactly(PathFragment.create("prov"));
+    assertThat(providerFromObjc.getStrictDependencyIncludes())
+        .containsExactly(PathFragment.create("objc"));
+    assertThat(providerFromBah.getStrictDependencyIncludes())
+        .containsExactly(PathFragment.create("bah"));
   }
 
   @Test
@@ -3665,9 +3673,10 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/extension.bzl",
         "def custom_rule_impl(ctx):",
-        "  return struct(providers = [apple_common.new_objc_provider(linkopt=depset(['prov']))],",
-        "       foo = apple_common.new_objc_provider(linkopt=depset(['foo'])),",
-        "       bar = apple_common.new_objc_provider(linkopt=depset(['bar'])))",
+        "  return struct(providers ="
+            + " [apple_common.new_objc_provider(strict_include=depset(['prov']))],",
+        "       foo = apple_common.new_objc_provider(strict_include=depset(['foo'])),",
+        "       bar = apple_common.new_objc_provider(strict_include=depset(['bar'])))",
         "",
         "custom_rule = rule(implementation = custom_rule_impl)");
 
@@ -3684,11 +3693,15 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ObjcProvider providerFromFoo = (ObjcProvider) target.get("foo");
     ObjcProvider providerFromBar = (ObjcProvider) target.get("bar");
 
-    assertThat(providerFromModernKey.get(ObjcProvider.LINKOPT).toList()).containsExactly("prov");
+    assertThat(providerFromModernKey.getStrictDependencyIncludes())
+        .containsExactly(PathFragment.create("prov"));
     // The first defined provider is set to the legacy "objc" key.
-    assertThat(providerFromObjc.get(ObjcProvider.LINKOPT).toList()).containsExactly("foo");
-    assertThat(providerFromFoo.get(ObjcProvider.LINKOPT).toList()).containsExactly("foo");
-    assertThat(providerFromBar.get(ObjcProvider.LINKOPT).toList()).containsExactly("bar");
+    assertThat(providerFromObjc.getStrictDependencyIncludes())
+        .containsExactly(PathFragment.create("foo"));
+    assertThat(providerFromFoo.getStrictDependencyIncludes())
+        .containsExactly(PathFragment.create("foo"));
+    assertThat(providerFromBar.getStrictDependencyIncludes())
+        .containsExactly(PathFragment.create("bar"));
   }
 
   @Test
