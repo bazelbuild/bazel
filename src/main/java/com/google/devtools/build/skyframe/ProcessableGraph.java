@@ -39,12 +39,14 @@ public interface ProcessableGraph extends QueryableGraph {
 
   /**
    * Like {@link QueryableGraph#getBatch}, except creates a new node for each key not already
-   * present in the graph. Thus, calling {@link NodeBatch#get} on the returned batch will never
-   * return {@code null} for any key in {@code keys}, barring an intervening call to {@link
-   * #remove}.
+   * present in the graph.
    *
    * <p>By the time this method returns, nodes are guaranteed to have been created if necessary for
    * each requested key. It is not necessary to call {@link NodeBatch#get} to trigger node creation.
+   *
+   * <p>Calling {@link NodeBatch#get} on the returned batch will never return {@code null} for any
+   * key in {@code keys}. Even if there is an intervening call to {@link #remove}, the call to
+   * {@link NodeBatch#get} will re-create a {@link NodeEntry} if necessary.
    *
    * @param requestor if non-{@code null}, the node on behalf of which the given {@code keys} are
    *     being requested.
