@@ -333,7 +333,7 @@ public class SpawnLogContext implements ActionContext {
         .build();
   }
 
-  public boolean needSort() {
+  public boolean shouldSort() {
     return executionOptions.executionLogSort;
   }
 }

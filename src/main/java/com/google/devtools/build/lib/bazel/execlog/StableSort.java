@@ -53,12 +53,13 @@ public final class StableSort {
    * <p>We assume that in the InputStream, at most one SpawnExec declares a given file as its
    * output. We assume that there are no cyclic dependencies.
    */
-  public static void stableSort(InputStream in, MessageOutputStream out) throws IOException {
-    stableSort(read(in), out);
+  public static void stableSort(InputStream in, MessageOutputStream out, boolean shouldSort) throws IOException {
+    ImmutableList<SpawnExec> inputs = read(in);
+
+    shouldSort ? stableSort(inputs, out) : ignoreSort(inputs, out);
   }
 
-  public static void ignoreSort(InputStream in, MessageOutputStream out) throws IOException {
-    ImmutableList<SpawnExec> inputs = read(in);
+  public static void ignoreSort(List<SpawnExec> inputs, MessageOutputStream out) throws IOException {
     for (SpawnExec ex : inputs) {
       out.write(ex);
     }
