@@ -122,12 +122,7 @@ public interface StateMachine {
         Class<E2> exceptionClass2,
         ValueOrException2Sink<E1, E2> sink);
 
-    /**
-     * A lookup that handles exceptions of the specified 3 types.
-     *
-     * <p>One of {@code sink}, {@code exceptionSink1}, {@code exceptionSink2} or {@code
-     * exceptionSink3} will be called.
-     */
+    /** A lookup that handles exceptions of the specified 3 types. */
     <E1 extends Exception, E2 extends Exception, E3 extends Exception> void lookUp(
         SkyKey key,
         Class<E1> exceptionClass1,
