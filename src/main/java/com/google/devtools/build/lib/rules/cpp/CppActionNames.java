@@ -65,8 +65,6 @@ public class CppActionNames {
   public static final String OBJC_FULLY_LINK = "objc-fully-link";
   /** Name of the objc action producing objc executable binary */
   public static final String OBJC_EXECUTABLE = "objc-executable";
-  /** Name of the objc action producing objc++ executable binary */
-  public static final String OBJCPP_EXECUTABLE = "objc++-executable";
 
   public static final String LTO_INDEXING = "lto-indexing";
   /** Name of the action producing thinlto index for dynamic library. */

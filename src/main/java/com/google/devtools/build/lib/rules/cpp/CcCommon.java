@@ -159,8 +159,7 @@ public final class CcCommon implements StarlarkValue {
           CppActionNames.OBJC_COMPILE,
           CppActionNames.OBJCPP_COMPILE,
           CppActionNames.OBJC_FULLY_LINK,
-          CppActionNames.OBJC_EXECUTABLE,
-          CppActionNames.OBJCPP_EXECUTABLE);
+          CppActionNames.OBJC_EXECUTABLE);
 
   /** An enum for the list of supported languages. */
   public enum Language {
