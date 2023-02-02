@@ -154,23 +154,21 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public StrictDepsMode strictPublicImports;
 
     @Option(
-      name = "cc_proto_library_header_suffixes",
-      defaultValue = ".pb.h",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      help = "Sets the prefixes of header files that a cc_proto_library creates.",
-      converter = Converters.CommaSeparatedOptionListConverter.class
-    )
+        name = "cc_proto_library_header_suffixes",
+        defaultValue = ".pb.h",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        help = "Sets the prefixes of header files that a cc_proto_library creates.",
+        converter = Converters.CommaSeparatedOptionSetConverter.class)
     public List<String> ccProtoLibraryHeaderSuffixes;
 
     @Option(
-      name = "cc_proto_library_source_suffixes",
-      defaultValue = ".pb.cc",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      help = "Sets the prefixes of source files that a cc_proto_library creates.",
-      converter = Converters.CommaSeparatedOptionListConverter.class
-    )
+        name = "cc_proto_library_source_suffixes",
+        defaultValue = ".pb.cc",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        help = "Sets the prefixes of source files that a cc_proto_library creates.",
+        converter = Converters.CommaSeparatedOptionSetConverter.class)
     public List<String> ccProtoLibrarySourceSuffixes;
 
     @Option(
