@@ -281,6 +281,16 @@ public class TestConfiguration extends Fragment {
         help = "If true, undeclared test outputs will be archived in a zip file.")
     public boolean zipUndeclaredTestOutputs;
 
+    @Option(
+        name = "use_target_platform_for_tests",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help =
+            "If true, then Bazel will use the target platform for running tests rather than "
+                + "the test exec group.")
+    public boolean useTargetPlatformForTests;
+
     @Override
     public FragmentOptions getExec() {
       // Options here are either:
@@ -379,6 +389,10 @@ public class TestConfiguration extends Fragment {
 
   public boolean getZipUndeclaredTestOutputs() {
     return options.zipUndeclaredTestOutputs;
+  }
+
+  public boolean useTargetPlatformForTests() {
+    return options.useTargetPlatformForTests;
   }
 
   /**

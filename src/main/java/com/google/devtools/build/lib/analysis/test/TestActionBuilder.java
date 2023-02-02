@@ -386,6 +386,11 @@ public final class TestActionBuilder {
       testRunfilesSupplier = SingleRunfilesSupplier.create(runfilesSupport);
     }
 
+    ActionOwner actionOwner =
+        testConfiguration.useTargetPlatformForTests()
+            ? ruleContext.getTestActionOwner()
+            : getOwner();
+
     // Use 1-based indices for user friendliness.
     for (int shard = 0; shard < shardRuns; shard++) {
       String shardDir = shardRuns > 1 ? String.format("shard_%d_of_%d", shard + 1, shards) : null;
@@ -429,7 +434,7 @@ public final class TestActionBuilder {
         // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
         TestRunnerAction testRunnerAction =
             new TestRunnerAction(
-                getOwner(),
+                actionOwner,
                 inputs,
                 testRunfilesSupplier,
                 testActionExecutable,

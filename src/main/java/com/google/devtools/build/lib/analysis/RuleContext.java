@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.analysis.test.ExecutionInfo.DEFAULT_TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -407,6 +408,34 @@ public final class RuleContext extends TargetContext
   @Override
   public ActionOwner getActionOwner() {
     return getActionOwner(DEFAULT_EXEC_GROUP_NAME);
+  }
+
+  /**
+   * Returns a special action owner for test actions. Test actions should run on the target platform
+   * rather than the host platform. Note that the value is not cached (on the assumption that this
+   * method is only called once).
+   */
+  public ActionOwner getTestActionOwner() {
+    PlatformInfo executionPlatform;
+    ImmutableMap<String, String> execProperties;
+
+    // If we have a toolchain, pull the target platform out of it.
+    if (toolchainContexts != null) {
+        executionPlatform = toolchainContexts.getTargetPlatform();
+        execProperties = executionPlatform.execProperties();
+    } else {
+        executionPlatform = null;
+        execProperties = getExecGroups().getExecProperties(DEFAULT_TEST_RUNNER_EXEC_GROUP);
+    }
+
+    ActionOwner actionOwner =
+        createActionOwner(
+            rule, aspectDescriptors, getConfiguration(), execProperties, executionPlatform);
+
+    if (actionOwner == null) {
+      actionOwner = ruleContext.getActionOwner();
+    }
+    return actionOwner;
   }
 
   @Override
