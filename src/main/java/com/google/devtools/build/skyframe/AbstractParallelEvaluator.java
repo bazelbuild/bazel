@@ -119,8 +119,6 @@ abstract class AbstractParallelEvaluator {
 
   protected final Cache<SkyKey, SkyKeyComputeState> stateCache = Caffeine.newBuilder().build();
 
-  private final boolean heuristicallyDropNodes;
-
   AbstractParallelEvaluator(
       ProcessableGraph graph,
       Version graphVersion,
@@ -135,8 +133,7 @@ abstract class AbstractParallelEvaluator {
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       QuiescingExecutor executor,
       CycleDetector cycleDetector,
-      boolean mergingSkyframeAnalysisExecutionPhases,
-      boolean heuristicallyDropNodes) {
+      boolean mergingSkyframeAnalysisExecutionPhases) {
     this.graph = graph;
     this.cycleDetector = cycleDetector;
     this.evaluatorContext =
@@ -155,7 +152,6 @@ abstract class AbstractParallelEvaluator {
             () -> new NodeEntryVisitor(executor, progressReceiver, Evaluate::new, stateCache),
             /* mergingSkyframeAnalysisExecutionPhases= */ mergingSkyframeAnalysisExecutionPhases,
             stateCache);
-    this.heuristicallyDropNodes = heuristicallyDropNodes;
   }
 
   /**
@@ -1093,6 +1089,8 @@ abstract class AbstractParallelEvaluator {
     NodeBatch previouslyRegisteredEntries =
         graph.getBatch(skyKey, Reason.SIGNAL_DEP, previouslyRegisteredNewDeps);
     for (SkyKey newDep : previouslyRegisteredNewDeps) {
+      // We choose not to use `getOrRecreateDepEntry(...)` due to there is no use case where nodes
+      // are expected to be missing on incremental builds (which this loop is specific to).
       NodeEntry depEntry =
           checkNotNull(
               previouslyRegisteredEntries.get(newDep),
@@ -1114,14 +1112,7 @@ abstract class AbstractParallelEvaluator {
 
     for (SkyKey newDep : newlyAddedNewDeps) {
       NodeEntry depEntry =
-          heuristicallyDropNodes
-              ? getOrRecreateDepEntry(
-                  newDep, newlyAddedNewDepNodes.get(), skyKey, Reason.RDEP_ADDITION)
-              : checkNotNull(
-                  newlyAddedNewDepNodes.get().get(newDep),
-                  "Missing already declared dep %s (parent=%s)",
-                  newDep,
-                  skyKey);
+          getOrRecreateDepEntry(newDep, newlyAddedNewDepNodes.get(), skyKey, Reason.RDEP_ADDITION);
 
       DependencyState triState = depEntry.addReverseDepAndCheckIfDone(skyKey);
       switch (maybeHandleUndoneDepForDoneEntry(entry, depEntry, triState, skyKey, newDep)) {

@@ -205,8 +205,7 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
                                 ParallelEvaluatorErrorClassifier.instance())),
                 new SimpleCycleDetector(),
                 evaluationContext.mergingSkyframeAnalysisExecutionPhases(),
-                evaluationContext.getUnnecessaryTemporaryStateDropperReceiver(),
-                evaluationContext.getHeuristicallyDropNodes());
+                evaluationContext.getUnnecessaryTemporaryStateDropperReceiver());
         result = evaluator.eval(roots);
       }
       return EvaluationResult.<T>builder()
