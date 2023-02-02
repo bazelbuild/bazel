@@ -17,6 +17,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.time.Duration;
 
 /** Options for responding to memory pressure. */
 public final class MemoryPressureOptions extends OptionsBase {
@@ -30,6 +31,14 @@ public final class MemoryPressureOptions extends OptionsBase {
           "If this flag is set to a value less than 100, Bazel will OOM if, after two full GC's, "
               + "more than this percentage of the (old gen) heap is still occupied.")
   public int oomMoreEagerlyThreshold;
+
+  @Option(
+      name = "min_time_between_triggered_gc",
+      defaultValue = "1m",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "The minimum amount of time between GCs triggered by RetainedHeapLimiter.")
+  public Duration minTimeBetweenTriggeredGc;
 
   @Option(
       name = "skyframe_high_water_mark_threshold",
