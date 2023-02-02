@@ -101,10 +101,10 @@ import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ComputedToolchainContexts;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.skyframe.PrerequisiteProducer;
+import com.google.devtools.build.lib.skyframe.PrerequisiteProducer.ComputedToolchainContexts;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -637,7 +637,7 @@ public class BuildViewForTesting {
         new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor);
 
     ComputedToolchainContexts result =
-        ConfiguredTargetFunction.computeUnloadedToolchainContexts(
+        PrerequisiteProducer.computeUnloadedToolchainContexts(
             skyfunctionEnvironment,
             ruleClassProvider,
             new TargetAndConfiguration(target.getAssociatedRule(), targetConfig),

@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-import static com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.getExecutionPlatformConstraints;
+import static com.google.devtools.build.lib.skyframe.PrerequisiteProducer.getExecutionPlatformConstraints;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;

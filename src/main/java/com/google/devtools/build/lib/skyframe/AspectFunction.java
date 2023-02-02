@@ -81,15 +81,12 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ComputeDependenciesState;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ComputedToolchainContexts;
+import com.google.devtools.build.lib.skyframe.PrerequisiteProducer.ComputedToolchainContexts;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
@@ -146,7 +143,7 @@ final class AspectFunction implements SkyFunction {
 
     @Nullable InitialValues initialValues;
 
-    ComputeDependenciesState computeDependenciesState = new ComputeDependenciesState();
+    PrerequisiteProducer.State computeDependenciesState = new PrerequisiteProducer.State();
 
     State(boolean storeTransitivePackages) {
       this.transitivePackages = storeTransitivePackages ? NestedSetBuilder.stableOrder() : null;
@@ -294,7 +291,7 @@ final class AspectFunction implements SkyFunction {
     TargetAndConfiguration originalTargetAndConfiguration =
         new TargetAndConfiguration(target, configuration);
     try {
-      ConfiguredTargetFunction.ComputedToolchainContexts computedToolchainContexts =
+      ComputedToolchainContexts computedToolchainContexts =
           getUnloadedToolchainContexts(env, key, aspect, configuration);
       if (env.valuesMissing()) {
         return null;
@@ -309,7 +306,7 @@ final class AspectFunction implements SkyFunction {
 
       // Get the configuration targets that trigger this rule's configurable attributes.
       ConfigConditions configConditions =
-          ConfiguredTargetFunction.getConfigConditions(
+          PrerequisiteProducer.computeConfigConditions(
               env,
               originalTargetAndConfiguration,
               state.transitivePackages,
@@ -325,7 +322,7 @@ final class AspectFunction implements SkyFunction {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap;
       try {
         depValueMap =
-            ConfiguredTargetFunction.computeDependencies(
+            PrerequisiteProducer.computeDependencies(
                 state.computeDependenciesState,
                 state.transitivePackages,
                 state.transitiveRootCauses,
@@ -598,7 +595,7 @@ final class AspectFunction implements SkyFunction {
 
     // Determine what toolchains are needed by this target.
     try {
-      return ConfiguredTargetFunction.computeUnloadedToolchainContexts(
+      return PrerequisiteProducer.computeUnloadedToolchainContexts(
           env,
           key.getLabel(),
           !configuration.getOptions().hasNoConfig(),
@@ -659,7 +656,7 @@ final class AspectFunction implements SkyFunction {
     // Compute the Dependency from originalTarget to aliasedLabel
     Dependency dep;
     try {
-      ConfiguredTargetFunction.ComputedToolchainContexts computedToolchainContexts =
+      ComputedToolchainContexts computedToolchainContexts =
           getUnloadedToolchainContexts(env, originalKey, aspect, originalTarget.getConfiguration());
       if (env.valuesMissing()) {
         return null;
@@ -674,7 +671,7 @@ final class AspectFunction implements SkyFunction {
 
       // Get the configuration targets that trigger this rule's configurable attributes.
       ConfigConditions configConditions =
-          ConfiguredTargetFunction.getConfigConditions(
+          PrerequisiteProducer.computeConfigConditions(
               env,
               originalTargetAndAspectConfiguration,
               transitivePackages,
