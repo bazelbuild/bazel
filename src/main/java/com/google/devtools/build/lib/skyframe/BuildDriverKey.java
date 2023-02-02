@@ -23,7 +23,7 @@ import java.util.Objects;
  * Wraps an {@link ActionLookupKey}. The evaluation of this SkyKey is the entry point of analyzing
  * the {@link ActionLookupKey} and executing the associated actions.
  */
-public final class BuildDriverKey implements CPUHeavySkyKey {
+public final class BuildDriverKey extends CPUHeavySkyKey {
   private final ActionLookupKey actionLookupKey;
   private final TopLevelArtifactContext topLevelArtifactContext;
   private final TestType testType;

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
@@ -22,7 +23,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -63,11 +63,18 @@ public class PackageValue implements NotComparableSkyValue {
   /** Skyframe key for packages */
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  public static class Key extends AbstractSkyKey<PackageIdentifier> implements CPUHeavySkyKey {
+  public static class Key extends CPUHeavySkyKey {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
+    private final PackageIdentifier arg;
+
     private Key(PackageIdentifier arg) {
-      super(arg);
+      this.arg = arg;
+    }
+
+    @Override
+    public PackageIdentifier argument() {
+      return arg;
     }
 
     @AutoCodec.VisibleForSerialization
@@ -79,6 +86,25 @@ public class PackageValue implements NotComparableSkyValue {
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.PACKAGE;
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * functionName().hashCode() + arg.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof Key)) {
+        return false;
+      }
+      var that = (Key) obj;
+      return this.arg.equals(that.arg);
+    }
+
+    @Override
+    public String toString() {
+      return functionName() + ":" + arg;
     }
   }
 
