@@ -17,7 +17,6 @@ jobs:
       pull-requests: write
     name: Track and close stale issues/PRs
     runs-on: ubuntu-latest
-    if: github.repository == 'bazelbuild/bazel'
 
     steps:
     - name: Track and close stale issues/PRs
