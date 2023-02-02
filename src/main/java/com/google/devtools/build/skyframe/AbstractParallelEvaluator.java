@@ -32,6 +32,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
+import com.google.devtools.build.lib.concurrent.ComparableRunnable;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -185,7 +186,7 @@ abstract class AbstractParallelEvaluator {
    * <p>This is not applicable when using a {@link ForkJoinPool}, since it does not allow for easy
    * work prioritization.
    */
-  private final class Evaluate implements ParallelEvaluatorContext.ComparableRunnable {
+  private final class Evaluate implements ComparableRunnable {
     private final SkyKey skyKey;
     private final int evaluationPriority;
 
@@ -195,7 +196,7 @@ abstract class AbstractParallelEvaluator {
     }
 
     @Override
-    public int compareTo(ParallelEvaluatorContext.ComparableRunnable other) {
+    public int compareTo(ComparableRunnable other) {
       // Put other one first, so larger values come first in priority queue.
       return Integer.compare(((Evaluate) other).evaluationPriority, this.evaluationPriority);
     }
