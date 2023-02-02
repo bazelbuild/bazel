@@ -23,7 +23,7 @@ jobs:
     - name: Track and close stale issues/PRs
       uses: actions/stale@v5
       with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        repo-token: ${{ secrets.BAZEL_IO_TOKEN }}
         days-before-issue-stale: 30
         days-before-pr-stale: 30
         days-before-issue-close : 7
