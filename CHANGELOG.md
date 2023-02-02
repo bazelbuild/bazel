@@ -1,3 +1,35 @@
+## Release 7.0.0-pre.20230123.5 (2023-02-02)
+
+```
+Baseline: 2f9c7d60ea676f9f8e929b20a3ff74e786995c91
+
+Cherry picks:
+
+   + 9d92e7189bd7996286cbc0b04ae5c3ef7894f23c:
+     Small tweaks to platform documentation. - Point platform rules
+     to the explanatory document which people should have read first.
+     - Update the left nav to include the word "Toolchains" - move
+     https://bazel.build/extending/platforms from Design Docs to
+     Concepts
+   + d5095dbfd320654298aaa1b412a7581b53792d3f:
+     "bazel config" output tests: skip noconfig.
+   + 923425002daae6f83cb0c6487cc3453b2dc89a43:
+     Automated rollback of commit
+     0fe4c36a7feb24444bc72731bf4839aa1ca926c6.
+```
+
+Incompatible changes:
+
+  - --experimental_build_transitive_python_runfiles is flipped to
+    false. See #16303 for details
+
+Important changes:
+
+  - Now that the host configuration is finished, `genrule` should
+    prefer the use of `tools` and stop using `exec_tools`.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Keith Smiley.
+
 ## Release 7.0.0-pre.20230118.2 (2023-01-26)
 
 ```
