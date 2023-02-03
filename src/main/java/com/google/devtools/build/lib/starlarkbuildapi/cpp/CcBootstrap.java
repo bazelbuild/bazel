@@ -41,7 +41,14 @@ public class CcBootstrap implements Bootstrap {
           ? extends FdoContextApi<?>,
           ? extends
               CcToolchainProviderApi<
-                  ? extends FeatureConfigurationApi, ?, ? extends FdoContextApi<?>>,
+                  ? extends FeatureConfigurationApi,
+                  ?,
+                  ? extends FdoContextApi<?>,
+                  ?,
+                  ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
+                  ?,
+                  ? extends CppConfigurationApi<?>,
+                  ?>,
           ? extends FeatureConfigurationApi,
           ? extends CcCompilationContextApi<? extends FileApi>,
           ? extends LtoBackendArtifactsApi<? extends FileApi>,
@@ -76,7 +83,14 @@ public class CcBootstrap implements Bootstrap {
               ? extends FdoContextApi<?>,
               ? extends
                   CcToolchainProviderApi<
-                      ? extends FeatureConfigurationApi, ?, ? extends FdoContextApi<?>>,
+                      ? extends FeatureConfigurationApi,
+                      ?,
+                      ? extends FdoContextApi<?>,
+                      ?,
+                      ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
+                      ?,
+                      ? extends CppConfigurationApi<?>,
+                      ?>,
               ? extends FeatureConfigurationApi,
               ? extends CcCompilationContextApi<? extends FileApi>,
               ? extends LtoBackendArtifactsApi<? extends FileApi>,

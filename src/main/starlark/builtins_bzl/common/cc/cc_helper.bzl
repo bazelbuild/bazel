@@ -729,12 +729,13 @@ def _lookup_var(ctx, additional_vars, var):
         return expanded_make_var_ctx
     fail("{}: {} not defined".format(ctx.label, "$(" + var + ")"))
 
-def _get_cc_flags_make_variable(ctx, common, cc_toolchain):
+def _get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain):
     original_cc_flags = cc_toolchain.legacy_cc_flags_make_variable()
     sysroot_cc_flag = ""
     if cc_toolchain.sysroot != None:
         sysroot_cc_flag = SYSROOT_FLAG + cc_toolchain.sysroot
-    feature_config_cc_flags = common.compute_cc_flags_from_feature_config(ctx = ctx, cc_toolchain = cc_toolchain)
+    build_vars = cc_toolchain.get_build_variables(ctx = ctx, cpp_configuration = ctx.fragments.cpp)
+    feature_config_cc_flags = cc_common.get_memory_inefficient_command_line(feature_configuration = feature_configuration, action_name = "cc-flags-make-variable", variables = build_vars)
     cc_flags = [original_cc_flags]
 
     # Only add sysroots flag if nothing else adds sysroot, BUT it must appear

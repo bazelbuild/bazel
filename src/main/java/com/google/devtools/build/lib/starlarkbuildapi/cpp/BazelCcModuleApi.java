@@ -40,7 +40,16 @@ public interface BazelCcModuleApi<
         FdoContextT extends FdoContextApi<?>,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT, ?, FdoContextT>,
+        CcToolchainProviderT extends
+            CcToolchainProviderApi<
+                    FeatureConfigurationT,
+                    ?,
+                    FdoContextT,
+                    ConstraintValueT,
+                    StarlarkRuleContextT,
+                    ?,
+                    ? extends CppConfigurationApi<?>,
+                    CcToolchainVariablesT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT>,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>,

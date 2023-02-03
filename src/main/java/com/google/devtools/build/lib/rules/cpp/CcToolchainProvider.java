@@ -23,6 +23,9 @@ import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -48,7 +51,14 @@ import net.starlark.java.eval.StarlarkThread;
 @Immutable
 public final class CcToolchainProvider extends NativeInfo
     implements CcToolchainProviderApi<
-            FeatureConfigurationForStarlark, BranchFdoProfile, FdoContext>,
+            FeatureConfigurationForStarlark,
+            BranchFdoProfile,
+            FdoContext,
+            ConstraintValueInfo,
+            StarlarkRuleContext,
+            InvalidConfigurationException,
+            CppConfiguration,
+            CcToolchainVariables>,
         HasCcToolchainLabel {
 
   public static final BuiltinProvider<CcToolchainProvider> PROVIDER =
@@ -746,6 +756,17 @@ public final class CcToolchainProvider extends NativeInfo
           additionalBuildVariablesComputer);
     }
     return buildVariables;
+  }
+
+  @Override
+  public CcToolchainVariables getBuildVariablesForStarlark(
+      StarlarkRuleContext starlarkRuleContext,
+      CppConfiguration cppConfiguration,
+      StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getBuildVariables(
+        starlarkRuleContext.getRuleContext().getConfiguration().getOptions(), cppConfiguration);
   }
 
   /**

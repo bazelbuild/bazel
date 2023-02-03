@@ -70,7 +70,6 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -1074,19 +1073,6 @@ public final class CcCommon implements StarlarkValue {
     }
 
     return sysrootFlag;
-  }
-
-  @StarlarkMethod(
-      name = "compute_cc_flags_from_feature_config",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true)
-      })
-  public List<String> computeCcFlagsFromFeatureConfigForStarlark(
-      StarlarkRuleContext starlarkRuleContext, CcToolchainProvider ccToolchain)
-      throws RuleErrorException {
-    return computeCcFlagsFromFeatureConfig(starlarkRuleContext.getRuleContext(), ccToolchain);
   }
 
   private static List<String> computeCcFlagsFromFeatureConfig(
