@@ -255,16 +255,21 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
       }
     }
 
+    private static boolean commandLinePriority(ParsedOptionDescription parsedOptionDescription) {
+      return parsedOptionDescription.getPriority().getPriorityCategory()
+          == OptionPriority.PriorityCategory.COMMAND_LINE;
+    }
+
     private CommandLineSection getExplicitCommandOptions() {
       List<ParsedOptionDescription> explicitOptions =
           commandOptions.asListOfExplicitOptions().stream()
-              .filter(
-                  parsedOptionDescription ->
-                      parsedOptionDescription.getPriority().getPriorityCategory()
-                          == OptionPriority.PriorityCategory.COMMAND_LINE)
+              .filter(OriginalCommandLineEvent::commandLinePriority)
               .collect(Collectors.toList());
       List<Option> starlarkOptions =
-          commandOptions.getStarlarkOptions().entrySet().stream()
+          commandOptions
+              .getExplicitStarlarkOptions(OriginalCommandLineEvent::commandLinePriority)
+              .entrySet()
+              .stream()
               .map(e -> createStarlarkOption(e.getKey(), e.getValue()))
               .collect(Collectors.toList());
       return CommandLineSection.newBuilder()
