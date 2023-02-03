@@ -95,9 +95,14 @@ final class RetainedHeapLimiter {
       return; // Do nothing if a crash is already in progress.
     }
 
-    if (event.wasManualGc() && !heapLimiterTriggeredGc.getAndSet(false)) {
-      // This was a manually triggered GC, but not from us earlier: short-circuit.
-      return;
+    boolean wasHeapLimiterTriggeredGc = false;
+    if (event.wasManualGc()) {
+      wasHeapLimiterTriggeredGc = heapLimiterTriggeredGc.getAndSet(false);
+      if (!wasHeapLimiterTriggeredGc) {
+        // This was a manually triggered GC, but not from us earlier: short-circuit.
+        logger.atInfo().log("Ignoring manual GC from other source");
+        return;
+      }
     }
 
     // Get a local reference to guard against concurrent modifications.
@@ -110,10 +115,13 @@ final class RetainedHeapLimiter {
 
     int actual = (int) ((event.tenuredSpaceUsedBytes() * 100L) / event.tenuredSpaceMaxBytes());
     if (actual < threshold) {
+      if (wasHeapLimiterTriggeredGc) {
+        logger.atInfo().log("Back under threshold (%s%% of tenured space)", actual);
+      }
       return;
     }
 
-    if (event.wasManualGc()) {
+    if (wasHeapLimiterTriggeredGc) {
       if (!throwingOom.getAndSet(true)) {
         // We got here from a GC initiated by the other branch.
         OutOfMemoryError oom =
@@ -130,17 +138,18 @@ final class RetainedHeapLimiter {
     } else if (clock.currentTimeMillis() - lastTriggeredGcMillis.get()
         > options.minTimeBetweenTriggeredGc.toMillis()) {
       logger.atInfo().log(
-          "Triggering a full GC with %s tenured space used out of a tenured space size of %s",
-          event.tenuredSpaceUsedBytes(), event.tenuredSpaceMaxBytes());
+          "Triggering a full GC (%s%% of tenured space after %s GC)",
+          actual, event.wasFullGc() ? "full" : "minor");
       heapLimiterTriggeredGc.set(true);
       // Force a full stop-the-world GC and see if it can get us below the threshold.
       System.gc();
       lastTriggeredGcMillis.set(clock.currentTimeMillis());
       loggedIgnoreWarningSinceLastGc.set(false);
-    } else if (!loggedIgnoreWarningSinceLastGc.getAndSet(true)) {
+    } else if (!loggedIgnoreWarningSinceLastGc.getAndSet(true) || event.wasFullGc()) {
       logger.atWarning().log(
-          "Ignoring possible GC thrashing (%s%% of tenured space) because of recently triggered GC",
-          actual);
+          "Ignoring possible GC thrashing (%s%% of tenured space after %s GC) because of recently"
+              + " triggered GC",
+          actual, event.wasFullGc() ? "full" : "minor");
     }
   }
 }

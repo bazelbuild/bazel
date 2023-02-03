@@ -119,6 +119,7 @@ final class MemoryPressureListener implements NotificationListener {
     MemoryPressureEvent event =
         MemoryPressureEvent.newBuilder()
             .setWasManualGc(gcInfo.getGcCause().equals("System.gc()"))
+            .setWasFullGc(GarbageCollectionMetricsUtils.isFullGc(gcInfo))
             .setTenuredSpaceUsedBytes(tenuredSpaceUsedBytes)
             .setTenuredSpaceMaxBytes(tenuredSpaceMaxBytes)
             .build();
