@@ -60,7 +60,7 @@ public final class AspectKeyCreator {
   }
 
   /** Common superclass for {@link AspectKey} and {@link TopLevelAspectsKey}. */
-  public abstract static class AspectBaseKey implements ActionLookupKey {
+  public abstract static class AspectBaseKey extends ActionLookupKey {
     private final ConfiguredTargetKey baseConfiguredTargetKey;
     private final int hashCode;
 

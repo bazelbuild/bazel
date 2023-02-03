@@ -64,7 +64,7 @@ public class ObjcProviderTest {
   @Test
   public void emptyProvider() {
     ObjcProvider empty = objcProviderBuilder().build();
-    assertThat(empty.get(ObjcProvider.SDK_DYLIB).toList()).isEmpty();
+    assertThat(empty.get(ObjcProvider.SOURCE).toList()).isEmpty();
   }
 
   @Test
@@ -122,10 +122,10 @@ public class ObjcProviderTest {
 
   @Test
   public void onlyPropagatesProvider() {
-    ObjcProvider onlyPropagates = objcProviderBuilder()
-        .add(ObjcProvider.SDK_DYLIB, "foo")
-        .build();
-    assertThat(onlyPropagates.get(ObjcProvider.SDK_DYLIB).toList()).containsExactly("foo");
+    Artifact artifact = createArtifact("/lib.a");
+    ObjcProvider onlyPropagates =
+        objcProviderBuilder().add(ObjcProvider.J2OBJC_LIBRARY, artifact).build();
+    assertThat(onlyPropagates.get(ObjcProvider.J2OBJC_LIBRARY).toList()).containsExactly(artifact);
   }
 
   @Test

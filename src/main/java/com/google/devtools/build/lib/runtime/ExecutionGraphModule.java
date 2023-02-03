@@ -13,14 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.ExecutionGraph;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.SharedActionEvent;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
@@ -201,7 +203,7 @@ public class ExecutionGraphModule extends BlazeModule {
 
     if (env.getCommand().builds()) {
       ExecutionGraphOptions options =
-          Preconditions.checkNotNull(
+          checkNotNull(
               env.getOptions().getOptions(ExecutionGraphOptions.class),
               "ExecutionGraphOptions must be present for ExecutionGraphModule");
       if (!options.executionGraphLogFile.isBlank()) {
@@ -315,6 +317,15 @@ public class ExecutionGraphModule extends BlazeModule {
     ActionDumpWriter localWriter = writer;
     if (localWriter != null) {
       localWriter.enqueue(action, nanosToMillis.toEpochMillis(nanoTimeStart));
+    }
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void actionShared(SharedActionEvent event) {
+    ActionDumpWriter localWriter = writer;
+    if (localWriter != null) {
+      localWriter.actionShared(event);
     }
   }
 
@@ -671,6 +682,28 @@ public class ExecutionGraphModule extends BlazeModule {
       }
     }
 
+    void actionShared(SharedActionEvent event) {
+      copySharedArtifacts(
+          event.getExecuted().getAllFileValues(), event.getTransformed().getAllFileValues());
+      copySharedArtifacts(
+          event.getExecuted().getAllTreeArtifactValues(),
+          event.getTransformed().getAllTreeArtifactValues());
+    }
+
+    private void copySharedArtifacts(Map<Artifact, ?> executed, Map<Artifact, ?> transformed) {
+      Streams.forEachPair(
+          executed.keySet().stream(),
+          transformed.keySet().stream(),
+          (existing, shared) -> {
+            NodeInfo node = outputToNode.get(existing);
+            if (node != null) {
+              outputToNode.put(shared, node);
+            } else {
+              bugReporter.logUnexpected("No node for %s (%s)", existing, existing.getOwner());
+            }
+          });
+    }
+
     protected abstract void updateLogs(BuildToolLogCollection logs);
 
     /** Test hook to allow injecting failures in tests. */
@@ -732,9 +765,9 @@ public class ExecutionGraphModule extends BlazeModule {
       throws InvalidPackagePathSymlinkException, ActionDumpFileCreationException {
     OptionsParsingResult parsingResult = env.getOptions();
     BuildEventProtocolOptions bepOptions =
-        Preconditions.checkNotNull(parsingResult.getOptions(BuildEventProtocolOptions.class));
+        checkNotNull(parsingResult.getOptions(BuildEventProtocolOptions.class));
     ExecutionGraphOptions executionGraphOptions =
-        Preconditions.checkNotNull(parsingResult.getOptions(ExecutionGraphOptions.class));
+        checkNotNull(parsingResult.getOptions(ExecutionGraphOptions.class));
     if (bepOptions.streamingLogFileUploads) {
       return new StreamingActionDumpWriter(
           env.getRuntime().getBugReporter(),

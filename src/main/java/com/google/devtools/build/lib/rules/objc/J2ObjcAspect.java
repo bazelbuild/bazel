@@ -99,7 +99,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       String defaultValue) {
     return LabelLateBoundDefault.fromTargetConfiguration(
         ProtoConfiguration.class,
-        Label.parseAbsoluteUnchecked(defaultValue),
+        Label.parseCanonicalUnchecked(defaultValue),
         (Resolver<ProtoConfiguration, Label> & Serializable)
             (rule, attributes, protoConfig) -> protoConfig.protoToolchainForJ2objc());
   }
@@ -155,13 +155,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .add(
             attr("$grep_includes", LABEL)
                 .cfg(ExecutionTransitionFactory.create())
-                .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/cpp:grep-includes")))
+                .value(
+                    Label.parseCanonicalUnchecked(toolsRepository + "//tools/cpp:grep-includes")))
         .add(
             attr("$j2objc", LABEL)
                 .cfg(ExecutionTransitionFactory.create("j2objc"))
                 .exec()
                 .value(
-                    Label.parseAbsoluteUnchecked(
+                    Label.parseCanonicalUnchecked(
                         toolsRepository + "//tools/j2objc:j2objc_deploy.jar")))
         .add(
             attr("$j2objc_wrapper", LABEL)
@@ -169,7 +170,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .exec()
                 .legacyAllowAnyFileType()
                 .value(
-                    Label.parseAbsoluteUnchecked(
+                    Label.parseCanonicalUnchecked(
                         toolsRepository + "//tools/j2objc:j2objc_wrapper_binary")))
         .add(
             attr("$j2objc_header_map", LABEL)
@@ -177,19 +178,19 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .exec()
                 .legacyAllowAnyFileType()
                 .value(
-                    Label.parseAbsoluteUnchecked(
+                    Label.parseCanonicalUnchecked(
                         toolsRepository + "//tools/j2objc:j2objc_header_map_binary")))
         .add(
             attr("$jre_emul_jar", LABEL)
                 .cfg(ExecutionTransitionFactory.create("j2objc"))
                 .value(
-                    Label.parseAbsoluteUnchecked(
+                    Label.parseCanonicalUnchecked(
                         toolsRepository + "//third_party/java/j2objc:jre_emul.jar")))
         .add(
             attr("$jre_emul_module", LABEL)
                 .cfg(ExecutionTransitionFactory.create("j2objc"))
                 .value(
-                    Label.parseAbsoluteUnchecked(
+                    Label.parseCanonicalUnchecked(
                         toolsRepository + "//third_party/java/j2objc:jre_emul_module")))
         .add(
             attr(":dead_code_report", LABEL)
@@ -198,13 +199,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .add(
             attr("$jre_lib", LABEL)
                 .value(
-                    Label.parseAbsoluteUnchecked(
+                    Label.parseCanonicalUnchecked(
                         toolsRepository + "//third_party/java/j2objc:jre_core_lib")))
         .add(
             attr("$xcrunwrapper", LABEL)
                 .cfg(ExecutionTransitionFactory.create())
                 .exec()
-                .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/objc:xcrunwrapper")))
+                .value(
+                    Label.parseCanonicalUnchecked(toolsRepository + "//tools/objc:xcrunwrapper")))
         .add(
             attr(XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, LABEL)
                 .allowedRuleClasses("xcode_config")
@@ -215,7 +217,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             attr("$zipper", LABEL)
                 .cfg(ExecutionTransitionFactory.create())
                 .exec()
-                .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/zip:zipper")))
+                .value(Label.parseCanonicalUnchecked(toolsRepository + "//tools/zip:zipper")))
         .add(
             attr(J2OBJC_PROTO_TOOLCHAIN_ATTR, LABEL)
                 .legacyAllowAnyFileType()

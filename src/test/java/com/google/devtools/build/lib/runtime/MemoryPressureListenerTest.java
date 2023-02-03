@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -26,6 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.common.options.Options;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import com.sun.management.GcInfo;
 import java.lang.management.GarbageCollectorMXBean;
@@ -73,17 +75,18 @@ public final class MemoryPressureListenerTest {
   @Test
   public void findBeans() {
     assertThat(
-        MemoryPressureListener.findTenuredCollectorBeans(
-            ImmutableList.of(mockUselessBean, mockBean)))
+            MemoryPressureListener.findTenuredCollectorBeans(
+                ImmutableList.of(mockUselessBean, mockBean)))
         .containsExactly(mockBean);
   }
 
   @Test
-  public void createFromBeans_returnsNullIfNoTenuredSpaceBean() {
-    assertThat(
+  public void createFromBeans_throwsIfNoTenuredSpaceBean() {
+    assertThrows(
+        IllegalStateException.class,
+        () ->
             MemoryPressureListener.createFromBeans(
-                ImmutableList.of(mockUselessBean), retainedHeapLimiter))
-        .isNull();
+                ImmutableList.of(mockUselessBean), retainedHeapLimiter));
   }
 
   @Test
@@ -261,7 +264,11 @@ public final class MemoryPressureListenerTest {
   }
 
   @Test
-  public void retainedHeapLimiter_aboveThreshold_handleCrash() {
+  public void retainedHeapLimiter_aboveThreshold_handleCrash() throws Exception {
+    MemoryPressureOptions options = Options.getDefaults(MemoryPressureOptions.class);
+    options.oomMoreEagerlyThreshold = 90;
+    retainedHeapLimiter.setOptions(options);
+
     MemoryPressureListener underTest =
         MemoryPressureListener.createFromBeans(
             ImmutableList.of(mockUselessBean, mockBean), retainedHeapLimiter);
@@ -273,7 +280,7 @@ public final class MemoryPressureListenerTest {
     String nonTenuredSpaceName = "nope";
     MemoryUsage mockMemoryUsageForNonTenuredSpace = mock(MemoryUsage.class);
     MemoryUsage mockMemoryUsageForTenuredSpace = mock(MemoryUsage.class);
-    when(mockMemoryUsageForTenuredSpace.getUsed()).thenReturn(101L);
+    when(mockMemoryUsageForTenuredSpace.getUsed()).thenReturn(99L);
     when(mockMemoryUsageForTenuredSpace.getMax()).thenReturn(100L);
     when(mockGcInfo.getMemoryUsageAfterGc())
         .thenReturn(
@@ -286,8 +293,8 @@ public final class MemoryPressureListenerTest {
     MemoryPressureEvent event =
         MemoryPressureEvent.newBuilder()
             .setWasManualGc(false)
-            .setTenuredSpaceUsedBytes(101L)
-            .setTenuredSpaceMaxBytes(100L)
+            .setTenuredSpaceUsedBytes(99)
+            .setTenuredSpaceMaxBytes(100)
             .build();
     Notification notification =
         new Notification(
@@ -302,8 +309,8 @@ public final class MemoryPressureListenerTest {
     MemoryPressureEvent manualGcEvent =
         MemoryPressureEvent.newBuilder()
             .setWasManualGc(true)
-            .setTenuredSpaceUsedBytes(101L)
-            .setTenuredSpaceMaxBytes(100L)
+            .setTenuredSpaceUsedBytes(99)
+            .setTenuredSpaceMaxBytes(100)
             .build();
     Notification manualGCNotification =
         new Notification(

@@ -1174,6 +1174,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
     UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 80);
+    stateTracker.setProgressSampleSize(4);
     // Mimic being at the execution phase.
     simulateExecutionPhase(stateTracker);
 
@@ -1185,7 +1186,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             labelFooTest,
             ImmutableList.of(),
             new Location("dummy-file", 0, 0),
-            "dummy-mnemonic",
+            "TestRunner",
             "dummy-target-kind",
             "abcdef",
             new BuildConfigurationEvent(
@@ -1198,15 +1199,12 @@ public class UiStateTrackerTest extends FoundationTestCase {
     Label labelBarTest = Label.parseCanonical("//baz:bartest");
     ConfiguredTarget targetBarTest = mock(ConfiguredTarget.class);
     when(targetBarTest.getLabel()).thenReturn(labelBarTest);
-    TestFilteringCompleteEvent filteringComplete = mock(TestFilteringCompleteEvent.class);
-    when(filteringComplete.getTestTargets())
-        .thenReturn(ImmutableSet.of(targetFooTest, targetBarTest));
     ActionOwner barOwner =
         ActionOwner.create(
             labelBarTest,
             ImmutableList.of(),
             new Location("dummy-file", 0, 0),
-            "dummy-mnemonic",
+            "TestRunner",
             "dummy-target-kind",
             "fedcba",
             new BuildConfigurationEvent(
@@ -1216,6 +1214,27 @@ public class UiStateTrackerTest extends FoundationTestCase {
             ImmutableMap.of(),
             null);
 
+    Label labelBazTest = Label.parseCanonical("//baz:baztest");
+    ConfiguredTarget targetBazTest = mock(ConfiguredTarget.class);
+    when(targetBazTest.getLabel()).thenReturn(labelBazTest);
+    ActionOwner bazOwner =
+        ActionOwner.create(
+            labelBazTest,
+            ImmutableList.of(),
+            new Location("dummy-file", 0, 0),
+            "NonTestAction",
+            "dummy-target-kind",
+            "fedcba",
+            new BuildConfigurationEvent(
+                BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+                BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
+            null,
+            ImmutableMap.of(),
+            null);
+
+    TestFilteringCompleteEvent filteringComplete = mock(TestFilteringCompleteEvent.class);
+    when(filteringComplete.getTestTargets())
+        .thenReturn(ImmutableSet.of(targetFooTest, targetBarTest, targetBazTest));
     stateTracker.testFilteringComplete(filteringComplete);
 
     // First produce 10 actions for footest...
@@ -1232,10 +1251,17 @@ public class UiStateTrackerTest extends FoundationTestCase {
       when(action.getOwner()).thenReturn(barOwner);
       stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     }
-    // ...and finally a completely unrelated action
+    // ...run a completely unrelated action..
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     stateTracker.actionStarted(
         new ActionStartedEvent(mockAction("Other action", "other/action"), clock.nanoTime()));
+    // ...and finally, run actions that are associated with baztest but are not a test.
+    for (int i = 0; i < 10; i++) {
+      clock.advanceMillis(1_000);
+      Action action = mockAction("Doing something " + i, "someartifact_" + i);
+      when(action.getOwner()).thenReturn(bazOwner);
+      stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
+    }
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
@@ -1251,6 +1277,8 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertWithMessage("Progress bar should contain 'Other action', but was:\n" + output)
         .that(output.contains("Other action"))
         .isTrue();
+    assertThat(output).doesNotContain("Testing //baz:baztest");
+    assertThat(output).contains("Doing something");
   }
 
   @Test

@@ -378,7 +378,7 @@ public final class StateMachineTest {
   }
 
   private static class StringOrExceptionProducer
-      extends ValueOrExceptionProducer.WithDriver<StringValue, SomeErrorException>
+      extends ValueOrExceptionProducer<StringValue, SomeErrorException>
       implements SkyKeyComputeState {
     @Override
     @Nullable
@@ -451,8 +451,7 @@ public final class StateMachineTest {
   }
 
   private static class StringOrException2Producer
-      extends ValueOrException2Producer.WithDriver<
-          StringValue, SomeErrorException, ExecutionException>
+      extends ValueOrException2Producer<StringValue, SomeErrorException, ExecutionException>
       implements SkyKeyComputeState {
     @Override
     public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {

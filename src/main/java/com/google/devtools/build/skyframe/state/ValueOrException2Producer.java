@@ -17,31 +17,30 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import javax.annotation.Nullable;
 
 /**
  * A state machine that outputs a value or one of two possible exceptions.
  *
+ * <p>This class serves as a bridge between a {@link StateMachine} and a {@link SkyFunction}.
+ *
  * <p>Subclasses should call {@link #setValue}, {@link #setException1} or {@link #setException2} to
  * emit results. An API is provided for clients to safely retrieve the result when complete.
  */
 public abstract class ValueOrException2Producer<V, E1 extends Exception, E2 extends Exception>
     implements StateMachine {
+  private final Driver driver = new Driver(this);
+
   private V value;
   private E1 exception1;
   private E2 exception2;
 
-  /** A variant for top-level state machines that require a driver. */
-  public abstract static class WithDriver<V, E1 extends Exception, E2 extends Exception>
-      extends ValueOrException2Producer<V, E1, E2> {
-    private final Driver driver = new Driver(this);
-
-    /* Delegates to {@link Driver#drive}. */
-    public final boolean drive(Environment env, ExtendedEventHandler listener)
-        throws InterruptedException {
-      return driver.drive(env, listener);
-    }
+  /** Delegates to {@link Driver#drive}. */
+  public final boolean drive(Environment env, ExtendedEventHandler listener)
+      throws InterruptedException {
+    return driver.drive(env, listener);
   }
 
   protected final void setValue(V value) {

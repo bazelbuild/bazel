@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration.Configuratio
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -1172,8 +1173,13 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
     getRuleType()
         .scratchTarget(scratch, "binary_type", "'executable'", "deps", "['//testlib:lib']");
 
-    ObjcProvider objcProvider = providerForTarget("//x:x");
+    ObjcProvider objcProvider = objcProviderForTarget("//x:x");
     assertThat(Artifact.toRootRelativePaths(objcProvider.get(ObjcProvider.LIBRARY)))
+        .contains("testlib/liblib.a");
+    CcLinkingContext ccLinkingContext = ccInfoForTarget("//x:x").getCcLinkingContext();
+    assertThat(
+            Artifact.toRootRelativePaths(
+                ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
         .contains("testlib/liblib.a");
   }
 

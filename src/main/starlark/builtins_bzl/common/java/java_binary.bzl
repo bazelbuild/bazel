@@ -225,6 +225,7 @@ def basic_java_binary(
         transitive_files = transitive_runfiles_artifacts,
         collect_default = True,
         symlinks = runfiles_symlinks,
+        skip_conflict_checking = True,
     )
 
     if launcher_info.launcher:

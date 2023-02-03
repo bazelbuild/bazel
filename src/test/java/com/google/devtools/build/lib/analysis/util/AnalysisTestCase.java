@@ -666,7 +666,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         targetsWithCounts.entrySet().stream()
             .collect(
                 toImmutableMap(
-                    entry -> Label.parseAbsoluteUnchecked(entry.getKey()), Map.Entry::getValue));
+                    entry -> Label.parseCanonicalUnchecked(entry.getKey()), Map.Entry::getValue));
     ImmutableMap<Label, Integer> actual =
         expected.keySet().stream().collect(toImmutableMap(label -> label, actualSet::count));
     assertThat(actual).containsExactlyEntriesIn(expected);

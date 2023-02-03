@@ -61,7 +61,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         "pkg/BUILD",
         ruleName + "(",
         "    name = 'foo',",
-        "    srcs_version = 'PY2',",
+        "    srcs_version = 'PY3',",
         "    srcs = ['foo.py'])");
     getConfiguredTarget("//pkg:foo");
     assertNoEvents();

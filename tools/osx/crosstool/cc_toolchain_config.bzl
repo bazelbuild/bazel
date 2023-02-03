@@ -245,8 +245,6 @@ def _impl(ctx):
         flag_sets = [
             flag_set(
                 flag_groups = [
-                    flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                    flag_group(flags = ["-target", target_system_name]),
                     flag_group(
                         flags = [
                             "-Xlinker",
@@ -257,6 +255,12 @@ def _impl(ctx):
                             "-ObjC",
                         ],
                     ),
+                ],
+                with_features = [with_feature_set(not_features = ["kernel_extension"])],
+            ),
+            flag_set(
+                flag_groups = [
+                    flag_group(flags = ["-target", target_system_name]),
                     flag_group(
                         flags = ["-l%{library_names}"],
                         iterate_over = "library_names",
@@ -287,7 +291,7 @@ def _impl(ctx):
         ],
         tools = [
             tool(
-                path = "wrapped_clang_pp",
+                path = "wrapped_clang",
                 execution_requirements = xcode_execution_requirements,
             ),
         ],

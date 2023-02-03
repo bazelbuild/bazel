@@ -43,6 +43,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 
 /** Helper functions for Starlark to access coverage-related infrastructure. */
 public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, StarlarkRuleContext> {
@@ -57,10 +58,15 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
       Dict<?, ?> environment, // <String, String>
       Object extensions,
       Sequence<?> metadataFiles, // Sequence<Artifact>
+      Object reportedToActualSourcesObject,
       StarlarkThread thread)
       throws EvalException, TypeException {
     List<String> extensionsList =
         extensions == Starlark.NONE ? null : Sequence.cast(extensions, String.class, "extensions");
+    NestedSet<Tuple> reportedToActualSources =
+        reportedToActualSourcesObject == Starlark.NONE
+            ? NestedSetBuilder.create(Order.STABLE_ORDER)
+            : Depset.cast(reportedToActualSourcesObject, Tuple.class, "reported_to_actual_sources");
     List<Pair<String, String>> environmentPairs =
         Dict.cast(environment, String.class, String.class, "coverage_environment")
             .entrySet()
@@ -97,7 +103,7 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
     if (!supportFilesBuilder.isEmpty() || !environmentPairs.isEmpty()) {
       BuiltinRestriction.throwIfNotBuiltinUsage(thread);
     }
-    if (!metadataFiles.isEmpty()) {
+    if (!metadataFiles.isEmpty() || !reportedToActualSources.isEmpty()) {
       BuiltinRestriction.throwIfNotBuiltinUsage(thread);
     }
     return createInstrumentedFilesInfo(
@@ -107,7 +113,8 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         supportFilesBuilder.build(),
         NestedSetBuilder.wrap(Order.COMPILE_ORDER, environmentPairs),
         extensionsList,
-        Sequence.cast(metadataFiles, Artifact.class, "metadata_files"));
+        Sequence.cast(metadataFiles, Artifact.class, "metadata_files"),
+        reportedToActualSources);
   }
 
   /**
@@ -136,7 +143,8 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         extensions,
-        null);
+        null,
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   private static InstrumentedFilesInfo createInstrumentedFilesInfo(
@@ -146,7 +154,8 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
       NestedSet<Artifact> supportFiles,
       NestedSet<Pair<String, String>> environment,
       @Nullable List<String> extensions,
-      @Nullable List<Artifact> metadataFiles) {
+      @Nullable List<Artifact> metadataFiles,
+      NestedSet<Tuple> reportedToActualSources) {
     FileTypeSet fileTypeSet = FileTypeSet.ANY_FILE;
     if (extensions != null) {
       if (extensions.isEmpty()) {
@@ -169,7 +178,7 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         /* coverageSupportFiles= */ supportFiles,
         /* coverageEnvironment= */ environment,
         /* withBaselineCoverage= */ !TargetUtils.isTestRule(ruleContext.getTarget()),
-        /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER),
+        /* reportedToActualSources= */ reportedToActualSources,
         /* additionalMetadata= */ metadataFiles);
   }
 

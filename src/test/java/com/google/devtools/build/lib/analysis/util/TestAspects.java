@@ -351,7 +351,7 @@ public class TestAspects {
     EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER = new ExtraAttributeAspectRequiringProvider();
   private static final AspectDefinition EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER_DEFINITION =
       new AspectDefinition.Builder(EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER)
-          .add(attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")))
+          .add(attr("$dep", LABEL).value(Label.parseCanonicalUnchecked("//extra:extra")))
           .requireProviders(RequiredProvider.class)
           .build();
 
@@ -376,7 +376,7 @@ public class TestAspects {
         String depLabel,
         boolean applyToFiles,
         Class<? extends TransitiveInfoProvider>... requiredAspectProviders) {
-      this.depLabel = Label.parseAbsoluteUnchecked(depLabel);
+      this.depLabel = Label.parseCanonicalUnchecked(depLabel);
       this.applyToFiles = applyToFiles;
       this.requiredAspectProviders = requiredAspectProviders;
     }
@@ -434,7 +434,7 @@ public class TestAspects {
       new AspectDefinition.Builder(PACKAGE_GROUP_ATTRIBUTE_ASPECT)
           .add(
               attr("$dep", LABEL)
-                  .value(Label.parseAbsoluteUnchecked("//extra:extra"))
+                  .value(Label.parseCanonicalUnchecked("//extra:extra"))
                   .mandatoryProviders(ImmutableList.of(PackageGroupConfiguredTarget.PROVIDER.id())))
           .build();
 
@@ -490,7 +490,7 @@ public class TestAspects {
           .add(
               attr("$tool", BuildType.LABEL)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
-                  .value(Label.parseAbsoluteUnchecked("//a:tool")))
+                  .value(Label.parseCanonicalUnchecked("//a:tool")))
           .build();
 
   /**
@@ -973,7 +973,7 @@ public class TestAspects {
               .factory(DummyRuleFactory.class)
               .define(
                   "implicit_dep",
-                  attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")));
+                  attr("$dep", LABEL).value(Label.parseCanonicalUnchecked("//extra:extra")));
 
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
   private static final LabelListLateBoundDefault<?> PLUGINS_LABEL_LIST =

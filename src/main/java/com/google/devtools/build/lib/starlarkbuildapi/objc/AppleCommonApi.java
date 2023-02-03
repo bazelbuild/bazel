@@ -268,6 +268,7 @@ public interface AppleCommonApi<
             name = "objc",
             named = true,
             positional = false,
+            defaultValue = "None",
             doc =
                 "An ObjcProvider which contains information about the transitive "
                     + "dependencies linked into the binary."),
@@ -295,13 +296,15 @@ public interface AppleCommonApi<
             doc =
                 "The full set of artifacts that should be included as inputs to link against the "
                     + "dynamic framework")
-      })
+      },
+      useStarlarkThread = true)
   AppleDynamicFrameworkInfoApi<?> newDynamicFrameworkProvider(
       Object dylibBinary,
       Object depsCcInfo,
-      ObjcProviderApiT depsObjcProvider,
+      Object depsObjcProvider,
       Object dynamicFrameworkDirs,
-      Object dynamicFrameworkFiles)
+      Object dynamicFrameworkFiles,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -330,12 +333,14 @@ public interface AppleCommonApi<
             name = "objc",
             named = true,
             positional = false,
+            defaultValue = "None",
             doc =
                 "An ObjcProvider which contains information about the transitive "
                     + "dependencies linked into the binary.")
-      })
+      },
+      useStarlarkThread = true)
   AppleExecutableBinaryApi newExecutableBinaryProvider(
-      Object executableBinary, Object depsCcInfo, ObjcProviderApiT depsObjcProvider)
+      Object executableBinary, Object depsCcInfo, Object depsObjcProvider, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(

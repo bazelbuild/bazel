@@ -70,13 +70,13 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Tuple;
 
 /** Common parts of the implementation of cc rules. */
 public final class CcCommon implements StarlarkValue {
@@ -158,8 +158,7 @@ public final class CcCommon implements StarlarkValue {
           CppActionNames.OBJC_COMPILE,
           CppActionNames.OBJCPP_COMPILE,
           CppActionNames.OBJC_FULLY_LINK,
-          CppActionNames.OBJC_EXECUTABLE,
-          CppActionNames.OBJCPP_EXECUTABLE);
+          CppActionNames.OBJC_EXECUTABLE);
 
   /** An enum for the list of supported languages. */
   public enum Language {
@@ -225,11 +224,6 @@ public final class CcCommon implements StarlarkValue {
           entryOutputGroupBuilder.getKey(), entryOutputGroupBuilder.getValue().build());
     }
     return mergedOutputGroups;
-  }
-
-  @StarlarkMethod(name = "linkopts", structField = true, documented = false)
-  public Sequence<String> getLinkoptsForStarlark() {
-    return StarlarkList.immutableCopyOf(getLinkopts());
   }
 
   /**
@@ -532,11 +526,6 @@ public final class CcCommon implements StarlarkValue {
     return getDefinesFromAttribute(DEFINES_ATTRIBUTE);
   }
 
-  @StarlarkMethod(name = "defines", structField = true, documented = false)
-  public Sequence<String> getDefinesForStarlark() {
-    return StarlarkList.immutableCopyOf(getDefines());
-  }
-
   /**
    * Returns a list of define tokens from "local_defines" attribute.
    *
@@ -547,11 +536,6 @@ public final class CcCommon implements StarlarkValue {
    */
   public List<String> getNonTransitiveDefines() {
     return getDefinesFromAttribute(LOCAL_DEFINES_ATTRIBUTE);
-  }
-
-  @StarlarkMethod(name = "local_defines", structField = true, documented = false)
-  public Sequence<String> getLocalDefinesForStarlark() {
-    return StarlarkList.immutableCopyOf(getNonTransitiveDefines());
   }
 
   private List<String> getDefinesFromAttribute(String attr) {
@@ -745,11 +729,6 @@ public final class CcCommon implements StarlarkValue {
         /* prefixConsumer= */ true);
   }
 
-  @StarlarkMethod(name = "linker_scripts", structField = true, documented = false)
-  public Sequence<Artifact> getLinkerScriptsForStarlark() {
-    return StarlarkList.immutableCopyOf(getLinkerScripts());
-  }
-
   /** Returns any linker scripts found in the "deps" attribute of the rule. */
   List<Artifact> getLinkerScripts() {
     return ruleContext.getPrerequisiteArtifacts("deps").filter(CppFileTypes.LINKER_SCRIPT).list();
@@ -777,41 +756,10 @@ public final class CcCommon implements StarlarkValue {
     return ruleContext.getPrerequisiteArtifact("$def_parser");
   }
 
-  @StarlarkMethod(
-      name = "instrumented_files_info_from_compilation_context",
-      documented = false,
-      parameters = {
-        @Param(name = "files", positional = false, named = true),
-        @Param(name = "with_base_line_coverage", positional = false, named = true),
-        @Param(name = "compilation_context", positional = false, named = true),
-        @Param(name = "additional_metadata", positional = false, named = true),
-      })
-  public InstrumentedFilesInfo getInstrumentedFilesProviderFromCompilationContextForStarlark(
-      Sequence<?> files,
-      boolean withBaselineCoverage,
-      Object compilationContext,
-      Sequence<?> additionalMetadata)
-      throws EvalException {
-    try {
-      CcCompilationContext ccCompilationContext = (CcCompilationContext) compilationContext;
-      Sequence<Artifact> metadata =
-          additionalMetadata == null
-              ? null
-              : Sequence.cast(additionalMetadata, Artifact.class, "files");
-      return getInstrumentedFilesProvider(
-          Sequence.cast(files, Artifact.class, "files"),
-          withBaselineCoverage,
-          ccCompilationContext.getVirtualToOriginalHeaders(),
-          metadata);
-    } catch (RuleErrorException e) {
-      throw new EvalException(e);
-    }
-  }
-
   public InstrumentedFilesInfo getInstrumentedFilesProvider(
       Iterable<Artifact> files,
       boolean withBaselineCoverage,
-      NestedSet<Pair<String, String>> virtualToOriginalHeaders,
+      NestedSet<Tuple> virtualToOriginalHeaders,
       @Nullable Iterable<Artifact> additionalMetadata)
       throws RuleErrorException {
     return InstrumentedFilesCollector.collect(
@@ -1125,19 +1073,6 @@ public final class CcCommon implements StarlarkValue {
     }
 
     return sysrootFlag;
-  }
-
-  @StarlarkMethod(
-      name = "compute_cc_flags_from_feature_config",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true)
-      })
-  public List<String> computeCcFlagsFromFeatureConfigForStarlark(
-      StarlarkRuleContext starlarkRuleContext, CcToolchainProvider ccToolchain)
-      throws RuleErrorException {
-    return computeCcFlagsFromFeatureConfig(starlarkRuleContext.getRuleContext(), ccToolchain);
   }
 
   private static List<String> computeCcFlagsFromFeatureConfig(

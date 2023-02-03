@@ -57,6 +57,11 @@ constraint_value(
 
 cc_toolchain_alias(name = "current_cc_toolchain")
 
+cc_toolchain_alias(
+    name = "optional_current_cc_toolchain",
+    mandatory = False,
+)
+
 cc_host_toolchain_alias(name = "current_cc_host_toolchain")
 
 cc_libc_top_alias(name = "current_libc_top")

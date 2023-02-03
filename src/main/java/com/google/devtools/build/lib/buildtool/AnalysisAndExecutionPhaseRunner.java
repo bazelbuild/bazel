@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
+import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -78,10 +79,15 @@ public final class AnalysisAndExecutionPhaseRunner {
       BuildOptions buildOptions,
       TargetPatternPhaseValue loadingResult,
       ExecutionSetup executionSetupCallback,
-      BuildConfigurationsCreated buildConfigurationCreatedCallback)
-      throws BuildFailedException, InterruptedException, ViewCreationFailedException,
-          TargetParsingException, LoadingFailedException, AbruptExitException,
-          InvalidConfigurationException, TestExecException, RepositoryMappingResolutionException {
+      BuildConfigurationsCreated buildConfigurationCreatedCallback,
+      BuildDriverKeyTestContext buildDriverKeyTestContext)
+      throws BuildFailedException,
+          InterruptedException,
+          ViewCreationFailedException,
+          AbruptExitException,
+          InvalidConfigurationException,
+          TestExecException,
+          RepositoryMappingResolutionException {
 
     // Compute the heuristic instrumentation filter if needed.
     if (request.needsInstrumentationFilter()) {
@@ -133,7 +139,8 @@ public final class AnalysisAndExecutionPhaseRunner {
                 loadingResult,
                 buildOptions,
                 executionSetupCallback,
-                buildConfigurationCreatedCallback);
+                buildConfigurationCreatedCallback,
+                buildDriverKeyTestContext);
       }
 
       BuildResultListener buildResultListener = env.getBuildResultListener();
@@ -200,9 +207,14 @@ public final class AnalysisAndExecutionPhaseRunner {
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
       ExecutionSetup executionSetupCallback,
-      BuildConfigurationsCreated buildConfigurationCreatedCallback)
-      throws InterruptedException, InvalidConfigurationException, ViewCreationFailedException,
-          BuildFailedException, TestExecException, RepositoryMappingResolutionException,
+      BuildConfigurationsCreated buildConfigurationCreatedCallback,
+      BuildDriverKeyTestContext buildDriverKeyTestContext)
+      throws InterruptedException,
+          InvalidConfigurationException,
+          ViewCreationFailedException,
+          BuildFailedException,
+          TestExecException,
+          RepositoryMappingResolutionException,
           AbruptExitException {
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
 
@@ -240,7 +252,8 @@ public final class AnalysisAndExecutionPhaseRunner {
             env.getLocalResourceManager(),
             env.getBuildResultListener(),
             executionSetupCallback,
-            buildConfigurationCreatedCallback);
+            buildConfigurationCreatedCallback,
+            buildDriverKeyTestContext);
   }
 
   /**

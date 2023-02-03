@@ -32,6 +32,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
+import com.google.devtools.build.lib.concurrent.ComparableRunnable;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -181,7 +182,7 @@ abstract class AbstractParallelEvaluator {
    * <p>This is not applicable when using a {@link ForkJoinPool}, since it does not allow for easy
    * work prioritization.
    */
-  private final class Evaluate implements ParallelEvaluatorContext.ComparableRunnable {
+  private final class Evaluate implements ComparableRunnable {
     private final SkyKey skyKey;
     private final int evaluationPriority;
 
@@ -191,7 +192,7 @@ abstract class AbstractParallelEvaluator {
     }
 
     @Override
-    public int compareTo(ParallelEvaluatorContext.ComparableRunnable other) {
+    public int compareTo(ComparableRunnable other) {
       // Put other one first, so larger values come first in priority queue.
       return Integer.compare(((Evaluate) other).evaluationPriority, this.evaluationPriority);
     }
@@ -1088,6 +1089,8 @@ abstract class AbstractParallelEvaluator {
     NodeBatch previouslyRegisteredEntries =
         graph.getBatch(skyKey, Reason.SIGNAL_DEP, previouslyRegisteredNewDeps);
     for (SkyKey newDep : previouslyRegisteredNewDeps) {
+      // We choose not to use `getOrRecreateDepEntry(...)` due to there is no use case where nodes
+      // are expected to be missing on incremental builds (which this loop is specific to).
       NodeEntry depEntry =
           checkNotNull(
               previouslyRegisteredEntries.get(newDep),
@@ -1108,14 +1111,9 @@ abstract class AbstractParallelEvaluator {
     }
 
     for (SkyKey newDep : newlyAddedNewDeps) {
-      // TODO(b/261019506): When heuristically dropping node is enabled, declared dep might be
-      //  missing and the check below will fail leading to blaze crash.
       NodeEntry depEntry =
-          checkNotNull(
-              newlyAddedNewDepNodes.get().get(newDep),
-              "Missing already declared dep %s (parent=%s)",
-              newDep,
-              skyKey);
+          getOrRecreateDepEntry(newDep, newlyAddedNewDepNodes.get(), skyKey, Reason.RDEP_ADDITION);
+
       DependencyState triState = depEntry.addReverseDepAndCheckIfDone(skyKey);
       switch (maybeHandleUndoneDepForDoneEntry(entry, depEntry, triState, skyKey, newDep)) {
         case DEP_DONE_SELF_SIGNALLED:
@@ -1138,6 +1136,29 @@ abstract class AbstractParallelEvaluator {
         previouslyRegisteredNewDeps);
 
     return !selfSignalled;
+  }
+
+  /**
+   * Returns a {@link NodeEntry} for {@code depKey}.
+   *
+   * <p>If {@code depKey} is present in {@code depEntries}, its corresponding entry is returned.
+   * Otherwise, if the evaluator permits {@link Inconsistency#ALREADY_DECLARED_CHILD_MISSING}, the
+   * entry will be recreated.
+   */
+  private NodeEntry getOrRecreateDepEntry(
+      SkyKey depKey, NodeBatch depEntries, SkyKey requestor, Reason reason)
+      throws InterruptedException {
+    NodeEntry depEntry = depEntries.get(depKey);
+    if (depEntry != null) {
+      return depEntry;
+    }
+
+    ImmutableList<SkyKey> missing = ImmutableList.of(depKey);
+    evaluatorContext
+        .getGraphInconsistencyReceiver()
+        .noteInconsistencyAndMaybeThrow(
+            requestor, missing, Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
+    return checkNotNull(graph.createIfAbsentBatch(requestor, reason, missing).get(depKey), depKey);
   }
 
   private enum MaybeHandleUndoneDepResult {

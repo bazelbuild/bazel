@@ -66,6 +66,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Tuple;
 
 /**
  * A class to create C/C++ compile actions in a way that is consistent with cc_library. Rules that
@@ -921,13 +922,13 @@ public final class CcCompilationHelper {
     private final ImmutableList<Artifact> headers;
     private final ImmutableList<Artifact> moduleMapHeaders;
     private final @Nullable PathFragment virtualIncludePath;
-    private final NestedSet<Pair<String, String>> virtualToOriginalHeaders;
+    private final NestedSet<Tuple> virtualToOriginalHeaders;
 
     private PublicHeaders(
         ImmutableList<Artifact> headers,
         ImmutableList<Artifact> moduleMapHeaders,
         PathFragment virtualIncludePath,
-        NestedSet<Pair<String, String>> virtualToOriginalHeaders) {
+        NestedSet<Tuple> virtualToOriginalHeaders) {
       this.headers = headers;
       this.moduleMapHeaders = moduleMapHeaders;
       this.virtualIncludePath = virtualIncludePath;
@@ -995,8 +996,7 @@ public final class CcCompilationHelper {
     }
 
     ImmutableList.Builder<Artifact> moduleHeadersBuilder = ImmutableList.builder();
-    NestedSetBuilder<Pair<String, String>> virtualToOriginalHeaders =
-        NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Tuple> virtualToOriginalHeaders = NestedSetBuilder.stableOrder();
     for (Artifact originalHeader : headers) {
       if (!originalHeader.getRepositoryRelativePath().startsWith(stripPrefix)) {
         ruleErrorConsumer.ruleError(
@@ -1027,7 +1027,7 @@ public final class CcCompilationHelper {
         moduleHeadersBuilder.add(virtualHeader);
         if (configuration.isCodeCoverageEnabled()) {
           virtualToOriginalHeaders.add(
-              Pair.of(virtualHeader.getExecPathString(), originalHeader.getExecPathString()));
+              Tuple.of(virtualHeader.getExecPathString(), originalHeader.getExecPathString()));
         }
       }
 
@@ -1442,7 +1442,7 @@ public final class CcCompilationHelper {
 
     if (shouldProvideHeaderModules()) {
       CppModuleMap cppModuleMap = ccCompilationContext.getCppModuleMap();
-      Label moduleMapLabel = Label.parseAbsoluteUnchecked(cppModuleMap.getName());
+      Label moduleMapLabel = Label.parseCanonicalUnchecked(cppModuleMap.getName());
       Collection<Artifact> modules = createModuleAction(result, cppModuleMap);
       Collection<Artifact> separateModules = ImmutableList.of();
       if (!separateModuleHeaders.isEmpty()) {
@@ -1915,7 +1915,7 @@ public final class CcCompilationHelper {
     CppCompileActionBuilder builder = initializeCompileAction(moduleMapArtifact);
 
     builder.setSemantics(semantics);
-    Label label = Label.parseAbsoluteUnchecked(cppModuleMap.getName());
+    Label label = Label.parseCanonicalUnchecked(cppModuleMap.getName());
 
     // A header module compile action is just like a normal compile action, but:
     // - the compiled source file is the module map

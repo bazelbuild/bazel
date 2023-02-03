@@ -145,14 +145,6 @@ EOF
   # Starlark rule implementation to run an action, which then tries to run
   # remotely, but network access is disabled by default, so it times out.
 
-  # The upcoming Starlark implementation doesn't support this behavior.
-  # This feature is planned for removal.
-  # See https://github.com/bazelbuild/bazel/issues/16303
-  if [[ "$PRODUCT_NAME" == "bazel" ]]; then
-    bazel build --experimental_build_transitive_python_runfiles --nostamp :sh-tool
-    [ -d "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree not built"
-    bazel clean
-  fi
   bazel build --noexperimental_build_transitive_python_runfiles --nostamp :sh-tool
   [ ! -e "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree built"
 }

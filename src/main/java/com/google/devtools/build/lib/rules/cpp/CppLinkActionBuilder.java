@@ -531,7 +531,6 @@ public class CppLinkActionBuilder {
             || featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS));
       case EXECUTABLE:
       case OBJC_EXECUTABLE:
-      case OBJCPP_EXECUTABLE:
         return true;
       case STATIC_LIBRARY:
       case PIC_STATIC_LIBRARY:

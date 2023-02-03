@@ -460,12 +460,6 @@ function maybe_setup_python_windows_tools() {
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 
 py_runtime(
-  name = "py2_runtime",
-  interpreter_path = r"C:\Python2\python.exe",
-  python_version = "PY2",
-)
-
-py_runtime(
   name = "py3_runtime",
   interpreter_path = r"C:\Python3\python.exe",
   python_version = "PY3",
@@ -473,7 +467,6 @@ py_runtime(
 
 py_runtime_pair(
   name = "py_runtime_pair",
-  py2_runtime = ":py2_runtime",
   py3_runtime = ":py3_runtime",
 )
 
@@ -764,10 +757,8 @@ function use_fake_python_runtimes_for_testsuite() {
   # The stub script template automatically appends ".exe" to the Python binary
   # name if it doesn't already end in ".exe", ".com", or ".bat".
   if [[ $PLATFORM =~ msys ]]; then
-    PYTHON2_FILENAME="python2.bat"
     PYTHON3_FILENAME="python3.bat"
   else
-    PYTHON2_FILENAME="python2.sh"
     PYTHON3_FILENAME="python3.sh"
   fi
 
@@ -786,12 +777,6 @@ sh_binary(
 )
 
 py_runtime(
-    name = "fake_py2_interpreter",
-    interpreter = ":${PYTHON2_FILENAME}",
-    python_version = "PY2",
-)
-
-py_runtime(
     name = "fake_py3_interpreter",
     interpreter = ":${PYTHON3_FILENAME}",
     python_version = "PY3",
@@ -799,7 +784,6 @@ py_runtime(
 
 py_runtime_pair(
     name = "fake_py_runtime_pair",
-    py2_runtime = ":fake_py2_interpreter",
     py3_runtime = ":fake_py3_interpreter",
 )
 
@@ -812,21 +796,14 @@ EOF
 
   # Windows .bat has uppercase ECHO and no shebang.
   if [[ $PLATFORM =~ msys ]]; then
-    cat > tools/python/$PYTHON2_FILENAME << EOF
-@ECHO I am Python 2
-EOF
     cat > tools/python/$PYTHON3_FILENAME << EOF
 @ECHO I am Python 3
 EOF
   else
-    cat > tools/python/$PYTHON2_FILENAME << EOF
-#!/bin/sh
-echo 'I am Python 2'
-EOF
     cat > tools/python/$PYTHON3_FILENAME << EOF
 #!/bin/sh
 echo 'I am Python 3'
 EOF
-    chmod +x tools/python/$PYTHON2_FILENAME tools/python/$PYTHON3_FILENAME
+    chmod +x tools/python/$PYTHON3_FILENAME
   fi
 }

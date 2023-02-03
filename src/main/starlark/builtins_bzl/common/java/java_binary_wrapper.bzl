@@ -51,7 +51,8 @@ def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_cu
             deploy_jar_args["testonly"] = True
 
         # Do not let the deploy jar be matched by wildcard target patterns.
-        deploy_jar_args.setdefault("tags", [])
+        if "tags" not in deploy_jar_args or not deploy_jar_args["tags"]:
+            deploy_jar_args["tags"] = []
         if "manual" not in deploy_jar_args["tags"]:
             tags = []
             tags.extend(deploy_jar_args["tags"])

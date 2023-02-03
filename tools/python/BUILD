@@ -32,8 +32,8 @@ py_test(
     name = "pywrapper_test",
     srcs = ["pywrapper_test.py"],
     data = [
-        ":py2wrapper.sh",
-        ":py2wrapper_nonstrict.sh",
+        ":py3wrapper.sh",
+        ":py3wrapper_nonstrict.sh",
     ],
     deps = ["//src/test/py/bazel:test_base"],
 )

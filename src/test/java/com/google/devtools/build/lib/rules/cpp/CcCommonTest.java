@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -282,6 +283,24 @@ public class CcCommonTest extends BuildViewTestCase {
             "           defines = ['FOO=$(location //data)'])");
     assertThat(expandedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
         .containsExactly("FOO=data/data.txt");
+  }
+
+  @Test
+  public void testExpandedDefinesDuplicateTargets() throws Exception {
+    scratch.file("data/BUILD", "cc_library(name = 'a', srcs = ['foo.cc'])");
+    ConfiguredTarget expandedDefines =
+        scratchConfiguredTarget(
+            "expanded_defines",
+            "expand_srcs",
+            "cc_library(name = 'expand_srcs',",
+            "           srcs = ['defines.cc'],",
+            "           data = ['//data:a'],",
+            "           deps = ['//data:a'],",
+            "           defines = ['FOO=$(location //data:a)'])");
+    String depPath =
+        getFilesToBuild(getConfiguredTarget("//data:a")).getSingleton().getExecPathString();
+    assertThat(expandedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+        .containsExactly(String.format("FOO=%s", depPath));
   }
 
   @Test
@@ -696,7 +715,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "badlib",
         "lib_with_dash_static",
         // message:
-        "in linkopts attribute of cc_library rule //badlib:lib_with_dash_static: "
+        "in linkopts attribute of cc_library rule @//badlib:lib_with_dash_static: "
             + "Apple builds do not support statically linked binaries",
         // build file:
         "cc_library(name = 'lib_with_dash_static',",
@@ -807,6 +826,21 @@ public class CcCommonTest extends BuildViewTestCase {
                     .getGenfilesDirectory(RepositoryName.MAIN)
                     .getExecPath()
                     .getPathString()));
+  }
+
+  @Test
+  public void testExpandedEnv() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "genrule(name = 'linker', cmd='generate', outs=['a.lds'])",
+        "cc_test(",
+        "    name='bin_test',",
+        "    srcs=['b.cc'],",
+        "    env={'SOME_KEY': '-Wl,@$(location a.lds)'},",
+        "    deps=['a.lds'])");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//a:bin_test");
+    RunEnvironmentInfo provider = starlarkTarget.get(RunEnvironmentInfo.PROVIDER);
+    assertThat(provider.getEnvironment()).containsEntry("SOME_KEY", "-Wl,@a/a.lds");
   }
 
   @Test

@@ -152,27 +152,27 @@ public class ConfigSettingTest extends BuildViewTestCase {
     // Subpackage of the tools package.
     assertThat(
             ConfigSetting.isUnderToolsPackage(
-                Label.parseAbsoluteUnchecked("@tools//tools/subpkg:foo"), toolsRepo))
+                Label.parseCanonicalUnchecked("@tools//tools/subpkg:foo"), toolsRepo))
         .isTrue();
     // The tools package itself.
     assertThat(
             ConfigSetting.isUnderToolsPackage(
-                Label.parseAbsoluteUnchecked("@tools//tools:foo"), toolsRepo))
+                Label.parseCanonicalUnchecked("@tools//tools:foo"), toolsRepo))
         .isTrue();
     // The tools repo, but wrong package.
     assertThat(
             ConfigSetting.isUnderToolsPackage(
-                Label.parseAbsoluteUnchecked("@tools//nottools:foo"), toolsRepo))
+                Label.parseCanonicalUnchecked("@tools//nottools:foo"), toolsRepo))
         .isFalse();
     // Not even the tools repo.
     assertThat(
             ConfigSetting.isUnderToolsPackage(
-                Label.parseAbsoluteUnchecked("@nottools//nottools:foo"), toolsRepo))
+                Label.parseCanonicalUnchecked("@nottools//nottools:foo"), toolsRepo))
         .isFalse();
     // A tools package but in the wrong repo.
     assertThat(
             ConfigSetting.isUnderToolsPackage(
-                Label.parseAbsoluteUnchecked("@nottools//tools:foo"), toolsRepo))
+                Label.parseCanonicalUnchecked("@nottools//tools:foo"), toolsRepo))
         .isFalse();
   }
 

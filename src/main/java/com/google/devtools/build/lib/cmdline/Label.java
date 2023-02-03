@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.cmdline.LabelParser.validateAndProce
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.docgen.annot.DocCategory;
@@ -128,6 +127,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
         PackageIdentifier.create(repoName, PathFragment.create(parts.pkg)), parts.target);
   }
 
+  /** Like {@link #parseCanonical}, but throws an unchecked exception instead. */
   public static Label parseCanonicalUnchecked(String raw) {
     try {
       return parseCanonical(raw);
@@ -186,56 +186,6 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     PathFragment pkgFragment =
         parts.pkgIsAbsolute ? PathFragment.create(parts.pkg) : packageContext.packageFragment();
     return createUnvalidated(PackageIdentifier.create(repoName, pkgFragment), parts.target);
-  }
-
-  /**
-   * Factory for Labels from absolute string form. e.g.
-   *
-   * <pre>
-   * //foo/bar
-   * //foo/bar:quux
-   * {@literal @}foo
-   * {@literal @}foo//bar
-   * {@literal @}foo//bar:baz
-   * </pre>
-   *
-   * <p>Labels that don't begin with a repository name are considered to be in the main repository,
-   * so for instance {@code //foo/bar} will turn into {@code @//foo/bar}.
-   *
-   * <p>Labels that begin with a repository name will undergo {@code repositoryMapping}.
-   *
-   * @param absName label-like string to be parsed
-   * @param repositoryMapping map of repository names from the local name found in the current
-   *     repository to the global name declared in the main repository
-   */
-  // TODO(b/200024947): Remove this.
-  public static Label parseAbsolute(String absName, RepositoryMapping repositoryMapping)
-      throws LabelSyntaxException {
-    Preconditions.checkNotNull(repositoryMapping);
-    return parseWithRepoContext(absName, RepoContext.of(RepositoryName.MAIN, repositoryMapping));
-  }
-
-  // TODO(b/200024947): Remove this.
-  public static Label parseAbsolute(
-      String absName, ImmutableMap<String, RepositoryName> repositoryMapping)
-      throws LabelSyntaxException {
-    return parseAbsolute(absName, RepositoryMapping.createAllowingFallback(repositoryMapping));
-  }
-
-  /**
-   * Alternate factory method for Labels from absolute strings. This is a convenience method for
-   * cases when a Label needs to be initialized statically, so the declared exception is
-   * inconvenient.
-   *
-   * <p>Do not use this when the argument is not hard-wired.
-   */
-  // TODO(b/200024947): Remove this.
-  public static Label parseAbsoluteUnchecked(String absName) {
-    try {
-      return parseCanonical(absName);
-    } catch (LabelSyntaxException e) {
-      throw new IllegalArgumentException(e);
-    }
   }
 
   /**
@@ -474,8 +424,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   }
 
   /**
-   * Resolves a relative or absolute label name. If given name is absolute, then this method calls
-   * {@link #parseAbsolute}. Otherwise, it calls {@link #getLocalTargetLabel}.
+   * Resolves a relative or absolute label name.
    *
    * <p>For example: {@code :quux} relative to {@code //foo/bar:baz} is {@code //foo/bar:quux};
    * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux}.

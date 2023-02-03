@@ -126,20 +126,20 @@ distdir_tar(
     archives = [
         "android_tools_pkg-0.27.0.tar.gz",
         # for android_gmaven_r8
-        "r8-3.3.28.jar",
+        "r8-4.0.48.jar",
     ],
     dirname = "derived/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "additional_distfiles" in attrs["used_in"]},
     sha256 = {
         "android_tools_pkg-0.27.0.tar.gz": "1afa4b7e13c82523c8b69e87f8d598c891ec7e2baa41d9e24e08becd723edb4d",
-        "r8-3.3.28.jar": "8626ca32fb47aba7fddd2c897615e2e8ffcdb4d4b213572a2aefb3f838f01972",
+        "r8-4.0.48.jar": "f77d9a9ebda9e32092eac4dd8e11644a7362dfa60ed6a3a9d0d32de570bbf524",
     },
     urls = {
         "android_tools_pkg-0.27.0.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.0.tar.gz",
         ],
-        "r8-3.3.28.jar": [
-            "https://maven.google.com/com/android/tools/r8/3.3.28/r8-3.3.28.jar",
+        "r8-4.0.48.jar": [
+            "https://maven.google.com/com/android/tools/r8/4.0.48/r8-4.0.48.jar",
         ],
     },
 )
@@ -290,20 +290,20 @@ distdir_tar(
     name = "test_WORKSPACE_files",
     archives = [
         "android_tools_pkg-0.27.0.tar.gz",
-        "r8-3.3.28.jar",
+        "r8-4.0.48.jar",
     ],
     dirname = "test_WORKSPACE/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "test_WORKSPACE_files" in attrs["used_in"]},
     sha256 = {
         "android_tools_pkg-0.27.0.tar.gz": "1afa4b7e13c82523c8b69e87f8d598c891ec7e2baa41d9e24e08becd723edb4d",
-        "r8-3.3.28.jar": "8626ca32fb47aba7fddd2c897615e2e8ffcdb4d4b213572a2aefb3f838f01972",
+        "r8-4.0.48.jar": "f77d9a9ebda9e32092eac4dd8e11644a7362dfa60ed6a3a9d0d32de570bbf524",
     },
     urls = {
         "android_tools_pkg-0.27.0.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.0.tar.gz",
         ],
-        "r8-3.3.28.jar": [
-            "https://maven.google.com/com/android/tools/r8/3.3.28/r8-3.3.28.jar",
+        "r8-4.0.48.jar": [
+            "https://maven.google.com/com/android/tools/r8/4.0.48/r8-4.0.48.jar",
         ],
     },
 )
@@ -330,8 +330,8 @@ http_archive(
 # and tools/android/android_extensions.bzl
 http_jar(
     name = "android_gmaven_r8_for_testing",
-    sha256 = "8626ca32fb47aba7fddd2c897615e2e8ffcdb4d4b213572a2aefb3f838f01972",
-    url = "https://maven.google.com/com/android/tools/r8/3.3.28/r8-3.3.28.jar",
+    sha256 = "f77d9a9ebda9e32092eac4dd8e11644a7362dfa60ed6a3a9d0d32de570bbf524",
+    url = "https://maven.google.com/com/android/tools/r8/4.0.48/r8-4.0.48.jar",
 )
 
 dist_http_archive(
@@ -611,45 +611,50 @@ load("@rules_jvm_external//:defs.bzl", "maven_install")
 
 maven_install(
     artifacts = [
-       "com.google.guava:guava:31.1-jre",
-       "com.google.guava:guava-testlib:31.1-jre",
-       "com.google.guava:failureaccess:1.0.1",
-       "com.google.errorprone:error_prone_annotations:2.16",
-       "com.google.errorprone:error_prone_type_annotations:2.16",
-       "com.google.code.findbugs:jsr305:3.0.2",
-       "com.google.j2objc:j2objc-annotations:1.3",
-       "com.github.stephenc.jcip:jcip-annotations:1.0-1",
-       "org.checkerframework:checker-qual:3.12.0",
+        "com.google.guava:guava:31.1-jre",
+        "com.google.guava:guava-testlib:31.1-jre",
+        "com.google.guava:failureaccess:1.0.1",
+        "com.google.errorprone:error_prone_annotations:2.16",
+        "com.google.errorprone:error_prone_type_annotations:2.16",
+        "com.google.code.findbugs:jsr305:3.0.2",
+        "com.google.j2objc:j2objc-annotations:1.3",
+        "com.github.stephenc.jcip:jcip-annotations:1.0-1",
+        "org.checkerframework:checker-qual:3.12.0",
+        "com.google.code.gson:gson:2.8.6",
+        "com.squareup:javapoet:1.12.0",
+        "com.ryanharter.auto.value:auto-value-gson-extension:1.3.1",
+        "com.ryanharter.auto.value:auto-value-gson-runtime:1.3.1",
+        "com.ryanharter.auto.value:auto-value-gson-factory:1.3.1",
     ],
+    maven_install_json = "//:maven_install.json",
     repositories = [
         "https://dl.google.com/android/maven2",
         "https://repo1.maven.org/maven2",
     ],
-    maven_install_json = "//:maven_install.json",
 )
 
 load("@maven//:defs.bzl", "pinned_maven_install")
+
 pinned_maven_install()
 
-
 maven_install(
-  name = "maven_android",
+    name = "maven_android",
     artifacts = [
-       "com.android.tools.build:builder:7.1.3",
-       "com.android.tools.build:manifest-merger:30.1.3",
-       "com.android.tools:sdk-common:30.1.3",
-       "com.android.tools:annotations:30.1.3",
-       "com.android.tools.layoutlib:layoutlib-api:30.1.3",
-       "com.android.tools:common:30.1.3",
-       "com.android.tools:repository:30.1.3",
+        "com.android.tools.build:builder:7.1.3",
+        "com.android.tools.build:manifest-merger:30.1.3",
+        "com.android.tools:sdk-common:30.1.3",
+        "com.android.tools:annotations:30.1.3",
+        "com.android.tools.layoutlib:layoutlib-api:30.1.3",
+        "com.android.tools:common:30.1.3",
+        "com.android.tools:repository:30.1.3",
     ],
+    maven_install_json = "//src/tools/android:maven_android_install.json",
     repositories = [
         "https://dl.google.com/android/maven2",
         "https://repo1.maven.org/maven2",
     ],
-    maven_install_json = "//src/tools/android:maven_android_install.json",
 )
 
 load("@maven_android//:defs.bzl", pinned_maven_install_android = "pinned_maven_install")
-pinned_maven_install_android()
 
+pinned_maven_install_android()

@@ -20,8 +20,8 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 
 /** Holds the result(s) of an action's execution. */
 @AutoValue
@@ -43,25 +43,25 @@ public abstract class ActionResult {
    *
    * @param getSpawnResultExecutionTime a selector that returns either the wall, user or system time
    *     for each {@link SpawnResult} being considered
-   * @return the cumulative time, or empty if no spawn results contained this time
+   * @return the cumulative time, or null if no spawn results contained this time
    */
-  private Optional<Duration> getCumulativeTime(
-      Function<SpawnResult, Optional<Duration>> getSpawnResultExecutionTime) {
+  @Nullable
+  private Duration getCumulativeTime(Function<SpawnResult, Duration> getSpawnResultExecutionTime) {
     Long totalMillis = null;
     for (SpawnResult spawnResult : spawnResults()) {
-      Optional<Duration> executionTime = getSpawnResultExecutionTime.apply(spawnResult);
-      if (executionTime.isPresent()) {
+      Duration executionTime = getSpawnResultExecutionTime.apply(spawnResult);
+      if (executionTime != null) {
         if (totalMillis == null) {
-          totalMillis = executionTime.get().toMillis();
+          totalMillis = executionTime.toMillis();
         } else {
-          totalMillis += executionTime.get().toMillis();
+          totalMillis += executionTime.toMillis();
         }
       }
     }
     if (totalMillis == null) {
-      return Optional.empty();
+      return null;
     } else {
-      return Optional.of(Duration.ofMillis(totalMillis));
+      return Duration.ofMillis(totalMillis);
     }
   }
 
@@ -70,85 +70,86 @@ public abstract class ActionResult {
    *
    * @param getSpawnResultLongValue a selector that returns a long value for each {@link
    *     SpawnResult} being considered
-   * @return the total, or empty if no spawn results contained this long value
+   * @return the total, or null if no spawn results contained this long value
    */
-  private Optional<Long> getCumulativeLong(
-      Function<SpawnResult, Optional<Long>> getSpawnResultLongValue) {
+  private Long getCumulativeLong(Function<SpawnResult, Long> getSpawnResultLongValue) {
     Long longTotal = null;
     for (SpawnResult spawnResult : spawnResults()) {
-      Optional<Long> longValue = getSpawnResultLongValue.apply(spawnResult);
-      if (longValue.isPresent()) {
+      Long longValue = getSpawnResultLongValue.apply(spawnResult);
+      if (longValue != null) {
         if (longTotal == null) {
-          longTotal = longValue.get();
+          longTotal = longValue;
         } else {
-          longTotal += longValue.get();
+          longTotal += longValue;
         }
       }
     }
-    if (longTotal == null) {
-      return Optional.empty();
-    } else {
-      return Optional.of(longTotal);
-    }
+    return longTotal;
   }
 
   /**
    * Returns the cumulative command execution wall time for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Duration> cumulativeCommandExecutionWallTime() {
+  @Nullable
+  public Duration cumulativeCommandExecutionWallTime() {
     return getCumulativeTime(SpawnResult::getWallTime);
   }
 
   /**
    * Returns the cumulative command execution user time for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Duration> cumulativeCommandExecutionUserTime() {
+  @Nullable
+  public Duration cumulativeCommandExecutionUserTime() {
     return getCumulativeTime(SpawnResult::getUserTime);
   }
 
   /**
    * Returns the cumulative command execution system time for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Duration> cumulativeCommandExecutionSystemTime() {
+  @Nullable
+  public Duration cumulativeCommandExecutionSystemTime() {
     return getCumulativeTime(SpawnResult::getSystemTime);
   }
 
   /**
    * Returns the cumulative number of block input operations for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Long> cumulativeCommandExecutionBlockInputOperations() {
+  @Nullable
+  public Long cumulativeCommandExecutionBlockInputOperations() {
     return getCumulativeLong(SpawnResult::getNumBlockInputOperations);
   }
 
   /**
    * Returns the cumulative number of block output operations for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Long> cumulativeCommandExecutionBlockOutputOperations() {
+  @Nullable
+  public Long cumulativeCommandExecutionBlockOutputOperations() {
     return getCumulativeLong(SpawnResult::getNumBlockOutputOperations);
   }
 
   /**
    * Returns the cumulative number of involuntary context switches for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Long> cumulativeCommandExecutionInvoluntaryContextSwitches() {
+  @Nullable
+  public Long cumulativeCommandExecutionInvoluntaryContextSwitches() {
     return getCumulativeLong(SpawnResult::getNumInvoluntaryContextSwitches);
   }
 
@@ -157,111 +158,122 @@ public abstract class ActionResult {
    * spawns on one action could execute simultaneously, so the sum of spawn's memory usage is better
    * estimation.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Long> cumulativeCommandExecutionMemoryInKb() {
+  @Nullable
+  public Long cumulativeCommandExecutionMemoryInKb() {
     return getCumulativeLong(SpawnResult::getMemoryInKb);
   }
 
   /**
    * Returns the cumulative spawns total time for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Duration> cumulativeSpawnsTotalTime() {
-    return getCumulativeTime(s -> Optional.of(s.getMetrics().totalTime()));
+  @Nullable
+  public Duration cumulativeSpawnsTotalTime() {
+    return getCumulativeTime(s -> s.getMetrics().totalTime());
   }
 
   /**
    * Returns the cumulative spawns parse time for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Duration> cumulativeSpawnsParseTime() {
-    return getCumulativeTime(s -> Optional.of(s.getMetrics().parseTime()));
+  @Nullable
+  public Duration cumulativeSpawnsParseTime() {
+    return getCumulativeTime(s -> s.getMetrics().parseTime());
   }
 
   /**
    * Returns the cumulative spawns network time for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Duration> cumulativeSpawnsNetworkTime() {
-    return getCumulativeTime(s -> Optional.of(s.getMetrics().networkTime()));
+  @Nullable
+  public Duration cumulativeSpawnsNetworkTime() {
+    return getCumulativeTime(s -> s.getMetrics().networkTime());
   }
 
   /**
    * Returns the cumulative spawns fetch time for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Duration> cumulativeSpawnsFetchTime() {
-    return getCumulativeTime(s -> Optional.of(s.getMetrics().fetchTime()));
+  @Nullable
+  public Duration cumulativeSpawnsFetchTime() {
+    return getCumulativeTime(s -> s.getMetrics().fetchTime());
   }
 
   /**
    * Returns the cumulative spawns queue time for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Duration> cumulativeSpawnsQueueTime() {
-    return getCumulativeTime(s -> Optional.of(s.getMetrics().queueTime()));
+  @Nullable
+  public Duration cumulativeSpawnsQueueTime() {
+    return getCumulativeTime(s -> s.getMetrics().queueTime());
   }
 
   /**
    * Returns the cumulative spawns setup time for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Duration> cumulativeSpawnsSetupTime() {
-    return getCumulativeTime(s -> Optional.of(s.getMetrics().setupTime()));
+  @Nullable
+  public Duration cumulativeSpawnsSetupTime() {
+    return getCumulativeTime(s -> s.getMetrics().setupTime());
   }
 
   /**
    * Returns the cumulative spawns upload time for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Duration> cumulativeSpawnsUploadTime() {
-    return getCumulativeTime(s -> Optional.of(s.getMetrics().uploadTime()));
+  @Nullable
+  public Duration cumulativeSpawnsUploadTime() {
+    return getCumulativeTime(s -> s.getMetrics().uploadTime());
   }
 
   /**
    * Returns the cumulative spawns execution wall time for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Duration> cumulativeExecutionWallTime() {
-    return getCumulativeTime(s -> Optional.of(s.getMetrics().executionWallTime()));
+  @Nullable
+  public Duration cumulativeExecutionWallTime() {
+    return getCumulativeTime(s -> s.getMetrics().executionWallTime());
   }
 
   /**
    * Returns the cumulative spawns process output time for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Duration> cumulativeProcessOutputTime() {
-    return getCumulativeTime(s -> Optional.of(s.getMetrics().processOutputsTime()));
+  @Nullable
+  public Duration cumulativeProcessOutputTime() {
+    return getCumulativeTime(s -> s.getMetrics().processOutputsTime());
   }
 
   /**
    * Returns the cumulative spawns retry time for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Duration> cumulativeRetryTime() {
-    return getCumulativeTime(s -> Optional.of(s.getMetrics().retryTime()));
+  @Nullable
+  public Duration cumulativeRetryTime() {
+    return getCumulativeTime(s -> s.getMetrics().retryTime());
   }
 
   /**
@@ -280,22 +292,23 @@ public abstract class ActionResult {
   /**
    * Returns the cumulative command execution CPU time for the {@link Action}.
    *
-   * @return the cumulative measurement, or empty in case of execution errors or when the
-   *     measurement is not implemented for the current platform
+   * @return the cumulative measurement, or null in case of execution errors or when the measurement
+   *     is not implemented for the current platform
    */
-  public Optional<Duration> cumulativeCommandExecutionCpuTime() {
-    Optional<Duration> userTime = cumulativeCommandExecutionUserTime();
-    Optional<Duration> systemTime = cumulativeCommandExecutionSystemTime();
+  @Nullable
+  public Duration cumulativeCommandExecutionCpuTime() {
+    Duration userTime = cumulativeCommandExecutionUserTime();
+    Duration systemTime = cumulativeCommandExecutionSystemTime();
 
-    if (!userTime.isPresent() && !systemTime.isPresent()) {
-      return Optional.empty();
-    } else if (userTime.isPresent() && !systemTime.isPresent()) {
+    if (userTime == null && systemTime == null) {
+      return null;
+    } else if (userTime != null && systemTime == null) {
       return userTime;
-    } else if (!userTime.isPresent() && systemTime.isPresent()) {
+    } else if (userTime == null && systemTime != null) {
       return systemTime;
     } else {
-      checkState(userTime.isPresent() && systemTime.isPresent());
-      return Optional.of(userTime.get().plus(systemTime.get()));
+      checkState(userTime != null && systemTime != null);
+      return userTime.plus(systemTime);
     }
   }
 

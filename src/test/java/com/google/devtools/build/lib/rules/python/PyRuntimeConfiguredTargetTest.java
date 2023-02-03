@@ -40,7 +40,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
         "    name = 'myruntime',",
         "    files = [':myfile'],",
         "    interpreter = ':myinterpreter',",
-        "    python_version = 'PY2',",
+        "    python_version = 'PY3',",
         ")");
     PyRuntimeInfo info = getConfiguredTarget("//pkg:myruntime").get(PyRuntimeInfo.PROVIDER);
 
@@ -48,7 +48,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     assertThat(info.getInterpreterPath()).isNull();
     assertThat(info.getInterpreter().getExecPathString()).isEqualTo("pkg/myinterpreter");
     assertThat(ActionsTestUtil.baseArtifactNames(info.getFiles())).containsExactly("myfile");
-    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY2);
+    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 
   @Test
@@ -58,7 +58,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
         "py_runtime(",
         "    name = 'myruntime',",
         "    interpreter_path = '/system/interpreter',",
-        "    python_version = 'PY2',",
+        "    python_version = 'PY3',",
         ")");
     PyRuntimeInfo info = getConfiguredTarget("//pkg:myruntime").get(PyRuntimeInfo.PROVIDER);
 
@@ -66,7 +66,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     assertThat(info.getInterpreterPath().getPathString()).isEqualTo("/system/interpreter");
     assertThat(info.getInterpreter()).isNull();
     assertThat(info.getFiles()).isNull();
-    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY2);
+    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 
   @Test
@@ -82,7 +82,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
         "py_runtime(",
         "    name = 'myruntime_explicit',",
         "    interpreter_path = '/explicit/interpreter',",
-        "    python_version = 'PY2',",
+        "    python_version = 'PY3',",
         ")");
     PyRuntimeInfo infoDefault =
         getConfiguredTarget("//pkg:myruntime_default").get(PyRuntimeInfo.PROVIDER);
@@ -90,7 +90,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
         getConfiguredTarget("//pkg:myruntime_explicit").get(PyRuntimeInfo.PROVIDER);
 
     assertThat(infoDefault.getPythonVersion()).isEqualTo(PythonVersion.PY3);
-    assertThat(infoExplicit.getPythonVersion()).isEqualTo(PythonVersion.PY2);
+    assertThat(infoExplicit.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 
   @Test
@@ -102,7 +102,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
         "    name = 'myruntime',",
         "    interpreter = ':myinterpreter',",
         "    interpreter_path = '/system/interpreter',",
-        "    python_version = 'PY2',",
+        "    python_version = 'PY3',",
         ")");
     getConfiguredTarget("//pkg:myruntime");
 
@@ -117,7 +117,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
         "pkg/BUILD", //
         "py_runtime(",
         "    name = 'myruntime',",
-        "    python_version = 'PY2',",
+        "    python_version = 'PY3',",
         ")");
     getConfiguredTarget("//pkg:myruntime");
 
@@ -133,7 +133,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
         "py_runtime(",
         "    name = 'myruntime',",
         "    interpreter_path = 'some/relative/path',",
-        "    python_version = 'PY2',",
+        "    python_version = 'PY3',",
         ")");
     getConfiguredTarget("//pkg:myruntime");
 
@@ -149,7 +149,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
         "    name = 'myruntime',",
         "    files = [':myfile'],",
         "    interpreter_path = '/system/interpreter',",
-        "    python_version = 'PY2',",
+        "    python_version = 'PY3',",
         ")");
     getConfiguredTarget("//pkg:myruntime");
 

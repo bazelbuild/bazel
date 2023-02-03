@@ -112,6 +112,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
+        "//src/main/protobuf:spawn_java_proto",
         "//third_party:auth",
         "//third_party:caffeine",
         "//third_party:flogger",

@@ -143,11 +143,11 @@ public final class BazelEvaluationTestCase {
 
     // Return the module's client data. (This one uses dummy values for tests.)
     return BazelModuleContext.create(
-        Label.parseAbsoluteUnchecked("//test:label"),
+        Label.parseCanonicalUnchecked("//test:label"),
         RepositoryMapping.ALWAYS_FALLBACK,
         "test/label.bzl",
-        /*loads=*/ ImmutableMap.of(),
-        /*bzlTransitiveDigest=*/ new byte[0]);
+        /* loads= */ ImmutableMap.of(),
+        /* bzlTransitiveDigest= */ new byte[0]);
   }
 
   public StarlarkThread getStarlarkThread() {

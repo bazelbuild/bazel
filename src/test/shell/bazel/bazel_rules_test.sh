@@ -1035,4 +1035,216 @@ function test_bash_runfiles_current_repository_test_nobuild_runfile_links() {
   expect_log "in external/other_repo/pkg/library2.sh: 'other_repo'"
 }
 
+function test_bash_runfiles_current_repository_action_binary_main_repo() {
+  touch MODULE.bazel
+
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+genrule(
+  name = "gen",
+  outs = ["out"],
+  tools = [":binary"],
+  cmd = "$(location :binary) && touch $@",
+)
+
+sh_binary(
+  name = "binary",
+  srcs = ["binary.sh"],
+  deps = [
+    "@bazel_tools//tools/bash/runfiles",
+  ],
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > pkg/binary.sh <<'EOF'
+#!/usr/bin/env bash
+# --- begin runfiles.bash initialization v2 ---
+# Copy-pasted from the Bazel Bash runfiles library v2.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v2 ---
+
+echo "in pkg/binary.sh: '$(runfiles_current_repository)'"
+EOF
+  chmod +x pkg/binary.sh
+
+  bazel build --enable_bzlmod //pkg:gen &>"$TEST_log" || fail "Build should succeed"
+  expect_log "in pkg/binary.sh: ''"
+}
+
+function test_bash_runfiles_current_repository_action_generated_binary_main_repo() {
+  touch MODULE.bazel
+
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+genrule(
+  name = "gen",
+  outs = ["out"],
+  tools = [":binary"],
+  cmd = "$(location :binary) && touch $@",
+)
+
+genrule(
+  name = "copy_binary",
+  outs = ["gen_binary.sh"],
+  srcs = ["binary.sh"],
+  cmd = "cp $(location binary.sh) $@",
+)
+
+sh_binary(
+  name = "binary",
+  srcs = ["binary.sh"],
+  deps = [
+    "@bazel_tools//tools/bash/runfiles",
+  ],
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > pkg/binary.sh <<'EOF'
+#!/usr/bin/env bash
+# --- begin runfiles.bash initialization v2 ---
+# Copy-pasted from the Bazel Bash runfiles library v2.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v2 ---
+
+echo "in copy of pkg/gen_binary.sh: '$(runfiles_current_repository)'"
+EOF
+  chmod +x pkg/binary.sh
+
+  bazel build --enable_bzlmod //pkg:gen &>"$TEST_log" || fail "Build should succeed"
+  expect_log "in copy of pkg/gen_binary.sh: ''"
+}
+
+function test_bash_runfiles_current_repository_action_binary_external_repo() {
+  touch MODULE.bazel
+
+  cat >> WORKSPACE <<'EOF'
+local_repository(
+  name = "other_repo",
+  path = "other_repo",
+)
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+genrule(
+  name = "gen",
+  outs = ["out"],
+  tools = ["@other_repo//pkg:binary"],
+  cmd = "$(location @other_repo//pkg:binary) && touch $@",
+)
+EOF
+
+  mkdir -p other_repo
+  touch other_repo/WORKSPACE
+
+  mkdir -p other_repo/pkg
+  cat > other_repo/pkg/BUILD.bazel <<'EOF'
+sh_binary(
+  name = "binary",
+  srcs = ["binary.sh"],
+  deps = [
+    "@bazel_tools//tools/bash/runfiles",
+  ],
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > other_repo/pkg/binary.sh <<'EOF'
+#!/usr/bin/env bash
+# --- begin runfiles.bash initialization v2 ---
+# Copy-pasted from the Bazel Bash runfiles library v2.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v2 ---
+
+echo "in external/other_repo/pkg/binary.sh: '$(runfiles_current_repository)'"
+EOF
+  chmod +x other_repo/pkg/binary.sh
+
+  bazel build --enable_bzlmod //pkg:gen &>"$TEST_log" || fail "Build should succeed"
+  expect_log "in external/other_repo/pkg/binary.sh: 'other_repo'"
+}
+
+function test_bash_runfiles_current_repository_action_generated_binary_external_repo() {
+  touch MODULE.bazel
+
+  cat >> WORKSPACE <<'EOF'
+local_repository(
+  name = "other_repo",
+  path = "other_repo",
+)
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+genrule(
+  name = "gen",
+  outs = ["out"],
+  tools = ["@other_repo//pkg:binary"],
+  cmd = "$(location @other_repo//pkg:binary) && touch $@",
+)
+EOF
+
+  mkdir -p other_repo
+  touch other_repo/WORKSPACE
+
+  mkdir -p other_repo/pkg
+  cat > other_repo/pkg/BUILD.bazel <<'EOF'
+genrule(
+  name = "copy_binary",
+  outs = ["gen_binary.sh"],
+  srcs = ["binary.sh"],
+  cmd = "cp $(location binary.sh) $@",
+)
+
+sh_binary(
+  name = "binary",
+  srcs = ["gen_binary.sh"],
+  deps = [
+    "@bazel_tools//tools/bash/runfiles",
+  ],
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > other_repo/pkg/binary.sh <<'EOF'
+#!/usr/bin/env bash
+# --- begin runfiles.bash initialization v2 ---
+# Copy-pasted from the Bazel Bash runfiles library v2.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v2 ---
+
+echo "in copy of external/other_repo/pkg/binary.sh: '$(runfiles_current_repository)'"
+EOF
+  chmod +x other_repo/pkg/binary.sh
+
+  bazel build --enable_bzlmod //pkg:gen &>"$TEST_log" || fail "Build should succeed"
+  expect_log "in copy of external/other_repo/pkg/binary.sh: 'other_repo'"
+}
+
 run_suite "rules test"
