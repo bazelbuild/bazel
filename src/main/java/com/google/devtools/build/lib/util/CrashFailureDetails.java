@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.util;
 import com.google.common.base.Ascii;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -27,6 +28,8 @@ import java.util.stream.Collectors;
 
 /** Factory methods for producing {@link Crash}-type {@link FailureDetail} messages. */
 public class CrashFailureDetails {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * Max message length in {@link FailureDetails.Throwable} submessage, anything beyond this is
@@ -59,18 +62,17 @@ public class CrashFailureDetails {
     return DetailedExitCode.of(forThrowable(throwable));
   }
 
-  /**
-   * Returns a {@link Crash}-type {@link FailureDetail} with {@link Crash.Code#CRASH_UNKNOWN}, with
-   * its cause chain filled out.
-   */
+  /** Returns a {@link Crash}-type {@link FailureDetail} with its cause chain filled out. */
   public static FailureDetail forThrowable(Throwable throwable) {
-    Crash.Builder crashBuilder =
-        Crash.newBuilder()
-            .setCode(
-                (getRootCauseToleratingCycles(throwable) instanceof OutOfMemoryError
-                        || oomDetector.getAsBoolean())
-                    ? Crash.Code.CRASH_OOM
-                    : Crash.Code.CRASH_UNKNOWN);
+    Crash.Builder crashBuilder = Crash.newBuilder();
+    if (getRootCauseToleratingCycles(throwable) instanceof OutOfMemoryError) {
+      crashBuilder.setCode(Crash.Code.CRASH_OOM);
+    } else if (oomDetector.getAsBoolean()) {
+      logger.atWarning().log("Classifying non-OOM crash as OOM");
+      crashBuilder.setCode(Crash.Code.CRASH_OOM).setOomDetectorOverride(true);
+    } else {
+      crashBuilder.setCode(Crash.Code.CRASH_UNKNOWN);
+    }
     addCause(crashBuilder, throwable, Sets.newIdentityHashSet());
     return FailureDetail.newBuilder()
         .setMessage("Crashed: " + joinSummarizedCauses(crashBuilder))

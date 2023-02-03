@@ -318,6 +318,11 @@ message Crash {
   // The cause chain of the crash, with the outermost throwable first. Limited
   // to the outermost exception and at most 4 nested causes (so, max size of 5).
   repeated Throwable causes = 2;
+
+  // True when the root cause of the crash was not an OutOfMemoryError, but
+  // CRASH_OOM was chosen because an OutOfMemoryError was detected prior to the
+  // crash.
+  bool oom_detector_override = 3;
 }
 
 message Throwable {
