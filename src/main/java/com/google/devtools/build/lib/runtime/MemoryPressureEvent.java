@@ -22,13 +22,15 @@ import com.google.common.annotations.VisibleForTesting;
 public abstract class MemoryPressureEvent {
   public abstract boolean wasManualGc();
 
+  public abstract boolean wasFullGc();
+
   public abstract long tenuredSpaceUsedBytes();
 
   public abstract long tenuredSpaceMaxBytes();
 
   @VisibleForTesting
   public static Builder newBuilder() {
-    return new AutoValue_MemoryPressureEvent.Builder();
+    return new AutoValue_MemoryPressureEvent.Builder().setWasFullGc(false);
   }
 
   /** A memory pressure event builder. */
@@ -36,6 +38,8 @@ public abstract class MemoryPressureEvent {
   @AutoValue.Builder
   public abstract static class Builder {
     public abstract Builder setWasManualGc(boolean value);
+
+    public abstract Builder setWasFullGc(boolean value);
 
     public abstract Builder setTenuredSpaceUsedBytes(long value);
 

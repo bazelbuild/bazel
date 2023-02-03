@@ -1040,7 +1040,6 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
                         flag_group(flags = ["-arch <architecture>"]),
                         flag_group(
                             flags = [
@@ -1090,7 +1089,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "<tool_dir>/wrapped_clang++",
+                    path = "<tool_dir>/wrapped_clang",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1101,7 +1100,6 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
                         flag_group(flags = ["-arch arm64"]),
                         flag_group(
                             flags = [
@@ -1151,7 +1149,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "ios/wrapped_clang++",
+                    path = "ios/wrapped_clang",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1162,7 +1160,6 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
                         flag_group(flags = ["-arch arm64"]),
                         flag_group(
                             flags = [
@@ -1212,7 +1209,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "tvos/wrapped_clang++",
+                    path = "tvos/wrapped_clang",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1223,7 +1220,6 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
                         flag_group(flags = ["-arch armv7"]),
                         flag_group(
                             flags = [
@@ -1273,7 +1269,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "ios/wrapped_clang++",
+                    path = "ios/wrapped_clang",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1284,7 +1280,6 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
                         flag_group(flags = ["-arch armv7k"]),
                         flag_group(
                             flags = [
@@ -1334,7 +1329,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "watchos/wrapped_clang++",
+                    path = "watchos/wrapped_clang",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1345,7 +1340,6 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
                         flag_group(flags = ["-arch arm64_32"]),
                         flag_group(
                             flags = [
@@ -1395,7 +1389,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "watchos/wrapped_clang++",
+                    path = "watchos/wrapped_clang",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1406,7 +1400,6 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
                         flag_group(flags = ["-arch i386"]),
                         flag_group(
                             flags = [
@@ -1456,7 +1449,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "iossim/wrapped_clang++",
+                    path = "iossim/wrapped_clang",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1467,7 +1460,6 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
                         flag_group(flags = ["-arch i386"]),
                         flag_group(
                             flags = [
@@ -1517,7 +1509,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "watchsim/wrapped_clang++",
+                    path = "watchsim/wrapped_clang",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1528,7 +1520,6 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
                         flag_group(flags = ["-arch x86_64"]),
                         flag_group(
                             flags = [
@@ -1578,7 +1569,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "watchsim/wrapped_clang++",
+                    path = "watchsim/wrapped_clang",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1589,7 +1580,6 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
                         flag_group(flags = ["-arch x86_64"]),
                         flag_group(
                             flags = [
@@ -1639,7 +1629,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "iossim/wrapped_clang++",
+                    path = "iossim/wrapped_clang",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1650,7 +1640,6 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
                         flag_group(flags = ["-arch x86_64"]),
                         flag_group(
                             flags = [
@@ -1700,7 +1689,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "mac/wrapped_clang++",
+                    path = "mac/wrapped_clang",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1711,7 +1700,6 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
                         flag_group(flags = ["-arch x86_64"]),
                         flag_group(
                             flags = [
@@ -1761,7 +1749,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "tvsim/wrapped_clang++",
+                    path = "tvsim/wrapped_clang",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],

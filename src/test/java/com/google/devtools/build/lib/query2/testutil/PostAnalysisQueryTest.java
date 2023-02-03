@@ -183,13 +183,13 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
                 "implicit_deps_rule",
                 attr("explicit", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE),
                 attr("explicit_with_default", LABEL)
-                    .value(Label.parseAbsoluteUnchecked("//test:explicit_with_default"))
+                    .value(Label.parseCanonicalUnchecked("//test:explicit_with_default"))
                     .allowedFileTypes(FileTypeSet.ANY_FILE),
-                attr("$implicit", LABEL).value(Label.parseAbsoluteUnchecked("//test:implicit")),
+                attr("$implicit", LABEL).value(Label.parseCanonicalUnchecked("//test:implicit")),
                 attr(":latebound", LABEL)
                     .value(
                         Attribute.LateBoundDefault.fromConstantForTesting(
-                            Label.parseAbsoluteUnchecked("//test:latebound"))));
+                            Label.parseCanonicalUnchecked("//test:latebound"))));
     helper.useRuleClassProvider(setRuleClassProviders(ruleWithImplicitDeps).build());
 
     writeFile(
@@ -228,7 +228,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
                 (builder, env) ->
                     builder.addToolchainTypes(
                         ToolchainTypeRequirement.create(
-                            Label.parseAbsoluteUnchecked("//test:toolchain_type"))));
+                            Label.parseCanonicalUnchecked("//test:toolchain_type"))));
     helper.useRuleClassProvider(setRuleClassProviders(ruleWithImplicitDeps).build());
 
     writeFile(
@@ -415,7 +415,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
                           public Object getDefault(AttributeMap rule) {
                             return rule.get("conspiracy", Type.STRING)
                                     .equals("space jam was a documentary")
-                                ? Label.parseAbsoluteUnchecked("//test:foo")
+                                ? Label.parseCanonicalUnchecked("//test:foo")
                                 : null;
                           }
                         }));

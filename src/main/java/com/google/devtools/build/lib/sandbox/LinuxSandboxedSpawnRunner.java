@@ -442,7 +442,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         bindMounts.put(mountTarget, mountSource);
       } catch (IllegalArgumentException e) {
         throw new UserExecException(
-            createFailureDetail(
+            SandboxHelpers.createFailureDetail(
                 String.format("Error occurred when analyzing bind mount pairs. %s", e.getMessage()),
                 Code.BIND_MOUNT_ANALYSIS_FAILURE));
       }
@@ -456,7 +456,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       }
     }
 
-    validateBindMounts(bindMounts);
+    LinuxSandboxUtil.validateBindMounts(bindMounts);
     ImmutableList.Builder<BindMount> result = ImmutableList.builder();
 
     if (sandboxTmp != null) {
@@ -484,62 +484,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
 
     return result.build();
-  }
-
-  /**
-   * This method does the following things:
-   *
-   * <ul>
-   *   <li>If mount source does not exist on the host system, throw an error message
-   *   <li>If mount target exists, check whether the source and target are of the same type
-   *   <li>If mount target does not exist on the host system, throw an error message
-   * </ul>
-   *
-   * @param bindMounts the bind mounts map with target as key and source as value
-   * @throws UserExecException if any of the mount points are not valid
-   */
-  private void validateBindMounts(SortedMap<Path, Path> bindMounts) throws UserExecException {
-    for (Map.Entry<Path, Path> bindMount : bindMounts.entrySet()) {
-      final Path source = bindMount.getValue();
-      final Path target = bindMount.getKey();
-      // Mount source should exist in the file system
-      if (!source.exists()) {
-        throw new UserExecException(
-            createFailureDetail(
-                String.format("Mount source '%s' does not exist.", source),
-                Code.MOUNT_SOURCE_DOES_NOT_EXIST));
-      }
-      // If target exists, but is not of the same type as the source, then we cannot mount it.
-      if (target.exists()) {
-        boolean areBothDirectories = source.isDirectory() && target.isDirectory();
-        boolean isSourceFile = source.isFile() || source.isSymbolicLink();
-        boolean isTargetFile = target.isFile() || target.isSymbolicLink();
-        boolean areBothFiles = isSourceFile && isTargetFile;
-        if (!(areBothDirectories || areBothFiles)) {
-          // Source and target are not of the same type; we cannot mount it.
-          throw new UserExecException(
-              createFailureDetail(
-                  String.format(
-                      "Mount target '%s' is a %s but mount source '%s' is a %s, they must be the"
-                          + " same type.",
-                      target,
-                      (isTargetFile ? "file" : "directory"),
-                      source,
-                      (isSourceFile ? "file" : "directory")),
-                  Code.MOUNT_SOURCE_TARGET_TYPE_MISMATCH));
-        }
-      } else {
-        // Mount target should exist in the file system
-        throw new UserExecException(
-            createFailureDetail(
-                String.format(
-                    "Mount target '%s' does not exist. Bazel only supports bind mounting on top of "
-                        + "existing files/directories. Please create an empty file or directory at "
-                        + "the mount target path according to the type of mount source.",
-                    target),
-                Code.MOUNT_TARGET_DOES_NOT_EXIST));
-      }
-    }
   }
 
   @Override

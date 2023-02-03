@@ -99,7 +99,8 @@ public class WorkerModule extends BlazeModule {
               sandboxOptions.sandboxFakeUsername,
               sandboxOptions.sandboxDebug,
               ImmutableList.copyOf(sandboxOptions.sandboxTmpfsPath),
-              ImmutableList.copyOf(sandboxOptions.sandboxWritablePath));
+              ImmutableList.copyOf(sandboxOptions.sandboxWritablePath),
+              sandboxOptions.memoryLimit);
     } else {
       workerSandboxOptions = null;
     }

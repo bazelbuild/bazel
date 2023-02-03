@@ -52,7 +52,7 @@ public class ExecGroupSubject extends Subject {
   }
 
   public ToolchainTypeRequirementSubject toolchainType(String toolchainTypeLabel) {
-    return toolchainType(Label.parseAbsoluteUnchecked(toolchainTypeLabel));
+    return toolchainType(Label.parseCanonicalUnchecked(toolchainTypeLabel));
   }
 
   public ToolchainTypeRequirementSubject toolchainType(Label toolchainType) {
@@ -75,7 +75,7 @@ public class ExecGroupSubject extends Subject {
   }
 
   public void hasExecCompatibleWith(String constraintLabel) {
-    hasExecCompatibleWith(Label.parseAbsoluteUnchecked(constraintLabel));
+    hasExecCompatibleWith(Label.parseCanonicalUnchecked(constraintLabel));
   }
 
   public void hasExecCompatibleWith(Label constraintLabel) {

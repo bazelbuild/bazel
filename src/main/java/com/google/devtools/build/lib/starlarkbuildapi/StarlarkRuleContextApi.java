@@ -95,9 +95,9 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + " <code>None</code>. If a label type is not marked as <code>allow_single_file</code>,"
           + " no corresponding struct field is generated. It is a shortcut for:<pre"
           + " class=language-python>list(ctx.attr.&lt;ATTR&gt;.files)[0]</pre>In other words, use"
-          + " <code>file</code> to access the (singular) <a href="
-          + "\"https://bazel.build/extending/rules#requesting_output_files\">default output</a>"
-          + " of a dependency. <a"
+          + " <code>file</code> to access the (singular) <a"
+          + " href=\"https://bazel.build/extending/rules#requesting_output_files\">default"
+          + " output</a> of a dependency. <a"
           + " href=\"https://github.com/bazelbuild/examples/blob/main/rules/expand_template/hello.bzl\">See"
           + " example of use</a>.";
   String ATTR_DOC =
@@ -577,15 +577,24 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             doc =
                 "Either a SymlinkEntry depset or a map of symlinks to be added to the runfiles. See"
                     + " <a href=\"https://bazel.build/extending/rules#runfiles_symlinks\">Runfiles"
-                    + " symlinks</a> in the rules guide.")
-      })
+                    + " symlinks</a> in the rules guide."),
+        @Param(
+            name = "skip_conflict_checking",
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            documented = false)
+      },
+      useStarlarkThread = true)
   RunfilesApi runfiles(
       Sequence<?> files,
       Object transitiveFiles,
       Boolean collectData,
       Boolean collectDefault,
       Object symlinks,
-      Object rootSymlinks)
+      Object rootSymlinks,
+      boolean skipConflictChecking,
+      StarlarkThread thread)
       throws EvalException, TypeException;
 
   @StarlarkMethod(

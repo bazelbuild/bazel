@@ -566,7 +566,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
     assertThat(attribute.getName()).isEqualTo("$extra_deps");
     assertThat(attribute.getDefaultValue(null))
-        .isEqualTo(Label.parseAbsoluteUnchecked("//foo/bar:baz"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//foo/bar:baz"));
   }
 
   @Test
@@ -723,20 +723,20 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testLabelAttrDefaultValueAsString() throws Exception {
     Attribute sligleAttr = buildAttribute("a1", "attr.label(default = '//foo:bar')");
     assertThat(sligleAttr.getDefaultValueUnchecked())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//foo:bar"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//foo:bar"));
 
     Attribute listAttr =
         buildAttribute("a2", "attr.label_list(default = ['//foo:bar', '//bar:foo'])");
     assertThat(listAttr.getDefaultValueUnchecked())
         .isEqualTo(
             ImmutableList.of(
-                Label.parseAbsoluteUnchecked("//foo:bar"),
-                Label.parseAbsoluteUnchecked("//bar:foo")));
+                Label.parseCanonicalUnchecked("//foo:bar"),
+                Label.parseCanonicalUnchecked("//bar:foo")));
 
     Attribute dictAttr =
         buildAttribute("a3", "attr.label_keyed_string_dict(default = {'//foo:bar': 'my value'})");
     assertThat(dictAttr.getDefaultValueUnchecked())
-        .isEqualTo(ImmutableMap.of(Label.parseAbsoluteUnchecked("//foo:bar"), "my value"));
+        .isEqualTo(ImmutableMap.of(Label.parseCanonicalUnchecked("//foo:bar"), "my value"));
   }
 
   @Test
@@ -901,7 +901,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     // (see --incompatible_no_attr_license)
   }
 
-  private static final Label FAKE_LABEL = Label.parseAbsoluteUnchecked("//fake/label.bzl");
+  private static final Label FAKE_LABEL = Label.parseCanonicalUnchecked("//fake/label.bzl");
 
   @Test
   public void testRuleAddAttribute() throws Exception {
@@ -2382,8 +2382,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
     assertThat(c.getExecutionPlatformConstraints())
         .containsExactly(
-            Label.parseAbsoluteUnchecked("//constraint:cv1"),
-            Label.parseAbsoluteUnchecked("//constraint:cv2"));
+            Label.parseCanonicalUnchecked("//constraint:cv1"),
+            Label.parseCanonicalUnchecked("//constraint:cv2"));
   }
 
   @Test

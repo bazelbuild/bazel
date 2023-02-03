@@ -250,7 +250,7 @@ public final class MockObjcSupport {
       new Crosstool(
               config,
               DEFAULT_OSX_CROSSTOOL_DIR,
-              Label.parseAbsoluteUnchecked("@bazel_tools//tools/osx"))
+              Label.parseCanonicalUnchecked("@bazel_tools//tools/osx"))
           .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(OSX_ARCHS)
           .setToolchainConfigs(toolchainConfigBuilder.build())
@@ -269,7 +269,7 @@ public final class MockObjcSupport {
       new Crosstool(
               config,
               DEFAULT_OSX_CROSSTOOL_DIR,
-              Label.parseAbsoluteUnchecked("@bazel_tools//tools/osx"))
+              Label.parseCanonicalUnchecked("@bazel_tools//tools/osx"))
           .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(OSX_ARCHS)
           .setToolchainConfigs(getDefaultCcToolchainConfigs())

@@ -15,21 +15,16 @@
 package com.google.devtools.build.lib.worker;
 
 import static com.google.common.truth.Truth.assertThat;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.util.OS;
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
+import com.google.devtools.build.lib.util.PsInfoCollector;
 import java.time.Instant;
 import org.junit.Before;
 import org.junit.Test;
@@ -50,23 +45,6 @@ public class WorkerMetricsCollectorTest {
   }
 
   @Test
-  public void testCollectStats_ignoreSpaces() throws Exception {
-    String psOutput = "    PID  \t  PPID \t  RSS\n   2 1 3216 \t\n  \t 3 1 \t 4096 \t";
-    ImmutableSet<Long> pids = ImmutableSet.of(2L, 3L);
-    InputStream psStream = new ByteArrayInputStream(psOutput.getBytes(UTF_8));
-    Process process = mock(Process.class);
-
-    when(spyCollector.buildPsProcess()).thenReturn(process);
-    when(process.getInputStream()).thenReturn(psStream);
-
-    ImmutableMap<Long, Integer> memoryUsageByPid =
-        spyCollector.collectMemoryUsageByPid(OS.LINUX, pids).pidToMemoryInKb;
-
-    ImmutableMap<Long, Integer> expectedMemoryUsageByPid = ImmutableMap.of(2L, 3216, 3L, 4096);
-    assertThat(memoryUsageByPid).isEqualTo(expectedMemoryUsageByPid);
-  }
-
-  @Test
   public void testCollectStats_mutipleSubprocesses() throws Exception {
     // pstree of these processes
     // 0-+-1---3-+-7
@@ -75,28 +53,36 @@ public class WorkerMetricsCollectorTest {
     //   |   `-9
     //   |-5
     //   `-10
-    String psOutput =
-        "      PID PPID RSS  \n"
-            + "1   0    3216 \n"
-            + "2   0    4232 \n"
-            + "3   1    1234 \n"
-            + "4   2    1001 \n"
-            + "5   0    40000 \n"
-            + "7   3    2345 \n"
-            + "8   3    3456 \n"
-            + "9   2    1032 \n"
-            + "10  0    1024";
+
+    // ps command results:
+    // PID PPID RSS
+    // 1   0    3216
+    // 2   0    4232
+    // 3   1    1234
+    // 4   2    1001
+    // 5   0    40000
+    // 7   3    2345
+    // 8   3    3456
+    // 9   2    1032
+    // 10  0    1024
+    ImmutableMap<Long, PsInfoCollector.PsInfo> psInfos =
+        ImmutableMap.of(
+            1L, PsInfoCollector.PsInfo.create(1, 0, 3216),
+            2L, PsInfoCollector.PsInfo.create(2, 0, 4232),
+            3L, PsInfoCollector.PsInfo.create(3, 1, 1234),
+            4L, PsInfoCollector.PsInfo.create(4, 2, 1001),
+            5L, PsInfoCollector.PsInfo.create(5, 0, 40000),
+            7L, PsInfoCollector.PsInfo.create(7, 3, 2345),
+            8L, PsInfoCollector.PsInfo.create(8, 3, 3456),
+            9L, PsInfoCollector.PsInfo.create(9, 2, 1032),
+            10L, PsInfoCollector.PsInfo.create(10, 0, 1024));
+
     ImmutableSet<Long> pids = ImmutableSet.of(1L, 2L, 5L, 6L);
-    InputStream psStream = new ByteArrayInputStream(psOutput.getBytes(UTF_8));
-    Process process = mock(Process.class);
-    when(spyCollector.buildPsProcess()).thenReturn(process);
-    when(process.getInputStream()).thenReturn(psStream);
     ImmutableMap<Long, Integer> expectedMemoryUsageByPid =
         ImmutableMap.of(1L, 3216 + 1234 + 2345 + 3456, 2L, 4232 + 1001 + 1032, 5L, 40000);
 
     ImmutableMap<Long, Integer> memoryUsageByPid =
-        spyCollector.collectMemoryUsageByPid(OS.LINUX, pids).pidToMemoryInKb;
-
+        spyCollector.summarizeDescendantsMemory(psInfos, pids);
     assertThat(memoryUsageByPid).isEqualTo(expectedMemoryUsageByPid);
   }
 

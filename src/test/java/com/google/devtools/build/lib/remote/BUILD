@@ -93,6 +93,7 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:remote_execution_log_java_proto",
+        "//src/main/protobuf:spawn_java_proto",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",

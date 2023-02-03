@@ -69,6 +69,9 @@ win_cc_binary(
         "//src:__pkg__",
         "//tools/launcher:__pkg__",
     ],
+    deps = [
+        "//src/main/cpp/util:filesystem",
+    ],
 )
 
 launcher_maker_test(name = "launcher_maker_test")

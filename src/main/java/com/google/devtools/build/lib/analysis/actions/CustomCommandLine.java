@@ -48,7 +48,6 @@ import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -301,7 +300,7 @@ public class CustomCommandLine extends CommandLine {
       }
     }
 
-    private static void push(List<Object> arguments, VectorArg<?> vectorArg) {
+    private static void push(ImmutableList.Builder<Object> arguments, VectorArg<?> vectorArg) {
       // This is either a Collection or a NestedSet.
       final Object values;
       final CommandLineItem.MapFn<?> mapFn;
@@ -518,11 +517,12 @@ public class CustomCommandLine extends CommandLine {
 
     private static final UUID FORMAT_UUID = UUID.fromString("377cee34-e947-49e0-94a2-6ab95b396ec4");
 
-    private static void push(List<Object> arguments, String formatStr, Object... args) {
+    private static void push(
+        ImmutableList.Builder<Object> arguments, String formatStr, Object... args) {
       arguments.add(INSTANCE);
       arguments.add(args.length);
       arguments.add(formatStr);
-      Collections.addAll(arguments, args);
+      arguments.add(args);
     }
 
     @Override
@@ -564,7 +564,7 @@ public class CustomCommandLine extends CommandLine {
 
     private static final UUID PREFIX_UUID = UUID.fromString("a95eccdf-4f54-46fc-b925-c8c7e1f50c95");
 
-    private static void push(List<Object> arguments, String before, Object arg) {
+    private static void push(ImmutableList.Builder<Object> arguments, String before, Object arg) {
       arguments.add(INSTANCE);
       arguments.add(before);
       arguments.add(arg);
@@ -729,15 +729,11 @@ public class CustomCommandLine extends CommandLine {
     // In order to avoid unnecessary wrapping, we keep raw objects here, but these objects are
     // always either ArgvFragments or objects whose desired string representations are just their
     // toString() results.
-    private final List<Object> arguments = new ArrayList<>();
+    private final ImmutableList.Builder<Object> arguments = ImmutableList.builder();
 
     private boolean stripOutputPaths = false;
 
     private PathFragment outputRoot = null;
-
-    public boolean isEmpty() {
-      return arguments.isEmpty();
-    }
 
     private final NestedSetBuilder<Artifact> treeArtifactInputs = NestedSetBuilder.stableOrder();
 
@@ -1133,12 +1129,12 @@ public class CustomCommandLine extends CommandLine {
     public CustomCommandLine build() {
       return stripOutputPaths
           ? new PathStrippingCustomCommandline(
-              arguments,
-              /*substitutionMap=*/ null,
+              arguments.build(),
+              /* substitutionMap= */ null,
               Verify.verifyNotNull(
                   outputRoot,
                   "path stripping needs an output root ('bazel-out') to identify output paths"))
-          : new CustomCommandLine(arguments, /*substitutionMap=*/ null);
+          : new CustomCommandLine(arguments.build(), /* substitutionMap= */ null);
     }
 
     @CanIgnoreReturnValue
@@ -1230,12 +1226,6 @@ public class CustomCommandLine extends CommandLine {
     return new Builder();
   }
 
-  public static Builder builder(Builder other) {
-    Builder builder = new Builder();
-    builder.arguments.addAll(other.arguments);
-    return builder;
-  }
-
   private final ImmutableList<Object> arguments;
 
   /**
@@ -1248,8 +1238,8 @@ public class CustomCommandLine extends CommandLine {
   private final Map<Artifact, TreeFileArtifact> substitutionMap;
 
   private CustomCommandLine(
-      List<Object> arguments, Map<Artifact, TreeFileArtifact> substitutionMap) {
-    this.arguments = ImmutableList.copyOf(arguments);
+      ImmutableList<Object> arguments, Map<Artifact, TreeFileArtifact> substitutionMap) {
+    this.arguments = arguments;
     this.substitutionMap = substitutionMap == null ? null : ImmutableMap.copyOf(substitutionMap);
   }
 
@@ -1269,7 +1259,7 @@ public class CustomCommandLine extends CommandLine {
     private final PathStripper.CommandAdjuster pathStripper;
 
     private PathStrippingCustomCommandline(
-        List<Object> arguments,
+        ImmutableList<Object> arguments,
         Map<Artifact, TreeFileArtifact> substitutionMap,
         @Nullable PathFragment outputRoot) {
       super(arguments, substitutionMap);

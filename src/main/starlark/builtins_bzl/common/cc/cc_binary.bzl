@@ -65,7 +65,7 @@ def _create_intermediate_dwp_packagers(ctx, dwp_output, cc_toolchain, dwp_files,
     intermediate_outputs = dwo_files
 
     # This long loop is a substitution for recursion, which is not currently supported in Starlark.
-    for i in range(2147483647):
+    for _ in range(2147483647):
         packagers = []
         current_packager = _new_dwp_action(ctx, cc_toolchain, dwp_files)
         inputs_for_current_packager = 0
@@ -149,7 +149,7 @@ def _create_debug_packager_actions(ctx, cc_toolchain, dwp_output, dwo_files):
 def _get_non_data_deps(ctx):
     return ctx.attr.srcs + ctx.attr.deps
 
-def _runfiles_function(ctx, dep, linking_statically):
+def _runfiles_function(dep, linking_statically):
     provider = None
     if CcInfo in dep:
         provider = dep[CcInfo]
@@ -184,8 +184,7 @@ def _get_file_content(objects):
         result.append("\n")
     return "".join(result)
 
-def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_configuration, files_to_build, cc_compilation_outputs, compilation_context, libraries, runtime_objects_for_coverage, common):
-    instrumented_object_files = cc_compilation_outputs.objects + cc_compilation_outputs.pic_objects
+def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_configuration, cc_compilation_outputs, compilation_context, libraries, runtime_objects_for_coverage):
     additional_meta_data = []
     if len(runtime_objects_for_coverage) != 0 and cpp_config.generate_llvm_lcov():
         runtime_objects_list = ctx.actions.declare_file(ctx.label.name + "runtime_objects_list.txt")
@@ -193,11 +192,12 @@ def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_config
         ctx.actions.write(output = runtime_objects_list, content = file_content, is_executable = False)
         additional_meta_data = [runtime_objects_list]
 
-    instrumented_files_provider = common.instrumented_files_info_from_compilation_context(
-        files = instrumented_object_files,
-        with_base_line_coverage = not ctx.attr._is_test,
-        compilation_context = compilation_context,
-        additional_metadata = additional_meta_data,
+    instrumented_files_provider = cc_helper.create_cc_instrumented_files_info(
+        ctx = ctx,
+        cc_config = cpp_config,
+        cc_toolchain = cc_toolchain,
+        metadata_files = additional_meta_data + cc_compilation_outputs.gcno_files() + cc_compilation_outputs.pic_gcno_files(),
+        virtual_to_original_headers = compilation_context.virtual_to_original_headers(),
     )
     output_groups = cc_helper.build_output_groups_for_emitting_compile_providers(
         cc_compilation_outputs,
@@ -215,7 +215,7 @@ def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_config
     output_groups["_validation"] = compilation_context.validation_artifacts
     return (cc_info, instrumented_files_provider, output_groups)
 
-def _collect_runfiles(ctx, feature_configuration, cc_toolchain, libraries, cc_library_linking_outputs, linking_mode, transitive_artifacts, link_compile_output_separately, cpp_config):
+def _collect_runfiles(ctx, feature_configuration, cc_toolchain, libraries, cc_library_linking_outputs, linking_mode, transitive_artifacts, link_compile_output_separately):
     # TODO(b/198254254): Add Legacyexternalrunfiles if necessary.
     runtime_objects_for_coverage = []
     builder_artifacts = []
@@ -234,10 +234,10 @@ def _collect_runfiles(ctx, feature_configuration, cc_toolchain, libraries, cc_li
     runfiles_is_static = []
     runfiles_is_not_static = []
     for transitive_info_collection in ctx.attr.data:
-        runfiles_is_static.append(ctx.runfiles(transitive_files = _runfiles_function(ctx, transitive_info_collection, True)))
-        runfiles_is_not_static.append(ctx.runfiles(transitive_files = _runfiles_function(ctx, transitive_info_collection, False)))
-        runtime_objects_for_coverage.extend(_runfiles_function(ctx, transitive_info_collection, True).to_list())
-        runtime_objects_for_coverage.extend(_runfiles_function(ctx, transitive_info_collection, False).to_list())
+        runfiles_is_static.append(ctx.runfiles(transitive_files = _runfiles_function(transitive_info_collection, True)))
+        runfiles_is_not_static.append(ctx.runfiles(transitive_files = _runfiles_function(transitive_info_collection, False)))
+        runtime_objects_for_coverage.extend(_runfiles_function(transitive_info_collection, True).to_list())
+        runtime_objects_for_coverage.extend(_runfiles_function(transitive_info_collection, False).to_list())
 
     for dynamic_dep in ctx.attr.dynamic_deps:
         builder = builder.merge(dynamic_dep[DefaultInfo].default_runfiles)
@@ -258,7 +258,7 @@ def _collect_runfiles(ctx, feature_configuration, cc_toolchain, libraries, cc_li
         _default_runfiles_function(ctx, runtime)
         for runtime in semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
     ] + [
-        ctx.runfiles(transitive_files = _runfiles_function(ctx, runtime, linking_mode != linker_mode.LINKING_DYNAMIC))
+        ctx.runfiles(transitive_files = _runfiles_function(runtime, linking_mode != linker_mode.LINKING_DYNAMIC))
         for runtime in semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
     ])
 
@@ -416,7 +416,6 @@ def _create_transitive_linking_actions(
         cc_toolchain,
         feature_configuration,
         cpp_config,
-        common,
         precompiled_files,
         cc_compilation_outputs,
         additional_linker_inputs,
@@ -430,7 +429,8 @@ def _create_transitive_linking_actions(
         link_target_type,
         pdb_file,
         win_def_file,
-        additional_linkopts):
+        additional_linkopts,
+        additional_make_variable_substitutions):
     cc_compilation_outputs_with_only_objects = cc_common.create_compilation_outputs(objects = None, pic_objects = None)
     deps_cc_info = CcInfo(linking_context = deps_cc_linking_context)
     libraries_for_current_cc_linking_context = []
@@ -479,8 +479,8 @@ def _create_transitive_linking_actions(
     linker_inputs = cc_common.create_linker_input(
         owner = ctx.label,
         libraries = depset(libraries_for_current_cc_linking_context),
-        user_link_flags = common.linkopts + additional_linkopts,
-        additional_inputs = depset(common.linker_scripts + compilation_context.transitive_compilation_prerequisites().to_list()),
+        user_link_flags = cc_helper.linkopts(ctx, additional_make_variable_substitutions, cc_toolchain) + additional_linkopts,
+        additional_inputs = depset(cc_helper.linker_scripts(ctx) + compilation_context.transitive_compilation_prerequisites().to_list()),
     )
     current_cc_linking_context = cc_common.create_linking_context(linker_inputs = depset([linker_inputs]))
 
@@ -534,7 +534,7 @@ def _use_pic(ctx, cc_toolchain, cpp_config, feature_configuration):
         )
     )
 
-def _collect_linking_context(ctx, cpp_config):
+def _collect_linking_context(ctx):
     cc_infos = _get_providers(ctx)
     return cc_common.merge_cc_infos(direct_cc_infos = cc_infos, cc_infos = cc_infos).linking_context
 
@@ -637,7 +637,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     compilation_context_deps = [dep[CcInfo].compilation_context for dep in all_deps if CcInfo in dep]
 
     additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
-    additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, common, cc_toolchain))
+    additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain))
 
     (compilation_context, compilation_outputs) = cc_common.compile(
         name = ctx.label.name,
@@ -645,8 +645,8 @@ def cc_binary_impl(ctx, additional_linkopts):
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
         user_compile_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions),
-        defines = common.defines,
-        local_defines = common.local_defines + cc_helper.get_local_defines_for_runfiles_lookup(ctx),
+        defines = cc_helper.defines(ctx, additional_make_variable_substitutions),
+        local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx),
         loose_includes = common.loose_include_dirs,
         system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
         private_hdrs = cc_helper.get_private_hdrs(ctx),
@@ -682,7 +682,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     # output matching a shared object, for example cc_binary(name="foo.so", ...) on linux.
     cc_linking_outputs = None
     if link_compile_output_separately and not cc_helper.is_compilation_outputs_empty(cc_compilation_outputs):
-        (linking_context, cc_linking_outputs) = cc_common.create_linking_context_from_compilation_outputs(
+        (_, cc_linking_outputs) = cc_common.create_linking_context_from_compilation_outputs(
             actions = ctx.actions,
             feature_configuration = feature_configuration,
             cc_toolchain = cc_toolchain,
@@ -695,7 +695,7 @@ def cc_binary_impl(ctx, additional_linkopts):
         )
 
     is_static_mode = linking_mode != linker_mode.LINKING_DYNAMIC
-    deps_cc_linking_context = _collect_linking_context(ctx, cpp_config)
+    deps_cc_linking_context = _collect_linking_context(ctx)
     generated_def_file = None
     win_def_file = None
     if _is_link_shared(ctx):
@@ -737,7 +737,6 @@ def cc_binary_impl(ctx, additional_linkopts):
         cc_toolchain,
         feature_configuration,
         cpp_config,
-        common,
         precompiled_files,
         cc_compilation_outputs,
         additional_linker_inputs,
@@ -752,6 +751,7 @@ def cc_binary_impl(ctx, additional_linkopts):
         pdb_file,
         win_def_file,
         additional_linkopts,
+        additional_make_variable_substitutions,
     )
 
     cc_linking_outputs_binary_library = cc_linking_outputs_binary.library_to_link
@@ -822,7 +822,6 @@ def cc_binary_impl(ctx, additional_linkopts):
         linking_mode,
         transitive_artifacts,
         link_compile_output_separately,
-        cpp_config,
     )
     runtime_objects_for_coverage.extend(new_runtime_objects_for_coverage)
     (cc_info, instrumented_files_provider, output_groups) = _add_transitive_info_providers(
@@ -830,15 +829,14 @@ def cc_binary_impl(ctx, additional_linkopts):
         cc_toolchain,
         cpp_config,
         feature_configuration,
-        files_to_build,
         cc_compilation_outputs,
         compilation_context,
         libraries,
         runtime_objects_for_coverage,
-        common,
     )
     if _is_apple_platform(cc_toolchain.cpu) and ctx.attr._is_test:
         # TODO(b/198254254): Add ExecutionInfo.
+        # buildifier: disable=unused-variable
         execution_info = None
 
     # If PDB file is generated by the link action, we add it to pdb_file output group

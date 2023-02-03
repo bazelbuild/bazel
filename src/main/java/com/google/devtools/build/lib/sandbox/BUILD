@@ -19,6 +19,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
@@ -150,6 +151,7 @@ java_library(
     name = "abstract_sandbox_spawn_runner",
     srcs = ["AbstractSandboxSpawnRunner.java"],
     deps = [
+        ":sandbox_helpers",
         ":sandbox_options",
         ":sandboxed_spawns",
         "//src/main/java/com/google/devtools/build/lib:runtime",
@@ -263,9 +265,12 @@ java_library(
     srcs = ["LinuxSandboxUtil.java"],
     data = ["//src/main/tools:linux-sandbox"],
     deps = [
+        ":sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/protobuf:failure_details_java_proto",
     ],
 )
 

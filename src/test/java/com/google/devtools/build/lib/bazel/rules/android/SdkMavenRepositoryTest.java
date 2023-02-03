@@ -129,9 +129,9 @@ public class SdkMavenRepositoryTest extends AndroidBuildViewTestCase {
     assertThat(aarImport.getRuleClass()).isEqualTo("aar_import");
     AttributeMap attributes = RawAttributeMapper.of(aarImport);
     assertThat(attributes.get("aar", BuildType.LABEL))
-        .isEqualTo(Label.parseAbsoluteUnchecked("//:repo/com/google/android/bar/1.0.0/bar.aar"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//:repo/com/google/android/bar/1.0.0/bar.aar"));
     assertThat(attributes.get("exports", BuildType.LABEL_LIST))
-        .containsExactly(Label.parseAbsoluteUnchecked("//com.google.android:foo-1.0.0"));
+        .containsExactly(Label.parseCanonicalUnchecked("//com.google.android:foo-1.0.0"));
   }
 
   @Test
@@ -143,8 +143,9 @@ public class SdkMavenRepositoryTest extends AndroidBuildViewTestCase {
             .getAssociatedRule();
     assertThat(javaImport.getRuleClass()).isEqualTo("java_import");
     AttributeMap attributes = RawAttributeMapper.of(javaImport);
-    assertThat(attributes.get("jars", BuildType.LABEL_LIST)).containsExactly(
-        Label.parseAbsoluteUnchecked("//:repo/com/google/android/foo/1.0.0/foo.jar"));
+    assertThat(attributes.get("jars", BuildType.LABEL_LIST))
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//:repo/com/google/android/foo/1.0.0/foo.jar"));
     assertThat(attributes.get("exports", BuildType.LABEL_LIST)).isEmpty();
   }
 

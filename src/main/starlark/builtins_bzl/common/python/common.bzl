@@ -342,6 +342,8 @@ def create_py_info(ctx, *, direct_sources, imports):
         necessary for deprecated extra actions support).
     """
     uses_shared_libraries = False
+    has_py2_only_sources = ctx.attr.srcs_version in ("PY2", "PY2ONLY")
+    has_py3_only_sources = ctx.attr.srcs_version in ("PY3", "PY3ONLY")
     transitive_sources_depsets = []  # list of depsets
     transitive_sources_files = []  # list of Files
     for target in ctx.attr.deps:
@@ -350,6 +352,8 @@ def create_py_info(ctx, *, direct_sources, imports):
             info = target[PyInfo]
             transitive_sources_depsets.append(info.transitive_sources)
             uses_shared_libraries = uses_shared_libraries or info.uses_shared_libraries
+            has_py2_only_sources = has_py2_only_sources or info.has_py2_only_sources
+            has_py3_only_sources = has_py3_only_sources or info.has_py3_only_sources
         else:
             # TODO(b/228692666): Remove this once non-PyInfo targets are no
             # longer supported in `deps`.
@@ -395,8 +399,8 @@ def create_py_info(ctx, *, direct_sources, imports):
         # NOTE: This isn't strictly correct, but with Python 2 gone,
         # the srcs_version logic is largely defunct, so shouldn't matter in
         # practice.
-        has_py2_only_sources = False,
-        has_py3_only_sources = False,
+        has_py2_only_sources = has_py2_only_sources,
+        has_py3_only_sources = has_py3_only_sources,
         uses_shared_libraries = uses_shared_libraries,
     )
     return py_info, deps_transitive_sources

@@ -20,7 +20,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /**
- * A {@link StarlarkInfo} that supports custom no-such-field error messages.
+ * A struct-like object supporting a custom no-such-field error message.
  *
  * <p>This is used for certain special structs like `ctx.attr`.
  */
@@ -28,7 +28,7 @@ import net.starlark.java.syntax.Location;
 // class hierarchy of StructImpl at all. They really only need to have fields and custom error
 // messages (which are features of the simpler Structure class), not `+` concatenation,
 // proto/json encoding, or provider functionality.
-public final class StarlarkInfoWithMessage extends StarlarkInfo {
+public final class StarlarkInfoWithMessage extends StarlarkInfoNoSchema {
   // A format string with one %s placeholder for the missing field name.
   // TODO(adonovan): make the provider determine the error message
   // (but: this has implications for struct+struct, the equivalence
@@ -38,8 +38,11 @@ public final class StarlarkInfoWithMessage extends StarlarkInfo {
   private final String unknownFieldError;
 
   private StarlarkInfoWithMessage(
-      Provider provider, Object[] table, @Nullable Location loc, String unknownFieldError) {
-    super(provider, table, loc);
+      Provider provider,
+      Map<String, Object> values,
+      @Nullable Location loc,
+      String unknownFieldError) {
+    super(provider, values, loc);
     this.unknownFieldError = unknownFieldError;
   }
 
@@ -81,7 +84,6 @@ public final class StarlarkInfoWithMessage extends StarlarkInfo {
   public static StarlarkInfo createWithCustomMessage(
       Provider provider, Map<String, Object> values, String unknownFieldError) {
     Preconditions.checkNotNull(unknownFieldError);
-    return new StarlarkInfoWithMessage(
-        provider, toTable(values), Location.BUILTIN, unknownFieldError);
+    return new StarlarkInfoWithMessage(provider, values, Location.BUILTIN, unknownFieldError);
   }
 }

@@ -168,7 +168,6 @@ tasks:
       - build
       - test
   macos:
-    xcode_version: "13.0"
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
@@ -209,11 +208,26 @@ tasks:
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       # MacOS does not have cgroups so it can't support hardened sandbox
       - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
+      # https://github.com/bazelbuild/bazel/issues/16526
+      - "-//src/test/shell/bazel:starlark_repository_test"
+      # https://github.com/bazelbuild/bazel/issues/17407
+      - "-//src/test/shell/bazel/apple:bazel_apple_test"
+      # https://github.com/bazelbuild/bazel/issues/17408
+      - "-//src/test/shell/bazel/apple:bazel_objc_test"
+      # https://github.com/bazelbuild/bazel/issues/16526#issuecomment-1415858550
+      - "-//src/test/py/bazel:runfiles_test"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
+      - "-//tools/python:pywrapper_test"
+      # https://github.com/bazelbuild/bazel/issues/17410
+      - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
+      # https://github.com/bazelbuild/bazel/issues/17411
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:PatchApiBlackBoxTest"
     include_json_profile:
       - build
       - test
   macos_arm64:
-    xcode_version: "13.0"
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE

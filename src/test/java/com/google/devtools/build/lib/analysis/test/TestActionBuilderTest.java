@@ -325,7 +325,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     ConfiguredAspect aspectValue =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//:aspect.bzl"), "StructImpl");
+        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
         .containsExactly("@//:suite", "@//:test_a", "@//:test_b");
@@ -358,7 +358,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     ConfiguredAspect aspectValue =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//:aspect.bzl"), "StructImpl");
+        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
         .containsExactly("@//:suite", "@//:test_b");
@@ -387,7 +387,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
             /* doAnalysis= */ true,
             new EventBus());
     final StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//:aspect.bzl"), "StructImpl");
+        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
 
     List<String> labels = new ArrayList<>();
     for (ConfiguredAspect a : analysisResult.getAspectsMap().values()) {

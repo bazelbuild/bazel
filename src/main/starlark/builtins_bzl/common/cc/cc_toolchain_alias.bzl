@@ -22,7 +22,9 @@ TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
 ToolchainInfo = _builtins.toplevel.platform_common.ToolchainInfo
 
 def _impl(ctx):
-    cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
+    cc_toolchain = cc_helper.find_cpp_toolchain(ctx, mandatory = ctx.attr.mandatory)
+    if not cc_toolchain:
+        return []
     make_variables = cc_toolchain.get_additional_make_variables()
     cc_provider_make_variables = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
     template_variable_info = TemplateVariableInfo(make_variables | cc_provider_make_variables)
@@ -43,6 +45,7 @@ cc_toolchain_alias = rule(
     implementation = _impl,
     fragments = ["cpp", "platform"],
     attrs = {
+        "mandatory": attr.bool(default = True),
         "_cc_toolchain": attr.label(default = configuration_field(fragment = "cpp", name = "cc_toolchain"), providers = [CcToolchainInfo]),
         "_cc_toolchain_type": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:toolchain_type"),
     },

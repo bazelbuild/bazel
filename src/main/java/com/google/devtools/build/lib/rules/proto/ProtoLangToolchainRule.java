@@ -22,8 +22,6 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
 
@@ -33,17 +31,6 @@ import com.google.devtools.build.lib.packages.Type;
  * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
  */
 public class ProtoLangToolchainRule implements RuleDefinition {
-  private static final Label DEFAULT_PROTO_COMPILER =
-      Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
-  private static final Attribute.LabelLateBoundDefault<?> PROTO_COMPILER =
-      Attribute.LabelLateBoundDefault.fromTargetConfiguration(
-          ProtoConfiguration.class,
-          DEFAULT_PROTO_COMPILER,
-          (rule, attributes, protoConfig) ->
-              protoConfig.protoCompiler() != null
-                  ? protoConfig.protoCompiler()
-                  : DEFAULT_PROTO_COMPILER);
-
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
@@ -110,11 +97,6 @@ public class ProtoLangToolchainRule implements RuleDefinition {
                 .allowedFileTypes()
                 .cfg(ExecutionTransitionFactory.create())
                 .exec())
-        .add(
-            attr(":proto_compiler", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
-                .exec()
-                .value(PROTO_COMPILER))
         .requiresConfigurationFragments(ProtoConfiguration.class)
         .removeAttribute("data")
         .removeAttribute("deps")
@@ -133,8 +115,8 @@ public class ProtoLangToolchainRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = proto_lang_toolchain, TYPE = LIBRARY, FAMILY = Protocol Buffer) -->
 
-<p>Deprecated. Please <a href="https://github.com/bazelbuild/rules_proto">
-   https://github.com/bazelbuild/rules_proto</a> instead.
+<p>If using Bazel, please load the rule from <a href="https://github.com/bazelbuild/rules_proto">
+   https://github.com/bazelbuild/rules_proto</a>.
 </p>
 
 <p>

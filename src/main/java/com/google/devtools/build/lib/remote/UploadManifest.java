@@ -71,7 +71,6 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -102,8 +101,8 @@ public class UploadManifest {
       Collection<Path> outputFiles,
       FileOutErr outErr,
       int exitCode,
-      Optional<Instant> startTime,
-      Optional<Duration> wallTime)
+      Instant startTime,
+      Duration wallTime)
       throws ExecException, IOException {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.setExitCode(exitCode);
@@ -128,9 +127,9 @@ public class UploadManifest {
       result.setStdoutDigest(manifest.getStdoutDigest());
     }
 
-    if (startTime.isPresent() && wallTime.isPresent()) {
-      Timestamp startTimestamp = instantToTimestamp(startTime.get());
-      Timestamp completedTimestamp = instantToTimestamp(startTime.get().plus(wallTime.get()));
+    if (startTime != null && wallTime != null) {
+      Timestamp startTimestamp = instantToTimestamp(startTime);
+      Timestamp completedTimestamp = instantToTimestamp(startTime.plus(wallTime));
       result
           .getExecutionMetadataBuilder()
           .setWorkerStartTimestamp(startTimestamp)

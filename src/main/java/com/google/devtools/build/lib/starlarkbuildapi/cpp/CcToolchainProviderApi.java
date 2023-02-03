@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -34,7 +36,12 @@ import net.starlark.java.eval.StarlarkThread;
 public interface CcToolchainProviderApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         BranchFdoProfileT extends BranchFdoProfileApi,
-        FdoContextT extends FdoContextApi<BranchFdoProfileT>>
+        FdoContextT extends FdoContextApi<BranchFdoProfileT>,
+        ConstraintValueT extends ConstraintValueInfoApi,
+        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
+        InvalidConfigurationExceptionT extends Exception,
+        CppConfigurationT extends CppConfigurationApi<InvalidConfigurationExceptionT>,
+        CcToolchainVariablesT extends CcToolchainVariablesApi>
     extends StructApi {
 
   @StarlarkMethod(
@@ -286,4 +293,18 @@ public interface CcToolchainProviderApi<
 
   @StarlarkMethod(name = "get_crosstool_top_path", documented = false, useStarlarkThread = true)
   String getCrosstoolTopPathForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "get_build_variables",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "cpp_configuration", positional = false, named = true)
+      })
+  CcToolchainVariablesT getBuildVariablesForStarlark(
+      StarlarkRuleContextT starlarkRuleContext,
+      CppConfigurationT cppConfiguration,
+      StarlarkThread thread)
+      throws EvalException;
 }

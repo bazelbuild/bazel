@@ -365,7 +365,7 @@ public final class JavaCompilationHelper {
           new LazyWritePathsFileAction(
               ruleContext.getActionOwner(),
               coverageArtifact,
-              sourceFiles,
+              NestedSetBuilder.<Artifact>stableOrder().addAll(sourceFiles).build(),
               /* filesToIgnore= */ ImmutableSet.of(),
               false));
     }

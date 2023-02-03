@@ -436,7 +436,8 @@ public class StandaloneTestStrategy extends TestStrategy {
             action.getTestXmlGeneratorScript().getExecPath().getCallablePathString(),
             action.getTestLog().getExecPathString(),
             action.getXmlOutputPath().getPathString(),
-            Long.toString(result.getWallTime().orElse(Duration.ZERO).getSeconds()),
+            Long.toString(
+                (result.getWallTime() == null ? Duration.ZERO : result.getWallTime()).getSeconds()),
             Integer.toString(result.exitCode()));
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
     // "PATH" and "TEST_BINARY" are also required, they should always be set in testEnv.
@@ -692,7 +693,10 @@ public class StandaloneTestStrategy extends TestStrategy {
     // set. We fall back to the time measured here for backwards compatibility.
     long durationMillis = endTimeMillis - startTimeMillis;
     durationMillis =
-        primaryResult.getWallTime().orElse(Duration.ofMillis(durationMillis)).toMillis();
+        (primaryResult.getWallTime() != null
+                ? primaryResult.getWallTime()
+                : Duration.ofMillis(durationMillis))
+            .toMillis();
 
     testResultDataBuilder
         .setStartTimeMillisEpoch(startTimeMillis)

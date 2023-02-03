@@ -40,9 +40,9 @@ public class PlatformOptions extends FragmentOptions {
   // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
   // directly.
   public static final Label LEGACY_DEFAULT_HOST_PLATFORM =
-      Label.parseAbsoluteUnchecked("@local_config_platform//:host");
+      Label.parseCanonicalUnchecked("@local_config_platform//:host");
   public static final Label DEFAULT_HOST_PLATFORM =
-      Label.parseAbsoluteUnchecked("@local_config_platform//:host");
+      Label.parseCanonicalUnchecked("@local_config_platform//:host");
   public static final String DEFAULT_TARGET_PLATFORM_FALLBACK = "@local_config_platform//:host";
 
   /**
@@ -240,6 +240,18 @@ public class PlatformOptions extends FragmentOptions {
     exec.useToolchainResolutionForJavaRules = this.useToolchainResolutionForJavaRules;
     exec.targetPlatformFallback = this.targetPlatformFallback;
     return exec;
+  }
+
+  @Override
+  public PlatformOptions getNormalized() {
+    PlatformOptions result = (PlatformOptions) clone();
+    result.extraToolchains = dedupeOnly(result.extraToolchains);
+    // Only the first entry of platforms is used (it should have been Label and not List<Label>)
+    // So drop all but the first entry.
+    if (result.platforms.size() > 1) {
+      result.platforms = ImmutableList.of(result.platforms.get(0));
+    }
+    return result;
   }
 
   /** Returns the intended target platform value based on options defined in this fragment. */

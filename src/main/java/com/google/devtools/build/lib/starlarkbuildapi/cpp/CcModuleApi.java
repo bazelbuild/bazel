@@ -42,7 +42,16 @@ public interface CcModuleApi<
         StarlarkActionFactoryT extends StarlarkActionFactoryApi,
         FileT extends FileApi,
         FdoContextT extends FdoContextApi<?>,
-        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT, ?, FdoContextT>,
+        CcToolchainProviderT extends
+            CcToolchainProviderApi<
+                    FeatureConfigurationT,
+                    ?,
+                    FdoContextT,
+                    ConstraintValueT,
+                    StarlarkRuleContextT,
+                    ?,
+                    ? extends CppConfigurationApi<?>,
+                    CcToolchainVariablesT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT>,
         LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,

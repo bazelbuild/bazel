@@ -30,7 +30,6 @@ import java.io.InputStream;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** The result of a {@link Spawn}'s execution. */
@@ -175,68 +174,76 @@ public interface SpawnResult {
   /**
    * Returns the start time for the {@link Spawn}'s execution.
    *
-   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   * @return the measurement, or null in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
-  Optional<Instant> getStartTime();
+  @Nullable
+  Instant getStartTime();
 
   /**
    * Returns the wall time taken by the {@link Spawn}'s execution.
    *
-   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   * @return the measurement, or null in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
-  Optional<Duration> getWallTime();
+  @Nullable
+  Duration getWallTime();
 
   /**
    * Returns the user time taken by the {@link Spawn}'s execution.
    *
-   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   * @return the measurement, or null in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
-  Optional<Duration> getUserTime();
+  @Nullable
+  Duration getUserTime();
 
   /**
    * Returns the system time taken by the {@link Spawn}'s execution.
    *
-   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   * @return the measurement, or null in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
-  Optional<Duration> getSystemTime();
+  @Nullable
+  Duration getSystemTime();
 
   /**
    * Returns the number of block output operations during the {@link Spawn}'s execution.
    *
-   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   * @return the measurement, or null in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
-  Optional<Long> getNumBlockOutputOperations();
+  @Nullable
+  Long getNumBlockOutputOperations();
 
   /**
    * Returns the number of block input operations during the {@link Spawn}'s execution.
    *
-   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   * @return the measurement, or null in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
-  Optional<Long> getNumBlockInputOperations();
+  @Nullable
+  Long getNumBlockInputOperations();
 
   /**
    * Returns the number of involuntary context switches during the {@link Spawn}'s execution.
    *
-   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   * @return the measurement, or null in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
-  Optional<Long> getNumInvoluntaryContextSwitches();
+  @Nullable
+  Long getNumInvoluntaryContextSwitches();
 
   /**
    * Returns the memory in Kilobytes used during the {@link Spawn}'s execution. The spawn memory
    * based on the maximum resident set size during command execution.
    *
-   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   * @return the measurement, or null in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
   // TODO(b/181317827) implement for windows systems.
-  Optional<Long> getMemoryInKb();
+  @Nullable
+  Long getMemoryInKb();
 
   SpawnMetrics getMetrics();
 
@@ -265,7 +272,8 @@ public interface SpawnResult {
       boolean forciblyRunRemotely);
 
   /** Returns a file path to the action metadata log. */
-  Optional<MetadataLog> getActionMetadataLog();
+  @Nullable
+  MetadataLog getActionMetadataLog();
 
   /** Whether the spawn result was obtained through remote strategy. */
   boolean wasRemote();
@@ -283,8 +291,9 @@ public interface SpawnResult {
     }
   }
 
-  default Optional<Digest> getDigest() {
-    return Optional.empty();
+  @Nullable
+  default Digest getDigest() {
+    return null;
   }
 
   /** Basic implementation of {@link SpawnResult}. */
@@ -298,15 +307,15 @@ public interface SpawnResult {
     private final String runnerName;
     private final String runnerSubtype;
     private final SpawnMetrics spawnMetrics;
-    private final Optional<Instant> startTime;
-    private final Optional<Duration> wallTime;
-    private final Optional<Duration> userTime;
-    private final Optional<Duration> systemTime;
-    private final Optional<Long> numBlockOutputOperations;
-    private final Optional<Long> numBlockInputOperations;
-    private final Optional<Long> numInvoluntaryContextSwitches;
-    private final Optional<Long> memoryKb;
-    private final Optional<MetadataLog> actionMetadataLog;
+    @Nullable private final Instant startTime;
+    @Nullable private final Duration wallTime;
+    @Nullable private final Duration userTime;
+    @Nullable private final Duration systemTime;
+    @Nullable private final Long numBlockOutputOperations;
+    @Nullable private final Long numBlockInputOperations;
+    @Nullable private final Long numInvoluntaryContextSwitches;
+    @Nullable private final Long memoryKb;
+    @Nullable private final MetadataLog actionMetadataLog;
     private final boolean cacheHit;
     private final String failureMessage;
 
@@ -315,7 +324,7 @@ public interface SpawnResult {
     @Nullable private final ByteString inMemoryContents;
 
     private final boolean remote;
-    private final Optional<Digest> digest;
+    @Nullable private final Digest digest;
 
     SimpleSpawnResult(Builder builder) {
       this.exitCode = builder.exitCode;
@@ -324,9 +333,11 @@ public interface SpawnResult {
       this.executorHostName = builder.executorHostName;
       this.runnerName = builder.runnerName;
       this.runnerSubtype = builder.runnerSubtype;
-      this.spawnMetrics = builder.spawnMetrics != null
-          ? builder.spawnMetrics
-          : SpawnMetrics.forLocalExecution(builder.wallTime.orElse(Duration.ZERO));
+      this.spawnMetrics =
+          builder.spawnMetrics != null
+              ? builder.spawnMetrics
+              : SpawnMetrics.forLocalExecution(
+                  builder.wallTime == null ? Duration.ZERO : builder.wallTime);
       this.startTime = builder.startTime;
       this.wallTime = builder.wallTime;
       this.userTime = builder.userTime;
@@ -381,42 +392,42 @@ public interface SpawnResult {
     }
 
     @Override
-    public Optional<Instant> getStartTime() {
+    public Instant getStartTime() {
       return startTime;
     }
 
     @Override
-    public Optional<Duration> getWallTime() {
+    public Duration getWallTime() {
       return wallTime;
     }
 
     @Override
-    public Optional<Duration> getUserTime() {
+    public Duration getUserTime() {
       return userTime;
     }
 
     @Override
-    public Optional<Duration> getSystemTime() {
+    public Duration getSystemTime() {
       return systemTime;
     }
 
     @Override
-    public Optional<Long> getNumBlockOutputOperations() {
+    public Long getNumBlockOutputOperations() {
       return numBlockOutputOperations;
     }
 
     @Override
-    public Optional<Long> getNumBlockInputOperations() {
+    public Long getNumBlockInputOperations() {
       return numBlockInputOperations;
     }
 
     @Override
-    public Optional<Long> getNumInvoluntaryContextSwitches() {
+    public Long getNumInvoluntaryContextSwitches() {
       return numInvoluntaryContextSwitches;
     }
 
     @Override
-    public Optional<Long> getMemoryInKb() {
+    public Long getMemoryInKb() {
       return memoryKb;
     }
 
@@ -437,16 +448,16 @@ public interface SpawnResult {
         boolean forciblyRunRemotely) {
       TerminationStatus status = new TerminationStatus(
           exitCode(), status() == Status.TIMEOUT);
-      String reason = "(" + status.toShortString() + ")"; // e.g "(Exit 1)"
+      String reason = "(" + status.toShortString() + ")"; // e.g. "(Exit 1)"
       String explanation = Strings.isNullOrEmpty(message) ? "" : ": " + message;
 
       if (status() == Status.TIMEOUT) {
-        if (getWallTime().isPresent()) {
+        if (getWallTime() != null) {
           explanation +=
               String.format(
                   Locale.US,
                   " (failed due to timeout after %.2f seconds.)",
-                  getWallTime().get().toMillis() / 1000.0);
+                  getWallTime().toMillis() / 1000.0);
         } else {
           explanation += " (failed due to timeout.)";
         }
@@ -470,7 +481,7 @@ public interface SpawnResult {
     }
 
     @Override
-    public Optional<MetadataLog> getActionMetadataLog() {
+    public MetadataLog getActionMetadataLog() {
       return actionMetadataLog;
     }
 
@@ -480,7 +491,7 @@ public interface SpawnResult {
     }
 
     @Override
-    public Optional<Digest> getDigest() {
+    public Digest getDigest() {
       return digest;
     }
   }
@@ -494,15 +505,15 @@ public interface SpawnResult {
     private String runnerName = "";
     private String runnerSubtype = "";
     private SpawnMetrics spawnMetrics;
-    private Optional<Instant> startTime = Optional.empty();
-    private Optional<Duration> wallTime = Optional.empty();
-    private Optional<Duration> userTime = Optional.empty();
-    private Optional<Duration> systemTime = Optional.empty();
-    private Optional<Long> numBlockOutputOperations = Optional.empty();
-    private Optional<Long> numBlockInputOperations = Optional.empty();
-    private Optional<Long> numInvoluntaryContextSwitches = Optional.empty();
-    private Optional<Long> memoryInKb = Optional.empty();
-    private Optional<MetadataLog> actionMetadataLog = Optional.empty();
+    private Instant startTime;
+    private Duration wallTime;
+    private Duration userTime;
+    private Duration systemTime;
+    private Long numBlockOutputOperations;
+    private Long numBlockInputOperations;
+    private Long numInvoluntaryContextSwitches;
+    private Long memoryInKb;
+    private MetadataLog actionMetadataLog;
     private boolean cacheHit;
     private String failureMessage = "";
 
@@ -511,7 +522,7 @@ public interface SpawnResult {
     @Nullable private ByteString inMemoryContents;
 
     private boolean remote;
-    private Optional<Digest> digest = Optional.empty();
+    private Digest digest;
 
     public SpawnResult build() {
       Preconditions.checkArgument(!runnerName.isEmpty());
@@ -589,49 +600,49 @@ public interface SpawnResult {
 
     @CanIgnoreReturnValue
     public Builder setStartTime(Instant startTime) {
-      this.startTime = Optional.of(startTime);
+      this.startTime = startTime;
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder setWallTime(Duration wallTime) {
-      this.wallTime = Optional.of(wallTime);
+      this.wallTime = wallTime;
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder setUserTime(Duration userTime) {
-      this.userTime = Optional.of(userTime);
+      this.userTime = userTime;
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder setSystemTime(Duration systemTime) {
-      this.systemTime = Optional.of(systemTime);
+      this.systemTime = systemTime;
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder setNumBlockOutputOperations(long numBlockOutputOperations) {
-      this.numBlockOutputOperations = Optional.of(numBlockOutputOperations);
+      this.numBlockOutputOperations = numBlockOutputOperations;
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder setNumBlockInputOperations(long numBlockInputOperations) {
-      this.numBlockInputOperations = Optional.of(numBlockInputOperations);
+      this.numBlockInputOperations = numBlockInputOperations;
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder setNumInvoluntaryContextSwitches(long numInvoluntaryContextSwitches) {
-      this.numInvoluntaryContextSwitches = Optional.of(numInvoluntaryContextSwitches);
+      this.numInvoluntaryContextSwitches = numInvoluntaryContextSwitches;
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder setMemoryInKb(long memoryInKb) {
-      this.memoryInKb = Optional.of(memoryInKb);
+      this.memoryInKb = memoryInKb;
       return this;
     }
 
@@ -656,7 +667,7 @@ public interface SpawnResult {
 
     @CanIgnoreReturnValue
     Builder setActionMetadataLog(MetadataLog actionMetadataLog) {
-      this.actionMetadataLog = Optional.of(actionMetadataLog);
+      this.actionMetadataLog = actionMetadataLog;
       return this;
     }
 
@@ -667,7 +678,7 @@ public interface SpawnResult {
     }
 
     @CanIgnoreReturnValue
-    public Builder setDigest(Optional<Digest> digest) {
+    public Builder setDigest(Digest digest) {
       this.digest = digest;
       return this;
     }

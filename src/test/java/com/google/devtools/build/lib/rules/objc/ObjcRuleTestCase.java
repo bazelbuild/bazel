@@ -430,7 +430,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .containsEntry("XCODE_VERSION_OVERRIDE", versionNumber);
   }
 
-  protected ObjcProvider providerForTarget(String label) throws Exception {
+  protected ObjcProvider objcProviderForTarget(String label) throws Exception {
     ObjcProvider objcProvider = getConfiguredTarget(label).get(ObjcProvider.STARLARK_CONSTRUCTOR);
     if (objcProvider != null) {
       return objcProvider;
@@ -439,6 +439,19 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         getConfiguredTarget(label).get(AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
     if (executableProvider != null) {
       return executableProvider.getDepsObjcProvider();
+    }
+    return null;
+  }
+
+  protected CcInfo ccInfoForTarget(String label) throws Exception {
+    CcInfo ccInfo = getConfiguredTarget(label).get(CcInfo.PROVIDER);
+    if (ccInfo != null) {
+      return ccInfo;
+    }
+    AppleExecutableBinaryInfo executableProvider =
+        getConfiguredTarget(label).get(AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
+    if (executableProvider != null) {
+      return executableProvider.getDepsCcInfo();
     }
     return null;
   }
@@ -1968,11 +1981,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(compileActionA.getArguments()).doesNotContain("-fmodule-maps");
     assertThat(compileActionA.getArguments()).doesNotContain("-fmodule-name");
 
-    ObjcProvider provider = providerForTarget("//z:testModuleMap");
+    ObjcProvider provider = objcProviderForTarget("//z:testModuleMap");
     assertThat(Artifact.asExecPaths(provider.get(MODULE_MAP)))
         .containsExactly("y/module.modulemap");
 
-    provider = providerForTarget("//x:x");
+    provider = objcProviderForTarget("//x:x");
     assertThat(Artifact.asExecPaths(provider.get(MODULE_MAP))).contains("y/module.modulemap");
   }
 
@@ -2164,5 +2177,18 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   protected List<String> removeConfigFragment(List<String> text) {
     return text.stream().map(this::removeConfigFragment).collect(toImmutableList());
+  }
+
+  protected static Iterable<String> getArifactPathsOfLibraries(ConfiguredTarget target) {
+    return Artifact.toRootRelativePaths(
+        target
+            .get(CcInfo.PROVIDER)
+            .getCcLinkingContext()
+            .getStaticModeParamsForDynamicLibraryLibraries());
+  }
+
+  protected static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
+    return Artifact.toRootRelativePaths(
+        target.get(CcInfo.PROVIDER).getCcCompilationContext().getDeclaredIncludeSrcs());
   }
 }

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.exec.local;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.testing.common.DirectoryListingHelper.file;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -622,9 +621,9 @@ public class LocalSpawnRunnerTest {
     assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
     assertThat(result.exitCode()).isEqualTo(-1);
     assertThat(result.setupSuccess()).isFalse();
-    assertThat(result.getWallTime()).isEmpty();
-    assertThat(result.getUserTime()).isEmpty();
-    assertThat(result.getSystemTime()).isEmpty();
+    assertThat(result.getWallTime()).isNull();
+    assertThat(result.getUserTime()).isNull();
+    assertThat(result.getSystemTime()).isNull();
     assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
     assertThat(FileSystemUtils.readContent(fs.getPath("/out/stderr"), UTF_8))
@@ -654,9 +653,9 @@ public class LocalSpawnRunnerTest {
     assertThat(reply.status()).isEqualTo(SpawnResult.Status.EXECUTION_DENIED);
     assertThat(reply.exitCode()).isEqualTo(-1);
     assertThat(reply.setupSuccess()).isFalse();
-    assertThat(reply.getWallTime()).isEmpty();
-    assertThat(reply.getUserTime()).isEmpty();
-    assertThat(reply.getSystemTime()).isEmpty();
+    assertThat(reply.getWallTime()).isNull();
+    assertThat(reply.getUserTime()).isNull();
+    assertThat(reply.getSystemTime()).isNull();
     assertThat(reply.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
     // TODO(ulfjack): Maybe we should only lock after checking?
@@ -1004,18 +1003,18 @@ public class LocalSpawnRunnerTest {
     assertThat(spawnResult.setupSuccess()).isTrue();
     assertThat(spawnResult.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
-    assertThat(spawnResult.getWallTime()).isPresent();
-    assertThat(spawnResult.getWallTime().get()).isAtLeast(minimumWallTimeToSpend);
+    assertThat(spawnResult.getWallTime()).isNotNull();
+    assertThat(spawnResult.getWallTime()).isAtLeast(minimumWallTimeToSpend);
     // Under heavy starvation, max wall time could be anything, so don't check it here.
-    assertThat(spawnResult.getUserTime()).isPresent();
-    assertThat(spawnResult.getUserTime().get()).isAtLeast(minimumUserTimeToSpend);
-    assertThat(spawnResult.getUserTime().get()).isAtMost(maximumUserTimeToSpend);
-    assertThat(spawnResult.getSystemTime()).isPresent();
-    assertThat(spawnResult.getSystemTime().get()).isAtLeast(minimumSystemTimeToSpend);
-    assertThat(spawnResult.getSystemTime().get()).isAtMost(maximumSystemTimeToSpend);
-    assertThat(spawnResult.getNumBlockOutputOperations().get()).isAtLeast(0L);
-    assertThat(spawnResult.getNumBlockInputOperations().get()).isAtLeast(0L);
-    assertThat(spawnResult.getNumInvoluntaryContextSwitches().get()).isAtLeast(0L);
+    assertThat(spawnResult.getUserTime()).isNotNull();
+    assertThat(spawnResult.getUserTime()).isAtLeast(minimumUserTimeToSpend);
+    assertThat(spawnResult.getUserTime()).isAtMost(maximumUserTimeToSpend);
+    assertThat(spawnResult.getSystemTime()).isNotNull();
+    assertThat(spawnResult.getSystemTime()).isAtLeast(minimumSystemTimeToSpend);
+    assertThat(spawnResult.getSystemTime()).isAtMost(maximumSystemTimeToSpend);
+    assertThat(spawnResult.getNumBlockOutputOperations()).isAtLeast(0L);
+    assertThat(spawnResult.getNumBlockInputOperations()).isAtLeast(0L);
+    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isAtLeast(0L);
   }
 
   @Test
@@ -1070,14 +1069,14 @@ public class LocalSpawnRunnerTest {
     assertThat(spawnResult.setupSuccess()).isTrue();
     assertThat(spawnResult.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
-    assertThat(spawnResult.getWallTime()).isPresent();
-    assertThat(spawnResult.getWallTime().get()).isAtLeast(minimumWallTimeToSpend);
+    assertThat(spawnResult.getWallTime()).isNotNull();
+    assertThat(spawnResult.getWallTime()).isAtLeast(minimumWallTimeToSpend);
     // Under heavy starvation, max wall time could be anything, so don't check it here.
-    assertThat(spawnResult.getUserTime()).isEmpty();
-    assertThat(spawnResult.getSystemTime()).isEmpty();
-    assertThat(spawnResult.getNumBlockOutputOperations()).isEmpty();
-    assertThat(spawnResult.getNumBlockInputOperations()).isEmpty();
-    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isEmpty();
+    assertThat(spawnResult.getUserTime()).isNull();
+    assertThat(spawnResult.getSystemTime()).isNull();
+    assertThat(spawnResult.getNumBlockOutputOperations()).isNull();
+    assertThat(spawnResult.getNumBlockInputOperations()).isNull();
+    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isNull();
   }
 
   // Check that relative paths in the Spawn are absolutized relative to the execroot passed to the

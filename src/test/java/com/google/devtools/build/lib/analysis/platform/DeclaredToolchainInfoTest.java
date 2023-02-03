@@ -32,23 +32,23 @@ public class DeclaredToolchainInfoTest extends BuildViewTestCase {
   @Test
   public void toolchainInfo_overlappingConstraintsError() throws Exception {
     ConstraintSettingInfo setting1 =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:basic"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:basic"));
     ConstraintSettingInfo setting2 =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:complex"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:complex"));
 
     DeclaredToolchainInfo.Builder builder = DeclaredToolchainInfo.builder();
 
     builder.addExecConstraints(
-        ConstraintValueInfo.create(setting1, Label.parseAbsoluteUnchecked("//constraint:value1")));
+        ConstraintValueInfo.create(setting1, Label.parseCanonicalUnchecked("//constraint:value1")));
     builder.addExecConstraints(
-        ConstraintValueInfo.create(setting1, Label.parseAbsoluteUnchecked("//constraint:value2")));
+        ConstraintValueInfo.create(setting1, Label.parseCanonicalUnchecked("//constraint:value2")));
 
     builder.addTargetConstraints(
-        ConstraintValueInfo.create(setting2, Label.parseAbsoluteUnchecked("//constraint:value3")));
+        ConstraintValueInfo.create(setting2, Label.parseCanonicalUnchecked("//constraint:value3")));
     builder.addTargetConstraints(
-        ConstraintValueInfo.create(setting2, Label.parseAbsoluteUnchecked("//constraint:value4")));
+        ConstraintValueInfo.create(setting2, Label.parseCanonicalUnchecked("//constraint:value4")));
     builder.addTargetConstraints(
-        ConstraintValueInfo.create(setting2, Label.parseAbsoluteUnchecked("//constraint:value5")));
+        ConstraintValueInfo.create(setting2, Label.parseCanonicalUnchecked("//constraint:value5")));
 
     DeclaredToolchainInfo.DuplicateConstraintException exception =
         assertThrows(
@@ -72,55 +72,55 @@ public class DeclaredToolchainInfoTest extends BuildViewTestCase {
   @Test
   public void toolchainInfo_equalsTester() throws Exception {
     ConstraintSettingInfo setting1 =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:setting1"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:setting1"));
     ConstraintValueInfo constraint1 =
-        ConstraintValueInfo.create(setting1, Label.parseAbsoluteUnchecked("//constraint:foo"));
+        ConstraintValueInfo.create(setting1, Label.parseCanonicalUnchecked("//constraint:foo"));
     ConstraintValueInfo constraint2 =
-        ConstraintValueInfo.create(setting1, Label.parseAbsoluteUnchecked("//constraint:bar"));
+        ConstraintValueInfo.create(setting1, Label.parseCanonicalUnchecked("//constraint:bar"));
 
     new EqualsTester()
         .addEqualityGroup(
             // Base case.
             DeclaredToolchainInfo.builder()
                 .toolchainType(
-                    ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//toolchain:tc1")))
+                    ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//toolchain:tc1")))
                 .addExecConstraints(ImmutableList.of(constraint1))
                 .addTargetConstraints(ImmutableList.of(constraint2))
-                .toolchainLabel(Label.parseAbsoluteUnchecked("//toolchain:toolchain1"))
+                .toolchainLabel(Label.parseCanonicalUnchecked("//toolchain:toolchain1"))
                 .build(),
             DeclaredToolchainInfo.builder()
                 .toolchainType(
-                    ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//toolchain:tc1")))
+                    ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//toolchain:tc1")))
                 .addExecConstraints(ImmutableList.of(constraint1))
                 .addTargetConstraints(ImmutableList.of(constraint2))
-                .toolchainLabel(Label.parseAbsoluteUnchecked("//toolchain:toolchain1"))
+                .toolchainLabel(Label.parseCanonicalUnchecked("//toolchain:toolchain1"))
                 .build())
         .addEqualityGroup(
             // Different type.
             DeclaredToolchainInfo.builder()
                 .toolchainType(
-                    ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//toolchain:tc2")))
+                    ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//toolchain:tc2")))
                 .addExecConstraints(ImmutableList.of(constraint1))
                 .addTargetConstraints(ImmutableList.of(constraint2))
-                .toolchainLabel(Label.parseAbsoluteUnchecked("//toolchain:toolchain1"))
+                .toolchainLabel(Label.parseCanonicalUnchecked("//toolchain:toolchain1"))
                 .build())
         .addEqualityGroup(
             // Different constraints.
             DeclaredToolchainInfo.builder()
                 .toolchainType(
-                    ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//toolchain:tc1")))
+                    ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//toolchain:tc1")))
                 .addExecConstraints(ImmutableList.of(constraint2))
                 .addTargetConstraints(ImmutableList.of(constraint1))
-                .toolchainLabel(Label.parseAbsoluteUnchecked("//toolchain:toolchain1"))
+                .toolchainLabel(Label.parseCanonicalUnchecked("//toolchain:toolchain1"))
                 .build())
         .addEqualityGroup(
             // Different toolchain label.
             DeclaredToolchainInfo.builder()
                 .toolchainType(
-                    ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//toolchain:tc1")))
+                    ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//toolchain:tc1")))
                 .addExecConstraints(ImmutableList.of(constraint1))
                 .addTargetConstraints(ImmutableList.of(constraint2))
-                .toolchainLabel(Label.parseAbsoluteUnchecked("//toolchain:toolchain2"))
+                .toolchainLabel(Label.parseCanonicalUnchecked("//toolchain:toolchain2"))
                 .build())
         .testEquals();
   }

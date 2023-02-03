@@ -75,7 +75,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -507,8 +506,8 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
             outputs,
             outErr,
             /* exitCode= */ 0,
-            /* startTime= */ Optional.empty(),
-            /* wallTime= */ Optional.empty());
+            /* startTime= */ null,
+            /* wallTime= */ null);
     return uploadManifest.upload(context, remoteCache, NullEventHandler.INSTANCE);
   }
 

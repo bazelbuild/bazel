@@ -91,3 +91,13 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+java_test(
+    name = "ProtoConfigurationTest",
+    srcs = ["ProtoConfigurationTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/rules/proto",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:junit4",
+    ],
+)

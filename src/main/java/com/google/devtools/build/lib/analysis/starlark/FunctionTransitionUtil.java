@@ -261,7 +261,7 @@ public final class FunctionTransitionUtil {
 
       if (!optionKey.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
         // The transition changes a Starlark option.
-        Label optionLabel = Label.parseAbsoluteUnchecked(optionKey);
+        Label optionLabel = Label.parseCanonicalUnchecked(optionKey);
         Object oldValue = fromOptions.getStarlarkOptions().get(optionLabel);
         if (oldValue instanceof Label) {
           // If this is a label-typed build setting, we need to convert the provided new value into

@@ -63,6 +63,7 @@ java_library(
             "ResourceSet.java",
             "ResourceSetOrBuilder.java",
             "RemoteFileStatus.java",
+            "SharedActionEvent.java",
             "PackageRootResolver.java",
             "PackageRoots.java",
             "ThreadStateReceiver.java",
@@ -380,5 +381,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker:worker_pool",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "shared_action_event",
+    srcs = ["SharedActionEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
+        "//third_party:guava",
     ],
 )

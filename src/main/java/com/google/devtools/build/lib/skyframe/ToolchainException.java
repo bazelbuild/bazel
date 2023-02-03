@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
@@ -47,5 +48,29 @@ public abstract class ToolchainException extends Exception implements DetailedEx
             .setMessage(Strings.nullToEmpty(getMessage()))
             .setToolchain(FailureDetails.Toolchain.newBuilder().setCode(getDetailedCode()))
             .build());
+  }
+
+  /**
+   * Attempt to find a {@link ConfiguredValueCreationException} in a {@link ToolchainException}, or
+   * its causes.
+   *
+   * <p>If one cannot be found, make a new one.
+   */
+  ConfiguredValueCreationException asConfiguredValueCreationException(
+      TargetAndConfiguration targetAndConfiguration) {
+    for (Throwable cause = getCause();
+        cause != null && cause != cause.getCause();
+        cause = cause.getCause()) {
+      if (cause instanceof ConfiguredValueCreationException) {
+        return (ConfiguredValueCreationException) cause;
+      }
+    }
+    return new ConfiguredValueCreationException(
+        targetAndConfiguration,
+        String.format(
+            "While resolving toolchains for target %s: %s",
+            targetAndConfiguration.getLabel(), getMessage()),
+        null,
+        getDetailedExitCode());
   }
 }

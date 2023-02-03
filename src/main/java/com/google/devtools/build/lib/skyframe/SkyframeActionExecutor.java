@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
@@ -1673,8 +1674,8 @@ public final class SkyframeActionExecutor {
     if (actionResult != null) {
       logs =
           actionResult.spawnResults().stream()
-              .filter(spawnResult -> spawnResult.getActionMetadataLog().isPresent())
-              .map(spawnResult -> spawnResult.getActionMetadataLog().get())
+              .filter(spawnResult -> spawnResult.getActionMetadataLog() != null)
+              .map(SpawnResult::getActionMetadataLog)
               .collect(ImmutableList.toImmutableList());
     }
     eventHandler.post(

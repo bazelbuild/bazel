@@ -1329,10 +1329,10 @@ public class BuildViewTest extends BuildViewTestBase {
                     attr("$implicit1", BuildType.LABEL_LIST)
                         .defaultValue(
                             ImmutableList.of(
-                                Label.parseAbsoluteUnchecked("//bad2:label"),
-                                Label.parseAbsoluteUnchecked("//foo:dep"))),
+                                Label.parseCanonicalUnchecked("//bad2:label"),
+                                Label.parseCanonicalUnchecked("//foo:dep"))),
                     attr("$implicit2", BuildType.LABEL)
-                        .defaultValue(Label.parseAbsoluteUnchecked("//bad:label")));
+                        .defaultValue(Label.parseCanonicalUnchecked("//bad:label")));
               } catch (ConversionException e) {
                 throw new IllegalStateException(e);
               }

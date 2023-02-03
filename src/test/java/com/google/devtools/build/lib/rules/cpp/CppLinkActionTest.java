@@ -572,9 +572,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     builder.setLinkType(LinkTargetType.OBJC_EXECUTABLE);
     assertThat(builder.canSplitCommandLine()).isTrue();
 
-    builder.setLinkType(LinkTargetType.OBJCPP_EXECUTABLE);
-    assertThat(builder.canSplitCommandLine()).isTrue();
-
     builder.setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
     assertThat(builder.canSplitCommandLine()).isTrue();
   }
@@ -688,9 +685,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
             MockCppSemantics.INSTANCE);
 
     builder.setLinkType(LinkTargetType.OBJC_EXECUTABLE);
-    assertThat(builder.canSplitCommandLine()).isTrue();
-
-    builder.setLinkType(LinkTargetType.OBJCPP_EXECUTABLE);
     assertThat(builder.canSplitCommandLine()).isTrue();
 
     builder.setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);

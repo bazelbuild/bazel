@@ -55,17 +55,18 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   // the repo name set.
   public static final Provider.Key CC_SHARED_INFO_PROVIDER_RULES_CC =
       new StarlarkProvider.Key(
-          Label.parseAbsoluteUnchecked("@rules_cc//examples:experimental_cc_shared_library.bzl"),
+          Label.parseCanonicalUnchecked("@rules_cc//examples:experimental_cc_shared_library.bzl"),
           "CcSharedLibraryInfo");
 
   public static final Provider.Key CC_SHARED_INFO_PROVIDER =
       new StarlarkProvider.Key(
-          Label.parseAbsoluteUnchecked("//examples:experimental_cc_shared_library.bzl"),
+          Label.parseCanonicalUnchecked("//examples:experimental_cc_shared_library.bzl"),
           "CcSharedLibraryInfo");
 
   public static final Provider.Key CC_SHARED_INFO_PROVIDER_BUILT_INS =
       new StarlarkProvider.Key(
-          Label.parseAbsoluteUnchecked("@_builtins//:common/cc/experimental_cc_shared_library.bzl"),
+          Label.parseCanonicalUnchecked(
+              "@_builtins//:common/cc/experimental_cc_shared_library.bzl"),
           "CcSharedLibraryInfo");
 
   private final Language language;

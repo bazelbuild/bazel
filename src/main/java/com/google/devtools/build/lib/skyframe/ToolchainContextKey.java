@@ -19,17 +19,19 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 
 /**
  * {@link SkyKey} implementation used for {@link ToolchainResolutionFunction} to produce {@link
  * UnloadedToolchainContextImpl} instances.
+ *
+ * <p>Marked CPU heavy because it may cause package loading.
  */
 @AutoValue
-public abstract class ToolchainContextKey implements SkyKey {
+public abstract class ToolchainContextKey extends CPUHeavySkyKey {
 
   /** Returns a new {@link Builder}. */
   public static Builder key() {

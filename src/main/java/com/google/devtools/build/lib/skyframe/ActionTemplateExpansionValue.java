@@ -36,7 +36,7 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
 
   /** Key for {@link ActionTemplateExpansionValue} nodes. */
   @AutoCodec
-  public static final class ActionTemplateExpansionKey implements ActionLookupKey {
+  public static final class ActionTemplateExpansionKey extends ActionLookupKey {
     private static final Interner<ActionTemplateExpansionKey> interner =
         BlazeInterners.newWeakInterner();
 

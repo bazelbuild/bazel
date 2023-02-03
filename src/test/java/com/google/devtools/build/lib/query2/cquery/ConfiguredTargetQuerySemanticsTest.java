@@ -196,7 +196,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         "rule_with_dep(name = 'dep')");
 
     KeyedConfiguredTarget dep = Iterables.getOnlyElement(eval("labels('dep', '//test:alias')"));
-    assertThat(dep.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:dep"));
+    assertThat(dep.getLabel()).isEqualTo(Label.parseCanonicalUnchecked("//test:dep"));
   }
 
   @Test
@@ -210,7 +210,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
                     .cfg(ExecutionTransitionFactory.create()),
                 attr("$impl_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .value(Label.parseAbsoluteUnchecked("//test:other")));
+                    .value(Label.parseCanonicalUnchecked("//test:other")));
     MockRule simpleRule = () -> MockRule.define("simple_rule");
 
     helper.useRuleClassProvider(setRuleClassProviders(ruleWithExecDep, simpleRule).build());

@@ -138,7 +138,7 @@ public final class ActionsTestUtil {
     this.actionGraph = actionGraph;
   }
 
-  private static final Label NULL_LABEL = Label.parseAbsoluteUnchecked("//null/action:owner");
+  private static final Label NULL_LABEL = Label.parseCanonicalUnchecked("//null/action:owner");
 
   public static ActionExecutionContext createContext(
       Executor executor,

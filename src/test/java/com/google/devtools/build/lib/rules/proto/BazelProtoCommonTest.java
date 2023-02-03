@@ -47,7 +47,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
   private static final StarlarkProviderIdentifier boolProviderId =
       StarlarkProviderIdentifier.forKey(
           new StarlarkProvider.Key(
-              Label.parseAbsoluteUnchecked("//foo:should_generate.bzl"), "BoolProvider"));
+              Label.parseCanonicalUnchecked("//foo:should_generate.bzl"), "BoolProvider"));
 
   @Before
   public final void setup() throws Exception {

@@ -147,6 +147,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
 
   @Override
   public AspectDefinition getDefinition(AspectParameters params) {
+    Label toolchainType = Label.parseCanonicalUnchecked(toolsRepository + sdkToolchainLabel);
     AspectDefinition.Builder result =
         new AspectDefinition.Builder(this)
             .requireStarlarkProviders(forKey(JavaInfo.PROVIDER.getKey()))
@@ -161,23 +162,23 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
                     // deps.
                     ImmutableSet.of(ProtoLangToolchainProvider.PROVIDER_ID)))
             .addToolchainTypes(
-                ToolchainTypeRequirement.create(
-                    Label.parseAbsoluteUnchecked(toolsRepository + sdkToolchainLabel)))
+                ToolchainTypeRequirement.builder(toolchainType).mandatory(true).build())
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .add(
                 attr(ASPECT_DESUGAR_PREREQ, LABEL)
                     .cfg(ExecutionTransitionFactory.create())
                     .exec()
                     .value(
-                        Label.parseAbsoluteUnchecked(
+                        Label.parseCanonicalUnchecked(
                             toolsRepository + "//tools/android:desugar_java8")))
             // Access to --android_sdk so we can stub in a bootclasspath for desugaring if missing
+            // Remove this entirely when we remove --android_sdk support.
             .add(
                 attr(":dex_archive_android_sdk", LABEL)
                     .allowedRuleClasses("android_sdk", "filegroup")
                     .value(
                         AndroidRuleClasses.getAndroidSdkLabel(
-                            Label.parseAbsoluteUnchecked(
+                            Label.parseCanonicalUnchecked(
                                 toolsRepository + AndroidRuleClasses.DEFAULT_SDK))))
             .requiresConfigurationFragments(AndroidConfiguration.class)
             .requireAspectsWithProviders(
@@ -188,7 +189,8 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
           attr(ASPECT_DEXBUILDER_PREREQ, LABEL)
               .cfg(ExecutionTransitionFactory.create())
               .exec()
-              .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:dexbuilder")));
+              .value(
+                  Label.parseCanonicalUnchecked(toolsRepository + "//tools/android:dexbuilder")));
     }
     for (String attr : TRANSITIVE_ATTRIBUTES) {
       result.propagateAlongAttribute(attr);
@@ -468,19 +470,29 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     return result.build();
   }
 
-  private static NestedSet<Artifact> getBootclasspath(
-      ConfiguredTarget base, RuleContext ruleContext) {
+  private NestedSet<Artifact> getBootclasspath(ConfiguredTarget base, RuleContext ruleContext) {
     JavaCompilationInfoProvider compilationInfo =
         JavaInfo.getProvider(JavaCompilationInfoProvider.class, base);
     if (compilationInfo == null || compilationInfo.getBootClasspath().isEmpty()) {
-      return NestedSetBuilder.<Artifact>naiveLinkOrder()
-          .add(
-              ruleContext
-                  .getPrerequisite(":dex_archive_android_sdk", AndroidSdkProvider.PROVIDER)
-                  .getAndroidJar())
-          .build();
+      Artifact androidJar = getAndroidJar(ruleContext);
+      if (androidJar != null) {
+        return NestedSetBuilder.<Artifact>naiveLinkOrder().add(androidJar).build();
+      }
     }
     return compilationInfo.getBootClasspathAsNestedSet();
+  }
+
+  @Nullable
+  private Artifact getAndroidJar(RuleContext ruleContext) {
+    Label toolchainType = Label.parseCanonicalUnchecked(toolsRepository + sdkToolchainLabel);
+    AndroidSdkProvider androidSdk =
+        AndroidSdkProvider.fromRuleContext(ruleContext, ":dex_archive_android_sdk", toolchainType);
+    if (androidSdk == null) {
+      // If the Android SDK is null, we don't have a valid toolchain. Expect a rule error reported
+      // from AndroidSdkProvider.
+      return null;
+    }
+    return androidSdk.getAndroidJar();
   }
 
   private Artifact createDesugarAction(

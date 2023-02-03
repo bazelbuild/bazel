@@ -202,7 +202,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
               ProfilerTask.HANDLE_GC_NOTIFICATION,
               info.getGcAction().replaceFirst("^end of ", ""));
     }
-    if (!info.getGcAction().equals("end of major GC")) {
+    if (!GarbageCollectionMetricsUtils.isFullGc(info)) {
       return;
     }
 
@@ -225,7 +225,8 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     Map<String, MemoryUsage> mem = info.getGcInfo().getMemoryUsageAfterGc();
     updatePostGCHeapMemoryUsed(usedTotal, usedTenuredSpace, notification.getTimeStamp());
     if (usedTotal > 0) {
-      logger.atInfo().log("Memory use after full GC: %d", usedTotal);
+      logger.atInfo().log(
+          "Memory use after full GC: %d total, %d tenured", usedTotal, usedTenuredSpace);
     } else {
       logger.atInfo().log(
           "Amount of memory used after GC incorrectly reported as %d by JVM with values %s",

@@ -360,8 +360,8 @@ public class ExecutionTool {
    * @param buildId UUID of the build id
    * @param analysisResult the analysis phase output
    * @param buildResult the mutable build result
-   * @param packageRoots package roots collected from loading phase and BuildConfigurationCollection
-   *     creation. May be empty if {@link
+   * @param packageRoots package roots collected from loading phase and {@link
+   *     BuildConfigurationValue} creation. May be empty if {@link
    *     SkyframeExecutor#getForcedSingleSourceRootIfNoExecrootSymlinkCreation} is false.
    */
   void executeBuild(

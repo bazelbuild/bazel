@@ -2687,7 +2687,7 @@ public abstract class CcModule
     } else if (language == Language.OBJC && outputType.equals("executable")) {
       dynamicLinkTargetType = LinkTargetType.OBJC_EXECUTABLE;
     } else if (language == Language.OBJCPP && outputType.equals("executable")) {
-      dynamicLinkTargetType = LinkTargetType.OBJCPP_EXECUTABLE;
+      dynamicLinkTargetType = LinkTargetType.OBJC_EXECUTABLE;
     } else if (language == Language.OBJC && outputType.equals("archive")) {
       staticLinkTargetType = LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE;
     } else {

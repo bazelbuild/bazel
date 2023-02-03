@@ -150,6 +150,7 @@ public class AndroidDataBindingProcessingAction {
         while (it.hasNext()) {
           Path layoutInfo = it.next();
           ZipEntry zipEntry = new ZipEntry(layoutInfo.getFileName().toString());
+          zipEntry.setTime(0); // for deterministic output
           layoutInfoZip.putNextEntry(zipEntry);
           Files.copy(layoutInfo, layoutInfoZip);
           layoutInfoZip.closeEntry();
