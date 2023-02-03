@@ -209,6 +209,10 @@ tasks:
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
       - "-//tools/python:pywrapper_test"
+      # https://github.com/bazelbuild/bazel/issues/17410
+      - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
+      # https://github.com/bazelbuild/bazel/issues/17411
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:PatchApiBlackBoxTest"
     include_json_profile:
       - build
       - test
