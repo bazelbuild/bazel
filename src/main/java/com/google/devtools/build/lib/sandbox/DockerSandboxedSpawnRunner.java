@@ -239,7 +239,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     String baseImageName = dockerContainerFromSpawn(spawn).orElse(this.defaultImage);
     if (baseImageName.isEmpty()) {
       throw new UserExecException(
-          createFailureDetail(
+          SandboxHelpers.createFailureDetail(
               String.format(
                   "Cannot execute %s mnemonic with Docker, because no image could be found in the"
                       + " remote_execution_properties of the platform and no default image was set"
@@ -395,7 +395,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       cmd.executeAsync(stdIn, stdOut, stdErr, Command.KILL_SUBPROCESS_ON_INTERRUPT).get();
     } catch (CommandException e) {
       String message = String.format("Running command %s failed: %s", cmd.toDebugString(), stdErr);
-      throw new UserExecException(e, createFailureDetail(message, Code.DOCKER_COMMAND_FAILURE));
+      throw new UserExecException(
+          e, SandboxHelpers.createFailureDetail(message, Code.DOCKER_COMMAND_FAILURE));
     }
     return stdOut.toString().trim();
   }

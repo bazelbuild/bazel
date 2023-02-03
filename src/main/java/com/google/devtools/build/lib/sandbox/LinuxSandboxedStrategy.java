@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
@@ -55,19 +54,8 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
       boolean sandboxfsMapSymlinkTargets,
       TreeDeleter treeDeleter)
       throws IOException {
-    // The order of the permissions settings calls matters, see
-    // https://github.com/bazelbuild/bazel/issues/16364
-    Path inaccessibleHelperFile = sandboxBase.getRelative("inaccessibleHelperFile");
-    FileSystemUtils.touchFile(inaccessibleHelperFile);
-    inaccessibleHelperFile.setExecutable(false);
-    inaccessibleHelperFile.setWritable(false);
-    inaccessibleHelperFile.setReadable(false);
-
-    Path inaccessibleHelperDir = sandboxBase.getRelative("inaccessibleHelperDir");
-    inaccessibleHelperDir.createDirectory();
-    inaccessibleHelperDir.setExecutable(false);
-    inaccessibleHelperDir.setWritable(false);
-    inaccessibleHelperDir.setReadable(false);
+    Path inaccessibleHelperFile = LinuxSandboxUtil.getInaccessibleHelperFile(sandboxBase);
+    Path inaccessibleHelperDir = LinuxSandboxUtil.getInaccessibleHelperDir(sandboxBase);
 
     return new LinuxSandboxedSpawnRunner(
         helpers,
