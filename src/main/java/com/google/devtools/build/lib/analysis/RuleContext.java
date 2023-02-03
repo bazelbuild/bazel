@@ -416,24 +416,24 @@ public final class RuleContext extends TargetContext
    * method is only called once).
    */
   public ActionOwner getTestActionOwner() {
-    PlatformInfo executionPlatform;
-    ImmutableMap<String, String> execProperties;
+    PlatformInfo testExecutionPlatform;
+    ImmutableMap<String, String> testExecProperties;
 
     // If we have a toolchain, pull the target platform out of it.
     if (toolchainContexts != null) {
-        executionPlatform = toolchainContexts.getTargetPlatform();
-        execProperties = executionPlatform.execProperties();
+      testExecutionPlatform = toolchainContexts.getTargetPlatform();
+      testExecProperties = testExecutionPlatform.execProperties();
     } else {
-        executionPlatform = null;
-        execProperties = getExecGroups().getExecProperties(DEFAULT_TEST_RUNNER_EXEC_GROUP);
+      testExecutionPlatform = null;
+      testExecProperties = getExecGroups().getExecProperties(DEFAULT_TEST_RUNNER_EXEC_GROUP);
     }
 
     ActionOwner actionOwner =
         createActionOwner(
-            rule, aspectDescriptors, getConfiguration(), execProperties, executionPlatform);
+            rule, aspectDescriptors, getConfiguration(), testExecProperties, testExecutionPlatform);
 
     if (actionOwner == null) {
-      actionOwner = ruleContext.getActionOwner();
+      actionOwner = getActionOwner();
     }
     return actionOwner;
   }
