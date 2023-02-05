@@ -100,7 +100,9 @@ final class Discovery {
             }
           }
 
-          return ModuleKey.create(depKey.getName(), newVersion);
+          boolean hasGloballyUniqueVersion = !(override instanceof MultipleVersionOverride);
+
+          return ModuleKey.create(depKey.getName(), newVersion, hasGloballyUniqueVersion);
         });
   }
 }

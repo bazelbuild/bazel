@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -103,6 +104,7 @@ public class ModuleFileFunction implements SkyFunction {
 
     ModuleFileValue.Key moduleFileKey = (ModuleFileValue.Key) skyKey;
     ModuleKey moduleKey = moduleFileKey.getModuleKey();
+    Preconditions.checkState(moduleKey.hasGloballyUniqueVersion().isPresent());
     GetModuleFileResult getModuleFileResult =
         getModuleFile(moduleKey, moduleFileKey.getOverride(), env);
     if (getModuleFileResult == null) {

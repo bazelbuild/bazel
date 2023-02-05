@@ -16,13 +16,15 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.Comparator;
+import java.util.Optional;
+import javax.annotation.Nullable;
 
 /** A module name, version pair that identifies a module in the external dependency graph. */
-@AutoValue
-public abstract class ModuleKey {
+public class ModuleKey {
 
   /**
    * A mapping from module name to repository name for certain special "well-known" modules.
@@ -47,14 +49,54 @@ public abstract class ModuleKey {
       Comparator.comparing(ModuleKey::getName).thenComparing(ModuleKey::getVersion);
 
   public static ModuleKey create(String name, Version version) {
-    return new AutoValue_ModuleKey(name, version);
+    return new ModuleKey(name, version, null);
+  }
+
+  public static ModuleKey create(String name, Version version, boolean hasGloballyUniqueVersion) {
+    return new ModuleKey(name, version, hasGloballyUniqueVersion);
+  }
+
+  private final String name;
+  private final Version version;
+  private final Boolean hasGloballyUniqueVersion;
+
+  private ModuleKey(String name, Version version, @Nullable Boolean hasGloballyUniqueVersion) {
+    this.name = name;
+    this.version = version;
+    this.hasGloballyUniqueVersion = hasGloballyUniqueVersion;
   }
 
   /** The name of the module. Must be empty for the root module. */
-  public abstract String getName();
+  public String getName() {
+    return name;
+  }
 
   /** The version of the module. Must be empty iff the module has a {@link NonRegistryOverride}. */
-  public abstract Version getVersion();
+  public Version getVersion() {
+    return version;
+  }
+
+  public Optional<Boolean> hasGloballyUniqueVersion() {
+    return Optional.ofNullable(hasGloballyUniqueVersion);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(getName(), getVersion());
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (o == this) {
+      return true;
+    }
+    if (o instanceof ModuleKey) {
+      ModuleKey that = (ModuleKey) o;
+      return this.name.equals(that.getName())
+          && this.version.equals(that.getVersion());
+    }
+    return false;
+  }
 
   @Override
   public final String toString() {
@@ -72,7 +114,11 @@ public abstract class ModuleKey {
     if (ROOT.equals(this)) {
       return RepositoryName.MAIN;
     }
-    return RepositoryName.createUnvalidated(
-        String.format("%s~%s", getName(), getVersion().isEmpty() ? "override" : getVersion()));
+    if (getVersion().isEmpty() || !hasGloballyUniqueVersion().get()) {
+      return RepositoryName.createUnvalidated(
+          String.format("%s~%s", getName(), getVersion().isEmpty() ? "override" : getVersion()));
+    } else {
+      return RepositoryName.createUnvalidated(getName());
+    }
   }
 }
