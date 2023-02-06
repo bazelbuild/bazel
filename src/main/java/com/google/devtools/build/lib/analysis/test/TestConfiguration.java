@@ -283,7 +283,7 @@ public class TestConfiguration extends Fragment {
 
     @Option(
         name = "use_target_platform_for_tests",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
         effectTags = {OptionEffectTag.EXECUTION},
         help =
