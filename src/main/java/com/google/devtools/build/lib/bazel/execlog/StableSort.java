@@ -55,7 +55,11 @@ public final class StableSort {
    */
   public static void stableSort(InputStream in, MessageOutputStream out, boolean shouldSort) throws IOException {
     ImmutableList<SpawnExec> inputs = read(in);
-    shouldSort ? stableSort(inputs, out) : ignoreSort(inputs, out);
+    if (shouldSort) {
+      stableSort(inputs, out);
+    } else {
+      ignoreSort(inputs, out);
+    }
   }
 
   public static void ignoreSort(List<SpawnExec> inputs, MessageOutputStream out) throws IOException {
