@@ -164,7 +164,8 @@ public final class BinTools {
   }
 
   /** An ActionInput pointing at an absolute path. */
-  public static final class PathActionInput implements VirtualActionInput {
+  @VisibleForTesting
+  public static final class PathActionInput extends VirtualActionInput {
     private final Path path;
     private final PathFragment execPath;
     private FileArtifactValue metadata;
