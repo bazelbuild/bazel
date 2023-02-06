@@ -294,4 +294,5 @@ cc_proto_library = rule(
             allow_files = False,
         ),
     },
+    provides = [CcInfo],
 )

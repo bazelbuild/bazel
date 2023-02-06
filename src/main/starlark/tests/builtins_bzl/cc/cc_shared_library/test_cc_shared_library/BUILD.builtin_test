@@ -36,8 +36,14 @@ cc_binary(
     name = "binary",
     srcs = ["main.cc"],
     dynamic_deps = ["foo_so"],
-    deps = ["foo"],
+    deps = [
+        ":foo",
+    ],
 )
+
+# TODO(bazel-team): Add a test for proto dependencies once these tests are run
+# directly from a BUILD file and not from within a shell test. Right now
+# mocking what's needed to have a single proto dependency makes it impractical.
 
 cc_binary(
     name = "binary_with_bar_so_twice",
@@ -331,8 +337,8 @@ build_failure_test(
 
 cc_library(
     name = "prebuilt",
+    hdrs = ["direct_so_file_cc_lib.h"],
     srcs = [
-        "direct_so_file_cc_lib.h",
         ":just_main_output",
     ],
 )

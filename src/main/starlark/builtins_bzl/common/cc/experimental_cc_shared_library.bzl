@@ -21,6 +21,7 @@ rely on this. It requires bazel >1.2  and passing the flag
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", "semantics")
+load(":common/proto/proto_info.bzl", "ProtoInfo")
 
 CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
@@ -620,11 +621,17 @@ def _cc_shared_library_impl(ctx):
 def _graph_structure_aspect_impl(target, ctx):
     children = []
 
-    # For now ignore cases when deps is of type label instead of label_list.
-    if hasattr(ctx.rule.attr, "deps") and type(ctx.rule.attr.deps) != "Target":
-        for dep in ctx.rule.attr.deps:
-            if GraphNodeInfo in dep:
-                children.append(dep[GraphNodeInfo])
+    # Collect graph structure info from any possible deplike attribute. The aspect
+    # itself applies across every deplike attribute (attr_aspects is *), so enumerate
+    # over all attributes and consume GraphNodeInfo if available.
+    for fieldname in dir(ctx.rule.attr):
+        deps = getattr(ctx.rule.attr, fieldname, None)
+        if type(deps) == "list":
+            for dep in deps:
+                if type(dep) == "Target" and GraphNodeInfo in dep:
+                    children.append(dep[GraphNodeInfo])
+        elif type(deps) == "Target" and GraphNodeInfo in deps:
+            children.append(deps[GraphNodeInfo])
 
     # TODO(bazel-team): Add flag to Bazel that can toggle the initialization of
     # linkable_more_than_once.
@@ -659,6 +666,8 @@ def _cc_shared_library_permissions_impl(ctx):
 
 graph_structure_aspect = aspect(
     attr_aspects = ["*"],
+    required_providers = [[CcInfo], [ProtoInfo]],
+    required_aspect_providers = [[CcInfo]],
     implementation = _graph_structure_aspect_impl,
 )
 
