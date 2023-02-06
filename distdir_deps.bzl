@@ -431,7 +431,7 @@ DIST_DEPS = {
         "archive": "java_tools_darwin-v11.11-rc1.zip",
         "sha256": "af62d4070263d0f80186abd44c9ae4df83e1a64aa5133163dca11a05bb7f2d4f",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.11/java_tools_darwin-v11.11-rc1.zip",
+            "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.11/java_tools_darwin-v11.11-rc1.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
