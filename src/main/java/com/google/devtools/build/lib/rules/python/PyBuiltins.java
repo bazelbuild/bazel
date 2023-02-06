@@ -323,6 +323,31 @@ public abstract class PyBuiltins implements StarlarkValue {
         .build();
   }
 
+  // TODO(https://github.com/bazelbuild/bazel/issues/17415): Remove this method one
+  // --legacy_external_runfiles is defaulted to false
+  @StarlarkMethod(
+      name = "make_runfiles_respect_legacy_external_runfiles",
+      doc =
+          "Like ctx.runfiles().merge(), except the --legacy_external_runfiles flag "
+              + "is respected, otherwise files in other repos don't have the legacy "
+              + " external/ path show up; see https://github.com/bazelbuild/bazel/issues/17415",
+      parameters = {
+        @Param(name = "ctx", positional = true, named = true, defaultValue = "unbound"),
+        @Param(
+            name = "runfiles",
+            positional = true,
+            named = true,
+            defaultValue = "unbound",
+            doc = "Runfiles to include"),
+      })
+  public Object mergeAllRunfilesRespectExternalLegacyRunfiles(
+      StarlarkRuleContext starlarkCtx, Runfiles runfiles) throws EvalException {
+    return new Runfiles.Builder(
+            starlarkCtx.getWorkspaceName(), starlarkCtx.getConfiguration().legacyExternalRunfiles())
+        .merge(runfiles)
+        .build();
+  }
+
   @StarlarkMethod(
       name = "declare_constant_metadata_file",
       doc = "Declare a file that always reports it is unchanged.",

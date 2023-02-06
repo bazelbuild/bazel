@@ -344,4 +344,54 @@ EOF
   expect_log "Tool output"
 }
 
+function test_external_runfiles() {
+  cat >> WORKSPACE <<EOF
+local_repository(
+  name = "repo2",
+  path = "repo2"
+)
+EOF
+  mkdir repo2
+  touch repo2/WORKSPACE
+  cat > repo2/BUILD <<EOF
+package(default_visibility=["//visibility:public"])
+filegroup(name="r2files", srcs=["r2.txt"])
+EOF
+  touch repo2/r2.txt
+
+  mkdir py
+  cat > py/BUILD <<EOF
+py_binary(
+  name = "foo", srcs=["foo.py"],
+  data = ["@repo2//:r2files"],
+)
+EOF
+  touch py/foo.py
+
+  # We're testing for this flag's behavior, so force it to true.
+  # TODO(https://github.com/bazelbuild/bazel/issues/12821): Remove this test
+  # when this behavior is removed
+  bazel build --legacy_external_runfiles=true //py:foo
+  if "$is_windows"; then
+    exe=".exe"
+  else
+    exe=""
+  fi
+
+  # NOTE: The "main" name isn't special. It's just the name the integration test
+  # setup puts in WORKSPACE.
+  cp bazel-bin/py/foo$exe.runfiles_manifest runfiles_manifest
+  assert_contains main/external/repo2/r2.txt runfiles_manifest \
+    "runfiles manifest didn't have external path mapping"
+
+  # By default, Python binaries are put into zip files on Windows and don't
+  # have a real runfiles tree.
+  if ! "$is_windows"; then
+    find bazel-bin/py/foo.runfiles > runfiles_listing
+    assert_contains bazel-bin/py/foo.runfiles/main/external/repo2/r2.txt \
+      runfiles_listing \
+      "runfiles didn't have external links"
+  fi
+}
+
 run_suite "Tests for how the Python rules handle Python 2 vs Python 3"

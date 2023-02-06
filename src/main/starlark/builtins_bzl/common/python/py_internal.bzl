@@ -34,4 +34,5 @@ py_internal = struct(
     is_singleton_depset = _py_builtins.is_singleton_depset,
     merge_runfiles_with_generated_inits_empty_files_supplier = _py_builtins.merge_runfiles_with_generated_inits_empty_files_supplier,
     new_py_cc_link_params_provider = _py_builtins.new_py_cc_link_params_provider,
+    make_runfiles_respect_legacy_external_runfiles = _py_builtins.make_runfiles_respect_legacy_external_runfiles,
 )
