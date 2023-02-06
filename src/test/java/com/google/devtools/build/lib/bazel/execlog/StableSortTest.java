@@ -62,7 +62,7 @@ public final class StableSortTest {
     }
     InputStream inputStream = new ByteArrayInputStream(baos.toByteArray());
 
-    StableSort.stableSort(inputStream, o);
+    StableSort.stableSort(inputStream, o, true);
     return o.list;
   }
 
