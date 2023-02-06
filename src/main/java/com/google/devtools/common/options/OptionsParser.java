@@ -303,7 +303,7 @@ public class OptionsParser implements OptionsParsingResult {
             .collect(toImmutableSet());
     ImmutableSortedMap.Builder<String, Object> result =
         ImmutableSortedMap.<String, Object>naturalOrder();
-    for (var entry : getStarlarkOptions().entrySet()) {
+    for (Map.Entry<String, Object> entry : getStarlarkOptions().entrySet()) {
       // getSkippedOptions() doesn't necessarily *only* have Starlark options. By comparing here we
       // filter to just Starlark options.
       if (explicitOptions.contains(entry.getKey())) {
