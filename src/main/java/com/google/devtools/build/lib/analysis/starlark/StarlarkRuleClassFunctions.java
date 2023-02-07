@@ -997,8 +997,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           .build();
 
   @Override
-  public Label label(String labelString, StarlarkThread thread) throws EvalException {
-    // The label string is interpeted with respect to the .bzl module containing the call to
+  public Label label(Object input, StarlarkThread thread) throws EvalException {
+    if (input instanceof Label) {
+      return (Label) input;
+    }
+    // The label string is interpreted with respect to the .bzl module containing the call to
     // `Label()`. An alternative to this approach that avoids stack inspection is to have each .bzl
     // module define its own copy of the `Label()` builtin embedding the module's own name. This
     // would lead to peculiarities like foo.bzl being able to call bar.bzl's `Label()` symbol to
@@ -1007,9 +1010,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     BazelModuleContext moduleContext =
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     try {
-      return Label.parseWithRepoContext(labelString, moduleContext.packageContext());
+      return Label.parseWithPackageContext((String) input, moduleContext.packageContext());
     } catch (LabelSyntaxException e) {
-      throw Starlark.errorf("Illegal absolute label syntax: %s", e.getMessage());
+      throw Starlark.errorf("invalid label in Label(): %s", e.getMessage());
     }
   }
 

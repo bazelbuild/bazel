@@ -1120,6 +1120,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLabelIdempotence() throws Exception {
+    Object result = ev.eval("Label(Label('//foo/foo:foo'))");
+    assertThat(result).isInstanceOf(Label.class);
+    assertThat(result.toString()).isEqualTo("//foo/foo:foo");
+  }
+
+  @Test
   public void testLabelSameInstance() throws Exception {
     Object l1 = ev.eval("Label('//foo/foo:foo')");
     // Implicitly creates a new pkgContext and environment, yet labels should be the same.
