@@ -45,7 +45,7 @@ def _filter_javainfo_and_legacy_jars(attr):
     # Native code collected data into a NestedSet, using add for legacy jars and
     # addTransitive for JavaInfo. This resulted in legacy jars being first in the list.
     for dep in attr:
-        kind = java_common.target_kind(dep)
+        kind = java_common.target_kind(dep, dereference_aliases = True)
         if not JavaInfo in dep or kind == "java_binary" or kind == "java_test":
             for file in dep[DefaultInfo].files.to_list():
                 if file.extension == "jar":
