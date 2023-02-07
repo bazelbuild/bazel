@@ -215,11 +215,9 @@ tasks:
       # https://github.com/bazelbuild/bazel/issues/17408
       - "-//src/test/shell/bazel/apple:bazel_objc_test"
       # https://github.com/bazelbuild/bazel/issues/16526#issuecomment-1415858550
-      - "-//src/test/py/bazel:runfiles_test"
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
-      - "-//tools/python:pywrapper_test"
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # https://github.com/bazelbuild/bazel/issues/17411
@@ -272,9 +270,6 @@ tasks:
       - "-//src/test/shell/bazel/android/..."
       - "-//src/tools/android/java/com/google/devtools/build/android/..."
       - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
-      # https://github.com/bazelbuild/bazel/issues/16526
-      - "-//src/test/shell/bazel:python_version_test"
-      - "-//src/test/py/bazel:runfiles_test"
       # https://github.com/bazelbuild/bazel/issues/16525
       - "-//src/test/java/com/google/devtools/build/lib/buildtool:KeepGoingTest"
       - "-//src/test/java/com/google/devtools/build/lib/buildtool:DanglingSymlinkTest"
