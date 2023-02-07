@@ -151,7 +151,6 @@ def _sanitizer_feature(name = "", specific_compile_flags = [], specific_link_fla
                 actions = all_compile_actions,
                 flag_groups = [
                     flag_group(flags = [
-                        "-O1",
                         "-fno-omit-frame-pointer",
                         "-fno-sanitize-recover=all",
                     ] + specific_compile_flags),
