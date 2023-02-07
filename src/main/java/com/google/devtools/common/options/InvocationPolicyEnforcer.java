@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.Us
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -71,7 +70,7 @@ public final class InvocationPolicyEnforcer {
     this.conversionContext = conversionContext;
   }
 
-  private static final class FlagPolicyWithContext {
+  public static final class FlagPolicyWithContext {
     private final FlagPolicy policy;
     private final OptionDescription description;
     private final OptionInstanceOrigin origin;
@@ -81,6 +80,29 @@ public final class InvocationPolicyEnforcer {
       this.policy = policy;
       this.description = description;
       this.origin = origin;
+    }
+
+    public FlagPolicy getPolicy() {
+      return policy;
+    }
+  }
+
+  public static final class FlagPolicyWithContextAndCommand {
+    private final FlagPolicyWithContext flagPolicyWithContext;
+    private final String command;
+
+    public FlagPolicyWithContextAndCommand(
+        FlagPolicyWithContext flagPolicyWithContext, String command) {
+      this.flagPolicyWithContext = flagPolicyWithContext;
+      this.command = command;
+    }
+
+    public FlagPolicyWithContext getFlagPolicyWithContext() {
+      return flagPolicyWithContext;
+    }
+
+    public String getCommand() {
+      return command;
     }
   }
 
@@ -101,10 +123,11 @@ public final class InvocationPolicyEnforcer {
 
     // The effective policy returned is expanded, filtered for applicable commands, and cleaned of
     // redundancies and conflicts.
-    List<FlagPolicyWithContext> effectivePolicies =
+    List<FlagPolicyWithContextAndCommand> effectivePolicies =
         getEffectivePolicies(invocationPolicy, parser, command, loglevel);
 
-    for (FlagPolicyWithContext flagPolicy : effectivePolicies) {
+    for (FlagPolicyWithContextAndCommand flagPolicyWithContextAndCommand : effectivePolicies) {
+      FlagPolicyWithContext flagPolicy = flagPolicyWithContextAndCommand.flagPolicyWithContext;
       String flagName = flagPolicy.policy.getFlagName();
 
       OptionValueDescription valueDescription;
@@ -184,25 +207,40 @@ public final class InvocationPolicyEnforcer {
     }
   }
 
-  private static boolean policyApplies(FlagPolicy policy, ImmutableSet<String> applicableCommands) {
+  /**
+   * Returns the command a policy applies to, if any.
+   *
+   * <p>In the case of command inheritance, returns the parent-most command. If no command was
+   * specified on the policy, the empty string is returned. If the policy doesn't apply to any
+   * command, returns null.
+   */
+  @Nullable
+  public static String commandPolicyAppliesTo(
+      FlagPolicy policy, ImmutableSet<String> applicableCommands) {
     // If the commands list is empty, then the policy applies to all commands.
     if (policy.getCommandsList().isEmpty()) {
-      return true;
+      return "";
     }
 
-    return !Collections.disjoint(policy.getCommandsList(), applicableCommands);
+    @Nullable String toReturn = null;
+    for (String applicableCommand : applicableCommands) {
+      if (policy.getCommandsList().contains(applicableCommand)) {
+        toReturn = applicableCommand;
+      }
+    }
+    return toReturn;
   }
 
   /** Returns the expanded and filtered policy that would be enforced for the given command. */
   public static InvocationPolicy getEffectiveInvocationPolicy(
       InvocationPolicy invocationPolicy, OptionsParser parser, String command, Level loglevel)
       throws OptionsParsingException {
-    ImmutableList<FlagPolicyWithContext> effectivePolicies =
+    ImmutableList<FlagPolicyWithContextAndCommand> effectivePolicies =
         getEffectivePolicies(invocationPolicy, parser, command, loglevel);
 
     InvocationPolicy.Builder builder = InvocationPolicy.newBuilder();
-    for (FlagPolicyWithContext policyWithContext : effectivePolicies) {
-      builder.addFlagPolicies(policyWithContext.policy);
+    for (FlagPolicyWithContextAndCommand policyWithContext : effectivePolicies) {
+      builder.addFlagPolicies(policyWithContext.flagPolicyWithContext.policy);
     }
     return builder.build();
   }
@@ -212,7 +250,7 @@ public final class InvocationPolicyEnforcer {
    *
    * <p>Expands any policies on expansion flags.
    */
-  private static ImmutableList<FlagPolicyWithContext> getEffectivePolicies(
+  public static ImmutableList<FlagPolicyWithContextAndCommand> getEffectivePolicies(
       InvocationPolicy invocationPolicy,
       OptionsParser parser,
       @Nullable String command,
@@ -229,7 +267,7 @@ public final class InvocationPolicyEnforcer {
             command);
 
     // Expand all policies to transfer policies on expansion flags to policies on the child flags.
-    List<FlagPolicyWithContext> expandedPolicies = new ArrayList<>();
+    List<FlagPolicyWithContextAndCommand> expandedPolicies = new ArrayList<>();
     OptionPriority nextPriority =
         OptionPriority.lowestOptionPriorityAtCategory(PriorityCategory.INVOCATION_POLICY);
     for (FlagPolicy policy : invocationPolicy.getFlagPoliciesList()) {
@@ -248,7 +286,8 @@ public final class InvocationPolicyEnforcer {
       OptionInstanceOrigin origin =
           new OptionInstanceOrigin(currentPriority, INVOCATION_POLICY_SOURCE, null, null);
       nextPriority = OptionPriority.nextOptionPriority(currentPriority);
-      if (!policyApplies(policy, commandAndParentCommands)) {
+      @Nullable String appliedCommand = commandPolicyAppliesTo(policy, commandAndParentCommands);
+      if (appliedCommand == null) {
         // Only keep and expand policies that are applicable to the current command.
         continue;
       }
@@ -265,13 +304,16 @@ public final class InvocationPolicyEnforcer {
       FlagPolicyWithContext policyWithContext =
           new FlagPolicyWithContext(policy, optionDescription, origin);
       List<FlagPolicyWithContext> policies = expandPolicy(policyWithContext, parser, loglevel);
-      expandedPolicies.addAll(policies);
+      for (FlagPolicyWithContext flagPolicyWithContext : policies) {
+        expandedPolicies.add(
+            new FlagPolicyWithContextAndCommand(flagPolicyWithContext, appliedCommand));
+      }
     }
 
     // Only keep that last policy for each flag.
-    Map<String, FlagPolicyWithContext> effectivePolicy = new HashMap<>();
-    for (FlagPolicyWithContext expandedPolicy : expandedPolicies) {
-      String flagName = expandedPolicy.policy.getFlagName();
+    Map<String, FlagPolicyWithContextAndCommand> effectivePolicy = new HashMap<>();
+    for (FlagPolicyWithContextAndCommand expandedPolicy : expandedPolicies) {
+      String flagName = expandedPolicy.flagPolicyWithContext.policy.getFlagName();
       effectivePolicy.put(flagName, expandedPolicy);
     }
 

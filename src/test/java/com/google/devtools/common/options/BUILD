@@ -19,7 +19,6 @@ java_library(
     testonly = 1,
     srcs = [
         "InvocationPolicyEnforcerTestBase.java",
-        "ParentOptions.java",
         "TestOptions.java",
     ],
     deps = [

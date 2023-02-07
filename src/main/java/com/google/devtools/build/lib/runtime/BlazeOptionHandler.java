@@ -41,7 +41,6 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -309,9 +308,19 @@ public final class BlazeOptionHandler {
             .mergeFrom(runtime.getModuleInvocationPolicy())
             .mergeFrom(invocationPolicy)
             .build();
-    parseInvocationPolicyToRcNotesFile(combinedPolicy);
+
+    InvocationPolicyEnforcer optionsPolicyEnforcer =
+        new InvocationPolicyEnforcer(
+            combinedPolicy, Level.INFO, optionsParser.getConversionContext());
 
     try {
+      parseInvocationPolicyToRcFileNotes(
+          combinedPolicy,
+          this.optionsParser,
+          optionsPolicyEnforcer,
+          this.commandAnnotation,
+          this.rcfileNotes);
+
       parseArgsAndConfigs(args, eventHandler);
       // Allow the command to edit the options.
       command.editOptions(optionsParser);
@@ -330,9 +339,6 @@ public final class BlazeOptionHandler {
           throw new IllegalStateException(e);
         }
       }
-      InvocationPolicyEnforcer optionsPolicyEnforcer =
-          new InvocationPolicyEnforcer(
-              combinedPolicy, Level.INFO, optionsParser.getConversionContext());
       // Enforce the invocation policy. It is intentional that this is the last step in preparing
       // the options. The invocation policy is used in security-critical contexts, and may be used
       // as a last resort to override flags. That means that the policy can override flags set in
@@ -366,28 +372,23 @@ public final class BlazeOptionHandler {
     return DetailedExitCode.success();
   }
 
-  private void parseInvocationPolicyToRcNotesFile(InvocationPolicy invocationPolicy) {
+  private static void parseInvocationPolicyToRcFileNotes(
+      InvocationPolicy invocationPolicy,
+      OptionsParser parser,
+      InvocationPolicyEnforcer enforcer,
+      Command commandAnnotation,
+      List<String> rcfileNotes)
+      throws OptionsParsingException {
     List<AccumulatedFlagsFromInvocationPolicy> accumulator = new ArrayList<>();
 
-    List<String> commandNamesToParse = getCommandNamesToParse(commandAnnotation);
-
-    for (InvocationPolicyOuterClass.FlagPolicy flagPolicy :
-        invocationPolicy.getFlagPoliciesList()) {
-      String command = null;
-      if (flagPolicy.getCommandsCount() == 0) {
-        command = "";
-      } else {
-        Set<String> supportedFlags = new HashSet<>(flagPolicy.getCommandsList());
-        for (String commandNameToParse : commandNamesToParse) {
-          if (supportedFlags.contains(commandNameToParse)) {
-            command = commandNameToParse;
-            break;
-          }
-        }
-        if (command == null) {
-          continue;
-        }
-      }
+    ImmutableList<InvocationPolicyEnforcer.FlagPolicyWithContextAndCommand> policies =
+        enforcer.getEffectivePolicies(
+            invocationPolicy, parser, commandAnnotation.name(), Level.INFO);
+    for (InvocationPolicyEnforcer.FlagPolicyWithContextAndCommand flagPolicyWithContextAndCommand :
+        policies) {
+      InvocationPolicyEnforcer.FlagPolicyWithContext flagPolicyWithContext =
+          flagPolicyWithContextAndCommand.getFlagPolicyWithContext();
+      InvocationPolicyOuterClass.FlagPolicy flagPolicy = flagPolicyWithContext.getPolicy();
       String flagValue;
       if (flagPolicy.hasSetValue()) {
         InvocationPolicyOuterClass.SetValue setValue = flagPolicy.getSetValue();
@@ -399,8 +400,11 @@ public final class BlazeOptionHandler {
       }
 
       if (accumulator.isEmpty()
-          || !command.equals(accumulator.get(accumulator.size() - 1).command)) {
-        accumulator.add(new AccumulatedFlagsFromInvocationPolicy(command));
+          || !flagPolicyWithContextAndCommand
+              .getCommand()
+              .equals(accumulator.get(accumulator.size() - 1).command)) {
+        accumulator.add(
+            new AccumulatedFlagsFromInvocationPolicy(flagPolicyWithContextAndCommand.getCommand()));
       }
       accumulator
           .get(accumulator.size() - 1)

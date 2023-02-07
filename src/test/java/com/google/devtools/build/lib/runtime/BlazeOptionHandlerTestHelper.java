@@ -21,16 +21,18 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
-import com.google.devtools.common.options.ParentOptions;
 import com.google.devtools.common.options.TestOptions;
 import java.util.List;
 import javax.annotation.Nullable;
 
 /** Helper class for setting up tests that make use of {@link BlazeOptionHandler}. */
-class BlazeOptionHandlerTestHelper {
+public class BlazeOptionHandlerTestHelper {
 
   private final Scratch scratch = new Scratch();
   private final StoredEventHandler eventHandler = new StoredEventHandler();
@@ -134,7 +136,7 @@ class BlazeOptionHandlerTestHelper {
       shortDescription = "parent desc",
       help = "parent help",
       options = {ParentOptions.class})
-  protected static class ParentCommand implements BlazeCommand {
+  public static class ParentCommand implements BlazeCommand {
     @Override
     public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
       throw new UnsupportedOperationException();
@@ -142,5 +144,25 @@ class BlazeOptionHandlerTestHelper {
 
     @Override
     public void editOptions(OptionsParser optionsParser) {}
+  }
+
+  public static class ParentOptions extends OptionsBase {
+    public static final String TEST_STRING_DEFAULT = "parent test string default";
+
+    @Option(
+        name = "parent_test_string",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = TEST_STRING_DEFAULT,
+        help = "a string-valued option to test simple option operations")
+    public String testString;
+
+    @Option(
+        name = "parent_test_string2",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = TEST_STRING_DEFAULT,
+        help = "another string-valued option to test simple option operations")
+    public String testString2;
   }
 }
