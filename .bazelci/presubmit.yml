@@ -190,6 +190,23 @@ tasks:
       - "-//src/java_tools/import_deps_checker/..."
       # C++ coverage is not supported on macOS yet.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
+      # https://github.com/bazelbuild/bazel/issues/16526
+      - "-//src/test/shell/bazel:starlark_repository_test"
+      # https://github.com/bazelbuild/bazel/issues/17407
+      - "-//src/test/shell/bazel/apple:bazel_apple_test"
+      # https://github.com/bazelbuild/bazel/issues/17408
+      - "-//src/test/shell/bazel/apple:bazel_objc_test"
+      # https://github.com/bazelbuild/bazel/issues/16526#issuecomment-1415858550
+      - "-//src/test/shell/bazel:python_version_test"
+      - "-//src/test/py/bazel:runfiles_test"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
+      - "-//tools/python:pywrapper_test"
+      # https://github.com/bazelbuild/bazel/issues/17410
+      - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
+      # https://github.com/bazelbuild/bazel/issues/17411
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:PatchApiBlackBoxTest"
   windows:
     shards: 4
     batch_commands:
