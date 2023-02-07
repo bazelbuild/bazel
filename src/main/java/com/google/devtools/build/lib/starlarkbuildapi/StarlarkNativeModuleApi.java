@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.cmdline.Label;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -240,6 +241,38 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + "<code>REPOSITORY_NAME</code>.",
       useStarlarkThread = true)
   String repositoryName(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "package_relative_label",
+      doc =
+          "Converts the input string into a <a href='Label'>Label</a> object, in the context of the"
+              + " package currently being initialized (that is, the <code>BUILD</code> file for"
+              + " which the current macro is executing). If the input is already a"
+              + " <code>Label</code>, it is returned unchanged.<p>This function may only be called"
+              + " while evaluating a BUILD file and the macros it directly or indirectly calls; it"
+              + " may not be called in (for instance) a rule implementation function. <p>The result"
+              + " of this function is the same <code>Label</code> value as would be produced by"
+              + " passing the given string to a label-valued attribute of a target declared in the"
+              + " BUILD file. <p><i>Usage note:</i> The difference between this function and <a"
+              + " href='Label#Label'>Label()</a></code> is that <code>Label()</code> uses the"
+              + " context of the package of the <code>.bzl</code> file that called it, not the"
+              + " package of the <code>BUILD</code> file. Use <code>Label()</code> when you need to"
+              + " refer to a fixed target that is hardcoded into the macro, such as a compiler. Use"
+              + " <code>package_relative_label()</code> when you need to normalize a label string"
+              + " supplied by the BUILD file to a <code>Label</code> object. (There is no way to"
+              + " convert a string to a <code>Label</code> in the context of a package other than"
+              + " the BUILD file or the calling .bzl file. For that reason, outer macros should"
+              + " always prefer to pass Label objects to inner macros rather than label strings.)",
+      parameters = {
+        @Param(
+            name = "input",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = Label.class)},
+            doc =
+                "The input label string or Label object. If a Label object is passed, it's"
+                    + " returned as is.")
+      },
+      useStarlarkThread = true)
+  Label packageRelativeLabel(Object input, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "subpackages",

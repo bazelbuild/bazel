@@ -874,5 +874,62 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
         env_add={'RUNFILES_LIB_DEBUG': '1'})
     self.AssertExitCode(exit_code, 0, stderr, stdout)
 
+  def testNativePackageRelativeLabel(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name="foo")',
+            'bazel_dep(name="bar")',
+            'local_path_override(module_name="bar",path="bar")',
+        ],
+    )
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'defs.bzl',
+        [
+            'def mac(name):',
+            '  native.filegroup(name=name)',
+            '  print("1st: " + str(native.package_relative_label(":bleb")))',
+            '  print("2nd: " + str(native.package_relative_label('
+            + '"//bleb:bleb")))',
+            '  print("3rd: " + str(native.package_relative_label('
+            + '"@bleb//bleb:bleb")))',
+            '  print("4th: " + str(native.package_relative_label("//bleb")))',
+            '  print("5th: " + str(native.package_relative_label('
+            + '"@@bleb//bleb:bleb")))',
+            '  print("6th: " + str(native.package_relative_label(Label('
+            + '"//bleb"))))',
+        ],
+    )
+
+    self.ScratchFile(
+        'bar/MODULE.bazel',
+        [
+            'module(name="bar")',
+            'bazel_dep(name="foo", repo_name="bleb")',
+        ],
+    )
+    self.ScratchFile('bar/WORKSPACE')
+    self.ScratchFile(
+        'bar/quux/BUILD',
+        [
+            'load("@bleb//:defs.bzl", "mac")',
+            'mac(name="book")',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(
+        ['build', '@bar//quux:book'], allow_failure=False
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('1st: @@bar~override//quux:bleb', stderr)
+    self.assertIn('2nd: @@bar~override//bleb:bleb', stderr)
+    self.assertIn('3rd: @@//bleb:bleb', stderr)
+    self.assertIn('4th: @@bar~override//bleb:bleb', stderr)
+    self.assertIn('5th: @@bleb//bleb:bleb', stderr)
+    self.assertIn('6th: @@//bleb:bleb', stderr)
+
+
 if __name__ == '__main__':
   unittest.main()
