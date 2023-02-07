@@ -171,11 +171,14 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
   }
 
   @Override
-  public Label label(String labelString, StarlarkThread thread) throws EvalException {
+  public Label label(Object input, StarlarkThread thread) throws EvalException {
+    if (input instanceof Label) {
+      return (Label) input;
+    }
     try {
-      return Label.parseCanonical(labelString);
+      return Label.parseCanonical((String) input);
     } catch (LabelSyntaxException e) {
-      throw Starlark.errorf("Illegal absolute label syntax: %s", labelString);
+      throw Starlark.errorf("Illegal absolute label syntax: %s", input);
     }
   }
 
