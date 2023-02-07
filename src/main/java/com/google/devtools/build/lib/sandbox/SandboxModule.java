@@ -218,7 +218,7 @@ public final class SandboxModule extends BlazeModule {
         treeDeleter = new AsynchronousTreeDeleter();
       }
     }
-
+    SandboxStash.initialize(env.getWorkspaceName(), sandboxBase, options);
     Path mountPoint = sandboxBase.getRelative("sandboxfs");
 
     if (sandboxfsProcess != null) {
