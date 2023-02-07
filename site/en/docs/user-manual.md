@@ -2462,8 +2462,8 @@ interactivity at the expense of Bazel throughput.
 
 #### `--[no]announce_rc` {:#announce-rc}
 
-Controls whether Bazel announces command options read from the bazelrc file when
-starting up. (Startup options are unconditionally announced.)
+Controls whether Bazel announces command options read from the bazelrc file and
+invocation policy when starting up. (Startup options are unconditionally announced.)
 
 #### `--color (yes|no|auto)` {:#color}
 
