@@ -90,7 +90,7 @@ class PywrapperTest(test_base.TestBase):
     # work -- they simply fail with "Killed: 9". To workaround that, just
     # re-exec the actual binary.
     self.ScratchFile("dir/" + cmd,
-                     ["#!/bin/sh", 'exec {} "$@"'.format(cmd)],
+                     ["#!/bin/sh", 'exec {} "$@"'.format(path)],
                      executable=True)
 
   def locate_runfile(self, runfile_path):
