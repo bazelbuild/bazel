@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.concurrent;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.concurrent.PaddedAddresses.createPaddedBaseAddress;
+import static com.google.devtools.build.lib.concurrent.PaddedAddresses.getAlignedAddress;
 import static com.google.devtools.build.lib.concurrent.PriorityWorkerPool.NextWorkerActivity.DO_CPU_HEAVY_TASK;
 import static com.google.devtools.build.lib.concurrent.PriorityWorkerPool.NextWorkerActivity.DO_TASK;
 import static com.google.devtools.build.lib.concurrent.PriorityWorkerPool.NextWorkerActivity.IDLE;
@@ -32,7 +34,6 @@ import java.lang.ref.Cleaner;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
 import java.util.TreeMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
@@ -68,12 +69,11 @@ final class PriorityWorkerPool {
    *
    * <p>An interesting alternative to consider is to place unprioritized tasks directly into {@link
    * #pool}, which could reduce the work performed by the system. Doing this results in about a
-   * {@code 4%} end-to-end analysis regression in our benchmark. The reasons are not clear, but
-   * perhaps polling from a {@link ConcurrentLinkedQueue}, as implemented in {@link
-   * WorkerThread#runLoop} is more efficient than random scanning of {@link ForkJoinPool}, or it
-   * could be a domain specific reason having to do with differences in the resulting task ordering.
+   * {@code 4%} end-to-end regression in our benchmark. The likely cause for this is that FIFO
+   * behavior is very important for performance because it reflects the ordering of prioritized
+   * tasks.
    */
-  private final ConcurrentLinkedQueue<Runnable> queue = new ConcurrentLinkedQueue<>();
+  private final TaskFifo queue;
 
   private final ConcurrentSkipListSet<ComparableRunnable> cpuHeavyQueue =
       new ConcurrentSkipListSet<>();
@@ -131,10 +131,14 @@ final class PriorityWorkerPool {
     this.pool = newForkJoinPool();
     this.errorClassifier = errorClassifier;
 
-    long baseAddress = PaddedAddresses.createPaddedBaseAddress(2);
+    long baseAddress = createPaddedBaseAddress(4);
     cleaner.register(this, new AddressFreer(baseAddress));
-    this.countersAddress = PaddedAddresses.getAlignedAddress(baseAddress, /* offset= */ 0);
-    this.queueSizeAddress = PaddedAddresses.getAlignedAddress(baseAddress, /* offset= */ 1);
+    this.countersAddress = getAlignedAddress(baseAddress, /* offset= */ 0);
+    this.queue =
+        new TaskFifo(
+            /* sizeAddress= */ getAlignedAddress(baseAddress, /* offset= */ 1),
+            /* appendIndexAddress= */ getAlignedAddress(baseAddress, /* offset= */ 2),
+            /* takeIndexAddress= */ getAlignedAddress(baseAddress, /* offset= */ 3));
 
     resetExecutionCounters();
   }
@@ -159,7 +163,7 @@ final class PriorityWorkerPool {
       }
     }
 
-    while (!tryAppend(rawTask)) {
+    while (!queue.tryAppend(rawTask)) {
       // If the queue is full, this thread donates some work to reduce the queue.
       if (!tryAcquireTask()) {
         // This should be very hard to reach if the queue is full except under cancellation. It's
@@ -178,16 +182,6 @@ final class PriorityWorkerPool {
     if (acquireThreadElseReleaseTask()) {
       pool.execute(RUN_TASK);
     }
-  }
-
-  private boolean tryAppend(Runnable task) {
-    if (queueSizeIncrementAndGet() > TASKS_MAX_VALUE) {
-      queueSizeDecrement();
-      return false;
-    }
-
-    queue.add(task);
-    return true;
   }
 
   /**
@@ -275,7 +269,7 @@ final class PriorityWorkerPool {
     }
     return toStringHelper(this)
         .add("available", formatSnapshot(getExecutionCounters()))
-        .add("|queue|", queueSize())
+        .add("|queue|", queue.size())
         .add("|cpu queue|", cpuHeavyQueue.size())
         .add("threads", threadStates)
         .add("unhandled", unhandled.get())
@@ -422,8 +416,7 @@ final class PriorityWorkerPool {
 
   private void dequeueTaskAndRun() {
     try {
-      var task = queue.poll();
-      UNSAFE.getAndAddInt(null, queueSizeAddress, -1);
+      var task = queue.take();
       task.run();
     } catch (Throwable uncaught) {
       handleUncaughtError(uncaught);
@@ -453,7 +446,7 @@ final class PriorityWorkerPool {
   private static final long TASKS_MASK = 0x0000_001F_FF80_0000L;
   private static final int TASKS_BIT_OFFSET = 23;
   private static final long ONE_TASK = 1L << TASKS_BIT_OFFSET;
-  @VisibleForTesting static final int TASKS_MAX_VALUE = (int) (TASKS_MASK >> TASKS_BIT_OFFSET);
+  static final int TASKS_MAX_VALUE = (int) (TASKS_MASK >> TASKS_BIT_OFFSET);
 
   private static final long CPU_HEAVY_TASKS_MASK = 0x0000_0000_07F_FFFFL;
   private static final int CPU_HEAVY_TASKS_BIT_OFFSET = 0;
@@ -477,8 +470,8 @@ final class PriorityWorkerPool {
    * <ol>
    *   <li>Canceled - (1 bit) true for cancelled.
    *   <li>CPU Permits - (11 bits) how many CPU heavy permits are available.
-   *   <li>Threads - (16 bits) how many threads are available.
-   *   <li>Tasks - (13 bits) how many non-CPU heavy tasks are inflight.
+   *   <li>Threads - (15 bits) how many threads are available.
+   *   <li>Tasks - (14 bits) how many non-CPU heavy tasks are inflight.
    *   <li>CPU Heavy Tasks - (23 bits) how many CPU heavy tasks are inflight.
    * </ol>
    *
@@ -512,7 +505,6 @@ final class PriorityWorkerPool {
         countersAddress,
         (((long) poolSize) << THREADS_BIT_OFFSET)
             | (((long) cpuPermits) << CPU_PERMITS_BIT_OFFSET));
-    UNSAFE.putInt(null, queueSizeAddress, 0);
   }
 
   private boolean acquireThreadElseReleaseTask() {
@@ -623,31 +615,6 @@ final class PriorityWorkerPool {
 
   private boolean tryUpdateExecutionCounters(long snapshot, long target) {
     return UNSAFE.compareAndSwapLong(null, countersAddress, snapshot, target);
-  }
-
-  /**
-   * Address of the {@code int} queue size.
-   *
-   * <p>The queue size is used to detect when adding to the queue might overflow. Having a fixed cap
-   * on queue size enables using fewer bits to track its state, simplifying code paths having high
-   * contention.
-   *
-   * <p>The queue size can be transiently greater than, but is never less than the actual queue
-   * size. This property is maintained by always incrementing the counter before inserting into the
-   * queue and always decrementing after inserting into the queue.
-   */
-  private final long queueSizeAddress;
-
-  private int queueSize() {
-    return UNSAFE.getIntVolatile(null, queueSizeAddress);
-  }
-
-  private int queueSizeIncrementAndGet() {
-    return UNSAFE.getAndAddInt(null, queueSizeAddress, 1) + 1;
-  }
-
-  private void queueSizeDecrement() {
-    UNSAFE.getAndAddInt(null, queueSizeAddress, -1);
   }
 
   private static String formatSnapshot(long snapshot) {

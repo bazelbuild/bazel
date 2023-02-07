@@ -7,7 +7,7 @@ Book: /_book.yaml
 
 Note: Using Bazel? You can add your company on
 [StackShare](https://stackshare.io/bazel). To add yourself to this page,
-contact [product@bazel.build](mailto:produc@bazel.build).
+contact [product@bazel.build](mailto:product@bazel.build).
 
 This page lists companies and OSS projects that are known to use Bazel.
 This does not constitute an endorsement.

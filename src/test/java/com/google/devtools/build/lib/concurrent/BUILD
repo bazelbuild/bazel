@@ -21,6 +21,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:ThrowingRecordableRunnableWrapper",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",
