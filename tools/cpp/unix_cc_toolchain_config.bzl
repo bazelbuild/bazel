@@ -208,6 +208,11 @@ def _impl(ctx):
         enabled = True,
     )
 
+    static_link_cpp_runtimes_feature = feature(
+        name = "static_link_cpp_runtimes",
+        enabled = False,
+    )
+
     default_compile_flags_feature = feature(
         name = "default_compile_flags",
         enabled = True,
@@ -1327,6 +1332,7 @@ def _impl(ctx):
             asan_feature,
             tsan_feature,
             ubsan_feature,
+            static_link_cpp_runtimes_feature,
         ] + (
             [
                 supports_start_end_lib_feature,
@@ -1365,6 +1371,7 @@ def _impl(ctx):
             asan_feature,
             tsan_feature,
             ubsan_feature,
+            static_link_cpp_runtimes_feature,
         ] + (
             [
                 supports_start_end_lib_feature,
