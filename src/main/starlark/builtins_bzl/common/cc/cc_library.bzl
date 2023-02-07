@@ -58,7 +58,7 @@ def _cc_library_impl(ctx):
         local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx),
         loose_includes = common.loose_include_dirs,
         system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
-        copts_filter = common.copts_filter,
+        copts_filter = cc_helper.copts_filter(ctx, additional_make_variable_substitutions),
         purpose = "cc_library-compile",
         srcs = cc_helper.get_srcs(ctx),
         private_hdrs = cc_helper.get_private_hdrs(ctx),

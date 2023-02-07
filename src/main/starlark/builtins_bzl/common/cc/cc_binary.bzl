@@ -651,7 +651,7 @@ def cc_binary_impl(ctx, additional_linkopts):
         system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
         private_hdrs = cc_helper.get_private_hdrs(ctx),
         public_hdrs = cc_helper.get_public_hdrs(ctx),
-        copts_filter = common.copts_filter,
+        copts_filter = cc_helper.copts_filter(ctx, additional_make_variable_substitutions),
         srcs = cc_helper.get_srcs(ctx),
         compilation_contexts = compilation_context_deps,
         grep_includes = cc_helper.grep_includes_executable(ctx.attr._grep_includes),

@@ -1193,6 +1193,19 @@ def _linker_scripts(ctx):
                 result.append(f)
     return result
 
+def _copts_filter(ctx, additional_make_variable_substitutions):
+    nocopts = getattr(ctx.attr, "nocopts", None)
+
+    if nocopts == None or len(nocopts) == 0:
+        return nocopts
+
+    # Check if nocopts is disabled.
+    if ctx.fragments.cpp.disable_nocopts():
+        fail("This attribute was removed. See https://github.com/bazelbuild/bazel/issues/8706 for details.", attr = "nocopts")
+
+    # Expand nocopts and create CoptsFilter.
+    return _expand(ctx, nocopts, additional_make_variable_substitutions)
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -1252,4 +1265,5 @@ cc_helper = struct(
     defines = _defines,
     local_defines = _local_defines,
     linker_scripts = _linker_scripts,
+    copts_filter = _copts_filter,
 )
