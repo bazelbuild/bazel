@@ -104,7 +104,10 @@ cc_shared_library(
         ],
         "//conditions:default": [],
     }),
-    dynamic_deps = ["bar_so"],
+    dynamic_deps = [
+        "bar_so",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg_so"
+    ],
     features = ["windows_export_all_symbols"],
     preloaded_deps = ["preloaded_dep"],
     deps = [
@@ -150,6 +153,7 @@ cc_library(
         "qux",
         "qux2",
         "prebuilt",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg"
     ],
 )
 
