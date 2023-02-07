@@ -27,9 +27,13 @@ import javax.annotation.Nullable;
  * paths.
  */
 @AutoCodec
-public class RootedPath implements Comparable<RootedPath>, FileStateKey {
+public final class RootedPath implements Comparable<RootedPath>, FileStateKey {
   private final Root root;
   private final PathFragment rootRelativePath;
+
+  // Cache the hash code: RootedPath is used in several of the most common SkyKeys, and we have a
+  // free field to spend on it.
+  private final transient int hashCode;
 
   /** Constructs a {@link RootedPath} from a {@link Root} and path fragment relative to the root. */
   @AutoCodec.Instantiator
@@ -42,6 +46,7 @@ public class RootedPath implements Comparable<RootedPath>, FileStateKey {
         root);
     this.root = root;
     this.rootRelativePath = rootRelativePath;
+    this.hashCode = 31 * root.hashCode() + rootRelativePath.hashCode();
   }
 
   /** Returns a rooted path representing {@code rootRelativePath} relative to {@code root}. */
@@ -118,11 +123,7 @@ public class RootedPath implements Comparable<RootedPath>, FileStateKey {
 
   @Override
   public int hashCode() {
-    final int prime = 31;
-    int result = 1;
-    result = prime * result + root.hashCode();
-    result = prime * result + rootRelativePath.hashCode();
-    return result;
+    return hashCode;
   }
 
   @Override

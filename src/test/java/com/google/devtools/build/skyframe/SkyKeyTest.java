@@ -85,7 +85,7 @@ public final class SkyKeyTest {
   }
 
   @AutoCodec
-  static final class Key extends AbstractSkyKey<HashCodeSpy> {
+  static final class Key extends AbstractSkyKey.WithCachedHashCode<HashCodeSpy> {
 
     Key(HashCodeSpy arg) {
       super(arg);
