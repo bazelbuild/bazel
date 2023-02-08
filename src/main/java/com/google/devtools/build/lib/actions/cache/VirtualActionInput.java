@@ -37,16 +37,6 @@ public abstract class VirtualActionInput implements ActionInput, StreamWriter {
   public static final VirtualActionInput EMPTY_MARKER = new EmptyActionInput();
 
   /**
-   * Like {@link #atomicallyWriteTo(Path, String)}, but takes the directory that the input should be
-   * written inside (typically the execroot) instead of a full path.
-   */
-  @CanIgnoreReturnValue
-  public byte[] atomicallyWriteRelativeTo(Path execRoot, String uniqueSuffix) throws IOException {
-    Path outputPath = execRoot.getRelative(getExecPath());
-    return atomicallyWriteTo(outputPath, uniqueSuffix);
-  }
-
-  /**
    * Writes a virtual input file so that the final file is always consistent to all readers.
    *
    * <p>This function exists to aid dynamic scheduling. Param files are inputs, so they need to be
@@ -57,14 +47,24 @@ public abstract class VirtualActionInput implements ActionInput, StreamWriter {
    * rename, which has atomic semantics on Unix, and thus keep all readers always seeing consistent
    * contents. This may cause a race condition on Windows.
    *
-   * @param outputPath final path where the virtual input file ought to live
+   * @param execRoot the path that this input should be written inside, typically the execroot
    * @param uniqueSuffix a filename extension that is different between the local spawn runners and
    *     the remote ones
    * @return digest of written virtual input
    * @throws IOException if we fail to write the virtual input file
    */
   @CanIgnoreReturnValue
-  public byte[] atomicallyWriteTo(Path outputPath, String uniqueSuffix) throws IOException {
+  public byte[] atomicallyWriteRelativeTo(Path execRoot, String uniqueSuffix) throws IOException {
+    Path outputPath = execRoot.getRelative(getExecPath());
+    return atomicallyWriteTo(outputPath, uniqueSuffix);
+  }
+
+  /**
+   * Like {@link #atomicallyWriteRelativeTo(Path, String)}, but takes the full path that the input
+   * should be written to.
+   */
+  @CanIgnoreReturnValue
+  protected byte[] atomicallyWriteTo(Path outputPath, String uniqueSuffix) throws IOException {
     Path tmpPath = outputPath.getFileSystem().getPath(outputPath.getPathString() + uniqueSuffix);
     tmpPath.getParentDirectory().createDirectoryAndParents();
     try {
@@ -120,6 +120,16 @@ public abstract class VirtualActionInput implements ActionInput, StreamWriter {
     return null;
   }
 
+  @Override
+  public boolean isDirectory() {
+    return false;
+  }
+
+  @Override
+  public boolean isSymlink() {
+    return false;
+  }
+
   /**
    * In some cases, we want empty files in the runfiles tree that have no corresponding artifact. We
    * use instances of this class to represent those files.
@@ -128,16 +138,6 @@ public abstract class VirtualActionInput implements ActionInput, StreamWriter {
     private static final byte[] emptyDigest = new byte[0];
 
     private EmptyActionInput() {}
-
-    @Override
-    public boolean isDirectory() {
-      return false;
-    }
-
-    @Override
-    public boolean isSymlink() {
-      return false;
-    }
 
     @Override
     public String getExecPathString() {
@@ -155,7 +155,7 @@ public abstract class VirtualActionInput implements ActionInput, StreamWriter {
     }
 
     @Override
-    public byte[] atomicallyWriteTo(Path outputPath, String uniqueSuffix) {
+    protected byte[] atomicallyWriteTo(Path outputPath, String uniqueSuffix) {
       return emptyDigest;
     }
 
