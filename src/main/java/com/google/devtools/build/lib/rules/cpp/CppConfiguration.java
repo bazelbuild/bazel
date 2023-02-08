@@ -786,6 +786,12 @@ public final class CppConfiguration extends Fragment
     return cppOptions.disableNoCopts;
   }
 
+  @Override
+  public boolean disableNocoptsStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return disableNoCopts();
+  }
+
   public boolean loadCcRulesFromBzl() {
     return cppOptions.loadCcRulesFromBzl;
   }

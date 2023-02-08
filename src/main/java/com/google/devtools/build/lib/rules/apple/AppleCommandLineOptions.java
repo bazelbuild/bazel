@@ -518,6 +518,17 @@ public class AppleCommandLineOptions extends FragmentOptions {
     return exec;
   }
 
+  @Override
+  public AppleCommandLineOptions getNormalized() {
+    AppleCommandLineOptions result = (AppleCommandLineOptions) clone();
+    result.catalystCpus = dedupAndSort(result.catalystCpus);
+    result.iosMultiCpus = dedupAndSort(result.iosMultiCpus);
+    result.macosCpus = dedupAndSort(result.macosCpus);
+    result.tvosCpus = dedupAndSort(result.tvosCpus);
+    result.watchosCpus = dedupAndSort(result.watchosCpus);
+    return result;
+  }
+
   void serialize(SerializationContext context, CodedOutputStream out)
       throws IOException, SerializationException {
     context.serialize(this, out);

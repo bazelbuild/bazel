@@ -14,22 +14,26 @@
 package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.concurrent.PaddedAddresses.createPaddedBaseAddress;
+import static com.google.devtools.build.lib.concurrent.PaddedAddresses.getAlignedAddress;
 import static com.google.devtools.build.lib.concurrent.PriorityWorkerPool.NextWorkerActivity.DO_CPU_HEAVY_TASK;
 import static com.google.devtools.build.lib.concurrent.PriorityWorkerPool.NextWorkerActivity.DO_TASK;
 import static com.google.devtools.build.lib.concurrent.PriorityWorkerPool.NextWorkerActivity.IDLE;
 import static com.google.devtools.build.lib.concurrent.PriorityWorkerPool.NextWorkerActivity.QUIESCENT;
 import static java.lang.Thread.currentThread;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
+import java.lang.ref.Cleaner;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
 import java.util.TreeMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
@@ -52,11 +56,29 @@ import sun.misc.Unsafe;
 final class PriorityWorkerPool {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private final String name;
+  /** The configured size of the thread pool. */
   private final int poolSize;
+
+  /** The number of CPU permits configured. */
   private final int cpuPermits;
 
   private ForkJoinPool pool;
+
+  /**
+   * Queue for non-CPU heavy tasks.
+   *
+   * <p>An interesting alternative to consider is to place unprioritized tasks directly into {@link
+   * #pool}, which could reduce the work performed by the system. Doing this results in about a
+   * {@code 4%} end-to-end regression in our benchmark. The likely cause for this is that FIFO
+   * behavior is very important for performance because it reflects the ordering of prioritized
+   * tasks.
+   */
+  private final TaskFifo queue;
+
+  private final ConcurrentSkipListSet<ComparableRunnable> cpuHeavyQueue =
+      new ConcurrentSkipListSet<>();
+
+  private final String name;
 
   /**
    * Cache of workers for interrupt handling.
@@ -65,30 +87,6 @@ final class PriorityWorkerPool {
    * values are an unintentional side effect of the library and populated arbitrarily.
    */
   private final Cache<WorkerThread, Object> workers = Caffeine.newBuilder().weakKeys().build();
-
-  /**
-   * Counters describing the state of queues and in-flight work.
-   *
-   * <p>This field is updated atomically using {@link #tryUpdateAvailable}.
-   */
-  private volatile AvailableState available;
-
-  private final ErrorClassifier errorClassifier;
-
-  /**
-   * Queue for tasks not needing prioritization.
-   *
-   * <p>An interesting alternative to consider is to place unprioritized tasks directly into {@link
-   * #pool}, which could reduce the work performed by the system. Doing this results in about a
-   * {@code 4%} end-to-end analysis regression in our benchmark. The reasons are not clear, but
-   * perhaps polling from a {@link ConcurrentLinkedQueue}, as implemented in {@link
-   * WorkerThread#runLoop} is more efficient than random scanning of {@link ForkJoinPool}, or it
-   * could be a domain specific reason having to do with differences in the resulting task ordering.
-   */
-  private final ConcurrentLinkedQueue<Runnable> queue = new ConcurrentLinkedQueue<>();
-
-  private final ConcurrentSkipListSet<ComparableRunnable> cpuHeavyQueue =
-      new ConcurrentSkipListSet<>();
 
   /**
    * A synchronization mechanism used when waiting for quiescence.
@@ -102,15 +100,14 @@ final class PriorityWorkerPool {
    */
   private final Object quiescenceMonitor = new Object();
 
+  private final ErrorClassifier errorClassifier;
+
   /**
    * The most severe unhandled exception thrown by a worker thread, according to {@link
    * #errorClassifier}. This exception gets propagated to the calling thread of {@link
-   * TieredPriorityExecutor#awaitQuiescence} . We use the most severe error for the sake of not
+   * TieredPriorityExecutor#awaitQuiescence}. We use the most severe error for the sake of not
    * masking e.g. crashes in worker threads after the first critical error that can occur due to
    * race conditions in client code.
-   *
-   * <p>Field updates happen only in blocks that are synchronized on the {@link
-   * AbstractQueueVisitor} object.
    *
    * <p>If {@link AbstractQueueVisitor} clients don't like the semantics of storing and propagating
    * the most severe error, then they should be provide an {@link ErrorClassifier} that does the
@@ -122,14 +119,28 @@ final class PriorityWorkerPool {
    */
   private final AtomicReference<Throwable> unhandled = new AtomicReference<>();
 
-  PriorityWorkerPool(String name, int poolSize, int cpuPermits, ErrorClassifier errorClassifier) {
+  PriorityWorkerPool(
+      Cleaner cleaner, String name, int poolSize, int cpuPermits, ErrorClassifier errorClassifier) {
+    checkArgument(poolSize <= (THREADS_MASK >> THREADS_BIT_OFFSET), poolSize);
+    checkArgument(cpuPermits <= (CPU_PERMITS_MASK >> CPU_PERMITS_BIT_OFFSET), cpuPermits);
+
     this.name = name;
     this.poolSize = poolSize;
     this.cpuPermits = cpuPermits;
 
     this.pool = newForkJoinPool();
-    this.available = new AvailableState(poolSize, cpuPermits);
     this.errorClassifier = errorClassifier;
+
+    long baseAddress = createPaddedBaseAddress(4);
+    cleaner.register(this, new AddressFreer(baseAddress));
+    this.countersAddress = getAlignedAddress(baseAddress, /* offset= */ 0);
+    this.queue =
+        new TaskFifo(
+            /* sizeAddress= */ getAlignedAddress(baseAddress, /* offset= */ 1),
+            /* appendIndexAddress= */ getAlignedAddress(baseAddress, /* offset= */ 2),
+            /* takeIndexAddress= */ getAlignedAddress(baseAddress, /* offset= */ 3));
+
+    resetExecutionCounters();
   }
 
   int poolSize() {
@@ -152,17 +163,22 @@ final class PriorityWorkerPool {
       }
     }
 
-    // The approach here pessimizes task placement into the queue. To understand why, consider the
-    // naive, optimistic approach below.
-    //
-    // Try to acquire a thread.
-    // A. If successful, execute in the worker.
-    // B. Otherwise, enqueue the task and release a task token.
-    //
-    // The problem is that B may cause the task to become stranded. While enqueuing the task, but
-    // before releasing the task token, all workers could complete without seeing the token.
-    // Instead, the queue must be populated first, in case the token needs to be released.
-    queue.add(rawTask);
+    while (!queue.tryAppend(rawTask)) {
+      // If the queue is full, this thread donates some work to reduce the queue.
+      if (!tryAcquireTask()) {
+        // This should be very hard to reach if the queue is full except under cancellation. It's
+        // possible to perform the cancellation check in advance, but we can save doing the check in
+        // most cases by deferring it to this branch.
+        if (isCancelled()) {
+          return;
+        }
+        logger.atWarning().atMostEvery(5, SECONDS).log(
+            "Queue is full but no tasks could be acquired: %s", this);
+        continue;
+      }
+      dequeueTaskAndRun();
+    }
+
     if (acquireThreadElseReleaseTask()) {
       pool.execute(RUN_TASK);
     }
@@ -177,10 +193,6 @@ final class PriorityWorkerPool {
     return quiescenceMonitor;
   }
 
-  boolean isQuiescent() {
-    return available.isQuiescent(poolSize);
-  }
-
   @Nullable
   Throwable unhandled() {
     return unhandled.get();
@@ -192,28 +204,12 @@ final class PriorityWorkerPool {
    * <p>Calling cancel is on a cancelled pool is a noop. A cancelled pool can be {@link #reset}.
    */
   void cancel() {
-    var target = new AvailableState();
-    AvailableState snapshot;
-    do {
-      snapshot = available;
-      if (snapshot.isCancelled()) {
-        return;
-      }
-      snapshot.cancel(poolSize, cpuPermits, target);
-    } while (!tryUpdateAvailable(snapshot, target));
+    markCancelled();
 
     workers.asMap().keySet().forEach(Thread::interrupt);
   }
 
-  boolean isCancelled() {
-    return available.isCancelled();
-  }
-
-  /**
-   * Shuts down a pool and frees all resources.
-   *
-   * <p>Requires that the pool is quiescent.
-   */
+  /** Shuts down a pool and frees all resources. */
   private void cleanup() {
     checkState(isQuiescent(), "cleanup called on pool that was not quiescent: %s", this);
 
@@ -230,7 +226,7 @@ final class PriorityWorkerPool {
     cleanup();
     unhandled.set(null);
 
-    available = new AvailableState(poolSize, cpuPermits);
+    resetExecutionCounters();
     pool = newForkJoinPool();
   }
 
@@ -272,10 +268,12 @@ final class PriorityWorkerPool {
       threadStates.compute(w.getState(), (k, v) -> v == null ? 1 : (v + 1));
     }
     return toStringHelper(this)
-        .add("available", available)
+        .add("available", formatSnapshot(getExecutionCounters()))
         .add("|queue|", queue.size())
         .add("|cpu queue|", cpuHeavyQueue.size())
         .add("threads", threadStates)
+        .add("unhandled", unhandled.get())
+        .add("pool", pool)
         .toString();
   }
 
@@ -323,33 +321,6 @@ final class PriorityWorkerPool {
         },
         /* handler= */ null,
         /* asyncMode= */ false);
-  }
-
-  private boolean acquireThreadAndCpuPermitElseReleaseCpuHeavyTask() {
-    AvailableState snapshot;
-    var target = new AvailableState();
-    do {
-      snapshot = available;
-      boolean success = snapshot.tryAcquireThreadAndCpuPermitElseReleaseCpuHeavyTask(target);
-      if (tryUpdateAvailable(snapshot, target)) {
-        return success;
-      }
-    } while (true);
-  }
-
-  private boolean acquireThreadElseReleaseTask() {
-    AvailableState snapshot;
-    var target = new AvailableState();
-    do {
-      snapshot = available;
-      boolean acquired = snapshot.tryAcquireThread(target);
-      if (!acquired) {
-        snapshot.releaseTask(target);
-      }
-      if (tryUpdateAvailable(snapshot, target)) {
-        return acquired;
-      }
-    } while (true);
   }
 
   /**
@@ -435,25 +406,18 @@ final class PriorityWorkerPool {
     }
 
     boolean tryDoQueuedWork() {
-      AvailableState snapshot;
-      var target = new AvailableState();
-
-      do {
-        snapshot = available;
-        if (!snapshot.tryAcquireTask(target)) {
-          return false;
-        }
-        if (tryUpdateAvailable(snapshot, target)) {
-          dequeueTaskAndRun();
-          return true;
-        }
-      } while (true);
+      if (!tryAcquireTask()) {
+        return false;
+      }
+      dequeueTaskAndRun();
+      return true;
     }
   }
 
   private void dequeueTaskAndRun() {
     try {
-      queue.poll().run();
+      var task = queue.take();
+      task.run();
     } catch (Throwable uncaught) {
       handleUncaughtError(uncaught);
     }
@@ -467,70 +431,201 @@ final class PriorityWorkerPool {
     }
   }
 
+  // The constants below apply to the 64-bit execution counters value.
+
+  private static final long CANCEL_BIT = 0x8000_0000_0000_0000L;
+
+  private static final long CPU_PERMITS_MASK = 0x7FF0_0000_0000_0000L;
+  private static final int CPU_PERMITS_BIT_OFFSET = 52;
+  private static final long ONE_CPU_PERMIT = 1L << CPU_PERMITS_BIT_OFFSET;
+
+  private static final long THREADS_MASK = 0x000F_FFE0_0000_0000L;
+  private static final int THREADS_BIT_OFFSET = 37;
+  private static final long ONE_THREAD = 1L << THREADS_BIT_OFFSET;
+
+  private static final long TASKS_MASK = 0x0000_001F_FF80_0000L;
+  private static final int TASKS_BIT_OFFSET = 23;
+  private static final long ONE_TASK = 1L << TASKS_BIT_OFFSET;
+  static final int TASKS_MAX_VALUE = (int) (TASKS_MASK >> TASKS_BIT_OFFSET);
+
+  private static final long CPU_HEAVY_TASKS_MASK = 0x0000_0000_07F_FFFFL;
+  private static final int CPU_HEAVY_TASKS_BIT_OFFSET = 0;
+  private static final long ONE_CPU_HEAVY_TASK = 1L << CPU_HEAVY_TASKS_BIT_OFFSET;
+
+  private static final long CPU_HEAVY_RESOURCES = ONE_CPU_PERMIT + ONE_THREAD;
+
+  static {
+    checkState(
+        ONE_CPU_PERMIT == (CPU_PERMITS_MASK & -CPU_PERMITS_MASK),
+        "Inconsistent CPU Permits Constants");
+    checkState(ONE_THREAD == (THREADS_MASK & -THREADS_MASK), "Inconistent Threads Constants");
+    checkState(
+        ONE_CPU_HEAVY_TASK == (CPU_HEAVY_TASKS_MASK & -CPU_HEAVY_TASKS_MASK),
+        "Inconsistent CPU Heavy Task Constants");
+  }
+
+  /**
+   * Address of the execution counters value, consisting of 5 fields packed into a 64-bit long.
+   *
+   * <ol>
+   *   <li>Canceled - (1 bit) true for cancelled.
+   *   <li>CPU Permits - (11 bits) how many CPU heavy permits are available.
+   *   <li>Threads - (15 bits) how many threads are available.
+   *   <li>Tasks - (14 bits) how many non-CPU heavy tasks are inflight.
+   *   <li>CPU Heavy Tasks - (23 bits) how many CPU heavy tasks are inflight.
+   * </ol>
+   *
+   * <p>Convenience constants for field access and manipulation are above.
+   */
+  private final long countersAddress;
+
+  boolean isQuiescent() {
+    long snapshot = getExecutionCounters();
+    int threadsSnapshot = (int) ((snapshot & THREADS_MASK) >> THREADS_BIT_OFFSET);
+    return threadsSnapshot == poolSize;
+  }
+
+  boolean isCancelled() {
+    return getExecutionCounters() < 0;
+  }
+
+  private void markCancelled() {
+    long snapshot;
+    do {
+      snapshot = getExecutionCounters();
+      if (snapshot < 0) {
+        return; // Already cancelled.
+      }
+    } while (!tryUpdateExecutionCounters(snapshot, snapshot | CANCEL_BIT));
+  }
+
+  private void resetExecutionCounters() {
+    UNSAFE.putLong(
+        null,
+        countersAddress,
+        (((long) poolSize) << THREADS_BIT_OFFSET)
+            | (((long) cpuPermits) << CPU_PERMITS_BIT_OFFSET));
+  }
+
+  private boolean acquireThreadElseReleaseTask() {
+    long snapshot;
+    do {
+      snapshot = UNSAFE.getLongVolatile(null, countersAddress);
+      boolean acquired = (snapshot & THREADS_MASK) > 0 && snapshot >= 0;
+      long target = snapshot + (acquired ? -ONE_THREAD : ONE_TASK);
+      if (UNSAFE.compareAndSwapLong(null, countersAddress, snapshot, target)) {
+        return acquired;
+      }
+    } while (true);
+  }
+
+  private boolean acquireThreadAndCpuPermitElseReleaseCpuHeavyTask() {
+    long snapshot;
+    do {
+      snapshot = UNSAFE.getLongVolatile(null, countersAddress);
+      boolean acquired =
+          (snapshot & (CANCEL_BIT | CPU_PERMITS_MASK)) > 0 && (snapshot & THREADS_MASK) > 0;
+      long target = snapshot + (acquired ? -(ONE_THREAD + ONE_CPU_PERMIT) : ONE_CPU_HEAVY_TASK);
+      if (UNSAFE.compareAndSwapLong(null, countersAddress, snapshot, target)) {
+        return acquired;
+      }
+    } while (true);
+  }
+
+  private boolean tryAcquireTask() {
+    long snapshot;
+    do {
+      snapshot = getExecutionCounters();
+      if ((snapshot & TASKS_MASK) == 0 || snapshot < 0) {
+        return false;
+      }
+    } while (!tryUpdateExecutionCounters(snapshot, snapshot - ONE_TASK));
+    return true;
+  }
+
+  /**
+   * Worker threads determine their next action after completing a task using this method.
+   *
+   * <p>This acquires a CPU permit when returning {@link NextWorkerActivity#DO_CPU_HEAVY_TASK}.
+   */
   private NextWorkerActivity getActivityFollowingTask() {
-    AvailableState snapshot;
-    var target = new AvailableState();
+    long snapshot = UNSAFE.getLongVolatile(null, countersAddress);
     do {
-      snapshot = available;
-      if (snapshot.tryAcquireTask(target)) { // First, looks for a non-CPU heavy task.
-        if (tryUpdateAvailable(snapshot, target)) {
+      if ((snapshot & (CANCEL_BIT | TASKS_MASK)) > 0) {
+        if (UNSAFE.compareAndSwapLong(null, countersAddress, snapshot, snapshot - ONE_TASK)) {
           return DO_TASK;
         }
-        // Next looks for a CPU heavy task and permit.
-      } else if (snapshot.tryAcquireCpuHeavyTaskAndPermit(target)) {
-        if (tryUpdateAvailable(snapshot, target)) {
+      } else if ((snapshot & (CANCEL_BIT | CPU_HEAVY_TASKS_MASK)) > 0
+          && (snapshot & CPU_PERMITS_MASK) != 0) {
+        if (UNSAFE.compareAndSwapLong(
+            null, countersAddress, snapshot, snapshot - (ONE_CPU_HEAVY_TASK + ONE_CPU_PERMIT))) {
           return DO_CPU_HEAVY_TASK;
         }
-      } else { // Otherwise releases resources and completes.
-        snapshot.releaseThread(target);
-        if (tryUpdateAvailable(snapshot, target)) {
-          return target.isQuiescent(poolSize) ? QUIESCENT : IDLE;
+      } else {
+        long target = snapshot + ONE_THREAD;
+        if (UNSAFE.compareAndSwapLong(null, countersAddress, snapshot, target)) {
+          return quiescentOrIdle(target);
         }
       }
+      snapshot = UNSAFE.getLong(null, countersAddress);
     } while (true);
   }
 
+  /**
+   * Worker threads call this to determine their next action after completing a CPU heavy task.
+   *
+   * <p>This releases a CPU permit when returning {@link NextWorkerActivity#QUIESCENT}, {@link
+   * NextWorkerActivity#IDLE} or {@link NextWorkerActivity#DO_TASK}.
+   */
   private NextWorkerActivity getActivityFollowingCpuHeavyTask() {
-    AvailableState snapshot;
-    var target = new AvailableState();
+    long snapshot = UNSAFE.getLongVolatile(null, countersAddress);
     do {
-      snapshot = available;
-      // First, looks for a non-CPU heavy task.
-      if (snapshot.tryAcquireTaskAndReleaseCpuPermit(target)) {
-        if (tryUpdateAvailable(snapshot, target)) {
+      if ((snapshot & (CANCEL_BIT | TASKS_MASK)) > 0) {
+        if (UNSAFE.compareAndSwapLong(
+            null, countersAddress, snapshot, snapshot + (ONE_CPU_PERMIT - ONE_TASK))) {
           return DO_TASK;
         }
-      } else if (snapshot.tryAcquireCpuHeavyTask(target)) { // Next, looks for a CPU heavy task.
-        if (tryUpdateAvailable(snapshot, target)) {
+      } else if ((snapshot & (CANCEL_BIT | CPU_HEAVY_TASKS_MASK)) > 0) {
+        if (UNSAFE.compareAndSwapLong(
+            null, countersAddress, snapshot, snapshot - ONE_CPU_HEAVY_TASK)) {
           return DO_CPU_HEAVY_TASK;
         }
-      } else { // Otherwise releases resources and completes.
-        snapshot.releaseThreadAndCpuPermit(target);
-        if (tryUpdateAvailable(snapshot, target)) {
-          return target.isQuiescent(poolSize) ? QUIESCENT : IDLE;
+      } else {
+        long target = snapshot + CPU_HEAVY_RESOURCES;
+        if (UNSAFE.compareAndSwapLong(null, countersAddress, snapshot, target)) {
+          return quiescentOrIdle(target);
         }
       }
+      snapshot = UNSAFE.getLong(null, countersAddress);
     } while (true);
   }
 
-  /** Updates {@link #available} to {@code newValue} if it matches {@code expected}. */
-  private boolean tryUpdateAvailable(AvailableState expected, AvailableState newValue) {
-    // Profiling indicates that this is much faster than the equivalent VarHandle-based code.
-    // TODO(blaze-core): replace with VarHandle if it becomes necessary.
-    return UNSAFE.compareAndSwapObject(this, AVAILABLE_OFFSET, expected, newValue);
+  private NextWorkerActivity quiescentOrIdle(long snapshot) {
+    int snapshotThreads = (int) ((snapshot & THREADS_MASK) >> THREADS_BIT_OFFSET);
+    return snapshotThreads == poolSize ? QUIESCENT : IDLE;
+  }
+
+  // Throughout this class, the following wrappers are used where possible, but they are often not
+  // inlined by the JVM even though they show up on profiles, so they are inlined explicitly in
+  // numerous cases.
+
+  private long getExecutionCounters() {
+    return UNSAFE.getLongVolatile(null, countersAddress);
+  }
+
+  private boolean tryUpdateExecutionCounters(long snapshot, long target) {
+    return UNSAFE.compareAndSwapLong(null, countersAddress, snapshot, target);
+  }
+
+  private static String formatSnapshot(long snapshot) {
+    return String.format(
+        "{cancelled=%b, threads=%d, cpuPermits=%d, tasks=%d, cpuHeavyTasks=%d}",
+        snapshot < 0,
+        (snapshot & THREADS_MASK) >> THREADS_BIT_OFFSET,
+        (snapshot & CPU_PERMITS_MASK) >> CPU_PERMITS_BIT_OFFSET,
+        (snapshot & TASKS_MASK) >> TASKS_BIT_OFFSET,
+        (snapshot & CPU_HEAVY_TASKS_MASK) >> CPU_HEAVY_TASKS_BIT_OFFSET);
   }
 
   private static final Unsafe UNSAFE = UnsafeProvider.unsafe();
-
-  /** Offset of the {@link #available} field. */
-  private static final long AVAILABLE_OFFSET;
-
-  static {
-    try {
-      AVAILABLE_OFFSET =
-          UNSAFE.objectFieldOffset(PriorityWorkerPool.class.getDeclaredField("available"));
-    } catch (ReflectiveOperationException e) {
-      throw new ExceptionInInitializerError(e);
-    }
-  }
 }

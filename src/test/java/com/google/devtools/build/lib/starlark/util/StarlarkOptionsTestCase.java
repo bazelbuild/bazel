@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -56,6 +57,7 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
                 Iterables.concat(
                     requiredOptionsClasses,
                     ruleClassProvider.getFragmentRegistry().getOptionsClasses()))
+            .skipStarlarkOptionPrefixes()
             .build();
     starlarkOptionsParser =
         StarlarkOptionsParser.newStarlarkOptionsParserForTesting(
@@ -63,8 +65,31 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
   }
 
   protected OptionsParsingResult parseStarlarkOptions(String options) throws Exception {
+    return parseStarlarkOptions(options, /* onlyStarlarkParser= */ false);
+  }
+
+  protected OptionsParsingResult parseStarlarkOptions(String options, boolean onlyStarlarkParser)
+      throws Exception {
+    List<String> asList = Arrays.asList(options.split(" "));
+    if (!onlyStarlarkParser) {
+      optionsParser.parse(asList);
+    }
+    starlarkOptionsParser.parseGivenArgs(new StoredEventHandler(), asList);
+    return starlarkOptionsParser.getNativeOptionsParserFortesting();
+  }
+
+  protected OptionsParsingResult parseStarlarkOptions(
+      String commandLineOptions, String bazelrcOptions) throws Exception {
+    List<String> commandLineOptionsList = Arrays.asList(commandLineOptions.split(" "));
+    List<String> bazelrcOptionsList = Arrays.asList(bazelrcOptions.split(" "));
+    optionsParser.parse(PriorityCategory.COMMAND_LINE, /* source= */ null, commandLineOptionsList);
+    optionsParser.parse(PriorityCategory.RC_FILE, "fake.bazelrc", bazelrcOptionsList);
     starlarkOptionsParser.parseGivenArgs(
-        new StoredEventHandler(), Arrays.asList(options.split(" ")));
+        new StoredEventHandler(),
+        ImmutableList.<String>builder()
+            .addAll(commandLineOptionsList)
+            .addAll(bazelrcOptionsList)
+            .build());
     return starlarkOptionsParser.getNativeOptionsParserFortesting();
   }
 

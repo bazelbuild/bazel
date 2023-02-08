@@ -395,8 +395,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           writableDirs,
           treeDeleter,
           statisticsPath,
-          sandboxOptions.reuseSandboxDirectories,
-          sandboxBase,
           spawn.getMnemonic());
     }
   }

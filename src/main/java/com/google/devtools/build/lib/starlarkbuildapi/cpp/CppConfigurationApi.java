@@ -203,4 +203,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
 
   @StarlarkMethod(name = "share_native_deps", documented = false, useStarlarkThread = true)
   boolean shareNativeDepsStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "disable_nocopts", documented = false, useStarlarkThread = true)
+  boolean disableNocoptsStarlark(StarlarkThread thread) throws EvalException;
 }

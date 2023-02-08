@@ -39,10 +39,13 @@ import javax.annotation.Nullable;
  *       requiring an additional CPU permit to be scheduled, to avoid oversubscription.
  * </ul>
  *
- * <p>Work donation is achieved by calling {@link TieredPriorityExecutor#tryDoQueuedWork} when a
- * thread is about to block. If tasks are available, the current thread may perform a task inside
- * {@link TieredPriorityExecutor#tryDoQueuedWork} before it returns. This may add latency to the
- * donating thread but can reduce overhead.
+ * <p>The queue for non-CPUHeavy tasks has a fixed capacity. When full, callers of execute assist
+ * with enqueued work.
+ *
+ * <p>Threads may voluntarily assist with queued work by calling {@link
+ * TieredPriorityExecutor#tryDoQueuedWork} when a thread is about to block. If tasks are available,
+ * the current thread may perform a task inside {@link TieredPriorityExecutor#tryDoQueuedWork}
+ * before it returns. This may add latency to the donating thread but can reduce overhead.
  */
 public final class TieredPriorityExecutor implements QuiescingExecutor {
   /** A common cleaner shared by all executors. */
@@ -62,7 +65,7 @@ public final class TieredPriorityExecutor implements QuiescingExecutor {
       String name, int poolSize, int cpuPermits, ErrorClassifier errorClassifier) {
     checkArgument(
         poolSize >= cpuPermits, "expected poolSize=%s >= cpuPermits=%s", poolSize, cpuPermits);
-    this.pool = new PriorityWorkerPool(name, poolSize, cpuPermits, errorClassifier);
+    this.pool = new PriorityWorkerPool(poolCleaner, name, poolSize, cpuPermits, errorClassifier);
     // Registers a cleanup procedure for the underlying pool when this object is eligible for
     // garbage collection. This has to be done explicitly because threads are GC roots.
     poolCleaner.register(this, pool::dispose);

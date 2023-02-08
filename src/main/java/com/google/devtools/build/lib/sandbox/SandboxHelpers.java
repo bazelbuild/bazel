@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.hash.HashingOutputStream;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -47,7 +46,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -68,50 +66,7 @@ public final class SandboxHelpers {
 
   private static final AtomicBoolean warnedAboutMovesBeingCopies = new AtomicBoolean(false);
 
-  /**
-   * Writes a virtual input file so that the final file is always consistent to all readers.
-   *
-   * <p>This function exists to aid dynamic scheduling. Param files are inputs, so they need to be
-   * written without holding the output lock. When we have competing unsandboxed spawn runners (like
-   * persistent workers), it's possible for them to clash in these writes, either encountering
-   * missing file errors or encountering incomplete data. But given that we can assume both spawn
-   * runners will write the same contents, we can write those as temporary files and then perform a
-   * rename, which has atomic semantics on Unix, and thus keep all readers always seeing consistent
-   * contents.
-   *
-   * @param input the virtual input file to write
-   * @param outputPath final path where the virtual input file ought to live
-   * @param uniqueSuffix a filename extension that is different between the local spawn runners and
-   *     the remote ones
-   * @return digest of written virtual input
-   * @throws IOException if we fail to write the virtual input file
-   */
-  // TODO(b/150963503): We are using atomic file system moves for synchronization... but Bazel
-  // should not be able to reach this state. Which means we should probably be doing some other
-  // form of synchronization in-process before touching the file system.
-  public static byte[] atomicallyWriteVirtualInput(
-      VirtualActionInput input, Path outputPath, String uniqueSuffix) throws IOException {
-    Path tmpPath = outputPath.getFileSystem().getPath(outputPath.getPathString() + uniqueSuffix);
-    tmpPath.getParentDirectory().createDirectoryAndParents();
-    try {
-      byte[] digest = writeVirtualInputTo(input, tmpPath);
-      // We expect the following to replace the params file atomically in case we are using
-      // the dynamic scheduler and we are racing the remote strategy writing this same file.
-      tmpPath.renameTo(outputPath);
-      tmpPath = null; // Avoid unnecessary deletion attempt.
-      return digest;
-    } finally {
-      try {
-        if (tmpPath != null) {
-          // Make sure we don't leave temp files behind if we are interrupted.
-          tmpPath.delete();
-        }
-      } catch (IOException e) {
-        // Ignore.
-      }
-    }
-  }
-
+  private static final AtomicInteger tempFileUniquifierForVirtualInputWrites = new AtomicInteger();
   /**
    * Moves all given outputs from a root to another.
    *
@@ -356,10 +311,6 @@ public final class SandboxHelpers {
 
   /** Wrapper class for the inputs of a sandbox. */
   public static final class SandboxInputs {
-
-    private static final AtomicInteger tempFileUniquifierForVirtualInputWrites =
-        new AtomicInteger();
-
     private final Map<PathFragment, RootedPath> files;
     private final Map<VirtualActionInput, byte[]> virtualInputs;
     private final Map<PathFragment, PathFragment> symlinks;
@@ -396,42 +347,6 @@ public final class SandboxHelpers {
       return sourceRootBindMounts;
     }
 
-    /**
-     * Materializes a single virtual input inside the given execroot.
-     *
-     * <p>When materializing inputs under a new sandbox exec root, we can expect the input to not
-     * exist, but we cannot make the same assumption for the non-sandboxed exec root therefore, we
-     * may need to delete existing files.
-     *
-     * @param input virtual input to materialize
-     * @param execroot path to the execroot under which to materialize the virtual input
-     * @param isExecRootSandboxed whether the execroot is sandboxed.
-     * @return digest of written virtual input
-     * @throws IOException if the virtual input cannot be materialized
-     */
-    private static byte[] materializeVirtualInput(
-        VirtualActionInput input, Path execroot, boolean isExecRootSandboxed) throws IOException {
-      if (input instanceof EmptyActionInput) {
-        return new byte[0];
-      }
-
-      Path outputPath = execroot.getRelative(input.getExecPath());
-      if (isExecRootSandboxed) {
-        return atomicallyWriteVirtualInput(
-            input,
-            outputPath,
-            // When 2 actions try to atomically create the same virtual input, they need to have a
-            // different suffix for the temporary file in order to avoid racy write to the same one.
-            ".sandbox" + tempFileUniquifierForVirtualInputWrites.incrementAndGet());
-      }
-
-      if (outputPath.exists()) {
-        outputPath.delete();
-      }
-      outputPath.getParentDirectory().createDirectoryAndParents();
-      return writeVirtualInputTo(input, outputPath);
-    }
-
     public ImmutableMap<VirtualActionInput, byte[]> getVirtualInputDigests() {
       return ImmutableMap.copyOf(virtualInputs);
     }
@@ -457,24 +372,6 @@ public final class SandboxHelpers {
     public String toString() {
       return "Files: " + files + "\nVirtualInputs: " + virtualInputs + "\nSymlinks: " + symlinks;
     }
-  }
-
-  private static byte[] writeVirtualInputTo(VirtualActionInput input, Path target)
-      throws IOException {
-    byte[] digest;
-    try (OutputStream out = target.getOutputStream();
-        HashingOutputStream hashingOut =
-            new HashingOutputStream(
-                target.getFileSystem().getDigestFunction().getHashFunction(), out)) {
-      input.writeTo(hashingOut);
-      digest = hashingOut.hash().asBytes();
-    }
-    // Some of the virtual inputs can be executed, e.g. embedded tools. Setting executable flag for
-    // other is fine since that is only more permissive. Please note that for action outputs (e.g.
-    // file write, where the user can specify executable flag), we will have artifacts which do not
-    // go through this code path.
-    target.setExecutable(true);
-    return digest;
   }
 
   /**
@@ -545,10 +442,15 @@ public final class SandboxHelpers {
       PathFragment pathFragment = e.getKey();
       ActionInput actionInput = e.getValue();
       if (actionInput instanceof VirtualActionInput) {
+        VirtualActionInput input = (VirtualActionInput) actionInput;
         byte[] digest =
-            SandboxInputs.materializeVirtualInput(
-                (VirtualActionInput) actionInput, execRootPath, /* isExecRootSandboxed= */ true);
-        virtualInputs.put((VirtualActionInput) actionInput, digest);
+            input.atomicallyWriteRelativeTo(
+                execRootPath,
+                // When 2 actions try to atomically create the same virtual input, they need to have
+                // a different suffix for the temporary file in order to avoid racy write to the
+                // same one.
+                ".sandbox" + tempFileUniquifierForVirtualInputWrites.incrementAndGet());
+        virtualInputs.put(input, digest);
       }
 
       if (actionInput.isSymlink()) {

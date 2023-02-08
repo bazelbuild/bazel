@@ -436,7 +436,7 @@ public final class CcCommon implements StarlarkValue {
   }
 
   /** A filter that removes copts from a c++ compile action according to a nocopts regex. */
-  public static final class CoptsFilter implements StarlarkValue {
+  public static final class CoptsFilter {
     private final Pattern noCoptsPattern;
     private final boolean allPasses;
 
@@ -469,7 +469,6 @@ public final class CcCommon implements StarlarkValue {
   }
 
   /** Returns copts filter built from the make variable expanded nocopts attribute. */
-  @StarlarkMethod(name = "copts_filter", structField = true, documented = false)
   public CoptsFilter getCoptsFilter() {
     return getCoptsFilter(ruleContext);
   }

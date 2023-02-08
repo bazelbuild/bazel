@@ -84,6 +84,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.List;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -2280,6 +2282,7 @@ public abstract class CcModule
             documented = false,
             positional = false,
             named = true,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "unbound"),
         @Param(
             name = "separate_module_headers",
@@ -2376,7 +2379,18 @@ public abstract class CcModule
     ImmutableList<CppModuleMap> additionalModuleMaps =
         asClassImmutableList(additionalModuleMapsNoneable);
 
-    CoptsFilter coptsFilter = convertFromNoneable(coptsFilterObject, /* defaultValue= */ null);
+    String coptsFilterRegex = convertFromNoneable(coptsFilterObject, /* defaultValue= */ null);
+    CoptsFilter coptsFilter = null;
+    if (Strings.isNullOrEmpty(coptsFilterRegex)) {
+      coptsFilter = CoptsFilter.alwaysPasses();
+    } else {
+      try {
+        coptsFilter = CoptsFilter.fromRegex(Pattern.compile(coptsFilterRegex));
+      } catch (PatternSyntaxException e) {
+        throw Starlark.errorf(
+            "invalid regular expression '%s': %s", coptsFilterRegex, e.getMessage());
+      }
+    }
 
     Object textualHeadersObject =
         asClassImmutableListOrNestedSet(
