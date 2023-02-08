@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.syntax.Location;
 
@@ -26,6 +27,7 @@ import net.starlark.java.syntax.Location;
  * <em>not</em> when the tag is created, which is during module discovery).
  */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class Tag {
 
   public abstract String getTagName();
