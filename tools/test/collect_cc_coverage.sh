@@ -93,7 +93,7 @@ function llvm_coverage_lcov() {
   done < "${COVERAGE_MANIFEST}"
 
   "${LLVM_COV}" export -instr-profile "${output_file}.data" -format=lcov \
-      -ignore-filename-regex='/tmp/.+' \
+      -ignore-filename-regex='^/tmp/.+' \
       ${object_param} | sed 's#/proc/self/cwd/##' > "${output_file}"
 }
 
