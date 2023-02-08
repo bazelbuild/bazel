@@ -215,6 +215,8 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # https://github.com/bazelbuild/bazel/issues/17411
       - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:PatchApiBlackBoxTest"
+      # https://github.com/bazelbuild/bazel/issues/17447
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:GitRepositoryBlackBoxTest"
   macos_arm64:
     shards: 2
     shell_commands:
