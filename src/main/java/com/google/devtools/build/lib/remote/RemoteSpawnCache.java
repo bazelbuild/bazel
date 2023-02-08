@@ -189,7 +189,9 @@ final class RemoteSpawnCache implements SpawnCache {
             try (SilentCloseable c = prof.profile("RemoteCache.checkForConcurrentModifications")) {
               checkForConcurrentModifications();
             } catch (IOException | ForbiddenActionInputException e) {
-              remoteExecutionService.report(Event.warn(e.getMessage()));
+              String msg = "Skipping uploading outputs because of concurrent modifications " +
+                  "with --experimental_guard_against_concurrent_changes enabled: " + e.getMessage();
+              remoteExecutionService.report(Event.warn(msg));
               return;
             }
           }
