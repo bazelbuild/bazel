@@ -23,6 +23,7 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction.BazelModuleResolutionFunctionException;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -48,19 +49,55 @@ public class BazelDepGraphFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
 
-    BazelModuleResolutionValue selectionResult =
-        (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
-    if (env.valuesMissing()) {
+    RootModuleFileValue root =
+        (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+    if (root == null) {
+      return null;
+    }
+    BazelLockFileValue lockFile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
+    if(lockFile == null) {
       return null;
     }
 
-    ImmutableMap<ModuleKey, Module> depGraph = selectionResult.getResolvedDepGraph();
+    ImmutableMap<ModuleKey, Module> depGraph;
+    // If the module has not changed (has the same hash as the lockfile module hash),
+    // read the dependency graph from the lock file, else run selection and update lockfile
+    if(lockFile.getModuleFileHash().equals(root.getModuleHash())){
+      depGraph = lockFile.getModuleDepGraph();
+    } else {
+      BazelModuleResolutionValue selectionResult =
+          (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
+      if (env.valuesMissing()) {
+        return null;
+      }
+      depGraph = selectionResult.getResolvedDepGraph();
+      BazelLockFileFunction.updateLockedModule(root.getModuleHash(), depGraph);
+    }
+
     ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
         depGraph.keySet().stream()
             .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
 
-    // For each extension usage, we resolve (i.e. canonicalize) its bzl file label. Then we can
-    // group all usages by the label + name (the ModuleExtensionId).
+    ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById =
+        getExtensionUsagesById(depGraph);
+
+    BiMap<String, ModuleExtensionId> extensionUniqueNames =
+        calculateUniqueNameForUsedExtensionId(extensionUsagesById);
+
+    return BazelDepGraphValue.create(
+        depGraph,
+        canonicalRepoNameLookup,
+        depGraph.values().stream().map(AbridgedModule::from).collect(toImmutableList()),
+        extensionUsagesById,
+        ImmutableMap.copyOf(extensionUniqueNames.inverse()));
+  }
+
+  /**
+   * For each extension usage, we resolve (i.e. canonicalize) its bzl file label. Then we can group
+   * all usages by the label + name (the ModuleExtensionId).
+   */
+  private ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> getExtensionUsagesById(
+      ImmutableMap<ModuleKey, Module> depGraph) throws BazelModuleResolutionFunctionException {
     ImmutableTable.Builder<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
         extensionUsagesTableBuilder = ImmutableTable.builder();
     for (Module module : depGraph.values()) {
@@ -85,21 +122,18 @@ public class BazelDepGraphFunction implements SkyFunction {
         }
       }
     }
-    ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById =
-        extensionUsagesTableBuilder.buildOrThrow();
+    return extensionUsagesTableBuilder.buildOrThrow();
+  }
 
+  private BiMap<String, ModuleExtensionId> calculateUniqueNameForUsedExtensionId(
+      ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById){
     // Calculate a unique name for each used extension id.
     BiMap<String, ModuleExtensionId> extensionUniqueNames = HashBiMap.create();
     for (ModuleExtensionId id : extensionUsagesById.rowKeySet()) {
       // Ensure that the resulting extension name (and thus the repository names derived from it) do
       // not start with a tilde.
       RepositoryName repository = id.getBzlFileLabel().getRepository();
-      String nonEmptyRepoPart;
-      if (repository.isMain()) {
-        nonEmptyRepoPart = "_main";
-      } else {
-        nonEmptyRepoPart = repository.getName();
-      }
+      String nonEmptyRepoPart = repository.isMain()? "_main" : repository.getName();
       String bestName = nonEmptyRepoPart + "~" + id.getExtensionName();
       if (extensionUniqueNames.putIfAbsent(bestName, id) == null) {
         continue;
@@ -109,12 +143,6 @@ public class BazelDepGraphFunction implements SkyFunction {
         suffix++;
       }
     }
-
-    return BazelDepGraphValue.create(
-        depGraph,
-        canonicalRepoNameLookup,
-        depGraph.values().stream().map(AbridgedModule::from).collect(toImmutableList()),
-        extensionUsagesById,
-        ImmutableMap.copyOf(extensionUniqueNames.inverse()));
+    return extensionUniqueNames;
   }
 }
