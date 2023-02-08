@@ -207,6 +207,8 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # https://github.com/bazelbuild/bazel/issues/17411
       - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:PatchApiBlackBoxTest"
+      # https://github.com/bazelbuild/bazel/issues/17447
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:GitRepositoryBlackBoxTest"
   windows:
     shards: 4
     batch_commands:
