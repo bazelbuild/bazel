@@ -165,7 +165,7 @@ public final class SpawnLogModule extends BlazeModule {
           if (spawnLogContext.shouldSort()) {
             StableSort.stableSort(in, outputStreams);
           } else {
-            StableSort.ignoreSort(in, outputStreams);
+            ignoreSort(in, outputStreams);
           }
           outputStreams.close();
         }
@@ -184,6 +184,12 @@ public final class SpawnLogModule extends BlazeModule {
         }
         clear();
       }
+    }
+  }
+
+  private void ignoreSort(InputStream in, MessageOutputStream out) throws IOException {
+    for (SpawnExec ex : read(in)) {
+      out.write(ex);
     }
   }
 
