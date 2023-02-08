@@ -1569,4 +1569,48 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     assertThat(objc.dynamicFrameworkNames().toList()).containsExactly("fx1", "fx2");
     assertThat(objc.dynamicFrameworkPaths().toList()).containsExactly("fx");
   }
+
+  @Test
+  public void testDisallowSDKFrameworkAttribute() throws Exception {
+    useConfiguration("--incompatible_disallow_sdk_frameworks_attributes");
+
+    scratch.file(
+        "examples/apple_starlark/BUILD",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['a.m'],",
+        "    sdk_frameworks = ['Accelerate', 'GLKit'],",
+        ")");
+    AssertionError e =
+        assertThrows(
+            AssertionError.class, () -> getConfiguredTarget("//examples/apple_starlark:lib"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "ERROR /workspace/examples/apple_starlark/BUILD:1:13: in sdk_frameworks attribute of"
+                + " objc_library rule //examples/apple_starlark:lib: sdk_frameworks attribute is"
+                + " disallowed. Use explicit dependencies instead.");
+  }
+
+  @Test
+  public void testDisallowWeakSDKFrameworksAttribute() throws Exception {
+    useConfiguration("--incompatible_disallow_sdk_frameworks_attributes");
+
+    scratch.file(
+        "examples/apple_starlark/BUILD",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['a.m'],",
+        "    weak_sdk_frameworks = ['XCTest'],",
+        ")");
+    AssertionError e =
+        assertThrows(
+            AssertionError.class, () -> getConfiguredTarget("//examples/apple_starlark:lib"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "ERROR /workspace/examples/apple_starlark/BUILD:1:13: in weak_sdk_frameworks attribute"
+                + " of objc_library rule //examples/apple_starlark:lib: weak_sdk_frameworks"
+                + " attribute is disallowed.  Use explicit dependencies instead.");
+  }
 }
