@@ -284,7 +284,8 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory) {
+    public SortedMap<PathFragment, ActionInput> getInputMapping(
+        PathFragment baseDirectory, boolean willAccessRepeatedly) {
       return inputMapping;
     }
 
