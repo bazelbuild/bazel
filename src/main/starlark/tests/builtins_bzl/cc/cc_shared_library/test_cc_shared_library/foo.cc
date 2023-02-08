@@ -17,8 +17,10 @@
 #include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/direct_so_file_cc_lib2.h"
 #include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/preloaded_dep.h"
 #include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/qux.h"
+#include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3/diff_pkg.h"
 
 int foo() {
+  diff_pkg();
   bar();
   baz();
   qux();
