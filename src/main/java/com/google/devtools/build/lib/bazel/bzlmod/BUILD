@@ -24,6 +24,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@maven//:com_google_code_gson_gson",
     ],
 )
 
@@ -59,6 +60,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@maven//:com_google_code_gson_gson",
     ],
 )
 
@@ -87,6 +89,7 @@ java_library(
         "AbridgedModule.java",
         "ArchiveOverride.java",
         "BazelDepGraphValue.java",
+        "BazelLockFileValue.java",
         "BazelModuleResolutionValue.java",
         "GitOverride.java",
         "LocalPathOverride.java",
@@ -121,6 +124,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@maven//:com_google_code_gson_gson",
     ],
 )
 
@@ -128,6 +132,7 @@ java_library(
     name = "resolution_impl",
     srcs = [
         "BazelDepGraphFunction.java",
+        "BazelLockFileFunction.java",
         "BazelModuleResolutionFunction.java",
         "Discovery.java",
         "ModuleExtensionContext.java",
@@ -151,6 +156,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/bazel:bazel_version",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/jsontypefactories",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
@@ -164,6 +170,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:client_environment_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -176,6 +183,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@maven//:com_google_code_gson_gson",
     ],
 )
 
