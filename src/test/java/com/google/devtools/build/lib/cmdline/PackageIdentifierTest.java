@@ -94,6 +94,22 @@ public class PackageIdentifierTest {
   }
 
   @Test
+  public void testUnambiguousCanonicalForm() throws Exception {
+    assertThat(PackageIdentifier.createInMainRepo("foo/bar").getUnambiguousCanonicalForm())
+        .isEqualTo("@@//foo/bar");
+    assertThat(
+            PackageIdentifier.create("foo", PathFragment.create("bar"))
+                .getUnambiguousCanonicalForm())
+        .isEqualTo("@@foo//bar");
+    assertThat(
+            PackageIdentifier.create(
+                    RepositoryName.create("foo").toNonVisible(RepositoryName.create("bar")),
+                    PathFragment.create("baz"))
+                .getUnambiguousCanonicalForm())
+        .isEqualTo("@@[unknown repo 'foo' requested from @bar]//baz");
+  }
+
+  @Test
   public void testDisplayFormInMainRepository() throws Exception {
     PackageIdentifier pkg =
         PackageIdentifier.create(RepositoryName.MAIN, PathFragment.create("some/pkg"));

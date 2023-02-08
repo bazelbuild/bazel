@@ -2674,7 +2674,6 @@ def _impl(ctx):
                 flag_groups = [
                     flag_group(
                         flags = [
-                            "-O1",
                             "-gline-tables-only",
                             "-fno-omit-frame-pointer",
                             "-fno-sanitize-recover=all",
