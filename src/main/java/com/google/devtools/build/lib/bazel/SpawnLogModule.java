@@ -188,7 +188,7 @@ public final class SpawnLogModule extends BlazeModule {
   }
 
   private void ignoreSort(InputStream in, MessageOutputStream out) throws IOException {
-    for (SpawnExec ex : read(in)) {
+    for (SpawnExec ex : StableSort.read(in)) {
       out.write(ex);
     }
   }
