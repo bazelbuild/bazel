@@ -122,6 +122,9 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(registryFactory, rootDirectory, ImmutableMap.of()))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
+                .put(
+                    SkyFunctions.BAZEL_LOCK_FILE,
+                    new BazelLockFileFunction(rootDirectory, FakeRegistry.class))
                 .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, resolutionFunctionMock)
                 .put(
@@ -144,6 +147,10 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
   @Test
   public void createValue_basic() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='my_root', version='1.0')");
+
     // Root depends on dep@1.0 and dep@2.0 at the same time with a multiple-version override.
     // Root also depends on rules_cc as a normal dep.
     // dep@1.0 depends on rules_java, which is overridden by a non-registry override (see below).
@@ -190,7 +197,6 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                     .build())
             .buildOrThrow();
 
-    // TODO we need to mock bazelModuleResolution function to return depGraph
     resolutionFunctionMock.setDepGraph(depGraph);
     EvaluationResult<BazelDepGraphValue> result =
         evaluator.evaluate(ImmutableList.of(BazelDepGraphValue.KEY), evaluationContext);
@@ -231,6 +237,10 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
   @Test
   public void createValue_moduleExtensions() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='my_root', version='1.0')");
+
     Module root =
         Module.builder()
             .setName("root")
