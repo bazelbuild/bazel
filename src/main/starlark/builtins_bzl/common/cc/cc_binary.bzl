@@ -526,7 +526,7 @@ def _create_transitive_linking_actions(
         win_def_file = win_def_file,
     )
     cc_launcher_info = cc_internal.create_cc_launcher_info(cc_info = cc_info_without_extra_link_time_libraries, compilation_outputs = cc_compilation_outputs_with_only_objects)
-    return (cc_linking_outputs, cc_launcher_info, rule_impl_debug_files)
+    return (cc_linking_outputs, cc_launcher_info, rule_impl_debug_files, cc_linking_context)
 
 def _use_pic(ctx, cc_toolchain, cpp_config, feature_configuration):
     if _is_link_shared(ctx):
@@ -735,7 +735,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     if extra_link_time_libraries != None:
         linker_inputs_extra, runtime_libraries_extra = extra_link_time_libraries.build_libraries(ctx = ctx, static_mode = linking_mode != _LINKING_DYNAMIC, for_dynamic_library = _is_link_shared(ctx))
 
-    cc_linking_outputs_binary, cc_launcher_info, rule_impl_debug_files = _create_transitive_linking_actions(
+    cc_linking_outputs_binary, cc_launcher_info, rule_impl_debug_files, deps_cc_linking_context = _create_transitive_linking_actions(
         ctx,
         cc_toolchain,
         feature_configuration,
