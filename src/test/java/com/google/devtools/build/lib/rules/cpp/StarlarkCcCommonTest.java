@@ -5296,10 +5296,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "'a.pic.o' does not have any of the allowed extensions .a, .lib, .pic.a or .rlib");
     assertThat(e)
         .hasMessageThat()
-        .contains("'a.ifso' does not have any of the allowed extensions .so, .dylib or .dll");
+        .contains("'a.ifso' does not have any of the allowed extensions .so, .dylib, .dll or .pyd");
     assertThat(e)
         .hasMessageThat()
-        .contains("'a.lib' does not have any of the allowed extensions .so, .dylib or .dll");
+        .contains("'a.lib' does not have any of the allowed extensions .so, .dylib, .dll or .pyd");
     assertThat(e)
         .hasMessageThat()
         .contains(

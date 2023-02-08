@@ -19,10 +19,13 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
+import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportFunction;
 import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportValue;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.rules.java.JavaCompileActionContext;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -513,6 +516,14 @@ public final class BazelRulesModule extends BlazeModule {
     return "build".equals(command.name())
         ? ImmutableList.of(BazelBuildGraveyardOptions.class, AllCommandGraveyardOptions.class)
         : ImmutableList.of(AllCommandGraveyardOptions.class);
+  }
+
+  @Override
+  public void registerActionContexts(
+      ModuleActionContextRegistry.Builder registryBuilder,
+      CommandEnvironment env,
+      BuildRequest buildRequest) {
+    registryBuilder.register(JavaCompileActionContext.class, new JavaCompileActionContext());
   }
 
   private static void validateRemoteOutputsMode(CommandEnvironment env) throws AbruptExitException {
