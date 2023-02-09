@@ -480,7 +480,7 @@ public class ExecutionOptions extends OptionsBase {
       help =
           "Whether to sort the execution log. Set to false to improve memory"
               + " performance, at the cost of producing the log in nondeterministic"
-              + " order."))
+              + " order.")
   public boolean executionLogSort;
 
   @Option(
