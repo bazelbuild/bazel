@@ -33,7 +33,7 @@ import java.util.PriorityQueue;
  * <p>This is needed to allow textual diff comparisons of resultant logs.
  */
 public final class StableSort {
-  private static ImmutableList<SpawnExec> read(InputStream in) throws IOException {
+  public static ImmutableList<SpawnExec> read(InputStream in) throws IOException {
     ImmutableList.Builder<SpawnExec> result = ImmutableList.builder();
     while (in.available() > 0) {
       SpawnExec ex = SpawnExec.parseDelimitedFrom(in);
