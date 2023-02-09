@@ -15,6 +15,8 @@
 
 load(":common/python/semantics.bzl", "TOOLS_REPO")
 
+_CcInfo = _builtins.toplevel.CcInfo
+
 DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python3"
 DEFAULT_BOOTSTRAP_TEMPLATE = "@" + TOOLS_REPO + "//tools/python:python_bootstrap_template.txt"
 _PYTHON_VERSION_VALUES = ["PY2", "PY3"]
@@ -140,7 +142,7 @@ def _PyInfo_init(
         "has_py3_only_sources": has_py2_only_sources,
     }
 
-StarlarkPyInfo, _unused_raw_ctor = provider(
+StarlarkPyInfo, _unused_raw_py_info_ctor = provider(
     "Encapsulates information provided by the Python rules.",
     init = _PyInfo_init,
     fields = {
@@ -166,6 +168,22 @@ is recommended to use `default` order (the default).
 )
 
 PyInfo = _builtins.toplevel.PyInfo
+
+def _PyCcLinkParamsProvider_init(cc_info):
+    return {
+        "cc_info": _CcInfo(linking_context = cc_info.linking_context),
+    }
+
+# buildifier: disable=name-conventions
+StarlarkPyCcLinkParamsProvider, _unused_raw_py_cc_link_params_provider_ctor = provider(
+    doc = ("Python-wrapper to forward CcInfo.linking_context. This is to " +
+           "allow Python targets to propagate C++ linking information, but " +
+           "without the Python target appearing to be a valid C++ rule dependency"),
+    init = _PyCcLinkParamsProvider_init,
+    fields = {
+        "cc_info": "A CcInfo instance; it has only linking_context set",
+    },
+)
 
 # TODO(b/203567235): Re-implement in Starlark
 PyCcLinkParamsProvider = _builtins.toplevel.PyCcLinkParamsProvider  # buildifier: disable=name-conventions
