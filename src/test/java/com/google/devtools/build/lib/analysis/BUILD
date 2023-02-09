@@ -109,6 +109,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/args",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_custom_command_line",
+        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_exec_group_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
