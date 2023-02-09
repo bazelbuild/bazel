@@ -1,0 +1,52 @@
+# This workflow warns and then closes issues and PRs that have had no activity for a specified amount of time.
+#
+# You can adjust the behavior by modifying this file.
+# For more information, see:
+# https://github.com/actions/stale
+name: Mark stale issues and pull requests
+
+on:
+  workflow_dispatch:
+  schedule:
+  - cron: '0 1 * * *'
+
+jobs:
+  stale:
+    permissions:
+      issues: write
+      pull-requests: write
+    name: Track and close stale issues/PRs
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Track and close stale issues/PRs
+      uses: actions/stale@v5
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        days-before-issue-stale: 30
+        days-before-pr-stale: 30
+        days-before-issue-close : 7
+        days-before-pr-close: 14
+        stale-issue-message: >
+          Thank you for contributing to the Bazel repository!
+          This issue has been marked as stale since it has not had any activity in the last 30 days. It will be closed in the next 7
+          days unless any other activity occurs or the "not stale" label is added.
+        close-issue-message: >
+          This issue has been automatically closed due to inactivity. If you're still interested in pursuing this, please reach out
+          to a maintainer to add the "not stale" label. Thanks!
+        stale-pr-message: >
+          Thank you for contributing to the Bazel repository!
+          This pull request has been marked as stale since it has not had any activity in the last 30 days. It will be closed in the next
+          14 days unless any other activity occurs or one of the following labels are added: "not stale", "awaiting-review", "awaiting-PR-merge".
+          Please provide a status update or let us know when you're ready.
+        close-pr-message: >
+          This pull request has been automatically closed due to inactivity. If you're still interested in pursuing this, please reach
+          out to a maintainer to add the "not stale" label. Thanks!
+        stale-issue-label: 'stale'
+        exempt-issue-labels: 'not stale'
+        stale-pr-label: 'stale'
+        exempt-pr-labels: 'not stale,awaiting-review,awaiting-PR-merge'
+        exempt-draft-pr: true
+        operations-per-run: 500
+        ascending: true
+        start-date: 2023-01-01
