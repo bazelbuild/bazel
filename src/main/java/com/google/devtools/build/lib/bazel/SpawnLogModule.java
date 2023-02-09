@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
+import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.BinaryOutputStreamWrapper;
 import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.JsonOutputStreamWrapper;
 import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.MessageOutputStreamCollection;
