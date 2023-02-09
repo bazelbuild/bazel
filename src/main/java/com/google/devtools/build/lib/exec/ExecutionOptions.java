@@ -478,9 +478,9 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "When logging the executed spawns into files of the delimited Spawn protos, according to "
-              + " src/main/protobuf/spawn.proto, this flag can determine whether to sort log in"
-              + " a stable order or not, can be disabled to optimize memory performance.")
+          "Whether to sort the execution log. Set to false to improve memory"
+              + " performance, at the cost of producing the log in nondeterministic"
+              + " order."))
   public boolean executionLogSort;
 
   @Option(
