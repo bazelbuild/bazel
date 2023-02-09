@@ -188,6 +188,21 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_java_test_defaults_prebuilt",
+    srcs = ["bazel_java_test_defaults_prebuilt.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    target_compatible_with = select({
+        "@platforms//os:linux": ["@platforms//cpu:x86_64"],
+        "@platforms//os:macos": [],
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    })
+)
+
+sh_test(
     name = "bazel_java17_test",
     srcs = ["bazel_java17_test.sh"],
     args = [
