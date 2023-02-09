@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Release Versioning
 
+{% include "_buttons.html" %}
+
 Bazel 4.0 and higher provides support for two release tracks: long term support
 (LTS) releases and rolling releases. This page covers versioning in Bazel, the
 types of releases, and the benefits of those releases for Bazel users and
@@ -89,6 +91,6 @@ details, see the
 ## Updating versions {:#updating-versions}
 
 * For more information on updating your Bazel version, see
-  [Updating Bazel](/versions/updating-bazel).
+  [Updating Bazel](/install/bazelisk).
 * For more information on contributing updates to new Bazel releases, see
   [Contributing to Bazel](/contribute).

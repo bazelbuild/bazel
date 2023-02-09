@@ -168,6 +168,15 @@ public class CppRuleClasses {
   /** A string constant for the layering_check feature. */
   public static final String LAYERING_CHECK = "layering_check";
 
+  /**
+   * A string constant that signifies whether the crosstool validates layering_check in
+   * textual_hdrs. We use the compiler's definition of textual_hdrs also for all regular but
+   * non-modular headers. This in turn means that the compiler can check layering in headers of the
+   * same target, irrespective the PARSE_HEADERS feature and we can elide separate header actions.
+   */
+  public static final String VALIDATES_LAYERING_CHECK_IN_TEXTUAL_HDRS =
+      "validates_layering_check_in_textual_hdrs";
+
   /** A string constant for the header_modules feature. */
   public static final String HEADER_MODULES = "header_modules";
 
@@ -244,6 +253,13 @@ public class CppRuleClasses {
 
   /** A string constant for a feature that indicates that the toolchain can produce PIC objects. */
   public static final String SUPPORTS_PIC = "supports_pic";
+
+  /**
+   * A string constant for a feature that indicates that PIC compiles are preferred for binaries
+   * even in optimized builds. For configurations that use dynamic linking for tests, this provides
+   * increases sharing of artifacts between tests and binaries at the cost of performance overhead.
+   */
+  public static final String PREFER_PIC_FOR_OPT_BINARIES = "prefer_pic_for_opt_binaries";
 
   /** A string constant for the feature the represents preprocessor defines. */
   public static final String PREPROCESSOR_DEFINES = "preprocessor_defines";

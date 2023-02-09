@@ -33,14 +33,14 @@ source ${CURRENT_DIR}/../sandboxing_test_utils.sh \
 source ${CURRENT_DIR}/remote_helpers.sh \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
-cat >>$TEST_TMPDIR/bazelrc <<'EOF'
+function set_up {
+  cat >>$TEST_TMPDIR/bazelrc <<'EOF'
 # Testing the sandboxed strategy requires using the sandboxed strategy. While it is the default,
 # we want to make sure that this explicitly fails when the strategy is not available on the system
 # running the test.
 build --spawn_strategy=sandboxed --genrule_strategy=sandboxed
 EOF
 
-function set_up {
   export BAZEL_GENFILES_DIR=$(bazel info bazel-genfiles 2>/dev/null)
   export BAZEL_BIN_DIR=$(bazel info bazel-bin 2>/dev/null)
 
@@ -254,17 +254,25 @@ function test_sandbox_undeclared_deps() {
 }
 
 function test_sandbox_undeclared_deps_with_local() {
-  bazel build examples/genrule:breaks1_works_with_local &> $TEST_log \
+  bazel build --incompatible_legacy_local_fallback \
+    examples/genrule:breaks1_works_with_local &> $TEST_log \
     || fail "Non-hermetic genrule failed even though local=1: examples/genrule:breaks1_works_with_local"
   [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks1_works_with_local.txt" ] \
     || fail "Genrule did not produce output: examples/genrule:breaks1_works_with_local"
 }
 
 function test_sandbox_undeclared_deps_with_local_tag() {
-  bazel build examples/genrule:breaks1_works_with_local_tag &> $TEST_log \
+  bazel build --incompatible_legacy_local_fallback \
+    examples/genrule:breaks1_works_with_local_tag &> $TEST_log \
     || fail "Non-hermetic genrule failed even though tags=['local']: examples/genrule:breaks1_works_with_local_tag"
   [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks1_works_with_local_tag.txt" ] \
     || fail "Genrule did not produce output: examples/genrule:breaks1_works_with_local_tag"
+}
+
+function test_sandbox_undeclared_deps_with_local_tag_no_fallback() {
+  bazel build examples/genrule:breaks1_works_with_local_tag &> $TEST_log \
+    && fail "Non-hermetic genrule suucceeded even though tags=['local']: examples/genrule:breaks1_works_with_local_tag" \
+    || true
 }
 
 function test_sandbox_undeclared_deps_starlark() {
@@ -284,7 +292,8 @@ function test_sandbox_undeclared_deps_starlark() {
 }
 
 function test_sandbox_undeclared_deps_starlark_with_local_tag() {
-  bazel build examples/genrule:starlark_breaks1_works_with_local_tag &> $TEST_log \
+  bazel build --incompatible_legacy_local_fallback \
+    examples/genrule:starlark_breaks1_works_with_local_tag &> $TEST_log \
     || fail "Non-hermetic genrule failed even though tags=['local']: examples/genrule:starlark_breaks1_works_with_local_tag"
   [ -f "${BAZEL_BIN_DIR}/examples/genrule/starlark_breaks1_works_with_local_tag.txt" ] \
     || fail "Action did not produce output: examples/genrule:starlark_breaks1_works_with_local_tag"
@@ -292,7 +301,7 @@ function test_sandbox_undeclared_deps_starlark_with_local_tag() {
 
 function test_sandbox_block_filesystem() {
   # The point of this test is to attempt to read something from the filesystem
-  # that is blocked via --sandbox_block_path= and thus should't be accessible.
+  # that is blocked via --sandbox_block_path= and thus shouldn't be accessible.
   #
   # /var/log is an arbitrary choice of directory that should exist on all
   # Unix-like systems.
@@ -494,6 +503,12 @@ function test_sandbox_block_network_access() {
 }
 
 function test_sandbox_network_access_with_local() {
+  cat >>$TEST_TMPDIR/bazelrc <<'EOF'
+# With `--incompatible_legacy_local_fallback` turned off, we need to explicitly
+# include a non-sandboxed strategy.
+build --spawn_strategy=sandboxed,standalone --genrule_strategy=sandboxed,standalone
+EOF
+
   setup_network_tests '"local"'
 
   check_network_ok localhost
@@ -643,6 +658,26 @@ sh_test(
 EOF
   bazel test --test_output=errors :test || fail "test did not pass"
   bazel test --nocache_test_results --sandbox_fake_username --test_output=errors :test || fail "test did not pass"
+}
+
+# Tests that a pseudoterminal can be opened in linux when --sandbox_explicit_pseudoterminal is active
+function test_can_enable_pseudoterminals() {
+  if [[ "$(uname -s)" != Linux ]]; then
+    echo "Skipping test: flag intended for linux systems"
+    return 0
+  fi
+
+  cat > test.py <<'EOF'
+import pty
+pty.openpty()
+EOF
+  cat > BUILD <<'EOF'
+py_test(
+  name = "test",
+  srcs = ["test.py"],
+)
+EOF
+  bazel test --sandbox_explicit_pseudoterminal :test || fail "test did not pass"
 }
 
 # Tests that /proc/self == /proc/$$. This should always be true unless the PID namespace is active without /proc being remounted correctly.
@@ -850,6 +885,253 @@ r(name = "a")
 EOF
 
   bazel build //pkg:a &>$TEST_log || fail "expected build to succeed"
+}
+
+function test_read_non_hermetic_tmp {
+  temp_dir=$(mktemp -d /tmp/test.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+sh_test(
+  name = "tmp_test",
+  srcs = ["tmp_test.sh"],
+)
+EOF
+
+  cat > pkg/tmp_test.sh <<EOF
+[[ -f "${temp_dir}/file" ]]
+EOF
+  chmod +x pkg/tmp_test.sh
+
+  touch "${temp_dir}/file"
+  bazel test //pkg:tmp_test \
+    --test_output=errors &>$TEST_log || fail "Expected test to pass"
+}
+
+function test_hermetic_tmp_under_tmp {
+  if [[ "$(uname -s)" != Linux ]]; then
+    echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
+    return 0
+  fi
+
+  temp_dir=$(mktemp -d /tmp/test.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  mkdir -p "${temp_dir}/workspace/a"
+  mkdir -p "${temp_dir}/package-path/b"
+  mkdir -p "${temp_dir}/repo/c"
+  mkdir -p "${temp_dir}/output-base"
+
+  cd "${temp_dir}/workspace"
+  cat > WORKSPACE <<EOF
+local_repository(name="repo", path="${temp_dir}/repo")
+EOF
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "g",
+  outs = ["go"],
+  srcs = [],
+  cmd = "echo GO > $@",
+)
+
+sh_binary(
+  name = "bin",
+  srcs = ["bin.sh"],
+  data = [":s", ":go", "//b:s", "//b:go", "@repo//c:s", "@repo//c:go"],
+)
+
+genrule(
+  name = "t",
+  tools = [":bin"],
+  srcs = [":s", ":go", "//b:s", "//b:go", "@repo//c:s", "@repo//c:go"],
+  outs = ["to"],
+  cmd = "\n".join([
+    "RUNFILES=$(location :bin).runfiles/__main__",
+    "S=$(location :s); GO=$(location :go)",
+    "BS=$(location //b:s); BGO=$(location //b:go)",
+    "RS=$(location @repo//c:s); RGO=$(location @repo//c:go)",
+    "for i in $$S $$GO $$BS $$BGO $$RS $$RGO; do",
+    "  echo reading $$i",
+    "  cat $$i >> $@",
+    "done",
+    "for i in a/s a/go b/s b/go ../repo/c/s ../repo/c/go; do",
+    "  echo reading $$RUNFILES/$$i",
+    "  cat $$RUNFILES/$$i >> $@",
+    "done",
+  ]),
+)
+EOF
+
+  touch a/bin.sh
+  chmod +x a/bin.sh
+
+  touch ../repo/WORKSPACE
+  cat > ../repo/c/BUILD <<'EOF'
+exports_files(["s"])
+
+genrule(
+  name = "g",
+  outs = ["go"],
+  srcs = [],
+  cmd = "echo GO > $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > ../package-path/b/BUILD <<'EOF'
+exports_files(["s"])
+
+genrule(
+  name = "g",
+  outs = ["go"],
+  srcs = [],
+  cmd = "echo GO > $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  touch "a/s" "../package-path/b/s" "../repo/c/s"
+
+  cat WORKSPACE
+  bazel \
+    --output_base="${temp_dir}/output-base" \
+    build \
+    --incompatible_sandbox_hermetic_tmp \
+    --package_path="%workspace%:${temp_dir}/package-path" \
+    //a:t || fail "build failed"
+}
+
+function test_read_hermetic_tmp {
+  if [[ "$(uname -s)" != Linux ]]; then
+    echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
+    return 0
+  fi
+
+  temp_dir=$(mktemp -d /tmp/test.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+sh_test(
+  name = "tmp_test",
+  srcs = ["tmp_test.sh"],
+)
+EOF
+
+  cat > pkg/tmp_test.sh <<EOF
+[[ ! -f "${temp_dir}/file" ]]
+EOF
+  chmod +x pkg/tmp_test.sh
+
+  touch "${temp_dir}/file"
+  bazel test //pkg:tmp_test --incompatible_sandbox_hermetic_tmp \
+    --test_output=errors &>$TEST_log || fail "Expected test to pass"
+}
+
+function test_read_hermetic_tmp_user_override {
+  if [[ "$(uname -s)" != Linux ]]; then
+    echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
+    return 0
+  fi
+
+  temp_dir=$(mktemp -d /tmp/test.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+sh_test(
+  name = "tmp_test",
+  srcs = ["tmp_test.sh"],
+)
+EOF
+
+  cat > pkg/tmp_test.sh <<EOF
+[[ -f "${temp_dir}/file" ]]
+EOF
+  chmod +x pkg/tmp_test.sh
+
+  touch "${temp_dir}/file"
+  bazel test //pkg:tmp_test --incompatible_sandbox_hermetic_tmp --sandbox_add_mount_pair=/tmp \
+    --test_output=errors &>$TEST_log || fail "Expected test to pass"
+}
+
+function test_write_non_hermetic_tmp {
+  temp_dir=$(mktemp -d /tmp/test.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+sh_test(
+  name = "tmp_test",
+  srcs = ["tmp_test.sh"],
+)
+EOF
+
+  cat > pkg/tmp_test.sh <<EOF
+touch "${temp_dir}/file"
+EOF
+  chmod +x pkg/tmp_test.sh
+
+  bazel test //pkg:tmp_test \
+    --test_output=errors &>$TEST_log || fail "Expected test to pass"
+  [[ -f "${temp_dir}/file" ]] || fail "Expected ${temp_dir}/file to exist"
+}
+
+function test_write_hermetic_tmp {
+  if [[ "$(uname -s)" != Linux ]]; then
+    echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
+    return 0
+  fi
+
+  temp_dir=$(mktemp -d /tmp/test.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+sh_test(
+  name = "tmp_test",
+  srcs = ["tmp_test.sh"],
+)
+EOF
+
+  cat > pkg/tmp_test.sh <<EOF
+mkdir -p "${temp_dir}"
+touch "${temp_dir}/file"
+EOF
+  chmod +x pkg/tmp_test.sh
+
+  bazel test //pkg:tmp_test --incompatible_sandbox_hermetic_tmp \
+    --test_output=errors &>$TEST_log || fail "Expected test to pass"
+  [[ ! -f "${temp_dir}" ]] || fail "Expected ${temp_dir} to not exit"
+}
+
+function test_write_hermetic_tmp_user_override {
+  if [[ "$(uname -s)" != Linux ]]; then
+    echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
+    return 0
+  fi
+
+  temp_dir=$(mktemp -d /tmp/test.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+sh_test(
+  name = "tmp_test",
+  srcs = ["tmp_test.sh"],
+)
+EOF
+
+  cat > pkg/tmp_test.sh <<EOF
+touch "${temp_dir}/file"
+EOF
+  chmod +x pkg/tmp_test.sh
+
+  bazel test //pkg:tmp_test --incompatible_sandbox_hermetic_tmp --sandbox_add_mount_pair=/tmp \
+    --test_output=errors &>$TEST_log || fail "Expected test to pass"
+  [[ -f "${temp_dir}/file" ]] || fail "Expected ${temp_dir}/file to exist"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

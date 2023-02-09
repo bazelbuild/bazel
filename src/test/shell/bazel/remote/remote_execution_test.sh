@@ -76,56 +76,76 @@ function has_utf8_locale() {
   [[ "${charmap}" == "UTF-8" ]]
 }
 
-function setup_credential_helper() {
+function setup_credential_helper_test() {
+  # Each helper call atomically writes one byte to this file.
+  # We can later read the file to determine how many calls were made.
+  cat > "${TEST_TMPDIR}/credhelper_log"
+
   cat > "${TEST_TMPDIR}/credhelper" <<'EOF'
 #!/usr/bin/env python3
+import os
+
+path = os.path.join(os.environ["TEST_TMPDIR"], "credhelper_log")
+fd = os.open(path, os.O_WRONLY|os.O_CREAT|os.O_APPEND)
+os.write(fd, b"1")
+os.close(fd)
+
 print("""{"headers":{"Authorization":["Bearer secret_token"]}}""")
 EOF
   chmod +x "${TEST_TMPDIR}/credhelper"
+
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+[genrule(
+  name = x,
+  outs = [x + ".txt"],
+  cmd = "touch $(OUTS)",
+) for x in ["a", "b"]]
+EOF
+
+  stop_worker
+  start_worker --expected_authorization_token=secret_token
+}
+
+function expect_credential_helper_calls() {
+  local -r expected=$1
+  local -r actual=$(wc -c "${TEST_TMPDIR}/credhelper_log" | awk '{print $1}')
+  if [[ "$expected" != "$actual" ]]; then
+    fail "expected $expected instead of $actual credential helper calls"
+  fi
 }
 
 function test_credential_helper_remote_cache() {
-  setup_credential_helper
-
-  mkdir -p a
-
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = "a",
-  outs = ["a.txt"],
-  cmd = "touch $(OUTS)",
-)
-EOF
-
-  stop_worker
-  start_worker --expected_authorization_token=secret_token
+  setup_credential_helper_test
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       //a:a >& $TEST_log && fail "Build without credentials should have failed"
   expect_log "Failed to query remote execution capabilities"
 
+  # Helper shouldn't have been called yet.
+  expect_credential_helper_calls 0
+
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  # First build should have called helper for 4 distinct URIs.
+  expect_credential_helper_calls 4
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  # Second build should have hit the credentials cache.
+  expect_credential_helper_calls 4
 }
 
 function test_credential_helper_remote_execution() {
-  setup_credential_helper
-
-  mkdir -p a
-
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = "a",
-  outs = ["a.txt"],
-  cmd = "touch $(OUTS)",
-)
-EOF
-
-  stop_worker
-  start_worker --expected_authorization_token=secret_token
+  setup_credential_helper_test
 
   bazel build \
       --spawn_strategy=remote \
@@ -133,11 +153,49 @@ EOF
       //a:a >& $TEST_log && fail "Build without credentials should have failed"
   expect_log "Failed to query remote execution capabilities"
 
+  # Helper shouldn't have been called yet.
+  expect_credential_helper_calls 0
+
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  # First build should have called helper for 5 distinct URIs.
+  expect_credential_helper_calls 5
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  # Second build should have hit the credentials cache.
+  expect_credential_helper_calls 5
+}
+
+function test_credential_helper_clear_cache() {
+  setup_credential_helper_test
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  expect_credential_helper_calls 5
+
+  bazel clean
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  # Build after clean should have called helper again.
+  expect_credential_helper_calls 10
 }
 
 function test_remote_grpc_cache_with_protocol() {
@@ -1987,12 +2045,10 @@ sh_test(
 EOF
 
   bazel test \
-    --incompatible_exclusive_test_sandboxed \
     --remote_cache=grpc://localhost:${worker_port} \
     //a:success_test || fail "Failed to test //a:success_test"
 
   bazel test \
-    --incompatible_exclusive_test_sandboxed \
     --remote_cache=grpc://localhost:${worker_port} \
     --nocache_test_results \
     //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
@@ -2145,6 +2201,13 @@ function test_empty_tree_artifact_as_inputs() {
   bazel build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_discard_merkle_trees \
+    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree discarding"
+
+  bazel clean --expunge
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_sibling_repository_layout \
     //pkg:a &>$TEST_log || fail "expected build to succeed with sibling repository layout"
 }
@@ -2212,6 +2275,15 @@ function test_create_tree_artifact_outputs() {
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_merkle_tree_cache \
     //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
+  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
+  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
+
+  bazel clean --expunge
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_discard_merkle_trees \
+    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree discarding"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 
@@ -2974,55 +3046,225 @@ function test_external_cc_test_sibling_repository_layout() {
       @other_repo//test >& $TEST_log || fail "Test should pass"
 }
 
-function test_unresolved_symlink_input() {
+function do_test_unresolved_symlink() {
+  local -r strategy=$1
+  local -r link_target=$2
+
   mkdir -p symlink
   touch symlink/BUILD
-  cat > symlink/symlink.bzl <<EOF
-def _dangling_symlink_impl(ctx):
-    symlink = ctx.actions.declare_symlink(ctx.label.name)
-    ctx.actions.symlink(
-        output = symlink,
-        target_path = ctx.attr.link_target,
-    )
-    return DefaultInfo(files = depset([symlink]))
+  cat > symlink/symlink.bzl <<'EOF'
+def _unresolved_symlink_impl(ctx):
+  symlink = ctx.actions.declare_symlink(ctx.label.name)
 
-dangling_symlink = rule(
-    implementation = _dangling_symlink_impl,
-    attrs = {"link_target": attr.string()},
+  if ctx.attr.strategy == "internal":
+    ctx.actions.symlink(
+      output = symlink,
+      target_path = ctx.attr.link_target,
+    )
+  elif ctx.attr.strategy == "spawn":
+    ctx.actions.run_shell(
+      outputs = [symlink],
+      command = "ln -s $1 $2",
+      arguments = [ctx.attr.link_target, symlink.path],
+    )
+
+  return DefaultInfo(files = depset([symlink]))
+
+unresolved_symlink = rule(
+  implementation = _unresolved_symlink_impl,
+  attrs = {
+    "link_target": attr.string(mandatory = True),
+    "strategy": attr.string(values = ["internal", "spawn"], mandatory = True),
+  },
 )
 EOF
 
   mkdir -p pkg
-  cat > pkg/BUILD <<'EOF'
-load("//symlink:symlink.bzl", "dangling_symlink")
-dangling_symlink(name="a", link_target="non/existent")
+  cat > pkg/BUILD <<EOF
+load("//symlink:symlink.bzl", "unresolved_symlink")
+unresolved_symlink(name="a", link_target="$link_target", strategy="$strategy")
 genrule(
     name = "b",
     srcs = [":a"],
     outs = ["b.txt"],
-    cmd = "readlink $(location :a) > $@",
+    cmd = "readlink \$(location :a) > \$@",
 )
 EOF
 
   bazel \
     --windows_enable_symlinks \
     build \
-    --experimental_allow_unresolved_symlinks \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     //pkg:b &>$TEST_log || fail "expected build to succeed"
-  [[ $(cat bazel-bin/pkg/b.txt) == non/existent ]] || fail "expected symlink target to be non/existent"
+
+  if [[ "$(cat bazel-bin/pkg/b.txt)" != "$link_target" ]]; then
+    fail "expected symlink target to be $link_target"
+  fi
 
   bazel clean --expunge
   bazel \
     --windows_enable_symlinks \
     build \
-    --experimental_allow_unresolved_symlinks \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_merkle_tree_cache \
     //pkg:b &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
-  [[ $(cat bazel-bin/pkg/b.txt) == non/existent ]] || fail "expected symlink target to be non/existent"
+
+  bazel clean --expunge
+  bazel \
+    --windows_enable_symlinks \
+    build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_discard_merkle_trees \
+    //pkg:b &>$TEST_log || fail "expected build to succeed with Merkle tree discarding"
+
+  if [[ "$(cat bazel-bin/pkg/b.txt)" != "$link_target" ]]; then
+    fail "expected symlink target to be $link_target"
+  fi
+}
+
+function test_unresolved_symlink_internal_relative() {
+  do_test_unresolved_symlink internal non/existent
+}
+
+function test_unresolved_symlink_internal_absolute() {
+  do_test_unresolved_symlink internal /non/existent
+}
+
+function test_unresolved_symlink_spawn_relative() {
+  do_test_unresolved_symlink spawn non/existent
+}
+
+function test_unresolved_symlink_spawn_absolute() {
+  do_test_unresolved_symlink spawn /non/existent
+}
+
+function setup_cc_binary_tool_with_dynamic_deps() {
+  local repo=$1
+
+  cat >> WORKSPACE <<'EOF'
+local_repository(
+  name = "other_repo",
+  path = "other_repo",
+)
+EOF
+
+  mkdir -p $repo
+  touch $repo/WORKSPACE
+
+  mkdir -p $repo/lib
+  # Use a comma in the target name as that is known to be problematic whith -Wl,
+  # which is commonly used to pass rpaths to the linker.
+  cat > $repo/lib/BUILD <<'EOF'
+cc_binary(
+  name = "l,ib",
+  srcs = ["lib.cpp"],
+  linkshared = True,
+  linkstatic = True,
+)
+
+cc_import(
+  name = "dynamic_l,ib",
+  shared_library = ":l,ib",
+  hdrs = ["lib.h"],
+  visibility = ["//visibility:public"],
+)
+EOF
+  cat > $repo/lib/lib.h <<'EOF'
+void print_greeting();
+EOF
+  cat > $repo/lib/lib.cpp <<'EOF'
+#include <cstdio>
+void print_greeting() {
+  printf("Hello, world!\n");
+}
+EOF
+
+  mkdir -p $repo/pkg
+  cat > $repo/pkg/BUILD <<'EOF'
+cc_binary(
+  name = "tool",
+  srcs = ["tool.cpp"],
+  deps = ["//lib:dynamic_l,ib"],
+)
+
+genrule(
+  name = "rule",
+  outs = ["out"],
+  cmd = "$(location :tool) > $@",
+  tools = [":tool"],
+)
+EOF
+  cat > $repo/pkg/tool.cpp <<'EOF'
+#include "lib/lib.h"
+int main() {
+  print_greeting();
+}
+EOF
+}
+
+function test_cc_binary_tool_with_dynamic_deps() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  setup_cc_binary_tool_with_dynamic_deps .
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //pkg:rule >& $TEST_log || fail "Build should succeed"
+}
+
+function test_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  setup_cc_binary_tool_with_dynamic_deps .
+
+  bazel build \
+      --experimental_sibling_repository_layout \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //pkg:rule >& $TEST_log || fail "Build should succeed"
+}
+
+function test_external_cc_binary_tool_with_dynamic_deps() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  setup_cc_binary_tool_with_dynamic_deps other_repo
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
+}
+
+function test_external_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  setup_cc_binary_tool_with_dynamic_deps other_repo
+
+  bazel build \
+      --experimental_sibling_repository_layout \
+      --remote_executor=grpc://localhost:${worker_port} \
+      @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
 }
 
 run_suite "Remote execution and remote cache tests"

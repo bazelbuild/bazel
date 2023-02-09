@@ -31,9 +31,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -57,7 +55,6 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
@@ -98,7 +95,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -888,7 +885,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public Sequence<String> getStarlarkArgv() throws EvalException, InterruptedException {
     try {
-      return StarlarkList.immutableCopyOf(getArguments());
+      if (cppConfiguration.ignoreParamFile()) {
+        return StarlarkList.immutableCopyOf(
+            compileCommandLine.getArguments(
+                /*parameterFilePath=*/ null, getOverwrittenVariables()));
+
+      } else {
+        return StarlarkList.immutableCopyOf(getArguments());
+      }
     } catch (CommandLineExpansionException ex) {
       throw new EvalException(ex);
     }
@@ -1448,7 +1452,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   @Override
-  public ActionContinuationOrResult beginExecution(ActionExecutionContext actionExecutionContext)
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     if (featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)) {
       try {
@@ -1496,16 +1500,112 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       clearAdditionalInputs();
     }
 
-    SpawnContinuation spawnContinuation =
+    ImmutableList<SpawnResult> spawnResults;
+    byte[] dotDContents;
+
+    try {
+      spawnResults =
+          actionExecutionContext.getContext(SpawnStrategyResolver.class).exec(spawn, spawnContext);
+      // SpawnActionContext guarantees that the first list entry exists and corresponds to the
+      // executed spawn.
+      dotDContents = getDotDContents(spawnResults.get(0));
+    } catch (ExecException e) {
+      throw ActionExecutionException.fromExecException(e, CppCompileAction.this);
+    } catch (InterruptedException e) {
+      copyTempOutErrToActionOutErrMaybe(
+          spawnContext.getFileOutErr(),
+          actionExecutionContext.getFileOutErr(),
+          showIncludesFilterForStdout,
+          showIncludesFilterForStderr);
+      throw e;
+    } finally {
+      copyTempOutErrToActionOutErrMaybe(
+          spawnContext.getFileOutErr(),
+          actionExecutionContext.getFileOutErr(),
+          showIncludesFilterForStdout,
+          showIncludesFilterForStderr);
+    }
+
+    ensureCoverageNotesFileExists(actionExecutionContext);
+
+    CppIncludeExtractionContext scanningContext =
+        actionExecutionContext.getContext(CppIncludeExtractionContext.class);
+    Path execRoot = actionExecutionContext.getExecRoot();
+    boolean siblingRepositoryLayout =
         actionExecutionContext
-            .getContext(SpawnStrategyResolver.class)
-            .beginExecution(spawn, spawnContext);
-    return new CppCompileActionContinuation(
-        actionExecutionContext,
-        spawnContext,
-        showIncludesFilterForStdout,
-        showIncludesFilterForStderr,
-        spawnContinuation);
+            .getOptions()
+            .getOptions(BuildLanguageOptions.class)
+            .experimentalSiblingRepositoryLayout;
+
+    if (shouldParseShowIncludes()) {
+      NestedSet<Artifact> discoveredInputs =
+          discoverInputsFromShowIncludesFilters(
+              execRoot,
+              scanningContext.getArtifactResolver(),
+              showIncludesFilterForStdout,
+              showIncludesFilterForStderr,
+              siblingRepositoryLayout);
+      updateActionInputs(discoveredInputs);
+      validateInclusions(actionExecutionContext, discoveredInputs);
+      return ActionResult.create(spawnResults);
+    }
+
+    if (getDotdFile() == null) {
+      return ActionResult.create(spawnResults);
+    }
+
+    // Post-execute "include scanning", which modifies the action inputs to match what the
+    // compile action actually used by incorporating the results of .d file parsing.
+    NestedSet<Artifact> discoveredInputs =
+        discoverInputsFromDotdFiles(
+            actionExecutionContext,
+            execRoot,
+            scanningContext.getArtifactResolver(),
+            dotDContents,
+            siblingRepositoryLayout);
+    dotDContents = null; // Garbage collect in-memory .d contents.
+
+    updateActionInputs(discoveredInputs);
+
+    // hdrs_check: This cannot be switched off for C++ build actions,
+    // because doing so would allow for incorrect builds.
+    // HeadersCheckingMode.NONE should only be used for ObjC build actions.
+    validateInclusions(actionExecutionContext, discoveredInputs);
+    return ActionResult.create(spawnResults);
+  }
+
+  private void copyTempOutErrToActionOutErrMaybe(
+      FileOutErr tempOutErr,
+      FileOutErr outErr,
+      ShowIncludesFilter showIncludesFilterForStdout,
+      ShowIncludesFilter showIncludesFilterForStderr)
+      throws ActionExecutionException {
+    // If parse_showincludes feature is enabled, instead of parsing dotD file we parse the
+    // output of cl.exe caused by /showIncludes option.
+    if (!shouldParseShowIncludes()) {
+      return;
+    }
+
+    try {
+      tempOutErr.close();
+      if (tempOutErr.hasRecordedStdout()) {
+        try (InputStream in = tempOutErr.getOutputPath().getInputStream()) {
+          ByteStreams.copy(
+              in, showIncludesFilterForStdout.getFilteredOutputStream(outErr.getOutputStream()));
+        }
+      }
+      if (tempOutErr.hasRecordedStderr()) {
+        try (InputStream in = tempOutErr.getErrorPath().getInputStream()) {
+          ByteStreams.copy(
+              in, showIncludesFilterForStderr.getFilteredOutputStream(outErr.getErrorStream()));
+        }
+      }
+    } catch (IOException e) {
+      throw ActionExecutionException.fromExecException(
+          new EnvironmentalExecException(
+              e, createFailureDetail("OutErr copy failure", Code.COPY_OUT_ERR_FAILURE)),
+          CppCompileAction.this);
+    }
   }
 
   @Nullable
@@ -1833,16 +1933,15 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Nullable
   private static ImmutableMap<Artifact, NestedSet<Artifact>> computeTransitivelyUsedModules(
       SkyFunction.Environment env, Set<DerivedArtifact> usedModules) throws InterruptedException {
-    // Because SkyframeIterableResult.next call does not specify any exceptions where
-    // SkyframeIterableResult is returned by env.getOrderedValuesAndExceptions, it is
-    // impossible for input discovery to recover from exceptions thrown by spurious module deps (for
-    // instance, if a commented-out include references a header file with an error in it). However,
-    // we generally don't try to recover from errors around spurious includes discovered in the
-    // current build.
+    // Because SkyframeLookupResult.get call does not specify any exceptions where
+    // SkyframeLookupResult is returned by env.getValuesAndExceptions, it is impossible for input
+    // discovery to recover from exceptions thrown by spurious module deps (for instance, if a
+    // commented-out include references a header file with an error in it). However, we generally
+    // don't try to recover from errors around spurious includes discovered in the current build.
     // TODO(janakr): Can errors be aggregated here at least?
     Collection<SkyKey> skyKeys =
         Collections2.transform(usedModules, DerivedArtifact::getGeneratingActionKey);
-    SkyframeIterableResult actionExecutionValues = env.getOrderedValuesAndExceptions(skyKeys);
+    SkyframeLookupResult actionExecutionValues = env.getValuesAndExceptions(skyKeys);
     if (env.valuesMissing()) {
       return null;
     }
@@ -1851,7 +1950,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     for (DerivedArtifact module : usedModules) {
       Preconditions.checkState(
           module.isFileType(CppFileTypes.CPP_MODULE), "Non-module? %s", module);
-      SkyValue skyValue = actionExecutionValues.next();
+      SkyValue skyValue = actionExecutionValues.get(module.getGeneratingActionKey());
       if (skyValue == null) {
         return null;
       }
@@ -1860,139 +1959,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       transitivelyUsedModules.put(module, value.getDiscoveredModules());
     }
     return transitivelyUsedModules.buildOrThrow();
-  }
-
-  private final class CppCompileActionContinuation extends ActionContinuationOrResult {
-    private final ActionExecutionContext actionExecutionContext;
-    private final ActionExecutionContext spawnExecutionContext;
-    private final ShowIncludesFilter showIncludesFilterForStdout;
-    private final ShowIncludesFilter showIncludesFilterForStderr;
-    private final SpawnContinuation spawnContinuation;
-
-    CppCompileActionContinuation(
-        ActionExecutionContext actionExecutionContext,
-        ActionExecutionContext spawnExecutionContext,
-        ShowIncludesFilter showIncludesFilterForStdout,
-        ShowIncludesFilter showIncludesFilterForStderr,
-        SpawnContinuation spawnContinuation) {
-      this.actionExecutionContext = actionExecutionContext;
-      this.spawnExecutionContext = spawnExecutionContext;
-      this.showIncludesFilterForStdout = showIncludesFilterForStdout;
-      this.showIncludesFilterForStderr = showIncludesFilterForStderr;
-      this.spawnContinuation = spawnContinuation;
-    }
-
-    @Override
-    public ListenableFuture<?> getFuture() {
-      return spawnContinuation.getFuture();
-    }
-
-    @Override
-    public ActionContinuationOrResult execute()
-        throws ActionExecutionException, InterruptedException {
-      List<SpawnResult> spawnResults;
-      byte[] dotDContents;
-      try {
-        SpawnContinuation nextContinuation = spawnContinuation.execute();
-        if (!nextContinuation.isDone()) {
-          return new CppCompileActionContinuation(
-              actionExecutionContext,
-              spawnExecutionContext,
-              showIncludesFilterForStdout,
-              showIncludesFilterForStderr,
-              nextContinuation);
-        }
-        spawnResults = nextContinuation.get();
-        // SpawnActionContext guarantees that the first list entry exists and corresponds to the
-        // executed spawn.
-        dotDContents = getDotDContents(spawnResults.get(0));
-      } catch (ExecException e) {
-        copyTempOutErrToActionOutErr();
-        throw ActionExecutionException.fromExecException(e, CppCompileAction.this);
-      } catch (InterruptedException e) {
-        copyTempOutErrToActionOutErr();
-        throw e;
-      }
-
-      copyTempOutErrToActionOutErr();
-
-      ensureCoverageNotesFileExists(actionExecutionContext);
-
-      CppIncludeExtractionContext scanningContext =
-          actionExecutionContext.getContext(CppIncludeExtractionContext.class);
-      Path execRoot = actionExecutionContext.getExecRoot();
-      boolean siblingRepositoryLayout =
-          actionExecutionContext
-              .getOptions()
-              .getOptions(BuildLanguageOptions.class)
-              .experimentalSiblingRepositoryLayout;
-
-      if (shouldParseShowIncludes()) {
-        NestedSet<Artifact> discoveredInputs =
-            discoverInputsFromShowIncludesFilters(
-                execRoot,
-                scanningContext.getArtifactResolver(),
-                showIncludesFilterForStdout,
-                showIncludesFilterForStderr,
-                siblingRepositoryLayout);
-        updateActionInputs(discoveredInputs);
-        validateInclusions(actionExecutionContext, discoveredInputs);
-        return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
-      }
-
-      if (getDotdFile() == null) {
-        return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
-      }
-
-      // Post-execute "include scanning", which modifies the action inputs to match what the
-      // compile action actually used by incorporating the results of .d file parsing.
-      NestedSet<Artifact> discoveredInputs =
-          discoverInputsFromDotdFiles(
-              actionExecutionContext,
-              execRoot,
-              scanningContext.getArtifactResolver(),
-              dotDContents,
-              siblingRepositoryLayout);
-      dotDContents = null; // Garbage collect in-memory .d contents.
-
-      updateActionInputs(discoveredInputs);
-
-      // hdrs_check: This cannot be switched off for C++ build actions,
-      // because doing so would allow for incorrect builds.
-      // HeadersCheckingMode.NONE should only be used for ObjC build actions.
-      validateInclusions(actionExecutionContext, discoveredInputs);
-      return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
-    }
-
-    private void copyTempOutErrToActionOutErr() throws ActionExecutionException {
-      // If parse_showincludes feature is enabled, instead of parsing dotD file we parse the
-      // output of cl.exe caused by /showIncludes option.
-      if (shouldParseShowIncludes()) {
-        try {
-          FileOutErr tempOutErr = spawnExecutionContext.getFileOutErr();
-          FileOutErr outErr = actionExecutionContext.getFileOutErr();
-          tempOutErr.close();
-          if (tempOutErr.hasRecordedStdout()) {
-            try (InputStream in = tempOutErr.getOutputPath().getInputStream()) {
-              ByteStreams.copy(
-                  in,
-                  showIncludesFilterForStdout.getFilteredOutputStream(outErr.getOutputStream()));
-            }
-          }
-          if (tempOutErr.hasRecordedStderr()) {
-            try (InputStream in = tempOutErr.getErrorPath().getInputStream()) {
-              ByteStreams.copy(
-                  in, showIncludesFilterForStderr.getFilteredOutputStream(outErr.getErrorStream()));
-            }
-          }
-        } catch (IOException e) {
-          throw ActionExecutionException.fromExecException(
-              new EnvironmentalExecException(
-                  e, createFailureDetail("OutErr copy failure", Code.COPY_OUT_ERR_FAILURE)),
-              CppCompileAction.this);
-        }
-      }
-    }
   }
 
   private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {

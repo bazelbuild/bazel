@@ -40,7 +40,7 @@ public class CommandFailureUtilsTest {
     env.put("PATH", "/usr/bin:/bin:/sbin");
     String cwd = null;
     PlatformInfo executionPlatform =
-        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+        PlatformInfo.builder().setLabel(Label.parseCanonicalUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
             false,
@@ -68,7 +68,7 @@ public class CommandFailureUtilsTest {
     env.put("PATH", "/usr/bin:/bin:/sbin");
     String cwd = null;
     PlatformInfo executionPlatform =
-        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+        PlatformInfo.builder().setLabel(Label.parseCanonicalUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
             true,
@@ -104,7 +104,7 @@ public class CommandFailureUtilsTest {
     env.put("PATH", "/usr/bin:/bin:/sbin");
     String cwd = "/my/working/directory";
     PlatformInfo executionPlatform =
-        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+        PlatformInfo.builder().setLabel(Label.parseCanonicalUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
             false,
@@ -139,7 +139,7 @@ public class CommandFailureUtilsTest {
     env.put("PATH", "/usr/bin:/bin:/sbin");
     String cwd = "/my/working/directory";
     PlatformInfo executionPlatform =
-        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+        PlatformInfo.builder().setLabel(Label.parseCanonicalUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
             true,
@@ -176,7 +176,7 @@ public class CommandFailureUtilsTest {
     Map<String, String> env = new LinkedHashMap<>();
     String cwd = "/my/working/directory";
     PlatformInfo executionPlatform =
-        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+        PlatformInfo.builder().setLabel(Label.parseCanonicalUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
             false,
@@ -212,7 +212,7 @@ public class CommandFailureUtilsTest {
 
     String cwd = "/my/working/directory";
     PlatformInfo executionPlatform =
-        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+        PlatformInfo.builder().setLabel(Label.parseCanonicalUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommand(
             CommandDescriptionForm.COMPLETE,

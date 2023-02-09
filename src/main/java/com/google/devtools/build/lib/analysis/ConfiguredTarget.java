@@ -54,6 +54,8 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
    * com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget} and {@link
    * com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget} for
    * which it is always <b>null</b>.
+   *
+   * <p>If this changes, {@link AspectResolver#aspecMatchesConfiguredTarget} should be updated.
    */
   @Nullable
   BuildConfigurationKey getConfigurationKey();
@@ -94,5 +96,18 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
    */
   default ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions() {
     return ImmutableMap.of();
+  }
+
+  default boolean isRuleConfiguredTarget() {
+    return false;
+  }
+
+  /**
+   * The base configured target if it has been merged with aspects otherwise the current value.
+   *
+   * <p>Unwrapping is recursive if there are multiple layers.
+   */
+  default ConfiguredTarget unwrapIfMerged() {
+    return this;
   }
 }

@@ -57,7 +57,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -706,11 +706,11 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       }
     }
 
-    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(childKeys);
+    SkyframeLookupResult result = env.getValuesAndExceptions(childKeys);
     ImmutableList.Builder<RecursiveFilesystemTraversalValue> childValues =
         ImmutableList.builderWithExpectedSize(childKeys.size());
     for (SkyKey key : childKeys) {
-      SkyValue value = result.next();
+      SkyValue value = result.get(key);
       if (value == null) {
         continue;
       }

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
@@ -25,7 +26,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -64,14 +65,14 @@ public final class ToplevelStarlarkAspectFunction implements SkyFunction {
             topLevelAspectsDetails.getAspectsDetails(),
             topLevelAspectsKey.getBaseConfiguredTargetKey());
 
-    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(aspectsKeys);
+    SkyframeLookupResult result = env.getValuesAndExceptions(aspectsKeys);
     if (env.valuesMissing()) {
       return null; // some aspects keys are not evaluated
     }
-    ImmutableList.Builder<SkyValue> values =
+    ImmutableList.Builder<AspectValue> values =
         ImmutableList.builderWithExpectedSize(aspectsKeys.size());
-    while (result.hasNext()) {
-      SkyValue value = result.next();
+    for (SkyKey aspectKey : aspectsKeys) {
+      AspectValue value = (AspectValue) result.get(aspectKey);
       if (value == null) {
         return null;
       }

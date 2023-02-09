@@ -54,9 +54,9 @@ import org.mockito.MockitoAnnotations;
 /** Tests for {@link QueryTransitivePackagePreloader}. */
 @RunWith(TestParameterInjector.class)
 public class QueryTransitivePackagePreloaderTest {
-  private static final Label LABEL = Label.parseAbsoluteUnchecked("//my:label");
-  private static final Label LABEL2 = Label.parseAbsoluteUnchecked("//my:label2");
-  private static final Label LABEL3 = Label.parseAbsoluteUnchecked("//my:label3");
+  private static final Label LABEL = Label.parseCanonicalUnchecked("//my:label");
+  private static final Label LABEL2 = Label.parseCanonicalUnchecked("//my:label2");
+  private static final Label LABEL3 = Label.parseCanonicalUnchecked("//my:label3");
   private static final TransitiveTargetKey KEY = TransitiveTargetKey.of(LABEL);
   private static final TransitiveTargetKey KEY2 = TransitiveTargetKey.of(LABEL2);
   private static final TransitiveTargetKey KEY3 = TransitiveTargetKey.of(LABEL3);
@@ -90,10 +90,8 @@ public class QueryTransitivePackagePreloaderTest {
   public void setUpMocks() {
     closeable = MockitoAnnotations.openMocks(this);
     when(contextBuilder.setKeepGoing(ArgumentMatchers.anyBoolean())).thenReturn(contextBuilder);
-    when(contextBuilder.setNumThreads(ArgumentMatchers.anyInt())).thenReturn(contextBuilder);
+    when(contextBuilder.setParallelism(ArgumentMatchers.anyInt())).thenReturn(contextBuilder);
     when(contextBuilder.setEventHandler(ArgumentMatchers.any())).thenReturn(contextBuilder);
-    when(contextBuilder.setUseForkJoinPool(ArgumentMatchers.anyBoolean()))
-        .thenReturn(contextBuilder);
     when(contextBuilder.build()).thenReturn(context);
   }
 

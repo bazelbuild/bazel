@@ -120,6 +120,8 @@ def _impl(ctx):
     all_compile_actions = [
         ACTION_NAMES.c_compile,
         ACTION_NAMES.cpp_compile,
+        ACTION_NAMES.objc_compile,
+        ACTION_NAMES.objcpp_compile,
         ACTION_NAMES.linkstamp_compile,
         ACTION_NAMES.assemble,
         ACTION_NAMES.preprocess_assemble,
@@ -142,6 +144,8 @@ def _impl(ctx):
     preprocessor_compile_actions = [
         ACTION_NAMES.c_compile,
         ACTION_NAMES.cpp_compile,
+        ACTION_NAMES.objc_compile,
+        ACTION_NAMES.objcpp_compile,
         ACTION_NAMES.linkstamp_compile,
         ACTION_NAMES.preprocess_assemble,
         ACTION_NAMES.cpp_header_parsing,
@@ -152,6 +156,8 @@ def _impl(ctx):
     codegen_compile_actions = [
         ACTION_NAMES.c_compile,
         ACTION_NAMES.cpp_compile,
+        ACTION_NAMES.objc_compile,
+        ACTION_NAMES.objcpp_compile,
         ACTION_NAMES.linkstamp_compile,
         ACTION_NAMES.assemble,
         ACTION_NAMES.preprocess_assemble,
@@ -245,8 +251,6 @@ def _impl(ctx):
         flag_sets = [
             flag_set(
                 flag_groups = [
-                    flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                    flag_group(flags = ["-target", target_system_name]),
                     flag_group(
                         flags = [
                             "-Xlinker",
@@ -257,14 +261,12 @@ def _impl(ctx):
                             "-ObjC",
                         ],
                     ),
-                    flag_group(
-                        flags = ["-framework", "%{framework_names}"],
-                        iterate_over = "framework_names",
-                    ),
-                    flag_group(
-                        flags = ["-weak_framework", "%{weak_framework_names}"],
-                        iterate_over = "weak_framework_names",
-                    ),
+                ],
+                with_features = [with_feature_set(not_features = ["kernel_extension"])],
+            ),
+            flag_set(
+                flag_groups = [
+                    flag_group(flags = ["-target", target_system_name]),
                     flag_group(
                         flags = ["-l%{library_names}"],
                         iterate_over = "library_names",
@@ -295,7 +297,7 @@ def _impl(ctx):
         ],
         tools = [
             tool(
-                path = "wrapped_clang_pp",
+                path = "wrapped_clang",
                 execution_requirements = xcode_execution_requirements,
             ),
         ],
@@ -306,7 +308,6 @@ def _impl(ctx):
         implies = [
             "contains_objc_source",
             "has_configured_linker_path",
-            "symbol_counts",
             "shared_flag",
             "linkstamps",
             "output_execpath_flags",
@@ -474,37 +475,6 @@ def _impl(ctx):
         ],
     )
 
-    objc_archive_action = action_config(
-        action_name = "objc-archive",
-        flag_sets = [
-            flag_set(
-                flag_groups = [
-                    flag_group(
-                        flags = _deterministic_libtool_flags(ctx) + [
-                            "-no_warning_for_no_symbols",
-                            "-static",
-                            "-filelist",
-                            "%{obj_list_path}",
-                            "-arch_only",
-                            arch,
-                            "-syslibroot",
-                            "%{sdk_dir}",
-                            "-o",
-                            "%{output_execpath}",
-                        ],
-                    ),
-                ],
-            ),
-        ],
-        implies = ["apple_env"],
-        tools = [
-            tool(
-                path = "libtool",
-                execution_requirements = xcode_execution_requirements,
-            ),
-        ],
-    )
-
     objc_executable_action = action_config(
         action_name = "objc-executable",
         flag_sets = [
@@ -526,14 +496,6 @@ def _impl(ctx):
             flag_set(
                 flag_groups = [
                     flag_group(flags = ["-target", target_system_name]),
-                    flag_group(
-                        flags = ["-framework", "%{framework_names}"],
-                        iterate_over = "framework_names",
-                    ),
-                    flag_group(
-                        flags = ["-weak_framework", "%{weak_framework_names}"],
-                        iterate_over = "weak_framework_names",
-                    ),
                     flag_group(
                         flags = ["-l%{library_names}"],
                         iterate_over = "library_names",
@@ -574,7 +536,6 @@ def _impl(ctx):
         action_name = ACTION_NAMES.cpp_link_executable,
         implies = [
             "contains_objc_source",
-            "symbol_counts",
             "linkstamps",
             "output_execpath_flags",
             "runtime_root_flags",
@@ -644,7 +605,6 @@ def _impl(ctx):
         implies = [
             "contains_objc_source",
             "has_configured_linker_path",
-            "symbol_counts",
             "shared_flag",
             "linkstamps",
             "output_execpath_flags",
@@ -722,7 +682,6 @@ def _impl(ctx):
         objcpp_compile_action,
         assemble_action,
         preprocess_assemble_action,
-        objc_archive_action,
         objc_executable_action,
         objcpp_executable_action,
         cpp_link_executable_action,
@@ -793,7 +752,10 @@ def _impl(ctx):
                 flag_groups = [
                     flag_group(
                         flags = [
-                            "-Wl,-rpath,@loader_path/%{runtime_library_search_directories}",
+                            "-Xlinker",
+                            "-rpath",
+                            "-Xlinker",
+                            "@loader_path/%{runtime_library_search_directories}",
                         ],
                         iterate_over = "runtime_library_search_directories",
                         expand_if_available = "runtime_library_search_directories",
@@ -958,21 +920,6 @@ def _impl(ctx):
 
     no_legacy_features_feature = feature(name = "no_legacy_features")
 
-    symbol_counts_feature = feature(
-        name = "symbol_counts",
-        flag_sets = [
-            flag_set(
-                actions = all_link_actions,
-                flag_groups = [
-                    flag_group(
-                        flags = ["-Wl,--print-symbol-counts=%{symbol_counts_output}"],
-                        expand_if_available = "symbol_counts_output",
-                    ),
-                ],
-            ),
-        ],
-    )
-
     user_link_flags_feature = feature(
         name = "user_link_flags",
         enabled = True,
@@ -1102,64 +1049,25 @@ def _impl(ctx):
         requires = [feature_set(features = ["coverage"])],
     )
 
-    if (ctx.attr.cpu == "darwin_x86_64" or
-        ctx.attr.cpu == "darwin_arm64" or
-        ctx.attr.cpu == "darwin_arm64e"):
-        default_link_flags_feature = feature(
-            name = "default_link_flags",
-            enabled = True,
-            flag_sets = [
-                flag_set(
-                    actions = all_link_actions +
-                              ["objc-executable", "objc++-executable"],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-target",
-                                target_system_name,
-                            ],
-                        ),
-                    ],
-                ),
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.cpp_link_dynamic_library,
-                        ACTION_NAMES.cpp_link_nodeps_dynamic_library,
-                    ],
-                    flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
-                ),
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.cpp_link_executable,
-                        "objc-executable",
-                        "objc++-executable",
-                    ],
-                    flag_groups = [flag_group(flags = ["-undefined", "dynamic_lookup"])],
-                    with_features = [with_feature_set(features = ["dynamic_linking_mode"])],
-                ),
-            ],
-        )
-    else:
-        default_link_flags_feature = feature(
-            name = "default_link_flags",
-            enabled = True,
-            flag_sets = [
-                flag_set(
-                    actions = all_link_actions +
-                              ["objc-executable", "objc++-executable"],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-target",
-                                target_system_name,
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        )
+    default_link_flags_feature = feature(
+        name = "default_link_flags",
+        enabled = True,
+        flag_sets = [
+            flag_set(
+                actions = all_link_actions +
+                          ["objc-executable", "objc++-executable"],
+                flag_groups = [
+                    flag_group(
+                        flags = [
+                            "-no-canonical-prefixes",
+                            "-target",
+                            target_system_name,
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
 
     no_deduplicate_feature = feature(
         name = "no_deduplicate",
@@ -1247,6 +1155,14 @@ def _impl(ctx):
                     flag_group(
                         flags = ["-F%{framework_paths}"],
                         iterate_over = "framework_paths",
+                    ),
+                    flag_group(
+                        flags = ["-framework", "%{framework_names}"],
+                        iterate_over = "framework_names",
+                    ),
+                    flag_group(
+                        flags = ["-weak_framework", "%{weak_framework_names}"],
+                        iterate_over = "weak_framework_names",
                     ),
                 ],
             ),
@@ -1553,7 +1469,6 @@ def _impl(ctx):
                     ACTION_NAMES.preprocess_assemble,
                     ACTION_NAMES.objc_compile,
                     ACTION_NAMES.objcpp_compile,
-                    "objc-archive",
                     "objc-fully-link",
                     ACTION_NAMES.cpp_link_executable,
                     ACTION_NAMES.cpp_link_dynamic_library,
@@ -1767,7 +1682,6 @@ def _impl(ctx):
             "objc-compile",
             "objc++-compile",
             "objc-fully-link",
-            "objc-archive",
             "objc-executable",
             "objc++-executable",
             "assemble",
@@ -1820,7 +1734,6 @@ def _impl(ctx):
             flag_set(
                 actions = all_link_actions + [
                     ACTION_NAMES.cpp_link_static_library,
-                    ACTION_NAMES.objc_archive,
                     ACTION_NAMES.objc_fully_link,
                     ACTION_NAMES.objc_executable,
                     ACTION_NAMES.objcpp_executable,
@@ -2109,20 +2022,7 @@ def _impl(ctx):
                 with_features = [with_feature_set(features = ["fastbuild"])],
             ),
             flag_set(
-                actions = [
-                    ACTION_NAMES.assemble,
-                    ACTION_NAMES.preprocess_assemble,
-                    ACTION_NAMES.linkstamp_compile,
-                    ACTION_NAMES.c_compile,
-                    ACTION_NAMES.cpp_compile,
-                    ACTION_NAMES.cpp_header_parsing,
-                    ACTION_NAMES.cpp_module_compile,
-                    ACTION_NAMES.cpp_module_codegen,
-                    ACTION_NAMES.lto_backend,
-                    ACTION_NAMES.clif_match,
-                    ACTION_NAMES.objc_compile,
-                    ACTION_NAMES.objcpp_compile,
-                ],
+                actions = all_compile_actions,
                 flag_groups = [
                     flag_group(
                         flags = [
@@ -2136,20 +2036,7 @@ def _impl(ctx):
                 with_features = [with_feature_set(features = ["opt"])],
             ),
             flag_set(
-                actions = [
-                    ACTION_NAMES.assemble,
-                    ACTION_NAMES.preprocess_assemble,
-                    ACTION_NAMES.linkstamp_compile,
-                    ACTION_NAMES.c_compile,
-                    ACTION_NAMES.cpp_compile,
-                    ACTION_NAMES.cpp_header_parsing,
-                    ACTION_NAMES.cpp_module_compile,
-                    ACTION_NAMES.cpp_module_codegen,
-                    ACTION_NAMES.lto_backend,
-                    ACTION_NAMES.clif_match,
-                    ACTION_NAMES.objc_compile,
-                    ACTION_NAMES.objcpp_compile,
-                ],
+                actions = all_compile_actions,
                 flag_groups = [flag_group(flags = ["-g"])],
                 with_features = [with_feature_set(features = ["dbg"])],
             ),
@@ -2679,7 +2566,6 @@ def _impl(ctx):
                 flag_groups = [
                     flag_group(
                         flags = [
-                            "-O1",
                             "-gline-tables-only",
                             "-fno-omit-frame-pointer",
                             "-fno-sanitize-recover=all",
@@ -2730,7 +2616,6 @@ def _impl(ctx):
             contains_objc_source_feature,
             objc_actions_feature,
             strip_debug_symbols_feature,
-            symbol_counts_feature,
             shared_flag_feature,
             kernel_extension_feature,
             linkstamps_feature,
@@ -2812,7 +2697,6 @@ def _impl(ctx):
             contains_objc_source_feature,
             objc_actions_feature,
             strip_debug_symbols_feature,
-            symbol_counts_feature,
             shared_flag_feature,
             kernel_extension_feature,
             linkstamps_feature,

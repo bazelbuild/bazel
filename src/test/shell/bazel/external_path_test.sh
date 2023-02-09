@@ -130,7 +130,7 @@ EOF
 }
 
 test_lib_paths_main() {
-  # Verify that libaries from the main repository can be used via include
+  # Verify that libraries from the main repository can be used via include
   # path relative to their repository root and that they may refer to other
   # truly source files from the same library via paths relative to their
   # repository root.
@@ -165,7 +165,7 @@ EOF
 }
 
 test_lib_paths_remote() {
-  # Verify that libaries from an external repository can be used via include
+  # Verify that libraries from an external repository can be used via include
   # path relative to their repository root and that they may refer to other
   # truly source files from the same library via paths relative to their
   # repository root.
@@ -210,7 +210,7 @@ EOF
 }
 
 test_lib_paths_all_remote() {
-  # Verify that libaries from an external repository can be used by another
+  # Verify that libraries from an external repository can be used by another
   # external repository via include path relative to their repository root and
   # that they may refer to other truly source files from the same library via
   # paths relative to their repository root.
@@ -355,7 +355,7 @@ to_upper = rule(
   implementation = _to_upper_impl,
   attrs = {
     "src" : attr.label(allow_files=True),
-    "_toupper_sh" : attr.label(cfg="host", allow_files=True,
+    "_toupper_sh" : attr.label(cfg="exec", allow_files=True,
                                default = Label("//rule:to_upper.sh")),
   },
   outputs = {"upper": "%{name}.txt"},
@@ -508,12 +508,12 @@ to_html = rule(
   implementation = _to_html_impl,
   attrs = {
     "src" : attr.label(allow_files=True),
-    "_to_html" : attr.label(cfg="host", allow_files=True,
+    "_to_html" : attr.label(cfg="exec", allow_files=True,
                                default = Label("//rule:to_html")),
     # knowledge of which paths are embedded is duplicated here!
-    "_preamb" : attr.label(cfg="host", allow_files=True,
+    "_preamb" : attr.label(cfg="exec", allow_files=True,
                                default = Label("//rule:preamb.html")),
-    "_postamb" : attr.label(cfg="host", allow_files=True,
+    "_postamb" : attr.label(cfg="exec", allow_files=True,
                                default = Label("//rule:postamb.html")),
   },
   outputs = {"upper": "%{name}.html"},
@@ -662,10 +662,10 @@ add_preamb = rule(
   implementation = _add_preamb_impl,
   attrs = {
     "src" : attr.label(allow_files=True),
-    "_add_preamb" : attr.label(cfg="host", allow_files=True,
+    "_add_preamb" : attr.label(cfg="exec", allow_files=True,
                                default = Label("//rule:add_preamb")),
     # knowledge of which paths are embedded is duplicated here!
-    "_preamb" : attr.label(cfg="host", allow_files=True,
+    "_preamb" : attr.label(cfg="exec", allow_files=True,
                                default = Label("@data//:file.txt")),
   },
   outputs = {"with_preamb": "%{name}.txt"},

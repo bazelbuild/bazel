@@ -78,10 +78,12 @@ function set_up() {
   cp "$(rlocation io_bazel/src/test/shell/bazel/testdata/pluto-repo.tar.gz)" $repos_dir
   cp "$(rlocation io_bazel/src/test/shell/bazel/testdata/outer-planets-repo.tar.gz)" $repos_dir
   cp "$(rlocation io_bazel/src/test/shell/bazel/testdata/refetch-repo.tar.gz)" $repos_dir
+  cp "$(rlocation io_bazel/src/test/shell/bazel/testdata/strip-prefix-repo.tar.gz)" $repos_dir
   cd $repos_dir
   tar zxf pluto-repo.tar.gz
   tar zxf outer-planets-repo.tar.gz
   tar zxf refetch-repo.tar.gz
+  tar zxf strip-prefix-repo.tar.gz
 
   # Fix environment variables for a hermetic use of git.
   export GIT_CONFIG_NOSYSTEM=1
@@ -371,7 +373,7 @@ EOF
   expect_log "Pluto is a planet"
 }
 
-function test_new_git_repository_submodules() {
+function test_new_git_repository_submodules_with_recursive_init_modules() {
   local outer_planets_repo_dir=$TEST_TMPDIR/repos/outer-planets
 
   # Create a workspace that clones the outer_planets repository.
@@ -684,6 +686,35 @@ EOF
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
   expect_log "shallow_since not allowed if a tag is specified; --depth=1 will be used for tags"
+}
+
+# Verifies that load statement works while using strip_prefix.
+#
+# This test uses the strip-prefix Git repository, which contains the
+# following files:
+#
+# strip-prefix
+# └── prefix-foo
+#     ├── BUILD
+#     ├── WORKSPACE
+#     └── defs.bzl
+function test_git_repository_with_strip_prefix_for_load_statement() {
+  setup_error_test
+  local strip_prefix_repo_dir=$TEST_TMPDIR/repos/strip-prefix
+
+  cd $WORKSPACE_DIR
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+git_repository(
+    name = "foo",
+    remote = "$strip_prefix_repo_dir",
+    commit = "f8167a60de4460e89601724fb13b4fc505da3f3d",
+    strip_prefix = "prefix-foo",
+)
+load("@foo//:defs.bzl", "FOO")
+EOF
+
+  bazel info >& $TEST_log || fail "Expect bazel info to succeed."
 }
 
 run_suite "Starlark git_repository tests"

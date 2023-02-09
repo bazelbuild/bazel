@@ -45,10 +45,10 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
-  private static final Label PLATFORM1 = Label.parseAbsoluteUnchecked("//platforms:one");
+  private static final Label PLATFORM1 = Label.parseCanonicalUnchecked("//platforms:one");
 
   private static final Label DEFAULT_TARGET_PLATFORM =
-      Label.parseAbsoluteUnchecked("@local_config_platform//:host");
+      Label.parseCanonicalUnchecked("@local_config_platform//:host");
 
   private BuildOptions defaultBuildOptions;
 

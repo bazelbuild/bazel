@@ -220,7 +220,8 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
   @Nullable
   TargetAndErrorIfAny loadTarget(Environment env, Label label)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
-    return TargetLoadingUtil.loadTarget(env, label);
+    Object o = TargetLoadingUtil.loadTarget(env, label);
+    return o instanceof TargetAndErrorIfAny ? (TargetAndErrorIfAny) o : null;
   }
 
   /**

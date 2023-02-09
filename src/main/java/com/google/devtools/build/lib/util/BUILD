@@ -143,6 +143,16 @@ java_library(
 )
 
 java_library(
+    name = "pair",
+    srcs = [
+        "Pair.java",
+    ],
+    deps = [
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "util",
     srcs = [
         "AbstractIndexer.java",
@@ -165,7 +175,6 @@ java_library(
         "OptionsUtils.java",
         "OrderedSetMultimap.java",
         "OsUtils.java",
-        "Pair.java",
         "PathFragmentFilter.java",
         "PersistentMap.java",
         "RegexFilter.java",
@@ -176,6 +185,10 @@ java_library(
         "ThreadUtils.java",
         "TimeUtilities.java",
         "UserUtils.java",
+    ],
+    exports = [
+        # vfs depends on the profiler and creates a cycle since we use Pair in profiler
+        ":pair",
     ],
     deps = [
         ":os",
@@ -310,8 +323,9 @@ java_library(
     name = "crash_failure_details",
     srcs = ["CrashFailureDetails.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        ":detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:flogger",
         "//third_party:guava",
     ],
 )
@@ -323,5 +337,15 @@ java_library(
         ":abrupt_exit_exception",
         ":detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
+    ],
+)
+
+java_library(
+    name = "ps_info_collector",
+    srcs = ["PsInfoCollector.java"],
+    deps = [
+        "//third_party:auto_value",
+        "//third_party:flogger",
+        "//third_party:guava",
     ],
 )

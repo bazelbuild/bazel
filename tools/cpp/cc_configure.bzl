@@ -109,7 +109,7 @@ def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
         ])
 
         # This is defaulting to a static crosstool. We should eventually
-        # autoconfigure this platform too. Theorically, FreeBSD and OpenBSD
+        # autoconfigure this platform too. Theoretically, FreeBSD and OpenBSD
         # should be straightforward to add but we cannot run them in a Docker
         # container so skipping until we have proper tests for these platforms.
         repository_ctx.symlink(paths["@bazel_tools//tools/cpp:bsd_cc_toolchain_config.bzl"], "cc_toolchain_config.bzl")
@@ -146,6 +146,7 @@ cc_autoconf = repository_rule(
         "ABI_VERSION",
         "BAZEL_COMPILER",
         "BAZEL_HOST_SYSTEM",
+        "BAZEL_CONLYOPTS",
         "BAZEL_CXXOPTS",
         "BAZEL_LINKOPTS",
         "BAZEL_LINKLIBS",
@@ -169,6 +170,7 @@ cc_autoconf = repository_rule(
         "CPLUS_INCLUDE_PATH",
         "DEVELOPER_DIR",
         "GCOV",
+        "LIBTOOL",
         "HOMEBREW_RUBY_PATH",
         "SYSTEMROOT",
         "USER",

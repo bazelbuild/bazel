@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Bazel Tutorial: Build a Java Project
 
+{% include "_buttons.html" %}
+
 This tutorial covers the basics of building Java applications with
 Bazel. You will set up your workspace and build a simple Java project that
 illustrates key Bazel concepts, such as targets and `BUILD` files.
@@ -425,11 +427,11 @@ For more details, see:
 
 *  The [other rules](/rules) to learn more about Bazel.
 
-*  The [C++ build tutorial](/tutorials/cpp) to get started with building
+*  The [C++ build tutorial](/start/cpp) to get started with building
    C++ projects with Bazel.
 
-*  The [Android application tutorial](/tutorials/android-app) and
-   [iOS application tutorial](/tutorials/ios-app) to get started with
+*  The [Android application tutorial](/start/android-app ) and
+   [iOS application tutorial](/start/ios-app)) to get started with
    building mobile applications for Android and iOS with Bazel.
 
 Happy building!

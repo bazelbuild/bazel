@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.lib.worker.WorkerPool.WorkerPoolConfig;
+import com.google.devtools.build.lib.worker.WorkerPoolImpl.WorkerPoolConfig;
 import java.io.IOException;
 import java.lang.Thread.State;
 import java.util.Map.Entry;
@@ -77,7 +77,7 @@ public class WorkerPoolTest {
   @Test
   public void testBorrow_createsWhenNeeded() throws Exception {
     WorkerPool workerPool =
-        new WorkerPool(
+        new WorkerPoolImpl(
             new WorkerPoolConfig(
                 factoryMock, entryList("mnem", 2, "", 1), entryList(), Lists.newArrayList()));
     WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
@@ -91,7 +91,7 @@ public class WorkerPoolTest {
   @Test
   public void testBorrow_reusesWhenPossible() throws Exception {
     WorkerPool workerPool =
-        new WorkerPool(
+        new WorkerPoolImpl(
             new WorkerPoolConfig(
                 factoryMock, entryList("mnem", 2, "", 1), entryList(), Lists.newArrayList()));
     WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
@@ -105,7 +105,7 @@ public class WorkerPoolTest {
   @Test
   public void testBorrow_usesDefault() throws Exception {
     WorkerPool workerPool =
-        new WorkerPool(
+        new WorkerPoolImpl(
             new WorkerPoolConfig(
                 factoryMock, entryList("mnem", 2, "", 1), entryList(), Lists.newArrayList()));
     WorkerKey workerKey1 = createWorkerKey(fileSystem, "mnem", false);
@@ -123,7 +123,7 @@ public class WorkerPoolTest {
   @Test
   public void testBorrow_pooledByKey() throws Exception {
     WorkerPool workerPool =
-        new WorkerPool(
+        new WorkerPoolImpl(
             new WorkerPoolConfig(
                 factoryMock, entryList("mnem", 2, "", 1), entryList(), Lists.newArrayList()));
     WorkerKey workerKey1 = createWorkerKey(fileSystem, "mnem", false);
@@ -141,7 +141,7 @@ public class WorkerPoolTest {
   @Test
   public void testBorrow_separateMultiplexWorkers() throws Exception {
     WorkerPool workerPool =
-        new WorkerPool(
+        new WorkerPoolImpl(
             new WorkerPoolConfig(
                 factoryMock,
                 entryList("mnem", 1, "", 1),
@@ -168,7 +168,7 @@ public class WorkerPoolTest {
   @Test
   public void testBorrow_allowsOneHiPrio() throws Exception {
     WorkerPool workerPool =
-        new WorkerPool(
+        new WorkerPoolImpl(
             new WorkerPoolConfig(
                 factoryMock,
                 entryList("loprio", 2, "hiprio", 2, "", 1),
@@ -188,7 +188,7 @@ public class WorkerPoolTest {
   @Test
   public void testBorrow_twoHiPrioBlocks() throws Exception {
     WorkerPool workerPool =
-        new WorkerPool(
+        new WorkerPoolImpl(
             new WorkerPoolConfig(
                 factoryMock,
                 entryList("loprio", 2, "hiprio", 2, "", 1),
@@ -200,6 +200,9 @@ public class WorkerPoolTest {
     assertThat(worker1.getWorkerId()).isEqualTo(1);
     assertThat(worker1a.getWorkerId()).isEqualTo(2);
     WorkerKey workerKey2 = createWorkerKey(fileSystem, "loprio", false);
+    assertWithMessage("Could not borrow low priority worker")
+        .that(workerPool.couldBeBorrowed(workerKey2))
+        .isFalse();
     Thread t =
         new Thread(
             () -> {
@@ -220,6 +223,9 @@ public class WorkerPoolTest {
     }
     assertWithMessage("Expected low-priority worker to wait").that(waited).isTrue();
     workerPool.returnObject(workerKey1, worker1);
+    assertWithMessage("Could not borrow low priority worker")
+        .that(workerPool.couldBeBorrowed(workerKey2))
+        .isTrue();
     boolean continued = false;
     for (int tries = 0; tries < 1000; tries++) {
       if (t.getState() != State.WAITING) {

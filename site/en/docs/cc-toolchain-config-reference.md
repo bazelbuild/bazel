@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # C++ Toolchain Configuration
 
+{% include "_buttons.html" %}
+
 ## Overview {:#overview}
 
 To invoke the compiler with the right options, Bazel needs some knowledge about
@@ -156,7 +158,7 @@ support and expansion. These are:
    </td>
   </tr>
   <tr>
-   <td><code>implies = ['feature']</code>
+   <td><pre>implies = ['feature']</pre>
    </td>
    <td><p>Feature-level. This feature implies the specified feature(s).
        Enabling a feature also implicitly enables all features implied by it
@@ -167,7 +169,7 @@ support and expansion. These are:
    </td>
   </tr>
   <tr>
-   <td><code>provides = ['feature']</code>
+   <td><pre>provides = ['feature']</pre>
    </td>
    <td><p>Feature-level. Indicates that this feature is one of several mutually
        exclusive alternate features. For example, all of the sanitizers could
@@ -566,7 +568,7 @@ within the flag value, which the compiler expands when adding the flag to the
 build command. For example:
 
     flag_group (
-        flags = ["%{output_file_path}"],
+        flags = ["%{output_execpath}"],
     )
 
 
@@ -926,13 +928,6 @@ Note: The **Action** column indicates the relevant action type, if applicable.
    </td>
   </tr>
   <tr>
-   <td><strong><code>symbol_counts_output</code></strong>
-   </td>
-   <td>link</td>
-   <td>Path to which to write symbol counts.
-   </td>
-  </tr>
-  <tr>
    <td><strong><code>linkstamp_paths</code></strong>
    </td>
    <td>link</td>
@@ -1123,7 +1118,6 @@ conditions.
     <li>Adds <code>autofdo</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>build_interface_libraries</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>dynamic_library_linker_tool</code> (if not present) feature to the top of the toolchain</li>
-    <li>Adds <code>symbol_counts</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>shared_flag</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>linkstamps</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>output_execpath_flags</code> (if not present) feature to the top of the toolchain</li>

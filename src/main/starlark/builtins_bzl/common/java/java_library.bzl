@@ -16,7 +16,7 @@
 Definition of java_library rule.
 """
 
-load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS", "basic_java_library", "construct_defaultinfo")
+load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "construct_defaultinfo")
 load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/java_semantics.bzl", "semantics")
 
@@ -112,7 +112,7 @@ def _proxy(ctx):
         ctx.attr.add_opens,
     ).values()
 
-JAVA_LIBRARY_IMPLICIT_ATTRS = BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS
+JAVA_LIBRARY_IMPLICIT_ATTRS = BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS
 
 JAVA_LIBRARY_ATTRS = merge_attrs(
     JAVA_LIBRARY_IMPLICIT_ATTRS,

@@ -220,7 +220,7 @@ EOF
   [[ "$(cat "${output_file}")" == bar ]] \
       || fail "External change to action cache misdetected"
 
-  # For completeness, make the changes to the same output file visibile and
+  # For completeness, make the changes to the same output file visible and
   # ensure Blaze notices them.  This is to check that we actually modified the
   # right output file above.
   touch "${output_file}"

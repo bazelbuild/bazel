@@ -32,8 +32,11 @@ fi
 
 # set command prefix for cross-compilation
 if [ -n "${CHOST}" ]; then
-    uname="`echo "${CHOST}" | sed -e 's/^[^-]*-\([^-]*\)$/\1/' -e 's/^[^-]*-[^-]*-\([^-]*\)$/\1/' -e 's/^[^-]*-[^-]*-\([^-]*\)-.*$/\1/'`"
+    uname=${CHOST}
+    mname=${CHOST}
     CROSS_PREFIX="${CHOST}-"
+else
+    mname=`(uname -a || echo unknown) 2>/dev/null`
 fi
 
 # destination name for static library
@@ -174,9 +177,10 @@ if test -z "$CC"; then
   else
     cc=${CROSS_PREFIX}cc
   fi
+else
+  cc=${CC}
 fi
-cflags=${CFLAGS-"-O3"}
-# to force the asm version use: CFLAGS="-O3 -DASMV" ./configure
+
 case "$cc" in
   *gcc*) gcc=1 ;;
   *clang*) gcc=1 ;;
@@ -202,13 +206,13 @@ if test "$gcc" -eq 1 && ($cc -c $test.c) >> configure.log 2>&1; then
   fi
   if test "$warn" -eq 1; then
     if test "$zconst" -eq 1; then
-      CFLAGS="${CFLAGS} -Wall -Wextra -Wcast-qual -pedantic -DZLIB_CONST"
+      CFLAGS="${CFLAGS} -Wall -Wextra -Wcast-qual -DZLIB_CONST"
     else
-      CFLAGS="${CFLAGS} -Wall -Wextra -pedantic"
+      CFLAGS="${CFLAGS} -Wall -Wextra"
     fi
   fi
   if test $sanitize -eq 1; then
-    CFLAGS="${CFLAGS} -fsanitize=address"
+    CFLAGS="${CFLAGS} -g -fsanitize=address"
   fi
   if test $debug -eq 1; then
     CFLAGS="${CFLAGS} -DZLIB_DEBUG"
@@ -218,47 +222,52 @@ if test "$gcc" -eq 1 && ($cc -c $test.c) >> configure.log 2>&1; then
     uname=`(uname -s || echo unknown) 2>/dev/null`
   fi
   case "$uname" in
-  Linux* | linux* | GNU | GNU/* | solaris*)
+  Linux* | linux* | *-linux* | GNU | GNU/* | solaris*)
+        case "$mname" in
+        *sparc*)
+            LDFLAGS="${LDFLAGS} -Wl,--no-warn-rwx-segments" ;;
+        esac
         LDSHARED=${LDSHARED-"$cc -shared -Wl,-soname,libz.so.1,--version-script,${SRCDIR}zlib.map"} ;;
   *BSD | *bsd* | DragonFly)
         LDSHARED=${LDSHARED-"$cc -shared -Wl,-soname,libz.so.1,--version-script,${SRCDIR}zlib.map"}
         LDCONFIG="ldconfig -m" ;;
-  CYGWIN* | Cygwin* | cygwin* | OS/2*)
+  CYGWIN* | Cygwin* | cygwin* | *-cygwin* | OS/2*)
         EXE='.exe' ;;
-  MINGW* | mingw*)
-# temporary bypass
+  MINGW* | mingw* | *-mingw*)
         rm -f $test.[co] $test $test$shared_ext
-        echo "Please use win32/Makefile.gcc instead." | tee -a configure.log
-        leave 1
+        echo "If this doesn't work for you, try win32/Makefile.gcc." | tee -a configure.log
         LDSHARED=${LDSHARED-"$cc -shared"}
         LDSHAREDLIBC=""
         EXE='.exe' ;;
-  QNX*)  # This is for QNX6. I suppose that the QNX rule below is for QNX2,QNX4
-         # (alain.bonnefoy@icbt.com)
-                 LDSHARED=${LDSHARED-"$cc -shared -Wl,-hlibz.so.1"} ;;
+  QNX*) # This is for QNX6. I suppose that the QNX rule below is for QNX2,QNX4
+        # (alain.bonnefoy@icbt.com)
+        LDSHARED=${LDSHARED-"$cc -shared -Wl,-hlibz.so.1"} ;;
   HP-UX*)
-         LDSHARED=${LDSHARED-"$cc -shared $SFLAGS"}
-         case `(uname -m || echo unknown) 2>/dev/null` in
-         ia64)
-                 shared_ext='.so'
-                 SHAREDLIB='libz.so' ;;
-         *)
-                 shared_ext='.sl'
-                 SHAREDLIB='libz.sl' ;;
-         esac ;;
-  Darwin* | darwin*)
-             shared_ext='.dylib'
-             SHAREDLIB=libz$shared_ext
-             SHAREDLIBV=libz.$VER$shared_ext
-             SHAREDLIBM=libz.$VER1$shared_ext
-             LDSHARED=${LDSHARED-"$cc -dynamiclib -install_name $libdir/$SHAREDLIBM -compatibility_version $VER1 -current_version $VER3"}
-             if libtool -V 2>&1 | grep Apple > /dev/null; then
-                 AR="libtool"
-             else
-                 AR="/usr/bin/libtool"
-             fi
-             ARFLAGS="-o" ;;
-  *)             LDSHARED=${LDSHARED-"$cc -shared"} ;;
+        LDSHARED=${LDSHARED-"$cc -shared $SFLAGS"}
+        case `(uname -m || echo unknown) 2>/dev/null` in
+        ia64)
+            shared_ext='.so'
+            SHAREDLIB='libz.so' ;;
+        *)
+            shared_ext='.sl'
+            SHAREDLIB='libz.sl' ;;
+        esac ;;
+  AIX*)
+        LDFLAGS="${LDFLAGS} -Wl,-brtl" ;;
+  Darwin* | darwin* | *-darwin*)
+        shared_ext='.dylib'
+        SHAREDLIB=libz$shared_ext
+        SHAREDLIBV=libz.$VER$shared_ext
+        SHAREDLIBM=libz.$VER1$shared_ext
+        LDSHARED=${LDSHARED-"$cc -dynamiclib -install_name $libdir/$SHAREDLIBM -compatibility_version $VER1 -current_version $VER3"}
+        if libtool -V 2>&1 | grep Apple > /dev/null; then
+            AR="libtool"
+        else
+            AR="/usr/bin/libtool"
+        fi
+        ARFLAGS="-o" ;;
+  *)
+        LDSHARED=${LDSHARED-"$cc -shared"} ;;
   esac
 else
   # find system name and corresponding cc options
@@ -449,20 +458,6 @@ else
   ALL="static shared"
   TEST="all teststatic testshared"
 fi
-
-# check for underscores in external names for use by assembler code
-CPP=${CPP-"$CC -E"}
-case $CFLAGS in
-  *ASMV*)
-    echo >> configure.log
-    show "$NM $test.o | grep _hello"
-    if test "`$NM $test.o | grep _hello | tee -a configure.log`" = ""; then
-      CPP="$CPP -DNO_UNDERLINE"
-      echo Checking for underline in external names... No. | tee -a configure.log
-    else
-      echo Checking for underline in external names... Yes. | tee -a configure.log
-    fi ;;
-esac
 
 echo >> configure.log
 

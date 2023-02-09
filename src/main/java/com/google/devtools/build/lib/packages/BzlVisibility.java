@@ -18,7 +18,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import java.util.List;
 
-/** A visibility level governing the loading of a .bzl module. */
+/**
+ * A visibility level governing the loading of a .bzl module.
+ *
+ * <p>This is just a container for a list of PackageSpecifications; the scope of visibility is the
+ * union of all specifications.
+ */
+// TODO(brandjon): If we ever support negation then this class would become a bit fancier -- it'd
+// have to assemble multiple distinct lists, a la PackageSpecificationProvider and
+// PackageSpecification.PackageGroupContents. At the moment we don't anticipate that though.
+//
+// TODO(brandjon): If we have a large allowlist consumed by many .bzl files, we may end up with many
+// copies of the allowlist embedded in different instances of this class. Consider more aggressive
+// interning.
 public abstract class BzlVisibility {
 
   private BzlVisibility() {}
@@ -29,6 +41,23 @@ public abstract class BzlVisibility {
    * the one containing the .bzl (i.e. this method may return false in that case).
    */
   public abstract boolean allowsPackage(PackageIdentifier pkg);
+
+  /**
+   * Returns a (possibly interned) {@code BzlVisibility} that allows access as per the given package
+   * specifications.
+   */
+  public static BzlVisibility of(List<PackageSpecification> specs) {
+    if (specs.isEmpty()
+        || (specs.size() == 1 && specs.get(0) instanceof PackageSpecification.NoPackages)) {
+      return PRIVATE;
+    }
+    for (PackageSpecification spec : specs) {
+      if (spec instanceof PackageSpecification.AllPackages) {
+        return PUBLIC;
+      }
+    }
+    return new ListBzlVisibility(specs);
+  }
 
   /** A visibility indicating that everyone may load the .bzl */
   public static final BzlVisibility PUBLIC =
@@ -53,16 +82,12 @@ public abstract class BzlVisibility {
 
   /**
    * A visibility that decides whether a package's BUILD and .bzl files may load the .bzl by
-   * checking the package against a set of package specifications.
-   *
-   * <p>Package specifications may have the form {@code //foo/bar} or {@code //foo/bar/...}. Negated
-   * package specifications are not yet supported.
+   * checking the package against a set of {@link PackageSpecifications}s.
    */
-  // TODO(b/22193153): Negation.
-  public static class PackageListBzlVisibility extends BzlVisibility {
+  private static class ListBzlVisibility extends BzlVisibility {
     private final ImmutableList<PackageSpecification> specs;
 
-    public PackageListBzlVisibility(List<PackageSpecification> specs) {
+    public ListBzlVisibility(List<PackageSpecification> specs) {
       this.specs = ImmutableList.copyOf(specs);
     }
 

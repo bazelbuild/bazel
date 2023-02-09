@@ -453,26 +453,6 @@ public class CppActionConfigs {
                         "    }",
                         "  }")));
       }
-
-      if (!existingFeatureNames.contains("symbol_counts")) {
-        featureBuilder.add(
-            getFeature(
-                Joiner.on("\n")
-                    .join(
-                        "  name: 'symbol_counts'",
-                        "  flag_set {",
-                        "    action: 'c++-link-executable'",
-                        "    action: 'c++-link-dynamic-library'",
-                        "    action: 'c++-link-nodeps-dynamic-library'",
-                        "    action: 'lto-index-for-dynamic-library'",
-                        "    action: 'lto-index-for-nodeps-dynamic-library'",
-                        "    action: 'lto-index-for-executable'",
-                        "    flag_group {",
-                        "      expand_if_all_available: 'symbol_counts_output'",
-                        "      flag: '-Wl,--print-symbol-counts=%{symbol_counts_output}'",
-                        "    }",
-                        "  }")));
-      }
       if (!existingFeatureNames.contains("shared_flag")) {
         featureBuilder.add(
             getFeature(
@@ -549,18 +529,25 @@ public class CppActionConfigs {
                         "      flag_group {",
                         "        expand_if_true: 'is_cc_test'",
                         // TODO(b/27153401): This should probably be @loader_path on osx.
-                        "        flag: ",
-                        "          '-Wl,-rpath,$EXEC_ORIGIN/%{runtime_library_search_directories}'",
+                        "        flag: '-Xlinker'",
+                        "        flag: '-rpath'",
+                        "        flag: '-Xlinker'",
+                        "        flag: '$EXEC_ORIGIN/%{runtime_library_search_directories}'",
                         "      }",
                         "      flag_group {",
                         "        expand_if_false: 'is_cc_test'",
                         ifLinux(
                             platform,
-                            "        flag: '-Wl,-rpath,$ORIGIN/"
-                                + "%{runtime_library_search_directories}'"),
+                            "        flag: '-Xlinker'",
+                            "        flag: '-rpath'",
+                            "        flag: '-Xlinker'",
+                            "        flag: '$ORIGIN/" + "%{runtime_library_search_directories}'"),
                         ifMac(
                             platform,
-                            "        flag: '-Wl,-rpath,@loader_path/"
+                            "        flag: '-Xlinker'",
+                            "        flag: '-rpath'",
+                            "        flag: '-Xlinker'",
+                            "        flag: '@loader_path/"
                                 + "%{runtime_library_search_directories}'"),
                         "      }",
                         "    }",
@@ -579,11 +566,16 @@ public class CppActionConfigs {
                         "      flag_group {",
                         ifLinux(
                             platform,
-                            "        flag: '-Wl,-rpath,$ORIGIN/"
-                                + "%{runtime_library_search_directories}'"),
+                            "        flag: '-Xlinker'",
+                            "        flag: '-rpath'",
+                            "        flag: '-Xlinker'",
+                            "        flag: '$ORIGIN/" + "%{runtime_library_search_directories}'"),
                         ifMac(
                             platform,
-                            "        flag: '-Wl,-rpath,@loader_path/"
+                            "        flag: '-Xlinker'",
+                            "        flag: '-rpath'",
+                            "        flag: '-Xlinker'",
+                            "        flag: '@loader_path/"
                                 + "%{runtime_library_search_directories}'"),
                         "    }",
                         "  }",
@@ -1188,7 +1180,6 @@ public class CppActionConfigs {
                         "  tool {",
                         "    tool_path: '" + gccToolPath + "'",
                         "  }",
-                        "  implies: 'symbol_counts'",
                         "  implies: 'strip_debug_symbols'",
                         "  implies: 'linkstamps'",
                         "  implies: 'output_execpath_flags'",
@@ -1212,7 +1203,6 @@ public class CppActionConfigs {
                         "  tool {",
                         "    tool_path: '" + gccToolPath + "'",
                         "  }",
-                        "  implies: 'symbol_counts'",
                         "  implies: 'strip_debug_symbols'",
                         "  implies: 'linkstamps'",
                         "  implies: 'output_execpath_flags'",
@@ -1238,7 +1228,6 @@ public class CppActionConfigs {
                         "  }",
                         "  implies: 'build_interface_libraries'",
                         "  implies: 'dynamic_library_linker_tool'",
-                        "  implies: 'symbol_counts'",
                         "  implies: 'strip_debug_symbols'",
                         "  implies: 'shared_flag'",
                         "  implies: 'linkstamps'",
@@ -1264,7 +1253,6 @@ public class CppActionConfigs {
                         "  }",
                         "  implies: 'build_interface_libraries'",
                         "  implies: 'dynamic_library_linker_tool'",
-                        "  implies: 'symbol_counts'",
                         "  implies: 'strip_debug_symbols'",
                         "  implies: 'shared_flag'",
                         "  implies: 'linkstamps'",
@@ -1290,7 +1278,6 @@ public class CppActionConfigs {
                         "  }",
                         "  implies: 'build_interface_libraries'",
                         "  implies: 'dynamic_library_linker_tool'",
-                        "  implies: 'symbol_counts'",
                         "  implies: 'strip_debug_symbols'",
                         "  implies: 'shared_flag'",
                         "  implies: 'linkstamps'",
@@ -1316,7 +1303,6 @@ public class CppActionConfigs {
                         "  }",
                         "  implies: 'build_interface_libraries'",
                         "  implies: 'dynamic_library_linker_tool'",
-                        "  implies: 'symbol_counts'",
                         "  implies: 'strip_debug_symbols'",
                         "  implies: 'shared_flag'",
                         "  implies: 'linkstamps'",

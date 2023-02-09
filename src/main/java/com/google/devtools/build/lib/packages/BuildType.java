@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -464,11 +465,12 @@ public final class BuildType {
     public Set<Label> getKeyLabels() {
       ImmutableSet.Builder<Label> keys = ImmutableSet.builder();
       for (Selector<T> selector : elements) {
-        for (Label label : selector.getEntries().keySet()) {
-          if (!Selector.isDefaultConditionLabel(label)) {
-            keys.add(label);
-          }
-        }
+        selector.forEach(
+            (label, value) -> {
+              if (!Selector.isDefaultConditionLabel(label)) {
+                keys.add(label);
+              }
+            });
       }
       return keys.build();
     }
@@ -484,7 +486,7 @@ public final class BuildType {
       // directly on that type.
       List<SelectorValue> selectorValueList = new ArrayList<>();
       for (Selector<T> element : elements) {
-        selectorValueList.add(new SelectorValue(element.getEntries(), element.getNoMatchError()));
+        selectorValueList.add(new SelectorValue(element.mapCopy(), element.getNoMatchError()));
       }
       try {
         printer.repr(com.google.devtools.build.lib.packages.SelectorList.of(selectorValueList));
@@ -511,9 +513,9 @@ public final class BuildType {
   }
 
   /**
-   * Special Type that represents a selector expression for configurable attributes. Holds a mapping
-   * of {@code <Label, T>} entries, where keys are configurability patterns and values are objects
-   * of the attribute's native Type.
+   * Represents the entries in a single select expression (in the order they were initially
+   * specified). Contains the configurability pattern (label) and value (objects of the attribute's
+   * native type) of each entry.
    */
   public static final class Selector<T> {
     /** Value to use when none of an attribute's selection criteria match. */
@@ -521,14 +523,18 @@ public final class BuildType {
     public static final String DEFAULT_CONDITION_KEY = "//conditions:default";
 
     static final Label DEFAULT_CONDITION_LABEL =
-        Label.parseAbsoluteUnchecked(DEFAULT_CONDITION_KEY);
+        Label.parseCanonicalUnchecked(DEFAULT_CONDITION_KEY);
 
     private final Type<T> originalType;
-    // Can hold null values, underlying implementation should be ordered.
-    private final Map<Label, T> map;
+
+    private final Label[] labels;
+
+    // Can contain nulls.
+    private final T[] values;
+
     private final Set<Label> conditionsWithDefaultValues;
     private final String noMatchError;
-    private final boolean hasDefaultCondition;
+    private final int defaultConditionPos;
 
     /** Creates a new Selector using the default error message when no conditions match. */
     Selector(
@@ -546,64 +552,127 @@ public final class BuildType {
         String noMatchError)
         throws ConversionException {
       this.originalType = originalType;
-      LinkedHashMap<Label, T> result = Maps.newLinkedHashMapWithExpectedSize(x.size());
+      Label[] labels = new Label[x.size()];
+      @SuppressWarnings("unchecked")
+      T[] values = (T[]) new Object[x.size()];
       ImmutableSet.Builder<Label> defaultValuesBuilder = ImmutableSet.builder();
-      boolean foundDefaultCondition = false;
+      int pos = 0;
+      int defaultConditionPos = -1;
       for (Map.Entry<?, ?> entry : x.entrySet()) {
         Label key = LABEL.convert(entry.getKey(), what, context);
-        if (key.equals(DEFAULT_CONDITION_LABEL)) {
-          foundDefaultCondition = true;
-        }
+        labels[pos] = key;
+        T value;
         if (entry.getValue() == Starlark.NONE) {
           // { "//condition": None } is the same as not setting the value.
-          result.put(key, originalType.getDefaultValue());
+          value = originalType.getDefaultValue();
           defaultValuesBuilder.add(key);
         } else {
           Object selectBranch = what == null ? null : new SelectBranchMessage(what, key);
-          result.put(key, originalType.convert(entry.getValue(), selectBranch, context));
+          value = originalType.convert(entry.getValue(), selectBranch, context);
         }
+        if (key.equals(DEFAULT_CONDITION_LABEL)) {
+          defaultConditionPos = pos;
+        }
+        values[pos] = value;
+        pos++;
       }
-      this.map = Collections.unmodifiableMap(result);
+      this.labels = labels;
+      this.values = values;
       this.noMatchError = noMatchError;
       this.conditionsWithDefaultValues = defaultValuesBuilder.build();
-      this.hasDefaultCondition = foundDefaultCondition;
+      this.defaultConditionPos = defaultConditionPos;
     }
 
     /**
-     * Create a new Selector from raw values. A defensive copy of the supplied map is <i>not</i>
-     * made, so it imperative that it is not modified following construction.
+     * Create a new Selector from raw values. Defensive copies of the supplied arrays are <i>not</i>
+     * made, so it is imperative that they are not modified following construction.
      */
     Selector(
-        LinkedHashMap<Label, T> map,
+        Label[] labels,
+        T[] values,
         Type<T> originalType,
         String noMatchError,
         ImmutableSet<Label> conditionsWithDefaultValues,
-        boolean hasDefaultCondition) {
+        int defaultConditionPos) {
+      this.labels = labels;
+      this.values = values;
       this.originalType = originalType;
-      this.map = Collections.unmodifiableMap(map);
       this.noMatchError = noMatchError;
       this.conditionsWithDefaultValues = conditionsWithDefaultValues;
-      this.hasDefaultCondition = hasDefaultCondition;
+      this.defaultConditionPos = defaultConditionPos;
     }
 
-    /**
-     * Returns the selector's (configurability pattern --gt; matching values) map.
-     *
-     * <p>Entries in this map retain the order of the entries in the map provided to the {@link
-     * #Selector} constructor.
-     */
-    public Map<Label, T> getEntries() {
-      return map;
+    public boolean hasDefault() {
+      return defaultConditionPos >= 0;
     }
 
     /** Returns the value to use when none of the attribute's selection keys match. */
+    @Nullable
     public T getDefault() {
-      return map.get(DEFAULT_CONDITION_LABEL);
+      return defaultConditionPos < 0 ? null : values[defaultConditionPos];
     }
 
-    /** Returns whether or not this selector has a default condition. */
-    public boolean hasDefault() {
-      return hasDefaultCondition;
+    /**
+     * Returns a new {@link ArrayList} containing all the values in the entries of this {@link
+     * Selector}, in the same order they were initially specified.
+     *
+     * <p>Prefer using {@link #forEach} since that makes no allocations.
+     */
+    public ArrayList<T> valuesCopy() {
+      // N.B. We can't use ImmutableList since we can have null values.
+      ArrayList<T> result = Lists.newArrayListWithCapacity(getNumEntries());
+      forEach((label, value) -> result.add(value));
+      return result;
+    }
+
+    /**
+     * Returns a new {@link LinkedHashMap} representing the branches of this {@link Selector}, in
+     * the same order they were initially specified.
+     *
+     * <p>Prefer using {@link #forEach} since that makes no allocations.
+     */
+    public LinkedHashMap<Label, T> mapCopy() {
+      // N.B. We can't use ImmutableMap since we can have null values. But we also want to respect
+      // the ordering of our original map, so we use LinkedHashMap instead of HashMap.
+      LinkedHashMap<Label, T> result = Maps.newLinkedHashMapWithExpectedSize(getNumEntries());
+      forEach(result::put);
+      return result;
+    }
+
+    /** Consumer for {@link #forEach}. */
+    public interface SelectorEntryConsumer<T> {
+      void accept(Label conditionLabel, @Nullable T value);
+    }
+
+    /**
+     * Passes each entry to the provided {@code consumer}, in the same order they were initially
+     * specified.
+     */
+    public void forEach(SelectorEntryConsumer<T> consumer) {
+      for (int i = 0; i < labels.length; i++) {
+        consumer.accept(labels[i], values[i]);
+      }
+    }
+
+    /** Consumer for {@link #forEachExceptionally}. */
+    interface ExceptionalSelectorEntryConsumer<T, E1 extends Exception, E2 extends Exception> {
+      void accept(Label conditionLabel, @Nullable T value) throws E1, E2;
+    }
+
+    /**
+     * Passes each entry to the provided {@code consumer}, in the same order they were initially
+     * specified.
+     */
+    public <E1 extends Exception, E2 extends Exception> void forEachExceptionally(
+        ExceptionalSelectorEntryConsumer<T, E1, E2> consumer) throws E1, E2 {
+      for (int i = 0; i < labels.length; i++) {
+        consumer.accept(labels[i], values[i]);
+      }
+    }
+
+    /** Returns the number of entries. */
+    public int getNumEntries() {
+      return labels.length;
     }
 
     /**
@@ -619,7 +688,7 @@ public final class BuildType {
      * all values are always chosen.
      */
     public boolean isUnconditional() {
-      return map.size() == 1 && hasDefaultCondition;
+      return labels.length == 1 && defaultConditionPos >= 0;
     }
 
     /**

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Converting CocoaPods Dependencies
 
+{% include "_buttons.html" %}
+
 CocoaPods is a third-party dependency management system for Apple application
 development.
 

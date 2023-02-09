@@ -104,7 +104,8 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
 
     OptionsParsingResult result =
         parseStarlarkOptions(
-            "--@starlark_options_test//test:my_int_setting=666 --@repo2//:flag2=222");
+            "--@starlark_options_test//test:my_int_setting=666 --@repo2//:flag2=222",
+            /* onlyStarlarkParser= */ true);
 
     assertThat(result.getStarlarkOptions()).hasSize(2);
     assertThat(result.getStarlarkOptions().get("//test:my_int_setting"))
@@ -161,7 +162,8 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     OptionsParsingException e =
         assertThrows(
             OptionsParsingException.class,
-            () -> parseStarlarkOptions("-//test:my_int_setting=666"));
+            () ->
+                parseStarlarkOptions("-//test:my_int_setting=666", /* onlyStarlarkParser= */ true));
     assertThat(e).hasMessageThat().isEqualTo("Invalid options syntax: -//test:my_int_setting=666");
   }
 

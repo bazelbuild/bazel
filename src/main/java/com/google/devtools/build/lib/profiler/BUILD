@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//src:__subpackages__"])
 
@@ -13,9 +13,10 @@ java_library(
     srcs = [
         "AutoProfiler.java",
         "CollectLocalResourceUsage.java",
+        "CounterSeriesTraceData.java",
+        "JsonTraceFileWriter.java",
         "MemoryProfiler.java",
         "MetricData.java",
-        "MnemonicData.java",
         "PredicateBasedStatRecorder.java",
         "ProfilePhase.java",
         "Profiler.java",
@@ -23,22 +24,39 @@ java_library(
         "SilentCloseable.java",
         "SingleStatRecorder.java",
         "StatRecorder.java",
+        "ThreadMetadata.java",
         "TimeSeries.java",
+        "TraceData.java",
     ],
     deps = [
-        ":system_network_stats",
+        ":network_metrics_collector",
+        "//src/main/java/com/google/devtools/build/lib/actions:resource_estimator",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect:extrema",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_metric",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
         "//third_party:error_prone_annotations",
         "//third_party:flogger",
         "//third_party:gson",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "network_metrics_collector",
+    srcs = ["NetworkMetricsCollector.java"],
+    deps = [
+        ":system_network_stats",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//third_party:auto_value",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -79,20 +97,6 @@ java_library(
         ":profiler",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//third_party:auto_value",
-        "//third_party:gson",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_binary(
-    name = "profiler-grapher",
-    srcs = glob([
-        "grapher/*.java",
-    ]),
-    main_class = "com.google.devtools.build.lib.profiler.grapher.ProfileGrapher",
-    deps = [
-        ":profiler",
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",

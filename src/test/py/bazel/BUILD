@@ -91,7 +91,6 @@ py_test(
     ],
     deps = [
         ":test_base",
-        "//third_party/py/six",
     ],
 )
 
@@ -241,13 +240,6 @@ py_test(
     name = "query_test",
     size = "medium",
     srcs = ["query_test.py"],
-    deps = [":test_base"],
-)
-
-py_test(
-    name = "action_replay_test",
-    size = "medium",
-    srcs = ["action_replay_test.py"],
     deps = [":test_base"],
 )
 

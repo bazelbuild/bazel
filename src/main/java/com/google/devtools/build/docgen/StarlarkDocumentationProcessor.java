@@ -57,7 +57,7 @@ public final class StarlarkDocumentationProcessor {
 
     DocLinkMap linkMap = DocLinkMap.createFromFile(linkMapPath);
     StarlarkDocExpander expander =
-        new StarlarkDocExpander(new RuleLinkExpander(/*singlePage*/ false, linkMap));
+        new StarlarkDocExpander(new RuleLinkExpander(/* singlePage= */ false, linkMap));
 
     Map<String, StarlarkBuiltinDoc> modules =
         new TreeMap<>(StarlarkDocumentationCollector.getAllModules(expander));
@@ -244,7 +244,7 @@ public final class StarlarkDocumentationProcessor {
     PROVIDER(
         "Providers",
         "This section lists providers available on built-in rules. See the <a"
-            + " href='$STARLARK_DOCS_ROOT/rules.html#providers'>Rules page</a> for more on"
+            + " href='https://bazel.build/extending/rules#providers'>Rules page</a> for more on"
             + " providers."),
 
     BUILTIN("Built-in Types", "This section lists types of Starlark objects."),

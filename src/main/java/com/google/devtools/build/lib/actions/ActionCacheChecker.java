@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
@@ -220,12 +221,25 @@ public class ActionCacheChecker {
     if (handler != null) {
       if (cacheConfig.verboseExplanations()) {
         String keyDescription = action.describeKey();
+        String execPlatform =
+            action.getExecutionPlatform() == null
+                ? "<null>"
+                : action.getExecutionPlatform().toString();
+        String execProps = action.getExecProperties().toString();
         reportRebuild(
             handler,
             action,
             keyDescription == null
                 ? "action command has changed"
-                : "action command has changed.\nNew action: " + keyDescription);
+                : "action command has changed.\n"
+                    + "New action: "
+                    + keyDescription // keyDescription ends with newline already.
+                    + "    Platform: "
+                    + execPlatform
+                    + "\n"
+                    + "    Exec Properties: "
+                    + execProps
+                    + "\n");
       } else {
         reportRebuild(
             handler,
@@ -286,9 +300,10 @@ public class ActionCacheChecker {
     Map<String, String> usedClientEnv = computeUsedClientEnv(action, clientEnv);
     Map<String, String> usedExecProperties =
         computeUsedExecProperties(action, remoteDefaultPlatformProperties);
-    // Combining the Client environment with the Remote Default Execution Properties, because
-    // the Miss Reason is not used currently by Bazel, therefore there is no need to distinguish
-    // between these two cases. This also saves memory used for the Action Cache.
+    // Combining the Client environment with the Remote Default Execution Properties and Output
+    // Permissions, because the Miss Reason is not used currently by Bazel, therefore there is no
+    // need to distinguish between these property types. This also saves memory used for the Action
+    // Cache.
     Map<String, String> usedEnvironment = new HashMap<>();
     usedEnvironment.putAll(usedClientEnv);
     usedEnvironment.putAll(usedExecProperties);
@@ -414,11 +429,12 @@ public class ActionCacheChecker {
       Action action,
       List<Artifact> resolvedCacheArtifacts,
       Map<String, String> clientEnv,
+      OutputPermissions outputPermissions,
       EventHandler handler,
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       Map<String, String> remoteDefaultPlatformProperties,
-      boolean isRemoteCacheEnabled)
+      boolean loadCachedOutputMetadata)
       throws InterruptedException {
     // TODO(bazel-team): (2010) For RunfilesAction/SymlinkAction and similar actions that
     // produce only symlinks we should not check whether inputs are valid at all - all that matters
@@ -463,7 +479,7 @@ public class ActionCacheChecker {
     if (entry != null
         && !entry.isCorrupted()
         && cacheConfig.storeOutputMetadata()
-        && isRemoteCacheEnabled) {
+        && loadCachedOutputMetadata) {
       // load remote metadata from action cache
       cachedOutputMetadata = loadCachedOutputMetadata(action, entry, metadataHandler);
     }
@@ -476,6 +492,7 @@ public class ActionCacheChecker {
         artifactExpander,
         actionInputs,
         clientEnv,
+        outputPermissions,
         remoteDefaultPlatformProperties,
         cachedOutputMetadata)) {
       if (entry != null) {
@@ -505,6 +522,7 @@ public class ActionCacheChecker {
       ArtifactExpander artifactExpander,
       NestedSet<Artifact> actionInputs,
       Map<String, String> clientEnv,
+      OutputPermissions outputPermissions,
       Map<String, String> remoteDefaultPlatformProperties,
       @Nullable CachedOutputMetadata cachedOutputMetadata)
       throws InterruptedException {
@@ -537,7 +555,7 @@ public class ActionCacheChecker {
     }
     Map<String, String> usedEnvironment =
         computeUsedEnv(action, clientEnv, remoteDefaultPlatformProperties);
-    if (!entry.usedSameClientEnv(usedEnvironment)) {
+    if (!entry.sameActionProperties(usedEnvironment, outputPermissions)) {
       reportClientEnv(handler, action, usedEnvironment);
       actionCache.accountMiss(MissReason.DIFFERENT_ENVIRONMENT);
       return true;
@@ -575,6 +593,7 @@ public class ActionCacheChecker {
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       Map<String, String> clientEnv,
+      OutputPermissions outputPermissions,
       Map<String, String> remoteDefaultPlatformProperties)
       throws IOException, InterruptedException {
     checkState(cacheConfig.enabled(), "cache unexpectedly disabled, action: %s", action);
@@ -590,7 +609,8 @@ public class ActionCacheChecker {
         new ActionCache.Entry(
             action.getKey(actionKeyContext, artifactExpander),
             usedEnvironment,
-            action.discoversInputs());
+            action.discoversInputs(),
+            outputPermissions);
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
       String execPath = output.getExecPathString();
@@ -741,7 +761,7 @@ public class ActionCacheChecker {
       // Compute the aggregated middleman digest.
       // Since we never validate action key for middlemen, we should not store
       // it in the cache entry and just use empty string instead.
-      entry = new ActionCache.Entry("", ImmutableMap.of(), false);
+      entry = new ActionCache.Entry("", ImmutableMap.of(), false, OutputPermissions.READONLY);
       for (Artifact input : action.getInputs().toList()) {
         entry.addInputFile(
             input.getExecPath(), getMetadataMaybe(metadataHandler, input), /*saveExecPath=*/ true);
@@ -763,11 +783,12 @@ public class ActionCacheChecker {
       Action action,
       List<Artifact> resolvedCacheArtifacts,
       Map<String, String> clientEnv,
+      OutputPermissions outputPermissions,
       EventHandler handler,
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       Map<String, String> remoteDefaultPlatformProperties,
-      boolean isRemoteCacheEnabled)
+      boolean loadCachedOutputMetadata)
       throws InterruptedException {
     if (action != null) {
       removeCacheEntry(action);
@@ -776,11 +797,12 @@ public class ActionCacheChecker {
         action,
         resolvedCacheArtifacts,
         clientEnv,
+        outputPermissions,
         handler,
         metadataHandler,
         artifactExpander,
         remoteDefaultPlatformProperties,
-        isRemoteCacheEnabled);
+        loadCachedOutputMetadata);
   }
 
   /** Returns an action key. It is always set to the first output exec path string. */

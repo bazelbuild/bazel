@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import http.server
 import os
+import socketserver
 import threading
 import unittest
-from six.moves import SimpleHTTPServer
-from six.moves import socketserver
+
 from src.test.py.bazel import test_base
 
 
@@ -34,7 +35,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     """Runs a simple http server to serve files under current directory."""
     # Port 0 means to select an arbitrary unused port
     host, port = 'localhost', 0
-    http_handler = SimpleHTTPServer.SimpleHTTPRequestHandler
+    http_handler = http.server.SimpleHTTPRequestHandler
     server = ThreadedTCPServer((host, port), http_handler)
     server_thread = threading.Thread(target=server.serve_forever)
     server_thread.daemon = True
@@ -388,7 +389,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         'local_repository(name = "other_repo", path="../other_repo")',
     ])
     # This should not exclude @other_repo//foo/bar, because .bazelignore doesn't
-    # support having repository name in the path fragement.
+    # support having repository name in the path fragment.
     self.ScratchFile('my_repo/.bazelignore', ['@other_repo//foo/bar'])
 
     exit_code, _, stderr = self.RunBazel(
@@ -398,7 +399,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
   def testExternalBazelignoreContainingRepoName(self):
     self.ScratchFile('other_repo/WORKSPACE')
     # This should not exclude @third_repo//foo/bar, because .bazelignore doesn't
-    # support having repository name in the path fragement.
+    # support having repository name in the path fragment.
     self.ScratchFile('other_repo/.bazelignore', ['@third_repo//foo/bar'])
     self.ScratchFile('other_repo/BUILD', [
         'filegroup(',

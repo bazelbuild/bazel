@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaO
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi.JavaInfoProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -136,11 +137,13 @@ public final class JavaInfo extends NativeInfo
 
     NestedSetBuilder<Artifact> runtimeJars = NestedSetBuilder.stableOrder();
     NestedSetBuilder<String> javaConstraints = NestedSetBuilder.stableOrder();
+    boolean neverlink = false;
     for (JavaInfo javaInfo : providers) {
       if (mergeJavaOutputs) {
         runtimeJars.addAll(javaInfo.getDirectRuntimeJars());
       }
       javaConstraints.addAll(javaInfo.getJavaConstraints());
+      neverlink = neverlink || javaInfo.neverlink;
     }
 
     ImmutableList<JavaModuleFlagsProvider> javaModuleFlagsProviderProviders =
@@ -162,6 +165,7 @@ public final class JavaInfo extends NativeInfo
             // TODO(iirina): merge or remove JavaCompilationInfoProvider
             .setRuntimeJars(runtimeJars.build().toList())
             .setJavaConstraints(javaConstraints.build().toList())
+            .setNeverlink(neverlink)
             .addProvider(
                 JavaModuleFlagsProvider.class,
                 JavaModuleFlagsProvider.merge(javaModuleFlagsProviderProviders));

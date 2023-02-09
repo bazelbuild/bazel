@@ -1,5 +1,3 @@
-package(default_visibility = ["//visibility:public"])
-
 cc_library(
     name = "hello-lib",
     srcs = ["hello-lib.cc"],
@@ -27,4 +25,5 @@ cc_test(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+    visibility = ["//examples:__pkg__"],
 )

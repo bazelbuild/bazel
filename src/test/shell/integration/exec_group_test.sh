@@ -57,7 +57,7 @@ msys*)
   ;;
 esac
 
-# NOTE: All tests need to delcare targets in a custom package, which is why they
+# NOTE: All tests need to declare targets in a custom package, which is why they
 # all use the pkg=${FUNCNAME[0]} variable.
 
 function test_target_exec_properties_starlark() {

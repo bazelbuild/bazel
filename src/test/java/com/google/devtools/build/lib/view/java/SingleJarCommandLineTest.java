@@ -214,7 +214,7 @@ public class SingleJarCommandLineTest extends FoundationTestCase {
         .containsAtLeast("--enforce_one_version", "--succeed_on_found_violations");
 
     // --one_version_whitelist and the execpath to the whitelist are two different args, but they
-    // need to be next to eachother.
+    // need to be next to each other.
     MoreAsserts.assertContainsSublist(
         Lists.newArrayList(command.arguments()), "--one_version_whitelist", "whitelistfile");
   }

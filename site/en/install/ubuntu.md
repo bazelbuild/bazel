@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Installing Bazel on Ubuntu
 
+{% include "_buttons.html" %}
+
 This page describes the options for installing Bazel on Ubuntu.
 It also provides links to the Bazel completion scripts and the binary installer,
 if needed as a backup option (for example, if you don't have admin access).
@@ -38,7 +40,7 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 **Note:** This is a one-time setup step.
 
 ```posix-terminal
-sudo apt install apt-transport-https curl gnupg
+sudo apt install apt-transport-https curl gnupg -y
 curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor >bazel-archive-keyring.gpg
 sudo mv bazel-archive-keyring.gpg /usr/share/keyrings
 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/bazel-archive-keyring.gpg] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list

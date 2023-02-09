@@ -27,7 +27,7 @@ import org.junit.runners.JUnit4;
 public class CcHostToolchainAliasTest extends BuildViewTestCase {
 
   @Test
-  public void testCcHostToolchainAliasRuleHasHostConfiguration() throws Exception {
+  public void testCcHostToolchainAliasRuleHasExecConfiguration() throws Exception {
     scratch.file("a/BUILD", "cc_host_toolchain_alias(name='current_cc_host_toolchain')");
 
     ConfiguredTarget target = getConfiguredTarget("//a:current_cc_host_toolchain");

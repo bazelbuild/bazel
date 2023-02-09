@@ -137,6 +137,7 @@ def generate_cc_impl(ctx):
         outputs = out_files,
         executable = ctx.executable.protoc,
         arguments = arguments,
+        mnemonic = "CppGrpcGenSource",
         use_default_shell_env = True,
     )
 

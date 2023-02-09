@@ -16,7 +16,7 @@ package com.google.devtools.build.android;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.stream.Collectors.toList;
 
-import com.android.builder.core.VariantType;
+import com.android.builder.core.VariantTypeImpl;
 import com.android.repository.Revision;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -253,8 +253,8 @@ public class AaptCommandBuilderTest {
   public void testWhenVariantIsAddsFlagsForEqualVariantType() {
     assertThat(
             new AaptCommandBuilder(aapt)
-                .forVariantType(VariantType.LIBRARY)
-                .whenVariantIs(VariantType.LIBRARY)
+                .forVariantType(VariantTypeImpl.LIBRARY)
+                .whenVariantIs(VariantTypeImpl.LIBRARY)
                 .thenAdd("--addthisflag")
                 .build())
         .contains("--addthisflag");
@@ -264,8 +264,8 @@ public class AaptCommandBuilderTest {
   public void testWhenVariantIsDoesNotAddFlagsForUnequalVariantType() {
     assertThat(
             new AaptCommandBuilder(aapt)
-                .forVariantType(VariantType.DEFAULT)
-                .whenVariantIs(VariantType.LIBRARY)
+                .forVariantType(VariantTypeImpl.BASE_APK)
+                .whenVariantIs(VariantTypeImpl.LIBRARY)
                 .thenAdd("--dontaddthisflag")
                 .build())
         .doesNotContain("--dontaddthisflag");
@@ -275,7 +275,7 @@ public class AaptCommandBuilderTest {
   public void testWhenVariantIsDoesNotAddFlagsForUnspecifiedVariantType() {
     assertThat(
             new AaptCommandBuilder(aapt)
-                .whenVariantIs(VariantType.LIBRARY)
+                .whenVariantIs(VariantTypeImpl.LIBRARY)
                 .thenAdd("--dontaddthisflag")
                 .build())
         .doesNotContain("--dontaddthisflag");

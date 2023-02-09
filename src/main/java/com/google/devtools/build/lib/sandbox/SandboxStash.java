@@ -1,0 +1,207 @@
+// Copyright 2023 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.sandbox;
+
+import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.vfs.Path;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.Nullable;
+
+/**
+ * Singleton class for the `--reuse_sandbox_directories` flag: Controls a "stash" of old sandbox
+ * directories. When a sandboxed runner needs its directory tree, it first tries to grab a stash by
+ * just moving it. They are separated by mnemonic because that makes them much more likely to be
+ * able to reuse things common for that mnemonic, e.g. standard libraries.
+ */
+public class SandboxStash {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  /** An incrementing count of stashes to avoid filename clashes. */
+  static AtomicInteger stash = new AtomicInteger(0);
+
+  /** If true, we have already warned about an error causing us to turn off reuse. */
+  private final AtomicBoolean warnedAboutTurningOffReuse = new AtomicBoolean();
+
+  /**
+   * Whether to attempt to reuse previously-created sandboxes. Not final because we may turn it off
+   * in case of errors.
+   */
+  static boolean reuseSandboxDirectories;
+
+  private static SandboxStash instance;
+  private final String workspaceName;
+  private final Path sandboxBase;
+
+  public SandboxStash(String workspaceName, Path sandboxBase) {
+    this.workspaceName = workspaceName;
+    this.sandboxBase = sandboxBase;
+  }
+
+  static boolean takeStashedSandbox(Path sandboxPath, String mnemonic) {
+    if (instance == null) {
+      return false;
+    }
+    return instance.takeStashedSandboxInternal(sandboxPath, mnemonic);
+  }
+
+  private boolean takeStashedSandboxInternal(Path sandboxPath, String mnemonic) {
+    try {
+      Path sandboxes = getSandboxStashDir(mnemonic);
+      if (sandboxes == null) {
+        return false;
+      }
+      Collection<Path> stashes = sandboxes.getDirectoryEntries();
+      // We have to remove the sandbox root to move a stash there, but it is currently empty
+      // and we reinstate it if we don't get a sandbox.
+      sandboxPath.deleteTree();
+      for (Path stash : stashes) {
+        try {
+          stash.renameTo(sandboxPath);
+          return true;
+        } catch (FileNotFoundException e) {
+          // Try the next one, somebody else took this one.
+        } catch (IOException e) {
+          turnOffReuse("Error renaming sandbox stash %s to %s: %s\n", stash, sandboxPath, e);
+          return false;
+        }
+      }
+      return false;
+    } catch (IOException e) {
+      turnOffReuse("Failed to prepare for reusing stashed sandbox for %s: %s", sandboxPath, e);
+      return false;
+    }
+  }
+
+  /** Atomically moves the sandboxPath directory aside for later reuse. */
+  static boolean stashSandbox(Path path, String mnemonic) {
+    if (instance == null) {
+      return false;
+    }
+    return instance.stashSandboxInternal(path, mnemonic);
+  }
+
+  private boolean stashSandboxInternal(Path path, String mnemonic) {
+    Path sandboxes = getSandboxStashDir(mnemonic);
+    if (sandboxes == null) {
+      return false;
+    }
+    String stashName;
+    synchronized (stash) {
+      stashName = Integer.toString(stash.incrementAndGet());
+    }
+    Path stashPath = sandboxes.getChild(stashName);
+    if (!path.exists()) {
+      return false;
+    }
+    try {
+      path.renameTo(stashPath);
+    } catch (IOException e) {
+      // Since stash names are unique, this IOException indicates some other problem with stashing,
+      // so we turn it off.
+      turnOffReuse("Error stashing sandbox at %s: %s", stashPath, e);
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Returns the sandbox stashing directory appropriate for this mnemonic. In order to maximize
+   * reuse, we keep stashed sandboxes separated by mnemonic. May return null if there are errors, in
+   * which case sandbox reuse also gets turned off.
+   */
+  @Nullable
+  private Path getSandboxStashDir(String mnemonic) {
+    Path stashDir = getStashBase();
+    try {
+      stashDir.createDirectory();
+      if (!maybeClearExistingStash(stashDir)) {
+        return null;
+      }
+    } catch (IOException e) {
+      turnOffReuse(
+          "Error creating sandbox stash dir %s, disabling sandbox reuse: %s\n",
+          stashDir, e.getMessage());
+      return null;
+    }
+    Path mnemonicStashDir = stashDir.getChild(mnemonic);
+    try {
+      mnemonicStashDir.createDirectory();
+      return mnemonicStashDir;
+    } catch (IOException e) {
+      turnOffReuse("Error creating mnemonic stash dir %s: %s\n", mnemonicStashDir, e.getMessage());
+      return null;
+    }
+  }
+
+  private Path getStashBase() {
+    return this.sandboxBase.getChild("sandbox_stash");
+  }
+
+  /**
+   * Clears away existing stash if this is the first access to the stash in this Blaze server
+   * instance.
+   *
+   * @param stashPath Path of the stashes.
+   * @return True unless there was an error deleting sandbox stashes.
+   */
+  private boolean maybeClearExistingStash(Path stashPath) {
+    synchronized (stash) {
+      if (stash.getAndIncrement() == 0) {
+        try {
+          for (Path directoryEntry : stashPath.getDirectoryEntries()) {
+            directoryEntry.deleteTree();
+          }
+        } catch (IOException e) {
+          turnOffReuse("Unable to clear old sandbox stash %s: %s\n", stashPath, e.getMessage());
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  private void turnOffReuse(String fmt, Object... args) {
+    reuseSandboxDirectories = false;
+    if (warnedAboutTurningOffReuse.compareAndSet(false, true)) {
+      logger.atWarning().logVarargs("Turning off sandbox reuse: " + fmt, args);
+    }
+  }
+
+  public static void initialize(String workspaceName, Path sandboxBase, SandboxOptions options) {
+    if (options.reuseSandboxDirectories) {
+      if (instance == null) {
+        instance = new SandboxStash(workspaceName, sandboxBase);
+      } else if (!Objects.equals(workspaceName, instance.workspaceName)) {
+        Path stashBase = instance.getStashBase();
+        try {
+          for (Path directoryEntry : stashBase.getDirectoryEntries()) {
+            directoryEntry.deleteTree();
+          }
+        } catch (IOException e) {
+          instance.turnOffReuse(
+              "Unable to clear old sandbox stash %s: %s\n", stashBase, e.getMessage());
+        }
+        instance = new SandboxStash(workspaceName, sandboxBase);
+      }
+    } else {
+      instance = null;
+    }
+  }
+}

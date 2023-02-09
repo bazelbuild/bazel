@@ -93,8 +93,7 @@ function llvm_coverage_lcov() {
   done < "${COVERAGE_MANIFEST}"
 
   "${LLVM_COV}" export -instr-profile "${output_file}.data" -format=lcov \
-      -ignore-filename-regex='.*external/.+' \
-      -ignore-filename-regex='/tmp/.+' \
+      -ignore-filename-regex='^/tmp/.+' \
       ${object_param} | sed 's#/proc/self/cwd/##' > "${output_file}"
 }
 
@@ -163,7 +162,7 @@ function gcov_coverage() {
               # gcov 9 or higher use a JSON based format for their coverage reports.
               # The output is generated into multiple files: "$(basename ${gcda}).gcov.json.gz"
               # Concatenating JSON documents does not yield a valid document, so they are moved individually
-              mv -- *.gcov.json.gz "$(dirname "$output_file")"
+              mv -- *.gcov.json.gz "$(dirname "$output_file")/$(dirname ${gcno_path})"
           else
               # Append all .gcov files in the current directory to the output file.
               cat -- *.gcov >> "$output_file"

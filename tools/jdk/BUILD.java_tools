@@ -381,6 +381,8 @@ cc_binary(
     malloc = ":malloc",
     visibility = ["//visibility:public"],
     deps = [
+        ":combiners",
+        ":diag",
         ":options",
         ":output_jar",
         "//java_tools/zlib",

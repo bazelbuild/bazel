@@ -189,7 +189,6 @@ public class JavaRuntimeTest extends BuildViewTestCase {
         ")",
         "java_runtime(",
         "    name = 'jvm', ",
-        "    srcs = glob(['generated_java_home/**']), ",
         "    java = 'generated_java_home/bin/java', ",
         "    java_home = 'generated_java_home',",
         ")");
@@ -201,8 +200,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   // bypass default toolchain flags added by BuildViewTestCase#useConfiguration
   // TODO(cushon): delete this helper method once useConfiguration stops passing toolchain flags
   private void useConfigurationInternal(String... args) throws Exception {
-    masterConfig = createConfigurations(ImmutableMap.of(), args);
-    targetConfig = getTargetConfiguration();
+    targetConfig = createConfiguration(ImmutableMap.of(), args);
     targetConfigKey = targetConfig.getKey();
     createBuildView();
   }

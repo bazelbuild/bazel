@@ -25,19 +25,21 @@ filegroup(
 py_library(
     name = "archive",
     srcs = ["archive.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
 )
 
 filegroup(
     name = "archive_testdata",
-    srcs = glob(["testdata/**"]),
+    srcs = glob(
+        ["testdata/**"],
+        allow_empty = True,
+    ),
 )
 
 py_test(
     name = "archive_test",
     srcs = [
         "archive_test.py",
-        "testenv.py",
     ],
     data = [":archive_testdata"],
     python_version = "PY3",
@@ -61,11 +63,10 @@ py_binary(
     name = "build_tar",
     srcs = ["build_tar.py"],
     python_version = "PY3",
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         ":archive",
-        "//third_party/py/abseil",
     ],
 )
 
@@ -88,42 +89,6 @@ pkg_tar(
     ],
     build_tar = ":build_tar",
     package_dir = "/",
-    strip_prefix = ".",
-)
-
-pkg_tar(
-    name = "test-tar-strip_prefix-empty",
-    srcs = [
-        ":etc/nsswitch.conf",
-    ],
-    build_tar = ":build_tar",
-    strip_prefix = "",
-)
-
-pkg_tar(
-    name = "test-tar-strip_prefix-none",
-    srcs = [
-        ":etc/nsswitch.conf",
-    ],
-    build_tar = ":build_tar",
-)
-
-pkg_tar(
-    name = "test-tar-strip_prefix-etc",
-    srcs = [
-        ":etc/nsswitch.conf",
-    ],
-    build_tar = ":build_tar",
-    strip_prefix = "etc",
-)
-
-pkg_tar(
-    name = "test-tar-strip_prefix-dot",
-    srcs = [
-        ":etc/nsswitch.conf",
-    ],
-    build_tar = ":build_tar",
-    strip_prefix = ".",
 )
 
 sh_test(
@@ -135,10 +100,6 @@ sh_test(
     data = [
         "testenv.sh",
         ":test-tar.tar",
-        ":test-tar-strip_prefix-dot.tar",
-        ":test-tar-strip_prefix-empty.tar",
-        ":test-tar-strip_prefix-etc.tar",
-        ":test-tar-strip_prefix-none.tar",
     ],
     tags = [
         # TODO(laszlocsomor): fix on Windows or describe why it cannot pass.

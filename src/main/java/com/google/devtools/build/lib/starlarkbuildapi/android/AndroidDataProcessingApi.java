@@ -886,17 +886,6 @@ public interface AndroidDataProcessingApi<
             doc =
                 "Files to be used as Proguard specification for this target, which will be"
                     + " inherited in the top-level target."),
-        @Param(
-            name = "extra_proguard_specs,",
-            allowedTypes = {
-              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollectionApi.class)
-            },
-            defaultValue = "[]",
-            positional = false,
-            named = true,
-            doc =
-                "Additional proguard specs that should be added for top-level targets. This  value"
-                    + " is controlled by Java configuration.")
       },
       doc =
           "Possibly shrinks the data APK by removing resources that were marked as unused during"
@@ -909,8 +898,7 @@ public interface AndroidDataProcessingApi<
       FileT proguardMapping,
       Object maybeSettings,
       Sequence<?> deps, // <TransitiveInfoCollectionT>
-      Sequence<?> localProguardSpecs, // <TransitiveInfoCollectionT>
-      Sequence<?> extraProguardSpecs) // <TransitiveInfoCollectionT>
+      Sequence<?> localProguardSpecs) // <TransitiveInfoCollectionT>
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(

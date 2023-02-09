@@ -73,8 +73,10 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       converter = ProgressReportIntervalConverter.class,
       help =
-          "The number of seconds to wait between two reports on still running jobs. The "
-              + "default value 0 means to use the default 10:30:60 incremental algorithm.")
+          "The number of seconds to between reports on still running jobs. The "
+              + "default value 0 means the first report will be printed after 10 "
+              + "seconds, then 30 seconds and after that progress is reported once every minute. "
+              + "When --curses is enabled, progress is reported every second.")
   public int progressReportInterval;
 
   @Option(
@@ -164,7 +166,7 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Whether to run validation actions as part of the build. See"
-              + " https://bazel.build/rules/rules#validation_actions")
+              + " https://bazel.build/extending/rules#validation_actions")
   public boolean runValidationActions;
 
   @Option(
@@ -437,20 +439,6 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean discardActionsAfterExecution;
 
   @Option(
-      name = "experimental_async_execution",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "If set to true, Bazel is allowed to run aynchronously, i.e., without reserving a local "
-              + "thread. This only has an effect if the action implementation and the lower-level "
-              + "strategy support it. This setting effectively circumvents the implicit limit of "
-              + "number of concurrently running actions otherwise imposed by the --jobs flag. Use "
-              + "with caution.")
-  public boolean useAsyncExecution;
-
-  @Option(
       name = "incompatible_skip_genfiles_symlink",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -462,24 +450,6 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean incompatibleSkipGenfilesSymlink;
 
   @Option(
-      name = "experimental_use_fork_join_pool",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help = "If this flag is set, use a fork join pool in the abstract queue visitor.")
-  public boolean useForkJoinPool;
-
-  @Option(
-      name = "experimental_replay_action_out_err",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help = "If this flag is set, replay action out/err on incremental builds.")
-  public boolean replayActionOutErr;
-
-  @Option(
       name = "target_pattern_file",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
@@ -489,7 +459,7 @@ public class BuildRequestOptions extends OptionsBase {
               + "line. It is an error to specify a file here as well as command-line patterns.")
   public String targetPatternFile;
 
-  /** Do not use directly. Instead use {@link shouldMergeSkyframeAnalysisExecution}. */
+  /** Do not use directly. Instead use {@link #shouldMergeSkyframeAnalysisExecution}. */
   @Option(
       name = "experimental_merged_skyframe_analysis_execution",
       defaultValue = "false",

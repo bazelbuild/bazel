@@ -47,27 +47,30 @@ public final class TopLevelStatusEvents {
   public abstract static class TopLevelTargetAnalyzedEvent implements Postable {
     public abstract ConfiguredTarget configuredTarget();
 
+    public static TopLevelTargetAnalyzedEvent create(ConfiguredTarget configuredTarget) {
+      return new AutoValue_TopLevelStatusEvents_TopLevelTargetAnalyzedEvent(configuredTarget);
+    }
+  }
+
+  /**
+   * An event that signals that we can start planting the symlinks for the transitive packages under
+   * a top level target.
+   */
+  @AutoValue
+  public abstract static class TopLevelTargetReadyForSymlinkPlanting implements Postable {
     public abstract NestedSet<Package> transitivePackagesForSymlinkPlanting();
 
-    public static TopLevelTargetAnalyzedEvent create(
-        ConfiguredTarget configuredTarget,
+    public static TopLevelTargetReadyForSymlinkPlanting create(
         NestedSet<Package> transitivePackagesForSymlinkPlanting) {
-      return new AutoValue_TopLevelStatusEvents_TopLevelTargetAnalyzedEvent(
-          configuredTarget, transitivePackagesForSymlinkPlanting);
-    }
-
-    /** This method is used when no further symlink planting is expected from the subscribers. */
-    public static TopLevelTargetAnalyzedEvent createWithoutFurtherSymlinkPlanting(
-        ConfiguredTarget configuredTarget) {
-      return new AutoValue_TopLevelStatusEvents_TopLevelTargetAnalyzedEvent(
-          configuredTarget, NestedSetBuilder.emptySet(STABLE_ORDER));
+      return new AutoValue_TopLevelStatusEvents_TopLevelTargetReadyForSymlinkPlanting(
+          transitivePackagesForSymlinkPlanting);
     }
   }
 
   /** An event that marks the skipping of a top-level target, including skipped tests. */
   @AutoValue
   public abstract static class TopLevelTargetSkippedEvent implements Postable {
-    abstract ConfiguredTarget configuredTarget();
+    public abstract ConfiguredTarget configuredTarget();
 
     public static TopLevelTargetSkippedEvent create(ConfiguredTarget configuredTarget) {
       return new AutoValue_TopLevelStatusEvents_TopLevelTargetSkippedEvent(configuredTarget);
@@ -82,9 +85,16 @@ public final class TopLevelStatusEvents {
   public abstract static class TopLevelEntityAnalysisConcludedEvent implements Postable {
     public abstract SkyKey getAnalyzedTopLevelKey();
 
-    public static TopLevelEntityAnalysisConcludedEvent create(SkyKey analyzedTopLevelKey) {
+    public abstract boolean succeeded();
+
+    public static TopLevelEntityAnalysisConcludedEvent success(SkyKey analyzedTopLevelKey) {
       return new AutoValue_TopLevelStatusEvents_TopLevelEntityAnalysisConcludedEvent(
-          analyzedTopLevelKey);
+          analyzedTopLevelKey, /*succeeded=*/ true);
+    }
+
+    public static TopLevelEntityAnalysisConcludedEvent failure(SkyKey analyzedTopLevelKey) {
+      return new AutoValue_TopLevelStatusEvents_TopLevelEntityAnalysisConcludedEvent(
+          analyzedTopLevelKey, /*succeeded=*/ false);
     }
   }
 

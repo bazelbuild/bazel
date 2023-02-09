@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -101,6 +102,7 @@ public class CommandEnvironment {
   private final Path workingDirectory;
   private final PathFragment relativeWorkingDirectory;
   private final SyscallCache syscallCache;
+  private final QuiescingExecutors quiescingExecutors;
   private final Duration waitTime;
   private final long commandStartTime;
   private final ImmutableList<Any> commandExtensions;
@@ -166,6 +168,7 @@ public class CommandEnvironment {
       Command command,
       OptionsParsingResult options,
       SyscallCache syscallCache,
+      QuiescingExecutors quiescingExecutors,
       List<String> warnings,
       long waitTimeInMs,
       long commandStartTime,
@@ -181,6 +184,7 @@ public class CommandEnvironment {
     this.options = options;
     this.shutdownReasonConsumer = shutdownReasonConsumer;
     this.syscallCache = syscallCache;
+    this.quiescingExecutors = quiescingExecutors;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
     // Record the command's starting time again, for use by
@@ -573,10 +577,6 @@ public class CommandEnvironment {
     return getDirectories().getActionTempsDirectory(getExecRoot());
   }
 
-  public Path getPersistentActionOutsDirectory() {
-    return getDirectories().getPersistentActionOutsDirectory(getExecRoot());
-  }
-
   /**
    * Returns the working directory of the {@code blaze} client process.
    *
@@ -710,6 +710,7 @@ public class CommandEnvironment {
                 clientEnv,
                 repoEnvFromOptions,
                 timestampGranularityMonitor,
+                quiescingExecutors,
                 options);
   }
 
@@ -762,7 +763,9 @@ public class CommandEnvironment {
     AnalysisOptions viewOptions = options.getOptions(AnalysisOptions.class);
     skyframeExecutor.decideKeepIncrementalState(
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
-        commonOptions.keepStateAfterBuild, commonOptions.trackIncrementalState,
+        commonOptions.keepStateAfterBuild,
+        commonOptions.trackIncrementalState,
+        commonOptions.experimentalHeuristicallyDropNodes,
         viewOptions != null && viewOptions.discardAnalysisCache,
         reporter);
 
@@ -813,6 +816,10 @@ public class CommandEnvironment {
 
   public XattrProvider getXattrProvider() {
     return getSyscallCache();
+  }
+
+  public QuiescingExecutors getQuiescingExecutors() {
+    return quiescingExecutors;
   }
 
   /**

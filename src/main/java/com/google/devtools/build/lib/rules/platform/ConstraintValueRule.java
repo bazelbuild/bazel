@@ -42,7 +42,8 @@ public class ConstraintValueRule implements RuleDefinition {
                 .mandatory()
                 .allowedRuleClasses(ConstraintSettingRule.RULE_NAME)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ConstraintSettingInfo.PROVIDER.id()))
+                .mandatoryProviders(ConstraintSettingInfo.PROVIDER.id())
+                .nonconfigurable("constants must be consistent across configurations"))
         .build();
   }
 
@@ -55,7 +56,7 @@ public class ConstraintValueRule implements RuleDefinition {
         .build();
   }
 }
-/*<!-- #BLAZE_RULE (NAME = constraint_value, FAMILY = Platform)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = constraint_value, FAMILY = Platforms and Toolchains)[GENERIC_RULE] -->
 
 This rule introduces a new value for a given constraint type.
 

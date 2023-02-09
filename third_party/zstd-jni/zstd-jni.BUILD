@@ -24,9 +24,12 @@ cc_binary(
         "src/main/native/**/*.c",
         "src/main/native/**/*.h",
     ]) + [
-            ":jni_md.h",
-            ":jni.h",
-        ],
+        ":jni_md.h",
+        ":jni.h",
+    ] + select({
+        "@bazel_tools//src/conditions:windows": [],
+        "//conditions:default": glob(["src/main/native/**/*.S"]),
+    }),
     copts = select({
         "@bazel_tools//src/conditions:windows": [],
         "@bazel_tools//src/conditions:darwin": [

@@ -227,7 +227,7 @@ my_rule = rule(
     attrs = {
       "src_dep": attr.label(allow_single_file = True),
       "target_dep": attr.label(cfg = 'target'),
-      "host_dep": attr.label(cfg = 'host'),
+      "host_dep": attr.label(cfg = 'exec'),
     },
 )
 EOF
@@ -1221,14 +1221,14 @@ def format(target):
         ret += '\n\tVisbilityProvider.label:' + str(vis_info.label)
     py_info = p.get('PyInfo')
     if py_info:
-        ret += '\n\tPyInfo:py3_only=' + str(py_info.has_py3_only_sources)
+        ret += '\n\tPyInfo found'
     return ret
 EOF
   bazel cquery "//$pkg:pylib" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
     2>"$TEST_log" || fail "Expected success"
 
   assert_contains "//$pkg:pylib:providers=.*PyInfo" output
-  assert_contains "PyInfo:py3_only=True" output
+  assert_contains "PyInfo found" output
 
   # A file
   bazel cquery "//$pkg:pylib.py" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
@@ -1428,6 +1428,35 @@ EOF
   # actionable error, not a stack trace.
   bazel cquery --keep_going "config(//$pkg:oak, notaconfighash)" > output 2>"$TEST_log" && fail "Expected error"
   expect_not_log "QueryException"
+}
+
+function test_does_not_fail_horribly_with_file() {
+  rm -rf peach
+  mkdir -p peach
+  cat > peach/BUILD <<EOF
+sh_library(name='brighton', deps=[':harken'])
+sh_library(name='harken')
+EOF
+
+  echo "deps(//peach:brighton)" > query_file
+  bazel cquery --query_file=query_file > $TEST_log
+
+  expect_log "//peach:brighton"
+  expect_log "//peach:harken"
+}
+
+function test_files_include_source_files() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+filegroup(name="files", srcs=["BUILD"])
+alias(name="alias", actual="single_file")
+EOF
+  touch $pkg/single_file
+
+  bazel cquery --output=files //$pkg:all > output 2>"$TEST_log" || fail "Unexpected failure"
+  assert_contains "$pkg/BUILD" output
+  assert_contains "$pkg/single_file" output
 }
 
 run_suite "${PRODUCT_NAME} configured query tests"

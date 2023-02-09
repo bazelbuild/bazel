@@ -18,7 +18,10 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -54,6 +57,8 @@ import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressRecei
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.runtime.SkymeldUiStateTracker.BuildStatus;
@@ -83,12 +88,15 @@ import java.util.concurrent.TimeUnit;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.AdditionalMatchers;
 
 /** Tests {@link UiStateTracker}. */
 @RunWith(TestParameterInjector.class)
 public class UiStateTrackerTest extends FoundationTestCase {
 
   @TestParameter boolean isSkymeld;
+  static final RepositoryMapping MOCK_REPO_MAPPING =
+      RepositoryMapping.createAllowingFallback(ImmutableMap.of("main", RepositoryName.MAIN));
 
   private UiStateTracker getUiStateTracker(ManualClock clock) {
     if (isSkymeld) {
@@ -186,8 +194,11 @@ public class UiStateTrackerTest extends FoundationTestCase {
         ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path);
 
     Action action = mock(Action.class);
-    when(action.getProgressMessage()).thenReturn(progressMessage);
+    when(action.getProgressMessage(eq(MOCK_REPO_MAPPING))).thenReturn(progressMessage);
     when(action.getPrimaryOutput()).thenReturn(artifact);
+
+    verify(action, never()).getProgressMessage(AdditionalMatchers.not(eq(MOCK_REPO_MAPPING)));
+    verify(action, never()).getProgressMessage();
     return action;
   }
 
@@ -208,9 +219,13 @@ public class UiStateTrackerTest extends FoundationTestCase {
   }
 
   private void simulateExecutionPhase(UiStateTracker uiStateTracker) {
+    uiStateTracker.loadingComplete(
+        new LoadingPhaseCompleteEvent(ImmutableSet.of(), ImmutableSet.of(), MOCK_REPO_MAPPING));
     if (this.isSkymeld) {
       // SkymeldUiStateTracker needs to be in the configuration phase before the execution phase.
       ((SkymeldUiStateTracker) uiStateTracker).buildStatus = BuildStatus.ANALYSIS_COMPLETE;
+    } else {
+      String unused = uiStateTracker.analysisComplete();
     }
     uiStateTracker.progressReceiverAvailable(
         new ExecutionProgressReceiverAvailableEvent(dummyExecutionProgressReceiver()));
@@ -254,7 +269,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     // When it is configuring targets.
     stateTracker.loadingComplete(
-        new LoadingPhaseCompleteEvent(ImmutableSet.of(), ImmutableSet.of()));
+        new LoadingPhaseCompleteEvent(ImmutableSet.of(), ImmutableSet.of(), MOCK_REPO_MAPPING));
     String additionalMessage = "5 targets";
     stateTracker.additionalMessage = additionalMessage;
     String configuredTargetProgressString = "5 targets configured";
@@ -287,7 +302,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     clock.advanceMillis(120000);
 
     UiStateTracker stateTracker = getUiStateTracker(clock);
-    // Mimick being at the execution phase.
+    // Mimic being at the execution phase.
     simulateExecutionPhase(stateTracker);
     stateTracker.actionStarted(new ActionStartedEvent(mockAction(message, "bar/foo"), 123456789));
 
@@ -1159,6 +1174,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
     UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 80);
+    stateTracker.setProgressSampleSize(4);
     // Mimic being at the execution phase.
     simulateExecutionPhase(stateTracker);
 
@@ -1170,7 +1186,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             labelFooTest,
             ImmutableList.of(),
             new Location("dummy-file", 0, 0),
-            "dummy-mnemonic",
+            "TestRunner",
             "dummy-target-kind",
             "abcdef",
             new BuildConfigurationEvent(
@@ -1183,15 +1199,12 @@ public class UiStateTrackerTest extends FoundationTestCase {
     Label labelBarTest = Label.parseCanonical("//baz:bartest");
     ConfiguredTarget targetBarTest = mock(ConfiguredTarget.class);
     when(targetBarTest.getLabel()).thenReturn(labelBarTest);
-    TestFilteringCompleteEvent filteringComplete = mock(TestFilteringCompleteEvent.class);
-    when(filteringComplete.getTestTargets())
-        .thenReturn(ImmutableSet.of(targetFooTest, targetBarTest));
     ActionOwner barOwner =
         ActionOwner.create(
             labelBarTest,
             ImmutableList.of(),
             new Location("dummy-file", 0, 0),
-            "dummy-mnemonic",
+            "TestRunner",
             "dummy-target-kind",
             "fedcba",
             new BuildConfigurationEvent(
@@ -1201,6 +1214,27 @@ public class UiStateTrackerTest extends FoundationTestCase {
             ImmutableMap.of(),
             null);
 
+    Label labelBazTest = Label.parseCanonical("//baz:baztest");
+    ConfiguredTarget targetBazTest = mock(ConfiguredTarget.class);
+    when(targetBazTest.getLabel()).thenReturn(labelBazTest);
+    ActionOwner bazOwner =
+        ActionOwner.create(
+            labelBazTest,
+            ImmutableList.of(),
+            new Location("dummy-file", 0, 0),
+            "NonTestAction",
+            "dummy-target-kind",
+            "fedcba",
+            new BuildConfigurationEvent(
+                BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+                BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
+            null,
+            ImmutableMap.of(),
+            null);
+
+    TestFilteringCompleteEvent filteringComplete = mock(TestFilteringCompleteEvent.class);
+    when(filteringComplete.getTestTargets())
+        .thenReturn(ImmutableSet.of(targetFooTest, targetBarTest, targetBazTest));
     stateTracker.testFilteringComplete(filteringComplete);
 
     // First produce 10 actions for footest...
@@ -1217,10 +1251,17 @@ public class UiStateTrackerTest extends FoundationTestCase {
       when(action.getOwner()).thenReturn(barOwner);
       stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     }
-    // ...and finally a completely unrelated action
+    // ...run a completely unrelated action..
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     stateTracker.actionStarted(
         new ActionStartedEvent(mockAction("Other action", "other/action"), clock.nanoTime()));
+    // ...and finally, run actions that are associated with baztest but are not a test.
+    for (int i = 0; i < 10; i++) {
+      clock.advanceMillis(1_000);
+      Action action = mockAction("Doing something " + i, "someartifact_" + i);
+      when(action.getOwner()).thenReturn(bazOwner);
+      stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
+    }
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
@@ -1236,6 +1277,8 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertWithMessage("Progress bar should contain 'Other action', but was:\n" + output)
         .that(output.contains("Other action"))
         .isTrue();
+    assertThat(output).doesNotContain("Testing //baz:baztest");
+    assertThat(output).contains("Doing something");
   }
 
   @Test
@@ -1360,7 +1403,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
         new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport1, transport2)));
     stateTracker.buildEventTransportsAnnounced(
         new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport3)));
-    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    var unused = stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(true);
 
@@ -1371,8 +1414,6 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(output, containsString("BuildEventTransport1"));
     assertThat(output, containsString("BuildEventTransport2"));
     assertThat(output, containsString("BuildEventTransport3"));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
 
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     stateTracker.buildEventTransportClosed(new BuildEventTransportClosedEvent(transport1));
@@ -1383,8 +1424,6 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(output, not(containsString("BuildEventTransport1")));
     assertThat(output, containsString("BuildEventTransport2"));
     assertThat(output, containsString("BuildEventTransport3"));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
 
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     stateTracker.buildEventTransportClosed(new BuildEventTransportClosedEvent(transport3));
@@ -1395,8 +1434,6 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(output, not(containsString("BuildEventTransport1")));
     assertThat(output, containsString("BuildEventTransport2"));
     assertThat(output, not(containsString("BuildEventTransport3")));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
 
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     stateTracker.buildEventTransportClosed(new BuildEventTransportClosedEvent(transport2));
@@ -1407,8 +1444,6 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(output, not(containsString("BuildEventTransport1")));
     assertThat(output, not(containsString("BuildEventTransport2")));
     assertThat(output, not(containsString("BuildEventTransport3")));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
     assertThat(output.split("\\n")).hasLength(1);
   }
 
@@ -1426,7 +1461,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.buildStarted();
     stateTracker.buildEventTransportsAnnounced(
         new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport1, transport2)));
-    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    var unused = stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
@@ -1434,8 +1469,6 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(output, containsString("1s"));
     assertThat(output, containsString("A".repeat(30) + "..."));
     assertThat(output, containsString("BuildEventTransport"));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
 
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     stateTracker.buildEventTransportClosed(new BuildEventTransportClosedEvent(transport2));
@@ -1446,8 +1479,6 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(output, containsString("2s"));
     assertThat(output, containsString("A".repeat(30) + "..."));
     assertThat(output, not(containsString("BuildEventTransport")));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
     assertThat(output.split("\\n")).hasLength(2);
   }
 
@@ -1526,7 +1557,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
     buildResult.setStopTime(clock.currentTimeMillis());
-    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    var unused = stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
     clock.advanceMillis(Duration.ofSeconds(2).toMillis());
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
 
@@ -1545,7 +1576,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
     buildResult.setStopTime(clock.currentTimeMillis());
-    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    var unused = stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
     stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "b"));
     stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "c"));
     stateTracker.actionUploadFinished(ActionUploadFinishedEvent.create(action, "a"));

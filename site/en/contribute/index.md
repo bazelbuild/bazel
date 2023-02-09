@@ -3,6 +3,9 @@ Book: /_book.yaml
 
 # Contributing to Bazel
 
+{% dynamic setvar source_file "site/en/contribute/index.md" %}
+{% include "_buttons.html" %}
+
 There are many ways to help the Bazel project and ecosystem.
 
 ## Provide feedback {:#feedback}
@@ -12,7 +15,7 @@ You can help by [reporting issues](http://github.com/bazelbuild/bazel/issues){: 
 when:
 
    - Bazel crashes or you encounter a bug that can [only be resolved using `bazel
-     clean`](/docs/build#correct-incremental-rebuilds).
+     clean`](/run/build#correct-incremental-rebuilds).
    - The documentation is incomplete or unclear. You can also report issues
      from the page you are viewing by using the "Create issue"
      link at the top right corner of the page.
@@ -66,7 +69,7 @@ Bazel is organized as follows:
       and some utilities.
    *  Built-in rules are in `com.google.devtools.build.lib.rules` and in
      `com.google.devtools.build.lib.bazel.rules`. You might want to read about
-     the [Challenges of Writing Rules](/docs/rule-challenges) first.
+     the [Challenges of Writing Rules](/rules/challenges) first.
 *  Java native interfaces are in `src/main/native`.
 *  Various tooling for language support are described in the list in the
    [compiling Bazel](/install/compile-source) section.
@@ -78,4 +81,4 @@ To quickly search through Bazel's source code, use
 [Bazel Code Search](https://source.bazel.build/). You can navigate Bazel's
 repositories, branches, and files. You can also view history, diffs, and blame
 information. To learn more, see the
-[Bazel Code Search User Guide](/contribute/searching-codebase).
+[Bazel Code Search User Guide](/contribute/search).

@@ -32,6 +32,7 @@ java_library(
     name = "options",
     srcs = [
         "CommonQueryOptions.java",
+        "FlagConstants.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/query2/engine",

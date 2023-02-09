@@ -86,7 +86,7 @@ public final class ModqueryCommand implements BlazeCommand {
 
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
-            .setNumThreads(threadsOption.threads)
+            .setParallelism(threadsOption.threads)
             .setEventHandler(env.getReporter())
             .build();
 

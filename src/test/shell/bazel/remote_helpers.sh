@@ -29,7 +29,7 @@ function serve_file() {
   cd "${TEST_TMPDIR}"
   port_file=server-port.$$
   rm -f $port_file
-  python $python_server always $file_name > $port_file &
+  python3 $python_server always $file_name > $port_file &
   nc_pid=$!
   while ! grep started $port_file; do sleep 1; done
   nc_port=$(head -n 1 $port_file)
@@ -52,7 +52,7 @@ function serve_file_auth() {
   cd "${TEST_TMPDIR}"
   port_file=server-port.$$
   rm -f $port_file
-  python $python_server auth $file_name > $port_file &
+  python3 $python_server auth $file_name > $port_file &
   nc_pid=$!
   while ! grep started $port_file; do sleep 1; done
   nc_port=$(head -n 1 $port_file)
@@ -143,7 +143,7 @@ function serve_redirect() {
   # while loop below too early because of finding the string "started" in the
   # old file (and thus potentially even getting an outdated port information).
   rm -f $port_file
-  python $python_server redirect $1 > $port_file &
+  python3 $python_server redirect $1 > $port_file &
   redirect_pid=$!
   while ! grep started $port_file; do sleep 1; done
   redirect_port=$(head -n 1 $port_file)
@@ -158,7 +158,7 @@ function serve_not_found() {
   port_file=server-port.$$
   cd "${TEST_TMPDIR}"
   rm -f $port_file
-  python $python_server 404 > $port_file &
+  python3 $python_server 404 > $port_file &
   nc_pid=$!
   while ! grep started $port_file; do sleep 1; done
   nc_port=$(head -n 1 $port_file)
@@ -167,12 +167,12 @@ function serve_not_found() {
   cd -
 }
 
-# Simulates a server timeing out while trying to generate a response.
+# Simulates a server timing out while trying to generate a response.
 function serve_timeout() {
   port_file=server-port.$$
   cd "${TEST_TMPDIR}"
   rm -f $port_file
-  python $python_server timeout  > $port_file &
+  python3 $python_server timeout  > $port_file &
   nc_pid=$!
   while ! grep started $port_file; do sleep 1; done
   nc_port=$(head -n 1 $port_file)
@@ -232,7 +232,7 @@ function startup_server() {
   cd $fileserver_root
   port_file=server-port.$$
   rm -f $port_file
-  python $python_server > $port_file &
+  python3 $python_server > $port_file &
   fileserver_pid=$!
   while ! grep started $port_file; do sleep 1; done
   fileserver_port=$(head -n 1 $port_file)
@@ -243,7 +243,7 @@ function startup_server() {
 function startup_auth_server() {
   port_file=server-port.$$
   rm -f $port_file
-  python $python_server auth > $port_file &
+  python3 $python_server auth > $port_file &
   fileserver_pid=$!
   while ! grep started $port_file; do sleep 1; done
   fileserver_port=$(head -n 1 $port_file)

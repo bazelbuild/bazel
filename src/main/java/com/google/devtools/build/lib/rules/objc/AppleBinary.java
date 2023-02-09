@@ -108,11 +108,14 @@ public class AppleBinary {
 
     ObjcProvider.Builder objcProviderBuilder =
         new ObjcProvider.Builder(ruleContext.getAnalysisEnvironment().getStarlarkSemantics());
+    ImmutableList.Builder<CcInfo> ccInfos = new ImmutableList.Builder<>();
     for (DependencySpecificConfiguration dependencySpecificConfiguration :
         dependencySpecificConfigurations.values()) {
       objcProviderBuilder.addTransitiveAndPropagate(
           dependencySpecificConfiguration.objcProviderWithAvoidDepsSymbols());
+      ccInfos.add(dependencySpecificConfiguration.ccInfoWithAvoidDepsSymbols());
     }
+    CcInfo ccInfo = CcInfo.merge(ccInfos.build());
 
     AppleDebugOutputsInfo.Builder legacyDebugOutputsBuilder =
         AppleDebugOutputsInfo.Builder.create();
@@ -125,8 +128,7 @@ public class AppleBinary {
       BuildConfigurationValue childConfig = dependencySpecificConfiguration.config();
       CppConfiguration childCppConfig = childConfig.getFragment(CppConfiguration.class);
       IntermediateArtifacts intermediateArtifacts =
-          new IntermediateArtifacts(
-              ruleContext, /*archiveFileNameSuffix*/ "", /*outputPrefix*/ "", childConfig);
+          new IntermediateArtifacts(ruleContext, childConfig);
 
       List<? extends TransitiveInfoCollection> propagatedDeps =
           MultiArchBinarySupport.getProvidersFromCtads(splitDeps.get(splitTransitionKey));
@@ -173,6 +175,7 @@ public class AppleBinary {
 
     return builder
         .setDepsObjcProvider(objcProviderBuilder.build())
+        .setDepsCcInfo(ccInfo)
         .setLegacyDebugOutputsProvider(legacyDebugOutputsBuilder.build())
         .build();
   }

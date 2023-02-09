@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -274,7 +275,7 @@ public final class BuildTypeTest {
             Label.create("@//b", "b"),
             Label.parseCanonical(Selector.DEFAULT_CONDITION_KEY),
             Label.create("@//d", "d"));
-    assertThat(selector.getEntries().entrySet()).containsExactlyElementsIn(expectedMap.entrySet());
+    assertThat(selector.mapCopy()).isEqualTo(expectedMap);
   }
 
   /**
@@ -315,8 +316,30 @@ public final class BuildTypeTest {
         "//conditions:a", "//a:a",
         "//conditions:b", "//b:b",
         BuildType.Selector.DEFAULT_CONDITION_KEY, "//d:d");
-    assertThat(new Selector<>(input, null, labelConverter, BuildType.LABEL).getDefault())
-        .isEqualTo(Label.create("@//d", "d"));
+    Selector<Label> selector = new Selector<>(input, null, labelConverter, BuildType.LABEL);
+    assertThat(selector.hasDefault()).isTrue();
+    assertThat(selector.getDefault()).isEqualTo(Label.create("@//d", "d"));
+  }
+
+  @Test
+  public void testSelectorDefault_null() throws Exception {
+    ImmutableMap<String, Object> input =
+        ImmutableMap.of(
+            "//conditions:a", "//a:a", BuildType.Selector.DEFAULT_CONDITION_KEY, Starlark.NONE);
+    Selector<Label> selector = new Selector<>(input, null, labelConverter, BuildType.LABEL);
+    assertThat(selector.hasDefault()).isTrue();
+    assertThat(selector.isUnconditional()).isFalse();
+    assertThat(selector.getDefault()).isNull();
+  }
+
+  @Test
+  public void testSelectorDefault_null_singleton() throws Exception {
+    ImmutableMap<String, Object> input =
+        ImmutableMap.of(BuildType.Selector.DEFAULT_CONDITION_KEY, Starlark.NONE);
+    Selector<Label> selector = new Selector<>(input, null, labelConverter, BuildType.LABEL);
+    assertThat(selector.hasDefault()).isTrue();
+    assertThat(selector.isUnconditional()).isTrue();
+    assertThat(selector.getDefault()).isNull();
   }
 
   @Test
@@ -338,22 +361,18 @@ public final class BuildTypeTest {
             Label.parseCanonical("//conditions:d"));
 
     List<Selector<List<Label>>> selectors = selectorList.getSelectors();
-    assertThat(selectors.get(0).getEntries().entrySet())
-        .containsExactlyElementsIn(
-            ImmutableMap.of(
-                    Label.parseCanonical("//conditions:a"),
-                    ImmutableList.of(Label.create("@//a", "a")),
-                    Label.parseCanonical("//conditions:b"),
-                    ImmutableList.of(Label.create("@//b", "b")))
-                .entrySet());
-    assertThat(selectors.get(1).getEntries().entrySet())
-        .containsExactlyElementsIn(
-            ImmutableMap.of(
-                    Label.parseCanonical("//conditions:c"),
-                    ImmutableList.of(Label.create("@//c", "c")),
-                    Label.parseCanonical("//conditions:d"),
-                    ImmutableList.of(Label.create("@//d", "d")))
-                .entrySet());
+    assertThat(selectors.get(0).mapCopy())
+        .containsExactly(
+            Label.parseCanonical("//conditions:a"),
+            ImmutableList.of(Label.create("@//a", "a")),
+            Label.parseCanonical("//conditions:b"),
+            ImmutableList.of(Label.create("@//b", "b")));
+    assertThat(selectors.get(1).mapCopy())
+        .containsExactly(
+            Label.parseCanonical("//conditions:c"),
+            ImmutableList.of(Label.create("@//c", "c")),
+            Label.parseCanonical("//conditions:d"),
+            ImmutableList.of(Label.create("@//d", "d")));
   }
 
   @Test
@@ -384,20 +403,18 @@ public final class BuildTypeTest {
     assertThat(selectorList.getOriginalType()).isEqualTo(BuildType.LABEL_KEYED_STRING_DICT);
     assertThat(selectorList.getKeyLabels())
         .containsExactly(
-            Label.parseAbsolute("//conditions:a", ImmutableMap.of()),
-            Label.parseAbsolute("//conditions:b", ImmutableMap.of()),
-            Label.parseAbsolute("//conditions:c", ImmutableMap.of()),
-            Label.parseAbsolute("//conditions:d", ImmutableMap.of()));
+            Label.parseCanonical("//conditions:a"),
+            Label.parseCanonical("//conditions:b"),
+            Label.parseCanonical("//conditions:c"),
+            Label.parseCanonical("//conditions:d"));
 
     List<Selector<Map<Label, String>>> selectors = selectorList.getSelectors();
-    assertThat(selectors.get(0).getEntries().entrySet())
-        .containsExactlyElementsIn(
-            ImmutableMap.of(
-                    Label.parseAbsolute("//conditions:a", ImmutableMap.of()),
-                    ImmutableMap.of(Label.create("@//a", "a"), "a"),
-                    Label.parseAbsolute("//conditions:b", ImmutableMap.of()),
-                    ImmutableMap.of(Label.create("@//b", "b"), "b"))
-                .entrySet());
+    assertThat(selectors.get(0).mapCopy())
+        .containsExactly(
+            Label.parseCanonical("//conditions:a"),
+            ImmutableMap.of(Label.create("@//a", "a"), "a"),
+            Label.parseCanonical("//conditions:b"),
+            ImmutableMap.of(Label.create("@//b", "b"), "b"));
   }
 
   @Test
@@ -488,14 +505,12 @@ public final class BuildTypeTest {
     converted =
         BuildType.selectableConvert(BuildType.LABEL_LIST, selectableInput, null, labelConverter);
     BuildType.SelectorList<?> selectorList = (BuildType.SelectorList<?>) converted;
-    assertThat(((Selector<Label>) selectorList.getSelectors().get(0)).getEntries().entrySet())
-        .containsExactlyElementsIn(
-            /* expected: Entry<Label, Label>, actual: Entry<Label, List<Label>> */ ImmutableMap.of(
-                    Label.parseCanonical("//conditions:a"),
-                    expectedLabels,
-                    Label.parseCanonical(Selector.DEFAULT_CONDITION_KEY),
-                    expectedLabels)
-                .entrySet());
+    assertThat(((Selector<Label>) selectorList.getSelectors().get(0)).mapCopy())
+        .containsExactly(
+            Label.parseCanonical("//conditions:a"),
+            expectedLabels,
+            Label.parseCanonical(Selector.DEFAULT_CONDITION_KEY),
+            expectedLabels);
   }
 
   /**

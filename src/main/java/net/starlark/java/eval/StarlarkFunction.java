@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -257,11 +258,13 @@ public final class StarlarkFunction implements StarlarkCallable {
 
     List<String> unexpected = null;
 
-    // named arguments
-    Dict<String, Object> kwargs = null;
+    // Named arguments.
+    LinkedHashMap<String, Object> kwargs = null;
     if (rfn.hasKwargs()) {
-      kwargs = Dict.of(mu);
-      locals[rfn.getParameters().size() - 1] = kwargs;
+      // To avoid Dict overhead, we populate a LinkedHashMap and then pass it to Dict.wrap()
+      // afterwards. (The contract of Dict.wrap prohibits us from modifying the map once the Dict is
+      // created.)
+      kwargs = new LinkedHashMap<>();
     }
     for (int i = 0; i < named.length; i += 2) {
       String keyword = (String) named[i]; // safe
@@ -276,9 +279,7 @@ public final class StarlarkFunction implements StarlarkCallable {
 
       } else if (kwargs != null) {
         // residual keyword argument
-        int sz = kwargs.size();
-        kwargs.putEntry(keyword, value);
-        if (kwargs.size() == sz) {
+        if (kwargs.put(keyword, value) != null) {
           throw Starlark.errorf(
               "%s() got multiple values for keyword argument '%s'", getName(), keyword);
         }
@@ -302,6 +303,9 @@ public final class StarlarkFunction implements StarlarkCallable {
           unexpected.size() == 1
               ? SpellChecker.didYouMean(unexpected.get(0), names.subList(0, nparams))
               : "");
+    }
+    if (kwargs != null) {
+      locals[rfn.getParameters().size() - 1] = Dict.wrap(mu, kwargs);
     }
 
     // Apply defaults and report errors for missing required arguments.

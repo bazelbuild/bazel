@@ -106,7 +106,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             return getDerivedArtifact(rootRelativePath, root);
           }
         },
-        masterConfig);
+        targetConfig);
   }
 
   private FeatureConfiguration getMockFeatureConfiguration(ImmutableMap<String, String> envVars) {
@@ -260,7 +260,9 @@ public class CppLinkActionTest extends BuildViewTestCase {
             ".* -L[^ ]*some-dir(?= ).* -L[^ ]*some-other-dir(?= ).* "
                 + "-lbar -l:qux.so(?= ).* -ldl -lutil .*");
     assertThat(Joiner.on(" ").join(arguments))
-        .matches(".* -Wl,-rpath[^ ]*some-dir(?= ).* -Wl,-rpath[^ ]*some-other-dir .*");
+        .matches(
+            ".* -Xlinker -rpath -Xlinker [^ ]*some-dir(?= ).* -Xlinker -rpath -Xlinker [^"
+                + " ]*some-other-dir .*");
   }
 
   @Test
@@ -570,9 +572,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     builder.setLinkType(LinkTargetType.OBJC_EXECUTABLE);
     assertThat(builder.canSplitCommandLine()).isTrue();
 
-    builder.setLinkType(LinkTargetType.OBJCPP_EXECUTABLE);
-    assertThat(builder.canSplitCommandLine()).isTrue();
-
     builder.setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
     assertThat(builder.canSplitCommandLine()).isTrue();
   }
@@ -655,9 +654,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     builder.setLinkType(LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY);
     assertThat(builder.canSplitCommandLine()).isFalse();
 
-    builder.setLinkType(LinkTargetType.OBJC_ARCHIVE);
-    assertThat(builder.canSplitCommandLine()).isFalse();
-
     builder.setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE);
     assertThat(builder.canSplitCommandLine()).isFalse();
   }
@@ -689,9 +685,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
             MockCppSemantics.INSTANCE);
 
     builder.setLinkType(LinkTargetType.OBJC_EXECUTABLE);
-    assertThat(builder.canSplitCommandLine()).isTrue();
-
-    builder.setLinkType(LinkTargetType.OBJCPP_EXECUTABLE);
     assertThat(builder.canSplitCommandLine()).isTrue();
 
     builder.setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
@@ -774,9 +767,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(builder.canSplitCommandLine()).isTrue();
 
     builder.setLinkType(LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY);
-    assertThat(builder.canSplitCommandLine()).isTrue();
-
-    builder.setLinkType(LinkTargetType.OBJC_ARCHIVE);
     assertThat(builder.canSplitCommandLine()).isTrue();
 
     builder.setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE);

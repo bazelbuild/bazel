@@ -37,11 +37,13 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ParallelVisitor.VisitTaskStatusCallback;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
@@ -166,7 +168,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   // The following fields are set in the #beforeEvaluateQuery method.
   protected MultisetSemaphore<PackageIdentifier> packageSemaphore;
-  protected WalkableGraph graph;
+  public WalkableGraph graph;
   protected GraphBackedRecursivePackageProvider graphBackedRecursivePackageProvider;
   protected ListeningExecutorService executor;
   private TargetPatternResolver<Target> resolver;
@@ -254,7 +256,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   protected EvaluationContext newEvaluationContext() {
     return EvaluationContext.newBuilder()
-        .setNumThreads(loadingPhaseThreads)
+        .setParallelism(loadingPhaseThreads)
         .setEventHandler(universeEvalEventHandler)
         .build();
   }
@@ -726,6 +728,54 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return executeAsync(() -> expr.eval(SkyQueryEnvironment.this, context, callback));
   }
 
+  /**
+   * In {@link SkyQueryEvaluateExpressionImpl}, the constructor will create a {@link
+   * #settableFuture} which returned {@link QueryTaskFuture} delegates to. The {@link
+   * #settableFuture} will set as the return from {@code expr.eval(...)} when {@link
+   * #eval(Callback)} method is called to provide the real callback implementation.
+   */
+  protected class SkyQueryEvaluateExpressionImpl implements EvaluateExpression<Target> {
+    protected final SettableFuture<Void> settableFuture = SettableFuture.create();
+    protected final QueryExpression expression;
+    protected final QueryExpressionContext<Target> context;
+    private boolean wasGracefullyCancelled = false;
+
+    protected SkyQueryEvaluateExpressionImpl(
+        QueryExpression expr, QueryExpressionContext<Target> context) {
+      this.expression = expr;
+      this.context = context;
+    }
+
+    @Override
+    public QueryTaskFuture<Void> eval(Callback<Target> callback) {
+      setSettableFuture(callback);
+      return QueryTaskFutureImpl.ofDelegate(settableFuture);
+    }
+
+    @SuppressWarnings("unchecked")
+    protected void setSettableFuture(Callback<Target> callback) {
+      settableFuture.setFuture(
+          (ListenableFuture<Void>) SkyQueryEnvironment.this.eval(expression, context, callback));
+    }
+
+    @Override
+    public boolean gracefullyCancel() {
+      wasGracefullyCancelled = true;
+      return settableFuture.cancel(true);
+    }
+
+    @Override
+    public boolean isUngracefullyCancelled() {
+      return settableFuture.isCancelled() && !wasGracefullyCancelled;
+    }
+  }
+
+  @Override
+  public EvaluateExpression<Target> createEvaluateExpression(
+      QueryExpression expr, QueryExpressionContext<Target> context) {
+    return new SkyQueryEvaluateExpressionImpl(expr, context);
+  }
+
   @Override
   public <R> QueryTaskFuture<R> execute(QueryTaskCallable<R> callable) {
     return QueryTaskFutureImpl.ofDelegate(safeSubmit(callable));
@@ -751,6 +801,13 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       Iterable<? extends QueryTaskFuture<?>> futures, QueryTaskCallable<R> callable) {
     return QueryTaskFutureImpl.ofDelegate(
         Futures.whenAllSucceed(cast(futures)).call(callable, executor));
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> whenSucceedsOrIsCancelledCall(
+      QueryTaskFuture<?> future, QueryTaskCallable<R> callable) {
+    return QueryTaskFutureImpl.whenSucceedsOrIsCancelledCall(
+        (QueryTaskFutureImpl<?>) future, callable, executor);
   }
 
   @ThreadSafe
@@ -956,6 +1013,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @Override
   public TargetAccessor<Target> getAccessor() {
     return accessor;
+  }
+
+  @Override
+  @ThreadSafe
+  public RepositoryMapping getMainRepoMapping() {
+    return mainRepoTargetParser.getRepoMapping();
   }
 
   @ThreadSafe

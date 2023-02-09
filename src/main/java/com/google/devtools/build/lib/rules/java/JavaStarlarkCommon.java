@@ -15,9 +15,13 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -25,15 +29,23 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.starlark.java.eval.EvalException;
@@ -187,12 +199,21 @@ public class JavaStarlarkCommon
   public Artifact runIjar(
       StarlarkActionFactory actions,
       Artifact jar,
+      Object output,
       Object targetLabel,
-      JavaToolchainProvider javaToolchain)
+      JavaToolchainProvider javaToolchain,
+      StarlarkThread thread)
       throws EvalException {
+    if (output != Starlark.NONE) {
+      checkPrivateAccess(thread);
+    }
     return JavaInfoBuildHelper.getInstance()
         .buildIjar(
-            actions, jar, targetLabel != Starlark.NONE ? (Label) targetLabel : null, javaToolchain);
+            actions,
+            jar,
+            output != Starlark.NONE ? (Artifact) output : null,
+            targetLabel != Starlark.NONE ? (Label) targetLabel : null,
+            javaToolchain);
   }
 
   @Override
@@ -327,10 +348,14 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public String getTargetKind(Object target, StarlarkThread thread) throws EvalException {
+  public String getTargetKind(Object target, boolean dereferenceAliases, StarlarkThread thread)
+      throws EvalException {
     checkPrivateAccess(thread);
     if (target instanceof MergedConfiguredTarget) {
       target = ((MergedConfiguredTarget) target).getBaseConfiguredTarget();
+    }
+    if (dereferenceAliases && target instanceof ConfiguredTarget) {
+      target = ((ConfiguredTarget) target).getActual();
     }
     if (target instanceof AbstractConfiguredTarget) {
       return ((AbstractConfiguredTarget) target).getRuleClassString();
@@ -406,5 +431,54 @@ public class JavaStarlarkCommon
       StarlarkSemantics starlarkSemantics) throws EvalException {
     return starlarkSemantics.getBool(
         BuildLanguageOptions.EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES);
+  }
+
+  @Override
+  public Sequence<String> collectNativeLibsDirs(
+      Sequence<? extends TransitiveInfoCollectionApi> deps, StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    ImmutableList<Artifact> nativeLibs =
+        JavaCommon.collectNativeLibraries(
+                Sequence.cast(deps, TransitiveInfoCollection.class, "deps"))
+            .stream()
+            .filter(
+                nativeLibrary -> {
+                  String name = nativeLibrary.getFilename();
+                  if (CppFileTypes.INTERFACE_SHARED_LIBRARY.matches(name)) {
+                    return false;
+                  }
+                  if (!(CppFileTypes.SHARED_LIBRARY.matches(name)
+                      || CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name))) {
+                    throw new IllegalArgumentException(
+                        "not a shared library :" + nativeLibrary.prettyPrint());
+                  }
+                  return true;
+                })
+            .collect(toImmutableList());
+
+    Set<String> uniqueDirs = new LinkedHashSet<>();
+    for (Artifact nativeLib : nativeLibs) {
+      uniqueDirs.add(nativeLib.getRootRelativePath().getParentDirectory().getPathString());
+    }
+    return StarlarkList.immutableCopyOf(uniqueDirs);
+  }
+
+  @Override
+  public Depset getRuntimeClasspathForArchive(
+      Depset runtimeClasspath, Depset excludedArtifacts, StarlarkThread thread)
+      throws EvalException, TypeException {
+    checkPrivateAccess(thread);
+    if (excludedArtifacts.isEmpty()) {
+      return runtimeClasspath;
+    } else {
+      return Depset.of(
+          Artifact.TYPE,
+          NestedSetBuilder.wrap(
+              Order.STABLE_ORDER,
+              Iterables.filter(
+                  runtimeClasspath.toList(),
+                  Predicates.not(Predicates.in(excludedArtifacts.getSet().toSet())))));
+    }
   }
 }

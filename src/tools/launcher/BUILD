@@ -1,4 +1,5 @@
 load(":win_rules.bzl", "win_cc_binary", "win_cc_library")
+load(":launcher_maker_test.bzl", "launcher_maker_test")
 
 filegroup(
     name = "srcs",
@@ -60,3 +61,17 @@ win_cc_library(
     hdrs = ["bash_launcher.h"],
     deps = [":launcher_base"],
 )
+
+win_cc_binary(
+    name = "launcher_maker",
+    srcs = ["launcher_maker.cc"],
+    visibility = [
+        "//src:__pkg__",
+        "//tools/launcher:__pkg__",
+    ],
+    deps = [
+        "//src/main/cpp/util:filesystem",
+    ],
+)
+
+launcher_maker_test(name = "launcher_maker_test")

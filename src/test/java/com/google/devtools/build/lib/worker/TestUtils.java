@@ -66,7 +66,7 @@ class TestUtils {
 
   static ActionOwner createActionOwner(String mnemonic) {
     return ActionOwner.create(
-        Label.parseAbsoluteUnchecked("//null/action:owner"),
+        Label.parseCanonicalUnchecked("//null/action:owner"),
         ImmutableList.of(),
         new Location("dummy-file", 0, 0),
         mnemonic,
@@ -229,7 +229,7 @@ class TestUtils {
     }
 
     @Override
-    Subprocess createProcess() {
+    protected Subprocess createProcess() {
       return fakeSubprocess;
     }
 

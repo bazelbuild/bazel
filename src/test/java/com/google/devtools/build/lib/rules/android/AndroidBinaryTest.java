@@ -28,7 +28,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -183,7 +182,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
           "    proguard_specs = [],",
           "    deps = ['lib', 'native-lib'],",
           "    manifest = 'AndroidManifest.xml',",
-          "    resource_files = glob(['res/**']))");
+          ")");
       useConfiguration(
           "--android_platforms=//java/android/platforms:x86,//java/android/platforms:armeabi-v7a",
           "--dynamic_mode=off");
@@ -1077,7 +1076,6 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "android_library(",
         "  name = 'dep',",
         "  srcs = ['dep.java'],",
-        "  resource_files = glob(['res/**']),",
         "  manifest = 'AndroidManifest.xml',",
         ")",
         "alias(",
@@ -1632,7 +1630,6 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "java/com/google/devtools/build/jkrunchy/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "java_binary(name = 'jkrunchy',",
-        "            srcs = glob(['*.java']),",
         "            main_class = 'com.google.devtools.build.jkrunchy.JKrunchyMain')");
 
     useConfiguration("--proguard_top=//java/com/google/devtools/build/jkrunchy:jkrunchy");
@@ -1652,7 +1649,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
             actionsTestUtil()
                 .getActionForArtifactEndingWith(getFilesToBuild(output), "_proguard.jar");
     Artifact jkrunchyExecutable =
-        getHostConfiguredTarget("//java/com/google/devtools/build/jkrunchy")
+        getExecConfiguredTarget("//java/com/google/devtools/build/jkrunchy")
             .getProvider(FilesToRunProvider.class)
             .getExecutable();
     assertWithMessage("ProGuard implementation was not correctly taken from the configuration")
@@ -1903,7 +1900,6 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "android_binary(",
             "  name = 'myapp',",
             "  manifest = 'AndroidManifest.xml',",
-            "  resource_files = glob(['res/**/*']),",
             ")");
 
     assertThat(binary.get(AndroidResourcesInfo.PROVIDER)).isNull();
@@ -1919,7 +1915,6 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "android_binary(",
             "  name = 'myapp',",
             "  manifest = 'AndroidManifest.xml',",
-            "  resource_files = glob(['res/**/*']),",
             ")");
 
     assertThat(binary.get(AndroidResourcesInfo.PROVIDER)).isNotNull();
@@ -1979,7 +1974,6 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
             dir,
             "bin",
             "android_binary(name = 'bin',",
-            "  resource_files = glob(['res/**']),",
             "  resource_configuration_filters = ['en', 'en-rXA', 'ar-rXB'],",
             "  manifest = 'AndroidManifest.xml')");
 
@@ -2045,18 +2039,15 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         dir + "BUILD",
         "android_library(name = 'sublib',",
         "                manifest = 'AndroidManifest.xml',",
-        "                resource_files = glob(['res3/**']),",
         "                srcs =['sublib.java'],",
         "                )",
         "android_library(name = 'lib',",
         "                manifest = 'AndroidManifest.xml',",
-        "                resource_files = glob(['res2/**']),",
         "                deps = [':sublib'],",
         "                srcs =['lib.java'],",
         "                )",
         "android_binary(name = 'bin',",
         "               manifest = 'AndroidManifest.xml',",
-        "               resource_files = glob(['res/**']),",
         "               deps = [':lib'],",
         "               srcs =['bin.java'],",
         "               )");
@@ -2160,15 +2151,12 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "java/r/android/BUILD",
         "android_library(name = 'lib1',",
         "                manifest = 'AndroidManifest.xml',",
-        "                resource_files = glob(['res1/**']),",
         "                )",
         "android_library(name = 'lib2',",
         "                manifest = 'AndroidManifest.xml',",
-        "                resource_files = glob(['res2/**']),",
         "                )",
         "android_binary(name = 'r',",
         "               manifest = 'AndroidManifest.xml',",
-        "               resource_files = glob(['res/**']),",
         "               deps = [':lib1', ':lib2'],",
         "               )");
     ConfiguredTargetAndData binary = getConfiguredTargetAndData("//java/r/android:r");
@@ -2235,7 +2223,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
             + libResources.getManifest().getExecPathString());
 
     // the "validation artifact" shouldn't be used for creating the top-level resources.jar,
-    // but it's still fed as an pseudo-input to trigger validation.
+    // but it's still fed as a pseudo-input to trigger validation.
     MoreAsserts.assertDoesNotContainSublist(
         topLevelResourceClassAction.getArguments(),
         "--library",
@@ -3786,7 +3774,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         ")");
     ConfiguredTarget ct = getConfiguredTarget("//java/com/foo:foo");
     assertThat(ct.getProvider(RequiredConfigFragmentsProvider.class).getStarlarkOptions())
-        .containsExactly(Label.parseAbsoluteUnchecked("//java/com/foo:flag1"));
+        .containsExactly(Label.parseCanonicalUnchecked("//java/com/foo:flag1"));
   }
 
   @Test
@@ -4120,6 +4108,45 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(packageArgs).doesNotContain("--conditionalKeepRules");
   }
 
+  @Test
+  public void testAapt2ResourceCycleShrinkingDisabledNoProguardSpecs() throws Exception {
+    useConfiguration("--experimental_android_resource_cycle_shrinking=true");
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'hello',",
+        "               srcs = ['Foo.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               resource_files = ['res/values/strings.xml'],",
+        "               shrink_resources = 1)");
+
+    ConfiguredTargetAndData targetAndData =
+        getConfiguredTargetAndData("//java/com/google/android/hello:hello");
+
+    Artifact jar = getResourceClassJar(targetAndData);
+    assertThat(getGeneratingAction(jar).getMnemonic()).isEqualTo("RClassGenerator");
+    // Final fields should still be generated for non-ProGuarded builds.
+    assertThat(getGeneratingSpawnActionArgs(jar)).contains("--finalFields");
+  }
+
+  @Test
+  public void testAapt2ResourceCycleShrinkingDisabledNoProguardSpecsApplicationResources()
+      throws Exception {
+    useConfiguration("--experimental_android_resource_cycle_shrinking=true");
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'hello',",
+        "               srcs = ['Foo.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               shrink_resources = 1)");
+
+    ConfiguredTargetAndData targetAndData =
+        getConfiguredTargetAndData("//java/com/google/android/hello:hello");
+
+    Artifact jar = getResourceClassJar(targetAndData);
+    assertThat(getGeneratingAction(jar).getMnemonic()).isEqualTo("RClassGenerator");
+    // Final fields should still be generated for non-ProGuarded builds.
+    assertThat(getGeneratingSpawnActionArgs(jar)).contains("--finalFields");
+  }
 
   @Test
   public void testOnlyProguardSpecs() throws Exception {
@@ -4341,78 +4368,6 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
     output = getConfiguredTarget("//java/com/google/android/hello:b2");
     assertProguardUsed(output);
     assertThat(output.get(ProguardMappingProvider.PROVIDER)).isNull();
-  }
-
-  @Test
-  public void testLegacyOptimizationModeUsesExtraProguardSpecs() throws Exception {
-    useConfiguration(
-        "--extra_proguard_specs=java/com/google/android/hello:extra.pro",
-        "--experimental_use_dex_splitter_for_incremental_dexing=false",
-        "--experimental_incremental_dexing_after_proguard_by_default=false",
-        "--experimental_incremental_dexing_after_proguard=1");
-    scratch.file(
-        "java/com/google/android/hello/BUILD",
-        "exports_files(['extra.pro'])",
-        "android_binary(name = 'b',",
-        "               srcs = ['HelloApp.java'],",
-        "               manifest = 'AndroidManifest.xml',",
-        "               proguard_specs = ['proguard-spec.pro'])");
-    checkProguardUse(
-        getConfiguredTarget("//java/com/google/android/hello:b"),
-        "b_proguard.jar",
-        false,
-        /*passes=*/ null,
-        // no-op since passes is null.
-        /*bytecodeOptimizationPassActions=*/ 0,
-        getAndroidJarPath());
-
-    SpawnAction action =
-        (SpawnAction)
-            actionsTestUtil()
-                .getActionForArtifactEndingWith(
-                    getFilesToBuild(getConfiguredTarget("//java/com/google/android/hello:b")),
-                    "_proguard.jar");
-    assertThat(prettyArtifactNames(action.getInputs())).containsNoDuplicates();
-    assertThat(Collections2.filter(action.getArguments(), arg -> arg.startsWith("@")))
-        .containsExactly(
-            "@" + execPathEndingWith(action.getInputs(), "/proguard-spec.pro"),
-            "@" + execPathEndingWith(action.getInputs(), "/_b_proguard.cfg"),
-            "@java/com/google/android/hello/extra.pro");
-  }
-
-  @Test
-  public void testExtraProguardSpecsDontDuplicateProguardInputFiles() throws Exception {
-    useConfiguration(
-        "--extra_proguard_specs=java/com/google/android/hello:proguard-spec.pro",
-        "--experimental_use_dex_splitter_for_incremental_dexing=false",
-        "--experimental_incremental_dexing_after_proguard_by_default=false",
-        "--experimental_incremental_dexing_after_proguard=1");
-    scratch.file(
-        "java/com/google/android/hello/BUILD",
-        "android_binary(name = 'b',",
-        "               srcs = ['HelloApp.java'],",
-        "               manifest = 'AndroidManifest.xml',",
-        "               proguard_specs = ['proguard-spec.pro'])");
-    checkProguardUse(
-        getConfiguredTarget("//java/com/google/android/hello:b"),
-        "b_proguard.jar",
-        false,
-        /*passes=*/ null,
-        // no-op since passes is null.
-        /*bytecodeOptimizationPassActions=*/ 0,
-        getAndroidJarPath());
-
-    SpawnAction action =
-        (SpawnAction)
-            actionsTestUtil()
-                .getActionForArtifactEndingWith(
-                    getFilesToBuild(getConfiguredTarget("//java/com/google/android/hello:b")),
-                    "_proguard.jar");
-    assertThat(prettyArtifactNames(action.getInputs())).containsNoDuplicates();
-    assertThat(Collections2.filter(action.getArguments(), arg -> arg.startsWith("@")))
-        .containsExactly(
-            "@java/com/google/android/hello/proguard-spec.pro",
-            "@" + execPathEndingWith(action.getInputs(), "/_b_proguard.cfg"));
   }
 
   @Test

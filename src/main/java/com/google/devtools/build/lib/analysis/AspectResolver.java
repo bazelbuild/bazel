@@ -23,11 +23,11 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -64,10 +64,10 @@ public final class AspectResolver {
     SkyframeLookupResult depAspects = env.getValuesAndExceptions(allAspectKeys);
 
     for (Dependency dep : deps) {
-      Map<AspectDescriptor, SkyKey> aspectToKeys = getAspectKeys(dep);
+      Map<AspectDescriptor, AspectKey> aspectToKeys = getAspectKeys(dep);
 
       for (AspectCollection.AspectDeps depAspect : dep.getAspects().getUsedAspects()) {
-        SkyKey aspectKey = aspectToKeys.get(depAspect.getAspect());
+        AspectKey aspectKey = aspectToKeys.get(depAspect.getAspect());
 
         AspectValue aspectValue;
         try {
@@ -138,44 +138,48 @@ public final class AspectResolver {
     return result;
   }
 
-  private static Map<AspectDescriptor, SkyKey> getAspectKeys(Dependency dep) {
-    HashMap<AspectDescriptor, SkyKey> result = new HashMap<>();
+  private static Map<AspectDescriptor, AspectKey> getAspectKeys(Dependency dep) {
+    HashMap<AspectDescriptor, AspectKey> result = new HashMap<>();
     AspectCollection aspects = dep.getAspects();
     for (AspectCollection.AspectDeps aspectDeps : aspects.getUsedAspects()) {
-      buildAspectKey(aspectDeps, result, dep);
+      var unused = buildAspectKey(aspectDeps, result, dep.getConfiguredTargetKey());
     }
     return result;
   }
 
   private static AspectKey buildAspectKey(
       AspectCollection.AspectDeps aspectDeps,
-      HashMap<AspectDescriptor, SkyKey> result,
-      Dependency dep) {
+      HashMap<AspectDescriptor, AspectKey> result,
+      ConfiguredTargetKey depKey) {
     if (result.containsKey(aspectDeps.getAspect())) {
       return (AspectKey) result.get(aspectDeps.getAspect()).argument();
     }
 
     ImmutableList.Builder<AspectKey> dependentAspects = ImmutableList.builder();
     for (AspectCollection.AspectDeps path : aspectDeps.getUsedAspects()) {
-      dependentAspects.add(buildAspectKey(path, result, dep));
+      dependentAspects.add(buildAspectKey(path, result, depKey));
     }
     AspectKey aspectKey =
-        AspectKeyCreator.createAspectKey(
-            aspectDeps.getAspect(), dependentAspects.build(), dep.getConfiguredTargetKey());
+        AspectKeyCreator.createAspectKey(aspectDeps.getAspect(), dependentAspects.build(), depKey);
     result.put(aspectKey.getAspectDescriptor(), aspectKey);
     return aspectKey;
   }
 
-  public static boolean aspectMatchesConfiguredTarget(ConfiguredTargetAndData dep, Aspect aspect) {
+  public static boolean aspectMatchesConfiguredTarget(
+      ConfiguredTarget ct, boolean isRule, Aspect aspect) {
     if (!aspect.getDefinition().applyToFiles()
         && !aspect.getDefinition().applyToGeneratingRules()
-        && !(dep.getTarget() instanceof Rule)) {
+        && !isRule) {
       return false;
     }
-    if (dep.getTarget().getAssociatedRule() == null) {
-      // even aspects that 'apply to files' cannot apply to input files.
+    if (ct.getConfigurationKey() == null) {
+      // Aspects cannot apply to PackageGroups or InputFiles, the only cases where this is null.
       return false;
     }
-    return dep.getConfiguredTarget().satisfies(aspect.getDefinition().getRequiredProviders());
+    return ct.satisfies(aspect.getDefinition().getRequiredProviders());
+  }
+
+  public static boolean aspectMatchesConfiguredTarget(ConfiguredTargetAndData ctad, Aspect aspect) {
+    return aspectMatchesConfiguredTarget(ctad.getConfiguredTarget(), ctad.isTargetRule(), aspect);
   }
 }

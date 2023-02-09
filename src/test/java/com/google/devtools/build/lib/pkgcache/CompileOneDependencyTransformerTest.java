@@ -160,8 +160,8 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
         .hasMessageThat()
         .isEqualTo(
             "no such target '//foo:missing.cc': target 'missing.cc' not declared in package "
-                + "'foo' defined by /workspace/foo/BUILD (Tip: use `query //foo:*` to see all the "
-                + "targets in that package)");
+                + "'foo' defined by /workspace/foo/BUILD (Tip: use `query \"//foo:*\"` to see all "
+                + "the targets in that package)");
 
     // Also, try a valid input file which has no dependent rules in its package.
     e = assertThrows(TargetParsingException.class, () -> parseCompileOneDep("//foo:baz/bang"));

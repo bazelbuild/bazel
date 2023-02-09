@@ -108,9 +108,16 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
   }
 
   @Override
-  public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
-    AnalysisUtils.checkProvider(provider);
-    return providers.getProvider(provider);
+  public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
+    AnalysisUtils.checkProvider(providerClass);
+    final P provider = providers.getProvider(providerClass);
+    if (provider != null) {
+      return provider;
+    } else if (providerClass.isAssignableFrom(getClass())) {
+      return providerClass.cast(this);
+    } else {
+      return null;
+    }
   }
 
   @Override

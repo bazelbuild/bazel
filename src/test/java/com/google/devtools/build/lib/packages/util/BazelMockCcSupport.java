@@ -68,7 +68,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   public Label getMockCrosstoolLabel() {
-    return Label.parseAbsoluteUnchecked("@bazel_tools//tools/cpp:toolchain");
+    return Label.parseCanonicalUnchecked("@bazel_tools//tools/cpp:toolchain");
   }
 
   @Override
@@ -95,6 +95,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
     if (OS.getCurrent() == OS.DARWIN) {
       result.add(CcToolchainConfig.getCcToolchainConfigForCpu("darwin"));
+      result.add(CcToolchainConfig.getCcToolchainConfigForCpu("darwin_arm64"));
     }
 
     return result.build();

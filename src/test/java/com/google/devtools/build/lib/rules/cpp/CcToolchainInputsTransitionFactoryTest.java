@@ -63,9 +63,8 @@ public class CcToolchainInputsTransitionFactoryTest extends BuildViewTestCase {
 
     CoreOptions coreOptions = getConfiguration(allFiles).getOptions().get(CoreOptions.class);
     assertThat(coreOptions).isNotNull();
-    assertThat(coreOptions.isHost).isFalse();
     assertThat(coreOptions.isExec).isFalse();
-    // if isHost and isExec are false, then allFiles is building for the target platform
+    // if isExec is false, then allFiles is building for the target platform
   }
 
   @Test
@@ -104,7 +103,6 @@ public class CcToolchainInputsTransitionFactoryTest extends BuildViewTestCase {
 
     CoreOptions coreOptions = getConfiguration(allFiles).getOptions().get(CoreOptions.class);
     assertThat(coreOptions).isNotNull();
-    assertThat(coreOptions.isHost).isFalse();
     assertThat(coreOptions.isExec).isTrue();
   }
 
@@ -143,7 +141,6 @@ public class CcToolchainInputsTransitionFactoryTest extends BuildViewTestCase {
 
     CoreOptions coreOptions = getConfiguration(allFiles).getOptions().get(CoreOptions.class);
     assertThat(coreOptions).isNotNull();
-    assertThat(coreOptions.isHost).isFalse();
     assertThat(coreOptions.isExec).isTrue();
   }
 }

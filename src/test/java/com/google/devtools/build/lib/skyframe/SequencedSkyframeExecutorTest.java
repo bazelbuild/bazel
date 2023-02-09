@@ -102,6 +102,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
@@ -663,9 +664,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     assertThrows(
         InterruptedException.class,
         () ->
-            packageProvider.getLoadedTarget(Label.parseAbsoluteUnchecked("//python/hello:hello")));
-    Target target = packageProvider.getLoadedTarget(
-        Label.parseAbsoluteUnchecked("//python/hello:hello"));
+            packageProvider.getLoadedTarget(Label.parseCanonicalUnchecked("//python/hello:hello")));
+    Target target =
+        packageProvider.getLoadedTarget(Label.parseCanonicalUnchecked("//python/hello:hello"));
     assertThat(target).isNotNull();
   }
 
@@ -770,7 +771,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setParallelism(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(reporter)
             .build();
     return skyframeExecutor.getEvaluator().evaluate(roots, evaluationContext);
@@ -879,6 +880,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // is running. This way, both actions will check the action cache beforehand and try to update
     // the action cache post-build.
     final CountDownLatch inputsRequested = new CountDownLatch(2);
+    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
     skyframeExecutor
         .getEvaluator()
         .injectGraphTransformerForTesting(
@@ -1231,6 +1233,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionTemplate<DummyAction> template2 =
         new DummyActionTemplate(baseOutput, sharedOutput2, ActionOwner.SYSTEM_ACTION_OWNER);
     ActionLookupValue shared2Ct = createActionLookupValue(template2, shared2);
+    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
     // Inject the "configured targets" into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
@@ -1588,10 +1591,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     initializeSkyframeExecutor();
     skyframeExecutor.setActive(false);
     skyframeExecutor.decideKeepIncrementalState(
-        /*batch=*/ false,
-        /*keepStateAfterBuild=*/ true,
-        /*shouldTrackIncrementalState=*/ false,
-        /*discardAnalysisCache=*/ false,
+        /* batch= */ false,
+        /* keepStateAfterBuild= */ true,
+        /* shouldTrackIncrementalState= */ false,
+        /* heuristicallyDropNodes= */ false,
+        /* discardAnalysisCache= */ false,
         reporter);
     skyframeExecutor.setActive(true);
     syncSkyframeExecutor();
@@ -1645,6 +1649,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             createActionLookupValue(action2, lc2),
             null,
             NestedSetBuilder.create(Order.STABLE_ORDER, Event.warn("analysis warning 2")));
+    skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
     skyframeExecutor
         .getDifferencerForTesting()
         .inject(ImmutableMap.of(lc1, ctValue1, lc2, ctValue2));
@@ -2137,10 +2142,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     options.parse("--keep_going", "--jobs=1", "--discard_analysis_cache");
     skyframeExecutor.setActive(false);
     skyframeExecutor.decideKeepIncrementalState(
-        /*batch=*/ true,
-        /*keepStateAfterBuild=*/ true,
-        /*shouldTrackIncrementalState=*/ true,
-        /*discardAnalysisCache=*/ true,
+        /* batch= */ true,
+        /* keepStateAfterBuild= */ true,
+        /* shouldTrackIncrementalState= */ true,
+        /* heuristicallyDropNodes= */ false,
+        /* discardAnalysisCache= */ true,
         reporter);
     skyframeExecutor.setActive(true);
     runCatastropheHaltsBuild();
@@ -2535,10 +2541,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     skyframeExecutor.setActive(false);
     skyframeExecutor.decideKeepIncrementalState(
-        /*batch=*/ false,
-        /*keepStateAfterBuild=*/ true,
+        /* batch= */ false,
+        /* keepStateAfterBuild= */ true,
         trackIncrementalState,
-        /*discardAnalysisCache=*/ false,
+        /* heuristicallyDropNodes= */ false,
+        /* discardAnalysisCache= */ false,
         reporter);
     skyframeExecutor.setActive(true);
     syncSkyframeExecutor();
@@ -2548,13 +2555,15 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   private void syncSkyframeExecutor() throws InterruptedException, AbruptExitException {
-    skyframeExecutor.sync(
-        reporter,
-        skyframeExecutor.getPackageLocator().get(),
-        UUID.randomUUID(),
-        /*clientEnv=*/ ImmutableMap.of(),
-        /*repoEnvOption=*/ ImmutableMap.of(),
-        tsgm,
-        options);
+    var unused =
+        skyframeExecutor.sync(
+            reporter,
+            skyframeExecutor.getPackageLocator().get(),
+            UUID.randomUUID(),
+            /* clientEnv= */ ImmutableMap.of(),
+            /* repoEnvOption= */ ImmutableMap.of(),
+            tsgm,
+            QuiescingExecutorsImpl.forTesting(),
+            options);
   }
 }

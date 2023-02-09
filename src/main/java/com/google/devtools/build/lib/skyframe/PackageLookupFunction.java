@@ -102,8 +102,8 @@ public class PackageLookupFunction implements SkyFunction {
       return new PackageLookupValue.NoRepositoryPackageLookupValue(
           repoName.getNameWithAt(),
           String.format(
-              "Repository '@%s' is not visible from repository '%s'",
-              repoName.getName(), repoName.getOwnerRepoIfNotVisible().getNameWithAt()));
+              "No repository visible as '@%s' from %s",
+              repoName.getName(), repoName.getOwnerRepoDisplayString()));
     }
 
     if (deletedPackages.get().contains(packageKey)) {

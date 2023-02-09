@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.devtools.build.lib.rules.cpp.CcModule.isBuiltIn;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -55,7 +53,7 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
- * This class represents the C/C++ parts of the {@link BuildConfigurationValue}, including the host
+ * This class represents the C/C++ parts of the {@link BuildConfigurationValue}, including the exec
  * architecture, target architecture, compiler version, and a standard library version.
  */
 @Immutable
@@ -63,7 +61,7 @@ import net.starlark.java.eval.StarlarkValue;
 public final class CppConfiguration extends Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
   /**
-   * String indicating a Mac system, for example when used in a crosstool configuration's host or
+   * String indicating a Mac system, for example when used in a crosstool configuration's exec or
    * target system name.
    */
   public static final String MAC_SYSTEM_NAME = "x86_64-apple-macosx";
@@ -207,7 +205,7 @@ public final class CppConfiguration extends Fragment
     if (cppOptions.getFdoOptimize() != null) {
       if (cppOptions.getFdoOptimize().startsWith("//")) {
         try {
-          fdoProfileLabel = Label.parseAbsolute(cppOptions.getFdoOptimize(), ImmutableMap.of());
+          fdoProfileLabel = Label.parseCanonical(cppOptions.getFdoOptimize());
         } catch (LabelSyntaxException e) {
           throw new InvalidConfigurationException(e);
         }
@@ -291,8 +289,7 @@ public final class CppConfiguration extends Fragment
                 && compilationMode == CompilationMode.FASTBUILD);
     this.compilationMode = compilationMode;
     this.collectCodeCoverage = commonOptions.collectCodeCoverage;
-    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 =
-        commonOptions.isHost || commonOptions.isExec;
+    this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 = commonOptions.isExec;
     this.appleGenerateDsym =
         (cppOptions.appleGenerateDsym
             || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG));
@@ -316,7 +313,7 @@ public final class CppConfiguration extends Fragment
   @StarlarkConfigurationField(
       name = "cc_toolchain",
       doc = "The label of the target describing the C++ toolchain",
-      defaultLabel = "//tools/cpp:crosstool",
+      defaultLabel = "//tools/cpp:toolchain",
       defaultInToolRepository = true)
   public Label getRuleProvidingCcToolchainProvider() {
     return cppOptions.crosstoolTop;
@@ -368,6 +365,10 @@ public final class CppConfiguration extends Fragment
 
   public boolean isCSFdo() {
     return cppOptions.isCSFdo();
+  }
+
+  public boolean ignoreParamFile() {
+    return cppOptions.ignoreParamFile;
   }
 
   public boolean useArgsParamsFile() {
@@ -593,9 +594,13 @@ public final class CppConfiguration extends Fragment
     }
 
     // This is an assertion check vs. user error because users can't trigger this state.
-    Verify.verify(
-        !(buildOptions.get(CoreOptions.class).isHost && cppOptions.isFdo()),
-        "FDO state should not propagate to the host configuration");
+    // TODO(b/253313672): uncomment the below and check tests don't fail. This was originally set
+    // check the exec configuration doesn't apply FDO settings. With the host configuration gone
+    // we should migrate this check to the exec config. Since there's a chance of breakage it's best
+    // to test this as its own dedicated change.
+    // Verify.verify(
+    //   !(buildOptions.get(CoreOptions.class).isExec && cppOptions.isFdo()),
+    // "FDO state should not propagate to the exec configuration");
   }
 
   @Override
@@ -620,28 +625,14 @@ public final class CppConfiguration extends Fragment
 
   @Nullable
   String getFdoInstrument() {
-    if (isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
-      // We don't want FDO in the host configuration
-      return null;
-    }
     return cppOptions.fdoInstrumentForBuild;
   }
 
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  PathFragment getFdoPathUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  PathFragment getFdoPath() {
     return fdoPath;
   }
 
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  Label getFdoOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  Label getFdoOptimizeLabel() {
     return fdoOptimizeLabel;
   }
 
@@ -663,28 +654,10 @@ public final class CppConfiguration extends Fragment
 
   @Nullable
   Label getFdoPrefetchHintsLabel() {
-    if (isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
-      // We don't want FDO in the host configuration
-      return null;
-    }
-    return getFdoPrefetchHintsLabelUnsafeSinceItCanReturnValueFromWrongConfiguration();
-  }
-
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  Label getFdoPrefetchHintsLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
     return cppOptions.getFdoPrefetchHintsLabel();
   }
 
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
-  @Deprecated
-  Label getFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  Label getFdoProfileLabel() {
     return cppOptions.fdoProfileLabel;
   }
 
@@ -692,30 +665,16 @@ public final class CppConfiguration extends Fragment
     return cppOptions.csFdoProfileLabel;
   }
 
-  public Label getPropellerOptimizeLabel() {
-    return cppOptions.propellerOptimizeLabel;
-  }
-
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
   @Nullable
-  @Deprecated
-  Label getPropellerOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  Label getPropellerOptimizeLabel() {
     if (cppOptions.fdoInstrumentForBuild != null || cppOptions.csFdoInstrumentForBuild != null) {
       return null;
     }
     return cppOptions.getPropellerOptimizeLabel();
   }
 
-  /**
-   * @deprecated Unsafe because it returns a value from target configuration even in the host
-   *     configuration.
-   */
   @Nullable
-  @Deprecated
-  Label getXFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
+  Label getXFdoProfileLabel() {
     if (cppOptions.fdoOptimizeForBuild != null
         || cppOptions.fdoInstrumentForBuild != null
         || cppOptions.fdoProfileLabel != null
@@ -770,11 +729,11 @@ public final class CppConfiguration extends Fragment
    */
   @Nullable
   public Label getTargetLibcTopLabel() {
-    if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
+    if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294) {
       // This isn't for a platform-enabled C++ toolchain (legacy C++ toolchains evaluate in the
-      // target configuration while platform-enabled toolchains evaluate in the host/exec
-      // configuration). targetLibcTopLabel is only intended for platform-enabled toolchains and can
-      // cause errors otherwise.
+      // target configuration while platform-enabled toolchains evaluate in the exec configuration).
+      // targetLibcTopLabel is only intended for platform-enabled toolchains and can cause errors
+      // otherwise.
       //
       // For example: if a legacy-configured toolchain inherits a --grte_top pointing to an Android
       // runtime alias that select()s on a target Android CPU and an iOS dep changes the CPU to an
@@ -807,13 +766,6 @@ public final class CppConfiguration extends Fragment
     return collectCodeCoverage;
   }
 
-  /** @deprecated this is only a temporary workaround, will be removed by b/129045294. */
-  // TODO(b/129045294): Remove at first opportunity
-  @Deprecated
-  boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294() {
-    return isToolConfigurationDoNotUseWillBeRemovedFor129045294;
-  }
-
   public boolean enableCcToolchainResolution() {
     return cppOptions.enableCcToolchainResolution;
   }
@@ -834,6 +786,12 @@ public final class CppConfiguration extends Fragment
     return cppOptions.disableNoCopts;
   }
 
+  @Override
+  public boolean disableNocoptsStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return disableNoCopts();
+  }
+
   public boolean loadCcRulesFromBzl() {
     return cppOptions.loadCcRulesFromBzl;
   }
@@ -842,6 +800,7 @@ public final class CppConfiguration extends Fragment
     return cppOptions.validateTopLevelHeaderInclusions;
   }
 
+  @Override
   public boolean appleGenerateDsym() {
     return appleGenerateDsym;
   }
@@ -930,6 +889,7 @@ public final class CppConfiguration extends Fragment
     return generateLlvmLCov();
   }
 
+  @Nullable
   @Override
   public String fdoInstrumentStarlark(StarlarkThread thread) throws EvalException {
     checkInExpandedApiAllowlist(thread, "fdo_instrument");

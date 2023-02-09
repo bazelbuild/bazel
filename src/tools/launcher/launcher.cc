@@ -42,14 +42,14 @@ using std::vector;
 using std::wostringstream;
 using std::wstring;
 
-static wstring GetRunfilesDir(const wchar_t* argv0) {
+static wstring GetRunfilesDir(const wchar_t* launcher_path) {
   wstring runfiles_dir;
   // If RUNFILES_DIR is already set (probably we are either in a test or in a
   // data dependency) then use it.
   if (!GetEnv(L"RUNFILES_DIR", &runfiles_dir)) {
     // Otherwise this is probably a top-level non-test binary (e.g. a genrule
     // tool) and should look for its runfiles beside the executable.
-    runfiles_dir = GetBinaryPathWithExtension(argv0) + L".runfiles";
+    runfiles_dir = GetBinaryPathWithExtension(launcher_path) + L".runfiles";
   }
   // Make sure we return a normalized absolute path.
   if (!blaze_util::IsAbsolute(runfiles_dir)) {
@@ -63,10 +63,12 @@ static wstring GetRunfilesDir(const wchar_t* argv0) {
 }
 
 BinaryLauncherBase::BinaryLauncherBase(
-    const LaunchDataParser::LaunchInfo& _launch_info, int argc, wchar_t* argv[])
-    : launch_info(_launch_info),
-      manifest_file(FindManifestFile(argv[0])),
-      runfiles_dir(GetRunfilesDir(argv[0])),
+    const LaunchDataParser::LaunchInfo& _launch_info,
+    const std::wstring& launcher_path, int argc, wchar_t* argv[])
+    : launcher_path(launcher_path),
+      launch_info(_launch_info),
+      manifest_file(FindManifestFile(launcher_path.c_str())),
+      runfiles_dir(GetRunfilesDir(launcher_path.c_str())),
       workspace_name(GetLaunchInfoByKey(WORKSPACE_NAME)),
       symlink_runfiles_enabled(GetLaunchInfoByKey(SYMLINK_RUNFILES_ENABLED) ==
                                L"1") {
@@ -81,7 +83,8 @@ BinaryLauncherBase::BinaryLauncherBase(
   }
 }
 
-static bool FindManifestFileImpl(const wchar_t* argv0, wstring* result) {
+static bool FindManifestFileImpl(const wchar_t* launcher_path,
+                                 wstring* result) {
   // If this binary X runs as the data-dependency of some other binary Y, then
   // X has no runfiles manifest/directory and should use Y's.
   if (GetEnv(L"RUNFILES_MANIFEST_FILE", result) &&
@@ -100,7 +103,7 @@ static bool FindManifestFileImpl(const wchar_t* argv0, wstring* result) {
   // If this binary X runs by itself (not as a data-dependency of another
   // binary), then look for the manifest in a runfiles directory next to the
   // main binary, then look for it (the manifest) next to the main binary.
-  directory = GetBinaryPathWithExtension(argv0) + L".runfiles";
+  directory = GetBinaryPathWithExtension(launcher_path) + L".runfiles";
   *result = directory + L"/MANIFEST";
   if (DoesFilePathExist(result->c_str())) {
     return true;
@@ -114,9 +117,9 @@ static bool FindManifestFileImpl(const wchar_t* argv0, wstring* result) {
   return false;
 }
 
-wstring BinaryLauncherBase::FindManifestFile(const wchar_t* argv0) {
+wstring BinaryLauncherBase::FindManifestFile(const wchar_t* launcher_path) {
   wstring manifest_file;
-  if (!FindManifestFileImpl(argv0, &manifest_file)) {
+  if (!FindManifestFileImpl(launcher_path, &manifest_file)) {
     return L"";
   }
   // The path will be set as the RUNFILES_MANIFEST_FILE envvar and used by the
@@ -125,9 +128,11 @@ wstring BinaryLauncherBase::FindManifestFile(const wchar_t* argv0) {
   return manifest_file;
 }
 
+wstring BinaryLauncherBase::GetLauncherPath() const { return launcher_path; }
+
 wstring BinaryLauncherBase::GetRunfilesPath() const {
   wstring runfiles_path =
-      GetBinaryPathWithExtension(this->commandline_arguments[0]) + L".runfiles";
+      GetBinaryPathWithExtension(launcher_path) + L".runfiles";
   std::replace(runfiles_path.begin(), runfiles_path.end(), L'/', L'\\');
   return runfiles_path;
 }

@@ -1,4 +1,6 @@
-licenses(["notice"])
+# Description:
+#   Part of the Bazel DocGen pipeline that updates the table-of-contents of the release documentation
+package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",

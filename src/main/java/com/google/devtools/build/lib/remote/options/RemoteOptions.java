@@ -273,7 +273,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Whether to upload locally executed action results to the remote cache.")
+      help =
+          "Whether to upload locally executed action results to the remote cache if the remote "
+              + "cache supports it and the user is authorized to do so.")
   public boolean remoteUploadLocalResults;
 
   @Deprecated
@@ -300,9 +302,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
           "If set to 'all', all local outputs referenced by BEP are uploaded to remote cache.\n"
               + "If set to 'minimal', local outputs referenced by BEP are not uploaded to the"
               + " remote cache, except for files that are important to the consumers of BEP (e.g."
-              + " test logs and timing profile).\n"
-              + "file:// scheme is used for the paths of local files and bytestream:// scheme is"
-              + " used for the paths of (already) uploaded files.\n"
+              + " test logs and timing profile). bytestream:// scheme is always used for the uri of"
+              + " files even if they are missing from remote cache.\n"
               + "Default to 'all'.")
   public RemoteBuildEventUploadMode remoteBuildEventUploadMode;
 
@@ -413,6 +414,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean incompatibleRemoteSymlinks;
 
   @Option(
+      name = "incompatible_remote_dangling_symlinks",
+      defaultValue = "true",
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true and --incompatible_remote_symlinks is also true, symlinks in action"
+              + " outputs are allowed to dangle.")
+  public boolean incompatibleRemoteDanglingSymlinks;
+
+  @Option(
       name = "experimental_remote_cache_compression",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
@@ -459,15 +472,17 @@ public final class RemoteOptions extends CommonRemoteOptions {
         "--nobuild_runfile_links",
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
+        "--experimental_action_cache_store_output_metadata",
         "--remote_download_outputs=minimal"
       },
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Does not download any remote build outputs to the local machine. This flag is a "
-              + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
-              + "--experimental_inmemory_dotd_files and "
+          "Does not download any remote build outputs to the local machine. This flag is a shortcut"
+              + " for flags: --experimental_inmemory_jdeps_files,"
+              + " --experimental_inmemory_dotd_files,"
+              + " --experimental_action_cache_store_output_metadata and "
               + "--remote_download_outputs=minimal.")
   public Void remoteOutputsMinimal;
 
@@ -478,15 +493,17 @@ public final class RemoteOptions extends CommonRemoteOptions {
       expansion = {
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
+        "--experimental_action_cache_store_output_metadata",
         "--remote_download_outputs=toplevel"
       },
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Only downloads remote outputs of top level targets to the local machine. This flag is a "
-              + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
-              + "--experimental_inmemory_dotd_files and "
+          "Only downloads remote outputs of top level targets to the local machine. This flag is a"
+              + " shortcut for flags: --experimental_inmemory_jdeps_files,"
+              + " --experimental_inmemory_dotd_files,"
+              + " --experimental_action_cache_store_output_metadata and "
               + "--remote_download_outputs=toplevel.")
   public Void remoteOutputsToplevel;
 
@@ -607,6 +624,39 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "to print only on failures, `success` to print only on successes and "
               + "`all` to print always.")
   public ExecutionMessagePrintMode remotePrintExecutionMessages;
+
+  @Option(
+      name = "incompatible_remote_downloader_send_all_headers",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Whether to send all values of a multi-valued header to the remote downloader instead of"
+              + " just the first.")
+  public boolean remoteDownloaderSendAllHeaders;
+
+  @Option(
+      name = "experimental_remote_mark_tool_inputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, Bazel will mark inputs as tool inputs for the remote executor. This "
+              + "can be used to implement remote persistent workers.")
+  public boolean markToolInputs;
+
+  @Option(
+      name = "experimental_remote_discard_merkle_trees",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, discard in-memory copies of the input root's Merkle tree and associated "
+              + "input mappings during calls to GetActionResult() and Execute(). This reduces "
+              + "memory usage significantly, but does require Bazel to recompute them upon remote "
+              + "cache misses and retries.")
+  public boolean remoteDiscardMerkleTrees;
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.

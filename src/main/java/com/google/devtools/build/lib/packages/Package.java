@@ -194,9 +194,6 @@ public class Package {
    */
   private String defaultHdrsCheck;
 
-  /** Default copts for cc_* rules. The rules' individual copts will append to this value. */
-  private ImmutableList<String> defaultCopts;
-
   /**
    * The InputFile target corresponding to this package's BUILD file.
    */
@@ -222,8 +219,8 @@ public class Package {
   /** The list of transitive closure of the Starlark file dependencies. */
   private ImmutableList<Label> starlarkFileDependencies;
 
-  /** The package's default "applicable_licenses" attribute. */
-  private Set<Label> defaultApplicableLicenses = ImmutableSet.of();
+  /** The package's default "package_metadata" attribute. */
+  private ImmutableSet<Label> defaultPackageMetadata = ImmutableSet.of();
 
   /**
    * The package's default "licenses" and "distribs" attributes, as specified
@@ -247,6 +244,13 @@ public class Package {
    * the main workspace.
    */
   private RepositoryMapping repositoryMapping;
+
+  /**
+   * The repository mapping of the main repository. This is only used internally to obtain
+   * user-friendly apparent names from canonical repository names in error message arising from this
+   * package.
+   */
+  private RepositoryMapping mainRepositoryMapping;
 
   private Set<Label> defaultCompatibleWith = ImmutableSet.of();
   private Set<Label> defaultRestrictedTo = ImmutableSet.of();
@@ -462,22 +466,18 @@ public class Package {
     this.defaultVisibility = builder.defaultVisibility;
     this.defaultVisibilitySet = builder.defaultVisibilitySet;
     this.configSettingVisibilityPolicy = builder.configSettingVisibilityPolicy;
-    if (builder.defaultCopts == null) {
-      this.defaultCopts = ImmutableList.of();
-    } else {
-      this.defaultCopts = ImmutableList.copyOf(builder.defaultCopts);
-    }
     this.buildFile = builder.buildFile;
     this.containsErrors = builder.containsErrors;
     this.failureDetail = builder.getFailureDetail();
     this.starlarkFileDependencies = builder.starlarkFileDependencies;
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
-    this.defaultApplicableLicenses = ImmutableSortedSet.copyOf(builder.defaultApplicableLicenses);
+    this.defaultPackageMetadata = ImmutableSortedSet.copyOf(builder.defaultPackageMetadata);
     this.features = ImmutableSortedSet.copyOf(builder.features);
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
     this.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
+    this.mainRepositoryMapping = Preconditions.checkNotNull(builder.mainRepositoryMapping);
     ImmutableMap.Builder<RepositoryName, ImmutableMap<String, RepositoryName>>
         repositoryMappingsBuilder = ImmutableMap.builder();
     if (!builder.externalPackageRepositoryMappings.isEmpty() && !builder.isRepoRulePackage()) {
@@ -730,8 +730,8 @@ public class Package {
           suggestedTarget == null ? null : String.format("did you mean '%s'?", suggestedTarget);
       String blazeQuerySuggestion =
           String.format(
-              "Tip: use `query %s:*` to see all the targets in that package",
-              packageIdentifier.getCanonicalForm());
+              "Tip: use `query \"%s:*\"` to see all the targets in that package",
+              packageIdentifier.getDisplayForm(mainRepositoryMapping));
       return String.format(
           " (%s)", Joiner.on(" ").skipNulls().join(targetSuggestion, blazeQuerySuggestion));
     }
@@ -772,14 +772,6 @@ public class Package {
   }
 
   /**
-   * Returns the default copts value, to which rules should append their
-   * specific copts.
-   */
-  public ImmutableList<String> getDefaultCopts() {
-    return defaultCopts;
-  }
-
-  /**
    * Returns whether the default header checking mode has been set or it is the
    * default value.
    */
@@ -791,9 +783,9 @@ public class Package {
     return defaultVisibilitySet;
   }
 
-  /** Gets the licenses list for the default applicable_licenses declared by this package. */
-  public Set<Label> getDefaultApplicableLicenses() {
-    return defaultApplicableLicenses;
+  /** Gets the package metadata list for the default metadata declared by this package. */
+  public Set<Label> getDefaultPackageMetadata() {
+    return defaultPackageMetadata;
   }
 
   /** Gets the parsed license object for the default license declared by this package. */
@@ -880,6 +872,7 @@ public class Package {
             LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
             workspaceName,
             starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
+            mainRepoMapping,
             mainRepoMapping)
         .setFilename(workspacePath);
   }
@@ -894,7 +887,11 @@ public class Package {
             basePackageId,
             DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES,
             starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
-            repoMapping)
+            repoMapping,
+            // This mapping is *not* the main repository's mapping, but since it is only used to
+            // construct a query command in an error message and the package built here can't be
+            // seen by query, the particular value does not matter.
+            RepositoryMapping.ALWAYS_FALLBACK)
         .setFilename(moduleFilePath);
   }
 
@@ -974,6 +971,11 @@ public class Package {
      * workspace.
      */
     private final RepositoryMapping repositoryMapping;
+    /**
+     * The repository mapping of the main repository. This is only used to resolve user-friendly
+     * apparent names from canonical repository names in error message arising from this package.
+     */
+    private final RepositoryMapping mainRepositoryMapping;
     /** Converts label literals to Label objects within this package. */
     private final LabelConverter labelConverter;
 
@@ -986,7 +988,6 @@ public class Package {
     private RuleVisibility defaultVisibility = ConstantRuleVisibility.PRIVATE;
     private ConfigSettingVisibilityPolicy configSettingVisibilityPolicy;
     private boolean defaultVisibilitySet;
-    private List<String> defaultCopts = null;
     private final List<String> features = new ArrayList<>();
     private final List<Event> events = Lists.newArrayList();
     private final List<Postable> posts = Lists.newArrayList();
@@ -1006,7 +1007,7 @@ public class Package {
     // serialize events emitted during its construction/evaluation.
     @Nullable private FailureDetail failureDetailOverride = null;
 
-    private ImmutableList<Label> defaultApplicableLicenses = ImmutableList.of();
+    private ImmutableList<Label> defaultPackageMetadata = ImmutableList.of();
     private License defaultLicense = License.NO_LICENSE;
     private Set<License.DistributionType> defaultDistributionSet = License.DEFAULT_DISTRIB;
 
@@ -1098,10 +1099,12 @@ public class Package {
         PackageIdentifier id,
         String workspaceName,
         boolean noImplicitFileExport,
-        RepositoryMapping repositoryMapping) {
+        RepositoryMapping repositoryMapping,
+        RepositoryMapping mainRepositoryMapping) {
       this.pkg = new Package(id, workspaceName, packageSettings.succinctTargetNotFoundErrors());
       this.noImplicitFileExport = noImplicitFileExport;
       this.repositoryMapping = repositoryMapping;
+      this.mainRepositoryMapping = mainRepositoryMapping;
       this.labelConverter = new LabelConverter(id, repositoryMapping);
       if (pkg.getName().startsWith("javatests/")) {
         setDefaultTestonly(true);
@@ -1310,13 +1313,6 @@ public class Package {
       return this;
     }
 
-    /** Sets the default value of copts. Rule-level copts will append to this. */
-    @CanIgnoreReturnValue
-    public Builder setDefaultCopts(List<String> defaultCopts) {
-      this.defaultCopts = defaultCopts;
-      return this;
-    }
-
     @CanIgnoreReturnValue
     public Builder addFeatures(Iterable<String> features) {
       Iterables.addAll(this.features, features);
@@ -1411,16 +1407,16 @@ public class Package {
      * attribute when not explicitly specified by the rule. Records a package error if any labels
      * are duplicated.
      */
-    void setDefaultApplicableLicenses(List<Label> licenses, String attrName, Location location) {
+    void setDefaultPackageMetadata(List<Label> licenses, String attrName, Location location) {
       if (hasDuplicateLabels(
           licenses, "package " + pkg.getName(), attrName, location, this::addEvent)) {
         setContainsErrors();
       }
-      this.defaultApplicableLicenses = ImmutableList.copyOf(licenses);
+      this.defaultPackageMetadata = ImmutableList.copyOf(licenses);
     }
 
-    ImmutableList<Label> getDefaultApplicableLicenses() {
-      return defaultApplicableLicenses;
+    ImmutableList<Label> getDefaultPackageMetadata() {
+      return defaultPackageMetadata;
     }
 
     /**
@@ -1638,7 +1634,7 @@ public class Package {
           || !Objects.equals(cacheInstance.getLicense(), license)) {
         targets.put(
             filename,
-            new InputFile(
+            new VisibilityLicenseSpecifiedInputFile(
                 pkg, cacheInstance.getLabel(), cacheInstance.getLocation(), visibility, license));
       }
     }
@@ -1652,14 +1648,26 @@ public class Package {
       return Label.create(pkg.getPackageIdentifier(), targetName);
     }
 
-    /**
-     * Adds a package group to the package.
-     */
-    void addPackageGroup(String name, Collection<String> packages, Collection<Label> includes,
-        EventHandler eventHandler, Location location)
+    /** Adds a package group to the package. */
+    void addPackageGroup(
+        String name,
+        Collection<String> packages,
+        Collection<Label> includes,
+        boolean allowPublicPrivate,
+        boolean repoRootMeansCurrentRepo,
+        EventHandler eventHandler,
+        Location location)
         throws NameConflictException, LabelSyntaxException {
       PackageGroup group =
-          new PackageGroup(createLabel(name), pkg, packages, includes, eventHandler, location);
+          new PackageGroup(
+              createLabel(name),
+              pkg,
+              packages,
+              includes,
+              allowPublicPrivate,
+              repoRootMeansCurrentRepo,
+              eventHandler,
+              location);
       Target existing = targets.get(group.getName());
       if (existing != null) {
         throw nameConflict(group, existing);
@@ -1836,8 +1844,7 @@ public class Package {
               newInputFiles.put(
                   label.getName(),
                   noImplicitFileExport
-                      ? new InputFile(
-                          pkg, label, loc, ConstantRuleVisibility.PRIVATE, License.NO_LICENSE)
+                      ? new PrivateVisibilityInputFile(pkg, label, loc)
                       : new InputFile(pkg, label, loc));
             }
           }
@@ -2072,12 +2079,7 @@ public class Package {
         CodedInputStream codedIn)
         throws SerializationException, IOException {
       PackageCodecDependencies codecDeps = context.getDependency(PackageCodecDependencies.class);
-      try {
-        return codecDeps.getPackageSerializer().deserialize(context, codedIn);
-      } catch (InterruptedException e) {
-        throw new IllegalStateException(
-            "Unexpected InterruptedException during Package deserialization", e);
-      }
+      return codecDeps.getPackageSerializer().deserialize(context, codedIn);
     }
   }
 }

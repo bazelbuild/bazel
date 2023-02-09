@@ -3,6 +3,9 @@ Book: /_book.yaml
 
 # Documentation Versions
 
+{% dynamic setvar source_file "site/en/versions/index.md" %}
+{% include "_buttons.html" %}
+
 The documentation on this website represents the latest in Bazel. Documentation
 is updated at head. Each major supported release will have a snapshot of the
 narrative and reference documentation that follows the lifecycle of Bazel's

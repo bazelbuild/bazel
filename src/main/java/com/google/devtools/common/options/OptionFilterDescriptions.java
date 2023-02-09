@@ -33,6 +33,7 @@ public class OptionFilterDescriptions {
     OptionDocumentationCategory.TESTING,
     OptionDocumentationCategory.QUERY,
     OptionDocumentationCategory.MODQUERY,
+    OptionDocumentationCategory.BZLMOD,
     OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
     OptionDocumentationCategory.LOGGING,
     OptionDocumentationCategory.GENERIC_INPUTS,
@@ -89,6 +90,7 @@ public class OptionFilterDescriptions {
         .put(
             OptionDocumentationCategory.MODQUERY,
             "Options relating to modquery output and semantics")
+        .put(OptionDocumentationCategory.BZLMOD, "Options relating to Bzlmod output and semantics")
         .put(
             OptionDocumentationCategory.GENERIC_INPUTS,
             "Options specifying or altering a generic input to a Bazel command that does not fall "

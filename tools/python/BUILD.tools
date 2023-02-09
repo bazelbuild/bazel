@@ -24,6 +24,7 @@ package(default_visibility = ["//visibility:public"])
 # don't have access to Skylib here. See
 # https://github.com/bazelbuild/skydoc/issues/166.
 exports_files([
+    "python_bootstrap_template.txt",
     "python_version.bzl",
     "srcs_version.bzl",
     "toolchain.bzl",

@@ -12,7 +12,7 @@ license(
     license_kinds = [
         "@rules_license//licenses/spdx:0BSD",
     ],
-    license_text = "LICENSE.txt",
+    license_text = "LICENSE",
     package_version = "1.2.12",
 )
 
@@ -24,7 +24,7 @@ filegroup(
 
 filegroup(
     name = "embedded_tools",
-    srcs = glob(["*.c"]) + glob(["*.h"]) + [":embedded_build_file"] + ["LICENSE.txt"],
+    srcs = glob(["*.c"]) + glob(["*.h"]) + [":embedded_build_file"] + ["LICENSE"],
     visibility = ["//visibility:public"],
 )
 

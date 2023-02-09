@@ -3,11 +3,13 @@ Book: /_book.yaml
 
 # The Bazel Query Reference
 
+{% include "_buttons.html" %}
+
 This page is the reference manual for the _Bazel Query Language_ used
 when you use `bazel query` to analyze build dependencies. It also
 describes the output formats `bazel query` supports.
 
-For practical use cases, see the [Bazel Query How-To](/docs/query-how-to).
+For practical use cases, see the [Bazel Query How-To](/query/guide).
 
 ## Additional query reference
 
@@ -22,7 +24,7 @@ their relationships. `aquery` is useful when you are interested in the
 properties of the Actions/Artifacts generated from the Configured Target Graph.
 For example, the actual commands run and their inputs, outputs, and mnemonics.
 
-For more details, see the [aquery reference](/docs/aquery).
+For more details, see the [aquery reference](/query/aquery).
 
 ### Configurable query {:#cquery}
 
@@ -33,7 +35,7 @@ and instead returns all possible resolutions of selects. However, the
 configurable query environment, `cquery`, properly handles configurations but
 doesn't provide all of the functionality of this original query.
 
-For more details, see the [cquery reference](/docs/cquery).
+For more details, see the [cquery reference](/query/cquery).
 
 
 ## Examples {:#examples}
@@ -107,7 +109,7 @@ tokens:
   bazel query ' "//foo:bar=wiz" '   # single-quotes for shell, double-quotes for Bazel.
   ```
 
-  Keywords, when quoted, are treated as ordinary words. For example, `some` is a
+  Keywords and operators, when quoted, are treated as ordinary words. For example, `some` is a
   keyword but "some" is a word. Both `foo` and "foo" are words.
 
   However, be careful when using single or double quotes in target names. When
@@ -604,14 +606,23 @@ the same package as a target in the argument set.
 
 ```
 expr ::= some({{ '<var>' }}expr{{ '</var>' }})
+       | some({{ '<var>' }}expr{{ '</var>' }}, {{ '<var>' }}count{{ '</var> '}})
 ```
 
-The `some({{ '<var>' }}x{{ '</var>' }})` operator selects one target
-arbitrarily from its argument set {{ '<var>' }}x{{ '</var>' }}, and evaluates to a
-singleton set containing only that target. For example, the
-expression `some(//foo:main union //bar:baz)`
-evaluates to a set containing either `//foo:main` or
-`//bar:baz`—though which one is not defined.
+The `some({{ '<var>' }}x{{ '</var>' }}, {{ '<var>' }}k{{ '</var>' }})` operator
+selects at most {{ '<var>' }}k{{ '</var>' }} targets arbitrarily from its
+argument set {{ '<var>' }}x{{ '</var>' }}, and evaluates to a set containing
+only those targets. Parameter {{ '<var>' }}k{{ '</var>' }} is optional; if
+missing, the result will be a singleton set containing only one target
+arbitrarily selected. If the size of argument set {{ '<var>' }}x{{ '</var>' }} is
+smaller than {{ '<var>' }}k{{ '</var>' }}, the whole argument set
+{{ '<var>' }}x{{ '</var>' }} will be returned.
+
+For example, the expression `some(//foo:main union //bar:baz)` evaluates to a
+singleton set containing either `//foo:main` or `//bar:baz`—though which
+one is not defined. The expression `some(//foo:main union //bar:baz, 2)` or
+`some(//foo:main union //bar:baz, 3)` returns both `//foo:main` and
+`//bar:baz`.
 
 If the argument is a singleton, then `some`
 computes the identity function: `some(//foo:main)` is

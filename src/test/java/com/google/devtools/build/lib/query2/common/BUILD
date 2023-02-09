@@ -51,6 +51,7 @@ java_test(
     srcs = ["QueryPreloadingTest.java"],
     deps = [
         ":QueryPreloadingTest_lib",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -87,5 +88,18 @@ java_test(
         "//third_party:mockito",
         "//third_party:truth",
         "@com_google_testparameterinjector//:testparameterinjector",
+    ],
+)
+
+java_test(
+    name = "QueryTaskFutureImplTest",
+    srcs = ["QueryTaskFutureImplTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )

@@ -31,9 +31,18 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public final class GroupedListTest {
 
+  @TestParameter private boolean withHashSet;
+
+  private GroupedList<String> createGroupedList() {
+    if (withHashSet) {
+      return new GroupedList.WithHashSet<>();
+    }
+    return new GroupedList<>();
+  }
+
   @Test
   public void singleGroup(@TestParameter({"0", "1", "2", "10"}) int size) {
-    GroupedList<String> groupedList = new GroupedList<>();
+    GroupedList<String> groupedList = createGroupedList();
     ImmutableList<String> elements =
         IntStream.range(0, size).mapToObj(String::valueOf).collect(toImmutableList());
     groupedList.appendGroup(elements);
@@ -42,7 +51,7 @@ public final class GroupedListTest {
 
   @Test
   public void appendEmptyGroup_noOp() {
-    GroupedList<String> groupedList = new GroupedList<>();
+    GroupedList<String> groupedList = createGroupedList();
     groupedList.appendGroup(ImmutableList.of());
     assertThat(groupedList.isEmpty()).isTrue();
     groupedList.appendSingleton("a");
@@ -53,8 +62,8 @@ public final class GroupedListTest {
 
   @Test
   public void identical_equal() {
-    GroupedList<String> abc1 = new GroupedList<>();
-    GroupedList<String> abc2 = new GroupedList<>();
+    GroupedList<String> abc1 = createGroupedList();
+    GroupedList<String> abc2 = createGroupedList();
     abc1.appendGroup(ImmutableList.of("a", "b", "c"));
     abc2.appendGroup(ImmutableList.of("a", "b", "c"));
     assertThat(abc1).isEqualTo(abc2);
@@ -62,8 +71,8 @@ public final class GroupedListTest {
 
   @Test
   public void appendSingletonAndAppendGroupSizeOne_equal() {
-    GroupedList<String> aSingleton = new GroupedList<>();
-    GroupedList<String> aGroup = new GroupedList<>();
+    GroupedList<String> aSingleton = createGroupedList();
+    GroupedList<String> aGroup = createGroupedList();
     aSingleton.appendSingleton("a");
     aGroup.appendGroup(ImmutableList.of("a"));
     assertThat(aSingleton).isEqualTo(aGroup);
@@ -71,8 +80,8 @@ public final class GroupedListTest {
 
   @Test
   public void differentOrderWithinGroup_equal() {
-    GroupedList<String> ab = new GroupedList<>();
-    GroupedList<String> ba = new GroupedList<>();
+    GroupedList<String> ab = createGroupedList();
+    GroupedList<String> ba = createGroupedList();
     ab.appendGroup(ImmutableList.of("a", "b"));
     ba.appendGroup(ImmutableList.of("b", "a"));
     assertThat(ab).isEqualTo(ba);
@@ -80,8 +89,8 @@ public final class GroupedListTest {
 
   @Test
   public void differentElements_notEqual() {
-    GroupedList<String> abc = new GroupedList<>();
-    GroupedList<String> xyz = new GroupedList<>();
+    GroupedList<String> abc = createGroupedList();
+    GroupedList<String> xyz = createGroupedList();
     abc.appendGroup(ImmutableList.of("a", "b", "c"));
     xyz.appendGroup(ImmutableList.of("x", "y", "z"));
     assertThat(abc).isNotEqualTo(xyz);
@@ -89,8 +98,8 @@ public final class GroupedListTest {
 
   @Test
   public void differentOrderOfGroups_notEqual() {
-    GroupedList<String> ab = new GroupedList<>();
-    GroupedList<String> ba = new GroupedList<>();
+    GroupedList<String> ab = createGroupedList();
+    GroupedList<String> ba = createGroupedList();
     ab.appendSingleton("a");
     ab.appendSingleton("b");
     ba.appendSingleton("b");
@@ -100,8 +109,8 @@ public final class GroupedListTest {
 
   @Test
   public void differentGroupings_notEqual() {
-    GroupedList<String> abGroup = new GroupedList<>();
-    GroupedList<String> abSingletons = new GroupedList<>();
+    GroupedList<String> abGroup = createGroupedList();
+    GroupedList<String> abSingletons = createGroupedList();
     abGroup.appendGroup(ImmutableList.of("a", "b"));
     abSingletons.appendSingleton("a");
     abSingletons.appendSingleton("b");
@@ -110,7 +119,7 @@ public final class GroupedListTest {
 
   @Test
   public void groups() {
-    GroupedList<String> groupedList = new GroupedList<>();
+    GroupedList<String> groupedList = createGroupedList();
     ImmutableList<ImmutableList<String>> groups =
         ImmutableList.of(
             ImmutableList.of("1"),
@@ -125,7 +134,7 @@ public final class GroupedListTest {
 
   @Test
   public void remove_groupsIntact() {
-    GroupedList<String> groupedList = new GroupedList<>();
+    GroupedList<String> groupedList = createGroupedList();
     groupedList.appendGroup(ImmutableList.of("1a", "1b"));
     groupedList.appendGroup(ImmutableList.of("2a", "2b", "2c"));
     groupedList.appendGroup(ImmutableList.of("3a", "3b"));
@@ -142,7 +151,7 @@ public final class GroupedListTest {
 
   @Test
   public void remove_groupBecomesSingleton() {
-    GroupedList<String> groupedList = new GroupedList<>();
+    GroupedList<String> groupedList = createGroupedList();
     groupedList.appendGroup(ImmutableList.of("1a", "1b"));
     groupedList.appendGroup(ImmutableList.of("2a", "2b", "2c"));
     groupedList.appendGroup(ImmutableList.of("3a", "3b"));
@@ -157,7 +166,7 @@ public final class GroupedListTest {
 
   @Test
   public void remove_groupBecomesEmpty() {
-    GroupedList<String> groupedList = new GroupedList<>();
+    GroupedList<String> groupedList = createGroupedList();
     groupedList.appendGroup(ImmutableList.of("1a", "1b"));
     groupedList.appendGroup(ImmutableList.of("2a", "2b", "2c"));
     groupedList.appendGroup(ImmutableList.of("3a", "3b"));
@@ -170,7 +179,7 @@ public final class GroupedListTest {
 
   @Test
   public void remove_singleton() {
-    GroupedList<String> groupedList = new GroupedList<>();
+    GroupedList<String> groupedList = createGroupedList();
     groupedList.appendGroup(ImmutableList.of("1a", "1b"));
     groupedList.appendSingleton("2");
     groupedList.appendGroup(ImmutableList.of("3a", "3b"));
@@ -183,7 +192,7 @@ public final class GroupedListTest {
 
   @Test
   public void remove_wholeGroupedListBecomesEmpty() {
-    GroupedList<String> groupedList = new GroupedList<>();
+    GroupedList<String> groupedList = createGroupedList();
     groupedList.appendGroup(ImmutableList.of("1a", "1b"));
     groupedList.appendGroup(ImmutableList.of("2a", "2b", "2c"));
     groupedList.appendGroup(ImmutableList.of("3a", "3b"));
@@ -195,7 +204,7 @@ public final class GroupedListTest {
 
   @Test
   public void remove_elementNotPresent_throws() {
-    GroupedList<String> groupedList = new GroupedList<>();
+    GroupedList<String> groupedList = createGroupedList();
     groupedList.appendGroup(ImmutableList.of("1a", "1b"));
     groupedList.appendGroup(ImmutableList.of("2a", "2b", "2c"));
     groupedList.appendGroup(ImmutableList.of("3a", "3b"));
@@ -215,7 +224,11 @@ public final class GroupedListTest {
     assertThat(groupedList.getAllElementsAsIterable())
         .containsExactlyElementsIn(expectedFlattened)
         .inOrder();
-    assertThat(groupedList.toSet()).containsExactlyElementsIn(expectedFlattened).inOrder();
+    if (groupedList instanceof GroupedList.WithHashSet) {
+      assertThat(groupedList.toSet()).containsExactlyElementsIn(expectedFlattened);
+    } else {
+      assertThat(groupedList.toSet()).containsExactlyElementsIn(expectedFlattened).inOrder();
+    }
 
     checkCompression(groupedList);
   }
@@ -228,5 +241,6 @@ public final class GroupedListTest {
         .containsExactlyElementsIn(groupedList.getAllElementsAsIterable())
         .inOrder();
     assertThat(GroupedList.create(compressed)).containsExactlyElementsIn(groupedList).inOrder();
+    assertThat(GroupedList.create(compressed)).isNotInstanceOf(GroupedList.WithHashSet.class);
   }
 }

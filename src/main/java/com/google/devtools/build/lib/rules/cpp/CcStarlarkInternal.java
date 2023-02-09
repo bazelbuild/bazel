@@ -129,24 +129,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     }
   }
 
-  static class DefaultCoptsBuiltinComputedDefault extends ComputedDefault
-      implements NativeComputedDefaultApi {
-    @Override
-    public Object getDefault(AttributeMap rule) {
-      return rule.getPackageDefaultCopts();
-    }
-
-    @Override
-    public boolean resolvableWithRawAttributes() {
-      return true;
-    }
-  }
-
-  @StarlarkMethod(name = "default_copts_computed_default", documented = false)
-  public ComputedDefault getDefaultCoptsComputedDefault() {
-    return new DefaultCoptsBuiltinComputedDefault();
-  }
-
   static class DefaultHdrsCheckBuiltinComputedDefault extends ComputedDefault
       implements NativeComputedDefaultApi {
     @Override
@@ -181,7 +163,7 @@ public class CcStarlarkInternal implements StarlarkValue {
               // thus a dependency of the def_parser.
               || label.startsWith("@bazel_tools//tools/cpp")
           ? null
-          : Label.parseAbsoluteUnchecked("@bazel_tools//tools/def_parser:def_parser");
+          : Label.parseCanonicalUnchecked("@bazel_tools//tools/def_parser:def_parser");
     }
 
     @Override
@@ -205,7 +187,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     public Object getDefault(AttributeMap rule) {
       return rule.getOrDefault("tags", Type.STRING_LIST, ImmutableList.of()).contains("__CC_STL__")
           ? null
-          : Label.parseAbsoluteUnchecked("@//third_party/stl");
+          : Label.parseCanonicalUnchecked("@//third_party/stl");
     }
 
     @Override

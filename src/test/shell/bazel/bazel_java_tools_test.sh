@@ -192,8 +192,26 @@ function test_java_tools_singlejar_builds() {
   bazel build @local_java_tools//:singlejar_cc_bin || fail "singlejar failed to build"
 }
 
+function test_java_tools_singlejar_builds_with_layering_check() {
+  if [[ ! $(type -P clang) ]]; then
+    return
+  fi
+
+  bazel build --repo_env=CC=clang --features=layering_check \
+    @local_java_tools//:singlejar_cc_bin || fail "singlejar failed to build with layering check"
+}
+
 function test_java_tools_ijar_builds() {
   bazel build @local_java_tools//:ijar_cc_binary || fail "ijar failed to build"
+}
+
+function test_java_tools_ijar_builds_with_layering_check() {
+  if [[ ! $(type -P clang) ]]; then
+    return
+  fi
+
+  bazel build --repo_env=CC=clang --features=layering_check \
+    @local_java_tools//:ijar_cc_binary || fail "ijar failed to build with layering check"
 }
 
 run_suite "Java tools archive tests"

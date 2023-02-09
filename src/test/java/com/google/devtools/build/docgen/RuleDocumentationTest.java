@@ -170,4 +170,26 @@ public class RuleDocumentationTest {
                 .getRuleType())
         .isEqualTo(RuleType.OTHER);
   }
+
+  @Test
+  public void testGetWorkspaceRelativeFileName() throws Exception {
+    String path =
+        "/usr/local/home/abc/.cache/bazel/_bazel_abc/"
+            + "363be6ddf2d5bd85e1ce3646ca0b8c6a/sandbox/linux-sandbox/2040/execroot/"
+            + "io_bazel/src/main/java/com/google/devtools/build/lib/rules/Alias.java";
+    assertThat(
+            new RuleDocumentation(
+                    "rule", "BINARY", "FOO", "", 0, path, ImmutableSet.of("GENERIC_RULE"))
+                .getWorkspaceRelativeFileName())
+        .isEqualTo("src/main/java/com/google/devtools/build/lib/rules/Alias.java");
+  }
+
+  @Test
+  public void testGetWorkspaceRelativeFileNameWithInvalidWorkspace() throws Exception {
+    assertThat(
+            new RuleDocumentation(
+                    "rule", "BINARY", "FOO", "", 0, "/tmp/foo/bar", ImmutableSet.of("GENERIC_RULE"))
+                .getWorkspaceRelativeFileName())
+        .isEmpty();
+  }
 }

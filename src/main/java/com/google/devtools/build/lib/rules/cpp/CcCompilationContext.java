@@ -42,11 +42,10 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextApi;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
@@ -61,6 +60,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 
 /**
  * Immutable store of information needed for C++ compilation that is aggregated across dependencies.
@@ -106,7 +106,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   // back to the path of the header in the workspace directory "include/common/strategy.h".
   // This is needed only when code coverage collection is enabled, to report the actual source file
   // name in the coverage output file.
-  private final NestedSet<Pair<String, String>> virtualToOriginalHeaders;
+  private final NestedSet<Tuple> virtualToOriginalHeaders;
   /**
    * Caches the actual number of transitive headers reachable through transitiveHeaderInfos. We need
    * to create maps to store these and so caching this count can substantially help with memory
@@ -130,7 +130,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       CppModuleMap cppModuleMap,
       boolean propagateModuleMapAsActionInput,
       CppConfiguration.HeadersCheckingMode headersCheckingMode,
-      NestedSet<Pair<String, String>> virtualToOriginalHeaders,
+      NestedSet<Tuple> virtualToOriginalHeaders,
       NestedSet<Artifact> headerTokens) {
     Preconditions.checkNotNull(commandLineCcCompilationContext);
     this.commandLineCcCompilationContext = commandLineCcCompilationContext;
@@ -253,6 +253,12 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   @Override
   public Depset getStarlarkValidationArtifacts() {
     return Depset.of(Artifact.TYPE, getHeaderTokens());
+  }
+
+  @Override
+  public Depset getStarlarkVirtualToOriginalHeaders(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Depset.ElementType.of(Tuple.class), getVirtualToOriginalHeaders());
   }
 
   /**
@@ -392,25 +398,26 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         Map<PathFragment, Artifact> pathToLegalArtifact,
         ArrayList<Artifact> treeArtifacts)
         throws InterruptedException {
-      if (!treeArtifacts.isEmpty()) {
-        SkyframeIterableResult result = env.getOrderedValuesAndExceptions(treeArtifacts);
-        if (env.valuesMissing()) {
+      if (treeArtifacts.isEmpty()) {
+        return true;
+      }
+      SkyframeLookupResult result = env.getValuesAndExceptions(treeArtifacts);
+      if (env.valuesMissing()) {
+        return false;
+      }
+      for (Artifact treeArtifact : treeArtifacts) {
+        SkyValue value = result.get(treeArtifact);
+        if (value == null) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  "Some value from " + treeArtifacts + " was missing, this should never happen"));
           return false;
         }
-        while (result.hasNext()) {
-          SkyValue value = result.next();
-          if (value == null) {
-            BugReport.sendBugReport(
-                new IllegalStateException(
-                    "Some value from " + treeArtifacts + " was missing, this should never happen"));
-            return false;
-          }
-          checkState(
-              value instanceof TreeArtifactValue, "SkyValue %s is not TreeArtifactValue", value);
-          TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
-          for (TreeFileArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
-            pathToLegalArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);
-          }
+        checkState(
+            value instanceof TreeArtifactValue, "SkyValue %s is not TreeArtifactValue", value);
+        TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
+        for (TreeFileArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
+          pathToLegalArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);
         }
       }
       return true;
@@ -531,7 +538,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return modules;
   }
 
-  private void removeArtifactsFromSet(Set<Artifact> set, ImmutableList<Artifact> artifacts) {
+  private static void removeArtifactsFromSet(Set<Artifact> set, ImmutableList<Artifact> artifacts) {
     // Not using iterators here as the resulting overhead is significant in profiles. Do not use
     // Iterables.removeAll() or Set.removeAll() here as with the given container sizes, that
     // needlessly deteriorates to a quadratic algorithm.
@@ -704,7 +711,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return builder.build();
   }
 
-  public NestedSet<Pair<String, String>> getVirtualToOriginalHeaders() {
+  public NestedSet<Tuple> getVirtualToOriginalHeaders() {
     return virtualToOriginalHeaders;
   }
 
@@ -773,8 +780,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private boolean propagateModuleMapAsActionInput = true;
     private CppConfiguration.HeadersCheckingMode headersCheckingMode =
         CppConfiguration.HeadersCheckingMode.STRICT;
-    private final NestedSetBuilder<Pair<String, String>> virtualToOriginalHeaders =
-        NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<Tuple> virtualToOriginalHeaders = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
 
     /** The rule that owns the context */
@@ -1147,8 +1153,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     }
 
     @CanIgnoreReturnValue
-    public Builder addVirtualToOriginalHeaders(
-        NestedSet<Pair<String, String>> virtualToOriginalHeaders) {
+    public Builder addVirtualToOriginalHeaders(NestedSet<Tuple> virtualToOriginalHeaders) {
       this.virtualToOriginalHeaders.addTransitive(virtualToOriginalHeaders);
       return this;
     }

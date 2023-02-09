@@ -265,6 +265,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
             "TESTING",
             StarlarkSemantics.DEFAULT,
+            RepositoryMapping.ALWAYS_FALLBACK,
             RepositoryMapping.ALWAYS_FALLBACK)
         .setFilename(RootedPath.toRootedPath(root, testBuildfilePath));
   }
@@ -1113,25 +1114,40 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
   @Test
   public void testValidityChecker() throws Exception {
-    RuleClass depClass = new RuleClass.Builder("dep", RuleClassType.NORMAL, false)
-        .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-        .add(attr("tags", STRING_LIST))
-        .build();
-    final Rule dep1 = createRule(depClass, "dep1", ImmutableMap.of(), testRuleLocation, NO_STACK);
-    final Rule dep2 = createRule(depClass, "dep2", ImmutableMap.of(), testRuleLocation, NO_STACK);
+    final Rule dep1 =
+        createRule(
+            new RuleClass.Builder("dep1class", RuleClassType.NORMAL, false)
+                .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+                .add(attr("tags", STRING_LIST))
+                .build(),
+            "dep1",
+            ImmutableMap.of(),
+            testRuleLocation,
+            NO_STACK);
+    final Rule dep2 =
+        createRule(
+            new RuleClass.Builder("dep2class", RuleClassType.NORMAL, false)
+                .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+                .add(attr("tags", STRING_LIST))
+                .build(),
+            "dep2",
+            ImmutableMap.of(),
+            testRuleLocation,
+            NO_STACK);
 
     ValidityPredicate checker =
         new ValidityPredicate() {
           @Override
-          public String checkValid(Rule from, Rule to) {
+          public String checkValid(Rule from, String toRuleClass, Set<String> toRuleTags) {
             assertThat(from.getName()).isEqualTo("top");
-            if (to.getName().equals("dep1")) {
-              return "pear";
-            } else if (to.getName().equals("dep2")) {
-              return null;
-            } else {
-              fail("invalid dependency");
-              return null;
+            switch (toRuleClass) {
+              case "dep1class":
+                return "pear";
+              case "dep2class":
+                return null;
+              default:
+                fail("invalid dependency");
+                return null;
             }
           }
         };
@@ -1145,9 +1161,17 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     Rule topRule = createRule(topClass, "top", ImmutableMap.of(), testRuleLocation, NO_STACK);
 
-    assertThat(topClass.getAttributeByName("deps").getValidityPredicate().checkValid(topRule, dep1))
+    assertThat(
+            topClass
+                .getAttributeByName("deps")
+                .getValidityPredicate()
+                .checkValid(topRule, dep1.getRuleClass(), dep1.getRuleTags()))
         .isEqualTo("pear");
-    assertThat(topClass.getAttributeByName("deps").getValidityPredicate().checkValid(topRule, dep2))
+    assertThat(
+            topClass
+                .getAttributeByName("deps")
+                .getValidityPredicate()
+                .checkValid(topRule, dep2.getRuleClass(), dep2.getRuleTags()))
         .isNull();
   }
 
@@ -1280,8 +1304,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("tags", STRING_LIST));
 
-    Label toolchain = Label.parseAbsoluteUnchecked("//toolchain");
-    Label constraint = Label.parseAbsoluteUnchecked("//constraint");
+    Label toolchain = Label.parseCanonicalUnchecked("//toolchain");
+    Label constraint = Label.parseCanonicalUnchecked("//constraint");
 
     // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
     ruleClassBuilder.addExecGroups(

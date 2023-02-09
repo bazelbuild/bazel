@@ -31,6 +31,7 @@ public class DelegatingSyscallCache implements SyscallCache {
     return delegate.readdir(path);
   }
 
+  @Nullable
   @Override
   public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
     return delegate.statIfFound(path, symlinks);
@@ -65,10 +66,5 @@ public class DelegatingSyscallCache implements SyscallCache {
   @Override
   public void clear() {
     delegate.clear();
-  }
-
-  /** Returns the delegate {@link SyscallCache}. */
-  public SyscallCache getDelegate() {
-    return delegate;
   }
 }

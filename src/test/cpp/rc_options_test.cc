@@ -80,7 +80,7 @@ class RcOptionsTest : public ::testing::Test {
 
     // Test that exactly each command in the expected map was in the results,
     // and that for each of these, exactly the expected args are found, in the
-    // correct order. Note that this is not just an exercise in rewritting map
+    // correct order. Note that this is not just an exercise in rewriting map
     // equality - the results have type RcOption, and the expected values
     // are just strings. This is ignoring the source_path for convenience.
     const RcFile::OptionMap& result = rc->options();

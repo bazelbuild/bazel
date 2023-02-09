@@ -68,6 +68,47 @@ public final class OptionsParserTest {
     assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
   }
 
+  public enum TestEnum {
+    DEFAULT,
+    EXPLICIT;
+  }
+
+  public static class TestEnumConverter extends EnumConverter<TestEnum> {
+    public TestEnumConverter() {
+      super(TestEnum.class, "test enum");
+    }
+  }
+
+  public static class ChoosyConverter implements Converter<String> {
+    @Override
+    public String convert(String input, @Nullable Object conversionContext)
+        throws OptionsParsingException {
+      switch (input) {
+        case "default":
+          return "default";
+        case " explicit":
+          return "explicit";
+        default:
+          throw new OptionsParsingException("illegal");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "choosy";
+    }
+  }
+
+  public static class ChoosyOptions extends OptionsBase {
+    @Option(
+        name = "choosy",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "default",
+        converter = ChoosyConverter.class)
+    public String choosy;
+  }
+
   public static class ExampleFoo extends OptionsBase {
 
     @Option(
@@ -199,8 +240,15 @@ public final class OptionsParserTest {
   }
 
   @Test
-  public void parseWithMultipleOptionsInterfaces()
-      throws OptionsParsingException {
+  public void defaultValueOfBadOptionRemains() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ChoosyOptions.class).build();
+
+    assertThrows(OptionsParsingException.class, () -> parser.parse("--choosy=wat"));
+    assertThat(parser.getOptions(ChoosyOptions.class).choosy).isEqualTo("default");
+  }
+
+  @Test
+  public void parseWithMultipleOptionsInterfaces() throws OptionsParsingException {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(ExampleFoo.class, ExampleBaz.class).build();
     parser.parse("--baz=oops", "--bar", "17");
@@ -1944,6 +1992,28 @@ public final class OptionsParserTest {
         .containsExactly("--new_name=foo");
   }
 
+  public static class OldNameNoWarningExample extends OptionsBase {
+    @Option(
+        name = "new_name",
+        oldName = "old_name",
+        oldNameWarning = false,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defaultValue")
+    public String flag;
+  }
+
+  @Test
+  public void testOldName_noWarning() throws OptionsParsingException {
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(OldNameNoWarningExample.class).build();
+    parser.parse("--old_name=foo");
+    OldNameNoWarningExample result = parser.getOptions(OldNameNoWarningExample.class);
+    assertThat(result.flag).isEqualTo("foo");
+    // Using old option name should not cause a warning
+    assertThat(parser.getWarnings()).isEmpty();
+  }
+
   public static class ExampleBooleanFooOptions extends OptionsBase {
     @Option(
       name = "foo",
@@ -2297,6 +2367,35 @@ public final class OptionsParserTest {
             parser.asCompleteListOfParsedOptions().stream()
                 .map(ParsedOptionDescription::getCommandLineForm))
         .containsExactly("--second=hello");
+  }
+
+  @Test
+  public void negativeTargetPatternsInOptions_failsDistinctively() {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parser.parse("//foo", "-//bar", "//baz"));
+    assertThat(e).hasMessageThat().contains("-//bar");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Negative target patterns can only appear after the end of options marker");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Flags corresponding to Starlark-defined build settings always start with '--'");
+  }
+
+  @Test
+  public void negativeExternalTargetPatternsInOptions_failsDistinctively() {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class, () -> parser.parse("//foo", "-@repo//bar", "//baz"));
+    assertThat(e).hasMessageThat().contains("-@repo//bar");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Negative target patterns can only appear after the end of options marker");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Flags corresponding to Starlark-defined build settings always start with '--'");
   }
 
   private static OptionInstanceOrigin createInvocationPolicyOrigin() {

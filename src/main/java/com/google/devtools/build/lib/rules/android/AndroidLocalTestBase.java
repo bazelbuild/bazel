@@ -305,8 +305,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       oneVersionOutputArtifact =
           OneVersionCheckActionBuilder.newBuilder()
               .withEnforcementLevel(oneVersionEnforcementLevel)
-              .outputArtifact(
-                  ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_ONE_VERSION_ARTIFACT))
               .useToolchain(javaToolchain)
               .checkJars(
                   NestedSetBuilder.fromNestedSet(attributes.getRuntimeClassPath())
@@ -471,7 +469,10 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     // runtime jars always in naive link order, incompatible with compile order runfiles.
     builder.addArtifacts(getRuntimeJarsForTargets(getAndCheckTestSupport(ruleContext)).toList());
 
-    builder.addTargets(depsForRunfiles, RunfilesProvider.DEFAULT_RUNFILES);
+    builder.addTargets(
+        depsForRunfiles,
+        RunfilesProvider.DEFAULT_RUNFILES,
+        ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData());
 
     // We assume that the runtime jars will not have conflicting artifacts
     // with the same root relative path

@@ -456,13 +456,18 @@ java_import(
 # libreactive-streams-java
 java_import(
     name = "reactive_streams",
-    jars = ["reactive-streams.jar"],
+    jars = ["java/reactive-streams.jar"],
 )
 
 # librx-java
 java_import(
     name = "rxjava3",
-    jars = ["rxjava.jar"],
+    jars = ["java/rxjava.jar"],
     deps = [":reactive_streams"],
 )
 
+# libcaffeine-java
+java_import(
+    name = "caffeine",
+    jars = ["java/caffeine.jar"],
+)

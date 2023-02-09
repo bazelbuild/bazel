@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.PackageValue;
@@ -332,6 +334,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
           ImmutableMap.of(),
           ImmutableMap.of(),
           new TimestampGranularityMonitor(BlazeClock.instance()),
+          QuiescingExecutorsImpl.forTesting(),
           FakeOptions.builder().put(packageOptions).put(buildLanguageOptions).build());
     } catch (InterruptedException | AbruptExitException e) {
       throw new IllegalStateException(e);
@@ -363,7 +366,12 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                     PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
                     PrecomputedValue.injected(
                         BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
-                        CheckDirectDepsMode.WARNING)))
+                        CheckDirectDepsMode.WARNING),
+                    PrecomputedValue.injected(
+                        BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
+                    PrecomputedValue.injected(
+                        BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
+                        BazelCompatibilityMode.ERROR)))
             .setEnvironmentExtensions(getEnvironmentExtensions())
             .build(ruleClassProvider, fileSystem);
     SkyframeExecutor skyframeExecutor =
@@ -375,7 +383,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setIgnoredPackagePrefixesFunction(
                 new IgnoredPackagePrefixesFunction(ignoredPackagePrefixesFile))
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-            .setPerCommandSyscallCache(delegatingSyscallCache)
+            .setSyscallCache(delegatingSyscallCache)
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.<PrecomputedValue.Injected>builder()
@@ -399,6 +407,13 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                 PrecomputedValue.injected(
                     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
                     CheckDirectDepsMode.WARNING))
+            .add(
+                PrecomputedValue.injected(
+                    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()))
+            .add(
+                PrecomputedValue.injected(
+                    BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
+                    BazelCompatibilityMode.ERROR))
             .build());
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     return skyframeExecutor;

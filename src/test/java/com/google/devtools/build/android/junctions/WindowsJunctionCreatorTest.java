@@ -137,7 +137,7 @@ public class WindowsJunctionCreatorTest {
         assertThat(file2juncActual.toFile().exists()).isTrue();
         assertThat(file3juncActual.toFile().exists()).isTrue();
 
-        // Assert that the junctions were chached.
+        // Assert that the junctions were cached.
         // Cast Path to Object to disambiguate which assertThat-overload to use.
         assertThat((Object) dir1juncActual).isEqualTo(junc0);
         assertThat((Object) dir2juncActual).isEqualTo(junc1);

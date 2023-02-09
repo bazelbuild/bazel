@@ -19,15 +19,6 @@ from src.test.py.bazel import test_base
 
 class GenRuleTest(test_base.TestBase):
 
-  def RunBazel(self, args, env_remove=None, env_add=None):
-    extra_flags = []
-    if self.IsWindows():
-      # This ensures we don't run Bash on Windows,
-      # otherwise an error will be thrown.
-      extra_flags.append('--shell_executable=')
-    return super(GenRuleTest, self).RunBazel(args + extra_flags, env_remove,
-                                             env_add)
-
   def testCopyWithBashAndBatch(self):
     self.ScratchFile('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
@@ -75,6 +66,24 @@ class GenRuleTest(test_base.TestBase):
     copied = os.path.join(bazel_bin, 'foo', 'hello_copied')
     self.assertTrue(os.path.exists(copied))
     self.AssertFileContentContains(copied, 'hello world')
+
+  def testShOptionOverridesDefault(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'genrule(',
+        '  name = "x",',
+        '  outs = ["hello"],',
+        '  cmd = "echo hello > $@"',
+        ')',
+    ])
+    # Build this target and make sure it passes with the default sh config
+    exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    # Pass a bad --sh_executable and ensure this causes the build to fail
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '//foo:x', '--shell_executable=fake_executable_should_fail'])
+    self.assertNotEqual(exit_code, 0)
+    self.assertIn('fake_executable_should_fail', ''.join(stderr))
 
   def testScriptFileIsUsedWithBatch(self):
     if not self.IsWindows():

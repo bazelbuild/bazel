@@ -37,9 +37,6 @@ platforms:
     build_flags:
       - "-c"
       - "opt"
-      # TODO(pcloudy): Remove the following flag when we actually use Apple
-      # Silicon machines for macos_arm64 platform
-      - "--cpu=darwin_arm64"
   windows:
     build_flags:
       - "--copt=-w"

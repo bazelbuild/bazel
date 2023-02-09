@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
  * BuildConfigurationKey}, which is a key for a {@link BuildConfigurationValue}, which is a blob of
  * data that contains extra information about how the target should be built (for example, for which
  * platform or with which C++ preprocessor definitions). Accordingly, a target can give rise to
- * multiple configured targets, for example, if it needs to be built both for the host and the
+ * multiple configured targets, for example, if it needs to be built both for the exec and the
  * target configuration.
  *
  * <p>The process of creating the appropriate {@link com.google.devtools.build.lib.actions.Action}s

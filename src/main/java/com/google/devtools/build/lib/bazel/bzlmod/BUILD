@@ -49,6 +49,7 @@ java_library(
         "TagClass.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -74,6 +75,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:gson",
         "//third_party:guava",
     ],
@@ -84,6 +86,7 @@ java_library(
     srcs = [
         "AbridgedModule.java",
         "ArchiveOverride.java",
+        "BazelDepGraphValue.java",
         "BazelModuleResolutionValue.java",
         "GitOverride.java",
         "LocalPathOverride.java",
@@ -124,6 +127,7 @@ java_library(
 java_library(
     name = "resolution_impl",
     srcs = [
+        "BazelDepGraphFunction.java",
         "BazelModuleResolutionFunction.java",
         "Discovery.java",
         "ModuleExtensionContext.java",
@@ -156,6 +160,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:client_environment_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:client_environment_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -164,6 +170,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/spelling",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
@@ -184,24 +191,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "repo_rule_helper",
-    srcs = [
-        "BzlmodRepoRuleHelper.java",
-        "BzlmodRepoRuleHelperImpl.java",
-    ],
-    deps = [
-        ":common",
-        ":registry",
-        ":resolution",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 

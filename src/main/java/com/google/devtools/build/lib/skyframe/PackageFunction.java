@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -76,7 +77,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
@@ -285,10 +285,10 @@ public class PackageFunction implements SkyFunction {
       throws InternalInconsistentFilesystemException, FileSymlinkException, InterruptedException {
     checkState(Iterables.all(depKeys, SkyFunctions.isSkyFunction(SkyFunctions.GLOB)), depKeys);
     FileSymlinkException arbitraryFse = null;
-    SkyframeIterableResult skyframeIterableResult = env.getOrderedValuesAndExceptions(depKeys);
-    while (skyframeIterableResult.hasNext()) {
+    SkyframeLookupResult result = env.getValuesAndExceptions(depKeys);
+    for (SkyKey key : depKeys) {
       try {
-        skyframeIterableResult.nextOrThrow(IOException.class, BuildFileNotFoundException.class);
+        result.getOrThrow(key, IOException.class, BuildFileNotFoundException.class);
       } catch (InconsistentFilesystemException e) {
         throw new InternalInconsistentFilesystemException(packageIdentifier, e);
       } catch (FileSymlinkException e) {
@@ -602,7 +602,7 @@ public class PackageFunction implements SkyFunction {
    * Loads the .bzl modules whose names and load-locations are {@code programLoads}, and whose
    * corresponding Skyframe keys are {@code keys}.
    *
-   * <p>Validates bzl-visibility of loaded modules.
+   * <p>Validates load visibility for loaded modules.
    *
    * <p>Returns a map from module name to module, or null for a Skyframe restart.
    *
@@ -642,6 +642,7 @@ public class PackageFunction implements SkyFunction {
       String requestingFileDescription,
       List<Pair<String, Location>> programLoads,
       List<BzlLoadValue.Key> keys,
+      StarlarkSemantics semantics,
       @Nullable BzlLoadFunction bzlLoadFunctionForInlining)
       throws NoSuchPackageException, InterruptedException {
     List<BzlLoadValue> bzlLoads;
@@ -654,9 +655,15 @@ public class PackageFunction implements SkyFunction {
         return null; // Skyframe deps unavailable
       }
       // Validate that the current BUILD/WORKSPACE file satisfies each loaded dependency's
-      // bzl-visibility.
+      // load visibility.
       BzlLoadFunction.checkLoadVisibilities(
-          packageId, requestingFileDescription, bzlLoads, keys, programLoads, env.getListener());
+          packageId,
+          requestingFileDescription,
+          bzlLoads,
+          keys,
+          programLoads,
+          /*demoteErrorsToWarnings=*/ !semantics.getBool(BuildLanguageOptions.CHECK_BZL_VISIBILITY),
+          env.getListener());
     } catch (BzlLoadFailedException e) {
       Throwable rootCause = Throwables.getRootCause(e);
       throw PackageFunctionException.builder()
@@ -717,11 +724,12 @@ public class PackageFunction implements SkyFunction {
       Environment env, List<BzlLoadValue.Key> keys)
       throws InterruptedException, BzlLoadFailedException {
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
-    SkyframeIterableResult starlarkLookupResults = env.getOrderedValuesAndExceptions(keys);
-    for (int i = 0; i < keys.size(); i++) {
+    SkyframeLookupResult starlarkLookupResults = env.getValuesAndExceptions(keys);
+    for (BzlLoadValue.Key key : keys) {
       // TODO(adonovan): if get fails, report the source location
       // in the corresponding programLoads[i] (see caller).
-      bzlLoads.add((BzlLoadValue) starlarkLookupResults.nextOrThrow(BzlLoadFailedException.class));
+      bzlLoads.add(
+          (BzlLoadValue) starlarkLookupResults.getOrThrow(key, BzlLoadFailedException.class));
     }
     return env.valuesMissing() ? null : bzlLoads;
   }
@@ -1208,6 +1216,8 @@ public class PackageFunction implements SkyFunction {
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue)
             env.getValue(RepositoryMappingValue.key(packageId.getRepository()));
+    RepositoryMappingValue mainRepositoryMappingValue =
+        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     RootedPath buildFileRootedPath = packageLookupValue.getRootedPath(packageId);
     FileValue buildFileValue = getBuildFileValue(env, buildFileRootedPath);
     RuleVisibility defaultVisibility = PrecomputedValue.DEFAULT_VISIBILITY.get(env);
@@ -1314,6 +1324,7 @@ public class PackageFunction implements SkyFunction {
                   "file " + buildFileLabel.getCanonicalForm(),
                   programLoads,
                   keys.build(),
+                  starlarkBuiltinsValue.starlarkSemantics,
                   bzlLoadFunctionForInlining);
         } catch (NoSuchPackageException e) {
           throw new PackageFunctionException(e, Transience.PERSISTENT);
@@ -1338,7 +1349,8 @@ public class PackageFunction implements SkyFunction {
                   packageId,
                   workspaceName,
                   starlarkBuiltinsValue.starlarkSemantics,
-                  repositoryMapping)
+                  repositoryMapping,
+                  mainRepositoryMappingValue.getRepositoryMapping())
               .setFilename(buildFileRootedPath)
               .setDefaultVisibility(defaultVisibility)
               // "defaultVisibility" comes from the command line.

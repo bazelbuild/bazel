@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Depsets
 
+{% include "_buttons.html" %}
+
 [Depsets](/rules/lib/depset) are a specialized data structure for efficiently
 collecting data across a target’s transitive dependencies. They are an essential
 element of rule processing.

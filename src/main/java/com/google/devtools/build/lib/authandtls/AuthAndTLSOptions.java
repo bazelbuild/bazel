@@ -123,7 +123,7 @@ public class AuthAndTLSOptions extends OptionsBase {
               + " granularity; it is an error to set a value less than one second. By default,"
               + " keep-alive pings are disabled. You should coordinate with the service owner"
               + " before enabling this setting. For example to set a value of 30 seconds to this"
-              + " flag, it should be done as this --grpc_keepalive_time=30s ")
+              + " flag, it should be done as this --grpc_keepalive_time=30s")
   public Duration grpcKeepaliveTime;
 
   @Option(
@@ -175,7 +175,11 @@ public class AuthAndTLSOptions extends OptionsBase {
       converter = DurationConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Configures the duration for which credentials from Credential Helpers are cached.")
+      help =
+          "Configures the duration for which credentials from Credential Helpers are cached.\n\n"
+              + "Invoking with a different value will adjust the lifetime of preexisting entries;"
+              + " pass zero to clear the cache. A clean command always clears the cache, regardless"
+              + " of this flag.")
   public Duration credentialHelperCacheTimeout;
 
   /** One of the values of the `--credential_helper` flag. */

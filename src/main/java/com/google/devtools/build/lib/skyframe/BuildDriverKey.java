@@ -23,7 +23,7 @@ import java.util.Objects;
  * Wraps an {@link ActionLookupKey}. The evaluation of this SkyKey is the entry point of analyzing
  * the {@link ActionLookupKey} and executing the associated actions.
  */
-public final class BuildDriverKey implements CPUHeavySkyKey {
+public final class BuildDriverKey extends CPUHeavySkyKey {
   private final ActionLookupKey actionLookupKey;
   private final TopLevelArtifactContext topLevelArtifactContext;
   private final TestType testType;
@@ -136,10 +136,28 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
     return String.format("ActionLookupKey: %s; TestType: %s", actionLookupKey, testType);
   }
 
+  @Override
+  public boolean valueIsShareable() {
+    // BuildDriverValue is just a wrapper value that signals that the building of a top level target
+    // was concluded. It's meant to be created anew each build, since BuildDriverFunction must be
+    // run every build.
+    return false;
+  }
+
   enum TestType {
-    NOT_TEST,
-    PARALLEL,
-    EXCLUSIVE,
-    EXCLUSIVE_IF_LOCAL
+    NOT_TEST("not-test"),
+    PARALLEL("parallel"),
+    EXCLUSIVE("exclusive"),
+    EXCLUSIVE_IF_LOCAL("exclusive-if-local");
+
+    private final String msg;
+
+    TestType(String msg) {
+      this.msg = msg;
+    }
+
+    public String getMsg() {
+      return msg;
+    }
   }
 }

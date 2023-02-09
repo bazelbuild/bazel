@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -306,6 +307,61 @@ public interface QueryEnvironment<T> {
       QueryExpression expr, QueryExpressionContext<T> context, Callback<T> callback);
 
   /**
+   * A wrapper for evaluating query expression. User does not need to provide callback at object
+   * instantiation, and could manipulate the future in the callback implementation in some derived
+   * classes.
+   *
+   * <p>It replaces directly calling {@link #eval(QueryExpression, QueryExpressionContext,
+   * Callback)} method in {@link SomeFunction#eval(QueryEnvironment, QueryExpressionContext,
+   * QueryExpression, List, Callback)}.
+   *
+   * <p>For SkyQueryEnvironment-descended environments which feature streaming support, in {@code
+   * SomeFunction#eval(...)} method, we want to cancel the {@link QueryTaskFuture} immediately after
+   * targeted number of results are reached, which would significantly improve the performance of
+   * {@link SomeFunction} evaluation. So client will call {@link #gracefullyCancel()} to cancel the
+   * underlying {@code QueryTaskFuture}.
+   *
+   * <p>Users should use {@link #createEvaluateExpression(QueryExpression, QueryExpressionContext)}
+   * to create the {@code EvaluateExpression} instance.
+   */
+  interface EvaluateExpression<T> {
+    /**
+     * Returns a {@link QueryTaskFuture} representing the asynchronous evaluation of the expression
+     * provided by the constructor of the inherited classes. See {@code
+     * AbstractBlazeQueryEvaluateExpressionImpl} and {@code SkyQueryEvaluateExpressionImpl};
+     *
+     * <p>Requires the user to provide a {@code callback} to be associated with the {@link
+     * QueryTaskFuture}. Results of the asynchronous evaluation of the expression are passed to the
+     * given {@code callback}.
+     */
+    QueryTaskFuture<Void> eval(Callback<T> callback);
+
+    /**
+     * Attempts to cancel execution of expression evaluation task.
+     *
+     * <p>Please note that {@link #gracefullyCancel()} is a no-op implementation for
+     * non-SkyQueryEnvironment-descended environments.
+     */
+    boolean gracefullyCancel();
+
+    /**
+     * Returns {@code true} if the underlying future is cancelled but not via {@link
+     * #gracefullyCancel}. Clients are advised to propagate such cancellations instead of recovering
+     * from them, because they probably indicate that query evaluation was interrupted.
+     */
+    boolean isUngracefullyCancelled();
+  }
+
+  /**
+   * Creates an {@link EvaluateExpression} instance based on {@link QueryEnvironment} type.
+   *
+   * @param expr the expression to evaluate
+   * @param context the context relevant to the expression being evaluated.
+   */
+  EvaluateExpression<T> createEvaluateExpression(
+      QueryExpression expr, QueryExpressionContext<T> context);
+
+  /**
    * An asynchronous computation of part of a query evaluation.
    *
    * <p>A {@link QueryTaskFuture} can only be produced from scratch via {@link #eval}, {@link
@@ -436,12 +492,24 @@ public interface QueryEnvironment<T> {
       Iterable<? extends QueryTaskFuture<?>> futures, QueryTaskCallable<R> callable);
 
   /**
+   * Returns a {@link QueryTaskFuture} representing the given computation {@code callable} being
+   * performed after the successful completion or cancellation of the computations encapsulated by
+   * the given {@code future}.
+   *
+   * <p>The returned {@link QueryTaskFuture} is considered "successful" iff {@code future} is
+   * "successful" or only throws a {@link java.util.concurrent.CancellationException} and {@code
+   * callable#call} does not throw an exception.
+   */
+  <R> QueryTaskFuture<R> whenSucceedsOrIsCancelledCall(
+      QueryTaskFuture<?> future, QueryTaskCallable<R> callable);
+
+  /**
    * Returns a {@link QueryTaskFuture} representing the asynchronous application of the given {@code
    * function} to the value produced by the computation encapsulated by the given {@code future}.
    *
    * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of {@link
    * #whenSucceedsCall}, {@link #whenAllSucceed}, and {@link QueryTaskFuture#getIfSuccessful} iff
-   * {@code} future is "successful".
+   * {@code future} is "successful".
    */
   <T1, T2> QueryTaskFuture<T2> transformAsync(
       QueryTaskFuture<T1> future, Function<T1, QueryTaskFuture<T2>> function);
@@ -535,6 +603,13 @@ public interface QueryEnvironment<T> {
    * returns {@code this}.
    */
   TargetAccessor<T> getAccessor();
+
+  /**
+   * Returns the {@link RepositoryMapping} of the main repository so that output formatters can
+   * resolve canonical repository names in labels back to the more readable local names used by the
+   * main repository.
+   */
+  RepositoryMapping getMainRepoMapping();
 
   /**
    * Whether the given setting is enabled. The code should default to return {@code false} for all

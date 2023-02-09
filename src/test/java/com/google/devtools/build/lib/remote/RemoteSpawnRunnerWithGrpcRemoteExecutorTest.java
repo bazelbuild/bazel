@@ -27,6 +27,7 @@ import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import build.bazel.remote.execution.v2.Digest;
@@ -211,6 +212,11 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                   }
 
                   @Override
+                  public boolean isDirectory() {
+                    return false;
+                  }
+
+                  @Override
                   public boolean isSymlink() {
                     return false;
                   }
@@ -224,6 +230,11 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                   @Override
                   public String getExecPathString() {
                     return "bar";
+                  }
+
+                  @Override
+                  public boolean isDirectory() {
+                    return false;
                   }
 
                   @Override
@@ -292,7 +303,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         new GrpcCacheClient(
             channel.retain(), callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL);
     RemoteExecutionCache remoteCache =
-        new RemoteExecutionCache(cacheProtocol, remoteOptions, DIGEST_UTIL);
+        new RemoteExecutionCache(
+            CacheCapabilities.getDefaultInstance(), cacheProtocol, remoteOptions, DIGEST_UTIL);
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
             directExecutor(),
@@ -306,7 +318,6 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             remoteOptions,
             remoteCache,
             executor,
-            ImmutableSet.of(),
             tempPathGenerator,
             /* captureCorruptedOutputsDir= */ null);
     client =

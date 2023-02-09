@@ -40,11 +40,12 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleCommonApi;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -64,6 +65,7 @@ public class AppleStarlarkCommon
         Artifact,
         ConstraintValueInfo,
         StarlarkRuleContext,
+        CcInfo,
         ObjcProvider,
         XcodeConfigInfo,
         ApplePlatform> {
@@ -191,13 +193,6 @@ public class AppleStarlarkCommon
                 ObjcProviderStarlarkConverters.convertToJava(
                     ObjcProvider.CC_LIBRARY, entry.getValue()));
             break;
-          case "linkstamp":
-            CcModule.checkPrivateStarlarkificationAllowlist(thread);
-            resultBuilder.uncheckedAddTransitive(
-                ObjcProvider.LINKSTAMP,
-                ObjcProviderStarlarkConverters.convertToJava(
-                    ObjcProvider.LINKSTAMP, entry.getValue()));
-            break;
           case "flag":
             resultBuilder.add(ObjcProvider.FLAG, Flag.USES_CPP);
             break;
@@ -218,24 +213,43 @@ public class AppleStarlarkCommon
   @Override
   public AppleDynamicFrameworkInfo newDynamicFrameworkProvider(
       Object dylibBinary,
-      ObjcProvider depsObjcProvider,
+      Object depsCcInfo,
+      Object depsObjcProvider,
       Object dynamicFrameworkDirs,
-      Object dynamicFrameworkFiles)
+      Object dynamicFrameworkFiles,
+      StarlarkThread thread)
       throws EvalException {
     NestedSet<String> frameworkDirs =
         Depset.noneableCast(dynamicFrameworkDirs, String.class, "framework_dirs");
     NestedSet<Artifact> frameworkFiles =
         Depset.noneableCast(dynamicFrameworkFiles, Artifact.class, "framework_files");
     Artifact binary = (dylibBinary != Starlark.NONE) ? (Artifact) dylibBinary : null;
-
-    return new AppleDynamicFrameworkInfo(binary, depsObjcProvider, frameworkDirs, frameworkFiles);
+    // TODO(b/252909384): Disallow Starlark.NONE once rules have been migrated to supply CcInfo.
+    CcInfo ccInfo = (depsCcInfo != Starlark.NONE) ? (CcInfo) depsCcInfo : CcInfo.EMPTY;
+    ObjcProvider objcProvider;
+    if (depsObjcProvider != Starlark.NONE) {
+      objcProvider = (ObjcProvider) depsObjcProvider;
+    } else {
+      objcProvider = new ObjcProvider.StarlarkBuilder(thread.getSemantics()).build();
+    }
+    return new AppleDynamicFrameworkInfo(
+        binary, ccInfo, objcProvider, frameworkDirs, frameworkFiles);
   }
 
   @Override
   public AppleExecutableBinaryInfo newExecutableBinaryProvider(
-      Object executableBinary, ObjcProvider depsObjcProvider) throws EvalException {
+      Object executableBinary, Object depsCcInfo, Object depsObjcProvider, StarlarkThread thread)
+      throws EvalException {
     Artifact binary = (executableBinary != Starlark.NONE) ? (Artifact) executableBinary : null;
-    return new AppleExecutableBinaryInfo(binary, depsObjcProvider);
+    // TODO(b/252909384): Disallow Starlark.NONE once rules have been migrated to supply CcInfo.
+    CcInfo ccInfo = (depsCcInfo != Starlark.NONE) ? (CcInfo) depsCcInfo : CcInfo.EMPTY;
+    ObjcProvider objcProvider;
+    if (depsObjcProvider != Starlark.NONE) {
+      objcProvider = (ObjcProvider) depsObjcProvider;
+    } else {
+      objcProvider = new ObjcProvider.StarlarkBuilder(thread.getSemantics()).build();
+    }
+    return new AppleExecutableBinaryInfo(binary, ccInfo, objcProvider);
   }
 
   @Override
@@ -352,6 +366,7 @@ public class AppleStarlarkCommon
 
     ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
     fields.put("objc", linkingOutputs.getDepsObjcProvider());
+    fields.put("cc_info", linkingOutputs.getDepsCcInfo());
     fields.put("output_groups", Dict.copyOf(thread.mutability(), outputGroups));
     fields.put("outputs", StarlarkList.copyOf(thread.mutability(), outputStructs.build()));
 

@@ -359,7 +359,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean desugarJava8;
 
     @Option(
-        name = "experimental_desugar_java8_libs",
+        name = "desugar_java8_libs",
+        oldName = "experimental_desugar_java8_libs",
+        oldNameWarning = false,
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
         effectTags = {
@@ -844,7 +846,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
           OptionEffectTag.EXECUTION,
         },
-        help = "Enable the persistent Android resource processor by using workers.",
+        help = "Enable persistent Android resource processor by using workers.",
         expansion = {
           "--internal_persistent_busybox_tools",
           // This implementation uses unique workers for each tool in the busybox.
@@ -864,6 +866,83 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           "--strategy=AARGenerator=worker",
         })
     public Void persistentResourceProcessor;
+
+    @Option(
+        name = "persistent_multiplex_android_resource_processor",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+          OptionEffectTag.EXECUTION,
+        },
+        help = "Enable persistent multiplexed Android resource processor by using workers.",
+        expansion = {
+          "--persistent_android_resource_processor",
+          "--modify_execution_info=AaptPackage=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidResourceParser=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidResourceValidator=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidResourceCompiler=+supports-multiplex-workers",
+          "--modify_execution_info=RClassGenerator=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidResourceLink=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidAapt2=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidAssetMerger=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidResourceMerger=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidCompiledResourceMerger=+supports-multiplex-workers",
+          "--modify_execution_info=ManifestMerger=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidManifestMerger=+supports-multiplex-workers",
+          "--modify_execution_info=Aapt2Optimize=+supports-multiplex-workers",
+          "--modify_execution_info=AARGenerator=+supports-multiplex-workers",
+        })
+    public Void persistentMultiplexAndroidResourceProcessor;
+
+    @Option(
+        name = "persistent_android_dex_desugar",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+          OptionEffectTag.EXECUTION,
+        },
+        help = "Enable persistent Android dex and desugar actions by using workers.",
+        expansion = {
+          "--strategy=Desugar=worker",
+          "--strategy=DexBuilder=worker",
+        })
+    public Void persistentDexDesugar;
+
+    @Option(
+        name = "persistent_multiplex_android_dex_desugar",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+          OptionEffectTag.EXECUTION,
+        },
+        help = "Enable persistent multiplexed Android dex and desugar actions by using workers.",
+        expansion = {
+          "--persistent_android_dex_desugar",
+          "--modify_execution_info=Desugar=+supports-multiplex-workers",
+          "--modify_execution_info=DexBuilder=+supports-multiplex-workers",
+        })
+    public Void persistentMultiplexDexDesugar;
+
+    @Option(
+        name = "persistent_multiplex_android_tools",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+          OptionEffectTag.EXECUTION,
+        },
+        help =
+            "Enable persistent and multiplexed Android tools (dexing, desugaring, resource "
+                + "processing).",
+        expansion = {
+          "--internal_persistent_multiplex_busybox_tools",
+          "--persistent_multiplex_android_resource_processor",
+          "--persistent_multiplex_android_dex_desugar",
+        })
+    public Void persistentMultiplexAndroidTools;
 
     /**
      * We use this option to decide when to enable workers for busybox tools. This flag is also a
@@ -885,15 +964,15 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean persistentBusyboxTools;
 
     @Option(
-        name = "experimental_persistent_multiplex_busybox_tools",
+        name = "internal_persistent_multiplex_busybox_tools",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {
           OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
           OptionEffectTag.EXECUTION,
         },
         defaultValue = "false",
-        help = "Tracking flag for when multiplex busybox workers are enabled.")
-    public boolean experimentalPersistentMultiplexBusyboxTools;
+        help = "Tracking flag for when multiplexed busybox workers are enabled.")
+    public boolean persistentMultiplexBusyboxTools;
 
     @Option(
         name = "experimental_remove_r_classes_from_instrumentation_test_jar",
@@ -1000,40 +1079,40 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean androidPlatformsTransitionsUpdateAffected;
 
     @Override
-    public FragmentOptions getHost() {
-      Options host = (Options) super.getHost();
-      host.hwasan = false;
-      host.androidCrosstoolTop = androidCrosstoolTop;
-      host.sdk = sdk;
-      host.fatApkCpus = ImmutableList.of(); // Fat APK archs don't apply to the host.
-      host.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
-      host.androidPlatformsTransitionsUpdateAffected = androidPlatformsTransitionsUpdateAffected;
+    public FragmentOptions getExec() {
+      Options exec = (Options) super.getExec();
+      exec.hwasan = false;
+      exec.androidCrosstoolTop = androidCrosstoolTop;
+      exec.sdk = sdk;
+      exec.fatApkCpus = ImmutableList.of(); // Fat APK archs don't apply to the exec platform..
+      exec.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
+      exec.androidPlatformsTransitionsUpdateAffected = androidPlatformsTransitionsUpdateAffected;
 
-      host.desugarJava8 = desugarJava8;
-      host.desugarJava8Libs = desugarJava8Libs;
-      host.checkDesugarDeps = checkDesugarDeps;
-      host.incrementalDexing = incrementalDexing;
-      host.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
-      host.incrementalDexingUseDexSharder = incrementalDexingUseDexSharder;
-      host.incrementalDexingAfterProguardByDefault = incrementalDexingAfterProguardByDefault;
-      host.assumeMinSdkVersion = assumeMinSdkVersion;
-      host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
-      host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
-      host.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
-      host.dexoptsSupportedInDexSharder = dexoptsSupportedInDexSharder;
-      host.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
-      host.manifestMerger = manifestMerger;
-      host.manifestMergerOrder = manifestMergerOrder;
-      host.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
-      host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
+      exec.desugarJava8 = desugarJava8;
+      exec.desugarJava8Libs = desugarJava8Libs;
+      exec.checkDesugarDeps = checkDesugarDeps;
+      exec.incrementalDexing = incrementalDexing;
+      exec.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
+      exec.incrementalDexingUseDexSharder = incrementalDexingUseDexSharder;
+      exec.incrementalDexingAfterProguardByDefault = incrementalDexingAfterProguardByDefault;
+      exec.assumeMinSdkVersion = assumeMinSdkVersion;
+      exec.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
+      exec.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
+      exec.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
+      exec.dexoptsSupportedInDexSharder = dexoptsSupportedInDexSharder;
+      exec.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
+      exec.manifestMerger = manifestMerger;
+      exec.manifestMergerOrder = manifestMergerOrder;
+      exec.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
+      exec.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
-      host.persistentBusyboxTools = persistentBusyboxTools;
-      host.experimentalPersistentMultiplexBusyboxTools =
-          experimentalPersistentMultiplexBusyboxTools;
+      exec.persistentBusyboxTools = persistentBusyboxTools;
+      exec.persistentMultiplexBusyboxTools = persistentMultiplexBusyboxTools;
+      exec.disableNativeAndroidRules = disableNativeAndroidRules;
 
-      // Unless the build was started from an Android device, host means MAIN.
-      host.configurationDistinguisher = ConfigurationDistinguisher.MAIN;
-      return host;
+      // Unless the build was started from an Android device, exec means MAIN.
+      exec.configurationDistinguisher = ConfigurationDistinguisher.MAIN;
+      return exec;
     }
   }
 
@@ -1075,7 +1154,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean dataBindingUpdatedArgs;
   private final boolean dataBindingAndroidX;
   private final boolean persistentBusyboxTools;
-  private final boolean experimentalPersistentMultiplexBusyboxTools;
+  private final boolean persistentMultiplexBusyboxTools;
   private final boolean filterRJarsFromAndroidTest;
   private final boolean removeRClassesFromInstrumentationTestJar;
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
@@ -1136,8 +1215,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.dataBindingUpdatedArgs = options.dataBindingUpdatedArgs;
     this.dataBindingAndroidX = options.dataBindingAndroidX;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
-    this.experimentalPersistentMultiplexBusyboxTools =
-        options.experimentalPersistentMultiplexBusyboxTools;
+    this.persistentMultiplexBusyboxTools = options.persistentMultiplexBusyboxTools;
     this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
     this.removeRClassesFromInstrumentationTestJar =
         options.removeRClassesFromInstrumentationTestJar;
@@ -1392,7 +1470,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   @Override
   public boolean persistentMultiplexBusyboxTools() {
-    return experimentalPersistentMultiplexBusyboxTools;
+    return persistentMultiplexBusyboxTools;
   }
 
   @Override
@@ -1422,6 +1500,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     return alwaysFilterDuplicateClassesFromAndroidTest;
   }
 
+  @Override
   public boolean filterLibraryJarWithProgramJar() {
     return filterLibraryJarWithProgramJar;
   }

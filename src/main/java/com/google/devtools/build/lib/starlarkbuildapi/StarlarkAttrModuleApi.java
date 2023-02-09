@@ -45,8 +45,8 @@ import net.starlark.java.eval.StarlarkValue;
             + " objects are used as the values of the <code>attrs</code> dictionary argument of <a"
             + " href=\"globals.html#rule\"><code>rule()</code></a> and <a"
             + " href=\"globals.html#aspect\"><code>aspect()</code></a>.<p>See the Rules page for"
-            + " more on <a href='https://bazel.build/rules/rules#attributes'>defining</a> and <a"
-            + " href='https://bazel.build/rules/rules#implementation_function'>using</a>"
+            + " more on <a href='https://bazel.build/extending/rules#attributes'>defining</a> and"
+            + " <a href='https://bazel.build/extending/rules#implementation_function'>using</a>"
             + " attributes.")
 public interface StarlarkAttrModuleApi extends StarlarkValue {
 
@@ -64,13 +64,13 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
           + "<p>At analysis time (within the rule's implementation function), when retrieving the "
           + "attribute value from <code>ctx.attr</code>, labels are replaced by the corresponding "
           + "<a href='Target.html'><code>Target</code></a>s. This allows you to access the "
-          + "providers of the currrent target's dependencies.";
+          + "providers of the current target's dependencies.";
 
   // attr.output, attr.output_list
   String OUTPUT_ATTR_TEXT =
       LABEL_PARAGRAPH
           + "<p>At analysis time, the corresponding <a href='File.html'><code>File</code></a> can "
-          + "be retrieved using <code>ctx.outputs</code>.";
+          + "be retrieved using <a href='ctx.html#outputs'><code>ctx.outputs</code></a>.";
 
   String ALLOW_FILES_ARG = "allow_files";
   String ALLOW_FILES_DOC =
@@ -91,7 +91,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   String CONFIGURATION_ARG = "cfg";
   // TODO(b/151742236): Update when new Starlark-based configuration framework is implemented.
   String CONFIGURATION_DOC =
-      "<a href=\"https://bazel.build/rules/rules#configurations\">"
+      "<a href=\"https://bazel.build/extending/rules#configurations\">"
           + "Configuration</a> of the attribute. It can be either <code>\"exec\"</code>, which "
           + "indicates that the dependency is built for the <code>execution platform</code>, or "
           + "<code>\"target\"</code>, which indicates that the dependency is build for the "
@@ -134,7 +134,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
           + "in the case of a legacy provider, its string name). The dependency must return ALL "
           + "providers mentioned in at least ONE of the inner lists. As a convenience, this "
           + "argument may also be a single-level list of providers, in which case it is wrapped in "
-          + "an outer list with one element.";
+          + "an outer list with one element."
+          + ""
+          + "It is NOT required that the rule of the dependency advertises those providers "
+          + "in its <code>provides<code> parameter, however, it is considered best practice.";
 
   String ALLOW_SINGLE_FILE_ARG = "allow_single_file";
 
@@ -147,7 +150,9 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       name = "int",
       doc =
           "Creates a schema for an integer attribute. The value must be in the signed 32-bit"
-              + " range.",
+              + " range. The corresponding "
+              + "<a href='ctx.html#attr'><code>ctx.attr</code></a> attribute will be of "
+              + "type <a href='int.html'><code>int</code></a>.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -186,7 +191,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "string",
-      doc = "Creates a schema for a string attribute.",
+      doc = "Creates a schema for a <a href='string.html#attr'>string</a> attribute.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -238,8 +243,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               + " attribute. If you also want to prevent users from overriding this default, you"
               + " can make the attribute private by giving it a name that starts with an"
               + " underscore. See the <a"
-              + " href='https://bazel.build/rules/rules#private-attributes'>Rules</a> page for more"
-              + " information.",
+              + " href='https://bazel.build/extending/rules#private-attributes'>Rules</a> page"
+              + " for more information.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -414,7 +419,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "label_list",
       doc =
-          "<p>Creates a schema for a list-of-labels attribute. This is a dependency attribute.</p>"
+          "<p>Creates a schema for a list-of-labels attribute. This is a dependency attribute. "
+              + "The corresponding <a href='ctx.html#attr'><code>ctx.attr</code></a> "
+              + "attribute will be of type <a href='list.html'>list</a> of "
+              + "<a href='Target.html'><code>Target</code>s</a>.</p>"
               + DEPENDENCY_ATTR_TEXT,
       parameters = {
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
@@ -607,7 +615,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "bool",
-      doc = "Creates a schema for a boolean attribute.",
+      doc =
+          "Creates a schema for a boolean attribute. The corresponding <a"
+              + " href='ctx.html#attr'><code>ctx.attr</code></a> attribute will be of type"
+              + " <a href='bool.html'><code>bool</code></a>.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -659,7 +670,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       doc = "Creates a schema for a list-of-outputs attribute." + OUTPUT_ATTR_TEXT,
       parameters = {
         @Param(
-            name = ALLOW_EMPTY_ARG,
+            name = ALLOW_EMPTY_ARG, //
             defaultValue = "True",
             doc = ALLOW_EMPTY_DOC,
             named = true),
@@ -688,7 +699,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               + "strings.",
       parameters = {
         @Param(
-            name = ALLOW_EMPTY_ARG,
+            name = ALLOW_EMPTY_ARG, //
             defaultValue = "True",
             doc = ALLOW_EMPTY_DOC,
             named = true),
@@ -727,7 +738,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               + "the values are lists of strings.",
       parameters = {
         @Param(
-            name = ALLOW_EMPTY_ARG,
+            name = ALLOW_EMPTY_ARG, //
             defaultValue = "True",
             doc = ALLOW_EMPTY_DOC,
             named = true),

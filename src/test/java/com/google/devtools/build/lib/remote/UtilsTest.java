@@ -36,14 +36,35 @@ import org.junit.runners.JUnit4;
 public class UtilsTest {
 
   @Test
-  public void testGrpcAwareErrorMessages() {
+  public void testGrpcAwareErrorMessage() {
     IOException ioError = new IOException("io error");
     IOException wrappedGrpcError =
         new IOException(
             "wrapped error", Status.ABORTED.withDescription("grpc error").asRuntimeException());
 
-    assertThat(Utils.grpcAwareErrorMessage(ioError)).isEqualTo("io error");
-    assertThat(Utils.grpcAwareErrorMessage(wrappedGrpcError)).isEqualTo("ABORTED: grpc error");
+    assertThat(Utils.grpcAwareErrorMessage(ioError, /* verboseFailures= */ false))
+        .isEqualTo("io error");
+    assertThat(Utils.grpcAwareErrorMessage(wrappedGrpcError, /* verboseFailures= */ false))
+        .isEqualTo("ABORTED: grpc error");
+  }
+
+  @Test
+  public void testGrpcAwareErrorMessage_verboseFailures() {
+    IOException ioError = new IOException("io error");
+    IOException wrappedGrpcError =
+        new IOException(
+            "wrapped error", Status.ABORTED.withDescription("grpc error").asRuntimeException());
+
+    assertThat(Utils.grpcAwareErrorMessage(ioError, /* verboseFailures= */ true))
+        .startsWith(
+            "io error\n"
+                + "java.io.IOException: io error\n"
+                + "\tat com.google.devtools.build.lib.remote.UtilsTest.testGrpcAwareErrorMessage_verboseFailures");
+    assertThat(Utils.grpcAwareErrorMessage(wrappedGrpcError, /* verboseFailures= */ true))
+        .startsWith(
+            "ABORTED: grpc error\n"
+                + "java.io.IOException: wrapped error\n"
+                + "\tat com.google.devtools.build.lib.remote.UtilsTest.testGrpcAwareErrorMessage_verboseFailures");
   }
 
   @Test

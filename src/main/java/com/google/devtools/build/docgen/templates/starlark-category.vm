@@ -6,6 +6,8 @@
 <body>
 <h1 class="page-title">${category.title}</h1>
 
+{% dynamic setvar source_file "NONE" %}
+{% include "_buttons.html" %}
 ${description}
 
 <ul>

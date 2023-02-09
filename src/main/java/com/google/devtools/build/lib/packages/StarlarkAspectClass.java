@@ -16,17 +16,18 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import java.util.Objects;
 
 /** {@link AspectClass} for aspects defined in Starlark. */
 @Immutable
 public final class StarlarkAspectClass implements AspectClass {
   private final Label extensionLabel;
   private final String exportedName;
+  private final String name;
 
   public StarlarkAspectClass(Label extensionLabel, String exportedName) {
     this.extensionLabel = extensionLabel;
     this.exportedName = exportedName;
+    this.name = extensionLabel + "%" + exportedName;
   }
 
   public Label getExtensionLabel() {
@@ -39,7 +40,7 @@ public final class StarlarkAspectClass implements AspectClass {
 
   @Override
   public String getName() {
-    return extensionLabel + "%" + exportedName;
+    return name;
   }
 
   @Override
@@ -60,7 +61,8 @@ public final class StarlarkAspectClass implements AspectClass {
 
   @Override
   public int hashCode() {
-    return Objects.hash(extensionLabel, exportedName);
+    // Inlines the implementation of Objects.hashCode to avoid generating garbage.
+    return 31 * extensionLabel.hashCode() + exportedName.hashCode();
   }
 
   @Override

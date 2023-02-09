@@ -42,8 +42,6 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import io.grpc.Channel;
-import io.grpc.Context;
-import io.grpc.Context.CancellableContext;
 import io.grpc.Status;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
@@ -231,7 +229,6 @@ class ByteStreamUploader {
     ListenableFuture<Void> currUpload = newUpload.start();
     currUpload.addListener(
         () -> {
-          newUpload.cancel();
           if (openedFilePermits != null) {
             openedFilePermits.release();
           }
@@ -249,7 +246,6 @@ class ByteStreamUploader {
     private final String resourceName;
     private final Chunker chunker;
     private final ProgressiveBackoff progressiveBackoff;
-    private final CancellableContext grpcContext;
 
     private long lastCommittedOffset = -1;
 
@@ -269,7 +265,6 @@ class ByteStreamUploader {
       this.progressiveBackoff = new ProgressiveBackoff(retrier::newBackoff);
       this.resourceName = resourceName;
       this.chunker = chunker;
-      this.grpcContext = Context.current().withCancellation();
     }
 
     ListenableFuture<Void> start() {
@@ -310,13 +305,15 @@ class ByteStreamUploader {
 
         throw new IOException(
             format(
-                "compressed write incomplete: committed_size %d is" + " neither -1 nor total %d",
-                committedSize, expected));
+                "compressed write incomplete: committed_size %d is neither -1 nor total %d - %s",
+                committedSize, expected, resourceName));
       }
 
       // Uncompressed upload failed.
       throw new IOException(
-          format("write incomplete: committed_size %d for %d total", committedSize, expected));
+          format(
+              "write incomplete: committed_size %d for %d total - %s",
+              committedSize, expected, resourceName));
     }
 
     /**
@@ -367,13 +364,11 @@ class ByteStreamUploader {
           Futures.transform(
               channel.withChannelFuture(
                   channel ->
-                      grpcContext.call(
-                          () ->
-                              bsFutureStub(channel)
-                                  .queryWriteStatus(
-                                      QueryWriteStatusRequest.newBuilder()
-                                          .setResourceName(resourceName)
-                                          .build()))),
+                      bsFutureStub(channel)
+                          .queryWriteStatus(
+                              QueryWriteStatusRequest.newBuilder()
+                                  .setResourceName(resourceName)
+                                  .build())),
               QueryWriteStatusResponse::getCommittedSize,
               MoreExecutors.directExecutor());
       return Futures.catchingAsync(
@@ -395,17 +390,9 @@ class ByteStreamUploader {
       return channel.withChannelFuture(
           channel -> {
             SettableFuture<Long> uploadResult = SettableFuture.create();
-            grpcContext.run(
-                () ->
-                    bsAsyncStub(channel)
-                        .write(new Writer(resourceName, chunker, pos, uploadResult)));
+            bsAsyncStub(channel).write(new Writer(resourceName, chunker, pos, uploadResult));
             return uploadResult;
           });
-    }
-
-    void cancel() {
-      grpcContext.cancel(
-          Status.CANCELLED.withDescription("Cancelled by user").asRuntimeException());
     }
   }
 
@@ -430,6 +417,13 @@ class ByteStreamUploader {
     @Override
     public void beforeStart(ClientCallStreamObserver<WriteRequest> requestObserver) {
       this.requestObserver = requestObserver;
+      uploadResult.addListener(
+          () -> {
+            if (uploadResult.isCancelled()) {
+              requestObserver.cancel("cancelled by user", null);
+            }
+          },
+          MoreExecutors.directExecutor());
       requestObserver.setOnReadyHandler(this);
     }
 

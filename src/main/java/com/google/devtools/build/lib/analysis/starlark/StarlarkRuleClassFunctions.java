@@ -38,9 +38,7 @@ import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
-import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -401,9 +399,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
     builder.requiresConfigurationFragmentsByStarlarkModuleName(
         Sequence.cast(fragments, String.class, "fragments"));
-    ConfigAwareRuleClassBuilder.of(builder)
-        .requiresHostConfigurationFragmentsByStarlarkBuiltinName(
-            Sequence.cast(hostFragments, String.class, "host_fragments"));
     builder.setConfiguredTargetFunction(implementation);
     // Obtain the rule definition environment (RDE) from the .bzl module being initialized by the
     // calling thread -- the label and transitive source digest of the .bzl module of the outermost
@@ -665,6 +660,16 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         }
       } else if (!hasDefault) { // Implicit or late bound attribute
         String starlarkName = "_" + nativeName.substring(1);
+        if (attribute.isLateBound()
+            && !(attribute.getLateBoundDefault() instanceof StarlarkLateBoundDefault)) {
+          // Code elsewhere assumes that a late-bound attribute of a Starlark-defined aspects can
+          // exist in Java-land only as a StarlarkLateBoundDefault.
+          throw Starlark.errorf(
+              "Starlark aspect attribute '%s' is late-bound but somehow is not defined in Starlark."
+                  + " This violates an invariant inside of Bazel. Please file a bug with"
+                  + " instructions for reproducing this. Thanks!",
+              starlarkName);
+        }
         throw Starlark.errorf("Aspect attribute '%s' has no default value.", starlarkName);
       }
       if (attribute.getDefaultValueUnchecked() instanceof StarlarkComputedDefaultTemplate) {
@@ -725,8 +730,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         requiredParams.build(),
         ImmutableSet.copyOf(Sequence.cast(requiredAspects, StarlarkAspect.class, "requires")),
         ImmutableSet.copyOf(Sequence.cast(fragments, String.class, "fragments")),
-        HostTransition.INSTANCE,
-        ImmutableSet.copyOf(Sequence.cast(hostFragments, String.class, "host_fragments")),
         parseToolchainTypes(toolchains, thread),
         applyToGeneratingRules,
         execCompatibleWith,
@@ -994,8 +997,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           .build();
 
   @Override
-  public Label label(String labelString, StarlarkThread thread) throws EvalException {
-    // The label string is interpeted with respect to the .bzl module containing the call to
+  public Label label(Object input, StarlarkThread thread) throws EvalException {
+    if (input instanceof Label) {
+      return (Label) input;
+    }
+    // The label string is interpreted with respect to the .bzl module containing the call to
     // `Label()`. An alternative to this approach that avoids stack inspection is to have each .bzl
     // module define its own copy of the `Label()` builtin embedding the module's own name. This
     // would lead to peculiarities like foo.bzl being able to call bar.bzl's `Label()` symbol to
@@ -1004,9 +1010,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     BazelModuleContext moduleContext =
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     try {
-      return Label.parseWithRepoContext(labelString, moduleContext.packageContext());
+      return Label.parseWithPackageContext((String) input, moduleContext.packageContext());
     } catch (LabelSyntaxException e) {
-      throw Starlark.errorf("Illegal absolute label syntax: %s", e.getMessage());
+      throw Starlark.errorf("invalid label in Label(): %s", e.getMessage());
     }
   }
 

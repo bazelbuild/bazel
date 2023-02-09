@@ -239,9 +239,9 @@ java_plugin(
 
 distrib_java_import(
     name = "auto_common",
+    applicable_licenses = [":auto_license"],
     enable_distributions = ["debian"],
     jars = ["auto/auto-common-1.1.2.jar"],
-    applicable_licenses = [":auto_license"],
 )
 
 license(
@@ -297,15 +297,42 @@ java_plugin(
     ],
 )
 
+java_plugin(
+    name = "auto_oneof_plugin",
+    processor_class = "com.google.auto.value.processor.AutoOneOfProcessor",
+    deps = [
+        ":apache_commons_collections",
+        ":apache_velocity",
+        ":asm",
+        ":auto_common",
+        ":auto_service_lib",
+        ":auto_value_value",
+        ":guava",
+        ":tomcat_annotations_api",
+    ],
+)
+
+java_plugin(
+    name = "auto_value_gson_plugin",
+    processor_class = "com.ryanharter.auto.value.gson.factory.AutoValueGsonAdapterFactoryProcessor",
+    deps = [
+        "@maven//:com_ryanharter_auto_value_auto_value_gson_extension",
+        "@maven//:com_ryanharter_auto_value_auto_value_gson_factory",
+    ],
+)
+
 java_library(
     name = "auto_value",
     exported_plugins = [
         ":auto_annotation_plugin",
+        ":auto_oneof_plugin",
         ":auto_value_plugin",
+        ":auto_value_gson_plugin",
     ],
     exports = [
         ":auto_value_value",
         ":tomcat_annotations_api",
+        "@maven//:com_ryanharter_auto_value_auto_value_gson_runtime",
     ],
 )
 
@@ -336,11 +363,9 @@ java_import(
     ],
 )
 
-distrib_java_import(
+java_library(
     name = "checker_framework_annotations",
-    enable_distributions = ["debian"],
-    jars = ["checker_framework_annotations/checker-qual-3.2.0.jar"],
-    srcjar = "checker_framework_annotations/checker-qual-3.2.0-sources.jar",
+    exports = ["@maven//:org_checkerframework_checker_qual"],
 )
 
 java_import(
@@ -354,8 +379,9 @@ distrib_java_import(
     jars = ["gson/gson-2.8.6.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "caffeine",
+    enable_distributions = ["debian"],
     jars = ["caffeine/caffeine-2.9.2.jar"],
 )
 
@@ -372,20 +398,19 @@ java_import(
     ],
 )
 
-distrib_java_import(
+java_library(
     name = "error_prone_annotations",
-    enable_distributions = ["debian"],
-    jars = [
-        "error_prone/error_prone_annotations-2.11.0.jar",
-        "error_prone/error_prone_type_annotations-2.11.0.jar",
+    exports = [
+        "@maven//:com_google_errorprone_error_prone_annotations",
+        "@maven//:com_google_errorprone_error_prone_type_annotations",
     ],
 )
 
 distrib_jar_filegroup(
     name = "error_prone_annotations-jar",
     srcs = [
-        "error_prone/error_prone_annotations-2.11.0.jar",
         "error_prone/threeten-extra-1.5.0.jar",
+        "@maven//:com_google_errorprone_error_prone_annotations_file",
     ],
     enable_distributions = ["debian"],
 )
@@ -393,9 +418,9 @@ distrib_jar_filegroup(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_annotation-2.11.0.jar",
-        "error_prone/error_prone_check_api-2.11.0.jar",
-        "error_prone/error_prone_core-2.11.0.jar",
+        "error_prone/error_prone_annotation-2.16.jar",
+        "error_prone/error_prone_check_api-2.16.jar",
+        "error_prone/error_prone_core-2.16.jar",
     ],
     exports = [
         ":error_prone_annotations",
@@ -413,11 +438,10 @@ java_import(
     ],
 )
 
-distrib_java_import(
+java_library(
     name = "jcip_annotations",
-    enable_distributions = ["debian"],
-    jars = [
-        "jcip_annotations/jcip-annotations-1.0-1.jar",
+    exports = [
+        "@maven//:com_github_stephenc_jcip_jcip_annotations",
     ],
 )
 
@@ -425,7 +449,7 @@ distrib_java_import(
 distrib_jar_filegroup(
     name = "jcip_annotations-jars",
     srcs = [
-        "jcip_annotations/jcip-annotations-1.0-1.jar",
+        "@maven//:com_github_stephenc_jcip_jcip_annotations_file",
     ],
     enable_distributions = ["debian"],
 )
@@ -448,19 +472,15 @@ filegroup(
     ],
 )
 
-distrib_java_import(
+java_library(
     name = "guava",
-    enable_distributions = ["debian"],
-    jars = [
-        "guava/failureaccess-1.0.1.jar",
-        "guava/guava-31.1-jre.jar",
-    ],
+    applicable_licenses = [":guava_license"],
     exports = [
         ":error_prone_annotations",
         ":jcip_annotations",
         ":jsr305",
+        "@maven//:com_google_guava_guava",
     ],
-    applicable_licenses = [":guava_license"],
 )
 
 license(
@@ -474,13 +494,13 @@ license(
 
 distrib_java_import(
     name = "flogger",
+    applicable_licenses = [":flogger_license"],
     enable_distributions = ["debian"],
     jars = [
         "flogger/flogger-0.5.1.jar",
         "flogger/flogger-system-backend-0.5.1.jar",
         "flogger/google-extensions-0.5.1.jar",
     ],
-    applicable_licenses = [":flogger_license"],
 )
 
 license(
@@ -523,16 +543,14 @@ distrib_java_import(
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-31.1-jre.jar"],
+    srcs = ["@maven//:com_google_guava_guava_file"],
     enable_distributions = ["debian"],
 )
 
 # For desugaring the Guava jar.
 distrib_jar_filegroup(
     name = "guava-failureaccess-jar",
-    srcs = [
-        "guava/failureaccess-1.0.1.jar",
-    ],
+    srcs = ["@maven//:com_google_guava_failureaccess_file"],
     enable_distributions = ["debian"],
 )
 
@@ -571,16 +589,15 @@ java_import(
     jars = ["jimfs/jimfs-1.1.jar"],
 )
 
-distrib_java_import(
+java_library(
     name = "jsr305",
-    enable_distributions = ["debian"],
-    jars = ["jsr305/jsr-305.jar"],
+    exports = ["@maven//:com_google_code_findbugs_jsr305"],
 )
 
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "jsr305-jars",
-    srcs = ["jsr305/jsr-305.jar"],
+    srcs = ["@maven//:com_google_code_findbugs_jsr305_file"],
     enable_distributions = ["debian"],
 )
 
@@ -665,8 +682,14 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = [
         "netty_tcnative/netty-tcnative-classes-2.0.51.Final.jar",
-        ":netty_tcnative/netty-tcnative-filtered.jar",
-    ],
+    ] + select({
+        "//src/conditions:darwin_arm64": [":netty_tcnative/netty-tcnative-filtered.jar"],
+        "//src/conditions:darwin_x86_64": [":netty_tcnative/netty-tcnative-filtered.jar"],
+        "//src/conditions:linux_aarch64": [":netty_tcnative/netty-tcnative-filtered.jar"],
+        "//src/conditions:linux_x86_64": [":netty_tcnative/netty-tcnative-filtered.jar"],
+        "//src/conditions:windows": [":netty_tcnative/netty-tcnative-filtered.jar"],
+        "//conditions:default": [],
+    }),
 )
 
 distrib_java_import(
@@ -696,9 +719,9 @@ java_import(
     jars = ["diffutils/diffutils-1.3.0.jar"],
 )
 
-java_import(
+java_library(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-31.1-jre.jar"],
+    exports = ["@maven//:com_google_guava_guava_testlib"],
 )
 
 distrib_java_import(
@@ -706,7 +729,7 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = [
         "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.13.jar",
+        "junit/junit-4.13.2.jar",
     ],
 )
 
@@ -736,6 +759,7 @@ java_import(
 
 java_import(
     name = "truth",
+    applicable_licenses = [":truth_license"],
     jars = ["truth/truth-1.0.1.jar"],
     exports = [
         ":truth8",
@@ -744,7 +768,6 @@ java_import(
     deps = [
         ":diffutils",
     ],
-    applicable_licenses = [":truth_license"],
 )
 
 license(
@@ -758,8 +781,8 @@ license(
 
 java_import(
     name = "truth8",
-    jars = ["truth8/truth-java8-extension-1.0.1.jar"],
     applicable_licenses = [":truth8_license"],
+    jars = ["truth8/truth-java8-extension-1.0.1.jar"],
 )
 
 license(
@@ -773,11 +796,11 @@ license(
 
 java_import(
     name = "truth_proto",
+    applicable_licenses = [":truth_proto_license"],
     jars = [
         "truth_proto/truth-liteproto-extension-1.0.1.jar",
         "truth_proto/truth-proto-extension-1.0.1.jar",
     ],
-    applicable_licenses = [":truth_proto_license"],
 )
 
 license(
@@ -791,9 +814,9 @@ license(
 
 distrib_java_import(
     name = "xz",
+    applicable_licenses = [":xz_license"],
     enable_distributions = ["debian"],
     jars = ["xz/xz-1.9.jar"],
-    applicable_licenses = [":xz_license"],
 )
 
 license(
@@ -810,7 +833,7 @@ filegroup(
     name = "junit4-jars",
     srcs = [
         "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.13.jar",
+        "junit/junit-4.13.2.jar",
     ],
 )
 

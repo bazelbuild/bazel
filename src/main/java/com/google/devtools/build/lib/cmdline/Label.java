@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.cmdline.LabelParser.validateAndProce
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.docgen.annot.DocCategory;
@@ -37,8 +36,10 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -126,6 +127,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
         PackageIdentifier.create(repoName, PathFragment.create(parts.pkg)), parts.target);
   }
 
+  /** Like {@link #parseCanonical}, but throws an unchecked exception instead. */
   public static Label parseCanonicalUnchecked(String raw) {
     try {
       return parseCanonical(raw);
@@ -187,56 +189,6 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   }
 
   /**
-   * Factory for Labels from absolute string form. e.g.
-   *
-   * <pre>
-   * //foo/bar
-   * //foo/bar:quux
-   * {@literal @}foo
-   * {@literal @}foo//bar
-   * {@literal @}foo//bar:baz
-   * </pre>
-   *
-   * <p>Labels that don't begin with a repository name are considered to be in the main repository,
-   * so for instance {@code //foo/bar} will turn into {@code @//foo/bar}.
-   *
-   * <p>Labels that begin with a repository name will undergo {@code repositoryMapping}.
-   *
-   * @param absName label-like string to be parsed
-   * @param repositoryMapping map of repository names from the local name found in the current
-   *     repository to the global name declared in the main repository
-   */
-  // TODO(b/200024947): Remove this.
-  public static Label parseAbsolute(String absName, RepositoryMapping repositoryMapping)
-      throws LabelSyntaxException {
-    Preconditions.checkNotNull(repositoryMapping);
-    return parseWithRepoContext(absName, RepoContext.of(RepositoryName.MAIN, repositoryMapping));
-  }
-
-  // TODO(b/200024947): Remove this.
-  public static Label parseAbsolute(
-      String absName, ImmutableMap<String, RepositoryName> repositoryMapping)
-      throws LabelSyntaxException {
-    return parseAbsolute(absName, RepositoryMapping.createAllowingFallback(repositoryMapping));
-  }
-
-  /**
-   * Alternate factory method for Labels from absolute strings. This is a convenience method for
-   * cases when a Label needs to be initialized statically, so the declared exception is
-   * inconvenient.
-   *
-   * <p>Do not use this when the argument is not hard-wired.
-   */
-  // TODO(b/200024947): Remove this.
-  public static Label parseAbsoluteUnchecked(String absName) {
-    try {
-      return parseCanonical(absName);
-    } catch (LabelSyntaxException e) {
-      throw new IllegalArgumentException(e);
-    }
-  }
-
-  /**
    * Factory for Labels from separate components.
    *
    * @param packageName The name of the package. The package name does <b>not</b> include {@code
@@ -245,7 +197,6 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    *     LabelValidator#validateTargetName}.
    * @throws LabelSyntaxException if either of the arguments was invalid.
    */
-  // TODO(b/200024947): Remove this...?
   public static Label create(String packageName, String targetName) throws LabelSyntaxException {
     return createUnvalidated(
         PackageIdentifier.parse(packageName),
@@ -256,7 +207,6 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * Similar factory to above, but takes a package identifier to allow external repository labels to
    * be created.
    */
-  // TODO(b/200024947): Remove this...?
   public static Label create(PackageIdentifier packageId, String targetName)
       throws LabelSyntaxException {
     return createUnvalidated(
@@ -336,7 +286,8 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
               + " \"external/repo\"</pre>",
       useStarlarkSemantics = true)
   @Deprecated
-  public String getWorkspaceRootForStarlarkOnly(StarlarkSemantics semantics) {
+  public String getWorkspaceRootForStarlarkOnly(StarlarkSemantics semantics) throws EvalException {
+    checkRepoVisibilityForStarlark("workspace_root");
     return packageIdentifier
         .getRepository()
         .getExecPath(semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT))
@@ -416,9 +367,19 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * Label.parse*(x.getUnambiguousCanonicalForm(), ...).equals(x)}).
    */
   public String getUnambiguousCanonicalForm() {
-    return String.format(
-        "@@%s//%s:%s",
-        packageIdentifier.getRepository().getName(), packageIdentifier.getPackageFragment(), name);
+    return packageIdentifier.getUnambiguousCanonicalForm() + ":" + name;
+  }
+
+  /**
+   * Returns a label string that is suitable for display, i.e., it resolves to this label when
+   * parsed in the context of the main repository and has a repository part that is as simple as
+   * possible.
+   *
+   * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
+   * @return analogous to {@link PackageIdentifier#getDisplayForm(RepositoryMapping)}
+   */
+  public String getDisplayForm(RepositoryMapping mainRepositoryMapping) {
+    return packageIdentifier.getDisplayForm(mainRepositoryMapping) + ":" + name;
   }
 
   /** Return the name of the repository label refers to without the leading `at` symbol. */
@@ -429,7 +390,8 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
           "The repository part of this label. For instance, "
               + "<pre class=language-python>Label(\"@foo//bar:baz\").workspace_name"
               + " == \"foo\"</pre>")
-  public String getWorkspaceName() {
+  public String getWorkspaceName() throws EvalException {
+    checkRepoVisibilityForStarlark("workspace_name");
     return packageIdentifier.getRepository().getName();
   }
 
@@ -462,8 +424,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   }
 
   /**
-   * Resolves a relative or absolute label name. If given name is absolute, then this method calls
-   * {@link #parseAbsolute}. Otherwise, it calls {@link #getLocalTargetLabel}.
+   * Resolves a relative or absolute label name.
    *
    * <p>For example: {@code :quux} relative to {@code //foo/bar:baz} is {@code //foo/bar:quux};
    * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux}.
@@ -503,42 +464,12 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       },
       useStarlarkThread = true)
   public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {
-    return getRelativeWithRemapping(
-        relName,
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).repoMapping());
-  }
-
-  /**
-   * Resolves a relative or absolute label name. If given name is absolute, then this method calls
-   * {@link #parseAbsolute}. Otherwise, it calls {@link #getLocalTargetLabel}.
-   *
-   * <p>For example: {@code :quux} relative to {@code //foo/bar:baz} is {@code //foo/bar:quux};
-   * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux};
-   * {@code @repo//foo:bar} relative to anything will be {@code @repo//foo:bar} if {@code @repo} is
-   * not in {@code repositoryMapping} but will be {@code @other_repo//foo:bar} if there is an entry
-   * {@code @repo -> @other_repo} in {@code repositoryMapping}.
-   *
-   * @param relName the relative label name; must be non-empty
-   * @param repositoryMapping the map of local repository names in external repository to global
-   *     repository names in main repo; can be empty, but not null
-   */
-  // TODO(b/200024947): Remove this.
-  public Label getRelativeWithRemapping(String relName, RepositoryMapping repositoryMapping)
-      throws LabelSyntaxException {
-    Preconditions.checkNotNull(repositoryMapping);
-    if (relName.isEmpty()) {
-      throw new LabelSyntaxException("empty package-relative label");
-    }
     return parseWithPackageContext(
-        relName, PackageContext.of(packageIdentifier, repositoryMapping));
-  }
-
-  // TODO(b/200024947): Remove this.
-  public Label getRelativeWithRemapping(
-      String relName, ImmutableMap<String, RepositoryName> repositoryMapping)
-      throws LabelSyntaxException {
-    return getRelativeWithRemapping(
-        relName, RepositoryMapping.createAllowingFallback(repositoryMapping));
+        relName,
+        PackageContext.of(
+            packageIdentifier,
+            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
+                .repoMapping()));
   }
 
   @Override
@@ -662,5 +593,11 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   public String expandToCommandLine() {
     // TODO(wyv): Consider using StarlarkSemantics here too for optional unambiguity.
     return getCanonicalForm();
+  }
+
+  private void checkRepoVisibilityForStarlark(String method) throws EvalException {
+    if (!getRepository().isVisible()) {
+      throw Starlark.errorf("'%s' is not allowed on invalid Label %s", method, this);
+    }
   }
 }

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Getting Started with Bazel Docker Container
 
+{% include "_buttons.html" %}
+
 This page provides details on the contents of the Bazel container, how to build
 the [abseil-cpp](https://github.com/abseil/abseil-cpp){: .external} project using Bazel
 inside the Bazel container, and how to build this project directly
@@ -37,7 +39,7 @@ docker run \
   -v /src/workspace:/src/workspace \
   -v /tmp/build_output:/tmp/build_output \
   -w /src/workspace \
-  l.gcr.io/google/bazel:latest \
+  gcr.io/bazel-public/bazel:latest \
   --output_user_root=/tmp/build_output \
   build //absl/...
 ```
@@ -53,7 +55,7 @@ docker run \
   -v /src/workspace:/src/workspace \
   -v /tmp/build_output:/tmp/build_output \
   -w /src/workspace \
-  l.gcr.io/google/bazel:latest \
+  gcr.io/bazel-public/bazel:latest \
   --output_user_root=/tmp/build_output \
   build --config={asan | tsan | msan} -- //absl/... -//absl/types:variant_test
 ```
@@ -68,7 +70,7 @@ container, build results will be cached.
 Start a shell in the Bazel container:
 
 ```posix-terminal
-docker run --interactive --entrypoint=/bin/bash l.gcr.io/google/bazel:latest
+docker run --interactive --entrypoint=/bin/bash gcr.io/bazel-public/bazel:latest
 ```
 
 Each container id is unique. In the instructions bellow, the container was 5a99103747c6.
@@ -98,7 +100,7 @@ root@5a99103747c6:~/abseil-cpp# bazel build --config=--config={asan | tsan | msa
 If you haven't already, start an interactive shell inside the Bazel container.
 
 ```posix-terminal
-docker run -it --entrypoint=/bin/bash l.gcr.io/google/bazel:latest
+docker run -it --entrypoint=/bin/bash gcr.io/bazel-public/bazel:latest
 root@5a99103747c6:/#
 ```
 
@@ -124,9 +126,9 @@ Python 3.6.6
 
 root@5a99103747c6:/# bazel version
 Extracting Bazel installation...
-Build label: 0.17.1
+Build label: 6.0.0
 Build target: bazel-out/k8-opt/bin/src/main/java/com/google/devtools/build/lib/bazel/BazelServer_deploy.jar
-Build time: Fri Sep 14 10:39:25 2018 (1536921565)
-Build timestamp: 1536921565
-Build timestamp as int: 1536921565
+Build time: Mon Dec 19 15:52:35 2022 (1671465155)
+Build timestamp: 1671465155
+Build timestamp as int: 1671465155
 ```

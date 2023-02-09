@@ -37,6 +37,7 @@ public class FakeRegistry implements Registry {
   private final String url;
   private final String rootPath;
   private final Map<ModuleKey, String> modules = new HashMap<>();
+  private final Map<String, ImmutableMap<Version, String>> yankedVersionMap = new HashMap<>();
 
   public FakeRegistry(String url, String rootPath) {
     this.url = url;
@@ -46,6 +47,13 @@ public class FakeRegistry implements Registry {
   @CanIgnoreReturnValue
   public FakeRegistry addModule(ModuleKey key, String... moduleFileLines) {
     modules.put(key, JOINER.join(moduleFileLines));
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public FakeRegistry addYankedVersion(
+      String moduleName, ImmutableMap<Version, String> yankedVersions) {
+    yankedVersionMap.put(moduleName, yankedVersions);
     return this;
   }
 
@@ -68,6 +76,12 @@ public class FakeRegistry implements Registry {
             ImmutableMap.of(
                 "name", repoName.getName(), "path", rootPath + "/" + repoName.getName()))
         .build();
+  }
+
+  @Override
+  public Optional<ImmutableMap<Version, String>> getYankedVersions(
+      String moduleName, ExtendedEventHandler eventHandler) {
+    return Optional.ofNullable(yankedVersionMap.get(moduleName));
   }
 
   @Override

@@ -43,7 +43,9 @@ public class ConstraintSettingRule implements RuleDefinition {
         constraint list (such as for a <code>config_setting</code>) that requires a particular value
         for that setting.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(DEFAULT_CONSTRAINT_VALUE_ATTR, BuildType.NODEP_LABEL))
+        .add(
+            attr(DEFAULT_CONSTRAINT_VALUE_ATTR, BuildType.NODEP_LABEL)
+                .nonconfigurable("constants must be consistent across configurations"))
         .build();
   }
 
@@ -56,7 +58,7 @@ public class ConstraintSettingRule implements RuleDefinition {
         .build();
   }
 }
-/*<!-- #BLAZE_RULE (NAME = constraint_setting, FAMILY = Platform)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = constraint_setting, FAMILY = Platforms and Toolchains)[GENERIC_RULE] -->
 
 <p>This rule is used to introduce a new constraint type for which a platform may specify a value.
 For instance, you might define a <code>constraint_setting</code> named "glibc_version" to represent

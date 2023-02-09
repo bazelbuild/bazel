@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
@@ -72,7 +73,10 @@ public abstract class ModuleExtension {
    * it's exported, at which point it sets the name and builds the underlying {@link
    * ModuleExtension}.
    */
-  @StarlarkBuiltin(name = "module_extension", doc = "A module extension.")
+  @StarlarkBuiltin(
+      name = "module_extension",
+      category = DocCategory.BUILTIN,
+      doc = "A module extension declared using the <code>module_extension</code> function.")
   public static class InStarlark implements StarlarkExportable {
     private final Builder builder;
     @Nullable private ModuleExtension built;

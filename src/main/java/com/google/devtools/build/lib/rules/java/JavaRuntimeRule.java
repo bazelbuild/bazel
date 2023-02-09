@@ -35,7 +35,6 @@ public final class JavaRuntimeRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return ConfigAwareRuleClassBuilder.of(builder)
-        .requiresHostConfigurationFragments(JavaConfiguration.class)
         .originalBuilder()
         .requiresConfigurationFragments(JavaConfiguration.class)
         .advertiseProvider(TemplateVariableInfo.class)

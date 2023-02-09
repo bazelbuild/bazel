@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
@@ -90,14 +89,14 @@ public final class SpawnResultTest {
     SpawnResult.Builder builder =
         new SpawnResult.Builder().setStatus(Status.SUCCESS).setExitCode(0).setRunnerName("test");
 
-    assertThat(builder.build().getActionMetadataLog()).isEmpty();
+    assertThat(builder.build().getActionMetadataLog()).isNull();
 
     String logName = "/path/to/logs.txt";
     Path logPath = FileSystems.getJavaIoFileSystem().getPath(logName);
     MetadataLog metadataLog = new MetadataLog("test_metadata_log", logPath);
     SpawnResult withLogs = builder.setActionMetadataLog(metadataLog).build();
 
-    assertThat(withLogs.getActionMetadataLog()).hasValue(metadataLog);
-    assertThat(withLogs.getActionMetadataLog().get().getFilePath()).isEqualTo(logPath);
+    assertThat(withLogs.getActionMetadataLog()).isEqualTo(metadataLog);
+    assertThat(withLogs.getActionMetadataLog().getFilePath()).isEqualTo(logPath);
   }
 }

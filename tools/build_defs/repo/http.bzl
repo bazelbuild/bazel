@@ -110,6 +110,8 @@ def _get_auth(ctx, urls):
     """Given the list of URLs obtain the correct auth dict."""
     if ctx.attr.netrc:
         netrc = read_netrc(ctx, ctx.attr.netrc)
+    elif "NETRC" in ctx.os.environ:
+        netrc = read_netrc(ctx, ctx.os.environ["NETRC"])
     else:
         netrc = read_user_netrc(ctx)
     return use_netrc(netrc, urls, ctx.attr.auth_patterns)
@@ -312,7 +314,7 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
     ),
     "patch_tool": attr.string(
         default = "",
-        doc = "The patch(1) utility to use. If this is specified, Bazel will use the specifed " +
+        doc = "The patch(1) utility to use. If this is specified, Bazel will use the specified " +
               "patch tool instead of the Bazel-native patch implementation.",
     ),
     "patch_args": attr.string_list(

@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.MoreCollectors;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
@@ -43,6 +41,7 @@ import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
+import com.google.devtools.build.lib.analysis.test.TestActionContext.AttemptGroup;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.FailedAttemptResult;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestRunnerSpawn;
 import com.google.devtools.build.lib.analysis.test.TestAttempt;
@@ -290,8 +289,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setWallTime(Duration.ofMillis(10))
             .setRunnerName("test")
             .build();
-    when(spawnStrategy.beginExecution(any(), any()))
-        .thenReturn(SpawnContinuation.immediate(expectedSpawnResult));
+    when(spawnStrategy.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
@@ -358,11 +356,9 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setWallTime(Duration.ofMillis(15))
             .setRunnerName("test")
             .build();
-    when(spawnStrategy.beginExecution(any(), any()))
-        .thenReturn(
-            SpawnContinuation.failedWithExecException(
-                new SpawnExecException("test failed", failSpawnResult, false)))
-        .thenReturn(SpawnContinuation.immediate(passSpawnResult));
+    when(spawnStrategy.exec(any(), any()))
+        .thenThrow(new SpawnExecException("test failed", failSpawnResult, false))
+        .thenReturn(ImmutableList.of(passSpawnResult));
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
@@ -428,8 +424,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setRunnerName("remote")
             .setExecutorHostname("a-remote-host")
             .build();
-    when(spawnStrategy.beginExecution(any(), any()))
-        .thenReturn(SpawnContinuation.immediate(expectedSpawnResult));
+    when(spawnStrategy.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
@@ -487,8 +482,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setWallTime(Duration.ofMillis(10))
             .setRunnerName("remote cache")
             .build();
-    when(spawnStrategy.beginExecution(any(), any()))
-        .thenReturn(SpawnContinuation.immediate(expectedSpawnResult));
+    when(spawnStrategy.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
@@ -547,7 +541,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setFailureDetail(NON_ZERO_EXIT_DETAILS)
             .setRunnerName("test")
             .build();
-    when(spawnStrategy.beginExecution(any(), any()))
+    when(spawnStrategy.exec(any(), any()))
         .thenAnswer(
             (invocation) -> {
               Spawn spawn = invocation.getArgument(0);
@@ -559,14 +553,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
                   stream.write((TestLogHelper.HEADER_DELIMITER + "\n").getBytes(UTF_8));
                   stream.write("This will appear in the test output: foo\n".getBytes(UTF_8));
                 }
-                return SpawnContinuation.failedWithExecException(
-                    new SpawnExecException(
-                        "Failure!!",
-                        expectedSpawnResult,
-                        /*forciblyRunRemotely=*/ false,
-                        /*catastrophe=*/ false));
+                throw new SpawnExecException(
+                    "Failure!!",
+                    expectedSpawnResult,
+                    /* forciblyRunRemotely= */ false,
+                    /* catastrophe= */ false);
               } else {
-                return SpawnContinuation.immediate(
+                return ImmutableList.of(
                     new SpawnResult.Builder()
                         .setStatus(Status.SUCCESS)
                         .setRunnerName("test")
@@ -646,7 +639,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setRunnerName("test")
             .build();
     List<FileOutErr> called = new ArrayList<>();
-    when(spawnStrategy.beginExecution(any(), any()))
+    when(spawnStrategy.exec(any(), any()))
         .thenAnswer(
             (invocation) -> {
               Spawn spawn = invocation.getArgument(0);
@@ -661,19 +654,18 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
                   stream.write((TestLogHelper.HEADER_DELIMITER + "\n").getBytes(UTF_8));
                   stream.write("This will appear in the test output: foo\n".getBytes(UTF_8));
                 }
-                return SpawnContinuation.failedWithExecException(
-                    new SpawnExecException(
-                        "Failure!!",
-                        testSpawnResult,
-                        /*forciblyRunRemotely=*/ false,
-                        /*catastrophe=*/ false));
+                throw new SpawnExecException(
+                    "Failure!!",
+                    testSpawnResult,
+                    /* forciblyRunRemotely= */ false,
+                    /* catastrophe= */ false);
               } else {
                 String testName =
                     OS.getCurrent() == OS.WINDOWS
                         ? "standalone/failing_test.exe"
                         : "standalone/failing_test";
                 assertThat(spawn.getEnvironment()).containsEntry("TEST_BINARY", testName);
-                return SpawnContinuation.immediate(xmlGeneratorSpawnResult);
+                return ImmutableList.of(xmlGeneratorSpawnResult);
               }
             });
 
@@ -730,8 +722,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     SpawnResult expectedSpawnResult =
         new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
-    when(spawnStrategy.beginExecution(any(), any()))
-        .thenReturn(SpawnContinuation.immediate(expectedSpawnResult));
+    when(spawnStrategy.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
 
     FileOutErr outErr = createTempOutErr(tmpDirRoot);
     ActionExecutionContext actionExecutionContext =
@@ -786,11 +777,11 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     SpawnResult expectedSpawnResult =
         new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
-    when(spawnStrategy.beginExecution(any(), any()))
+    when(spawnStrategy.exec(any(), any()))
         .then(
             (invocation) -> {
               ((ActionExecutionContext) invocation.getArgument(1)).getFileOutErr().printErr("Foo");
-              return SpawnContinuation.immediate(expectedSpawnResult);
+              return ImmutableList.of(expectedSpawnResult);
             });
 
     FileOutErr outErr = createTempOutErr(tmpDirRoot);
@@ -834,27 +825,27 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     TestRunnerAction actionA = testRunnerActions.get(0);
     TestRunnerAction actionB = testRunnerActions.get(1);
-    ListenableFuture<Void> cancelFuture =
-        standaloneTestStrategy.getTestCancelFuture(actionA.getOwner(), actionA.getShardNum());
-    assertThat(cancelFuture)
+    AttemptGroup attemptGroup =
+        standaloneTestStrategy.getAttemptGroup(actionA.getOwner(), actionA.getShardNum());
+    assertThat(attemptGroup)
         .isSameInstanceAs(
-            standaloneTestStrategy.getTestCancelFuture(actionB.getOwner(), actionB.getShardNum()));
+            standaloneTestStrategy.getAttemptGroup(actionB.getOwner(), actionB.getShardNum()));
 
     SpawnResult expectedSpawnResult =
         new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
-    when(spawnStrategy.beginExecution(any(), any()))
+    when(spawnStrategy.exec(any(), any()))
         .then(
             (invocation) -> {
               // Avoid triggering split XML generation by creating an empty XML file.
               FileSystemUtils.touchFile(actionA.resolve(getExecRoot()).getXmlOutputPath());
-              return SpawnContinuation.immediate(expectedSpawnResult);
+              return ImmutableList.of(expectedSpawnResult);
             });
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
     List<SpawnResult> resultA = execute(actionA, actionExecutionContext, standaloneTestStrategy);
-    assertThat(cancelFuture.isCancelled()).isTrue();
-    verify(spawnStrategy).beginExecution(any(), any());
+    assertThat(attemptGroup.cancelled()).isTrue();
+    verify(spawnStrategy).exec(any(), any());
     assertThat(resultA).hasSize(1);
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
@@ -864,7 +855,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     // Reset postedResult.
     standaloneTestStrategy.postedResult = null;
 
-    when(spawnStrategy.beginExecution(any(), any()))
+    when(spawnStrategy.exec(any(), any()))
         .thenThrow(new AssertionError("failure: this should not have been called"));
     List<SpawnResult> resultB = execute(actionB, actionExecutionContext, standaloneTestStrategy);
     assertThat(resultB).isEmpty();
@@ -906,12 +897,12 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     TestRunnerAction actionA = testRunnerActions.get(0);
     TestRunnerAction actionB = testRunnerActions.get(1);
-    ListenableFuture<Void> cancelFuture =
-        standaloneTestStrategy.getTestCancelFuture(actionA.getOwner(), actionA.getShardNum());
-    assertThat(cancelFuture)
+    AttemptGroup attemptGroup =
+        standaloneTestStrategy.getAttemptGroup(actionA.getOwner(), actionA.getShardNum());
+    assertThat(attemptGroup)
         .isSameInstanceAs(
-            standaloneTestStrategy.getTestCancelFuture(actionB.getOwner(), actionB.getShardNum()));
-    assertThat(cancelFuture.isCancelled()).isFalse();
+            standaloneTestStrategy.getAttemptGroup(actionB.getOwner(), actionB.getShardNum()));
+    assertThat(attemptGroup.cancelled()).isFalse();
 
     SpawnResult expectedSpawnResultA =
         new SpawnResult.Builder()
@@ -920,20 +911,28 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setFailureDetail(NON_ZERO_EXIT_DETAILS)
             .setRunnerName("test")
             .build();
-    when(spawnStrategy.beginExecution(any(), any()))
+    SpawnResult expectedSpawnResultB =
+        new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
+
+    when(spawnStrategy.exec(any(), any()))
         .then(
             (invocation) -> {
               // Avoid triggering split XML generation by creating an empty XML file.
               FileSystemUtils.touchFile(actionA.resolve(getExecRoot()).getXmlOutputPath());
-              return SpawnContinuation.failedWithExecException(
-                  new SpawnExecException("", expectedSpawnResultA, false));
+              throw new SpawnExecException("", expectedSpawnResultA, false);
+            })
+        .then(
+            (invocation) -> {
+              // Avoid triggering split XML generation by creating an empty XML file.
+              FileSystemUtils.touchFile(actionB.resolve(getExecRoot()).getXmlOutputPath());
+              return ImmutableList.of(expectedSpawnResultB);
             });
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
     List<SpawnResult> resultA = execute(actionA, actionExecutionContext, standaloneTestStrategy);
-    assertThat(cancelFuture.isCancelled()).isFalse();
-    verify(spawnStrategy).beginExecution(any(), any());
+    assertThat(attemptGroup.cancelled()).isFalse();
+    verify(spawnStrategy).exec(any(), any());
     assertThat(resultA).hasSize(1);
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
@@ -944,17 +943,15 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     // Reset postedResult.
     standaloneTestStrategy.postedResult = null;
 
-    SpawnResult expectedSpawnResultB =
-        new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
-    when(spawnStrategy.beginExecution(any(), any()))
+    when(spawnStrategy.exec(any(), any()))
         .then(
             (invocation) -> {
               // Avoid triggering split XML generation by creating an empty XML file.
               FileSystemUtils.touchFile(actionB.resolve(getExecRoot()).getXmlOutputPath());
-              return SpawnContinuation.immediate(expectedSpawnResultB);
+              return ImmutableList.of(expectedSpawnResultB);
             });
     List<SpawnResult> resultB = execute(actionB, actionExecutionContext, standaloneTestStrategy);
-    assertThat(cancelFuture.isCancelled()).isTrue();
+    assertThat(attemptGroup.cancelled()).isTrue();
     assertThat(resultB).hasSize(1);
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
@@ -997,12 +994,12 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     TestRunnerAction actionA = testRunnerActions.get(0);
     TestRunnerAction actionB = testRunnerActions.get(1);
-    ListenableFuture<Void> cancelFuture =
-        standaloneTestStrategy.getTestCancelFuture(actionA.getOwner(), actionA.getShardNum());
-    assertThat(cancelFuture)
+    AttemptGroup attemptGroup =
+        standaloneTestStrategy.getAttemptGroup(actionA.getOwner(), actionA.getShardNum());
+    assertThat(attemptGroup)
         .isSameInstanceAs(
-            standaloneTestStrategy.getTestCancelFuture(actionB.getOwner(), actionB.getShardNum()));
-    assertThat(cancelFuture.isCancelled()).isFalse();
+            standaloneTestStrategy.getAttemptGroup(actionB.getOwner(), actionB.getShardNum()));
+    assertThat(attemptGroup.cancelled()).isFalse();
 
     SpawnResult expectedSpawnResult =
         new SpawnResult.Builder()
@@ -1011,20 +1008,25 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setFailureDetail(NON_ZERO_EXIT_DETAILS)
             .setRunnerName("test")
             .build();
-    when(spawnStrategy.beginExecution(any(), any()))
+    when(spawnStrategy.exec(any(), any()))
         .then(
             (invocation) -> {
               // Avoid triggering split XML generation by creating an empty XML file.
               FileSystemUtils.touchFile(actionA.resolve(getExecRoot()).getXmlOutputPath());
-              return SpawnContinuation.failedWithExecException(
-                  new SpawnExecException("", expectedSpawnResult, false));
+              throw new SpawnExecException("", expectedSpawnResult, false);
+            })
+        .then(
+            (invocation) -> {
+              // Avoid triggering split XML generation by creating an empty XML file.
+              FileSystemUtils.touchFile(actionB.resolve(getExecRoot()).getXmlOutputPath());
+              throw new SpawnExecException("", expectedSpawnResult, false);
             });
 
     ActionExecutionContext actionExecutionContext =
         new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
     List<SpawnResult> resultA = execute(actionA, actionExecutionContext, standaloneTestStrategy);
-    assertThat(cancelFuture.isCancelled()).isFalse();
-    verify(spawnStrategy).beginExecution(any(), any());
+    assertThat(attemptGroup.cancelled()).isFalse();
+    verify(spawnStrategy).exec(any(), any());
     assertThat(resultA).hasSize(1);
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())
@@ -1035,16 +1037,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     // Reset postedResult.
     standaloneTestStrategy.postedResult = null;
 
-    when(spawnStrategy.beginExecution(any(), any()))
-        .then(
-            (invocation) -> {
-              // Avoid triggering split XML generation by creating an empty XML file.
-              FileSystemUtils.touchFile(actionB.resolve(getExecRoot()).getXmlOutputPath());
-              return SpawnContinuation.failedWithExecException(
-                  new SpawnExecException("", expectedSpawnResult, false));
-            });
     List<SpawnResult> resultB = execute(actionB, actionExecutionContext, standaloneTestStrategy);
-    assertThat(cancelFuture.isCancelled()).isFalse();
+    assertThat(attemptGroup.cancelled()).isFalse();
     assertThat(resultB).hasSize(1);
     assertThat(standaloneTestStrategy.postedResult).isNotNull();
     assertThat(standaloneTestStrategy.postedResult.getData().getStatus())

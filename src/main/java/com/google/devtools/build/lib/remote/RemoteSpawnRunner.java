@@ -30,7 +30,6 @@ import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
@@ -63,7 +62,6 @@ import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
-import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -424,8 +422,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
         cacheHit,
         cacheName,
         inMemoryOutput,
-        result.getExecutionMetadata().getWorkerStartTimestamp(),
-        result.getExecutionMetadata().getWorkerCompletedTimestamp(),
+        result.getExecutionMetadata().getExecutionStartTimestamp(),
+        result.getExecutionMetadata().getExecutionCompletedTimestamp(),
         spawnMetrics
             .setFetchTime(fetchTime.elapsed().minus(networkTimeEnd.minus(networkTimeStart)))
             .setTotalTime(totalTime.elapsed())
@@ -462,8 +460,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     for (ActionInput actionInput : spawn.getInputFiles().toList()) {
       if (actionInput instanceof ParamFileActionInput) {
         ParamFileActionInput paramFileActionInput = (ParamFileActionInput) actionInput;
-        Path outputPath = execRoot.getRelative(paramFileActionInput.getExecPath());
-        SandboxHelpers.atomicallyWriteVirtualInput(paramFileActionInput, outputPath, ".remote");
+        paramFileActionInput.atomicallyWriteRelativeTo(execRoot, ".remote");
       }
     }
   }
@@ -566,11 +563,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       catastrophe = false;
     }
 
-    String errorMessage = Utils.grpcAwareErrorMessage(exception);
-    if (verboseFailures) {
-      // On --verbose_failures print the whole stack trace
-      errorMessage += "\n" + Throwables.getStackTraceAsString(exception);
-    }
+    String errorMessage = Utils.grpcAwareErrorMessage(exception, verboseFailures);
 
     if (exception.getCause() instanceof ExecutionStatusException) {
       ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
@@ -621,9 +614,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
   SpawnResult execLocallyAndUpload(
       RemoteAction action, Spawn spawn, SpawnExecutionContext context, boolean uploadLocalResults)
       throws ExecException, IOException, ForbiddenActionInputException, InterruptedException {
-    Map<Path, Long> ctimesBefore = getInputCtimes(action.getInputMap());
+    Map<Path, Long> ctimesBefore = getInputCtimes(action.getInputMap(true));
     SpawnResult result = execLocally(spawn, context);
-    Map<Path, Long> ctimesAfter = getInputCtimes(action.getInputMap());
+    Map<Path, Long> ctimesAfter = getInputCtimes(action.getInputMap(true));
     uploadLocalResults =
         uploadLocalResults && Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
     if (!uploadLocalResults) {

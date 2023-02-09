@@ -21,14 +21,15 @@ import java.util.regex.Pattern;
 /** Utils for logging safely user commandlines. */
 public class SafeRequestLogging {
   private static final Pattern suppressFromLog =
-      Pattern.compile("--client_env=([^=]*(?:auth|pass|cookie)[^=]*)=", Pattern.CASE_INSENSITIVE);
+      Pattern.compile(
+          "--client_env=([^=]*(?:auth|pass|cookie|token)[^=]*)=", Pattern.CASE_INSENSITIVE);
 
   private SafeRequestLogging() {}
 
   /**
    * Generates a string form of a request to be written to the logs, filtering the user environment
    * to remove anything that looks private. The current filter criteria removes any variable whose
-   * name includes "auth", "pass", or "cookie".
+   * name includes "auth", "pass", "cookie" or "token".
    *
    * @return the filtered request to write to the log.
    */

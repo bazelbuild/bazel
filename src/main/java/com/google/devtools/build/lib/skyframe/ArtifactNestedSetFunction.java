@@ -28,7 +28,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -106,7 +106,7 @@ final class ArtifactNestedSetFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, ArtifactNestedSetFunctionException {
     List<SkyKey> depKeys = getDepSkyKeys((ArtifactNestedSetKey) skyKey);
-    SkyframeIterableResult depsEvalResult = env.getOrderedValuesAndExceptions(depKeys);
+    SkyframeLookupResult depsEvalResult = env.getValuesAndExceptions(depKeys);
 
     NestedSetBuilder<Pair<SkyKey, Exception>> transitiveExceptionsBuilder =
         NestedSetBuilder.stableOrder();
@@ -115,13 +115,12 @@ final class ArtifactNestedSetFunction implements SkyFunction {
     // Throw a SkyFunctionException when a dep evaluation results in an exception.
     // Only non-null values should be committed to
     // ArtifactNestedSetFunction#artifacSkyKeyToSkyValue.
-    int i = 0;
-    while (depsEvalResult.hasNext()) {
-      SkyKey key = depKeys.get(i++);
+    for (SkyKey key : depKeys) {
       try {
         // Trigger the exception, if any.
         SkyValue value =
-            depsEvalResult.nextOrThrow(
+            depsEvalResult.getOrThrow(
+                key,
                 SourceArtifactException.class,
                 ActionExecutionException.class,
                 ArtifactNestedSetEvalException.class);

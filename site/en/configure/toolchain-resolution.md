@@ -3,10 +3,12 @@ Book: /_book.yaml
 
 # Toolchain Resolution Implementation Details
 
+{% include "_buttons.html" %}
+
 **Note:** This section is intended for Bazel developers, and is not needed by
 rule authors.
 
-Several SkyFunction classes implement the [toolchain resolution](/docs/toolchains) process:
+Several SkyFunction classes implement the [toolchain resolution](/extending/toolchains) process:
 
 1.  [`RegisteredToolchainsFunction`](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/skyframe/RegisteredToolchainsFunction.java) and
     [`RegisteredExecutionPlatformsFunction`](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/skyframe/RegisteredExecutionPlatformsFunction.java)
@@ -36,7 +38,7 @@ Several SkyFunction classes implement the [toolchain resolution](/docs/toolchain
         1.  If the execution platform is already set by the toolchain
             transition, it will be selected first as described below.
 
-As discussed in [Toolchains and Configurations](/docs/toolchains#toolchains_and_configurations),
+As discussed in [Toolchains and Configurations](/extending/toolchains#toolchains_and_configurations),
 the dependency from a target to a toolchain uses a special configuration that
 forces the execution platform to be the same for both. Despite the name
 "toolchain transition", this is not implemented as a configuration

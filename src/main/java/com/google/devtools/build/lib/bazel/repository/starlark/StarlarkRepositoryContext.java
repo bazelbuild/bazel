@@ -489,7 +489,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     env.getListener()
         .post(
             new ExtractProgress(
-                outputPath.getPath().toString(), "Extracting " + archivePath.getPath()));
+                outputPath.getPath().toString(), "Extracting " + archivePath.getBasename()));
     DecompressorValue.decompress(
         DecompressorDescriptor.builder()
             .setContext(getIdentifyingStringForLogging())

@@ -44,7 +44,7 @@ public abstract class ProtoLangToolchainProvider {
   public static final String PROVIDER_NAME = "ProtoLangToolchainInfo";
   public static final StarlarkProvider.Key starlarkProtoLangToolchainKey =
       new StarlarkProvider.Key(
-          Label.parseAbsoluteUnchecked("@_builtins//:common/proto/proto_common.bzl"),
+          Label.parseCanonicalUnchecked("@_builtins//:common/proto/proto_common.bzl"),
           PROVIDER_NAME);
   public static final StarlarkProviderIdentifier PROVIDER_ID =
       StarlarkProviderIdentifier.forKey(starlarkProtoLangToolchainKey);
@@ -105,7 +105,6 @@ public abstract class ProtoLangToolchainProvider {
     m.put("out_replacement_format_flag", outReplacementFormatFlag);
     m.put("progress_message", progressMessage);
     m.put("mnemonic", mnemonic);
-    m.put("plugin", pluginExecutable == null ? Starlark.NONE : pluginExecutable);
     m.put("runtime", runtime == null ? Starlark.NONE : runtime);
 
     StarlarkProvider.Builder builder = StarlarkProvider.builder(Location.BUILTIN);

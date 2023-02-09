@@ -71,34 +71,22 @@ import javax.annotation.Nullable;
  */
 public class InMemoryNodeEntry implements NodeEntry {
 
+  private final SkyKey key;
+
   /** Actual data stored in this entry when it is done. */
   protected volatile SkyValue value = null;
 
-  /**
-   * The last version of the graph at which this node's value was changed. In {@link #setValue} it
-   * may be determined that the value being written to the graph at a given version is the same as
-   * the already-stored value. In that case, the version will remain the same. The version can be
-   * thought of as the latest timestamp at which this value was changed.
-   */
-  protected volatile Version lastChangedVersion = MinimalVersion.INSTANCE;
-
-  /**
-   * Returns the last version this entry was evaluated at, even if it re-evaluated to the same
-   * value. When a child signals this entry with the last version it was changed at in {@link
-   * #signalDep}, this entry need not re-evaluate if the child's version is at most this version,
-   * even if the {@link #lastChangedVersion} is less than this one.
-   *
-   * @see #signalDep(Version, SkyKey)
-   */
-  protected Version lastEvaluatedVersion = MinimalVersion.INSTANCE;
+  protected volatile NodeVersion version = Version.minimal();
 
   /**
    * This object represents the direct deps of the node, in groups if the {@code SkyFunction}
    * requested them that way. It contains either the in-progress direct deps, stored as a {@code
-   * GroupedList<SkyKey>} before the node is finished building, or the full direct deps, compressed
-   * in a memory-efficient way (via {@link GroupedList#compress}, after the node is done.
+   * GroupedList<SkyKey>} (constructed via {@link GroupedList.WithHashSet} if {@code
+   * key.supportsPartialReevaluation()}) before the node is finished building, or the full direct
+   * deps, compressed in a memory-efficient way (via {@link GroupedList#compress}, after the node is
+   * done.
    *
-   * <p>It is initialized lazily in getTemporaryDirectDeps() to save a little bit more memory.
+   * <p>It is initialized lazily in getTemporaryDirectDeps() to save a little memory.
    */
   protected Object directDeps = null;
 
@@ -142,8 +130,13 @@ public class InMemoryNodeEntry implements NodeEntry {
    */
   @Nullable protected volatile DirtyBuildingState dirtyBuildingState = null;
 
-  /** Construct a InMemoryNodeEntry. Use ONLY in Skyframe evaluation and graph implementations. */
-  public InMemoryNodeEntry() {}
+  public InMemoryNodeEntry(SkyKey key) {
+    this.key = checkNotNull(key);
+  }
+
+  public final SkyKey getKey() {
+    return key;
+  }
 
   /** Whether this node stores edges (deps and rdeps). */
   boolean keepsEdges() {
@@ -160,10 +153,18 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized boolean isReady() {
+  public synchronized boolean isReadyToEvaluate() {
     checkState(!isDone(), "can't be ready if done: %s", this);
     checkState(isEvaluating(), this);
-    return dirtyBuildingState.isReady(getNumTemporaryDirectDeps());
+    return dirtyBuildingState.isReady(getNumTemporaryDirectDeps())
+        || key.supportsPartialReevaluation();
+  }
+
+  @Override
+  public synchronized boolean hasUnsignaledDeps() {
+    checkState(!isDone(), this);
+    checkState(isEvaluating(), this);
+    return !dirtyBuildingState.isReady(getNumTemporaryDirectDeps());
   }
 
   @Override
@@ -266,32 +267,32 @@ public class InMemoryNodeEntry implements NodeEntry {
   /**
    * {@inheritDoc}
    *
-   * <p>In this method it is crucial that {@link #lastChangedVersion} is set prior to {@link #value}
-   * because although this method itself is synchronized, there are unsynchronized consumers of the
-   * version and the value.
+   * <p>In this method it is crucial that {@link #version} is set prior to {@link #value} because
+   * although this method itself is synchronized, there are unsynchronized consumers of the version
+   * and the value.
    */
   @Override
   public synchronized Set<SkyKey> setValue(
       SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion)
       throws InterruptedException {
-    checkState(isReady(), "Not ready (this=%s, value=%s)", this, value);
+    checkState(!hasUnsignaledDeps(), "Has unsignaled deps (this=%s, value=%s)", this, value);
     checkState(
-        this.lastChangedVersion.atMost(graphVersion)
-            && this.lastEvaluatedVersion.atMost(graphVersion),
+        version.lastChanged().atMost(graphVersion) && version.lastEvaluated().atMost(graphVersion),
         "Bad version (this=%s, version=%s, value=%s)",
         this,
         graphVersion,
         value);
-    this.lastEvaluatedVersion = graphVersion;
 
     if (dirtyBuildingState.unchangedFromLastBuild(value)) {
       // If the value is the same as before, just use the old value. Note that we don't use the new
       // value, because preserving == equality is even better than .equals() equality.
+      Version lastChanged = version.lastChanged();
+      version = NodeVersion.of(lastChanged, graphVersion);
       this.value = dirtyBuildingState.getLastBuildValue();
     } else {
       // If this is a new value, or it has changed since the last build, set the version to the
       // current graph version.
-      this.lastChangedVersion = graphVersion;
+      version = graphVersion;
       this.value = value;
     }
     return setStateFinishedAndReturnReverseDepsToSignal();
@@ -422,13 +423,8 @@ public class InMemoryNodeEntry implements NodeEntry {
     checkState(
         !isDone(), "Value must not be done in signalDep %s child=%s", this, childForDebugging);
     checkNotNull(dirtyBuildingState, "%s %s", this, childForDebugging);
-    checkState(dirtyBuildingState.isEvaluating(), "%s %s", this, childForDebugging);
-    dirtyBuildingState.signalDep();
-
-    // childVersion > lastEvaluatedVersion means the child has changed since the last evaluation.
-    boolean childChanged = !childVersion.atMost(lastEvaluatedVersion);
-    dirtyBuildingState.signalDepPostProcess(childChanged, getNumTemporaryDirectDeps());
-    return isReady();
+    dirtyBuildingState.signalDep(this, childVersion, childForDebugging);
+    return !hasUnsignaledDeps();
   }
 
   /** Checks that a caller is not trying to access not-stored graph edges. */
@@ -494,7 +490,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized NodeValueAndRdepsToSignal markClean() throws InterruptedException {
     checkNotNull(dirtyBuildingState, this);
     this.value = checkNotNull(dirtyBuildingState.getLastBuildValue());
-    checkState(isReady(), "Should be ready when clean: %s", this);
+    checkState(!hasUnsignaledDeps(), this);
     checkState(
         dirtyBuildingState.depsUnchangedFromLastBuild(getTemporaryDirectDeps()),
         "Direct deps must be the same as those found last build for node to be marked clean: %s",
@@ -514,7 +510,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public Version getVersion() {
-    return lastChangedVersion;
+    return version.lastChanged();
   }
 
   @Override
@@ -528,7 +524,7 @@ public class InMemoryNodeEntry implements NodeEntry {
    */
   @Override
   public synchronized ImmutableList<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
-    checkState(isReady(), this);
+    checkState(!hasUnsignaledDeps(), this);
     checkNotNull(dirtyBuildingState, this);
     checkState(dirtyBuildingState.isEvaluating(), "Not evaluating during getNextDirty? %s", this);
     return dirtyBuildingState.getNextDirtyDirectDeps();
@@ -576,13 +572,17 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized GroupedList<SkyKey> getTemporaryDirectDeps() {
     checkState(!isDone(), "temporary shouldn't be done: %s", this);
     if (directDeps == null) {
-      // Initialize lazily, to save a little bit of memory.
-      directDeps = new GroupedList<>();
+      // Initialize lazily, to save a little memory.
+      //
+      // If the key opts into partial reevaluation, tracking deps with a HashSet is worth the extra
+      // memory cost -- see SkyFunctionEnvironment.PartialReevaluation.
+      directDeps =
+          key.supportsPartialReevaluation() ? new GroupedList.WithHashSet<>() : new GroupedList<>();
     }
     return (GroupedList<SkyKey>) directDeps;
   }
 
-  private synchronized int getNumTemporaryDirectDeps() {
+  final synchronized int getNumTemporaryDirectDeps() {
     return directDeps == null ? 0 : getTemporaryDirectDeps().numElements();
   }
 
@@ -606,7 +606,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized void resetForRestartFromScratch() {
-    checkState(isReady(), this);
+    checkState(!hasUnsignaledDeps(), this);
     directDeps = null;
     dirtyBuildingState.resetForRestartFromScratch();
   }
@@ -667,10 +667,10 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   protected synchronized MoreObjects.ToStringHelper toStringHelper() {
     return MoreObjects.toStringHelper(this)
+        .add("key", key)
         .add("identity", System.identityHashCode(this))
         .add("value", value)
-        .add("lastChangedVersion", lastChangedVersion)
-        .add("lastEvaluatedVersion", lastEvaluatedVersion)
+        .add("version", version)
         .add(
             "directDeps",
             isDone() && keepsEdges()
@@ -689,8 +689,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   protected synchronized InMemoryNodeEntry cloneNodeEntry(InMemoryNodeEntry newEntry) {
     checkState(isDone(), "Only done nodes can be copied: %s", this);
     newEntry.value = value;
-    newEntry.lastChangedVersion = this.lastChangedVersion;
-    newEntry.lastEvaluatedVersion = this.lastEvaluatedVersion;
+    newEntry.version = version;
     for (SkyKey reverseDep : ReverseDepsUtility.getReverseDeps(this, /*checkConsistency=*/ true)) {
       ReverseDepsUtility.addReverseDep(newEntry, reverseDep);
     }
@@ -705,6 +704,6 @@ public class InMemoryNodeEntry implements NodeEntry {
    * <p>Clones a InMemoryMutableNodeEntry iff it is a done node. Otherwise it fails.
    */
   public synchronized InMemoryNodeEntry cloneNodeEntry() {
-    return cloneNodeEntry(new InMemoryNodeEntry());
+    return cloneNodeEntry(new InMemoryNodeEntry(key));
   }
 }

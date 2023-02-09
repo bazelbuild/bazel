@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Starlark Language
 
+{% include "_buttons.html" %}
+
 <!-- [TOC] -->
 
 This page is an overview of [Starlark](https://github.com/bazelbuild/starlark),
@@ -141,7 +143,7 @@ The following Python features are not supported:
 * implicit string concatenation (use explicit `+` operator).
 * Chained comparisons (such as `1 < x < 5`).
 * `class` (see [`struct`](lib/struct#struct) function).
-* `import` (see [`load`](concepts#loading-an-extension) statement).
+* `import` (see [`load`](/extending/concepts#loading-an-extension) statement).
 * `while`, `yield`.
 * float and set types.
 * generators and generator expressions.

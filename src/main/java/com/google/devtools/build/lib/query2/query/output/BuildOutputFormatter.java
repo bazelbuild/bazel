@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.base.Ascii;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -207,11 +209,9 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
           ((BuildType.SelectorList<?>) attributeMap.getRawAttributeValue(rule, attr))
               .getSelectors()) {
         if (selector.isUnconditional()) {
-          selectors.add(
-              outputRawAttrValue(
-                  Iterables.getOnlyElement(selector.getEntries().entrySet()).getValue()));
+          selectors.add(outputRawAttrValue(Preconditions.checkNotNull(selector.getDefault())));
         } else {
-          selectors.add(String.format("select(%s)", outputRawAttrValue(selector.getEntries())));
+          selectors.add(String.format("select(%s)", outputRawAttrValue(selector.mapCopy())));
         }
       }
       return String.join(" + ", selectors);
@@ -221,7 +221,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
   /** Query's implementation. */
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, final QueryOptions options) {
+      OutputStream out, final QueryOptions options, RepositoryMapping mainRepoMapping) {
     return new BuildOutputFormatterCallback(out, options.getLineTerminator());
   }
 
@@ -229,7 +229,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options));
+        createPostFactoStreamCallback(out, options, env.getMainRepoMapping()));
   }
 
   private static class BuildOutputFormatterCallback extends TextOutputFormatterCallback<Target> {

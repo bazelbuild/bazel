@@ -20,9 +20,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -33,6 +35,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 /**
@@ -95,15 +98,18 @@ public class IndexRegistry implements Registry {
   /** Represents fields available in {@code bazel_registry.json} for the registry. */
   private static class BazelRegistryJson {
     String[] mirrors;
+    String moduleBasePath;
   }
 
   /** Represents fields available in {@code source.json} for each version of a module. */
   private static class SourceJson {
+    String type = "archive";
     URL url;
     String integrity;
     String stripPrefix;
     Map<String, String> patches;
     int patchStrip;
+    String path;
   }
 
   /**
@@ -113,7 +119,7 @@ public class IndexRegistry implements Registry {
   private <T> Optional<T> grabJson(String url, Class<T> klass, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
     Optional<byte[]> bytes = grabFile(url, eventHandler);
-    if (!bytes.isPresent()) {
+    if (bytes.isEmpty()) {
       return Optional.empty();
     }
     String jsonString = new String(bytes.get(), UTF_8);
@@ -123,7 +129,8 @@ public class IndexRegistry implements Registry {
     try {
       return Optional.of(gson.fromJson(jsonString, klass));
     } catch (JsonParseException e) {
-      throw new IOException(String.format("Unable to parse json at url %s", url), e);
+      throw new IOException(
+          String.format("Unable to parse json at url %s: %s", url, e.getMessage()), e);
     }
   }
 
@@ -140,10 +147,55 @@ public class IndexRegistry implements Registry {
                 getUrl(), "modules", key.getName(), key.getVersion().toString(), "source.json"),
             SourceJson.class,
             eventHandler);
-    if (!sourceJson.isPresent()) {
+    if (sourceJson.isEmpty()) {
       throw new FileNotFoundException(
           String.format("Module %s's source information not found in registry %s", key, getUrl()));
     }
+
+    String type = sourceJson.get().type;
+    switch (type) {
+      case "archive":
+        return createArchiveRepoSpec(sourceJson, bazelRegistryJson, key, repoName);
+      case "local_path":
+        return createLocalPathRepoSpec(sourceJson, bazelRegistryJson, key, repoName);
+      default:
+        throw new IOException(String.format("Invalid source type for module %s", key));
+    }
+  }
+
+  private RepoSpec createLocalPathRepoSpec(
+      Optional<SourceJson> sourceJson,
+      Optional<BazelRegistryJson> bazelRegistryJson,
+      ModuleKey key,
+      RepositoryName repoName)
+      throws IOException {
+    String path = sourceJson.get().path;
+    if (!PathFragment.isAbsolute(path)) {
+      String moduleBase = bazelRegistryJson.get().moduleBasePath;
+      path = moduleBase + "/" + path;
+      if (!PathFragment.isAbsolute(moduleBase)) {
+        if (uri.getScheme().equals("file")) {
+          path = uri.getPath() + "/" + path;
+        } else {
+          throw new IOException(String.format("Provided non local registry for module %s", key));
+        }
+      }
+    }
+
+    return RepoSpec.builder()
+        .setRuleClassName("local_repository")
+        .setAttributes(
+            ImmutableMap.of(
+                "name", repoName.getName(), "path", PathFragment.create(path).toString()))
+        .build();
+  }
+
+  private RepoSpec createArchiveRepoSpec(
+      Optional<SourceJson> sourceJson,
+      Optional<BazelRegistryJson> bazelRegistryJson,
+      ModuleKey key,
+      RepositoryName repoName)
+      throws IOException {
     URL sourceUrl = sourceJson.get().url;
     if (sourceUrl == null) {
       throw new IOException(String.format("Missing source URL for module %s", key));
@@ -193,5 +245,40 @@ public class IndexRegistry implements Registry {
         .setRemotePatches(remotePatches.buildOrThrow())
         .setRemotePatchStrip(sourceJson.get().patchStrip)
         .build();
+  }
+
+  @Override
+  public Optional<ImmutableMap<Version, String>> getYankedVersions(
+      String moduleName, ExtendedEventHandler eventHandler)
+      throws IOException, InterruptedException {
+    Optional<MetadataJson> metadataJson =
+        grabJson(
+            constructUrl(getUrl(), "modules", moduleName, "metadata.json"),
+            MetadataJson.class,
+            eventHandler);
+    if (metadataJson.isEmpty()) {
+      return Optional.empty();
+    }
+
+    try {
+      ImmutableMap.Builder<Version, String> yankedVersionsBuilder = new ImmutableMap.Builder<>();
+      if (metadataJson.get().yankedVersions != null) {
+        for (Entry<String, String> e : metadataJson.get().yankedVersions.entrySet()) {
+          yankedVersionsBuilder.put(Version.parse(e.getKey()), e.getValue());
+        }
+      }
+      return Optional.of(yankedVersionsBuilder.buildOrThrow());
+    } catch (ParseException e) {
+      throw new IOException(
+          String.format(
+              "Could not parse module %s's metadata file: %s", moduleName, e.getMessage()));
+    }
+  }
+
+  /** Represents fields available in {@code metadata.json} for each module. */
+  static class MetadataJson {
+    // There are other attributes in the metadata.json file, but for now, we only care about
+    // the yanked_version attribute.
+    Map<String, String> yankedVersions;
   }
 }

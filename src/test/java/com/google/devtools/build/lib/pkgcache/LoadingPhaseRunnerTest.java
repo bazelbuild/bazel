@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PatternExpandingError;
@@ -107,7 +108,7 @@ public final class LoadingPhaseRunnerTest {
   private static List<Label> getLabels(String... labels) {
     List<Label> result = new ArrayList<>();
     for (String label : labels) {
-      result.add(Label.parseAbsoluteUnchecked(label));
+      result.add(Label.parseCanonicalUnchecked(label));
     }
     return result;
   }
@@ -474,7 +475,7 @@ public final class LoadingPhaseRunnerTest {
     assertThat(tester.getOriginalTargets())
         .containsExactlyElementsIn(getLabels("//cc:tests", "//cc:my_test"));
     assertThat(tester.getTestSuiteTargets())
-        .containsExactly(Label.parseAbsoluteUnchecked("//cc:tests"));
+        .containsExactly(Label.parseCanonicalUnchecked("//cc:tests"));
   }
 
   @Test
@@ -874,10 +875,10 @@ public final class LoadingPhaseRunnerTest {
 
     assertThat(tester.getOriginalPatternsToLabels())
         .containsExactly(
-            "test/a:all", Label.parseAbsoluteUnchecked("//test/a:a_lib"),
-            "test/b:all", Label.parseAbsoluteUnchecked("//test/b:b_lib"),
-            "test/...", Label.parseAbsoluteUnchecked("//test/a:a_lib"),
-            "test/...", Label.parseAbsoluteUnchecked("//test/b:b_lib"));
+            "test/a:all", Label.parseCanonicalUnchecked("//test/a:a_lib"),
+            "test/b:all", Label.parseCanonicalUnchecked("//test/b:b_lib"),
+            "test/...", Label.parseCanonicalUnchecked("//test/a:a_lib"),
+            "test/...", Label.parseCanonicalUnchecked("//test/b:b_lib"));
   }
 
   @Test
@@ -1369,7 +1370,7 @@ public final class LoadingPhaseRunnerTest {
               .setDirectories(directories)
               .setActionKeyContext(new ActionKeyContext())
               .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-              .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
+              .setSyscallCache(SyscallCache.NO_CACHE)
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PathPackageLocator pkgLocator =
@@ -1395,6 +1396,7 @@ public final class LoadingPhaseRunnerTest {
           Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
           ImmutableMap.of(),
+          QuiescingExecutorsImpl.forTesting(),
           new TimestampGranularityMonitor(clock));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
       this.options = Options.getDefaults(LoadingOptions.class);
@@ -1493,7 +1495,7 @@ public final class LoadingPhaseRunnerTest {
     public Target getTarget(String targetName) throws Exception {
       StoredEventHandler eventHandler = new StoredEventHandler();
       Target target =
-          getPkgManager().getTarget(eventHandler, Label.parseAbsoluteUnchecked(targetName));
+          getPkgManager().getTarget(eventHandler, Label.parseCanonicalUnchecked(targetName));
       assertThat(eventHandler.hasErrors()).isFalse();
       return target;
     }

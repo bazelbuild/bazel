@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 
 /** Class to work with the shell toolchain, e.g. get the shell interpreter's path. */
 public final class ShToolchain {
@@ -36,33 +37,37 @@ public final class ShToolchain {
     return ShellConfiguration.getShellExecutables().get(current);
   }
 
-  /**
-   * Returns the default shell executable's path for the host OS.
-   *
-   * <p>This method checks the configuration's {@link ShellConfiguration} fragment.
-   */
+  /** Returns the default shell executable's path for the host OS. */
   public static PathFragment getPathForHost(BuildConfigurationValue config) {
-    ShellConfiguration configFragment = config.getFragment(ShellConfiguration.class);
-    if (configFragment != null) {
-      if (configFragment.getOptionsBasedDefault() != null) {
-        return configFragment.getOptionsBasedDefault();
-      } else {
-        return getHostOrDefaultPath();
-      }
-    }
-    return PathFragment.EMPTY_FRAGMENT;
+    return getPathForPlatform(config, null);
   }
 
   /**
-   * Returns the shell executable's path for the provided platform. If none is present, return the
-   * path for the host platform. Otherwise, return the default.
+   * Returns the shell executable's path. Prefers, in order
+   *
+   * <p>1) the default path set by {@code --shell_executable}
+   *
+   * <p>2) the path for the provided platform
+   *
+   * <p>3) the path for the host platform
+   *
+   * <p>4) a hard-coded default path.
    */
-  public static PathFragment getPathOrError(PlatformInfo platformInfo) {
-    for (OS os : ShellConfiguration.getShellExecutables().keySet()) {
-      if (platformInfo
-          .constraints()
-          .hasConstraintValue(ShellConfiguration.OS_TO_CONSTRAINTS.get(os))) {
-        return ShellConfiguration.getShellExecutables().get(os);
+  public static PathFragment getPathForPlatform(
+      BuildConfigurationValue config, @Nullable PlatformInfo platformInfo) {
+    ShellConfiguration shellConfiguration = config.getFragment(ShellConfiguration.class);
+
+    if (shellConfiguration != null && shellConfiguration.getOptionsBasedDefault() != null) {
+      return shellConfiguration.getOptionsBasedDefault();
+    }
+
+    if (platformInfo != null) {
+      for (OS os : ShellConfiguration.getShellExecutables().keySet()) {
+        if (platformInfo
+            .constraints()
+            .hasConstraintValue(ShellConfiguration.OS_TO_CONSTRAINTS.get(os))) {
+          return ShellConfiguration.getShellExecutables().get(os);
+        }
       }
     }
     return getHostOrDefaultPath();

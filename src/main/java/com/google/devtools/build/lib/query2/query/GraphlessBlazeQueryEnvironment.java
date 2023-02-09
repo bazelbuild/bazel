@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
@@ -348,7 +349,14 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       Callback<Target> callback)
       throws InterruptedException, QueryException {
     try (SilentCloseable closeable = Profiler.instance().profile("preloadTransitiveClosure")) {
-      preloadTransitiveClosure(universe, maxDepth, caller);
+      preloadTransitiveClosure(
+          universe,
+          // PathLabelVisitor#rdeps, called below, necessarily needs to crawl the full DTC of
+          // `universe` in order to be able to reify the reverse edges needed to determine the rdeps
+          // of `from` at the specified depth. Therefore we preload the full DTC of `universe` in
+          // parallel, so that PathLabelVisitor#rdeps doesn't need to do novel package loading.
+          /* maxDepth= */ OptionalInt.empty(),
+          caller);
     }
     Iterable<Target> results =
         new PathLabelVisitor(targetProvider, dependencyFilter, errorObserver)
@@ -506,5 +514,10 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
   @Override
   public TargetAccessor<Target> getAccessor() {
     return accessor;
+  }
+
+  @Override
+  public RepositoryMapping getMainRepoMapping() {
+    return mainRepoTargetParser.getRepoMapping();
   }
 }

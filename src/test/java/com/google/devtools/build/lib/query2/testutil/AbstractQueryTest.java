@@ -67,7 +67,6 @@ import java.io.PrintWriter;
 import java.util.List;
 import java.util.Set;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -290,7 +289,7 @@ public abstract class AbstractQueryTest<T> {
             "no such target '//a:b': target 'b' not declared in package 'a' "
                 + "defined by "
                 + helper.getRootDirectory().getPathString()
-                + "/a/BUILD (Tip: use `query //a:*` to see all the targets in that package)");
+                + "/a/BUILD (Tip: use `query \"//a:*\"` to see all the targets in that package)");
     assertThat(failureDetail.getPackageLoading().getCode())
         .isEqualTo(FailureDetails.PackageLoading.Code.TARGET_MISSING);
   }
@@ -498,7 +497,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  public void testSomeOperator() throws Exception {
+  public void testSomeOperator_noCountParameter() throws Exception {
     writeBuildFiles2();
     assertThat(eval("some(c:*)")).hasSize(1);
     assertContains(eval("c:*"), eval("some(c:*)"));
@@ -507,6 +506,24 @@ public abstract class AbstractQueryTest<T> {
     EvalThrowsResult result = evalThrows("some(//c:q intersect //c:p)", true);
     assertThat(result.getMessage()).isEqualTo("argument set is empty");
     assertQueryCode(result.getFailureDetail(), Query.Code.ARGUMENTS_MISSING);
+  }
+
+  @Test
+  public void testSomeOperator_countParameterNotEqualActualCount() throws Exception {
+    writeBuildFiles2();
+    assertThat(eval("some(//c:p + //c:q, 5)")).hasSize(2);
+    assertThat(evalToString("some(//c:p + //c:q, 5)")).isEqualTo("//c:p //c:q");
+
+    assertThat(eval("some(//c:c + //c:d + //c:p + //c:q + //c:r + //c:s, 3)")).hasSize(3);
+    // No need to check `evalToString`, the output strings may differ based test suite setup.
+  }
+
+  @Test
+  public void testSomeOperator_nestedSomeTest() throws Exception {
+    writeBuildFiles2();
+    assertThat(eval("some(some(//c:p + //c:q, 2) + some(//c:p + //c:s + //c:q, 3), 5)")).hasSize(3);
+    assertThat(evalToString("some(some(//c:p + //c:q, 2) + some(//c:p + //c:s + //c:q, 3), 5)"))
+        .isEqualTo("//c:p //c:q //c:s");
   }
 
   protected void writeBuildFiles3() throws Exception {
@@ -628,7 +645,6 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  @Ignore("b/198254254")
   public void testDeps() throws Exception {
     writeBuildFiles3();
     writeBuildFilesWithConfigurableAttributes();
@@ -666,16 +682,22 @@ public abstract class AbstractQueryTest<T> {
       if (analysisMock.isThisBazel()) {
         implicitDeps = " + " + helper.getToolsRepository() + "//tools/def_parser:def_parser";
       }
+      String expectedDependencies =
+          helper.getToolsRepository()
+              + "//tools/cpp:malloc + //configurable:main + "
+              + "//configurable:main.cc + //configurable:adep + //configurable:bdep + "
+              + "//configurable:defaultdep + //conditions:a + //conditions:b "
+              + implicitDeps;
+      if (includeCppToolchainDependencies()) {
+        expectedDependencies += " + //tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain";
+      }
       assertThat(eval("deps(//configurable:main, 1)" + TestConstants.CC_DEPENDENCY_CORRECTION))
-          .containsExactlyElementsIn(
-              eval(
-                  helper.getToolsRepository()
-                      + "//tools/cpp:malloc + //configurable:main + "
-                      + "//configurable:main.cc + //configurable:adep + //configurable:bdep + "
-                      + "//configurable:defaultdep + //conditions:a + //conditions:b + "
-                      + "//tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain"
-                      + implicitDeps));
+          .containsExactlyElementsIn(eval(expectedDependencies));
     }
+  }
+
+  protected boolean includeCppToolchainDependencies() {
+    return true;
   }
 
   @Test
@@ -989,7 +1011,6 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  @Ignore("b/198254254")
   public void testNoImplicitDeps() throws Exception {
     writeFile("x/BUILD", "cc_binary(name='x', srcs=['x.cc'])");
 
@@ -1013,9 +1034,11 @@ public abstract class AbstractQueryTest<T> {
     String toolchainDepsExpr = "//tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain";
 
     // Test all combinations of --[no]host_deps and --[no]implicit_deps on //x:x
-    assertEqualsFiltered(
-        targetDepsExpr + " + " + hostDepsExpr + implicitDepsExpr + " + " + toolchainDepsExpr,
-        "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION);
+    String expected = targetDepsExpr + " + " + hostDepsExpr + implicitDepsExpr;
+    if (includeCppToolchainDependencies()) {
+      expected += " + " + toolchainDepsExpr;
+    }
+    assertEqualsFiltered(expected, "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION);
     assertEqualsFiltered(
         targetDepsExpr + " + " + hostDepsExpr,
         "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION,
@@ -1049,17 +1072,17 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testNodepDeps_defaultIsTrue() throws Exception {
-    runNodepDepsTest(/*expectVisibilityDep=*/ true);
+    runNodepDepsTest(/* expectVisibilityDep= */ true);
   }
 
   @Test
   public void testNodepDeps_false() throws Exception {
-    runNodepDepsTest(/*expectVisibilityDep=*/ false, Setting.NO_NODEP_DEPS);
+    runNodepDepsTest(/* expectVisibilityDep= */ false, Setting.NO_NODEP_DEPS);
   }
 
   @Test
   public void testCycleInStarlark() throws Exception {
-    runCycleInStarlarkTest(/*checkFailureDetail=*/ true);
+    runCycleInStarlarkTest(/* checkFailureDetail= */ true);
   }
 
   protected void runCycleInStarlarkTest(boolean checkFailureDetail) throws Exception {
@@ -1080,8 +1103,7 @@ public abstract class AbstractQueryTest<T> {
   public void testLabelsOperator() throws Exception {
     writeBuildFiles3();
     writeBuildFilesWithConfigurableAttributes();
-    writeFile("k/BUILD", "py_binary(name='k', srcs=['k.py'])");
-    analysisMock.pySupport().setup(mockToolsConfig);
+    writeBuildFilesWithImplicitAttribute();
 
     // srcs:
     assertThat(eval("labels(srcs, //a)")).isEqualTo(eval("//b + //c"));
@@ -1100,19 +1122,37 @@ public abstract class AbstractQueryTest<T> {
     assertThat(eval("labels(no_such_attr, //b)")).isEqualTo(EMPTY);
 
     // singleton LABEL:
-    assertThat(eval("labels(srcs, //k)")).isEqualTo(eval("//k:k.py"));
+    assertThat(eval("labels(srcs, //k)")).isEqualTo(eval("//k:k.txt"));
 
     // Works for implicit edges too.  This is for consistency with --output
-    // xml, which exposes them too.
-    RepositoryName toolsRepository = helper.getToolsRepository();
-    assertThat(eval("labels(\"$py_toolchain_type\", //k)"))
-        .isEqualTo(eval(toolsRepository + "//tools/python:toolchain_type"));
+    // xml, which exposes them too. Note that, for whatever reason, the
+    // implicit attribute must be referenced using "$" instead of "_".
+    assertThat(eval("labels('$implicit', //k)")).isEqualTo(eval("//k:implicit"));
 
     // Configurable deps:
     if (testConfigurableAttributes()) {
       assertThat(eval("labels(\"deps\", //configurable:main)"))
           .isEqualTo(eval("//configurable:adep + //configurable:bdep + //configurable:defaultdep"));
     }
+  }
+
+  private void writeBuildFilesWithImplicitAttribute() throws Exception {
+    writeFile(
+        "k/defs.bzl",
+        "def impl(ctx):",
+        "  return [DefaultInfo()]",
+        "has_implicit_attr = rule(",
+        "    implementation=impl,",
+        "    attrs = {",
+        "        'srcs': attr.label_list(),",
+        "        '_implicit': attr.label(default='//k:implicit')",
+        "    },",
+        ")");
+    writeFile(
+        "k/BUILD",
+        "load(':defs.bzl', 'has_implicit_attr')",
+        "has_implicit_attr(name='k', srcs=['k.txt'])",
+        "filegroup(name='implicit')");
   }
 
   /* tests(x) operator */
@@ -1452,12 +1492,6 @@ public abstract class AbstractQueryTest<T> {
 
     assertThat(eval("attr('hdrs_check', 'strict', //x:all)")).isEqualTo(eval("//x:a"));
     assertThat(eval("attr('hdrs_check', 'loose', //x:all)")).isEqualTo(eval("//x:b"));
-  }
-
-  @Test
-  public void testDefaultCopts() throws Exception {
-    writeFile("x/BUILD", "package(default_copts=['-a'])", "cc_library(name='a')");
-    assertThat(eval("attr('$default_copts', '\\[-a\\]', //x:all)")).isEqualTo(eval("//x:a"));
   }
 
   @Test
@@ -1869,7 +1903,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile("foo/BUILD", "sh_library(name = 'foo', deps = ['//bar:bar'])");
     writeFile("bar/BUILD", "sh_library(name = 'bar', srcs = 'bad_single_file')");
     EvalThrowsResult evalThrowsResult =
-        evalThrows("deps(//foo:foo)", /*unconditionallyThrows=*/ false);
+        evalThrows("deps(//foo:foo)", /* unconditionallyThrows= */ false);
     FailureDetail.Builder failureDetailBuilder = FailureDetail.newBuilder();
     if (code instanceof FailureDetails.PackageLoading.Code) {
       failureDetailBuilder.setPackageLoading(
@@ -1962,7 +1996,7 @@ public abstract class AbstractQueryTest<T> {
         "sh_library(name = 'foo', deps = [':dep'])",
         "sh_library(name = 'dep', deps = ['//bar:missing'])");
     assertThat(
-            evalThrows("rdeps(//foo:foo, //foo:dep, 1)", /*unconditionallyThrows=*/ false)
+            evalThrows("rdeps(//foo:foo, //foo:dep, 1)", /* unconditionallyThrows= */ false)
                 .getMessage())
         .contains("preloading transitive closure failed: no such package 'bar':");
   }

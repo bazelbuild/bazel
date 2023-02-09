@@ -111,7 +111,13 @@ function test_persistent_resource_processor() {
   create_android_binary
   setup_font_resources
 
-  assert_build //java/bazel:bin --persistent_android_resource_processor
+  assert_build //java/bazel:bin --persistent_android_resource_processor \
+    --worker_verbose &> $TEST_log
+  expect_log "Created new non-sandboxed AndroidResourceParser worker (id [0-9]\+)"
+  expect_log "Created new non-sandboxed AndroidResourceCompiler worker (id [0-9]\+)"
+  expect_log "Created new non-sandboxed AndroidCompiledResourceMerger worker (id [0-9]\+)"
+  expect_log "Created new non-sandboxed AndroidAapt2 worker (id [0-9]\+)"
+  expect_log "Created new non-sandboxed ManifestMerger worker (id [0-9]\+)"
 }
 
 function test_persistent_multiplex_resource_processor() {
@@ -120,8 +126,14 @@ function test_persistent_multiplex_resource_processor() {
   create_android_binary
   setup_font_resources
 
-  assert_build //java/bazel:bin --persistent_android_resource_processor \
-    --experimental_persistent_multiplex_busybox_tools
+  assert_build //java/bazel:bin --experimental_worker_multiplex \
+    --persistent_multiplex_android_tools \
+    --worker_verbose &> $TEST_log
+  expect_log "Created new non-sandboxed AndroidResourceParser multiplex-worker (id [0-9]\+)"
+  expect_log "Created new non-sandboxed AndroidResourceCompiler multiplex-worker (id [0-9]\+)"
+  expect_log "Created new non-sandboxed AndroidCompiledResourceMerger multiplex-worker (id [0-9]\+)"
+  expect_log "Created new non-sandboxed AndroidAapt2 multiplex-worker (id [0-9]\+)"
+  expect_log "Created new non-sandboxed ManifestMerger multiplex-worker (id [0-9]\+)"
 }
 
 run_suite "Resource processing integration tests"

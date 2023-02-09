@@ -3,13 +3,15 @@ Book: /_book.yaml
 
 # Macros
 
+{% include "_buttons.html" %}
+
 This page covers the basics of using macros and includes typical use cases,
 debugging, and conventions.
 
 A macro is a function called from the `BUILD` file that can instantiate rules.
 Macros are mainly used for encapsulation and code reuse of existing rules
 and other macros. By the end of the
-[loading phase](/rules/concepts#evaluation-model), macros don't exist anymore,
+[loading phase](/extending/concepts#evaluation-model), macros don't exist anymore,
 and Bazel sees only the concrete set of instantiated rules.
 
 ## Usage {:#usage}

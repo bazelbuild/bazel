@@ -20,6 +20,7 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
+import com.google.devtools.build.lib.concurrent.ComparableRunnable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -66,8 +67,6 @@ class ParallelEvaluatorContext {
   interface RunnableMaker {
     ComparableRunnable make(SkyKey key, int evaluationPriority);
   }
-
-  interface ComparableRunnable extends Runnable, Comparable<ComparableRunnable> {}
 
   public ParallelEvaluatorContext(
       QueryableGraph graph,
@@ -128,8 +127,9 @@ class ParallelEvaluatorContext {
     NodeBatch batch = graph.getBatch(skyKey, Reason.SIGNAL_DEP, parents);
     for (SkyKey parent : parents) {
       NodeEntry entry = checkNotNull(batch.get(parent), parent);
-      if (entry.signalDep(version, skyKey)) {
-        getVisitor().enqueueEvaluation(parent, evaluationPriority);
+      boolean evaluationRequired = entry.signalDep(version, skyKey);
+      if (evaluationRequired || parent.supportsPartialReevaluation()) {
+        getVisitor().enqueueEvaluation(parent, evaluationPriority, skyKey);
       }
     }
   }

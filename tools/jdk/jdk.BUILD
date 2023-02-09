@@ -182,7 +182,8 @@ filegroup(
 filegroup(
     name = "jdk-lib",
     srcs = glob(
-        ["lib/**"],
+        ["lib/**", "release"],
+        allow_empty = True,
         exclude = [
             "lib/missioncontrol/**",
             "lib/visualvm/**",

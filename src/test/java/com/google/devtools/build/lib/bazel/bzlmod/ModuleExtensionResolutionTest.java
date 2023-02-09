@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
@@ -53,6 +54,7 @@ import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoCycleReporter;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
+import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -119,10 +121,13 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   @Before
   public void setup() throws Exception {
     workspaceRoot = scratch.dir("/ws");
+    String bazelToolsPath = "/ws/embedded_tools";
+    scratch.file(bazelToolsPath + "/MODULE.bazel", "module(name = 'bazel_tools')");
+    scratch.file(bazelToolsPath + "/WORKSPACE");
     modulesRoot = scratch.dir("/modules");
     differencer = new SequencedRecordingDifferencer();
     evaluationContext =
-        EvaluationContext.newBuilder().setNumThreads(8).setEventHandler(reporter).build();
+        EvaluationContext.newBuilder().setParallelism(8).setEventHandler(reporter).build();
     FakeRegistry.Factory registryFactory = new FakeRegistry.Factory();
     registry = registryFactory.newFakeRegistry(modulesRoot.getPathString());
     AtomicReference<PathPackageLocator> packageLocator =
@@ -176,7 +181,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                         externalFilesHelper))
                 .put(
                     SkyFunctions.MODULE_FILE,
-                    new ModuleFileFunction(registryFactory, workspaceRoot, ImmutableMap.of()))
+                    new ModuleFileFunction(
+                        registryFactory,
+                        workspaceRoot,
+                        // Required to load @_builtins.
+                        ImmutableMap.of("bazel_tools", LocalPathOverride.create(bazelToolsPath))))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(SkyFunctions.BZL_COMPILE, new BzlCompileFunction(packageFactory, hashFunction))
                 .put(
@@ -187,12 +196,12 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.PACKAGE,
                     new PackageFunction(
-                        /*packageFactory=*/ null,
-                        /*pkgLocator=*/ null,
-                        /*showLoadingProgress=*/ null,
-                        /*numPackagesSuccessfullyLoaded=*/ new AtomicInteger(),
-                        /*bzlLoadFunctionForInlining=*/ null,
-                        /*packageProgress=*/ null,
+                        /* packageFactory= */ null,
+                        /* pkgLocator= */ null,
+                        /* showLoadingProgress= */ null,
+                        /* numPackagesSuccessfullyLoaded= */ new AtomicInteger(),
+                        /* bzlLoadFunctionForInlining= */ null,
+                        /* packageProgress= */ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
                             .INSTANCE,
                         GlobbingStrategy.SKYFRAME_HYBRID,
@@ -212,7 +221,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.IGNORED_PACKAGE_PREFIXES,
                     new IgnoredPackagePrefixesFunction(
-                        /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
+                        /* ignoredPackagePrefixesFile= */ PathFragment.EMPTY_FRAGMENT))
                 .put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction())
                 .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction())
                 .put(
@@ -225,7 +234,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                         ruleClassProvider,
                         packageFactory,
                         directories,
-                        /*bzlLoadFunctionForInlining=*/ null))
+                        /* bzlLoadFunctionForInlining= */ null))
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
                     new RepositoryDelegatorFunction(
@@ -237,11 +246,14 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
-                    new BzlmodRepoRuleFunction(
-                        ruleClassProvider, directories, new BzlmodRepoRuleHelperImpl()))
+                    new BzlmodRepoRuleFunction(ruleClassProvider, directories))
+                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
                 .put(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)
+                .put(
+                    SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
+                    new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
                 .build(),
             differencer);
 
@@ -260,9 +272,12 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
+    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.WARNING);
+    BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
+        differencer, BazelCompatibilityMode.ERROR);
 
     // Set up a simple repo rule.
     registry.addModule(
@@ -1026,7 +1041,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().getException())
         .hasMessageThat()
-        .contains("Repository '@foo' is not visible from repository '@~ext~ext'");
+        .contains("No repository visible as '@foo' from repository '@_main~ext~ext'");
   }
 
   @Test
@@ -1067,7 +1082,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
     scratch.file(
         workspaceRoot.getRelative("data.bzl").getPathString(),
-        "load('@@~ext~ext//:data.bzl', ext_data='data')",
+        "load('@@_main~ext~ext//:data.bzl', ext_data='data')",
         "data=ext_data");
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
@@ -1201,7 +1216,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         workspaceRoot.getRelative("defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
-        "  data_file = ctx.read(Label('@@~my_ext2~candy2//:data.bzl'))",
+        "  data_file = ctx.read(Label('@@_main~my_ext2~candy2//:data.bzl'))",
         "  data_repo(name='candy1',data=data_file)",
         "my_ext=module_extension(implementation=_ext_impl)",
         "def _ext_impl2(ctx):",
@@ -1249,7 +1264,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     SkyKey skyKey =
         PackageValue.key(
             PackageIdentifier.create(
-                RepositoryName.createUnvalidated("~my_ext~candy1"), PathFragment.EMPTY_FRAGMENT));
+                RepositoryName.createUnvalidated("_main~my_ext~candy1"),
+                PathFragment.EMPTY_FRAGMENT));
     EvaluationResult<PackageValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertThat(result.hasError()).isTrue();
@@ -1260,11 +1276,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertContainsEvent(
         "ERROR <no location>: Circular definition of repositories generated by module extensions"
             + " and/or .bzl files:\n"
-            + ".-> @~my_ext~candy1\n"
+            + ".-> @_main~my_ext~candy1\n"
             + "|   extension 'my_ext' defined in //:defs.bzl\n"
-            + "|   @~my_ext2~candy2\n"
+            + "|   @_main~my_ext2~candy2\n"
             + "|   extension 'my_ext2' defined in //:defs.bzl\n"
-            + "`-- @~my_ext~candy1");
+            + "`-- @_main~my_ext~candy1");
   }
 
   @Test
@@ -1295,7 +1311,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     SkyKey skyKey =
         PackageValue.key(
             PackageIdentifier.create(
-                RepositoryName.createUnvalidated("~my_ext~candy1"),
+                RepositoryName.createUnvalidated("_main~my_ext~candy1"),
                 PathFragment.create("data.bzl")));
     EvaluationResult<PackageValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
@@ -1307,13 +1323,13 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertContainsEvent(
         "ERROR <no location>: Circular definition of repositories generated by module extensions"
             + " and/or .bzl files:\n"
-            + ".-> @~my_ext~candy1\n"
+            + ".-> @_main~my_ext~candy1\n"
             + "|   extension 'my_ext' defined in //:defs.bzl\n"
-            + "|   @~my_ext2~candy2\n"
+            + "|   @_main~my_ext2~candy2\n"
             + "|   extension 'my_ext2' defined in //:defs2.bzl\n"
             + "|   //:defs2.bzl\n"
-            + "|   @~my_ext~candy1//:data.bzl\n"
-            + "`-- @~my_ext~candy1");
+            + "|   @_main~my_ext~candy1//:data.bzl\n"
+            + "`-- @_main~my_ext~candy1");
   }
 
   @Test
@@ -1335,7 +1351,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     SkyKey skyKey =
         PackageValue.key(
             PackageIdentifier.create(
-                RepositoryName.createUnvalidated("~my_ext~candy1"),
+                RepositoryName.createUnvalidated("_main~my_ext~candy1"),
                 PathFragment.create("data.bzl")));
     EvaluationResult<PackageValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
@@ -1347,10 +1363,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertContainsEvent(
         "ERROR <no location>: Circular definition of repositories generated by module extensions"
             + " and/or .bzl files:\n"
-            + ".-> @~my_ext~candy1\n"
+            + ".-> @_main~my_ext~candy1\n"
             + "|   extension 'my_ext' defined in //:defs.bzl\n"
             + "|   //:defs.bzl\n"
-            + "|   @~my_ext~candy1//:data.bzl\n"
-            + "`-- @~my_ext~candy1");
+            + "|   @_main~my_ext~candy1//:data.bzl\n"
+            + "`-- @_main~my_ext~candy1");
   }
 }

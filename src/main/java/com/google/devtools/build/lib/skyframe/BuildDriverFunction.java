@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedE
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetReadyForSymlinkPlanting;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -67,7 +68,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeS
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -201,7 +202,7 @@ public class BuildDriverFunction implements SkyFunction {
             }
             // Only send the event now to include the compatibility check in the measurement for
             // time spent on analysis work.
-            env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
+            env.getListener().post(TopLevelEntityAnalysisConcludedEvent.success(buildDriverKey));
             // We consider the evaluation of this BuildDriverKey successful at this point, even when
             // the target is skipped.
             return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ true);
@@ -211,7 +212,7 @@ public class BuildDriverFunction implements SkyFunction {
         }
       }
 
-      env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
+      env.getListener().post(TopLevelEntityAnalysisConcludedEvent.success(buildDriverKey));
       env.getListener()
           .post(
               TopLevelTargetPendingExecutionEvent.create(
@@ -248,16 +249,16 @@ public class BuildDriverFunction implements SkyFunction {
       Environment env,
       ConfiguredTargetValue configuredTargetValue,
       ConfiguredTarget configuredTarget) {
+    env.getListener().post(TopLevelTargetAnalyzedEvent.create(configuredTarget));
     // It's possible that this code path is triggered AFTER the analysis cache clean up and the
     // transitive packages for package root resolution is already cleared. In such a case, the
     // symlinks should have already been planted.
-    TopLevelTargetAnalyzedEvent topLevelTargetAnalyzedEvent =
-        configuredTargetValue.getTransitivePackages() == null
-            ? TopLevelTargetAnalyzedEvent.createWithoutFurtherSymlinkPlanting(configuredTarget)
-            : TopLevelTargetAnalyzedEvent.create(
-                configuredTarget, configuredTargetValue.getTransitivePackages());
-
-    env.getListener().post(topLevelTargetAnalyzedEvent);
+    if (configuredTargetValue.getTransitivePackages() != null) {
+      env.getListener()
+          .post(
+              TopLevelTargetReadyForSymlinkPlanting.create(
+                  configuredTargetValue.getTransitivePackages()));
+    }
   }
 
   /**
@@ -390,8 +391,7 @@ public class BuildDriverFunction implements SkyFunction {
     env.getListener().post(SomeExecutionStartedEvent.create());
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     List<SkyKey> aspectCompletionKeys = new ArrayList<>();
-    for (SkyValue value : topLevelAspectsValue.getTopLevelAspectsValues()) {
-      AspectValue aspectValue = (AspectValue) value;
+    for (AspectValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
       AspectKey aspectKey = aspectValue.getKey();
       ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
       addExtraActionsIfRequested(
@@ -401,7 +401,7 @@ public class BuildDriverFunction implements SkyFunction {
     }
     // Send the AspectAnalyzedEvents first to make sure the BuildResultListener is up-to-date before
     // signaling that the analysis of this top level aspect has concluded.
-    env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
+    env.getListener().post(TopLevelEntityAnalysisConcludedEvent.success(buildDriverKey));
 
     declareDependenciesAndCheckValues(
         env, Iterables.concat(Artifact.keys(artifactsToBuild.build()), aspectCompletionKeys));
@@ -427,15 +427,15 @@ public class BuildDriverFunction implements SkyFunction {
   /**
    * Declares dependencies and checks values for requested nodes in the graph.
    *
-   * <p>Calls {@link SkyframeIterableResult} and iterates over the result. If any node is not done,
-   * or during iteration any value has exception, {@link SkyFunction.Environment#valuesMissing} will
-   * return true.
+   * <p>Calls {@link SkyFunction.Environment#getValuesAndExceptions} and iterates over the result.
+   * If any node is not done, or during iteration any value has exception, {@link
+   * SkyFunction.Environment#valuesMissing} will return true.
    */
   private static void declareDependenciesAndCheckValues(
       Environment env, Iterable<? extends SkyKey> skyKeys) throws InterruptedException {
-    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(skyKeys);
-    while (result.hasNext()) {
-      if (result.next() == null) {
+    SkyframeLookupResult result = env.getValuesAndExceptions(skyKeys);
+    for (SkyKey key : skyKeys) {
+      if (result.get(key) == null) {
         return;
       }
     }
@@ -503,17 +503,17 @@ public class BuildDriverFunction implements SkyFunction {
     ActionLookupValuesCollectionResult collect(ActionLookupKey key) throws InterruptedException;
 
     /** Register with the helper that the {@code keys} are conflict-free. */
-    void registerConflictFreeKeys(ImmutableSet<ActionLookupKey> keys);
+    void registerConflictFreeKeys(ImmutableSet<SkyKey> keys);
   }
 
   @AutoValue
   abstract static class ActionLookupValuesCollectionResult {
     abstract Sharder<ActionLookupValue> collectedValues();
 
-    abstract ImmutableSet<ActionLookupKey> visitedKeys();
+    abstract ImmutableSet<SkyKey> visitedKeys();
 
     static ActionLookupValuesCollectionResult create(
-        Sharder<ActionLookupValue> collectedValues, ImmutableSet<ActionLookupKey> visitedKeys) {
+        Sharder<ActionLookupValue> collectedValues, ImmutableSet<SkyKey> visitedKeys) {
       return new AutoValue_BuildDriverFunction_ActionLookupValuesCollectionResult(
           collectedValues, visitedKeys);
     }

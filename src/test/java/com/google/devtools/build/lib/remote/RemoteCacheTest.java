@@ -22,11 +22,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -78,6 +80,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -565,6 +568,29 @@ public class RemoteCacheTest {
   }
 
   @Test
+  public void ensureInputsPresent_uploadFailed_propagateErrors() throws Exception {
+    RemoteCacheClient cacheProtocol = spy(new InMemoryCacheClient());
+    doAnswer(invocationOnMock -> Futures.immediateFailedFuture(new IOException("upload failed")))
+        .when(cacheProtocol)
+        .uploadBlob(any(), any(), any());
+    doAnswer(invocationOnMock -> Futures.immediateFailedFuture(new IOException("upload failed")))
+        .when(cacheProtocol)
+        .uploadFile(any(), any(), any());
+    RemoteExecutionCache remoteCache = spy(newRemoteExecutionCache(cacheProtocol));
+    Path path = fs.getPath("/execroot/foo");
+    FileSystemUtils.writeContentAsLatin1(path, "bar");
+    SortedMap<PathFragment, Path> inputs = ImmutableSortedMap.of(PathFragment.create("foo"), path);
+    MerkleTree merkleTree = MerkleTree.build(inputs, digestUtil);
+
+    IOException e =
+        Assert.assertThrows(
+            IOException.class,
+            () -> remoteCache.ensureInputsPresent(context, merkleTree, ImmutableMap.of(), false));
+
+    assertThat(e).hasMessageThat().contains("upload failed");
+  }
+
+  @Test
   public void shutdownNow_cancelInProgressUploads() throws Exception {
     RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
     // Return a future that never completes
@@ -588,11 +614,18 @@ public class RemoteCacheTest {
   }
 
   private RemoteCache newRemoteCache(RemoteCacheClient remoteCacheClient) {
-    return new RemoteCache(remoteCacheClient, Options.getDefaults(RemoteOptions.class), digestUtil);
+    return new RemoteCache(
+        CacheCapabilities.getDefaultInstance(),
+        remoteCacheClient,
+        Options.getDefaults(RemoteOptions.class),
+        digestUtil);
   }
 
   private RemoteExecutionCache newRemoteExecutionCache(RemoteCacheClient remoteCacheClient) {
     return new RemoteExecutionCache(
-        remoteCacheClient, Options.getDefaults(RemoteOptions.class), digestUtil);
+        CacheCapabilities.getDefaultInstance(),
+        remoteCacheClient,
+        Options.getDefaults(RemoteOptions.class),
+        digestUtil);
   }
 }

@@ -90,16 +90,16 @@ public class CommonQueryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       help =
-          "Query: If disabled, dependencies on 'host configuration' or 'execution' targets will"
-              + " not be included in the dependency graph over which the query operates. A 'host"
+          "Query: If disabled, dependencies on 'exec configuration' will"
+              + " not be included in the dependency graph over which the query operates. An 'exec"
               + " configuration' dependency edge, such as the one from any 'proto_library' rule to"
               + " the Protocol Compiler, usually points to a tool executed during the build rather"
               + " than a part of the same 'target' program. \n"
-              + "Cquery: If disabled, filters out all configured targets which cross a host or"
+              + "Cquery: If disabled, filters out all configured targets which cross an"
               + " execution transition from the top-level target that discovered this configured"
               + " target. That means if the top-level target is in the target configuration, only"
               + " configured targets also in the target configuration will be returned. If the"
-              + " top-level target is in the host configuration, only host configured targets will"
+              + " top-level target is in the exec configuration, only exec configured targets will"
               + " be returned. This option will NOT exclude resolved toolchains.")
   public boolean includeToolDeps;
 
@@ -136,6 +136,17 @@ public class CommonQueryOptions extends OptionsBase {
           "aquery, cquery: whether to include aspect-generated actions in the output. "
               + "query: no-op (aspects are always followed).")
   public boolean useAspects;
+
+  @Option(
+      name = "incompatible_package_group_includes_double_slash",
+      defaultValue = FlagConstants.DEFAULT_INCOMPATIBLE_PACKAGE_GROUP_INCLUDES_DOUBLE_SLASH,
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, when outputting package_group's `packages` attribute, the leading `//`"
+              + " will not be omitted.")
+  public boolean incompatiblePackageGroupIncludesDoubleSlash;
 
   /** Return the current options as a set of QueryEnvironment settings. */
   public Set<Setting> toSettings() {
@@ -315,4 +326,14 @@ public class CommonQueryOptions extends OptionsBase {
               + "will be merged together and their labels concatenated. This option is only "
               + "applicable to --output=graph.")
   public boolean graphFactored;
+
+  @Option(
+      name = "query_file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "If set, query will read the query from the file named here, rather than on the command "
+              + "line. It is an error to specify a file here as well as a command-line query.")
+  public String queryFile;
 }

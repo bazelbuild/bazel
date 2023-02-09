@@ -48,7 +48,7 @@ import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationS
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -259,7 +259,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
   }
 
   /** A mock skyframe-aware action that counts how many times it was executed. */
-  private static class SkyframeAwareExecutionCountingAction
+  private static final class SkyframeAwareExecutionCountingAction
       extends ExecutionCountingCacheBypassingAction implements SkyframeAwareAction {
     private final SkyKey actionDepKey;
 
@@ -271,9 +271,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
     @Override
     public Object processSkyframeValues(
-        ImmutableList<? extends SkyKey> keys,
-        SkyframeIterableResult values,
-        boolean valuesMissing) {
+        ImmutableList<? extends SkyKey> keys, SkyframeLookupResult values, boolean valuesMissing) {
       assertThat(keys).containsExactly(actionDepKey);
       return null;
     }
@@ -850,7 +848,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
           @Override
           public Object processSkyframeValues(
               ImmutableList<? extends SkyKey> keys,
-              SkyframeIterableResult values,
+              SkyframeLookupResult values,
               boolean valuesMissing) {
             assertThat(keys).isEmpty();
             assertThat(valuesMissing).isFalse();

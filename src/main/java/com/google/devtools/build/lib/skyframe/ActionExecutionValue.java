@@ -122,7 +122,7 @@ public final class ActionExecutionValue implements SkyValue {
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData,
       @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks) {
     return new ActionExecutionValue(
-        artifactData, treeArtifactData, outputSymlinks, /*discoveredModules=*/ null);
+        artifactData, treeArtifactData, outputSymlinks, /* discoveredModules= */ null);
   }
 
   @VisibleForTesting
@@ -231,12 +231,25 @@ public final class ActionExecutionValue implements SkyValue {
     ActionExecutionValue o = (ActionExecutionValue) obj;
     return artifactData.equals(o.artifactData)
         && treeArtifactData.equals(o.treeArtifactData)
-        && Objects.equal(outputSymlinks, o.outputSymlinks);
+        && Objects.equal(outputSymlinks, o.outputSymlinks)
+        // We use shallowEquals to avoid materializing the nested sets just for change-pruning. This
+        // makes change-pruning potentially less effective, but never incorrect.
+        && shallowEquals(discoveredModules, o.discoveredModules);
+  }
+
+  private static boolean shallowEquals(
+      @Nullable NestedSet<Artifact> set1, @Nullable NestedSet<Artifact> set2) {
+    if (set1 == null) {
+      return set2 == null;
+    }
+
+    return set1.shallowEquals(set2);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(artifactData, treeArtifactData, outputSymlinks);
+    return 31 * Objects.hashCode(artifactData, treeArtifactData, outputSymlinks)
+        + (discoveredModules != null ? discoveredModules.shallowHashCode() : 0);
   }
 
   private static <V> ImmutableMap<Artifact, V> transformMap(

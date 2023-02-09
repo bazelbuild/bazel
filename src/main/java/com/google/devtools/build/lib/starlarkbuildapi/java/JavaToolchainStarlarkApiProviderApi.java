@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
@@ -49,13 +50,16 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
   @StarlarkMethod(name = "target_version", doc = "The java target version.", structField = true)
   String getTargetVersion();
 
+  @StarlarkMethod(name = "label", doc = "The toolchain label.", structField = true)
+  Label getToolchainLabel();
+
   @StarlarkMethod(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
-  FileApi getSingleJar();
+  FilesToRunProviderApi<? extends FileApi> getSingleJar();
 
   @Nullable
   @StarlarkMethod(
       name = "one_version_tool",
-      doc = "The artifact that enforces One-Version compliance of java binaries.",
+      doc = "The tool that enforces One-Version compliance of java binaries.",
       structField = true,
       allowReturnNones = true)
   FilesToRunProviderApi<? extends FileApi> getOneVersionBinary();
@@ -126,4 +130,20 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
   @Nullable
   ImmutableList<String> getCompatibleJavacOptionsForStarlark(String key, StarlarkThread thread)
       throws EvalException;
+
+  @Nullable
+  @StarlarkMethod(
+      name = "deps_checker",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  FileApi getDepsCheckerForStarlark(StarlarkThread thread) throws EvalException;
+
+  @Nullable
+  @StarlarkMethod(
+      name = "proguard_allowlister",
+      doc = "Return the binary to validate proguard configuration",
+      structField = true,
+      allowReturnNones = true)
+  FilesToRunProviderApi<? extends FileApi> getProguardAllowlister();
 }

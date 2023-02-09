@@ -224,8 +224,8 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
     buildTarget("//hello:BUILD");
     // New package path on first build triggers full-graph work.
     calledGetValues.set(0);
-    // getOrderedValuesAndExceptions() called during output file checking (although if an output
-    // service is able to report modified files in practice there is no iteration).
+    // getValuesAndExceptions() called during output file checking (although if an output service is
+    // able to report modified files in practice there is no iteration).
 
     buildTarget("//hello:BUILD");
     assertThat(calledGetValues.getAndSet(0)).isEqualTo(1);

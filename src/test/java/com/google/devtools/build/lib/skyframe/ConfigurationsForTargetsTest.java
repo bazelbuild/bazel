@@ -83,8 +83,8 @@ import org.junit.runners.JUnit4;
 public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
 
   private static final Label TARGET_PLATFORM_LABEL =
-      Label.parseAbsoluteUnchecked("//platform:target");
-  private static final Label EXEC_PLATFORM_LABEL = Label.parseAbsoluteUnchecked("//platform:exec");
+      Label.parseCanonicalUnchecked("//platform:target");
+  private static final Label EXEC_PLATFORM_LABEL = Label.parseCanonicalUnchecked("//platform:exec");
 
   /**
    * A mock {@link SkyFunction} that just calls {@link ConfiguredTargetFunction#computeDependencies}
@@ -147,10 +147,10 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
                         .build())
                 .build();
         OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depMap =
-            ConfiguredTargetFunction.computeDependencies(
-                new ConfiguredTargetFunction.ComputeDependenciesState(),
-                /*transitivePackagesForPackageRootResolution=*/ null,
-                /*transitiveRootCauses=*/ NestedSetBuilder.stableOrder(),
+            PrerequisiteProducer.computeDependencies(
+                new PrerequisiteProducer.State(),
+                /* transitivePackages= */ null,
+                /* transitiveRootCauses= */ NestedSetBuilder.stableOrder(),
                 env,
                 new SkyframeDependencyResolver(env),
                 targetAndConfiguration,
@@ -317,12 +317,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
     }
   }
 
-  /**
-   * Tests dependencies in attribute with host transition.
-   *
-   * <p>Note: This cannot be used to test exec transition, because mocks don't set up toolchain
-   * contexts.
-   */
+  /** Tests dependencies in attribute with exec transition. */
   @Test
   public void execDeps() throws Exception {
     scratch.file(

@@ -205,7 +205,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setParallelism(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     return evaluator.evaluate(ImmutableList.of(packageIdentifierSkyKey), evaluationContext);
@@ -352,7 +352,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
                 PathFragment.EMPTY_FRAGMENT));
     assertThat(packageLookupValue.packageExists()).isFalse();
     assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.REPOSITORY_NOT_FOUND);
-    assertThat(packageLookupValue.getErrorMsg()).contains("not visible from repository");
+    assertThat(packageLookupValue.getErrorMsg()).contains("No repository visible as");
   }
 
   @Test
@@ -368,7 +368,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
                 PathFragment.EMPTY_FRAGMENT));
     assertThat(packageLookupValue.packageExists()).isFalse();
     assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.REPOSITORY_NOT_FOUND);
-    assertThat(packageLookupValue.getErrorMsg()).contains("not visible from repository");
+    assertThat(packageLookupValue.getErrorMsg()).contains("No repository visible as");
   }
 
   @Test

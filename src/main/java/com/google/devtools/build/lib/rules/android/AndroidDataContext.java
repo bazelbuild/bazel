@@ -64,7 +64,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
   private final FilesToRunProvider busybox;
   private final AndroidSdkProvider sdk;
   private final boolean persistentBusyboxToolsEnabled;
-  private final boolean persistentMultiplexBusyboxTools;
+  private final boolean persistentMultiplexBusyboxToolsEnabled;
   private final boolean optOutOfResourcePathShortening;
   private final boolean optOutOfResourceNameObfuscation;
   private final boolean throwOnShrinkResources;
@@ -116,7 +116,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
       RuleContext ruleContext,
       FilesToRunProvider busybox,
       boolean persistentBusyboxToolsEnabled,
-      boolean persistentMultiplexBusyboxTools,
+      boolean persistentMultiplexBusyboxToolsEnabled,
       AndroidSdkProvider sdk,
       boolean optOutOfResourcePathShortening,
       boolean optOutOfResourceNameObfuscation,
@@ -129,7 +129,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
       boolean includeProguardLocationReferences,
       ImmutableMap<String, String> executionInfo) {
     this.persistentBusyboxToolsEnabled = persistentBusyboxToolsEnabled;
-    this.persistentMultiplexBusyboxTools = persistentMultiplexBusyboxTools;
+    this.persistentMultiplexBusyboxToolsEnabled = persistentMultiplexBusyboxToolsEnabled;
     this.ruleContext = ruleContext;
     this.busybox = busybox;
     this.sdk = sdk;
@@ -226,8 +226,8 @@ public class AndroidDataContext implements AndroidDataContextApi {
     return persistentBusyboxToolsEnabled;
   }
 
-  public boolean isPersistentMultiplexBusyboxTools() {
-    return persistentMultiplexBusyboxTools;
+  public boolean isPersistentMultiplexBusyboxToolsEnabled() {
+    return persistentMultiplexBusyboxToolsEnabled;
   }
 
   public boolean optOutOfResourcePathShortening() {
@@ -295,6 +295,23 @@ public class AndroidDataContext implements AndroidDataContextApi {
     }
 
     return state == TriState.YES;
+  }
+
+  /**
+   * Returns {@code true} if resource shrinking should be performed. This should be true when the
+   * resource cycle shrinking flag is enabled, resource shrinking itself is enabled, and the build
+   * is ProGuarded/optimized. The last condition is important because resource cycle shrinking
+   * generates non-final fields that are not inlined by javac. In non-optimized builds, these can
+   * noticeably increase Apk size.
+   */
+  boolean shouldShrinkResourceCycles(RuleErrorConsumer errorConsumer, boolean shrinkResources) {
+    boolean isProguarded =
+        ruleContext.attributes().has(ProguardHelper.PROGUARD_SPECS, BuildType.LABEL_LIST)
+            && !ruleContext
+                .getPrerequisiteArtifacts(ProguardHelper.PROGUARD_SPECS)
+                .list()
+                .isEmpty();
+    return isProguarded && getAndroidConfig().useAndroidResourceCycleShrinking() && shrinkResources;
   }
 
   boolean useResourcePathShortening() {

@@ -34,12 +34,11 @@
 //       int main(int argc, char** argv) {
 //         std::string error;
 //         std::unique_ptr<Runfiles> runfiles(
-//             Runfiles::Create(argv[0], &error));
+//             Runfiles::Create(argv[0], BAZEL_CURRENT_REPOSITORY, &error));
 //
 //         // Important:
-//         //   If this is a test, use Runfiles::CreateForTest(&error).
-//         //   Otherwise, if you don't have the value for argv[0] for whatever
-//         //   reason, then use Runfiles::Create(&error).
+//         //   If this is a test, use
+//         //   Runfiles::CreateForTest(BAZEL_CURRENT_REPOSITORY, &error).
 //
 //         if (runfiles == nullptr) {
 //           ...  // error handling
@@ -58,7 +57,8 @@
 // To start child processes that also need runfiles, you need to set the right
 // environment variables for them:
 //
-//   std::unique_ptr<Runfiles> runfiles(Runfiles::Create(argv[0], &error));
+//   std::unique_ptr<Runfiles> runfiles(Runfiles::Create(
+//     argv[0], BAZEL_CURRENT_REPOSITORY, &error));
 //
 //   std::string path = runfiles->Rlocation("path/to/binary"));
 //   if (!path.empty()) {
@@ -102,7 +102,12 @@ class Runfiles {
   //
   // This method looks at the RUNFILES_MANIFEST_FILE and TEST_SRCDIR
   // environment variables.
+  //
+  // If source_repository is not provided, it defaults to the main repository
+  // (also known as the workspace).
   static Runfiles* CreateForTest(std::string* error = nullptr);
+  static Runfiles* CreateForTest(const std::string& source_repository,
+                                 std::string* error = nullptr);
 
   // Returns a new `Runfiles` instance.
   //
@@ -116,7 +121,13 @@ class Runfiles {
   // environment variables. If either is empty, the method looks for the
   // manifest or directory using the other environment variable, or using argv0
   // (unless it's empty).
+  //
+  // If source_repository is not provided, it defaults to the main repository
+  // (also known as the workspace).
   static Runfiles* Create(const std::string& argv0,
+                          std::string* error = nullptr);
+  static Runfiles* Create(const std::string& argv0,
+                          const std::string& source_repository,
                           std::string* error = nullptr);
 
   // Returns a new `Runfiles` instance.
@@ -133,6 +144,11 @@ class Runfiles {
                           const std::string& runfiles_manifest_file,
                           const std::string& runfiles_dir,
                           std::string* error = nullptr);
+  static Runfiles* Create(const std::string& argv0,
+                          const std::string& runfiles_manifest_file,
+                          const std::string& runfiles_dir,
+                          const std::string& source_repository,
+                          std::string* error = nullptr);
 
   // Returns the runtime path of a runfile.
   //
@@ -146,10 +162,14 @@ class Runfiles {
   // Args:
   //   path: runfiles-root-relative path of the runfile; must not be empty and
   //     must not contain uplevel references.
+  //   source_repository: if provided, overrides the source repository set when
+  //     this Runfiles instance was created.
   // Returns:
   //   the path to the runfile, which the caller should check for existence, or
   //   an empty string if the method doesn't know about this runfile
   std::string Rlocation(const std::string& path) const;
+  std::string Rlocation(const std::string& path,
+                        const std::string& source_repository) const;
 
   // Returns environment variables for subprocesses.
   //
@@ -160,21 +180,43 @@ class Runfiles {
     return envvars_;
   }
 
+  // Returns a new Runfiles instance that by default uses the provided source
+  // repository as a default for all calls to Rlocation.
+  //
+  // The current instance remains valid.
+  std::unique_ptr<Runfiles> WithSourceRepository(
+      const std::string& source_repository) const {
+    return std::unique_ptr<Runfiles>(new Runfiles(
+        runfiles_map_, directory_, repo_mapping_, envvars_, source_repository));
+  }
+
  private:
-  Runfiles(const std::map<std::string, std::string>&& runfiles_map,
-           const std::string&& directory,
-           const std::vector<std::pair<std::string, std::string> >&& envvars)
+  Runfiles(
+      std::map<std::string, std::string> runfiles_map, std::string directory,
+      std::map<std::pair<std::string, std::string>, std::string> repo_mapping,
+      std::vector<std::pair<std::string, std::string> > envvars,
+      std::string source_repository)
       : runfiles_map_(std::move(runfiles_map)),
         directory_(std::move(directory)),
-        envvars_(std::move(envvars)) {}
+        repo_mapping_(std::move(repo_mapping)),
+        envvars_(std::move(envvars)),
+        source_repository_(std::move(source_repository)) {}
   Runfiles(const Runfiles&) = delete;
   Runfiles(Runfiles&&) = delete;
   Runfiles& operator=(const Runfiles&) = delete;
   Runfiles& operator=(Runfiles&&) = delete;
 
+  static std::string RlocationUnchecked(
+      const std::string& path,
+      const std::map<std::string, std::string>& runfiles_map,
+      const std::string& directory);
+
   const std::map<std::string, std::string> runfiles_map_;
   const std::string directory_;
+  const std::map<std::pair<std::string, std::string>, std::string>
+      repo_mapping_;
   const std::vector<std::pair<std::string, std::string> > envvars_;
+  const std::string source_repository_;
 };
 
 // The "testing" namespace contains functions that allow unit testing the code.

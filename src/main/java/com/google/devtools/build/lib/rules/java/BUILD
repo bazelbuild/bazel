@@ -13,7 +13,6 @@ java_library(
     srcs = [
         "GenericBuildInfoPropertiesTranslator.java",
         "JavaBinary.java",
-        "JavaImport.java",
         "JavaImportBaseRule.java",
         "JavaInfo.java",
         "JavaPackageConfiguration.java",
@@ -73,6 +72,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -150,6 +150,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:package_specification_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
@@ -197,11 +198,6 @@ java_library(
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
     ],
-)
-
-java_library(
-    name = "java-implicit-attributes",
-    srcs = ["JavaImplicitAttributes.java"],
 )
 
 # A library with the utilities required for determining java roots.

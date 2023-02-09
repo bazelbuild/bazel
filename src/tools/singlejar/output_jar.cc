@@ -101,9 +101,11 @@ int OutputJar::Doit(Options *options) {
   manifest_.AppendLine("Manifest-Version: 1.0");
   manifest_.AppendLine("Created-By: " + options_->output_jar_creator);
 
-  // TODO(b/28294322): do we need to resolve the path to be absolute or
-  // canonical?
-  build_properties_.AddProperty("build.target", options_->output_jar.c_str());
+  // TODO(b/28294322): remove fallback to output_jar
+  build_properties_.AddProperty("build.target",
+                                !options_->build_target.empty()
+                                    ? options_->build_target.c_str()
+                                    : options_->output_jar.c_str());
   if (options_->verbose) {
     fprintf(stderr, "combined_file_name=%s\n", options_->output_jar.c_str());
     if (!options_->main_class.empty()) {
@@ -134,14 +136,19 @@ int OutputJar::Doit(Options *options) {
   // Copy CDS archive file (.jsa) if it is set. Page aligned start offset
   // is required.
   if (!options_->cds_archive.empty()) {
-    AppendPageAlignedFile(options->cds_archive, "Jsa-Offset", "cds.archive");
+    AppendPageAlignedFile(options->cds_archive,
+                          "Jsa-Offset",
+                          std::string(),
+                          "cds.archive");
   }
 
   // Copy JDK lib/modules if set. Page aligned start offset is required for
   // the file.
   if (!options_->jdk_lib_modules.empty()) {
     AppendPageAlignedFile(options_->jdk_lib_modules,
-                          "JDK-Lib-Modules-Offset", std::string());
+                          "JDK-Lib-Modules-Offset",
+                          "JDK-Lib-Modules-Size",
+                          std::string());
   }
 
   if (options_->multi_release) {
@@ -1001,7 +1008,7 @@ ssize_t OutputJar::CopyAppendData(int in_fd, off64_t offset, size_t count) {
   return total_written;
 }
 
-void OutputJar::AppendFile(Options *options, const char *const file_path) {
+size_t OutputJar::AppendFile(Options *options, const char *const file_path) {
   int in_fd = open(file_path, O_RDONLY);
   struct stat statbuf;
   if (fstat(in_fd, &statbuf)) {
@@ -1023,9 +1030,11 @@ void OutputJar::AppendFile(Options *options, const char *const file_path) {
     fprintf(stderr, "Prepended %s (%" PRIu64 " bytes)\n", file_path,
             statbuf.st_size);
   }
+  return statbuf.st_size;
 }
 
-off64_t OutputJar::PageAlignedAppendFile(const std::string &file_path) {
+off64_t OutputJar::PageAlignedAppendFile(const std::string &file_path,
+                                         size_t *file_size) {
   // Align the file start offset at page boundary.
   off64_t cur_offset = Position();
   size_t pagesize;
@@ -1051,25 +1060,39 @@ off64_t OutputJar::PageAlignedAppendFile(const std::string &file_path) {
   }
 
   // Copy file
-  AppendFile(options_, file_path.c_str());
+  *file_size = AppendFile(options_, file_path.c_str());
 
   return aligned_offset;
 }
 
-void OutputJar::AppendPageAlignedFile(const std::string &file,
-                                      const std::string &manifest_attr_name,
-                                      const std::string &property_name) {
+void OutputJar::AppendPageAlignedFile(
+    const std::string &file,
+    const std::string &offset_manifest_attr_name,
+    const std::string &size_manifest_attr_name,
+    const std::string &property_name) {
   // Align the shared archive start offset at page alignment, which is
   // required by mmap.
-  off64_t aligned_offset = OutputJar::PageAlignedAppendFile(file);
+  size_t file_size;
+  off64_t aligned_offset = OutputJar::PageAlignedAppendFile(file, &file_size);
 
   // Write the start offset of the copied content as a manifest attribute.
-  char manifest_attr[50];
-  snprintf(manifest_attr, sizeof(manifest_attr),
-    "%s: %ld", manifest_attr_name.c_str(),
+  char offset_manifest_attr[50];
+  snprintf(offset_manifest_attr, sizeof(offset_manifest_attr),
+    "%s: %ld", offset_manifest_attr_name.c_str(),
     (long)aligned_offset); // NOLINT(runtime/int,
                            // google-runtime-int)
-  manifest_.AppendLine(manifest_attr);
+  manifest_.AppendLine(offset_manifest_attr);
+
+  // Write the size of the copied content as a manifest attribute if the
+  // size_manifest_attr_name is not NULL.
+  if (!size_manifest_attr_name.empty()) {
+    char size_manifest_attr[50];
+    snprintf(size_manifest_attr, sizeof(size_manifest_attr),
+      "%s: %ld", size_manifest_attr_name.c_str(),
+      (long)file_size); // NOLINT(runtime/int,
+                        // google-runtime-int)
+    manifest_.AppendLine(size_manifest_attr);
+  }
 
   if (!property_name.empty()) {
     // Add to build_properties.

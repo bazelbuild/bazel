@@ -125,7 +125,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "local_config_platform_workspace/MODULE.bazel", "module(name = 'local_config_platform')");
     config.create("embedded_tools/WORKSPACE", "workspace(name = 'bazel_tools')");
     Runfiles runfiles = Runfiles.create();
-    for (String filename : Arrays.asList("tools/jdk/java_toolchain_alias.bzl")) {
+    for (String filename :
+        Arrays.asList("tools/jdk/java_toolchain_alias.bzl", "tools/jdk/java_stub_template.txt")) {
       java.nio.file.Path path = Paths.get(runfiles.rlocation("io_bazel/" + filename));
       if (!Files.exists(path)) {
         continue; // the io_bazel workspace root only exists for Bazel
@@ -362,8 +363,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
     config.create(
         "tools/allowlists/config_feature_flag/BUILD",
-        "package_group(name='config_feature_flag', packages=['//...'])",
-        "package_group(name='config_feature_flag_Setter', packages=['//...'])");
+        "package_group(name='config_feature_flag', packages=['public'])",
+        "package_group(name='config_feature_flag_Setter', packages=['public'])");
 
     config.create(
         "embedded_tools/tools/proto/BUILD",
@@ -384,7 +385,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "embedded_tools/tools/launcher/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "load('@bazel_tools//third_party/cc_rules/macros:defs.bzl', 'cc_binary')",
-        "cc_binary(name='launcher', srcs=['launcher_main.cc'])");
+        "cc_binary(name='launcher', srcs=['launcher_main.cc'])",
+        "cc_binary(name='launcher_maker', srcs=['launcher_maker.cc'])");
 
     config.create(
         "embedded_tools/tools/def_parser/BUILD",
@@ -541,10 +543,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("    generates_api = 1,")
         .add("    processor_class = 'android.databinding.annotationprocessor.ProcessDataBinding')")
         .add("sh_binary(name = 'instrumentation_test_check', srcs = ['empty.sh'])")
-        .add("package_group(name = 'android_device_allowlist', packages = ['//...'])")
-        .add("package_group(name = 'export_deps_allowlist', packages = ['//...'])")
+        .add("package_group(name = 'android_device_allowlist', packages = ['public'])")
+        .add("package_group(name = 'export_deps_allowlist', packages = ['public'])")
         .add("package_group(name = 'allow_android_library_deps_without_srcs_allowlist',")
-        .add("    packages=['//...'])")
+        .add("    packages=['public'])")
         .add("android_tools_defaults_jar(name = 'android_jar')")
         .add("sh_binary(name = 'dex_list_obfuscator', srcs = ['empty.sh'])");
 

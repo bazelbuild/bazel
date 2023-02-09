@@ -12,7 +12,7 @@ filegroup(
     visibility = ["//third_party:__pkg__"],
 )
 
-java_import(
+java_library(
     name = "j2objc-annotations",
-    jars = [":j2objc-annotations-1.1.jar"],
+    exports = ["@maven//:com_google_j2objc_j2objc_annotations"],
 )

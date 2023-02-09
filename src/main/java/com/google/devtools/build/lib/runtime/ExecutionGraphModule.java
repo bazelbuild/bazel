@@ -13,14 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
@@ -31,8 +32,10 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
+import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.ExecutionGraph;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.SharedActionEvent;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
@@ -56,6 +59,7 @@ import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory.I
 import com.google.devtools.build.lib.server.FailureDetails.BuildReport;
 import com.google.devtools.build.lib.server.FailureDetails.BuildReport.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
@@ -77,10 +81,11 @@ import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Blaze module that writes an partial execution graph with performance data. */
+/** Blaze module that writes a partial execution graph with performance data. */
 public class ExecutionGraphModule extends BlazeModule {
 
   private static final String ACTION_DUMP_NAME = "execution_graph_dump.proto.zst";
@@ -167,6 +172,8 @@ public class ExecutionGraphModule extends BlazeModule {
   private ExecutionGraphOptions options;
   private NanosToMillisSinceEpochConverter nanosToMillis =
       BlazeClock.createNanosToMillisSinceEpochConverter();
+  // Only relevant for Skymeld: there may be multiple events and we only count the first one.
+  private final AtomicBoolean executionStarted = new AtomicBoolean();
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
@@ -196,7 +203,7 @@ public class ExecutionGraphModule extends BlazeModule {
 
     if (env.getCommand().builds()) {
       ExecutionGraphOptions options =
-          Preconditions.checkNotNull(
+          checkNotNull(
               env.getOptions().getOptions(ExecutionGraphOptions.class),
               "ExecutionGraphOptions must be present for ExecutionGraphModule");
       if (!options.executionGraphLogFile.isBlank()) {
@@ -207,7 +214,18 @@ public class ExecutionGraphModule extends BlazeModule {
   }
 
   @Subscribe
-  public void executionPhaseStarting(ExecutionStartingEvent event) {
+  public void executionPhaseStarting(@SuppressWarnings("unused") ExecutionStartingEvent event) {
+    handleExecutionBegin();
+  }
+
+  @Subscribe
+  public void someExecutionStarted(@SuppressWarnings("unused") SomeExecutionStartedEvent event) {
+    if (executionStarted.compareAndSet(/*expectedValue=*/ false, /*newValue=*/ true)) {
+      handleExecutionBegin();
+    }
+  }
+
+  private void handleExecutionBegin() {
     try {
       // Defer creation of writer until the start of the execution phase. This is done for two
       // reasons:
@@ -248,6 +266,17 @@ public class ExecutionGraphModule extends BlazeModule {
       }
     }
   }
+
+  /** Records the input discovery time. */
+  @Subscribe
+  @AllowConcurrentEvents
+  public void discoverInputs(DiscoveredInputsEvent event) {
+    ActionDumpWriter localWriter = writer;
+    if (localWriter != null) {
+      localWriter.enqueue(event);
+    }
+  }
+
   /** Record an action that didn't publish any SpawnExecutedEvents. */
   @Subscribe
   @AllowConcurrentEvents
@@ -293,6 +322,15 @@ public class ExecutionGraphModule extends BlazeModule {
 
   @Subscribe
   @AllowConcurrentEvents
+  public void actionShared(SharedActionEvent event) {
+    ActionDumpWriter localWriter = writer;
+    if (localWriter != null) {
+      localWriter.actionShared(event);
+    }
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
   public void spawnExecuted(SpawnExecutedEvent event) {
     // Writer might be modified by a concurrent call to shutdown. See b/184943744.
     // It may be possible to get a BuildCompleteEvent before a duplicate Spawn that runs with a
@@ -326,6 +364,7 @@ public class ExecutionGraphModule extends BlazeModule {
     } finally {
       writer = null;
       env = null;
+      executionStarted.set(false);
     }
   }
 
@@ -385,11 +424,23 @@ public class ExecutionGraphModule extends BlazeModule {
       SpawnMetrics metrics = spawnResult.getMetrics();
       spawnResult = null;
       long totalMillis = metrics.totalTime().toMillis();
+
+      long discoverInputsMillis = 0;
+      ActionInput firstOutput = getFirstOutput(spawn.getResourceOwner(), spawn.getOutputFiles());
+      Duration discoverInputsTime = outputToDiscoverInputsTime.get(firstOutput);
+      if (discoverInputsTime != null) {
+        // Remove this so we don't count it again later, if an action has multiple spawns.
+        outputToDiscoverInputsTime.remove(firstOutput);
+        discoverInputsMillis = discoverInputsTime.toMillis();
+        totalMillis += discoverInputsMillis;
+      }
+
       ExecutionGraph.Metrics.Builder metricsBuilder =
           ExecutionGraph.Metrics.newBuilder()
               .setStartTimestampMillis(startMillis)
               .setDurationMillis((int) totalMillis)
               .setFetchMillis((int) metrics.fetchTime().toMillis())
+              .setDiscoverInputsMillis((int) discoverInputsMillis)
               .setParseMillis((int) metrics.parseTime().toMillis())
               .setProcessMillis((int) metrics.executionWallTime().toMillis())
               .setQueueMillis((int) metrics.queueTime().toMillis())
@@ -408,7 +459,7 @@ public class ExecutionGraphModule extends BlazeModule {
       // we won't need.
       maybeAddEdges(
           nodeBuilder,
-          spawn.getOutputFiles(),
+          spawn.getOutputEdgesForExecutionGraph(),
           spawn.getInputFiles(),
           spawn.getResourceOwner(),
           spawn.getRunfilesSupplier(),
@@ -528,6 +579,7 @@ public class ExecutionGraphModule extends BlazeModule {
     private final BugReporter bugReporter;
     private final boolean localLockFreeOutputEnabled;
     private final Map<ActionInput, NodeInfo> outputToNode = new ConcurrentHashMap<>();
+    private final Map<ActionInput, Duration> outputToDiscoverInputsTime = new ConcurrentHashMap<>();
     private final DependencyInfo depType;
     private final AtomicInteger nextIndex = new AtomicInteger(0);
 
@@ -591,6 +643,20 @@ public class ExecutionGraphModule extends BlazeModule {
       blockedMillis.addAndGet(sw.elapsed().toMillis());
     }
 
+    void enqueue(DiscoveredInputsEvent event) {
+      // The other times from SpawnMetrics are not needed. The only instance of
+      // DiscoveredInputsEvent sets only total and parse time, and to the same value.
+      var totalTime = event.getMetrics().totalTime();
+      var firstOutput = getFirstOutput(event.getAction(), event.getAction().getOutputs());
+      var sum = outputToDiscoverInputsTime.get(firstOutput);
+      if (sum != null) {
+        sum = sum.plus(totalTime);
+      } else {
+        sum = totalTime;
+      }
+      outputToDiscoverInputsTime.put(firstOutput, sum);
+    }
+
     void enqueue(Action action, long startMillis) {
       // This is here just to capture actions which don't have spawns. If we already know about
       // an output, don't also include it again.
@@ -614,6 +680,28 @@ public class ExecutionGraphModule extends BlazeModule {
       if (logs != null) {
         updateLogs(logs);
       }
+    }
+
+    void actionShared(SharedActionEvent event) {
+      copySharedArtifacts(
+          event.getExecuted().getAllFileValues(), event.getTransformed().getAllFileValues());
+      copySharedArtifacts(
+          event.getExecuted().getAllTreeArtifactValues(),
+          event.getTransformed().getAllTreeArtifactValues());
+    }
+
+    private void copySharedArtifacts(Map<Artifact, ?> executed, Map<Artifact, ?> transformed) {
+      Streams.forEachPair(
+          executed.keySet().stream(),
+          transformed.keySet().stream(),
+          (existing, shared) -> {
+            NodeInfo node = outputToNode.get(existing);
+            if (node != null) {
+              outputToNode.put(shared, node);
+            } else {
+              bugReporter.logUnexpected("No node for %s (%s)", existing, existing.getOwner());
+            }
+          });
     }
 
     protected abstract void updateLogs(BuildToolLogCollection logs);
@@ -677,9 +765,9 @@ public class ExecutionGraphModule extends BlazeModule {
       throws InvalidPackagePathSymlinkException, ActionDumpFileCreationException {
     OptionsParsingResult parsingResult = env.getOptions();
     BuildEventProtocolOptions bepOptions =
-        Preconditions.checkNotNull(parsingResult.getOptions(BuildEventProtocolOptions.class));
+        checkNotNull(parsingResult.getOptions(BuildEventProtocolOptions.class));
     ExecutionGraphOptions executionGraphOptions =
-        Preconditions.checkNotNull(parsingResult.getOptions(ExecutionGraphOptions.class));
+        checkNotNull(parsingResult.getOptions(ExecutionGraphOptions.class));
     if (bepOptions.streamingLogFileUploads) {
       return new StreamingActionDumpWriter(
           env.getRuntime().getBugReporter(),

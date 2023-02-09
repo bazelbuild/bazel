@@ -14,9 +14,14 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.hash.Hashing;
+import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -220,6 +225,22 @@ public final class SolibSymlinkAction extends AbstractAction {
     return symlink;
   }
 
+  @VisibleForTesting public static final int MAX_FILENAME_LENGTH = 255;
+
+  private static String maybeHashPreserveExtension(String filename) {
+    if (filename.length() <= MAX_FILENAME_LENGTH) {
+      return filename;
+    } else {
+      String hashedName = Hashing.sha256().hashString(filename, UTF_8).toString();
+      String extension = Files.getFileExtension(filename);
+      if (extension.isEmpty()) {
+        return hashedName;
+      } else {
+        return hashedName + "." + extension;
+      }
+    }
+  }
+
   /**
    * Returns the name of the symlink that will be created for a library, given its name.
    *
@@ -243,12 +264,14 @@ public final class SolibSymlinkAction extends AbstractAction {
     if (preserveName) {
       String escapedLibraryPath =
           Actions.escapedPath("_" + libraryPath.getParentDirectory().getPathString());
+      String escapedFullPath =
+          prefixConsumer ? escapedRulePath + "__" + escapedLibraryPath : escapedLibraryPath;
       PathFragment mangledDir =
-          solibDirPath.getRelative(
-              prefixConsumer ? escapedRulePath + "__" + escapedLibraryPath : escapedLibraryPath);
+          solibDirPath.getRelative(maybeHashPreserveExtension(escapedFullPath));
       return mangledDir.getRelative(soname);
     } else {
-      return solibDirPath.getRelative(prefixConsumer ? escapedRulePath + "__" + soname : soname);
+      String filename = prefixConsumer ? escapedRulePath + "__" + soname : soname;
+      return solibDirPath.getRelative(maybeHashPreserveExtension(filename));
     }
   }
 

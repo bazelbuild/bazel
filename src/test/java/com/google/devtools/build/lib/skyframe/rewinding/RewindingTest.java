@@ -211,4 +211,9 @@ public final class RewindingTest extends BuildIntegrationTestCase {
     skipIfBazel();
     helper.runGeneratedTransitiveHeaderRewound_lostInActionExecution_spawnFailed();
   }
+
+  @Test
+  public void doneToDirtyDepForNodeInError() throws Exception {
+    helper.runDoneToDirtyDepForNodeInError();
+  }
 }

@@ -793,7 +793,7 @@ sample_bin = rule(
         '_dep': attr.label(
             default=Label("@other//:a/b"),
             executable=True,
-            cfg="host",
+            cfg="exec",
             allow_single_file=True)
     },
     outputs = {'sh': "%{name}.sh"},
@@ -1387,7 +1387,7 @@ EOF
   expect_log "@x_repo//x to @x_repo//a"
 }
 
-# This test verifies that the //... pattern includes external dependencies
+# This test verifies that the `public` pattern includes external dependencies.
 #
 # ${WORKSPACE_DIR}/
 #     WORKSPACE
@@ -1397,22 +1397,26 @@ EOF
 #   blue/
 #     BUILD
 #
-# repo2 contains a .sh file whose visibility is set to //...
-# we verify that we can use this file from ${WORKSPACE_DIR} by running it as
+# repo2 contains a .sh file whose visibility is set to public.
+# We verify that we can use this file from ${WORKSPACE_DIR} by running it as
 # part of the "run-the-thing" binary.
-function test_slashslashdotdotdot_includes_external_dependencies() {
+#
+# TODO(brandjon): Can this test be deleted in favor of an analysis-time unit
+# test? Ideally PackageGroupTest should cover it, but that suite can't handle
+# external repos.
+function test_public_includes_external_dependencies() {
   create_new_workspace
   repo2=${new_workspace_dir}
   mkdir -p blue
   cat > blue/BUILD <<EOF
 package_group(
-    name = "slash-slash-dot-dot-dot",
-    packages = ["//..."],
+    name = "everyone",
+    packages = ["public"],
 )
 filegroup(
     name = "do-the-thing",
     srcs = ["do-the-thing.sh"],
-    visibility = [":slash-slash-dot-dot-dot"]
+    visibility = [":everyone"]
 )
 EOF
   cat > blue/do-the-thing.sh <<EOF
@@ -1437,9 +1441,11 @@ EOF
   expect_log "WE DID IT FAM"
 }
 
-## Like test above, but testing an external dep can depend on a local target
-## with //... visibility
-function test_slashslashdotdotdot_includes_main_repo_from_external_dep() {
+# Like test above, but testing an external dep can depend on a local target with
+# with `public` visibility.
+#
+# TODO(brandjon): Eliminate this test, as described above?
+function test_public_includes_main_repo_from_external_dep() {
   create_new_workspace
   repo2=${new_workspace_dir}
   mkdir -p blue
@@ -1457,13 +1463,13 @@ local_repository(name = 'blue', path = "${repo2}")
 EOF
   cat > green/BUILD <<EOF
 package_group(
-    name = "slash-slash-dot-dot-dot",
-    packages = ["//..."],
+    name = "everyone",
+    packages = ["public"],
 )
 filegroup(
     name = "do-the-thing",
     srcs = ["do-the-thing.sh"],
-    visibility = [":slash-slash-dot-dot-dot"]
+    visibility = [":everyone"]
 )
 
 EOF

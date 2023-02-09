@@ -102,15 +102,25 @@ public class DumpPlatformClassPath {
     // initialized bootclasspath data back out.
 
     Context context = new Context();
-    JavacTool.create()
-        .getTask(
-            /* out = */ null,
-            /* fileManager = */ null,
-            /* diagnosticListener = */ null,
-            /* options = */ Arrays.asList("--system", String.valueOf(targetJavabase)),
-            /* classes = */ null,
-            /* compilationUnits = */ null,
-            context);
+    try {
+      JavacTool.create()
+          .getTask(
+              /* out = */ null,
+              /* fileManager = */ null,
+              /* diagnosticListener = */ null,
+              /* options = */ Arrays.asList("--system", String.valueOf(targetJavabase)),
+              /* classes = */ null,
+              /* compilationUnits = */ null,
+              context);
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Failed to collect system class path. Please ensure that the configured Java runtime"
+                  + " ('%s') is a complete JDK. There are known issues with Homebrew versions of"
+                  + " the Java runtime.",
+              targetJavabase.toRealPath()),
+          e);
+    }
     StandardJavaFileManager fileManager =
         (StandardJavaFileManager) context.get(JavaFileManager.class);
 

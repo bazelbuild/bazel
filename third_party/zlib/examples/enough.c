@@ -486,7 +486,7 @@ local void enough(int syms) {
 // are 286, 9, and 15 respectively, for the deflate literal/length code. The
 // possible codes are counted for each number of coded symbols from two to the
 // maximum. The counts for each of those and the total number of codes are
-// shown. The maximum number of inflate table entires is then calculated across
+// shown. The maximum number of inflate table entries is then calculated across
 // all possible codes. Each new maximum number of table entries and the
 // associated sub-code (starting at root + 1 == 10 bits) is shown.
 //

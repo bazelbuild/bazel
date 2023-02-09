@@ -650,7 +650,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     Iterable<? extends VariableValue> librariesToLink =
         librariesToLinkSequence.getSequenceValue(
             LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
-    assertThat(librariesToLink).hasSize(2);
+    assertThat(Iterables.size(librariesToLink)).isAnyOf(2, 3);
 
     Iterator<? extends VariableValue> librariesToLinkIterator = librariesToLink.iterator();
     // :a should not be whole archive

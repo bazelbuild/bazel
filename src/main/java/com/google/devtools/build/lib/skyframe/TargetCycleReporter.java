@@ -35,7 +35,7 @@ import java.util.List;
  */
 class TargetCycleReporter extends AbstractLabelCycleReporter {
 
-  private static final Predicate<SkyKey> SUPPORTED_SKY_KEY =
+  private static final Predicate<SkyKey> CONFIGURED_TARGET_OR_TRANSITIVE_RDEP =
       Predicates.or(
           SkyFunctions.isSkyFunction(SkyFunctions.CONFIGURED_TARGET),
           SkyFunctions.isSkyFunction(SkyFunctions.ASPECT),
@@ -57,9 +57,9 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
 
   @Override
   protected boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
-    return SUPPORTED_SKY_KEY.apply(topLevelKey)
-        && cycleInfo.getPathToCycle().stream().allMatch(SUPPORTED_SKY_KEY)
-        && cycleInfo.getCycle().stream().allMatch(SUPPORTED_SKY_KEY);
+    return CONFIGURED_TARGET_OR_TRANSITIVE_RDEP.apply(topLevelKey)
+        && cycleInfo.getPathToCycle().stream().allMatch(CONFIGURED_TARGET_OR_TRANSITIVE_RDEP)
+        && cycleInfo.getCycle().stream().allMatch(CONFIGURED_TARGET_OR_TRANSITIVE_RDEP);
   }
 
   @Override

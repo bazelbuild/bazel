@@ -63,7 +63,8 @@ public final class BlazeWorkspace {
 
   private final BlazeDirectories directories;
   private final SkyframeExecutor skyframeExecutor;
-  private final SyscallCache perCommandSyscallCache;
+  private final SyscallCache syscallCache;
+  private final QuiescingExecutorsImpl quiescingExecutors;
 
   /**
    * Loaded lazily on the first build command that enables the action cache. Cleared on a build
@@ -84,7 +85,7 @@ public final class BlazeWorkspace {
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       BinTools binTools,
       @Nullable AllocationTracker allocationTracker,
-      SyscallCache perCommandSyscallCache) {
+      SyscallCache syscallCache) {
     this.runtime = runtime;
     this.eventBusExceptionHandler = Preconditions.checkNotNull(eventBusExceptionHandler);
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
@@ -93,7 +94,8 @@ public final class BlazeWorkspace {
 
     this.directories = directories;
     this.skyframeExecutor = skyframeExecutor;
-    this.perCommandSyscallCache = perCommandSyscallCache;
+    this.syscallCache = syscallCache;
+    this.quiescingExecutors = QuiescingExecutorsImpl.createDefault();
 
     if (directories.inWorkspace()) {
       writeOutputBaseReadmeFile();
@@ -203,6 +205,7 @@ public final class BlazeWorkspace {
       long commandStartTime,
       List<Any> commandExtensions,
       Consumer<String> shutdownReasonConsumer) {
+    quiescingExecutors.resetParameters(options);
     CommandEnvironment env =
         new CommandEnvironment(
             runtime,
@@ -211,7 +214,8 @@ public final class BlazeWorkspace {
             Thread.currentThread(),
             command,
             options,
-            perCommandSyscallCache,
+            syscallCache,
+            quiescingExecutors,
             warnings,
             waitTimeInMs,
             commandStartTime,
@@ -247,6 +251,12 @@ public final class BlazeWorkspace {
     }
     actionCache = null;
     getCacheDirectory().deleteTree();
+  }
+
+  /** Returns the reference to the action cache instance, without attempting to reload it. */
+  @Nullable
+  public ActionCache getInUseActionCacheWithoutFurtherLoading() {
+    return actionCache;
   }
 
   /**

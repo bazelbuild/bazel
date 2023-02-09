@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Platforms
 
+{% include "_buttons.html" %}
+
 Bazel can build and test code on a variety of hardware, operating systems, and
 system configurations, using many different versions of build tools such as
 linkers and compilers. To help manage this complexity, Bazel has a concept of
@@ -14,7 +16,7 @@ resources that are available in some environment.
 
 Modeling the environment as a platform helps Bazel to automatically select the
 appropriate
-[toolchains](/docs/toolchains)
+[toolchains](/extending/toolchains)
 for build actions. Platforms can also be used in combination with the
 [config_setting](/reference/be/general#config_setting)
 rule to write [configurable attributes](/docs/configurable-attributes).
@@ -227,7 +229,7 @@ cc_library(
 You can use the
 [`IncompatiblePlatformProvider`](/rules/lib/IncompatiblePlatformProvider)
 in `bazel cquery`'s [Starlark output
-format](/docs/cquery#output-format-definition) to distinguish
+format](/query/cquery#output-format-definition) to distinguish
 incompatible targets from compatible ones.
 
 This can be used to filter out incompatible targets. The example below will

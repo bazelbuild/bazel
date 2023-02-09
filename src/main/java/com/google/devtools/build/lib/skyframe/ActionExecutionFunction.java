@@ -92,7 +92,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -100,7 +99,6 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeS
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -186,16 +184,16 @@ public final class ActionExecutionFunction implements SkyFunction {
     if (!clientEnvironmentVariables.isEmpty()) {
       ImmutableSet<String> clientEnvironmentVariablesSet =
           ImmutableSet.copyOf(clientEnvironmentVariables);
-      Iterable<SkyKey> skyKeys =
+      Iterable<SkyKey> depKeys =
           Iterables.transform(clientEnvironmentVariablesSet, ClientEnvironmentFunction::key);
-      SkyframeIterableResult clientEnvLookup = env.getOrderedValuesAndExceptions(skyKeys);
+      SkyframeLookupResult clientEnvLookup = env.getValuesAndExceptions(depKeys);
       if (env.valuesMissing()) {
         return null;
       }
       ImmutableMap.Builder<String, String> builder =
           ImmutableMap.builderWithExpectedSize(clientEnvironmentVariablesSet.size());
-      for (SkyKey depKey : skyKeys) {
-        ClientEnvironmentValue envValue = (ClientEnvironmentValue) clientEnvLookup.next();
+      for (SkyKey depKey : depKeys) {
+        ClientEnvironmentValue envValue = (ClientEnvironmentValue) clientEnvLookup.get(depKey);
         if (envValue.getValue() != null) {
           builder.put((String) depKey.argument(), envValue.getValue());
         }
@@ -255,9 +253,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     CheckInputResults checkedInputs = null;
     NestedSet<Artifact> allInputs =
         state.allInputs.getAllInputs(
-            !skyframeActionExecutor
-                .actionFileSystemType()
-                .equals(ActionFileSystemType.STAGE_REMOTE_FILES));
+            skyframeActionExecutor.actionFileSystemType().supportsInputDiscovery());
 
     if (!state.actionInputCollectedEventSent) {
       env.getListener()
@@ -269,7 +265,7 @@ public final class ActionExecutionFunction implements SkyFunction {
 
     if (!state.hasArtifactData()) {
       Iterable<SkyKey> depKeys = getInputDepKeys(allInputs, state);
-      SkyframeIterableResult inputDeps = env.getOrderedValuesAndExceptions(depKeys);
+      SkyframeLookupResult inputDeps = env.getValuesAndExceptions(depKeys);
       if (previousExecution == null) {
         // Do we actually need to find our metadata?
         try {
@@ -383,16 +379,16 @@ public final class ActionExecutionFunction implements SkyFunction {
     ImmutableList<SkyKey> previouslyLostDiscoveredInputs =
         skyframeActionExecutor.getLostDiscoveredInputs(action);
     if (previouslyLostDiscoveredInputs != null) {
-      SkyframeIterableResult lostInputValues =
-          env.getOrderedValuesAndExceptions(previouslyLostDiscoveredInputs);
+      SkyframeLookupResult lostInputValues =
+          env.getValuesAndExceptions(previouslyLostDiscoveredInputs);
       if (env.valuesMissing()) {
         return true;
       }
       for (SkyKey lostInputKey : previouslyLostDiscoveredInputs) {
         try {
           SkyValue value =
-              lostInputValues.nextOrThrow(
-                  MissingInputFileException.class, ActionExecutionException.class);
+              lostInputValues.getOrThrow(
+                  lostInputKey, MissingInputFileException.class, ActionExecutionException.class);
           if (value == null) {
             return true;
           }
@@ -746,6 +742,7 @@ public final class ActionExecutionFunction implements SkyFunction {
             state.inputArtifactData,
             action.discoversInputs(),
             skyframeActionExecutor.useArchivedTreeArtifacts(action),
+            skyframeActionExecutor.getOutputPermissions(),
             action.getOutputs(),
             skyframeActionExecutor.getXattrProvider(),
             tsgm.get(),
@@ -906,13 +903,8 @@ public final class ActionExecutionFunction implements SkyFunction {
 
     ActionInputMap inputData = state.inputArtifactData;
 
-    // Filter down to unknown discovered inputs eagerly instead of using a lazy Iterables#filter:
-    // - [performance] Reduces iteration cost. Environment#getOrderedValuesAndExceptions iterates
-    //   over its given Iterable 3 times total.
-    // - [correctness] In case multiple shared artifacts are discovered, avoids modifying the
-    //   Iterable during iteration. ActionInputMap is keyed on exec path (not owner), meaning the
-    //   filter would skip subsequent shared artifacts and misalign with the SkyframeIterableResult
-    //   (b/236308456).
+    // Filter down to unknown discovered inputs eagerly instead of using a lazy Iterables#filter to
+    // reduce iteration cost.
     List<Artifact> unknownDiscoveredInputs = new ArrayList<>();
     for (Artifact input : state.discoveredInputs.toList()) {
       if (inputData.getMetadata(input) == null) {
@@ -924,12 +916,13 @@ public final class ActionExecutionFunction implements SkyFunction {
       return DiscoveredState.NO_DISCOVERED_DATA;
     }
 
-    SkyframeIterableResult nonMandatoryDiscovered =
-        env.getOrderedValuesAndExceptions(Artifact.keys(unknownDiscoveredInputs));
+    SkyframeLookupResult nonMandatoryDiscovered =
+        env.getValuesAndExceptions(Artifact.keys(unknownDiscoveredInputs));
     for (Artifact input : unknownDiscoveredInputs) {
       SkyValue retrievedMetadata;
       try {
-        retrievedMetadata = nonMandatoryDiscovered.nextOrThrow(SourceArtifactException.class);
+        retrievedMetadata =
+            nonMandatoryDiscovered.getOrThrow(Artifact.key(input), SourceArtifactException.class);
       } catch (SourceArtifactException e) {
         if (!input.isSourceArtifact()) {
           throw new IllegalStateException(
@@ -1003,7 +996,7 @@ public final class ActionExecutionFunction implements SkyFunction {
 
       SkyframeAwareAction skyframeAwareAction = (SkyframeAwareAction) action;
       ImmutableList<? extends SkyKey> keys = skyframeAwareAction.getDirectSkyframeDependencies();
-      SkyframeIterableResult values = env.getOrderedValuesAndExceptions(keys);
+      SkyframeLookupResult values = env.getValuesAndExceptions(keys);
 
       try {
         return skyframeAwareAction.processSkyframeValues(keys, values, env.valuesMissing());
@@ -1059,7 +1052,7 @@ public final class ActionExecutionFunction implements SkyFunction {
   private CheckInputResults checkInputs(
       Environment env,
       Action action,
-      SkyframeIterableResult inputDeps,
+      SkyframeLookupResult inputDeps,
       NestedSet<Artifact> allInputs,
       Iterable<SkyKey> requestedSkyKeys,
       ActionLookupData actionLookupDataForError)
@@ -1142,7 +1135,7 @@ public final class ActionExecutionFunction implements SkyFunction {
   private <S extends ActionInputMapSink, R> R accumulateInputs(
       Environment env,
       Action action,
-      @Nullable SkyframeIterableResult inputDeps,
+      @Nullable SkyframeLookupResult inputDeps,
       NestedSet<Artifact> allInputs,
       @Nullable Iterable<SkyKey> requestedSkyKeys,
       IntFunction<S> actionInputMapSinkFactory,
@@ -1261,7 +1254,8 @@ public final class ActionExecutionFunction implements SkyFunction {
           topLevelFilesets,
           input,
           value,
-          env);
+          env,
+          skyframeActionExecutor.supportsPartialTreeArtifactInputs());
     }
 
     if (actionExecutionFunctionExceptionHandler != null) {
@@ -1320,23 +1314,6 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
     return new LabelCause(
         MoreObjects.firstNonNull(input.getOwner(), actionLabel), detailedExitCode);
-  }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    // The return value from this method is only applied to non-error, non-debug events that are
-    // posted through the EventHandler associated with the SkyFunction.Environment. For those
-    // events, this setting overrides whatever tag is set.
-    //
-    // If action out/err replay is enabled, then we intentionally post through the Environment to
-    // ensure that the output is replayed on subsequent builds. In that case, we need this to be the
-    // action owner's label.
-    //
-    // Otherwise, Events from action execution are posted to the global Reporter rather than through
-    // the Environment, so this setting is ignored. Note that the SkyframeActionExecutor manually
-    // checks the action owner's label against the Reporter's output filter in that case, which has
-    // the same effect as setting it as a tag on the corresponding event.
-    return Label.print(((ActionLookupData) skyKey).getActionLookupKey().getLabel());
   }
 
   /**
@@ -1453,7 +1430,7 @@ public final class ActionExecutionFunction implements SkyFunction {
   /** Helper subclass for the error-handling logic for ActionExecutionFunction#accumulateInputs. */
   private final class ActionExecutionFunctionExceptionHandler {
     private final Supplier<SetMultimap<SkyKey, Artifact>> skyKeyToDerivedArtifactSetForExceptions;
-    private final SkyframeIterableResult inputDeps;
+    private final SkyframeLookupResult inputDeps;
     private final Action action;
     private final Predicate<Artifact> isMandatoryInput;
     private final Iterable<SkyKey> requestedSkyKeys;
@@ -1463,7 +1440,7 @@ public final class ActionExecutionFunction implements SkyFunction {
 
     ActionExecutionFunctionExceptionHandler(
         Supplier<SetMultimap<SkyKey, Artifact>> skyKeyToDerivedArtifactSetForExceptions,
-        SkyframeIterableResult inputDeps,
+        SkyframeLookupResult inputDeps,
         Action action,
         Predicate<Artifact> isMandatoryInput,
         Iterable<SkyKey> requestedSkyKeys) {
@@ -1492,7 +1469,8 @@ public final class ActionExecutionFunction implements SkyFunction {
       for (SkyKey key : requestedSkyKeys) {
         try {
           SkyValue value =
-              inputDeps.nextOrThrow(
+              inputDeps.getOrThrow(
+                  key,
                   SourceArtifactException.class,
                   ActionExecutionException.class,
                   ArtifactNestedSetEvalException.class);

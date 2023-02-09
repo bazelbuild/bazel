@@ -52,3 +52,7 @@ def create_single_jar(ctx, output, *input_depsets):
         arguments = [args],
     )
     return output
+
+# TODO(hvd): use skylib shell.quote()
+def shell_quote(s):
+    return "'" + s.replace("'", "'\\''") + "'"

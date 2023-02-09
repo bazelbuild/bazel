@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Collection;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -59,13 +59,12 @@ public class GenQueryTtvPackageProviderFactory implements GenQueryPackageProvide
     Set<SkyKey> successfulPackageKeys = Sets.newHashSetWithExpectedSize(scope.size());
     Collection<SkyKey> transitiveTargetKeys =
         Collections2.transform(scope, TransitiveTargetKey::of);
-    SkyframeIterableResult transitiveTargetValues =
-        env.getOrderedValuesAndExceptions(transitiveTargetKeys);
+    SkyframeLookupResult transitiveTargetValues = env.getValuesAndExceptions(transitiveTargetKeys);
     if (env.valuesMissing()) {
       return null;
     }
     for (SkyKey skyKey : transitiveTargetKeys) {
-      SkyValue value = transitiveTargetValues.next();
+      SkyValue value = transitiveTargetValues.get(skyKey);
       if (value == null) {
         BugReport.logUnexpected("Value for: '%s' was missing, this should never happen", skyKey);
         return null;
@@ -84,8 +83,7 @@ public class GenQueryTtvPackageProviderFactory implements GenQueryPackageProvide
     }
 
     // Construct the package id to package map for all successful packages.
-    SkyframeIterableResult transitivePackages =
-        env.getOrderedValuesAndExceptions(successfulPackageKeys);
+    SkyframeLookupResult transitivePackages = env.getValuesAndExceptions(successfulPackageKeys);
     if (env.valuesMissing()) {
       // Packages from an untaken select branch could be missing: analysis avoids these, but query
       // does not.
@@ -93,7 +91,7 @@ public class GenQueryTtvPackageProviderFactory implements GenQueryPackageProvide
     }
     ImmutableMap.Builder<PackageIdentifier, Package> packageMapBuilder = ImmutableMap.builder();
     for (SkyKey skyKey : successfulPackageKeys) {
-      PackageValue pkg = (PackageValue) transitivePackages.next();
+      PackageValue pkg = (PackageValue) transitivePackages.get(skyKey);
       if (pkg == null) {
         BugReport.sendBugReport(
             new IllegalStateException(

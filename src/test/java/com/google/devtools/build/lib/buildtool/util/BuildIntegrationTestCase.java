@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.devtools.build.lib.actions.Action;
@@ -46,7 +47,6 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -126,10 +127,12 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerModule;
+import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.Keep;
 import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
@@ -246,6 +249,34 @@ public abstract class BuildIntegrationTestCase {
 
   public final BlazeRuntimeWrapper getRuntimeWrapper() {
     return runtimeWrapper;
+  }
+
+  /**
+   * Lazily injects the given listener at the start of the next build.
+   *
+   * <p>Injecting the listener immediately would reach the <em>current</em> evaluator, but the next
+   * build may create a new evaluator, which happens when {@link
+   * com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor} is not tracking incremental
+   * state.
+   */
+  public final void injectListenerAtStartOfNextBuild(NotifyingHelper.Listener listener) {
+    getRuntimeWrapper()
+        .registerSubscriber(
+            new Object() {
+              private boolean injected = false;
+
+              @Subscribe
+              @Keep
+              void buildStarting(@SuppressWarnings("unused") BuildStartingEvent event) {
+                if (!injected) {
+                  getSkyframeExecutor()
+                      .getEvaluator()
+                      .injectGraphTransformerForTesting(
+                          NotifyingHelper.makeNotifyingTransformer(listener));
+                  injected = true;
+                }
+              }
+            });
   }
 
   /**
@@ -665,8 +696,13 @@ public abstract class BuildIntegrationTestCase {
     return existingConfiguredTarget;
   }
 
-  protected BuildConfigurationCollection getConfigurationCollection() {
-    return runtimeWrapper.getConfigurationCollection();
+  protected BuildConfigurationValue getConfiguration() {
+    return runtimeWrapper.getConfiguration();
+  }
+
+  protected final BuildConfigurationValue getConfiguration(ConfiguredTarget ct) {
+    return getSkyframeExecutor()
+        .getConfiguration(NullEventHandler.INSTANCE, ct.getConfigurationKey());
   }
 
   /**
@@ -678,8 +714,7 @@ public abstract class BuildIntegrationTestCase {
    * falls back to the base top-level configuration.
    */
   protected BuildConfigurationValue getTargetConfiguration() {
-    BuildConfigurationValue baseConfiguration =
-        getConfigurationCollection().getTargetConfiguration();
+    BuildConfigurationValue baseConfiguration = getConfiguration();
     BuildResult result = getResult();
     if (result == null) {
       return baseConfiguration;
@@ -695,8 +730,8 @@ public abstract class BuildIntegrationTestCase {
     return Iterables.getOnlyElement(topLevelTargetConfigurations);
   }
 
-  protected BuildConfigurationValue getHostConfiguration() {
-    return getConfigurationCollection().getHostConfiguration();
+  protected BuildConfigurationValue getExecConfiguration() throws Exception {
+    return runtimeWrapper.getExecConfiguration();
   }
 
   protected TopLevelArtifactContext getTopLevelArtifactContext() {
@@ -888,7 +923,7 @@ public abstract class BuildIntegrationTestCase {
    * <p>The returned set preserves the order of the input.
    */
   protected Set<String> artifactsToStrings(NestedSet<Artifact> artifacts) {
-    return AnalysisTestUtil.artifactsToStrings(getConfigurationCollection(), artifacts.toList());
+    return AnalysisTestUtil.artifactsToStrings(getConfiguration(), artifacts.toList());
   }
 
   protected ActionsTestUtil actionsTestUtil() {
@@ -901,11 +936,6 @@ public abstract class BuildIntegrationTestCase {
 
   protected NestedSet<Artifact> getFilesToBuild(TransitiveInfoCollection target) {
     return target.getProvider(FileProvider.class).getFilesToBuild();
-  }
-
-  protected final BuildConfigurationValue getConfiguration(ConfiguredTarget ct) {
-    return getSkyframeExecutor()
-        .getConfiguration(NullEventHandler.INSTANCE, ct.getConfigurationKey());
   }
 
   /** Returns the BuildRequest of the last call to buildTarget(). */

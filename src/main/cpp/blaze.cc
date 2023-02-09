@@ -359,13 +359,10 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   startup_options.AddJVMArgumentPrefix(jvm_path.GetParent().GetParent(),
                                        &result);
 
-  // TODO(b/109998449): only assume JDK >= 9 for embedded JDKs
-  if (!startup_options.GetEmbeddedJavabase().IsEmpty()) {
-    // quiet warnings from com.google.protobuf.UnsafeUtil,
-    // see: https://github.com/google/protobuf/issues/3781
-    result.push_back("--add-opens=java.base/java.nio=ALL-UNNAMED");
-    result.push_back("--add-opens=java.base/java.lang=ALL-UNNAMED");
-  }
+  // com.google.devtools.build.lib.unsafe.StringUnsafe uses reflection to access
+  // private fields in java.lang.String. The Bazel server requires Java 11, so
+  // this option is known to be supported.
+  result.push_back("--add-opens=java.base/java.lang=ALL-UNNAMED");
 
   result.push_back("-Xverify:none");
 

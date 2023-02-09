@@ -166,7 +166,7 @@ EOF
 
   # without using --incompatible_top_level_aspects_require_providers, aspect_a
   # and aspect_b should attempt to run on top level target: target_with_a and
-  # propagate to its dependencies where they will run based on the depdencies
+  # propagate to its dependencies where they will run based on the dependencies
   # advertised providers.
   bazel build "${package}:target_with_a" \
         --aspects="//${package}:lib.bzl%aspect_a" \
@@ -188,7 +188,7 @@ EOF
 
   # using --incompatible_top_level_aspects_require_providers, the top level
   # target rule's advertised providers will be checked and only aspect_a will be
-  # applied on target_with_a and propgated to its dependencies.
+  # applied on target_with_a and propagated to its dependencies.
   bazel build "${package}:target_with_a" \
         --aspects="//${package}:lib.bzl%aspect_a" \
         --aspects="//${package}:lib.bzl%aspect_b" &>"$TEST_log" \
@@ -1195,6 +1195,287 @@ EOF
       &> $TEST_log && fail "Build succeeded, expected to fail"
 
   expect_log "//test:defs.bzl%aspect_a: expected value of type 'int' for attribute 'p' but got 'val'"
+}
+
+function test_aspect_runs_once_with_diff_order_in_base_aspects() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+def _aspect_b_impl(target, ctx):
+  print('aspect_b on target {}, p = {}'.format(target.label, ctx.attr.p))
+  return []
+
+aspect_b = aspect(
+    implementation = _aspect_b_impl,
+    attr_aspects = ['deps'],
+    attrs = { 'p' : attr.int(values = [3, 4]) },
+)
+
+def _aspect_a_impl(target, ctx):
+  print('aspect_a on target {}, aspects_path = {}'.format(target.label, ctx.aspect_ids))
+  return []
+
+aspect_a = aspect(
+    implementation = _aspect_a_impl,
+    attr_aspects = ['deps'],
+    requires = [aspect_b],
+)
+
+def _r1_impl(ctx):
+  pass
+
+r1 = rule(
+   implementation = _r1_impl,
+   attrs = {
+     'deps' : attr.label_list(aspects=[aspect_b]),
+     'p' : attr.int(),
+   },
+)
+
+def _r2_impl(ctx):
+  pass
+
+r2 = rule(
+   implementation = _r2_impl,
+   attrs = {
+     'deps' : attr.label_list(aspects=[aspect_b]),
+     'p' : attr.int(),
+   },
+)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//test:defs.bzl', 'r1', 'r2')
+r1(
+  name = 't1',
+  p = 3,
+  # aspect b(p=3) is propagated to t2 and t3 from t1
+  # aspect a from command-line runs on t2 and t3 with basekeys = [b(p=4)]
+  # so the aspects path propagating to t3 is [b(p=3), b(p=4), a]
+  deps = [':t2', ':t3'],
+)
+r2(
+  name = 't2',
+  p = 4,
+  # aspect b(p=4) is propagated from t2 to t3
+  # the aspects path propagating to t3 will be [b(p=4), b(p=3), b(p=4), a]
+  # after aspects deduplicating the aspects path will be [b(p=4), b(p=3), a]
+  deps = [':t3'],
+)
+r1(
+  name = 't3',
+  p = 4,
+)
+EOF
+
+  bazel build "//${package}:t1" \
+      --aspects="//${package}:defs.bzl%aspect_a" \
+      --aspects_parameters="p=4" \
+      &> $TEST_log || fail "Build failed"
+
+  # check that aspect_a runs only once on t3 with the aspect path ordered as
+  # [aspect_b(p=3), aspect_b(p=4), aspect_a]
+  expect_log 'aspect_a on target @//test:t3, aspects_path = \["//test:defs.bzl%aspect_b\[p=\\\"3\\\"\]", "//test:defs.bzl%aspect_b\[p=\\\"4\\\"\]", "//test:defs.bzl%aspect_a"\]'
+  expect_not_log 'aspect_a on target @//test:t3, aspects_path = \["//test:defs.bzl%aspect_b\[p=\\\"4\\\"\]", "//test:defs.bzl%aspect_b\[p=\\\"3\\\"\]", "//test:defs.bzl%aspect_a"\]'
+}
+
+function test_aspect_on_target_with_exec_gp() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+def _aspect_a_impl(target, ctx):
+  print('aspect_a on target {}'.format(target.label))
+  return []
+
+aspect_a = aspect(
+    implementation = _aspect_a_impl,
+    attr_aspects = ['deps'],
+)
+
+def _rule_impl(ctx):
+  pass
+
+r1 = rule(
+   implementation = _rule_impl,
+   attrs = {
+     'deps' : attr.label_list(aspects=[aspect_a]),
+   },
+)
+
+r2 = rule(
+   implementation = _rule_impl,
+   attrs = {
+     '_tool' : attr.label(
+                       default = "//${package}:tool",
+                       cfg = config.exec(exec_group = "exec_gp")),
+   },
+   exec_groups = {"exec_gp": exec_group()},
+)
+EOF
+
+  cat > "${package}/tool.sh" <<EOF
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//test:defs.bzl', 'r1', 'r2')
+r1(
+  name = 't1',
+  deps = [':t2'],
+)
+r2(
+  name = 't2',
+)
+
+sh_binary(name = "tool", srcs = ["tool.sh"])
+EOF
+
+  bazel build "//${package}:t1" \
+      &> $TEST_log || fail "Build failed"
+
+  expect_log 'aspect_a on target @//test:t2'
+}
+
+function test_aspect_on_aspect_with_exec_gp() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+prov_b = provider()
+
+def _aspect_a_impl(target, ctx):
+  print('aspect_a on target {}'.format(target.label))
+  return []
+
+aspect_a = aspect(
+    implementation = _aspect_a_impl,
+    attr_aspects = ['deps'],
+    required_aspect_providers = [prov_b],
+)
+
+def _aspect_b_impl(target, ctx):
+  print('aspect_b on target {}'.format(target.label))
+  return [prov_b()]
+
+aspect_b = aspect(
+    implementation = _aspect_b_impl,
+    attr_aspects = ['deps'],
+    provides = [prov_b],
+    attrs = {
+     '_tool' : attr.label(
+                       default = "//${package}:tool",
+                       cfg = config.exec(exec_group = "exec_gp")),
+   },
+   exec_groups = {"exec_gp": exec_group()},
+)
+
+def _rule_impl(ctx):
+  pass
+
+r1 = rule(
+   implementation = _rule_impl,
+   attrs = {
+     'deps' : attr.label_list(aspects=[aspect_b, aspect_a]),
+   },
+)
+
+r2 = rule(
+   implementation = _rule_impl,
+)
+EOF
+
+  cat > "${package}/tool.sh" <<EOF
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//test:defs.bzl', 'r1', 'r2')
+r1(
+  name = 't1',
+  deps = [':t2'],
+)
+r2(
+  name = 't2',
+)
+
+sh_binary(name = "tool", srcs = ["tool.sh"])
+EOF
+
+  bazel build "//${package}:t1" \
+      &> $TEST_log || fail "Build failed"
+
+  expect_log 'aspect_a on target @//test:t2'
+  expect_log 'aspect_b on target @//test:t2'
+}
+
+function test_aspect_on_aspect_with_missing_exec_gp() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+prov_b = provider()
+
+def _aspect_a_impl(target, ctx):
+  print('aspect_a on target {}'.format(target.label))
+  return []
+
+aspect_a = aspect(
+    implementation = _aspect_a_impl,
+    attr_aspects = ['deps'],
+    required_aspect_providers = [prov_b],
+    attrs = {
+     '_tool' : attr.label(
+                       default = "//${package}:tool",
+                       # exec_gp not declared
+                       cfg = config.exec(exec_group = "exec_gp")),
+   },
+)
+
+def _aspect_b_impl(target, ctx):
+  print('aspect_b on target {}'.format(target.label))
+  return [prov_b()]
+
+aspect_b = aspect(
+    implementation = _aspect_b_impl,
+    attr_aspects = ['deps'],
+    provides = [prov_b],
+)
+
+def _rule_impl(ctx):
+  pass
+
+r1 = rule(
+   implementation = _rule_impl,
+   attrs = {
+     'deps' : attr.label_list(aspects=[aspect_b, aspect_a]),
+   },
+)
+
+r2 = rule(
+   implementation = _rule_impl,
+)
+EOF
+
+  cat > "${package}/tool.sh" <<EOF
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//test:defs.bzl', 'r1', 'r2')
+r1(
+  name = 't1',
+  deps = [':t2'],
+)
+r2(
+  name = 't2',
+)
+
+sh_binary(name = "tool", srcs = ["tool.sh"])
+EOF
+
+  bazel build "//${package}:t1" \
+      &> $TEST_log && fail "Build succeeded, expected to fail"
+
+  expect_log "Attr '\$tool' declares a transition for non-existent exec group 'exec_gp'"
 }
 
 run_suite "Tests for aspects"

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.ExecutionGraph;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -143,6 +144,57 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         .isEqualTo(startTimeInstant.toEpochMilli());
     assertThat(nodes.get(0).getIndex()).isEqualTo(0);
     assertThat(nodes.get(0).getDependentIndexList()).isEmpty();
+  }
+
+  @Test
+  public void testSpawnWithDiscoverInputs() throws IOException {
+    UUID uuid = UUID.randomUUID();
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+    Spawn spawn =
+        new SimpleSpawn(
+            new FakeOwnerWithPrimaryOutput(
+                "Mnemonic", "Progress message", "//foo", "output/foo/out"),
+            ImmutableList.of("cmd"),
+            ImmutableMap.of("env", "value"),
+            ImmutableMap.of("exec", "value"),
+            /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* outputs= */ ImmutableSet.of(createOutputArtifact("output/foo/out")),
+            ResourceSet.ZERO);
+    SpawnResult result =
+        new SpawnResult.Builder()
+            .setRunnerName("local")
+            .setStatus(Status.SUCCESS)
+            .setExitCode(0)
+            .setSpawnMetrics(
+                SpawnMetrics.Builder.forLocalExec()
+                    .setTotalTime(Duration.ofMillis(1234L))
+                    .setExecutionWallTime(Duration.ofMillis(2345L))
+                    .setProcessOutputsTime(Duration.ofMillis(3456L))
+                    .setParseTime(Duration.ofMillis(2000))
+                    .build())
+            .build();
+    startLogging(eventBus, uuid, buffer, DependencyInfo.NONE);
+    Instant startTimeInstant = Instant.ofEpochMilli(999888777L);
+    module.discoverInputs(
+        new DiscoveredInputsEvent(
+            SpawnMetrics.Builder.forOtherExec()
+                .setParseTime(Duration.ofMillis(987))
+                .setTotalTime(Duration.ofMillis(987))
+                .build(),
+            new ActionsTestUtil.NullAction(createOutputArtifact("output/foo/out")),
+            0));
+    module.spawnExecuted(new SpawnExecutedEvent(spawn, result, startTimeInstant));
+    module.buildComplete(
+        new BuildCompleteEvent(new BuildResult(startTimeInstant.toEpochMilli() + 1000)));
+
+    ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
+    ExecutionGraph.Metrics metrics = nodes.get(0).getMetrics();
+    assertThat(metrics.getDurationMillis()).isEqualTo(2221);
+    assertThat(metrics.getFetchMillis()).isEqualTo(0);
+    assertThat(metrics.getProcessMillis()).isEqualTo(2345);
+    assertThat(metrics.getProcessOutputsMillis()).isEqualTo(3456);
+    assertThat(metrics.getParseMillis()).isEqualTo(2000);
+    assertThat(metrics.getDiscoverInputsMillis()).isEqualTo(987);
   }
 
   @Test

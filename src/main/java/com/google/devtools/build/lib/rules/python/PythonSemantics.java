@@ -63,9 +63,6 @@ public interface PythonSemantics {
       RuleContext ruleContext, PyCommon common, Runfiles.Builder builder)
       throws InterruptedException, RuleErrorException;
 
-  /** Collects a rule's default runfiles. */
-  void collectDefaultRunfiles(RuleContext ruleContext, Runfiles.Builder builder);
-
   /** Utility function to compile multiple .py files to .pyc files, if required. */
   Collection<Artifact> precompiledPythonFiles(
       RuleContext ruleContext, Collection<Artifact> sources, PyCommon common);

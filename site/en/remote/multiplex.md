@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Multiplex Workers (Experimental Feature)
 
+{% include "_buttons.html" %}
+
 This page describes multiplex workers, how to write multiplex-compatible
 rules, and workarounds for certain limitations.
 
@@ -75,7 +77,7 @@ globally by passing `--noexperimental_worker_multiplex`.
 
 A ruleset is encouraged to use multiplex workers if possible,  to reduce memory
 pressure and improve performance. However, multiplex workers are not currently
-compatible with [dynamic execution](/docs/dynamic-execution) unless they
+compatible with [dynamic execution](/remote/dynamic) unless they
 implement multiplex sandboxing. Attempting to run non-sandboxed multiplex
 workers with dynamic execution will silently use sandboxed
 singleplex workers instead.

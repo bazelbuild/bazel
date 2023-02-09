@@ -293,7 +293,7 @@ final class StringModule implements StarlarkValue {
       doc =
           "Returns a copy of the string in which the occurrences "
               + "of <code>old</code> have been replaced with <code>new</code>, optionally "
-              + "restricting the number of replacements to <code>maxsplit</code>.",
+              + "restricting the number of replacements to <code>count</code>.",
       parameters = {
         @Param(name = "self", doc = "This string."),
         @Param(name = "old", doc = "The string to be replaced."),

@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -135,6 +136,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             buildLanguageOptions,
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
+            QuiescingExecutorsImpl.forTesting(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
   }
@@ -430,8 +432,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Package pkg = validPackageWithoutErrors(skyKey);
     assertThat((Iterable<Label>) pkg.getTarget("foo").getAssociatedRule().getAttr("srcs"))
         .containsExactly(
-            Label.parseAbsoluteUnchecked("//foo:b.txt"),
-            Label.parseAbsoluteUnchecked("//foo:c/c.txt"))
+            Label.parseCanonicalUnchecked("//foo:b.txt"),
+            Label.parseCanonicalUnchecked("//foo:c/c.txt"))
         .inOrder();
     scratch.file("foo/d.txt");
     getSkyframeExecutor()
@@ -442,9 +444,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
     pkg = validPackageWithoutErrors(skyKey);
     assertThat((Iterable<Label>) pkg.getTarget("foo").getAssociatedRule().getAttr("srcs"))
         .containsExactly(
-            Label.parseAbsoluteUnchecked("//foo:b.txt"),
-            Label.parseAbsoluteUnchecked("//foo:c/c.txt"),
-            Label.parseAbsoluteUnchecked("//foo:d.txt"))
+            Label.parseCanonicalUnchecked("//foo:b.txt"),
+            Label.parseCanonicalUnchecked("//foo:c/c.txt"),
+            Label.parseCanonicalUnchecked("//foo:d.txt"))
         .inOrder();
   }
 
@@ -487,6 +489,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
+            QuiescingExecutorsImpl.forTesting(),
             tsgm);
     getSkyframeExecutor().setActionEnv(ImmutableMap.<String, String>of());
     assertSrcs(validPackageWithoutErrors(skyKey), "foo", "//foo:a.config", "//foo:b.txt");
@@ -556,7 +559,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
       throws NoSuchTargetException {
     List<Label> expectedLabels = new ArrayList<>();
     for (String item : expected) {
-      expectedLabels.add(Label.parseAbsoluteUnchecked(item));
+      expectedLabels.add(Label.parseCanonicalUnchecked(item));
     }
     assertThat(getSrcs(pkg, targetName)).containsExactlyElementsIn(expectedLabels).inOrder();
   }
@@ -768,8 +771,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibilityViolation() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=b");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file(
         "a/BUILD", //
@@ -785,16 +787,33 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(ex)
         .hasMessageThat()
         .contains(
-            "error loading package 'a': file //a:BUILD contains .bzl load-visibility violations");
+            "error loading package 'a': file //a:BUILD contains .bzl load visibility violations");
     assertDetailedExitCode(
         ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
     assertContainsEvent("Starlark file //b:foo.bzl is not visible for loading from package //a.");
   }
 
   @Test
+  public void testBzlVisibilityViolationDemotedToWarningWhenBreakGlassFlagIsSet() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true", "--check_bzl_visibility=false");
+
+    scratch.file(
+        "a/BUILD", //
+        "load(\"//b:foo.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/foo.bzl", //
+        "visibility(\"private\")",
+        "x = 1");
+
+    validPackageWithoutErrors(PackageValue.key(PackageIdentifier.createInMainRepo("a")));
+    assertContainsEvent("Starlark file //b:foo.bzl is not visible for loading from package //a.");
+    assertContainsEvent("Continuing because --nocheck_bzl_visibility is active");
+  }
+
+  @Test
   public void testVisibilityCallableNotAvailableInBUILD() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=a");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file(
         "a/BUILD", //
@@ -814,8 +833,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testVisibilityCallableErroneouslyInvokedInBUILD() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=a");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file(
         "a/BUILD", //
@@ -1429,7 +1447,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         new IOException() {
           @Override
           public String getMessage() {
-            throw new IllegalStateException("should't get here!");
+            throw new IllegalStateException("shouldn't get here!");
           }
         });
     // And we evaluate the PackageValue node for the Package in keepGoing mode,

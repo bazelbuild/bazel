@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFile
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -61,10 +61,10 @@ final class Discovery {
           unexpandedSkyKeys.add(ModuleFileValue.key(depKey, overrides.get(depKey.getName())));
         }
       }
-      SkyframeIterableResult result = env.getOrderedValuesAndExceptions(unexpandedSkyKeys);
+      SkyframeLookupResult result = env.getValuesAndExceptions(unexpandedSkyKeys);
       for (SkyKey skyKey : unexpandedSkyKeys) {
         ModuleKey depKey = ((ModuleFileValue.Key) skyKey).getModuleKey();
-        ModuleFileValue moduleFileValue = (ModuleFileValue) result.next();
+        ModuleFileValue moduleFileValue = (ModuleFileValue) result.get(skyKey);
         if (moduleFileValue == null) {
           // Don't return yet. Try to expand any other unexpanded nodes before returning.
           depGraph.put(depKey, null);

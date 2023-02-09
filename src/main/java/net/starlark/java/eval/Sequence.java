@@ -120,6 +120,7 @@ public interface Sequence<E>
             "at index %d of %s, got element of type %s, want %s",
             i, what, Starlark.type(elem), Starlark.classType(elemType));
       }
+      i++;
     }
     @SuppressWarnings("unchecked") // safe
     Sequence<T> result = (Sequence) x;

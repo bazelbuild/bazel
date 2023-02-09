@@ -156,8 +156,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBzlVisibility() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=pkg");
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     createWorkspaceFile(
         "workspace(name = 'foo')", //

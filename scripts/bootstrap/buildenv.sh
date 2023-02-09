@@ -192,7 +192,7 @@ function cleanup_phasefile() {
 
 atexit cleanup_phasefile
 
-# Excutes a command respecting the current verbosity settings.
+# Executes a command respecting the current verbosity settings.
 #
 # If VERBOSE is yes, the command itself and its output are printed.
 # If VERBOSE is no, the command's output is only displayed in case of failure.

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableCollection;
@@ -26,7 +27,10 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction.PathType;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.PackageContext;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -63,34 +67,35 @@ public final class LocationExpander {
   private static final boolean EXACTLY_ONE = false;
   private static final boolean ALLOW_MULTIPLE = true;
 
-  private static final boolean USE_LOCATION_PATHS = false;
-  private static final boolean USE_EXEC_PATHS = true;
-
   private final RuleErrorConsumer ruleErrorConsumer;
   private final ImmutableMap<String, LocationFunction> functions;
   private final RepositoryMapping repositoryMapping;
+  private final String workspaceRunfilesDirectory;
 
   @VisibleForTesting
   LocationExpander(
       RuleErrorConsumer ruleErrorConsumer,
       Map<String, LocationFunction> functions,
-      RepositoryMapping repositoryMapping) {
+      RepositoryMapping repositoryMapping,
+      String workspaceRunfilesDirectory) {
     this.ruleErrorConsumer = ruleErrorConsumer;
     this.functions = ImmutableMap.copyOf(functions);
     this.repositoryMapping = repositoryMapping;
+    this.workspaceRunfilesDirectory = workspaceRunfilesDirectory;
   }
 
   private LocationExpander(
-      RuleErrorConsumer ruleErrorConsumer,
+      RuleContext ruleContext,
       Label root,
       Supplier<Map<Label, Collection<Artifact>>> locationMap,
       boolean execPaths,
       boolean legacyExternalRunfiles,
       RepositoryMapping repositoryMapping) {
     this(
-        ruleErrorConsumer,
+        ruleContext,
         allLocationFunctions(root, locationMap, execPaths, legacyExternalRunfiles),
-        repositoryMapping);
+        repositoryMapping,
+        ruleContext.getWorkspaceName());
   }
 
   /**
@@ -204,7 +209,10 @@ public final class LocationExpander {
       // (2) Call appropriate function to obtain string replacement.
       String functionValue = value.substring(nextWhitespace + 1, end).trim();
       try {
-        String replacement = functions.get(fname).apply(functionValue, repositoryMapping);
+        String replacement =
+            functions
+                .get(fname)
+                .apply(functionValue, repositoryMapping, workspaceRunfilesDirectory);
         result.append(replacement);
       } catch (IllegalStateException ise) {
         reporter.report(ise.getMessage());
@@ -232,23 +240,29 @@ public final class LocationExpander {
 
   @VisibleForTesting
   static final class LocationFunction {
+    enum PathType {
+      LOCATION,
+      EXEC,
+      RLOCATION,
+    }
+
     private static final int MAX_PATHS_SHOWN = 5;
 
     private final Label root;
     private final Supplier<Map<Label, Collection<Artifact>>> locationMapSupplier;
-    private final boolean execPaths;
+    private final PathType pathType;
     private final boolean legacyExternalRunfiles;
     private final boolean multiple;
 
     LocationFunction(
         Label root,
         Supplier<Map<Label, Collection<Artifact>>> locationMapSupplier,
-        boolean execPaths,
+        PathType pathType,
         boolean legacyExternalRunfiles,
         boolean multiple) {
       this.root = root;
       this.locationMapSupplier = locationMapSupplier;
-      this.execPaths = execPaths;
+      this.pathType = Preconditions.checkNotNull(pathType);
       this.legacyExternalRunfiles = legacyExternalRunfiles;
       this.multiple = multiple;
     }
@@ -259,26 +273,30 @@ public final class LocationExpander {
      * using the {@code repositoryMapping}.
      *
      * @param arg The label-like string to be expanded, e.g. ":foo" or "//foo:bar"
-     * @param repositoryMapping map of {@code RepositoryName}s defined in the main workspace
+     * @param repositoryMapping map of apparent repository names to {@code RepositoryName}s
+     * @param workspaceRunfilesDirectory name of the runfiles directory corresponding to the main
+     *     repository
      * @return The expanded value
      */
-    public String apply(String arg, RepositoryMapping repositoryMapping) {
+    public String apply(
+        String arg, RepositoryMapping repositoryMapping, String workspaceRunfilesDirectory) {
       Label label;
       try {
-        label = root.getRelativeWithRemapping(arg, repositoryMapping);
+        label =
+            Label.parseWithPackageContext(
+                arg, PackageContext.of(root.getPackageIdentifier(), repositoryMapping));
       } catch (LabelSyntaxException e) {
         throw new IllegalStateException(
             String.format(
                 "invalid label in %s expression: %s", functionName(), e.getMessage()), e);
       }
-      Collection<String> paths = resolveLabel(label);
+      Set<String> paths = resolveLabel(label, workspaceRunfilesDirectory);
       return joinPaths(paths);
     }
 
-    /**
-     * Returns all target location(s) of the given label.
-     */
-    private Collection<String> resolveLabel(Label unresolved) throws IllegalStateException {
+    /** Returns all target location(s) of the given label. */
+    private Set<String> resolveLabel(Label unresolved, String workspaceRunfilesDirectory)
+        throws IllegalStateException {
       Collection<Artifact> artifacts = locationMapSupplier.get().get(unresolved);
 
       if (artifacts == null) {
@@ -288,7 +306,7 @@ public final class LocationExpander {
                 unresolved, functionName()));
       }
 
-      Set<String> paths = getPaths(artifacts);
+      Set<String> paths = getPaths(artifacts, workspaceRunfilesDirectory);
       if (paths.isEmpty()) {
         throw new IllegalStateException(
             String.format(
@@ -313,22 +331,39 @@ public final class LocationExpander {
      * Extracts list of all executables associated with given collection of label artifacts.
      *
      * @param artifacts to get the paths of
+     * @param workspaceRunfilesDirectory name of the runfiles directory corresponding to the main
+     *     repository
      * @return all associated executable paths
      */
-    private Set<String> getPaths(Collection<Artifact> artifacts) {
+    private Set<String> getPaths(
+        Collection<Artifact> artifacts, String workspaceRunfilesDirectory) {
       TreeSet<String> paths = Sets.newTreeSet();
       for (Artifact artifact : artifacts) {
-        PathFragment execPath =
-            execPaths
-                ? artifact.getExecPath()
-                : legacyExternalRunfiles
-                    ? artifact.getPathForLocationExpansion()
-                    : artifact.getRunfilesPath();
-        if (execPath != null) {  // omit middlemen etc
-          paths.add(execPath.getCallablePathString());
+        PathFragment path = getPath(artifact, workspaceRunfilesDirectory);
+        if (path != null) { // omit middlemen etc
+          paths.add(path.getCallablePathString());
         }
       }
       return paths;
+    }
+
+    private PathFragment getPath(Artifact artifact, String workspaceRunfilesDirectory) {
+      switch (pathType) {
+        case LOCATION:
+          return legacyExternalRunfiles
+              ? artifact.getPathForLocationExpansion()
+              : artifact.getRunfilesPath();
+        case EXEC:
+          return artifact.getExecPath();
+        case RLOCATION:
+          PathFragment runfilesPath = artifact.getRunfilesPath();
+          if (runfilesPath.startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)) {
+            return runfilesPath.relativeTo(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX);
+          } else {
+            return PathFragment.create(workspaceRunfilesDirectory).getRelative(runfilesPath);
+          }
+      }
+      throw new IllegalStateException("Unexpected PathType: " + pathType);
     }
 
     private String joinPaths(Collection<String> paths) {
@@ -348,27 +383,44 @@ public final class LocationExpander {
     return new ImmutableMap.Builder<String, LocationFunction>()
         .put(
             "location",
-            new LocationFunction(root, locationMap, execPaths, legacyExternalRunfiles, EXACTLY_ONE))
+            new LocationFunction(
+                root,
+                locationMap,
+                execPaths ? PathType.EXEC : PathType.LOCATION,
+                legacyExternalRunfiles,
+                EXACTLY_ONE))
         .put(
             "locations",
             new LocationFunction(
-                root, locationMap, execPaths, legacyExternalRunfiles, ALLOW_MULTIPLE))
+                root,
+                locationMap,
+                execPaths ? PathType.EXEC : PathType.LOCATION,
+                legacyExternalRunfiles,
+                ALLOW_MULTIPLE))
         .put(
             "rootpath",
             new LocationFunction(
-                root, locationMap, USE_LOCATION_PATHS, legacyExternalRunfiles, EXACTLY_ONE))
+                root, locationMap, PathType.LOCATION, legacyExternalRunfiles, EXACTLY_ONE))
         .put(
             "rootpaths",
             new LocationFunction(
-                root, locationMap, USE_LOCATION_PATHS, legacyExternalRunfiles, ALLOW_MULTIPLE))
+                root, locationMap, PathType.LOCATION, legacyExternalRunfiles, ALLOW_MULTIPLE))
         .put(
             "execpath",
             new LocationFunction(
-                root, locationMap, USE_EXEC_PATHS, legacyExternalRunfiles, EXACTLY_ONE))
+                root, locationMap, PathType.EXEC, legacyExternalRunfiles, EXACTLY_ONE))
         .put(
             "execpaths",
             new LocationFunction(
-                root, locationMap, USE_EXEC_PATHS, legacyExternalRunfiles, ALLOW_MULTIPLE))
+                root, locationMap, PathType.EXEC, legacyExternalRunfiles, ALLOW_MULTIPLE))
+        .put(
+            "rlocationpath",
+            new LocationFunction(
+                root, locationMap, PathType.RLOCATION, legacyExternalRunfiles, EXACTLY_ONE))
+        .put(
+            "rlocationpaths",
+            new LocationFunction(
+                root, locationMap, PathType.RLOCATION, legacyExternalRunfiles, ALLOW_MULTIPLE))
         .buildOrThrow();
   }
 

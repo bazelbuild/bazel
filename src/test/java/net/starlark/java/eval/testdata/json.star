@@ -44,7 +44,7 @@ assert_fails(lambda: json.encode(struct(x = [1, {"x": len}])),
   "in struct field .x: at list index 1: in dict key \"x\": cannot encode builtin_function_or_method as JSON")
 
 def f(deep):
-  for x in range(10000):
+  for x in range(100000):
     deep = [deep]
   json.encode(deep)
 assert_fails(lambda: f(None), "nesting depth limit exceeded")
@@ -128,7 +128,7 @@ assert_fails(lambda: json.decode('{1:2}'), "got int for object key, want string"
 assert_fails(lambda: json.decode('{"one": 1,'), "unexpected end of file")
 assert_fails(lambda: json.decode('{"one": 1, }'), 'unexpected character "}"')
 # FIXME assert_fails(lambda: json.decode('{"one": 1]'), 'in object, got "]", want ',' or \'}\'')
-assert_fails(lambda: json.decode('[' * 10000), "nesting depth limit exceeded")
+assert_fails(lambda: json.decode('[' * 100000), "nesting depth limit exceeded")
 # Unescaped control codes (even tabs) are forbidden in strings.
 assert_fails(lambda: json.decode('"\t"'), r"invalid character '\\x09' in string literal")
 assert_fails(lambda: json.decode('"\\u123"'), r"incomplete \\uXXXX escape")

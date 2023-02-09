@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Hermeticity
 
+{% include "_buttons.html" %}
+
 This page covers hermeticity, the benefits of using hermetic builds, and
 strategies for identifying non-hermetic behavior in your builds.
 
@@ -70,18 +72,18 @@ non-hermetic actions.
   step twice or on different systems, compare a hash of the file contents and
   get results that differ, the build is not reproducible.
 * Run steps to
-  [debug local cache hits](/docs/remote-execution-caching-debug#troubleshooting-cache-hits)
+  [debug local cache hits](/remote/cache-remote#troubleshooting-cache-hits)
   from a variety of potential client machines to ensure that you catch any
   cases of client environment leaking into the actions.
 * Execute a build within a docker container that contains nothing but the
   checked-out source tree and explicit list of host tools. Build breakages and
   error messages will catch implicit system dependencies.
 * Discover and fix hermeticity problems using
-  [remote execution rules](/docs/remote-execution-rules#overview).
+  [remote execution rules](/remote/rules#overview).
 * Enable strict [sandboxing](/docs/sandboxing)
   at the per-action level, since actions in a build can be stateful and affect
   the build or the output.
-* [Workspace rules](/docs/workspace-log)
+* [Workspace rules](/remote/workspace)
   allow developers to add dependencies to external workspaces, but they are
   rich enough to allow arbitrary processing to happen in the process. You can
   get a log of some potentially non-hermetic actions in Bazel workspace rules by

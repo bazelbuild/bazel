@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.builder.core.VariantType;
+import com.android.builder.core.VariantTypeImpl;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.VariantTypeConverter;
@@ -68,15 +68,15 @@ public class AndroidDataBindingProcessingAction {
 
     @Option(
         name = "packageType",
-        defaultValue = "DEFAULT",
+        defaultValue = "BASE_APK",
         converter = VariantTypeConverter.class,
         category = "config",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
             "Variant configuration type for packaging the resources."
-                + " Acceptable values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST")
-    public VariantType packageType;
+                + " Acceptable values BASE_APK, LIBRARY, ANDROID_TEST, UNIT_TEST")
+    public VariantTypeImpl packageType;
 
     @Option(
         name = "dataBindingInfoOut",
@@ -150,6 +150,7 @@ public class AndroidDataBindingProcessingAction {
         while (it.hasNext()) {
           Path layoutInfo = it.next();
           ZipEntry zipEntry = new ZipEntry(layoutInfo.getFileName().toString());
+          zipEntry.setTime(0); // for deterministic output
           layoutInfoZip.putNextEntry(zipEntry);
           Files.copy(layoutInfo, layoutInfoZip);
           layoutInfoZip.closeEntry();

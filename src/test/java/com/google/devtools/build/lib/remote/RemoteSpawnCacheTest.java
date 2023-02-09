@@ -89,7 +89,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
 import org.junit.Before;
@@ -172,7 +171,8 @@ public class RemoteSpawnCacheTest {
         }
 
         @Override
-        public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory)
+        public SortedMap<PathFragment, ActionInput> getInputMapping(
+            PathFragment baseDirectory, boolean willAccessRepeatedly)
             throws IOException, ForbiddenActionInputException {
           return getSpawnInputExpander()
               .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, baseDirectory, fakeFileCache);
@@ -240,7 +240,6 @@ public class RemoteSpawnCacheTest {
                 options,
                 remoteCache,
                 null,
-                ImmutableSet.of(),
                 tempPathGenerator,
                 /* captureCorruptedOutputsDir= */ null));
     return new RemoteSpawnCache(execRoot, options, /* verboseFailures=*/ true, service);
@@ -320,10 +319,9 @@ public class RemoteSpawnCacheTest {
     verify(service, never()).uploadOutputs(any(), any());
     assertThat(result.getDigest())
         .isEqualTo(
-            Optional.of(
-                SpawnResult.Digest.of(
-                    actionKeyCaptor.getValue().getDigest().getHash(),
-                    actionKeyCaptor.getValue().getDigest().getSizeBytes())));
+            SpawnResult.Digest.of(
+                actionKeyCaptor.getValue().getDigest().getHash(),
+                actionKeyCaptor.getValue().getDigest().getSizeBytes()));
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isTrue();

@@ -29,8 +29,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PlatformMappingFunctionParserTest {
 
-  private static final Label PLATFORM1 = Label.parseAbsoluteUnchecked("//platforms:one");
-  private static final Label PLATFORM2 = Label.parseAbsoluteUnchecked("//platforms:two");
+  private static final Label PLATFORM1 = Label.parseCanonicalUnchecked("//platforms:one");
+  private static final Label PLATFORM2 = Label.parseCanonicalUnchecked("//platforms:two");
 
   @Test
   public void testParse() throws Exception {

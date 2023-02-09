@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assume.assumeTrue;
 
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
@@ -76,12 +75,12 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     SpawnExecutionContextForTesting policy =
         new SpawnExecutionContextForTesting(spawn, fileOutErr, policyTimeout);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
     assertThat(spawnResult.setupSuccess()).isTrue();
-    assertThat(spawnResult.getWallTime()).isPresent();
+    assertThat(spawnResult.getWallTime()).isNotNull();
   }
 
   @Test
@@ -137,24 +136,24 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     SpawnExecutionContextForTesting policy =
         new SpawnExecutionContextForTesting(spawn, fileOutErr, policyTimeout);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
     assertThat(spawnResult.setupSuccess()).isTrue();
 
-    assertThat(spawnResult.getWallTime()).isPresent();
-    assertThat(spawnResult.getWallTime().get()).isAtLeast(minimumWallTimeToSpend);
-    assertThat(spawnResult.getWallTime().get()).isAtMost(maximumWallTimeToSpend);
-    assertThat(spawnResult.getUserTime()).isPresent();
-    assertThat(spawnResult.getUserTime().get()).isAtLeast(minimumUserTimeToSpend);
-    assertThat(spawnResult.getUserTime().get()).isAtMost(maximumUserTimeToSpend);
-    assertThat(spawnResult.getSystemTime()).isPresent();
-    assertThat(spawnResult.getSystemTime().get()).isAtLeast(minimumSystemTimeToSpend);
-    assertThat(spawnResult.getSystemTime().get()).isAtMost(maximumSystemTimeToSpend);
-    assertThat(spawnResult.getNumBlockOutputOperations().get()).isAtLeast(0L);
-    assertThat(spawnResult.getNumBlockInputOperations().get()).isAtLeast(0L);
-    assertThat(spawnResult.getNumInvoluntaryContextSwitches().get()).isAtLeast(0L);
+    assertThat(spawnResult.getWallTime()).isNotNull();
+    assertThat(spawnResult.getWallTime()).isAtLeast(minimumWallTimeToSpend);
+    assertThat(spawnResult.getWallTime()).isAtMost(maximumWallTimeToSpend);
+    assertThat(spawnResult.getUserTime()).isNotNull();
+    assertThat(spawnResult.getUserTime()).isAtLeast(minimumUserTimeToSpend);
+    assertThat(spawnResult.getUserTime()).isAtMost(maximumUserTimeToSpend);
+    assertThat(spawnResult.getSystemTime()).isNotNull();
+    assertThat(spawnResult.getSystemTime()).isAtLeast(minimumSystemTimeToSpend);
+    assertThat(spawnResult.getSystemTime()).isAtMost(maximumSystemTimeToSpend);
+    assertThat(spawnResult.getNumBlockOutputOperations()).isAtLeast(0L);
+    assertThat(spawnResult.getNumBlockInputOperations()).isAtLeast(0L);
+    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isAtLeast(0L);
   }
 
   @Test
@@ -208,19 +207,19 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     SpawnExecutionContextForTesting policy =
         new SpawnExecutionContextForTesting(spawn, fileOutErr, policyTimeout);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
     assertThat(spawnResult.setupSuccess()).isTrue();
 
-    assertThat(spawnResult.getWallTime()).isPresent();
-    assertThat(spawnResult.getWallTime().get()).isAtLeast(minimumWallTimeToSpend);
-    assertThat(spawnResult.getWallTime().get()).isAtMost(maximumWallTimeToSpend);
-    assertThat(spawnResult.getUserTime()).isEmpty();
-    assertThat(spawnResult.getSystemTime()).isEmpty();
-    assertThat(spawnResult.getNumBlockOutputOperations()).isEmpty();
-    assertThat(spawnResult.getNumBlockInputOperations()).isEmpty();
-    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isEmpty();
+    assertThat(spawnResult.getWallTime()).isNotNull();
+    assertThat(spawnResult.getWallTime()).isAtLeast(minimumWallTimeToSpend);
+    assertThat(spawnResult.getWallTime()).isAtMost(maximumWallTimeToSpend);
+    assertThat(spawnResult.getUserTime()).isNull();
+    assertThat(spawnResult.getSystemTime()).isNull();
+    assertThat(spawnResult.getNumBlockOutputOperations()).isNull();
+    assertThat(spawnResult.getNumBlockInputOperations()).isNull();
+    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isNull();
   }
 }

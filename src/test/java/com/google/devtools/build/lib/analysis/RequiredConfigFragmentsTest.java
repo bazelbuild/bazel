@@ -18,21 +18,28 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
+import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.MockRule;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
-import com.google.devtools.build.lib.rules.python.PythonConfiguration;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import javax.annotation.Nullable;
@@ -43,23 +50,94 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
 
+  public static final class AOptions extends FragmentOptions {
+    @Option(
+        name = "a_option",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN})
+    public String aOption;
+  }
+
+  /**
+   * Public for {@link com.google.devtools.build.lib.analysis.config.FragmentFactory}'s
+   * reflection-based construction.
+   */
+  @RequiresOptions(options = {AOptions.class})
+  public static final class TestFragmentA extends Fragment {
+    public TestFragmentA(BuildOptions options) {}
+  }
+
+  /**
+   * Public for {@link com.google.devtools.build.lib.analysis.config.FragmentFactory}'s
+   * reflection-based construction.
+   */
+  public static final class TestFragmentB extends Fragment {
+    public TestFragmentB(BuildOptions options) {}
+  }
+
+  @Override
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder =
+        new ConfiguredRuleClassProvider.Builder()
+            .addRuleDefinition(new RuleThatAttachesAspect())
+            .addRuleDefinition(REQUIRES_FRAGMENT_A)
+            .addRuleDefinition(REQUIRES_FRAGMENT_B)
+            .addNativeAspectClass(ASPECT_WITH_CONFIG_FRAGMENT_REQUIREMENTS)
+            .addConfigurationFragment(TestFragmentA.class)
+            .addConfigurationFragment(TestFragmentB.class);
+    TestRuleClassProvider.addStandardRules(builder);
+    return builder.build();
+  }
+
+  private static final MockRule REQUIRES_FRAGMENT_A =
+      () ->
+          MockRule.define(
+              "requires_fragment_a",
+              (builder, env) ->
+                  builder
+                      .add(
+                          attr("deps", BuildType.LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+                      .requiresConfigurationFragments(TestFragmentA.class));
+
+  private static final MockRule REQUIRES_FRAGMENT_B =
+      () ->
+          MockRule.define(
+              "requires_fragment_b",
+              (builder, env) -> builder.requiresConfigurationFragments(TestFragmentB.class));
+
   @Test
   public void provideTransitiveRequiredFragmentsMode() throws Exception {
     useConfiguration("--include_config_fragments_provider=transitive");
     scratch.file(
         "a/BUILD",
-        "config_setting(name = 'config', values = {'start_end_lib': '1'})",
-        "py_library(name = 'pylib', srcs = ['pylib.py'])",
-        "cc_library(name = 'a', srcs = ['A.cc'], data = [':pylib'])");
+        "requires_fragment_b(name = 'b')",
+        "requires_fragment_a(name = 'a', deps = [':b'])");
 
-    RequiredConfigFragmentsProvider ccLibTransitiveFragments =
+    RequiredConfigFragmentsProvider aTransitiveFragments =
         getConfiguredTarget("//a:a").getProvider(RequiredConfigFragmentsProvider.class);
-    assertThat(ccLibTransitiveFragments.getFragmentClasses())
-        .containsAtLeast(CppConfiguration.class, PythonConfiguration.class);
+    assertThat(aTransitiveFragments.getFragmentClasses())
+        .containsAtLeast(TestFragmentA.class, TestFragmentB.class);
+  }
 
-    RequiredConfigFragmentsProvider configSettingTransitiveFragments =
-        getConfiguredTarget("//a:config").getProvider(RequiredConfigFragmentsProvider.class);
-    assertThat(configSettingTransitiveFragments.getOptionsClasses()).contains(CppOptions.class);
+  @Test
+  public void configSettingProvideTransitiveRequiresFragment() throws Exception {
+    useConfiguration("--include_config_fragments_provider=transitive");
+    scratch.file(
+        "a/BUILD",
+        "config_setting(name = 'config_on_native', values = {'cpu': 'foo'})",
+        "config_setting(name = 'config_on_a', values = {'a_option': 'foo'})");
+
+    assertThat(
+            getConfiguredTarget("//a:config_on_a")
+                .getProvider(RequiredConfigFragmentsProvider.class)
+                .getOptionsClasses())
+        .contains(AOptions.class);
+    assertThat(
+            getConfiguredTarget("//a:config_on_native")
+                .getProvider(RequiredConfigFragmentsProvider.class)
+                .getOptionsClasses())
+        .doesNotContain(AOptions.class);
   }
 
   @Test
@@ -67,18 +145,33 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     useConfiguration("--include_config_fragments_provider=direct");
     scratch.file(
         "a/BUILD",
-        "config_setting(name = 'config', values = {'start_end_lib': '1'})",
-        "py_library(name = 'pylib', srcs = ['pylib.py'])",
-        "cc_library(name = 'a', srcs = ['A.cc'], data = [':pylib'])");
+        "requires_fragment_b(name = 'b')",
+        "requires_fragment_a(name = 'a', deps = [':b'])");
 
-    RequiredConfigFragmentsProvider ccLibDirectFragments =
+    RequiredConfigFragmentsProvider aDirectFragments =
         getConfiguredTarget("//a:a").getProvider(RequiredConfigFragmentsProvider.class);
-    assertThat(ccLibDirectFragments.getFragmentClasses()).contains(CppConfiguration.class);
-    assertThat(ccLibDirectFragments.getFragmentClasses()).doesNotContain(PythonConfiguration.class);
+    assertThat(aDirectFragments.getFragmentClasses()).contains(TestFragmentA.class);
+    assertThat(aDirectFragments.getFragmentClasses()).doesNotContain(TestFragmentB.class);
+  }
 
-    RequiredConfigFragmentsProvider configSettingDirectFragments =
-        getConfiguredTarget("//a:config").getProvider(RequiredConfigFragmentsProvider.class);
-    assertThat(configSettingDirectFragments.getOptionsClasses()).contains(CppOptions.class);
+  @Test
+  public void configSettingProvideDirectRequiresFragment() throws Exception {
+    useConfiguration("--include_config_fragments_provider=direct");
+    scratch.file(
+        "a/BUILD",
+        "config_setting(name = 'config_on_native', values = {'cpu': 'foo'})",
+        "config_setting(name = 'config_on_a', values = {'a_option': 'foo'})");
+
+    assertThat(
+            getConfiguredTarget("//a:config_on_a")
+                .getProvider(RequiredConfigFragmentsProvider.class)
+                .getOptionsClasses())
+        .contains(AOptions.class);
+    assertThat(
+            getConfiguredTarget("//a:config_on_native")
+                .getProvider(RequiredConfigFragmentsProvider.class)
+                .getOptionsClasses())
+        .doesNotContain(AOptions.class);
   }
 
   @Test
@@ -159,7 +252,8 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext ruleContext,
         AspectParameters params,
         RepositoryName toolsRepository)
@@ -207,16 +301,6 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
           .addProvider(RunfilesProvider.EMPTY)
           .build();
     }
-  }
-
-  @Override
-  protected ConfiguredRuleClassProvider createRuleClassProvider() {
-    ConfiguredRuleClassProvider.Builder builder =
-        new ConfiguredRuleClassProvider.Builder()
-            .addRuleDefinition(new RuleThatAttachesAspect())
-            .addNativeAspectClass(ASPECT_WITH_CONFIG_FRAGMENT_REQUIREMENTS);
-    TestRuleClassProvider.addStandardRules(builder);
-    return builder.build();
   }
 
   @Test

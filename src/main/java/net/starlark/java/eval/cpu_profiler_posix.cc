@@ -21,10 +21,15 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#ifdef __linux__
+#include <sys/syscall.h>
+#else  // darwin
+#include <pthread.h>
+#endif
 
 namespace cpu_profiler {
 
@@ -40,7 +45,9 @@ pid_t gettid(void) {
 #ifdef __linux__
   return (pid_t)syscall(SYS_gettid);
 #else  // darwin
-  return (pid_t)syscall(SYS_thread_selfid);
+  uint64_t tid64;
+  pthread_threadid_np(NULL, &tid64);
+  return (pid_t)tid64;
 #endif
 }
 

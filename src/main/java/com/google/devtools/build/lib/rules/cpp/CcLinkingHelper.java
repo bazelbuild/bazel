@@ -896,11 +896,7 @@ public final class CcLinkingHelper {
 
   private CppLinkActionBuilder newLinkActionBuilder(
       Artifact outputArtifact, LinkTargetType linkType) {
-    String mnemonic =
-        (linkType.equals(LinkTargetType.OBJCPP_EXECUTABLE)
-                || linkType.equals(LinkTargetType.OBJC_EXECUTABLE))
-            ? "ObjcLink"
-            : null;
+    String mnemonic = linkType.equals(LinkTargetType.OBJC_EXECUTABLE) ? "ObjcLink" : null;
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(
                 ruleErrorConsumer,

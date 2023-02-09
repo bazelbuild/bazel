@@ -29,32 +29,11 @@ _CC_TOOLCHAIN_RULE = {
 
 _COMPILING_RULE = {
     "srcs": attr.label_list(
-        allow_files = [
-            # NON_CPP_SOURCES
-            ".m",
-            ".c",
-            # CPP_SOURCES
-            ".cc",
-            ".cpp",
-            ".mm",
-            ".cxx",
-            ".C",
-            # ASSEMBLY_SOURCES
-            ".s",
-            ".S",
-            ".asm",
-            # OBJECT_FILE_SOURCES
-            ".o",
-            # HEADERS
-            ".h",
-            ".inc",
-            ".hpp",
-            ".hh",
-        ],
+        allow_files = True,
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
     "non_arc_srcs": attr.label_list(
-        allow_files = [".m", ".mm"],
+        allow_files = True,
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
     "pch": attr.label(

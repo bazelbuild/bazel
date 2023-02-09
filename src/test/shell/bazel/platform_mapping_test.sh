@@ -184,7 +184,7 @@ my_rule = rule(
   attrs = {
       "deps": attr.label_list(cfg = my_transition),
       "_allowlist_function_transition": attr.label(
-          default = "@//tools/allowlists/function_transition_allowlist"),
+          default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
   }
 )
 EOF
@@ -256,7 +256,7 @@ transitioning_rule = rule(
   attrs = {
       "deps": attr.label_list(cfg = my_transition),
       "_allowlist_function_transition": attr.label(
-          default = "@//tools/allowlists/function_transition_allowlist"),
+          default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
   }
 )
 

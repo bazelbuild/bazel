@@ -14,13 +14,17 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /** Command-line build options for a Blaze module. */
@@ -46,10 +50,10 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
 
   /**
    * Creates a new instance of this {@code FragmentOptions} with all flags adjusted as needed to
-   * represent the host platform.
+   * represent the execution platform.
    */
   @SuppressWarnings("unused")
-  public FragmentOptions getHost() {
+  public FragmentOptions getExec() {
     return getDefault();
   }
 
@@ -75,6 +79,42 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
    */
   public FragmentOptions getNormalized() {
     return this;
+  }
+
+  /**
+   * Helper method for subclasses to normalize set valued options. In addition to removing
+   * duplicates, it picks a deterministic ordering. The fact that the determinisitic ordering is
+   * based on sorting is an accident and should NOT be relied upon.
+   */
+  protected static List<String> dedupAndSort(List<String> values) {
+    // We use TreeSet instead of HashSet, so the ordering is deterministic also.
+    ImmutableList<String> result = ImmutableList.sortedCopyOf(new TreeSet<>(values));
+    // If the value is already deduped and sorted return the exact same instance we got.
+    return result.equals(values) ? values : result;
+  }
+
+  /**
+   * Helper method for subclasses to remove duplicate values. When removing duplicates all but the
+   * first instance will be removed. This way the relative ordering of two values will match the
+   * relative ordering of their first instances.
+   *
+   * <p>Example: [a, b, a, c, b] -> [a, b, c]
+   */
+  protected static List<String> dedupeOnly(List<String> values) {
+    HashSet<String> alreadySeen = new HashSet<>();
+    List<String> result = new ArrayList<>();
+    for (String value : values) {
+      // Add to result only the first time we see the value
+      if (alreadySeen.add(value)) {
+        result.add(value);
+      }
+    }
+    // If there were no duplicates, return the exact same instance we got.
+    if (result.size() == values.size()) {
+      return values;
+    } else {
+      return result;
+    }
   }
 
   /** Tracks limitations on referring to an option in a {@code config_setting}. */

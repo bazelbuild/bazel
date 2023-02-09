@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.io.IOException;
@@ -38,5 +39,13 @@ public interface Registry {
    * by {@code key} should be materialized as a repo (with name {@code repoName}).
    */
   RepoSpec getRepoSpec(ModuleKey key, RepositoryName repoName, ExtendedEventHandler eventHandler)
+      throws IOException, InterruptedException;
+
+  /**
+   * Retrieves yanked versions of the module identified by {@code key.getName()} from the registry.
+   * Returns {@code Optional.empty()} when the information is not found in the registry.
+   */
+  Optional<ImmutableMap<Version, String>> getYankedVersions(
+      String moduleName, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException;
 }

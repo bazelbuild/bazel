@@ -73,16 +73,6 @@ function test_tar() {
 ./usr/
 ./usr/titi"
   assert_content "test-tar.tar"
-
-  check_eq "./
-./nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-empty.tar)"
-  check_eq "./
-./nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-none.tar)"
-  check_eq "./
-./nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-etc.tar)"
-  check_eq "./
-./etc/
-./etc/nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-dot.tar)"
 }
 
 

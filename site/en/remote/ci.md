@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Configuring Bazel CI to Test Rules for Remote Execution
 
+{% include "_buttons.html" %}
+
 This page is for owners and maintainers of Bazel rule repositories. It
 describes how to configure the Bazel Continuous Integration (CI) system for
 your repository to test your rules for compatibility against a remote execution
@@ -72,7 +74,7 @@ If your build or tests fail, it's likely due to the following:
 
 *   **Build or test targets are using rules that are incompatible with remote
     execution.** See
-    [Adapting Bazel Rules for Remote Execution](/docs/remote-execution-rules) for
+    [Adapting Bazel Rules for Remote Execution](/remote/rules) for
     details about compatibility with remote execution.
 
 ## Using a custom container in the rbe_ubuntu1604 CI config {:#custom-container}
@@ -194,7 +196,7 @@ Container Registry as follows:
 
 ### Specifying the build platform definition {:#platform-definition}
 
-You must include a [Bazel platform](/docs/platforms) configuration in your
+You must include a [Bazel platform](/extending/platforms) configuration in your
 custom toolchain configuration, which allows Bazel to select a toolchain
 appropriate to the desired hardware/software platform. To generate
 automatically a valid platform, you can add  to your `WORKSPACE` an

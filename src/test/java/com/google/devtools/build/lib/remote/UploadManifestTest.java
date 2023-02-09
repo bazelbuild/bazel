@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -41,6 +42,8 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -202,7 +205,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(target);
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ true);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ true,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
     Digest digest = digestUtil.compute(target);
     assertThat(um.getDigestToFile()).containsExactly(digest, link);
@@ -223,7 +232,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(dir);
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ true);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ true,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
     Digest digest = digestUtil.compute(foo);
     assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("link/foo"));
@@ -237,7 +252,11 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("link").setTreeDigest(treeDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("link")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -250,7 +269,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(target);
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ false);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
     Digest digest = digestUtil.compute(target);
     assertThat(um.getDigestToFile()).containsExactly(digest, link);
@@ -271,7 +296,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(dir);
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ false);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
     Digest digest = digestUtil.compute(foo);
     assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("link/foo"));
@@ -285,7 +316,11 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("link").setTreeDigest(treeDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("link")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -298,7 +333,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(target.relativeTo(execRoot));
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ true);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ true,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
     Digest digest = digestUtil.compute(target);
     assertThat(um.getDigestToFile()).containsExactly(digest, link);
@@ -319,7 +360,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(dir.relativeTo(execRoot));
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ true);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ true,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
     Digest digest = digestUtil.compute(foo);
     assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("link/foo"));
@@ -333,7 +380,11 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("link").setTreeDigest(treeDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("link")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -346,7 +397,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(target.relativeTo(execRoot));
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ false);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
     assertThat(um.getDigestToFile()).isEmpty();
 
@@ -366,7 +423,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(dir.relativeTo(execRoot));
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ false);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
     assertThat(um.getDigestToFile()).isEmpty();
 
@@ -376,14 +439,21 @@ public class UploadManifestTest {
   }
 
   @Test
-  public void actionResult_noFollowSymlinks_absoluteDanglingSymlinkError() throws Exception {
+  public void actionResult_noFollowSymlinks_noAllowDanglingSymlinks_absoluteDanglingSymlinkError()
+      throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
     Path link = execRoot.getRelative("link");
     Path target = execRoot.getRelative("target");
     link.createSymbolicLink(target);
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ false);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     IOException e = assertThrows(IOException.class, () -> um.addFiles(ImmutableList.of(link)));
     assertThat(e).hasMessageThat().contains("dangling");
     assertThat(e).hasMessageThat().contains("/execroot/link");
@@ -391,18 +461,97 @@ public class UploadManifestTest {
   }
 
   @Test
-  public void actionResult_noFollowSymlinks_relativeDanglingSymlinkError() throws Exception {
+  public void
+      actionResult_noFollowSymlinks_allowDanglingSymlinks_noAllowAbsoluteSymlinks_absoluteDanglingSymlinkAsError()
+          throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path link = execRoot.getRelative("link");
+    Path target = execRoot.getRelative("target");
+    link.createSymbolicLink(target);
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ true,
+            /*allowAbsoluteSymlinks=*/ false);
+    IOException e = assertThrows(IOException.class, () -> um.addFiles(ImmutableList.of(link)));
+    assertThat(e).hasMessageThat().contains("absolute");
+    assertThat(e).hasMessageThat().contains("/execroot/link");
+    assertThat(e).hasMessageThat().contains("target");
+  }
+
+  @Test
+  public void
+      actionResult_noFollowSymlinks_allowDanglingSymlinks_allowAbsoluteSymlinks_absoluteDanglingSymlinkAsSymlink()
+          throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path link = execRoot.getRelative("link");
+    Path target = execRoot.getRelative("target");
+    link.createSymbolicLink(target);
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ true,
+            /*allowAbsoluteSymlinks=*/ true);
+    um.addFiles(ImmutableList.of(link));
+    assertThat(um.getDigestToFile()).isEmpty();
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputFileSymlinksBuilder().setPath("link").setTarget("/execroot/target");
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void actionResult_noFollowSymlinks_noAllowDanglingSymlinks_relativeDanglingSymlinkError()
+      throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
     Path link = execRoot.getRelative("link");
     Path target = execRoot.getRelative("target");
     link.createSymbolicLink(target.relativeTo(link.getParentDirectory()));
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ false);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     IOException e = assertThrows(IOException.class, () -> um.addFiles(ImmutableList.of(link)));
     assertThat(e).hasMessageThat().contains("dangling");
     assertThat(e).hasMessageThat().contains("/execroot/link");
     assertThat(e).hasMessageThat().contains("target");
+  }
+
+  @Test
+  public void actionResult_noFollowSymlinks_allowDanglingSymlinks_relativeDanglingSymlinkAsSymlink()
+      throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path link = execRoot.getRelative("link");
+    Path target = execRoot.getRelative("target");
+    link.createSymbolicLink(target.relativeTo(link.getParentDirectory()));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ true,
+            /*allowAbsoluteSymlinks=*/ false);
+    um.addFiles(ImmutableList.of(link));
+    assertThat(um.getDigestToFile()).isEmpty();
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputFileSymlinksBuilder().setPath("link").setTarget("target");
+    assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
   @Test
@@ -416,7 +565,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(target);
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ true);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ true,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
     Digest digest = digestUtil.compute(target);
     assertThat(um.getDigestToFile()).containsExactly(digest, link);
@@ -430,7 +585,11 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -448,7 +607,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(bardir);
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ true);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ true,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
     Digest digest = digestUtil.compute(foo);
     assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("dir/link/foo"));
@@ -469,7 +634,11 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -485,7 +654,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(target);
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ false);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
     Digest digest = digestUtil.compute(target);
     assertThat(um.getDigestToFile()).containsExactly(digest, link);
@@ -499,7 +674,11 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -517,7 +696,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(bardir);
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ false);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
     Digest digest = digestUtil.compute(foo);
     assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("dir/link/foo"));
@@ -538,7 +723,11 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -553,7 +742,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(PathFragment.create("../target"));
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ true);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ true,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
     Digest digest = digestUtil.compute(target);
     assertThat(um.getDigestToFile()).containsExactly(digest, link);
@@ -567,7 +762,11 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -585,7 +784,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(PathFragment.create("../bardir"));
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ true);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ true,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
     Digest digest = digestUtil.compute(foo);
     assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("dir/link/foo"));
@@ -606,7 +811,11 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -622,7 +831,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(PathFragment.create("../target"));
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ false);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
     assertThat(um.getDigestToFile()).isEmpty();
 
@@ -635,7 +850,11 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -653,7 +872,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(PathFragment.create("../bardir"));
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ false);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
     assertThat(um.getDigestToFile()).isEmpty();
 
@@ -666,12 +891,18 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
   @Test
-  public void actionResult_noFollowSymlinks_absoluteDanglingSymlinkInDirectory() throws Exception {
+  public void
+      actionResult_noFollowSymlinks_noAllowDanglingSymlinks_absoluteDanglingSymlinkInDirectory()
+          throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
     Path dir = execRoot.getRelative("dir");
     dir.createDirectory();
@@ -680,7 +911,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(target);
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ false);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     IOException e = assertThrows(IOException.class, () -> um.addFiles(ImmutableList.of(dir)));
     assertThat(e).hasMessageThat().contains("dangling");
     assertThat(e).hasMessageThat().contains("/execroot/dir/link");
@@ -688,8 +925,34 @@ public class UploadManifestTest {
   }
 
   @Test
-  public void actionResult_noFollowSymlinks_relativeDanglingSymlinkInDirectoryAsSymlink()
-      throws Exception {
+  public void
+      actionResult_noFollowSymlinks_allowDanglingSymlinks_absoluteDanglingSymlinkInDirectory()
+          throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path target = execRoot.getRelative("target");
+    Path link = execRoot.getRelative("dir/link");
+    link.createSymbolicLink(target);
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ true,
+            /*allowAbsoluteSymlinks=*/ false);
+    IOException e = assertThrows(IOException.class, () -> um.addFiles(ImmutableList.of(dir)));
+    assertThat(e).hasMessageThat().contains("dangling");
+    assertThat(e).hasMessageThat().contains("/execroot/dir/link");
+    assertThat(e).hasMessageThat().contains("/execroot/target");
+  }
+
+  @Test
+  public void
+      actionResult_noFollowSymlinks_noAllowDanglingSymlinks_relativeDanglingSymlinkInDirectoryAsSymlink()
+          throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
     Path dir = execRoot.getRelative("dir");
     dir.createDirectory();
@@ -698,7 +961,13 @@ public class UploadManifestTest {
     link.createSymbolicLink(target.relativeTo(link.getParentDirectory()));
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ false);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
     assertThat(um.getDigestToFile()).isEmpty();
 
@@ -711,7 +980,50 @@ public class UploadManifestTest {
     Digest treeDigest = digestUtil.compute(tree);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void
+      actionResult_noFollowSymlinks_allowDanglingSymlinks_relativeDanglingSymlinkInDirectoryAsSymlink()
+          throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path target = execRoot.getRelative("dir/target");
+    Path link = execRoot.getRelative("dir/link");
+    link.createSymbolicLink(target.relativeTo(link.getParentDirectory()));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ true,
+            /*allowAbsoluteSymlinks=*/ false);
+    um.addFiles(ImmutableList.of(dir));
+    assertThat(um.getDigestToFile()).isEmpty();
+
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addSymlinks(SymlinkNode.newBuilder().setName("link").setTarget("target")))
+            .build();
+    Digest treeDigest = digestUtil.compute(tree);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -725,7 +1037,13 @@ public class UploadManifestTest {
     Path special = dir.getRelative("special");
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ false);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     UserExecException e =
         assertThrows(UserExecException.class, () -> um.addFiles(ImmutableList.of(special)));
     assertThat(e).hasMessageThat().contains("special file");
@@ -739,7 +1057,13 @@ public class UploadManifestTest {
     Path link = dir.getRelative("link");
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ true);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ true,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     UserExecException e =
         assertThrows(UserExecException.class, () -> um.addFiles(ImmutableList.of(link)));
     assertThat(e).hasMessageThat().contains("special file");
@@ -752,7 +1076,13 @@ public class UploadManifestTest {
     Path dir = createDirectoryWithSpecialFile("dir", "special");
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ false);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     UserExecException e =
         assertThrows(UserExecException.class, () -> um.addFiles(ImmutableList.of(dir)));
     assertThat(e).hasMessageThat().contains("special file");
@@ -765,11 +1095,81 @@ public class UploadManifestTest {
     Path dir = createDirectoryWithSymlinkToSpecialFile("dir", "link", "special");
 
     UploadManifest um =
-        new UploadManifest(digestUtil, remotePathResolver, result, /*followSymlinks=*/ true);
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ true,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
     UserExecException e =
         assertThrows(UserExecException.class, () -> um.addFiles(ImmutableList.of(dir)));
     assertThat(e).hasMessageThat().contains("special file");
     assertThat(e).hasMessageThat().contains("dir/link");
+  }
+
+  @Test
+  public void actionResult_topologicallySortedAndDeduplicatedTree() throws Exception {
+    // Create 5^3 identical files named "dir/%d/%d/%d/file".
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    byte[] fileContents = new byte[] {1, 2, 3, 4, 5};
+    final int childrenPerDirectory = 5;
+    for (int a = 0; a < childrenPerDirectory; a++) {
+      Path pathA = dir.getRelative(Integer.toString(a));
+      pathA.createDirectory();
+      for (int b = 0; b < childrenPerDirectory; b++) {
+        Path pathB = pathA.getRelative(Integer.toString(b));
+        pathB.createDirectory();
+        for (int c = 0; c < childrenPerDirectory; c++) {
+          Path pathC = pathB.getRelative(Integer.toString(c));
+          pathC.createDirectory();
+          Path file = pathC.getRelative("file");
+          FileSystemUtils.writeContent(file, fileContents);
+        }
+      }
+    }
+
+    ActionResult.Builder result = ActionResult.newBuilder();
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*followSymlinks=*/ false,
+            /*allowDanglingSymlinks=*/ false,
+            /*allowAbsoluteSymlinks=*/ false);
+    um.addFiles(ImmutableList.of(dir));
+
+    // Even though we constructed 1 + 5 + 5^2 + 5^3 directories, the resulting
+    // Tree message should only contain four unique instances. The directories
+    // should also be topologically sorted.
+    List<Directory> children = new ArrayList<>();
+    Directory root =
+        Directory.newBuilder()
+            .addFiles(
+                FileNode.newBuilder().setName("file").setDigest(digestUtil.compute(fileContents)))
+            .build();
+    for (int depth = 0; depth < 3; depth++) {
+      Directory.Builder b = Directory.newBuilder();
+      Digest parentDigest = digestUtil.compute(root.toByteArray());
+      for (int i = 0; i < childrenPerDirectory; i++) {
+        b.addDirectories(
+            DirectoryNode.newBuilder().setName(Integer.toString(i)).setDigest(parentDigest));
+      }
+      children.add(0, root);
+      root = b.build();
+    }
+    Tree tree = Tree.newBuilder().setRoot(root).addAllChildren(children).build();
+    Digest treeDigest = digestUtil.compute(tree);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("dir")
+        .setTreeDigest(treeDigest)
+        .setIsTopologicallySorted(true);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
   private Path createSpecialFile(String execPath) throws IOException {

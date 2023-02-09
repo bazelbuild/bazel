@@ -60,13 +60,13 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
   }
 
   @Test
-  public void execAsync_echoCommand_executesSuccessfully() throws Exception {
+  public void exec_echoCommand_executesSuccessfully() throws Exception {
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(createCommandEnvironment());
     Spawn spawn = new SpawnBuilder("echo", "echolalia").build();
     Path stdout = testRoot.getChild("stdout");
     SpawnExecutionContext policy = createSpawnExecutionContext(spawn, stdout);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
@@ -76,7 +76,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
   }
 
   @Test
-  public void execAsync_commandWithParamFiles_executesSuccessfully() throws Exception {
+  public void exec_commandWithParamFiles_executesSuccessfully() throws Exception {
     CommandEnvironment commandEnvironment = createCommandEnvironment();
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
     Spawn spawn =
@@ -91,7 +91,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
             .build();
     SpawnExecutionContext policy = createSpawnExecutionContext(spawn);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     Path paramFile = commandEnvironment.getExecRoot().getRelative("out");
@@ -102,7 +102,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
   }
 
   @Test
-  public void execAsync_spawnRunningBinTool_executesSuccessfully() throws Exception {
+  public void exec_spawnRunningBinTool_executesSuccessfully() throws Exception {
     CommandEnvironment commandEnvironment = createCommandEnvironment();
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
     BinTools.PathActionInput pathActionInput =
@@ -121,14 +121,14 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
             .build();
     SpawnExecutionContext policy = createSpawnExecutionContext(spawn);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(FileSystemUtils.readLines(output.getPath(), UTF_8)).containsExactly("hello");
   }
 
   @Test
-  public void execAsync_collectsExecutionStatistics() throws Exception {
+  public void exec_collectsExecutionStatistics() throws Exception {
     CommandEnvironment commandEnvironment = createCommandEnvironment();
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
     Path cpuTimeSpenderPath =
@@ -148,7 +148,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
             .build();
     SpawnExecutionContextForTesting policy = createSpawnExecutionContext(spawn);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
@@ -168,7 +168,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
   }
 
   @Test
-  public void execAsync_statisticsCollectionDisabled_returnsEmptyStatistics() throws Exception {
+  public void exec_statisticsCollectionDisabled_returnsEmptyStatistics() throws Exception {
     CommandEnvironment commandEnvironment =
         getCommandEnvironmentWithExecutionStatisticsOptionDisabled("workspace");
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
@@ -187,7 +187,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
             .build();
     SpawnExecutionContext policy = createSpawnExecutionContext(spawn);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
@@ -200,6 +200,66 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     assertThat(spawnResult.getNumBlockOutputOperations()).isEmpty();
     assertThat(spawnResult.getNumBlockInputOperations()).isEmpty();
     assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isEmpty();
+  }
+
+  @Test
+  public void hermeticTmp_tmpCreatedAndMounted() throws Exception {
+    runtimeWrapper.addOptions("--incompatible_sandbox_hermetic_tmp");
+    CommandEnvironment commandEnvironment = createCommandEnvironment();
+    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
+    Spawn spawn = new SpawnBuilder().build();
+    SandboxedSpawn sandboxedSpawn = runner.prepareSpawn(spawn, createSpawnExecutionContext(spawn));
+
+    Path sandboxPath =
+        sandboxedSpawn.getSandboxExecRoot().getParentDirectory().getParentDirectory();
+    Path hermeticTmpPath = sandboxPath.getRelative("_hermetic_tmp");
+    assertThat(hermeticTmpPath.isDirectory()).isTrue();
+
+    assertThat(sandboxedSpawn).isInstanceOf(SymlinkedSandboxedSpawn.class);
+    String args = String.join(" ", sandboxedSpawn.getArguments());
+    assertThat(args).contains("-w /tmp");
+    assertThat(args).contains("-M " + hermeticTmpPath + " -m /tmp");
+  }
+
+  @Test
+  public void hermeticTmp_sandboxTmpfsOnTmp_tmpNotCreatedOrMounted() throws Exception {
+    runtimeWrapper.addOptions("--incompatible_sandbox_hermetic_tmp", "--sandbox_tmpfs_path=/tmp");
+    CommandEnvironment commandEnvironment = createCommandEnvironment();
+    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
+    Spawn spawn = new SpawnBuilder().build();
+    SandboxedSpawn sandboxedSpawn = runner.prepareSpawn(spawn, createSpawnExecutionContext(spawn));
+
+    Path sandboxPath =
+        sandboxedSpawn.getSandboxExecRoot().getParentDirectory().getParentDirectory();
+    Path hermeticTmpPath = sandboxPath.getRelative("_hermetic_tmp");
+    assertThat(hermeticTmpPath.isDirectory()).isFalse();
+
+    assertThat(sandboxedSpawn).isInstanceOf(SymlinkedSandboxedSpawn.class);
+    String args = String.join(" ", sandboxedSpawn.getArguments());
+    assertThat(args).contains("-w /tmp");
+    assertThat(args).contains("-e /tmp");
+    assertThat(args).doesNotContain("-m /tmp");
+  }
+
+  @Test
+  public void hermeticTmp_sandboxTmpfsUnderTmp_tmpNotCreatedOrMounted() throws Exception {
+    runtimeWrapper.addOptions(
+        "--incompatible_sandbox_hermetic_tmp", "--sandbox_tmpfs_path=/tmp/subdir");
+    CommandEnvironment commandEnvironment = createCommandEnvironment();
+    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
+    Spawn spawn = new SpawnBuilder().build();
+    SandboxedSpawn sandboxedSpawn = runner.prepareSpawn(spawn, createSpawnExecutionContext(spawn));
+
+    Path sandboxPath =
+        sandboxedSpawn.getSandboxExecRoot().getParentDirectory().getParentDirectory();
+    Path hermeticTmpPath = sandboxPath.getRelative("_hermetic_tmp");
+    assertThat(hermeticTmpPath.isDirectory()).isFalse();
+
+    assertThat(sandboxedSpawn).isInstanceOf(SymlinkedSandboxedSpawn.class);
+    String args = String.join(" ", sandboxedSpawn.getArguments());
+    assertThat(args).contains("-w /tmp");
+    assertThat(args).contains("-e /tmp");
+    assertThat(args).doesNotContain("-m /tmp");
   }
 
   private static LinuxSandboxedSpawnRunner setupSandboxAndCreateRunner(

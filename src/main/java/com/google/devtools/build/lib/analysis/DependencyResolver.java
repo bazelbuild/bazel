@@ -216,14 +216,8 @@ public abstract class DependencyResolver {
       Rule rule = ((OutputFile) target).getGeneratingRule();
       outgoingLabels.put(OUTPUT_FILE_RULE_DEPENDENCY, rule.getLabel());
       if (Iterables.any(aspects, a -> a.getDefinition().applyToFiles())) {
-        attributeMap =
-            ConfiguredAttributeMapper.of(rule, configConditions, node.getConfiguration());
-        resolveAttributes(
-            getAspectAttributes(aspects),
-            outgoingLabels,
-            rule,
-            attributeMap,
-            node.getConfiguration());
+        attributeMap = ConfiguredAttributeMapper.of(rule, configConditions, config);
+        resolveAttributes(getAspectAttributes(aspects), outgoingLabels, rule, attributeMap, config);
       }
       addToolchainDeps(toolchainContexts, outgoingLabels);
     } else if (target instanceof InputFile) {
@@ -232,8 +226,7 @@ public abstract class DependencyResolver {
       visitTargetVisibility(node, outgoingLabels);
     } else if (target instanceof Rule) {
       fromRule = (Rule) target;
-      attributeMap =
-          ConfiguredAttributeMapper.of(fromRule, configConditions, node.getConfiguration());
+      attributeMap = ConfiguredAttributeMapper.of(fromRule, configConditions, config);
       visitRule(node, aspects, attributeMap, toolchainContexts, outgoingLabels);
     } else if (target instanceof PackageGroup) {
       outgoingLabels.putAll(VISIBILITY_DEPENDENCY, ((PackageGroup) target).getIncludes());
@@ -254,13 +247,10 @@ public abstract class DependencyResolver {
 
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         partiallyResolveDependencies(
-            config, outgoingLabels, fromRule, attributeMap, toolchainContexts, aspects);
+            outgoingLabels, fromRule, attributeMap, toolchainContexts, aspects);
 
-    OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges =
-        fullyResolveDependencies(
-            partiallyResolvedDeps, targetMap, node.getConfiguration(), trimmingTransitionFactory);
-
-    return outgoingEdges;
+    return fullyResolveDependencies(
+        partiallyResolvedDeps, targetMap, config, trimmingTransitionFactory);
   }
 
   /**
@@ -273,7 +263,6 @@ public abstract class DependencyResolver {
    */
   private OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency>
       partiallyResolveDependencies(
-          BuildConfigurationValue config,
           OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
           @Nullable Rule fromRule,
           @Nullable ConfiguredAttributeMapper attributeMap,
@@ -282,6 +271,7 @@ public abstract class DependencyResolver {
           throws Failure {
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         OrderedSetMultimap.create();
+    ImmutableList<Aspect> aspectsList = ImmutableList.copyOf(aspects);
 
     for (Map.Entry<DependencyKind, Label> entry : outgoingLabels.entries()) {
       Label toLabel = entry.getValue();
@@ -345,12 +335,8 @@ public abstract class DependencyResolver {
       Attribute attribute = entry.getKey().getAttribute();
       ImmutableList.Builder<Aspect> propagatingAspects = ImmutableList.builder();
       propagatingAspects.addAll(attribute.getAspects(fromRule));
-      collectPropagatingAspects(
-          ImmutableList.copyOf(aspects),
-          attribute.getName(),
-          config,
-          entry.getKey().getOwningAspect(),
-          propagatingAspects);
+      AspectClass owningAspect = entry.getKey().getOwningAspect();
+      collectPropagatingAspects(aspectsList, attribute.getName(), owningAspect, propagatingAspects);
 
       Label executionPlatformLabel = null;
       // TODO(jcater): refactor this nested if structure into something simpler.
@@ -359,11 +345,25 @@ public abstract class DependencyResolver {
           String execGroup =
               ((ExecutionTransitionFactory) attribute.getTransitionFactory()).getExecGroup();
           if (!toolchainContexts.hasToolchainContext(execGroup)) {
-            throw new Failure(
-                fromRule != null ? fromRule.getLocation() : null,
-                String.format(
-                    "Attr '%s' declares a transition for non-existent exec group '%s'",
-                    attribute.getName(), execGroup));
+            // If {@code aspectsList} is not empty, {@code toolchainContexts} contains only the exec
+            // groups of the main aspect (placed as the last aspect in {@code aspectsList}).
+            // Otherwise, {@code toolchainContexts} contains the exec group of the target's rule.
+            // Therefore, if the {@aspectsList} is not empty and the current entry is not a
+            // dependency of the main aspect, {@code execGroup} will never exist in {@code
+            // toolchainContexts} and this dependency will be skipped.
+            // TODO(b/256617733): Make a decision on whether the exec groups of the target
+            // and the base aspects should be merged in {@code toolchainContexts}.
+            if (aspectsList.isEmpty()
+                || (owningAspect != null
+                    && owningAspect.equals(Iterables.getLast(aspects).getAspectClass()))) {
+              throw new Failure(
+                  fromRule != null ? fromRule.getLocation() : null,
+                  String.format(
+                      "Attr '%s' declares a transition for non-existent exec group '%s'",
+                      attribute.getName(), execGroup));
+            } else {
+              continue;
+            }
           }
           if (toolchainContexts.getToolchainContext(execGroup).executionPlatform() != null) {
             executionPlatformLabel =
@@ -632,7 +632,9 @@ public abstract class DependencyResolver {
 
     Class<FragmentT> fragmentClass = lateBoundDefault.getFragmentClass();
     // TODO(b/65746853): remove this when nothing uses it anymore
-    if (BuildConfigurationValue.class.equals(fragmentClass)) {
+    if (BuildConfigurationValue.class.equals(fragmentClass)
+        // noconfig targets can't meaningfully parse late-bound defaults. See NoConfigTransition.
+        && !ruleConfig.getOptions().hasNoConfig()) {
       return lateBoundDefault.resolve(rule, attributeMap, fragmentClass.cast(ruleConfig));
     }
     if (Void.class.equals(fragmentClass)) {
@@ -677,20 +679,16 @@ public abstract class DependencyResolver {
   private static void collectPropagatingAspects(
       ImmutableList<Aspect> aspectsPath,
       String attributeName,
-      BuildConfigurationValue config,
       @Nullable AspectClass aspectOwningAttribute,
       ImmutableList.Builder<Aspect> allFilteredAspects) {
     int aspectsNum = aspectsPath.size();
     ArrayList<Aspect> filteredAspectsPath = new ArrayList<>();
 
+    // `aspectsPath` is ordered bottom up. Iterating backwards traverses top-down so the following
+    // loop captures aspects that propagate along the given attribute and all their transitive
+    // requirements.
     for (int i = aspectsNum - 1; i >= 0; i--) {
       Aspect aspect = aspectsPath.get(i);
-      if (!aspect.getDefinition().propagateViaAttribute().test(config, attributeName)) {
-        // This condition is only included to support the migration to platform-based Android
-        // toolchain selection. See DexArchiveAspect for details. One that migration is complete,
-        // this logic should be removed on the principle of unnecessary complexity.
-        continue;
-      }
       if (aspect.getAspectClass().equals(aspectOwningAttribute)) {
         // Do not propagate over the aspect's own attributes.
         continue;
@@ -765,6 +763,9 @@ public abstract class DependencyResolver {
   private static AspectCollection computeAspectCollections(
       ImmutableList<Aspect> aspects, Target toTarget) throws InconsistentAspectOrderException {
     if (toTarget instanceof OutputFile) {
+      // When applyToGeneratingRules holds, the aspect cannot have required providers so it's
+      // possible to skip the filtering that happens further below. However,
+      // apply_to_generating_rules is rare in the codebase so the optimization is not worth it.
       aspects =
           aspects.stream()
               .filter(aspect -> aspect.getDefinition().applyToGeneratingRules())
@@ -796,7 +797,7 @@ public abstract class DependencyResolver {
     try {
       return AspectCollection.create(filteredAspectPath);
     } catch (AspectCycleOnPathException e) {
-      throw new InconsistentAspectOrderException(toTarget, e);
+      throw new InconsistentAspectOrderException(toTarget.getLabel(), toTarget.getLocation(), e);
     }
   }
 

@@ -58,7 +58,11 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
   private Package.Builder newBuilder(PackageIdentifier id, Path filename) {
     return packageFactory
         .newPackageBuilder(
-            id, "TESTING", StarlarkSemantics.DEFAULT, RepositoryMapping.ALWAYS_FALLBACK)
+            id,
+            "TESTING",
+            StarlarkSemantics.DEFAULT,
+            RepositoryMapping.ALWAYS_FALLBACK,
+            RepositoryMapping.ALWAYS_FALLBACK)
         .setFilename(RootedPath.toRootedPath(root, filename));
   }
 
@@ -96,7 +100,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     assertThat(rule.getRuleClass()).isEqualTo("cc_library");
     assertThat(rule.getTargetKind()).isEqualTo("cc_library rule");
     // The rule reports the location of the outermost call (aka generator), in the BUILD file.
-    // Thie behavior was added to fix b/23974287, but it loses informtion and is redundant
+    // This behavior was added to fix b/23974287, but it loses information and is redundant
     // w.r.t. generator_location. A better fix to that issue would be to keep rule.location as
     // the innermost call, and to report the entire call stack at the first error for the rule.
     assertThat(rule.getLocation().file()).isEqualTo("BUILD");

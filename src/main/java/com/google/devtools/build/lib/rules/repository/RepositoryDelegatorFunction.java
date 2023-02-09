@@ -245,15 +245,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     if (!repositoryName.isVisible()) {
       return new NoRepositoryDirectoryValue(
           String.format(
-              "Repository '@%s' is not visible from repository '%s'",
-              repositoryName.getName(), repositoryName.getOwnerRepoIfNotVisible().getNameWithAt()));
+              "No repository visible as '@%s' from %s",
+              repositoryName.getName(), repositoryName.getOwnerRepoDisplayString()));
     }
 
     Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
-    boolean doNotFetchUnconditionally =
-        DONT_FETCH_UNCONDITIONALLY.equals(DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.get(env));
-    boolean needsConfiguring = false;
-
     Path repoRoot =
         RepositoryFunction.getExternalRepositoryDirectory(directories)
             .getRelative(repositoryName.getName());
@@ -264,7 +260,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
 
     Rule rule = null;
-
     if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
       // Tries to get a repository rule instance from Bzlmod generated repos.
       SkyKey key = BzlmodRepoRuleValue.key(repositoryName);
@@ -299,15 +294,18 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           String.format("'%s' is not a repository rule", repositoryName.getCanonicalForm()));
     }
 
+    boolean needsConfiguring = false;
     if (handler.isConfigure(rule)) {
       needsConfiguring =
           !DONT_FETCH_UNCONDITIONALLY.equals(DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING.get(env));
     }
-
     if (env.valuesMissing()) {
       return null;
     }
+
     DigestWriter digestWriter = new DigestWriter(directories, repositoryName, rule);
+    boolean doNotFetchUnconditionally =
+        DONT_FETCH_UNCONDITIONALLY.equals(DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.get(env));
 
     // Local repositories are fetched regardless of the marker file because the operation is
     // generally fast and they do not depend on non-local data, so it does not make much sense to

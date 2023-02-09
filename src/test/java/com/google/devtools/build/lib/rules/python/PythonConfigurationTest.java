@@ -97,7 +97,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
             "--incompatible_py2_outputs_are_suffixed=true",
             "--build_python_zip=true",
             "--incompatible_use_python_toolchains=true");
-    PythonOptions hostOpts = (PythonOptions) opts.getHost();
+    PythonOptions hostOpts = (PythonOptions) opts.getExec();
     assertThat(hostOpts.incompatiblePy3IsDefault).isTrue();
     assertThat(hostOpts.incompatiblePy2OutputsAreSuffixed).isTrue();
     assertThat(hostOpts.buildPythonZip).isEqualTo(TriState.YES);
@@ -116,8 +116,8 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
             // it is to set the flag false and force host to PY3.
             "--host_force_python=PY2");
     PythonOptions hostOptsWithPythonVersionFlag =
-        (PythonOptions) optsWithPythonVersionFlag.getHost();
-    PythonOptions hostOptsWithPy3IsDefaultFlag = (PythonOptions) optsWithPy3IsDefaultFlag.getHost();
+        (PythonOptions) optsWithPythonVersionFlag.getExec();
+    PythonOptions hostOptsWithPy3IsDefaultFlag = (PythonOptions) optsWithPy3IsDefaultFlag.getExec();
     assertThat(hostOptsWithPythonVersionFlag.getPythonVersion()).isEqualTo(PythonVersion.PY3);
     assertThat(hostOptsWithPy3IsDefaultFlag.getPythonVersion()).isEqualTo(PythonVersion.PY2);
   }
@@ -126,7 +126,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   public void getHost_Py3IsDefaultFlagChangesHost() throws Exception {
     assumesDefaultIsPY2();
     PythonOptions opts = parsePythonOptions("--incompatible_py3_is_default=true");
-    PythonOptions hostOpts = (PythonOptions) opts.getHost();
+    PythonOptions hostOpts = (PythonOptions) opts.getExec();
     assertThat(hostOpts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 

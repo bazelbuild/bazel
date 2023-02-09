@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -127,6 +128,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
       return null;
     }
     markerData.put(SEMANTICS, describeSemantics(starlarkSemantics));
+    markerData.put("ARCH:", CPU.getCurrent().getCanonicalName());
 
     Set<String> verificationRules =
         RepositoryDelegatorFunction.OUTPUT_VERIFICATION_REPOSITORY_RULES.get(env);

@@ -25,8 +25,6 @@ import static com.google.devtools.build.lib.remote.RemoteCache.createFailureDeta
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
-import static com.google.devtools.build.lib.remote.util.Utils.hasFilesToDownload;
-import static com.google.devtools.build.lib.remote.util.Utils.shouldDownloadAllSpawnOutputs;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
@@ -66,24 +64,22 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.Protos.CacheSalt;
 import com.google.devtools.build.lib.exec.SpawnInputExpander.InputWalker;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -109,12 +105,17 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
-import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.worker.WorkerKey;
+import com.google.devtools.build.lib.worker.WorkerOptions;
+import com.google.devtools.build.lib.worker.WorkerParser;
+import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
@@ -142,9 +143,9 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -162,7 +163,6 @@ public class RemoteExecutionService {
   private final RemoteOptions remoteOptions;
   @Nullable private final RemoteCache remoteCache;
   @Nullable private final RemoteExecutionClient remoteExecutor;
-  private final ImmutableSet<PathFragment> filesToDownload;
   private final TempPathGenerator tempPathGenerator;
   @Nullable private final Path captureCorruptedOutputsDir;
   private final Cache<Object, MerkleTree> merkleTreeCache;
@@ -173,8 +173,6 @@ public class RemoteExecutionService {
 
   private final AtomicBoolean shutdown = new AtomicBoolean(false);
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
-  private final boolean shouldForceDownloads;
-  private final Predicate<String> shouldForceDownloadPredicate;
 
   public RemoteExecutionService(
       Executor executor,
@@ -188,7 +186,6 @@ public class RemoteExecutionService {
       RemoteOptions remoteOptions,
       @Nullable RemoteCache remoteCache,
       @Nullable RemoteExecutionClient remoteExecutor,
-      ImmutableSet<ActionInput> filesToDownload,
       TempPathGenerator tempPathGenerator,
       @Nullable Path captureCorruptedOutputsDir) {
     this.reporter = reporter;
@@ -209,36 +206,10 @@ public class RemoteExecutionService {
     }
     this.merkleTreeCache = merkleTreeCacheBuilder.build();
 
-    ImmutableSet.Builder<PathFragment> filesToDownloadBuilder = ImmutableSet.builder();
-    for (ActionInput actionInput : filesToDownload) {
-      filesToDownloadBuilder.add(actionInput.getExecPath());
-    }
-    this.filesToDownload = filesToDownloadBuilder.build();
     this.tempPathGenerator = tempPathGenerator;
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
 
     this.scheduler = Schedulers.from(executor, /*interruptibleWorker=*/ true);
-
-    // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
-    // used without Build without the Bytes.
-    ImmutableList.Builder<Pattern> builder = ImmutableList.builder();
-    if (remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL
-        || remoteOptions.remoteOutputsMode == RemoteOutputsMode.TOPLEVEL) {
-      for (String regex : remoteOptions.remoteDownloadRegex) {
-        builder.add(Pattern.compile(regex));
-      }
-    }
-    ImmutableList<Pattern> patterns = builder.build();
-    this.shouldForceDownloads = !patterns.isEmpty();
-    this.shouldForceDownloadPredicate =
-        path -> {
-          for (Pattern pattern : patterns) {
-            if (pattern.matcher(path).find()) {
-              return true;
-            }
-          }
-          return false;
-        };
   }
 
   static Command buildCommand(
@@ -252,7 +223,7 @@ public class RemoteExecutionService {
     ArrayList<String> outputDirectories = new ArrayList<>();
     for (ActionInput output : outputs) {
       String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
-      if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
+      if (output.isDirectory()) {
         outputDirectories.add(pathString);
       } else {
         outputFiles.add(pathString);
@@ -336,7 +307,8 @@ public class RemoteExecutionService {
 
     if (useRemoteCache(remoteOptions)) {
       allowRemoteCache =
-          shouldUploadLocalResultsToRemoteCache(remoteOptions, spawn.getExecutionInfo());
+          shouldUploadLocalResultsToRemoteCache(remoteOptions, spawn.getExecutionInfo())
+              && remoteCache.actionCacheSupportsUpdate();
       if (useDiskCache(remoteOptions)) {
         // Combined cache
         if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
@@ -381,13 +353,19 @@ public class RemoteExecutionService {
     return outputDirMap;
   }
 
-  private MerkleTree buildInputMerkleTree(Spawn spawn, SpawnExecutionContext context)
+  private MerkleTree buildInputMerkleTree(
+      Spawn spawn, SpawnExecutionContext context, ToolSignature toolSignature)
       throws IOException, ForbiddenActionInputException {
     // Add output directories to inputs so that they are created as empty directories by the
     // executor. The spec only requires the executor to create the parent directory of an output
     // directory, which differs from the behavior of both local and sandboxed execution.
     SortedMap<PathFragment, ActionInput> outputDirMap = buildOutputDirMap(spawn);
-    if (remoteOptions.remoteMerkleTreeCache) {
+    boolean useMerkleTreeCache = remoteOptions.remoteMerkleTreeCache;
+    if (toolSignature != null) {
+      // Marking tool files is not yet supported in conjunction with the merkle tree cache.
+      useMerkleTreeCache = false;
+    }
+    if (useMerkleTreeCache) {
       MetadataProvider metadataProvider = context.getMetadataProvider();
       ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
       remotePathResolver.walkInputs(
@@ -401,7 +379,9 @@ public class RemoteExecutionService {
       }
       return MerkleTree.merge(subMerkleTrees, digestUtil);
     } else {
-      SortedMap<PathFragment, ActionInput> inputMap = remotePathResolver.getInputMapping(context);
+      SortedMap<PathFragment, ActionInput> inputMap =
+          remotePathResolver.getInputMapping(
+              context, /* willAccessRepeatedly= */ !remoteOptions.remoteDiscardMerkleTrees);
       if (!outputDirMap.isEmpty()) {
         // The map returned by getInputMapping is mutable, but must not be mutated here as it is
         // shared with all other strategies.
@@ -410,7 +390,12 @@ public class RemoteExecutionService {
         newInputMap.putAll(outputDirMap);
         inputMap = newInputMap;
       }
-      return MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
+      return MerkleTree.build(
+          inputMap,
+          toolSignature == null ? ImmutableSet.of() : toolSignature.toolInputs,
+          context.getMetadataProvider(),
+          execRoot,
+          digestUtil);
     }
   }
 
@@ -441,64 +426,117 @@ public class RemoteExecutionService {
 
   @Nullable
   private static ByteString buildSalt(Spawn spawn) {
+    CacheSalt.Builder saltBuilder =
+        CacheSalt.newBuilder().setMayBeExecutedRemotely(Spawns.mayBeExecutedRemotely(spawn));
+
     String workspace =
         spawn.getExecutionInfo().get(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE);
     if (workspace != null) {
-      Platform platform =
-          Platform.newBuilder()
-              .addProperties(
-                  Platform.Property.newBuilder().setName("workspace").setValue(workspace).build())
-              .build();
-      return platform.toByteString();
+      saltBuilder.setWorkspace(workspace);
     }
 
-    return null;
+    return saltBuilder.build().toByteString();
+  }
+
+  /**
+   * Semaphore for limiting the concurrent number of Merkle tree input roots we compute and keep in
+   * memory.
+   *
+   * <p>When --jobs is set to a high value to let the remote execution service runs many actions in
+   * parallel, there is no point in letting the local system compute Merkle trees of input roots
+   * with the same amount of parallelism. Not only does this make Bazel feel sluggish and slow to
+   * respond to being interrupted, it causes it to exhaust memory.
+   *
+   * <p>As there is no point in letting Merkle tree input root computation use a higher concurrency
+   * than the number of CPUs in the system, use a semaphore to limit the concurrency of
+   * buildRemoteAction().
+   */
+  private final Semaphore remoteActionBuildingSemaphore =
+      new Semaphore(Runtime.getRuntime().availableProcessors(), true);
+
+  @Nullable
+  private ToolSignature getToolSignature(Spawn spawn, SpawnExecutionContext context)
+      throws IOException, ExecException, InterruptedException {
+    return remoteOptions.markToolInputs
+            && Spawns.supportsWorkers(spawn)
+            && !spawn.getToolFiles().isEmpty()
+        ? computePersistentWorkerSignature(spawn, context)
+        : null;
   }
 
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, UserExecException, ForbiddenActionInputException {
-    final MerkleTree merkleTree = buildInputMerkleTree(spawn, context);
+      throws IOException, ExecException, ForbiddenActionInputException, InterruptedException {
+    remoteActionBuildingSemaphore.acquire();
+    try {
+      ToolSignature toolSignature = getToolSignature(spawn, context);
+      final MerkleTree merkleTree = buildInputMerkleTree(spawn, context, toolSignature);
 
-    // Get the remote platform properties.
-    Platform platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+      // Get the remote platform properties.
+      Platform platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+      if (toolSignature != null) {
+        platform =
+            PlatformUtils.getPlatformProto(
+                spawn, remoteOptions, ImmutableMap.of("persistentWorkerKey", toolSignature.key));
+      } else {
+        platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+      }
 
-    Command command =
-        buildCommand(
-            spawn.getOutputFiles(),
-            spawn.getArguments(),
-            spawn.getEnvironment(),
-            platform,
-            remotePathResolver);
-    Digest commandHash = digestUtil.compute(command);
-    Action action =
-        Utils.buildAction(
-            commandHash,
-            merkleTree.getRootDigest(),
-            platform,
-            context.getTimeout(),
-            Spawns.mayBeCachedRemotely(spawn),
-            buildSalt(spawn));
+      Command command =
+          buildCommand(
+              spawn.getOutputFiles(),
+              spawn.getArguments(),
+              spawn.getEnvironment(),
+              platform,
+              remotePathResolver);
+      Digest commandHash = digestUtil.compute(command);
+      Action action =
+          Utils.buildAction(
+              commandHash,
+              merkleTree.getRootDigest(),
+              platform,
+              context.getTimeout(),
+              Spawns.mayBeCachedRemotely(spawn),
+              buildSalt(spawn));
 
-    ActionKey actionKey = digestUtil.computeActionKey(action);
+      ActionKey actionKey = digestUtil.computeActionKey(action);
 
-    RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata(
-            buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
-    RemoteActionExecutionContext remoteActionExecutionContext =
-        RemoteActionExecutionContext.create(
-            spawn, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
+      RequestMetadata metadata =
+          TracingMetadataUtils.buildMetadata(
+              buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
+      RemoteActionExecutionContext remoteActionExecutionContext =
+          RemoteActionExecutionContext.create(
+              spawn, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
 
-    return new RemoteAction(
-        spawn,
-        context,
-        remoteActionExecutionContext,
-        remotePathResolver,
-        merkleTree,
-        commandHash,
-        command,
-        action,
-        actionKey);
+      return new RemoteAction(
+          spawn,
+          context,
+          remoteActionExecutionContext,
+          remotePathResolver,
+          merkleTree,
+          commandHash,
+          command,
+          action,
+          actionKey,
+          remoteOptions.remoteDiscardMerkleTrees);
+    } finally {
+      remoteActionBuildingSemaphore.release();
+    }
+  }
+
+  @Nullable
+  private ToolSignature computePersistentWorkerSignature(Spawn spawn, SpawnExecutionContext context)
+      throws IOException, ExecException, InterruptedException {
+    WorkerParser workerParser =
+        new WorkerParser(
+            execRoot, Options.getDefaults(WorkerOptions.class), LocalEnvProvider.NOOP, null);
+    WorkerKey workerKey = workerParser.compute(spawn, context).getWorkerKey();
+    Fingerprint fingerprint = new Fingerprint();
+    fingerprint.addBytes(workerKey.getWorkerFilesCombinedHash().asBytes());
+    fingerprint.addIterableStrings(workerKey.getArgs());
+    fingerprint.addStringMap(workerKey.getEnv());
+    return new ToolSignature(
+        fingerprint.hexDigestAndReset(), workerKey.getWorkerFilesWithDigests().keySet());
   }
 
   /** A value class representing the result of remotely executed {@link RemoteAction}. */
@@ -741,14 +779,6 @@ public class RemoteExecutionService {
 
   private void createSymlinks(Iterable<SymlinkMetadata> symlinks) throws IOException {
     for (SymlinkMetadata symlink : symlinks) {
-      if (symlink.target().isAbsolute()) {
-        // We do not support absolute symlinks as outputs.
-        throw new IOException(
-            String.format(
-                "Action output %s is a symbolic link to an absolute path %s. "
-                    + "Symlinks to absolute paths in action outputs are not supported.",
-                symlink.path(), symlink.target()));
-      }
       Preconditions.checkNotNull(
               symlink.path().getParentDirectory(),
               "Failed creating directory and parents for %s",
@@ -758,55 +788,37 @@ public class RemoteExecutionService {
     }
   }
 
-  private void injectRemoteArtifact(
-      RemoteAction action, ActionInput output, ActionResultMetadata metadata) throws IOException {
+  private void injectRemoteArtifacts(RemoteAction action, ActionResultMetadata metadata)
+      throws IOException {
     FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
     checkState(actionFileSystem instanceof RemoteActionFileSystem);
 
     RemoteActionExecutionContext context = action.getRemoteActionExecutionContext();
     RemoteActionFileSystem remoteActionFileSystem = (RemoteActionFileSystem) actionFileSystem;
 
-    Path path = remotePathResolver.outputPathToLocalPath(output);
-    if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
-      DirectoryMetadata directory = metadata.directory(path);
-      if (directory == null) {
-        // A declared output wasn't created. It might have been an optional output and if not
-        // SkyFrame will make sure to fail.
-        return;
-      }
+    for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+      DirectoryMetadata directory = entry.getValue();
       if (!directory.symlinks().isEmpty()) {
         throw new IOException(
             "Symlinks in action outputs are not yet supported by "
                 + "--experimental_remote_download_outputs=minimal");
       }
-      SpecialArtifact parent = (SpecialArtifact) output;
-      TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
+
       for (FileMetadata file : directory.files()) {
-        TreeFileArtifact child =
-            TreeFileArtifact.createTreeOutput(parent, file.path().relativeTo(parent.getPath()));
-        RemoteFileArtifactValue value =
-            RemoteFileArtifactValue.create(
-                DigestUtil.toBinaryDigest(file.digest()),
-                file.digest().getSizeBytes(),
-                /*locationIndex=*/ 1,
-                context.getRequestMetadata().getActionId());
-        tree.putChild(child, value);
+        remoteActionFileSystem.injectRemoteFile(
+            file.path().asFragment(),
+            DigestUtil.toBinaryDigest(file.digest()),
+            file.digest().getSizeBytes(),
+            context.getRequestMetadata().getActionId());
       }
-      remoteActionFileSystem.injectTree(parent, tree.build());
-    } else {
-      FileMetadata outputMetadata = metadata.file(path);
-      if (outputMetadata == null) {
-        // A declared output wasn't created. It might have been an optional output and if not
-        // SkyFrame will make sure to fail.
-        return;
-      }
-      remoteActionFileSystem.injectFile(
-          output,
-          RemoteFileArtifactValue.create(
-              DigestUtil.toBinaryDigest(outputMetadata.digest()),
-              outputMetadata.digest().getSizeBytes(),
-              /*locationIndex=*/ 1,
-              context.getRequestMetadata().getActionId()));
+    }
+
+    for (FileMetadata file : metadata.files()) {
+      remoteActionFileSystem.injectRemoteFile(
+          file.path().asFragment(),
+          DigestUtil.toBinaryDigest(file.digest()),
+          file.digest().getSizeBytes(),
+          context.getRequestMetadata().getActionId());
     }
   }
 
@@ -1028,12 +1040,11 @@ public class RemoteExecutionService {
         ImmutableList.builder();
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
     boolean downloadOutputs =
-        shouldDownloadAllSpawnOutputs(
-            remoteOutputsMode,
-            /* exitCode = */ result.getExitCode(),
-            hasFilesToDownload(action.getSpawn().getOutputFiles(), filesToDownload));
-
-    ImmutableList<ListenableFuture<FileMetadata>> forcedDownloads = ImmutableList.of();
+        remoteOutputsMode.downloadAllOutputs()
+            ||
+            // In case the action failed, download all outputs. It might be helpful for debugging
+            // and there is no point in injecting output metadata of a failed action.
+            result.getExitCode() != 0;
 
     // Download into temporary paths, then move everything at the end.
     // This avoids holding the output lock while downloading, which would prevent the local branch
@@ -1059,15 +1070,6 @@ public class RemoteExecutionService {
             "Symlinks in action outputs are not yet supported by "
                 + "--experimental_remote_download_outputs=minimal");
       }
-      if (shouldForceDownloads) {
-        forcedDownloads =
-            buildFilesToDownloadWithPredicate(
-                context,
-                progressStatusListener,
-                metadata,
-                shouldForceDownloadPredicate,
-                realToTmpPath);
-      }
     }
 
     FileOutErr tmpOutErr = outErr.childOutErr();
@@ -1080,17 +1082,6 @@ public class RemoteExecutionService {
     ImmutableList<ListenableFuture<FileMetadata>> downloads = downloadsBuilder.build();
     try (SilentCloseable c = Profiler.instance().profile("Remote.download")) {
       waitForBulkTransfer(downloads, /* cancelRemainingOnInterrupt= */ true);
-    } catch (Exception e) {
-      // TODO(bazel-team): Consider adding better case-by-case exception handling instead of just
-      // rethrowing
-      captureCorruptedOutputs(e);
-      deletePartialDownloadedOutputs(realToTmpPath, tmpOutErr, e);
-      throw e;
-    }
-
-    // TODO(bazel-team): Unify this block with the equivalent block above.
-    try (SilentCloseable c = Profiler.instance().profile("Remote.forcedDownload")) {
-      waitForBulkTransfer(forcedDownloads, /* cancelRemainingOnInterrupt= */ true);
     } catch (Exception e) {
       // TODO(bazel-team): Consider adding better case-by-case exception handling instead of just
       // rethrowing
@@ -1115,23 +1106,29 @@ public class RemoteExecutionService {
 
       List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
       for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-        symlinksInDirectories.addAll(entry.getValue().symlinks());
+        for (SymlinkMetadata symlink : entry.getValue().symlinks()) {
+          // Symlinks should not be allowed inside directories because their semantics are unclear:
+          // tree artifacts are defined as a collection of regular files, and resolving the symlinks
+          // locally is asking for trouble. Sadly, we did start permitting relative symlinks at some
+          // point, so we can only ban the absolute ones.
+          // See https://github.com/bazelbuild/bazel/issues/16361.
+          if (symlink.target().isAbsolute()) {
+            throw new IOException(
+                String.format(
+                    "Unsupported absolute symlink '%s' inside tree artifact '%s'",
+                    symlink.path(), entry.getKey()));
+          }
+          symlinksInDirectories.add(symlink);
+        }
       }
 
       Iterable<SymlinkMetadata> symlinks =
           Iterables.concat(metadata.symlinks(), symlinksInDirectories);
 
       // Create the symbolic links after all downloads are finished, because dangling symlinks
-      // might not be supported on all platforms
+      // might not be supported on all platforms.
       createSymlinks(symlinks);
     } else {
-      // TODO(bazel-team): We should unify this if-block to rely on downloadOutputs above but, as of
-      // 2022-07-05,  downloadOuputs' semantics isn't exactly the same as build-without-the-bytes
-      // which is necessary for using remoteDownloadRegex.
-      if (!forcedDownloads.isEmpty()) {
-        moveOutputsToFinalLocation(forcedDownloads, realToTmpPath);
-      }
-
       ActionInput inMemoryOutput = null;
       Digest inMemoryOutputDigest = null;
       PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
@@ -1148,8 +1145,9 @@ public class RemoteExecutionService {
           inMemoryOutputDigest = m.digest();
           inMemoryOutput = output;
         }
-        injectRemoteArtifact(action, output, metadata);
       }
+
+      injectRemoteArtifacts(action, metadata);
 
       try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {
         if (inMemoryOutput != null) {
@@ -1222,7 +1220,8 @@ public class RemoteExecutionService {
     ImmutableList.Builder<ListenableFuture<FileMetadata>> builder = new ImmutableList.Builder<>();
 
     for (FileMetadata file : metadata.files()) {
-      if (!realToTmpPath.containsKey(file.path) && predicate.test(file.path.toString())) {
+      if (!realToTmpPath.containsKey(file.path)
+          && predicate.test(file.path.relativeTo(execRoot).toString())) {
         Path tmpPath = tempPathGenerator.generateTempPath();
         realToTmpPath.put(file.path, tmpPath);
         builder.add(downloadFile(context, progressStatusListener, file, tmpPath));
@@ -1231,7 +1230,8 @@ public class RemoteExecutionService {
 
     for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
       for (FileMetadata file : entry.getValue().files()) {
-        if (!realToTmpPath.containsKey(file.path) && predicate.test(file.path.toString())) {
+        if (!realToTmpPath.containsKey(file.path)
+            && predicate.test(file.path.relativeTo(execRoot).toString())) {
           Path tmpPath = tempPathGenerator.generateTempPath();
           realToTmpPath.put(file.path, tmpPath);
           builder.add(downloadFile(context, progressStatusListener, file, tmpPath));
@@ -1257,8 +1257,10 @@ public class RemoteExecutionService {
           ImmutableList.Builder<Path> outputFiles = ImmutableList.builder();
           // Check that all mandatory outputs are created.
           for (ActionInput outputFile : action.getSpawn().getOutputFiles()) {
+            Symlinks followSymlinks = outputFile.isSymlink() ? Symlinks.NOFOLLOW : Symlinks.FOLLOW;
             Path localPath = execRoot.getRelative(outputFile.getExecPath());
-            if (action.getSpawn().isMandatoryOutput(outputFile) && !localPath.exists()) {
+            if (action.getSpawn().isMandatoryOutput(outputFile)
+                && !localPath.exists(followSymlinks)) {
               throw new IOException(
                   "Expected output " + prettyPrint(outputFile) + " was not created locally.");
             }
@@ -1267,6 +1269,7 @@ public class RemoteExecutionService {
 
           return UploadManifest.create(
               remoteOptions,
+              remoteCache.getCacheCapabilities(),
               digestUtil,
               remotePathResolver,
               action.getActionKey(),
@@ -1364,7 +1367,7 @@ public class RemoteExecutionService {
    * <p>Must be called before calling {@link #executeRemotely}.
    */
   public void uploadInputsIfNotPresent(RemoteAction action, boolean force)
-      throws IOException, InterruptedException {
+      throws IOException, ExecException, ForbiddenActionInputException, InterruptedException {
     checkState(!shutdown.get(), "shutdown");
     checkState(mayBeExecutedRemotely(action.getSpawn()), "spawn can't be executed remotely");
 
@@ -1373,13 +1376,33 @@ public class RemoteExecutionService {
     Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
     additionalInputs.put(action.getActionKey().getDigest(), action.getAction());
     additionalInputs.put(action.getCommandHash(), action.getCommand());
-    remoteExecutionCache.ensureInputsPresent(
-        action
-            .getRemoteActionExecutionContext()
-            .withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY), // Only upload to remote cache
-        action.getMerkleTree(),
-        additionalInputs,
-        force);
+
+    // As uploading depends on having the full input root in memory, limit
+    // concurrency. This prevents memory exhaustion. We assume that
+    // ensureInputsPresent() provides enough parallelism to saturate the
+    // network connection.
+    remoteActionBuildingSemaphore.acquire();
+    try {
+      MerkleTree merkleTree = action.getMerkleTree();
+      if (merkleTree == null) {
+        // --experimental_remote_discard_merkle_trees was provided.
+        // Recompute the input root.
+        Spawn spawn = action.getSpawn();
+        SpawnExecutionContext context = action.getSpawnExecutionContext();
+        ToolSignature toolSignature = getToolSignature(spawn, context);
+        merkleTree = buildInputMerkleTree(spawn, context, toolSignature);
+      }
+
+      remoteExecutionCache.ensureInputsPresent(
+          action
+              .getRemoteActionExecutionContext()
+              .withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY), // Only upload to remote cache
+          merkleTree,
+          additionalInputs,
+          force);
+    } finally {
+      remoteActionBuildingSemaphore.release();
+    }
   }
 
   /**
@@ -1492,6 +1515,20 @@ public class RemoteExecutionService {
       }
       reportedErrors.add(evt.getMessage());
       reporter.handle(evt);
+    }
+  }
+
+  /**
+   * A simple value class combining a hash of the tool inputs (and their digests) as well as a set
+   * of the relative paths of all tool inputs.
+   */
+  private static final class ToolSignature {
+    private final String key;
+    private final Set<PathFragment> toolInputs;
+
+    private ToolSignature(String key, Set<PathFragment> toolInputs) {
+      this.key = key;
+      this.toolInputs = toolInputs;
     }
   }
 }

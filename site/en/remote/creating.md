@@ -3,7 +3,9 @@ Book: /_book.yaml
 
 # Creating Persistent Workers
 
-[Persistent workers](/docs/persistent-workers) can make your build faster. If
+{% include "_buttons.html" %}
+
+[Persistent workers](/remote/persistent) can make your build faster. If
 you have repeated actions in your build that have a high startup cost or would
 benefit from cross-action caching, you may want to implement your own persistent
 worker to perform these actions.
@@ -63,7 +65,7 @@ Bazel sets the `verbosity` field to 10, but smaller or larger values can be used
 manually for different amounts of output.
 
 The optional `sandbox_dir` field is used only by workers that support
-[multiplex sandboxing](/docs/multiplex-worker).
+[multiplex sandboxing](/remote/multiplex).
 
 ### Work responses {:#work-responses}
 
@@ -235,7 +237,7 @@ ctx.actions.run(
 ```
 
 For another example, see
-[Implementing persistent workers](/docs/persistent-workers#implementation).
+[Implementing persistent workers](/remote/persistent#implementation).
 
 ## Examples {:#examples}
 

@@ -151,8 +151,8 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_bzl_visibility",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
@@ -161,20 +161,12 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalBzlVisibility;
 
   @Option(
-      name = "experimental_bzl_visibility_allowlist",
-      converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "A comma-separated list of packages (sans \"//\") which, if --experimental_bzl_visibility"
-              + " is enabled, are permitted to contain .bzl files that set a bzl-visibility by"
-              + " calling the `visibility()` function. Subpackages may also be included by"
-              + " appending `/...`. (Known issue: This flag may not work correctly in the presence"
-              + " of repository remapping, which is used by bzlmod.) If the list includes the"
-              + " special item \"everyone\", all packages are permitted.")
-  public List<String> experimentalBzlVisibilityAllowlist;
+      name = "check_bzl_visibility",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help = "If disabled, .bzl load visibility errors are demoted to warnings.")
+  public boolean checkBzlVisibility;
 
   @Option(
       name = "experimental_cc_skylark_api_enabled_packages",
@@ -443,6 +435,31 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleDisallowStructProviderSyntax;
 
   @Option(
+      name = "incompatible_package_group_has_public_syntax",
+      defaultValue = FlagConstants.DEFAULT_INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "In package_group's `packages` attribute, allows writing \"public\" or \"private\" to"
+              + " refer to all packages or no packages respectively.")
+  public boolean incompatiblePackageGroupHasPublicSyntax;
+
+  @Option(
+      name = "incompatible_fix_package_group_reporoot_syntax",
+      defaultValue = FlagConstants.DEFAULT_INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "In package_group's `packages` attribute, changes the meaning of the value \"//...\" to"
+              + " refer to all packages in the current repository instead of all packages in any"
+              + " repository. You can use the special value \"public\" in place of \"//...\" to"
+              + " obtain the old behavior. This flag requires"
+              + " that --incompatible_package_group_has_public_syntax also be enabled.")
+  public boolean incompatibleFixPackageGroupReporootSyntax;
+
+  @Option(
       name = "incompatible_visibility_private_attributes_at_definition",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -648,7 +665,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_BUILTINS_DUMMY, experimentalBuiltinsDummy)
             .set(EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE, experimentalBuiltinsInjectionOverride)
             .setBool(EXPERIMENTAL_BZL_VISIBILITY, experimentalBzlVisibility)
-            .set(EXPERIMENTAL_BZL_VISIBILITY_ALLOWLIST, experimentalBzlVisibilityAllowlist)
+            .setBool(CHECK_BZL_VISIBILITY, checkBzlVisibility)
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
             .setBool(ENABLE_BZLMOD, enableBzlmod)
@@ -675,6 +692,12 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX,
                 incompatibleDisallowStructProviderSyntax)
+            .setBool(
+                INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX,
+                incompatiblePackageGroupHasPublicSyntax)
+            .setBool(
+                INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX,
+                incompatibleFixPackageGroupReporootSyntax)
             .setBool(INCOMPATIBLE_JAVA_COMMON_PARAMETERS, incompatibleJavaCommonParameters)
             .setBool(INCOMPATIBLE_NEW_ACTIONS_API, incompatibleNewActionsApi)
             .setBool(INCOMPATIBLE_NO_ATTR_LICENSE, incompatibleNoAttrLicense)
@@ -730,7 +753,8 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_ALLOW_TAGS_PROPAGATION =
       "-experimental_allow_tags_propagation";
   public static final String EXPERIMENTAL_BUILTINS_DUMMY = "-experimental_builtins_dummy";
-  public static final String EXPERIMENTAL_BZL_VISIBILITY = "-experimental_bzl_visibility";
+  public static final String EXPERIMENTAL_BZL_VISIBILITY = "+experimental_bzl_visibility";
+  public static final String CHECK_BZL_VISIBILITY = "+check_bzl_visibility";
   public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "-experimental_cc_shared_library";
   public static final String EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE =
       "-experimental_disable_external_package";
@@ -761,6 +785,10 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "-incompatible_disallow_empty_glob";
   public static final String INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX =
       "-incompatible_disallow_struct_provider_syntax";
+  public static final String INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX =
+      FlagConstants.INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX;
+  public static final String INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX =
+      FlagConstants.INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX;
   public static final String INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE =
       "+incompatible_do_not_split_linking_cmdline";
   public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =
@@ -795,8 +823,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");
   public static final StarlarkSemantics.Key<List<String>> EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE =
       new StarlarkSemantics.Key<>("experimental_builtins_injection_override", ImmutableList.of());
-  public static final StarlarkSemantics.Key<List<String>> EXPERIMENTAL_BZL_VISIBILITY_ALLOWLIST =
-      new StarlarkSemantics.Key<>("experimental_bzl_visibility_allowlist", ImmutableList.of());
   public static final StarlarkSemantics.Key<Long> MAX_COMPUTATION_STEPS =
       new StarlarkSemantics.Key<>("max_computation_steps", 0L);
   public static final StarlarkSemantics.Key<Integer> NESTED_SET_DEPTH_LIMIT =

@@ -72,7 +72,11 @@ static void Usage(char *program_name, const char *fmt, ...) {
           "  -N  if set, a new network namespace will be created\n"
           "  -R  if set, make the uid/gid be root\n"
           "  -U  if set, make the uid/gid be nobody\n"
+          "  -P  if set, make the gid be tty and make /dev/pts writable\n"
           "  -D  if set, debug info will be printed\n"
+          "  -p  if set, the process is persistent and ignores parent thread "
+          "death signals\n"
+          "  -C <dir> if set, put all subprocesses inside this cgroup.\n"
           "  -h <sandbox-dir>  if set, chroot to sandbox-dir and only "
           " mount whats been specified with -M/-m for improved hermeticity. "
           " The working-dir should be a folder inside the sandbox-dir\n"
@@ -95,9 +99,8 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   extern int optind, optopt;
   int c;
   bool source_specified = false;
-
   while ((c = getopt(args->size(), args->data(),
-                     ":W:T:t:il:L:w:e:M:m:S:h:HNRUD")) != -1) {
+                     ":W:T:t:il:L:w:e:M:m:S:h:pC:HNRUPD")) != -1) {
     if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
       case 'W':
@@ -123,6 +126,9 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
         break;
       case 'i':
         opt.sigint_sends_sigterm = true;
+        break;
+      case 'p':
+        opt.persistent_process = true;
         break;
       case 'l':
         if (opt.stdout_path.empty()) {
@@ -214,6 +220,13 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
                 "option.");
         }
         opt.fake_username = true;
+        break;
+      case 'C':
+        ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
+        opt.cgroups_dir.assign(optarg);
+        break;
+      case 'P':
+        opt.enable_pty = true;
         break;
       case 'D':
         opt.debug = true;

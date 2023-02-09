@@ -26,6 +26,7 @@ import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -62,7 +63,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -767,7 +768,7 @@ public class BzlLoadFunction implements SkyFunction {
       return null; // Skyframe deps unavailable
     }
 
-    // Validate that the current .bzl file satisfies each loaded dependency's bzl-visibility.
+    // Validate that the current .bzl file satisfies each loaded dependency's load visibility.
     // Violations are reported as error events (since there can be more than one in a single file)
     // and also trigger a BzlLoadFailedException.
     checkLoadVisibilities(
@@ -776,6 +777,8 @@ public class BzlLoadFunction implements SkyFunction {
         loadValues,
         loadKeys,
         programLoads,
+        /*demoteErrorsToWarnings=*/ !builtins.starlarkSemantics.getBool(
+            BuildLanguageOptions.CHECK_BZL_VISIBILITY),
         env.getListener());
 
     // Accumulate a transitive digest of the bzl file, the digests of its direct loads, and the
@@ -833,7 +836,7 @@ public class BzlLoadFunction implements SkyFunction {
     if (bzlVisibility == null) {
       bzlVisibility = BzlVisibility.PUBLIC;
     }
-    // We save bzl-visibility in the BzlLoadValue rather than the BazelModuleContext because
+    // We save load visibility in the BzlLoadValue rather than the BazelModuleContext because
     // visibility doesn't need to be introspected by any Starlark builtin methods, and because the
     // alternative would mean mutating or overwriting the BazelModuleContext after evaluation.
     return new BzlLoadValue(module, transitiveDigest, bzlVisibility);
@@ -950,7 +953,9 @@ public class BzlLoadFunction implements SkyFunction {
       // Parse the load statement's module string as a label.
       // It must end in .bzl and not be in package "//external".
       try {
-        Label label = buildLabel.getRelativeWithRemapping(load.first, repoMapping);
+        Label label =
+            Label.parseWithPackageContext(
+                load.first, PackageContext.of(buildLabel.getPackageIdentifier(), repoMapping));
         checkValidLoadLabel(
             label,
             /* fromBuiltinsRepo= */ StarlarkBuiltinsValue.isBuiltinsRepo(base.getRepository()));
@@ -1007,11 +1012,11 @@ public class BzlLoadFunction implements SkyFunction {
       Environment env, List<BzlLoadValue.Key> keys, List<Pair<String, Location>> programLoads)
       throws BzlLoadFailedException, InterruptedException {
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
-    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(keys);
+    SkyframeLookupResult values = env.getValuesAndExceptions(keys);
     // Process loads (and report first error) in source order.
     for (int i = 0; i < keys.size(); i++) {
       try {
-        bzlLoads.add((BzlLoadValue) values.nextOrThrow(BzlLoadFailedException.class));
+        bzlLoads.add((BzlLoadValue) values.getOrThrow(keys.get(i), BzlLoadFailedException.class));
       } catch (BzlLoadFailedException ex) {
         throw BzlLoadFailedException.whileLoadingDep(programLoads.get(i).second, ex);
       }
@@ -1104,29 +1109,35 @@ public class BzlLoadFunction implements SkyFunction {
       List<BzlLoadValue> loadValues,
       List<BzlLoadValue.Key> loadKeys,
       List<Pair<String, Location>> programLoads,
+      boolean demoteErrorsToWarnings,
       EventHandler handler)
       throws BzlLoadFailedException {
-    boolean ok = true;
+    boolean foundViolation = false;
     for (int i = 0; i < loadValues.size(); i++) {
       BzlVisibility loadVisibility = loadValues.get(i).getBzlVisibility();
       Label loadLabel = loadKeys.get(i).getLabel();
       PackageIdentifier loadPackage = loadLabel.getPackageIdentifier();
       if (!(requestingPackage.equals(loadPackage)
           || loadVisibility.allowsPackage(requestingPackage))) {
-        handler.handle(
-            Event.error(
-                programLoads.get(i).second,
-                String.format(
-                    // TODO(brandjon): Consider whether we should try to report error messages (here
-                    // and elsewhere) using the literal text of the load() rather than the (already
-                    // repo-remapped) label.
-                    "Starlark file %s is not visible for loading from package %s. Check the"
-                        + " file's `visibility()` declaration.",
-                    loadLabel, requestingPackage.getCanonicalForm())));
-        ok = false;
+        Location loc = programLoads.get(i).second;
+        String msg =
+            String.format(
+                // TODO(brandjon): Consider whether we should try to report error messages (here
+                // and elsewhere) using the literal text of the load() rather than the (already
+                // repo-remapped) label.
+                "Starlark file %s is not visible for loading from package %s. Check the"
+                    + " file's `visibility()` declaration.",
+                loadLabel, requestingPackage.getCanonicalForm());
+        if (demoteErrorsToWarnings) {
+          msg += " Continuing because --nocheck_bzl_visibility is active";
+          handler.handle(Event.warn(loc, msg));
+        } else {
+          handler.handle(Event.error(loc, msg));
+        }
+        foundViolation = true;
       }
     }
-    if (!ok) {
+    if (foundViolation && !demoteErrorsToWarnings) {
       throw BzlLoadFailedException.visibilityViolation(requestingFileDescription);
     }
   }
@@ -1460,14 +1471,14 @@ public class BzlLoadFunction implements SkyFunction {
     }
 
     /**
-     * Returns an exception for bzl-visibility violations.
+     * Returns an exception for load visibility violations.
      *
      * <p>{@code fileDescription} is a string like {@code "module //pkg:foo.bzl"} or {@code "file
      * //pkg:BUILD"}.
      */
     static BzlLoadFailedException visibilityViolation(String fileDescription) {
       return new BzlLoadFailedException(
-          String.format("%s contains .bzl load-visibility violations", fileDescription),
+          String.format("%s contains .bzl load visibility violations", fileDescription),
           Code.VISIBILITY_ERROR);
     }
   }

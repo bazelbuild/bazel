@@ -47,13 +47,9 @@ class RunfilesTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    # TODO(brandjon): (Issue #8169) Make this test compatible with Python
-    # toolchains. Blocked on the fact that there's no PY3 environment on our Mac
-    # workers (bazelbuild/continuous-integration#578).
     exit_code, _, stderr = self.RunBazel([
         "build",
         "--verbose_failures",
-        "--incompatible_use_python_toolchains=false",
         "//foo:runfiles-" + family
     ])
     self.AssertExitCode(exit_code, 0, stderr)
@@ -226,7 +222,7 @@ class RunfilesTest(test_base.TestBase):
         # runfiles tree, Bazel actually creates empty __init__.py files (again
         # on every platform). However to keep these manifest entries correct,
         # they need to have a space character.
-        # We could probably strip thses lines completely, but this test doesn't
+        # We could probably strip these lines completely, but this test doesn't
         # aim to exercise what would happen in that case.
         mock_manifest_data = [
             mock_manifest_line
@@ -311,6 +307,41 @@ class RunfilesTest(test_base.TestBase):
       manifest_path = os.path.join(bazel_output, exec_dir,
                                    "bin/bin.runfiles_manifest")
     self.AssertFileContentNotContains(manifest_path, "__main__/external/A")
+
+  def testRunfilesLibrariesFindRlocationpathExpansion(self):
+    self.ScratchDir("A")
+    self.ScratchFile("A/WORKSPACE")
+    self.ScratchFile("A/p/BUILD", ["exports_files(['foo.txt'])"])
+    self.ScratchFile("A/p/foo.txt", ["Hello, World!"])
+    self.ScratchFile("WORKSPACE", ["local_repository(name = 'A', path='A')"])
+    self.ScratchFile("pkg/BUILD", [
+        "py_binary(",
+        "  name = 'bin',",
+        "  srcs = ['bin.py'],",
+        "  args = [",
+        "    '$(rlocationpath bar.txt)',",
+        "    '$(rlocationpath @A//p:foo.txt)',",
+        "  ],",
+        "  data = [",
+        "    'bar.txt',",
+        "    '@A//p:foo.txt'",
+        "  ],",
+        "  deps = ['@bazel_tools//tools/python/runfiles'],",
+        ")",
+    ])
+    self.ScratchFile("pkg/bar.txt", ["Hello, Bazel!"])
+    self.ScratchFile("pkg/bin.py", [
+        "import sys",
+        "from tools.python.runfiles import runfiles",
+        "r = runfiles.Create()",
+        "for arg in sys.argv[1:]:",
+        "  print(open(r.Rlocation(arg)).read().strip())",
+    ])
+    _, stdout, _ = self.RunBazel(["run", "//pkg:bin"])
+    if len(stdout) != 2:
+      self.fail("stdout: %s" % stdout)
+    self.assertEqual(stdout[0], "Hello, Bazel!")
+    self.assertEqual(stdout[1], "Hello, World!")
 
 
 if __name__ == "__main__":

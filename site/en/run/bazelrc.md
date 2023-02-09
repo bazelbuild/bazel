@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Write bazelrc configuration files
 
+{% include "_buttons.html" %}
 
 Bazel accepts many options. Some options are varied frequently (for example,
 `--subcommands`) while others stay the same across several builds (such as
@@ -56,7 +57,8 @@ before the command (`build`, `test`, etc).
     This flag is optional but can also be specified multiple times.
 
     `/dev/null` indicates that all further `--bazelrc`s will be ignored, which
-     is useful to disable the search for a user rc file, such as in release builds.
+     is useful to disable the search for a user rc file, such as in release
+     builds.
 
     For example:
 
@@ -230,8 +232,12 @@ line. Entries are relative to the workspace root.
 ### The global bazelrc file {:#global-bazelrc}
 
 Bazel reads optional bazelrc files in this order:
-- System rc-file located at `etc/bazel.bazelrc`.
-- Workspace rc-file located at `$workspace/tools/bazel.rc`.
-- Home rc-file localted at `$HOME/.bazelrc`
 
-Each bazelrc file listed here has a corresponding flag which can be used to disable them (e.g. `--nosystem_rc`, `--noworkspace_rc`, `--nohome_rc`). You can also make Bazel ignore all bazelrcs by passing the `--ignore_all_rc_files` startup option.
+1.  System rc-file located at `etc/bazel.bazelrc`.
+2.  Workspace rc-file located at `$workspace/tools/bazel.rc`.
+3.  Home rc-file located at `$HOME/.bazelrc`
+
+Each bazelrc file listed here has a corresponding flag which can be used to
+disable them (e.g. `--nosystem_rc`, `--noworkspace_rc`, `--nohome_rc`). You can
+also make Bazel ignore all bazelrcs by passing the `--ignore_all_rc_files`
+startup option.

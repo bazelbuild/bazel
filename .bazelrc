@@ -28,11 +28,15 @@ build:remote --config=ubuntu1804_java11
 build:macos --macos_minimum_os=10.10
 
 # Enable Bzlmod
-build:bzlmod --experimental_enable_bzlmod
+build:bzlmod --enable_bzlmod
+build:bzlmod --check_direct_dependencies=error
 
 # Enable Java 11 language features (https://github.com/bazelbuild/bazel/issues/14592)
 build --java_language_version=11
 build --tool_java_language_version=11
+
+# Fail if a glob doesn't match anything (https://github.com/bazelbuild/bazel/issues/8195)
+build --incompatible_disallow_empty_glob
 
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc

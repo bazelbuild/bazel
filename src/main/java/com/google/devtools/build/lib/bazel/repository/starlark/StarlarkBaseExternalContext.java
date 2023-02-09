@@ -715,7 +715,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
         Profiler.instance().profile("extracting: " + getIdentifyingStringForLogging())) {
       env.getListener()
           .post(
-              new ExtractProgress(outputPath.getPath().toString(), "Extracting " + downloadedPath));
+              new ExtractProgress(
+                  outputPath.getPath().toString(), "Extracting " + downloadedPath.getBaseName()));
       DecompressorValue.decompress(
           DecompressorDescriptor.builder()
               .setContext(getIdentifyingStringForLogging())

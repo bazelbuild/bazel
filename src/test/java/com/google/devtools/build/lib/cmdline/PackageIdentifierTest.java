@@ -16,14 +16,13 @@ package com.google.devtools.build.lib.cmdline;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link PackageIdentifier}.
- */
+/** Unit tests for {@link PackageIdentifier}. */
 @RunWith(JUnit4.class)
 public class PackageIdentifierTest {
   @Test
@@ -92,5 +91,53 @@ public class PackageIdentifierTest {
         .isEqualTo(PathFragment.create("../foo/bar/baz"));
     assertThat(PackageIdentifier.create("", PathFragment.create("bar/baz")).getRunfilesPath())
         .isEqualTo(PathFragment.create("bar/baz"));
+  }
+
+  @Test
+  public void testUnambiguousCanonicalForm() throws Exception {
+    assertThat(PackageIdentifier.createInMainRepo("foo/bar").getUnambiguousCanonicalForm())
+        .isEqualTo("@@//foo/bar");
+    assertThat(
+            PackageIdentifier.create("foo", PathFragment.create("bar"))
+                .getUnambiguousCanonicalForm())
+        .isEqualTo("@@foo//bar");
+    assertThat(
+            PackageIdentifier.create(
+                    RepositoryName.create("foo").toNonVisible(RepositoryName.create("bar")),
+                    PathFragment.create("baz"))
+                .getUnambiguousCanonicalForm())
+        .isEqualTo("@@[unknown repo 'foo' requested from @bar]//baz");
+  }
+
+  @Test
+  public void testDisplayFormInMainRepository() throws Exception {
+    PackageIdentifier pkg =
+        PackageIdentifier.create(RepositoryName.MAIN, PathFragment.create("some/pkg"));
+
+    assertThat(pkg.getDisplayForm(RepositoryMapping.ALWAYS_FALLBACK)).isEqualTo("//some/pkg");
+    assertThat(
+            pkg.getDisplayForm(
+                RepositoryMapping.create(
+                    ImmutableMap.of("foo", RepositoryName.create("bar")), RepositoryName.MAIN)))
+        .isEqualTo("//some/pkg");
+  }
+
+  @Test
+  public void testDisplayFormInExternalRepository() throws Exception {
+    RepositoryName repo = RepositoryName.create("canonical");
+    PackageIdentifier pkg = PackageIdentifier.create(repo, PathFragment.create("some/pkg"));
+
+    assertThat(pkg.getDisplayForm(RepositoryMapping.ALWAYS_FALLBACK))
+        .isEqualTo("@canonical//some/pkg");
+    assertThat(
+            pkg.getDisplayForm(
+                RepositoryMapping.create(ImmutableMap.of("local", repo), RepositoryName.MAIN)))
+        .isEqualTo("@local//some/pkg");
+    assertThat(
+            pkg.getDisplayForm(
+                RepositoryMapping.create(
+                    ImmutableMap.of("local", RepositoryName.create("other_repo")),
+                    RepositoryName.MAIN)))
+        .isEqualTo("@@canonical//some/pkg");
   }
 }

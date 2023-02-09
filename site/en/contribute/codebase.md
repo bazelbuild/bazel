@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # The Bazel Code Base
 
+{% include "_buttons.html" %}
+
 This document is a description of the code base and how Bazel is structured. It
 is intended for people willing to contribute to Bazel, not for end-users.
 
@@ -196,7 +198,7 @@ Bazel learns about option classes in the following ways:
 3.  From `ConfiguredRuleClassProvider` (these are command line options related
     to individual programming languages)
 4.  Starlark rules can also define their own options (see
-    [here](/rules/config))
+    [here](/extending/config))
 
 Each option (excluding Starlark-defined options) is a member variable of a
 `FragmentOptions` subclass that has the `@Option` annotation, which specifies
@@ -246,17 +248,17 @@ it)
 Every repository is composed of packages, a collection of related files and
 a specification of the dependencies. These are specified by a file called
 `BUILD` or `BUILD.bazel`. If both exist, Bazel prefers `BUILD.bazel`; the reason
-why BUILD files are still accepted is that Bazel’s ancestor, Blaze, used this
+why `BUILD` files are still accepted is that Bazel’s ancestor, Blaze, used this
 file name. However, it turned out to be a commonly used path segment, especially
 on Windows, where file names are case-insensitive.
 
-Packages are independent of each other: changes to the BUILD file of a package
-cannot cause other packages to change. The addition or removal of BUILD files
+Packages are independent of each other: changes to the `BUILD` file of a package
+cannot cause other packages to change. The addition or removal of `BUILD` files
 _can _change other packages, since recursive globs stop at package boundaries
-and thus the presence of a BUILD file stops the recursion.
+and thus the presence of a `BUILD` file stops the recursion.
 
-The evaluation of a BUILD file is called "package loading". It's implemented in
-the class `PackageFactory`, works by calling the Starlark interpreter and
+The evaluation of a `BUILD` file is called "package loading". It's implemented
+in the class `PackageFactory`, works by calling the Starlark interpreter and
 requires knowledge of the set of available rule classes. The result of package
 loading is a `Package` object. It's mostly a map from a string (the name of a
 target) to the target itself.
@@ -304,7 +306,7 @@ Packages are composed of targets, which have the following types:
 
 The name of a target is called a _Label_. The syntax of labels is
 `@repo//pac/kage:name`, where `repo` is the name of the repository the Label is
-in, `pac/kage` is the directory its BUILD file is in and `name` is the path of
+in, `pac/kage` is the directory its `BUILD` file is in and `name` is the path of
 the file (if the label refers to a source file) relative to the directory of the
 package. When referring to a target on the command line, some parts of the label
 can be omitted:
@@ -321,9 +323,9 @@ be implemented either in Starlark (the `rule()` function) or in Java (so called
 rule will be implemented in Starlark, but some legacy rule families (such as Java
 or C++) are still in Java for the time being.
 
-Starlark rule classes need to be imported at the beginning of BUILD files using
-the `load()` statement, whereas Java rule classes are "innately" known by Bazel,
-by virtue of being registered with the `ConfiguredRuleClassProvider`.
+Starlark rule classes need to be imported at the beginning of `BUILD` files
+using the `load()` statement, whereas Java rule classes are "innately" known by
+Bazel, by virtue of being registered with the `ConfiguredRuleClassProvider`.
 
 Rule classes contain information such as:
 
@@ -365,38 +367,39 @@ similarly-named package `com.google.devtools.build.lib.skyframe` contains the
 implementation of Bazel on top of Skyframe. More information about Skyframe is
 available [here](/reference/skyframe).
 
-Generating a new `SkyValue` involves the following steps:
+To evaluate a given `SkyKey` into a `SkyValue`, Skyframe will invoke the
+`SkyFunction` corresponding to the type of the key. During the function's
+evaluation, it may request other dependencies from Skyframe by calling the
+various overloads of `SkyFunction.Environment.getValue()`. This has the
+side-effect of registering those dependencies into Skyframe's internal graph, so
+that Skyframe will know to re-evaluate the function when any of its dependencies
+change. In other words, Skyframe's caching and incremental computation work at
+the granularity of `SkyFunction`s and `SkyValue`s.
 
-1.  Running the associated `SkyFunction`
-2.  Declaring the dependencies (such as `SkyValue`s) that the `SkyFunction` needs
-    to do its job. This is done by calling the various overloads of
-    `SkyFunction.Environment.getValue()`.
-3.  If a dependency is not available, Skyframe signals that by returning null
-    from `getValue()`. In this case, the `SkyFunction` is expected to yield
-    control to Skyframe by returning null, then Skyframe evaluates the
-    dependencies that haven't been evaluated yet and calls the `SkyFunction`
-    again, thus going back to (1).
-4.  Constructing the resulting `SkyValue`
+Whenever a `SkyFunction` requests a dependency that is unavailable, `getValue()`
+will return null. The function should then yield control back to Skyframe by
+itself returning null. At some later point, Skyframe will evaluate the
+unavailable dependency, then restart the function from the beginning — only this
+time the `getValue()` call will succeed with a non-null result.
 
-A consequence of this is that if not all dependencies are available in (3), the
-function needs to be completely restarted and thus computation needs to be
-re-done. This is obviously inefficient. We work around this in a number of ways:
+A consequence of this is that any computation performed inside the `SkyFunction`
+prior to the restart must be repeated. But this does not include work done to
+evaluate dependency `SkyValues`, which are cached. Therefore, we commonly work
+around this issue by:
 
-1.  Declaring dependencies of `SkyFunction`s in groups so that if a function
-    has, say, 10 dependencies, it only needs to restart once instead of ten
-    times.
-2.  Splitting `SkyFunction`s so that one function does not need to be restarted
-    many times. This has the side effect of interning data into Skyframe that
-    may be internal to the `SkyFunction`, thus increasing memory use.
-3.  Using caches "behind the back of Skyframe" to keep state (such as the state of
-    actions being executed in `ActionExecutionFunction.stateMap` . In the
-    extreme, this ends up resulting in writing code in continuation-passing
-    style (such as action execution), which does not help readability.
+1.  Declaring dependencies in batches (by using `getValuesAndExceptions()`) to
+    limit the number of restarts.
+2.  Breaking up a `SkyValue` into separate pieces computed by different
+    `SkyFunction`s, so that they can be computed and cached independently. This
+    should be done strategically, since it has the potential to increases memory
+    usage.
+3.  Storing state between restarts, either using
+    `SkyFunction.Environment.getState()`, or keeping an ad hoc static cache
+    "behind the back of Skyframe".
 
-Of course, these are all just workarounds for the limitations of Skyframe, which
-is mostly a consequence of the fact that Java doesn't support lightweight
-threads and that we routinely have hundreds of thousands of in-flight Skyframe
-nodes.
+Fundamentally, we need these types of workarounds because we routinely have
+hundreds of thousands of in-flight Skyframe nodes, and Java doesn't support
+lightweight threads.
 
 ## Starlark {:#starlark}
 
@@ -407,16 +410,16 @@ guarantees to enable concurrent reads. It is not Turing-complete, which
 discourages some (but not all) users from trying to accomplish general
 programming tasks within the language.
 
-Starlark is implemented in the `com.google.devtools.build.lib.syntax` package.
+Starlark is implemented in the `net.starlark.java` package.
 It also has an independent Go implementation
 [here](https://github.com/google/starlark-go){: .external}. The Java
 implementation used in Bazel is currently an interpreter.
 
-Starlark is used in four contexts:
+Starlark is used in several contexts, including:
 
-1.  **The BUILD language.** This is where new rules are defined. Starlark code
-    running in this context only has access to the contents of the BUILD file
-    itself and Starlark files loaded by it.
+1.  **The `BUILD` language.** This is where new rules are defined. Starlark code
+    running in this context only has access to the contents of the `BUILD` file
+    itself and `.bzl` files loaded by it.
 2.  **Rule definitions.** This is how new rules (such as support for a new
     language) are defined. Starlark code running in this context has access to
     the configuration and data provided by its direct dependencies (more on this
@@ -427,8 +430,8 @@ Starlark is used in four contexts:
     are defined. Starlark code running in this context can run arbitrary code on
     the machine where Bazel is running, and reach outside the workspace.
 
-The dialects available for BUILD and .bzl files are slightly different because
-they express different things. A list of differences is available
+The dialects available for `BUILD` and `.bzl` files are slightly different
+because they express different things. A list of differences is available
 [here](/rules/language#differences-between-build-and-bzl-files).
 
 More information about Starlark is available
@@ -443,7 +446,7 @@ quite sensibly, a (target, configuration) pair.
 It's called the "loading/analysis phase" because it can be split into two
 distinct parts, which used to be serialized, but they can now overlap in time:
 
-1.  Loading packages, that is, turning BUILD files into the `Package` objects
+1.  Loading packages, that is, turning `BUILD` files into the `Package` objects
     that represent them
 2.  Analyzing configured targets, that is, running the implementation of the
     rules to produce the action graph
@@ -536,7 +539,7 @@ If a configuration transition results in multiple configurations, it's called a
 _split transition._
 
 Configuration transitions can also be implemented in Starlark (documentation
-[here](/rules/config))
+[here](/extending/config))
 
 ### Transitive info providers {:#transitive-info-providers}
 
@@ -635,7 +638,7 @@ necessitates the following additional components:
 
 Aspects are a way to "propagate computation down the dependency graph". They are
 described for users of Bazel
-[here](/rules/aspects). A good
+[here](/extending/aspects). A good
 motivating example is protocol buffers: a `proto_library` rule should not know
 about any particular language, but building the implementation of a protocol
 buffer message (the “basic unit” of protocol buffers) in any programming
@@ -686,7 +689,7 @@ Bazel supports multi-platform builds, that is, builds where there may be
 multiple architectures where build actions run and multiple architectures for
 which code is built. These architectures are referred to as _platforms_ in Bazel
 parlance (full documentation
-[here](/docs/platforms))
+[here](/extending/platforms))
 
 A platform is described by a key-value mapping from _constraint settings_ (such as
 the concept of "CPU architecture") to _constraint values_ (such as a particular CPU
@@ -699,7 +702,7 @@ different compilers; for example, a particular C++ toolchain may run on a
 specific OS and be able to target some other OSes. Bazel must determine the C++
 compiler that is used based on the set execution and target platform
 (documentation for toolchains
-[here](/docs/toolchains)).
+[here](/extending/toolchains)).
 
 In order to do this, toolchains are annotated with the set of execution and
 target platform constraints they support. In order to do this, the definition of
@@ -828,18 +831,17 @@ It's under review in pull request
 ### Visibility {:#visibility}
 
 If you work on a large codebase with a lot of developers (like at Google), you
-don't necessarily want everyone else to be able to depend on your code so that
-you retain the liberty to change things that you deem to be implementation
-details (otherwise, as per [Hyrum's law](https://www.hyrumslaw.com/){: .external},
-people _will_ come to depend on all parts of your code).
+want to take care to prevent everyone else from arbitrarily depending on your
+code. Otherwise, as per [Hyrum's law](https://www.hyrumslaw.com/){: .external},
+people _will_ come to rely on behaviors that you considered to be implementation
+details.
 
-Bazel supports this by the mechanism called _visibility: _you can declare that a
-particular rule can only be depended on using the visibility attribute
-(documentation
-[here](/reference/be/common-definitions#common-attributes)).
-This attribute is a little special because unlike every other attribute, the set
-of dependencies it generates is not simply the set of labels listed (yes, this
-is a design flaw).
+Bazel supports this by the mechanism called _visibility_: you can declare that a
+particular target can only be depended on using the
+[visibility](/reference/be/common-definitions#common-attributes) attribute. This
+attribute is a little special because, although it holds a list of labels, these
+labels may encode a pattern over package names rather than a pointer to any
+particular target. (Yes, this is a design flaw.)
 
 This is implemented in the following places:
 
@@ -849,9 +851,14 @@ This is implemented in the following places:
     packages directly (`//pkg:__pkg__`) or subtrees of packages
     (`//pkg:__subpackages__`). This is different from the command line syntax,
     which uses `//pkg:*` or `//pkg/...`.
-*   Package groups are implemented as their own target and configured target
-    types (`PackageGroup` and `PackageGroupConfiguredTarget`). We could probably
-    replace these with simple rules if we wanted to.
+*   Package groups are implemented as their own target (`PackageGroup`) and
+    configured target (`PackageGroupConfiguredTarget`). We could probably
+    replace these with simple rules if we wanted to. Their logic is implemented
+    with the help of: `PackageSpecification`, which corresponds to a
+    single pattern like `//pkg/...`; `PackageGroupContents`, which corresponds
+    to a single `package_group`'s `packages` attribute; and
+    `PackageSpecificationProvider`, which aggregates over a `package_group` and
+    its transitive `includes`.
 *   The conversion from visibility label lists to dependencies is done in
     `DependencyResolver.visitTargetVisibility` and a few other miscellaneous
     places.
@@ -912,7 +919,7 @@ built). Derived artifacts can themselves be multiple kinds:
 
 There is no fundamental reason why source artifacts cannot be tree artifacts or
 unresolved symlink artifacts, it's just that we haven't implemented it yet (we
-should, though -- referencing a source directory in a BUILD file is one of the
+should, though -- referencing a source directory in a `BUILD` file is one of the
 few known long-standing incorrectness issues with Bazel; we have an
 implementation that kind of works which is enabled by the
 `BAZEL_TRACK_SOURCE_DIRECTORIES=1` JVM property)
@@ -1368,7 +1375,7 @@ attribute of the first test that is executed.
 ## The query engine {:#query-engine}
 
 Bazel has a
-[little language](/docs/query-how-to)
+[little language](/query/guide)
 used to ask it various things about various graphs. The following query kinds
 are provided:
 
@@ -1535,7 +1542,7 @@ starting `@guava//` and expect that to mean different versions of it.
 
 Therefore, Bazel allows one to re-map external repository labels so that the
 string `@guava//` can refer to one Guava repository (such as `@guava1//`) in the
-repository of one binary and another Guava repository (such as `@guava2//`) the the
+repository of one binary and another Guava repository (such as `@guava2//`) the
 repository of the other.
 
 Alternatively, this can also be used to **join** diamonds. If a repository
@@ -1660,12 +1667,15 @@ Of integration tests, we have two kinds:
 1.  Ones implemented using a very elaborate bash test framework under
     `src/test/shell`
 2.  Ones implemented in Java. These are implemented as subclasses of
-    `AbstractBlackBoxTest`.
+    `BuildIntegrationTestCase`
 
-`AbstractBlackBoxTest` has the virtue that it works on Windows, too, but most of
-our integration tests are written in bash.
+`BuildIntegrationTestCase` is the preferred integration testing framework as it
+is well-equipped for most testing scenarios. As it is a Java framework, it
+provides debuggability and seamless integration with many common development
+tools. There are many examples of `BuildIntegrationTestCase` classes in the
+Bazel repository.
 
 Analysis tests are implemented as subclasses of `BuildViewTestCase`. There is a
-scratch file system you can use to write BUILD files, then various helper
+scratch file system you can use to write `BUILD` files, then various helper
 methods can request configured targets, change the configuration and assert
 various things about the result of the analysis.

@@ -141,6 +141,9 @@ public class LocalSpawnRunner implements SpawnRunner {
         spawn.getEnvironment(),
         context.getFileOutErr(),
         xattrProvider);
+    if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
+      context.prefetchInputsAndWait();
+    }
     spawnMetrics.addSetupTime(setupTimeStopwatch.elapsed());
 
     try (SilentCloseable c =
@@ -164,7 +167,16 @@ public class LocalSpawnRunner implements SpawnRunner {
           // check for failures while taking the lock.
           context.lockOutputFiles(0, "", context.getFileOutErr());
         }
-        return new SubprocessHandler(spawn, context, spawnMetrics, totalTimeStopwatch).run();
+        var result = new SubprocessHandler(spawn, context, spawnMetrics, totalTimeStopwatch).run();
+        if (result.exitCode() != 0
+            && localExecutionOptions.localLockfreeOutput
+            && context.speculating()) {
+          // We aren't going to write any output, but we should either abort the remote branch early
+          // or let it finish if this error can be ignored. If the latter, this call will throw
+          // DynamicInterruptedException.
+          context.lockOutputFiles(result.exitCode(), "", context.getFileOutErr());
+        }
+        return result;
       }
     }
   }
@@ -351,12 +363,6 @@ public class LocalSpawnRunner implements SpawnRunner {
             .build();
       }
 
-      if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
-        stepLog(INFO, "prefetching inputs for local execution");
-        setState(State.PREFETCHING_LOCAL_INPUTS);
-        context.prefetchInputsAndWait();
-      }
-
       spawnMetrics.setInputFiles(spawn.getInputFiles().memoizedFlattenAndGetSize());
       Stopwatch setupTimeStopwatch = Stopwatch.createStarted();
       for (ActionInput input : spawn.getInputFiles().toList()) {
@@ -475,12 +481,6 @@ public class LocalSpawnRunner implements SpawnRunner {
             wasTimeout ? SpawnResult.POSIX_TIMEOUT_EXIT_CODE : terminationStatus.getRawExitCode();
         Status status =
             wasTimeout ? Status.TIMEOUT : (exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT);
-        if (exitCode != 0 && localExecutionOptions.localLockfreeOutput && context.speculating()) {
-          // We aren't going to write any output, but we should either abort the remote branch early
-          // or let it finish if this error can be ignored. If the latter, this call will throw
-          // DynamicInterruptedException.
-          context.lockOutputFiles(exitCode, "", outErr);
-        }
         spawnResultBuilder.setStatus(status).setExitCode(exitCode).setWallTime(wallTime);
         if (status != Status.SUCCESS) {
           spawnResultBuilder.setFailureDetail(makeFailureDetail(exitCode, status, actionType));

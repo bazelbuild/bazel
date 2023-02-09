@@ -36,6 +36,7 @@ bootstrap_java_library(
         exclude = ["ExecutionStatistics.java"],
     ),
     jars = [
+        "//src/main/java/com/google/devtools/build/lib/util:describable_execution_unit",
         "//third_party:auto_value-jars",
         "//third_party:flogger-jars",
         "//third_party:bootstrap_guava_and_error_prone-jars",

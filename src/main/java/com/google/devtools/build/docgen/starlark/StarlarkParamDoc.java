@@ -18,13 +18,23 @@ import net.starlark.java.annot.ParamType;
 
 /** A class containing the documentation for a Starlark method parameter. */
 public final class StarlarkParamDoc extends StarlarkDoc {
+  /** Repesents the param kind, whether it's a normal param or *arg or **kwargs. */
+  public static enum Kind {
+    NORMAL,
+    EXTRA_POSITIONALS,
+    EXTRA_KEYWORDS,
+  }
+
   private StarlarkMethodDoc method;
   private Param param;
+  private final Kind kind;
 
-  public StarlarkParamDoc(StarlarkMethodDoc method, Param param, StarlarkDocExpander expander) {
+  public StarlarkParamDoc(
+      StarlarkMethodDoc method, Param param, StarlarkDocExpander expander, Kind kind) {
     super(expander);
     this.method = method;
     this.param = param;
+    this.kind = kind;
   }
 
   /**
@@ -51,6 +61,10 @@ public final class StarlarkParamDoc extends StarlarkDoc {
       }
     }
     return sb.toString();
+  }
+
+  public Kind getKind() {
+    return kind;
   }
 
   public StarlarkMethodDoc getMethod() {

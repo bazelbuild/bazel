@@ -169,7 +169,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       if (!containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
         throw Starlark.errorf(
             "cfg parameter is mandatory when executable=True is provided. Please see "
-                + "https://bazel.build/rules/rules#configurations "
+                + "https://bazel.build/extending/rules#configurations "
                 + "for more details.");
       }
     }
@@ -231,7 +231,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         throw Starlark.errorf(
             "late-bound attributes must not have a split configuration transition");
       }
-      // TODO(b/203203933): Officially deprecate HOST transition and remove this.
+      // TODO(b/203203933): remove after removing --incompatible_disable_starlark_host_transitions.
       if (trans.equals("host")) {
         boolean disableStarlarkHostTransitions =
             thread

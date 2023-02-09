@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.base.Strings;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection.DuplicateConstraintException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -114,6 +115,18 @@ public class PlatformInfo extends NativeInfo
     this.constraints = constraints;
     this.remoteExecutionProperties = Strings.nullToEmpty(remoteExecutionProperties);
     this.execProperties = execProperties;
+  }
+
+  /** Empty {@link PlatformInfo} instance representing an invalid or empty platform. */
+  public static final PlatformInfo EMPTY_PLATFORM_INFO;
+
+  static {
+    try {
+      EMPTY_PLATFORM_INFO = PlatformInfo.builder().build();
+    } catch (DuplicateConstraintException | ExecPropertiesException e) {
+      // This can never happen since we're not passing any values to the builder.
+      throw new VerifyException(e);
+    }
   }
 
   @Override

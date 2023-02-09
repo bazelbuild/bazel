@@ -17,19 +17,14 @@ import android.databinding.AndroidDataBinding;
 import android.databinding.cli.ProcessXmlOptions;
 import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;
-import com.android.builder.core.VariantConfiguration;
-import com.android.builder.core.VariantType;
-import com.android.builder.dependency.SymbolFileProvider;
-import com.android.builder.model.AaptOptions;
-import com.android.ide.common.internal.CommandLineRunner;
-import com.android.ide.common.internal.ExecutorSingleton;
-import com.android.ide.common.internal.LoggedErrorException;
+import com.android.builder.core.DefaultManifestParser;
+import com.android.builder.core.VariantTypeImpl;
+import com.android.builder.internal.aapt.AaptOptions;
 import com.android.repository.Revision;
 import com.android.utils.ILogger;
 import com.android.utils.StdLogger;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -46,10 +41,10 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.TriState;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -67,83 +62,76 @@ public class AndroidResourceProcessor {
   /** Options class containing flags for Aapt setup. */
   public static final class AaptConfigOptions extends OptionsBase {
     @Option(
-      name = "buildToolsVersion",
-      defaultValue = "null",
-      converter = RevisionConverter.class,
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Version of the build tools (e.g. aapt) being used, e.g. 23.0.2"
-    )
+        name = "buildToolsVersion",
+        defaultValue = "null",
+        converter = RevisionConverter.class,
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Version of the build tools (e.g. aapt) being used, e.g. 23.0.2")
     public Revision buildToolsVersion;
 
     @Option(
-      name = "aapt",
-      defaultValue = "null",
-      converter = ExistingPathConverter.class,
-      category = "tool",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Aapt tool location for resource packaging."
-    )
+        name = "aapt",
+        defaultValue = "null",
+        converter = ExistingPathConverter.class,
+        category = "tool",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Aapt tool location for resource packaging.")
     public Path aapt;
 
     @Option(
-      name = "androidJar",
-      defaultValue = "null",
-      converter = ExistingPathConverter.class,
-      category = "tool",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Path to the android jar for resource packaging and building apks."
-    )
+        name = "androidJar",
+        defaultValue = "null",
+        converter = ExistingPathConverter.class,
+        category = "tool",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to the android jar for resource packaging and building apks.")
     public Path androidJar;
 
     @Option(
-      name = "useAaptCruncher",
-      defaultValue = "auto",
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Use the legacy aapt cruncher, defaults to true for non-LIBRARY packageTypes. "
-              + " LIBRARY packages do not benefit from the additional processing as the resources"
-              + " will need to be reprocessed during the generation of the final apk. See"
-              + " https://code.google.com/p/android/issues/detail?id=67525 for a discussion of the"
-              + " different png crunching methods."
-    )
+        name = "useAaptCruncher",
+        defaultValue = "auto",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Use the legacy aapt cruncher, defaults to true for non-LIBRARY packageTypes.  LIBRARY"
+                + " packages do not benefit from the additional processing as the resources will"
+                + " need to be reprocessed during the generation of the final apk. See"
+                + " https://code.google.com/p/android/issues/detail?id=67525 for a discussion of"
+                + " the different png crunching methods.")
     public TriState useAaptCruncher;
 
     @Option(
-      name = "uncompressedExtensions",
-      defaultValue = "",
-      converter = CommaSeparatedOptionListConverter.class,
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "A list of file extensions not to compress."
-    )
+        name = "uncompressedExtensions",
+        defaultValue = "",
+        converter = CommaSeparatedOptionListConverter.class,
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "A list of file extensions not to compress.")
     public List<String> uncompressedExtensions;
 
     @Option(
-      name = "debug",
-      defaultValue = "false",
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Indicates if it is a debug build."
-    )
+        name = "debug",
+        defaultValue = "false",
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Indicates if it is a debug build.")
     public boolean debug;
 
     @Option(
-      name = "resourceConfigs",
-      defaultValue = "",
-      converter = CommaSeparatedOptionListConverter.class,
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "A list of resource config filters to pass to aapt."
-    )
+        name = "resourceConfigs",
+        defaultValue = "",
+        converter = CommaSeparatedOptionListConverter.class,
+        category = "config",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "A list of resource config filters to pass to aapt.")
     public List<String> resourceConfigs;
 
     @Option(
@@ -154,38 +142,6 @@ public class AndroidResourceProcessor {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "Indicates whether databinding generated files should depend on AndroidX.")
     public boolean useDataBindingAndroidX;
-  }
-
-  /** {@link AaptOptions} backed by an {@link AaptConfigOptions}. */
-  public static final class FlagAaptOptions implements AaptOptions {
-    private final AaptConfigOptions options;
-
-    public FlagAaptOptions(AaptConfigOptions options) {
-      this.options = options;
-    }
-
-    @Override
-    public Collection<String> getNoCompress() {
-      if (!options.uncompressedExtensions.isEmpty()) {
-        return options.uncompressedExtensions;
-      }
-      return ImmutableList.of();
-    }
-
-    @Override
-    public String getIgnoreAssets() {
-      return null;
-    }
-
-    @Override
-    public boolean getFailOnMissingConfigEntry() {
-      return false;
-    }
-
-    @Override
-    public List<String> getAdditionalParameters() {
-      return ImmutableList.of();
-    }
   }
 
   private final StdLogger stdLogger;
@@ -201,12 +157,13 @@ public class AndroidResourceProcessor {
    * <p>Returns a post-processed MergedAndroidData. Notably, the resources will be stripped of any
    * databinding expressions.
    */
+  @CanIgnoreReturnValue
   public MergedAndroidData processResources(
       Path tempRoot,
       Path aapt,
       Path androidJar,
       @Nullable Revision buildToolsVersion,
-      VariantType variantType,
+      VariantTypeImpl variantType,
       boolean debug,
       String customPackageForR,
       AaptOptions aaptOptions,
@@ -220,7 +177,7 @@ public class AndroidResourceProcessor {
       @Nullable Path mainDexProguardOut,
       @Nullable Path publicResourcesOut,
       @Nullable Path dataBindingInfoOut)
-      throws IOException, InterruptedException, LoggedErrorException {
+      throws IOException {
     Path androidManifest = primaryData.getManifest();
     final Path resourceDir =
         processDataBindings(
@@ -255,7 +212,7 @@ public class AndroidResourceProcessor {
         publicResourcesOut);
     // The R needs to be created for each library in the dependencies,
     // but only if the current project is not a library.
-    if (sourceOut != null && variantType != VariantType.LIBRARY) {
+    if (sourceOut != null && variantType != VariantTypeImpl.LIBRARY) {
       writeDependencyPackageRJavaFiles(
           dependencyData, customPackageForR, androidManifest, sourceOut);
     }
@@ -267,7 +224,7 @@ public class AndroidResourceProcessor {
       Path aapt,
       Path androidJar,
       @Nullable Revision buildToolsVersion,
-      VariantType variantType,
+      VariantTypeImpl variantType,
       boolean debug,
       String customPackageForR,
       AaptOptions aaptOptions,
@@ -280,7 +237,7 @@ public class AndroidResourceProcessor {
       @Nullable Path proguardOut,
       @Nullable Path mainDexProguardOut,
       @Nullable Path publicResourcesOut)
-      throws InterruptedException, LoggedErrorException, IOException {
+      throws IOException {
     try (JunctionCreator junctions =
         System.getProperty("os.name").toLowerCase().startsWith("windows")
             ? new WindowsJunctionCreator(Files.createDirectories(tempRoot.resolve("juncts")))
@@ -326,11 +283,8 @@ public class AndroidResourceProcessor {
               .thenAdd("--debug-mode")
               .add("--custom-package", customPackageForR)
               // If it is a library, do not generate final java ids.
-              .whenVariantIs(VariantType.LIBRARY)
+              .whenVariantIs(VariantTypeImpl.LIBRARY)
               .thenAdd("--non-constant-id")
-              .add("--ignore-assets", aaptOptions.getIgnoreAssets())
-              .when(aaptOptions.getFailOnMissingConfigEntry())
-              .thenAdd("--error-on-missing-config-entry")
               // Never compress apks.
               .add("-0", "apk")
               // Add custom no-compress extensions.
@@ -340,55 +294,10 @@ public class AndroidResourceProcessor {
       for (String additional : aaptOptions.getAdditionalParameters()) {
         commandBuilder.add(additional);
       }
-      try {
-        new CommandLineRunner(stdLogger).runCmdLine(commandBuilder.build(), null);
-      } catch (LoggedErrorException e) {
-        // Add context and throw the error to resume processing.
-        throw new LoggedErrorException(
-            e.getCmdLineError(), getOutputWithSourceContext(aapt, e.getOutput()), e.getCmdLine());
-      }
+      commandBuilder.execute("package");
     }
   }
 
-  /** Adds 10 lines of source to each syntax error. Very useful for debugging. */
-  private List<String> getOutputWithSourceContext(Path aapt, List<String> lines)
-      throws IOException {
-    List<String> outputWithSourceContext = new ArrayList<>();
-    for (String line : lines) {
-      if (line.contains("Duplicate file") || line.contains("Original")) {
-        String[] parts = line.split(":");
-        String fileName = parts[0].trim();
-        outputWithSourceContext.add("\n" + fileName + ":\n\t");
-        outputWithSourceContext.add(
-            Joiner.on("\n\t")
-                .join(
-                    Files.readAllLines(
-                        aapt.getFileSystem().getPath(fileName), StandardCharsets.UTF_8)));
-      } else if (line.contains("error")) {
-        String[] parts = line.split(":");
-        String fileName = parts[0].trim();
-        try {
-          int lineNumber = Integer.valueOf(parts[1].trim());
-          StringBuilder expandedError =
-              new StringBuilder("\nError at " + lineNumber + " : " + line);
-          List<String> errorSource =
-              Files.readAllLines(aapt.getFileSystem().getPath(fileName), StandardCharsets.UTF_8);
-          for (int i = Math.max(lineNumber - 5, 0);
-              i < Math.min(lineNumber + 5, errorSource.size());
-              i++) {
-            expandedError.append("\n").append(i).append("\t:  ").append(errorSource.get(i));
-          }
-          outputWithSourceContext.add(expandedError.toString());
-        } catch (IOException | NumberFormatException formatError) {
-          outputWithSourceContext.add("error parsing line" + line);
-          stdLogger.error(formatError, "error during reading source %s", fileName);
-        }
-      } else {
-        outputWithSourceContext.add(line);
-      }
-    }
-    return outputWithSourceContext;
-  }
 
   /**
    * If resources exist and a data binding layout info file is requested: processes data binding
@@ -450,7 +359,7 @@ public class AndroidResourceProcessor {
   }
 
   public ResourceSymbols loadResourceSymbolTable(
-      Iterable<? extends SymbolFileProvider> libraries,
+      Iterable<? extends ResourceSymbols.SymbolFileProvider> libraries,
       String appPackageName,
       Path primaryRTxt,
       Multimap<String, ResourceSymbols> libMap)
@@ -481,14 +390,20 @@ public class AndroidResourceProcessor {
       Path androidManifest,
       Path sourceOut)
       throws IOException {
-    List<SymbolFileProvider> libraries = new ArrayList<>();
+    List<ResourceSymbols.SymbolFileProvider> libraries = new ArrayList<>();
     for (DependencyAndroidData dataDep : dependencyData) {
-      SymbolFileProvider library = dataDep.asSymbolFileProvider();
+      ResourceSymbols.SymbolFileProvider library = dataDep.asSymbolFileProvider();
       libraries.add(library);
     }
     String appPackageName = customPackageForR;
     if (appPackageName == null) {
-      appPackageName = VariantConfiguration.getManifestPackage(androidManifest.toFile());
+      appPackageName =
+          new DefaultManifestParser(
+                  androidManifest.toFile(),
+                  /* canParseManifest= */ () -> true,
+                  /* isManifestFileRequired= */ true,
+                  /* issueReporter= */ null)
+              .getPackage();
     }
     Multimap<String, ResourceSymbols> libSymbolMap = ArrayListMultimap.create();
     Path primaryRTxt = sourceOut != null ? sourceOut.resolve("R.txt") : null;
@@ -540,8 +455,6 @@ public class AndroidResourceProcessor {
   /** Shutdown AOSP utilized thread-pool. */
   public void shutdown() {
     FullyQualifiedName.logCacheUsage(logger);
-    // AOSP code never shuts down its singleton executor and leaves the process hanging.
-    ExecutorSingleton.getExecutor().shutdownNow();
   }
 
   @Nullable

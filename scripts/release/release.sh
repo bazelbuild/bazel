@@ -261,7 +261,7 @@ The typical workflow for the release manager is:
    (usually a version number). The BASELINE is generally a baseline
    that has been tested extensively including inside Google.
 2. Push to the repository and wait for the continuous integration
-   to rebuild and deploy the various artifacts and send the annoucement
+   to rebuild and deploy the various artifacts and send the announcement
    mails about a new release candidate being available.
 3. If necessary, creates a new release branch with the same name to
    address return from the users and go back to 2.

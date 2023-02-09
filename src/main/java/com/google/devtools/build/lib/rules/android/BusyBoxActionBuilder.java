@@ -370,7 +370,7 @@ public final class BusyBoxActionBuilder {
       spawnActionBuilder.addCommandLine(commandLine.build(), WORKERS_FORCED_PARAM_FILE_INFO);
       executionInfo.putAll(ExecutionRequirements.WORKER_MODE_ENABLED);
 
-      if (dataContext.isPersistentMultiplexBusyboxTools()) {
+      if (dataContext.isPersistentMultiplexBusyboxToolsEnabled()) {
         executionInfo.putAll(ExecutionRequirements.WORKER_MULTIPLEX_MODE_ENABLED);
       }
     } else {

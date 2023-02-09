@@ -33,15 +33,17 @@ import javax.annotation.Nullable;
 public class InMemoryGraphImpl implements InMemoryGraph {
 
   protected final ConcurrentHashMap<SkyKey, InMemoryNodeEntry> nodeMap;
-  private final NodeBatch batch;
+  private final NodeBatch getBatch;
+  private final NodeBatch createIfAbsentBatch;
 
   InMemoryGraphImpl() {
-    this(/*initialCapacity=*/ 1 << 10);
+    this(/* initialCapacity= */ 1 << 10);
   }
 
   protected InMemoryGraphImpl(int initialCapacity) {
     this.nodeMap = new ConcurrentHashMap<>(initialCapacity);
-    this.batch = nodeMap::get;
+    this.getBatch = nodeMap::get;
+    this.createIfAbsentBatch = key -> nodeMap.computeIfAbsent(key, newNodeEntryFunction);
   }
 
   @Override
@@ -57,13 +59,13 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   @Override
   public NodeBatch getBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
-    return batch;
+    return getBatch;
   }
 
   @Override
   public InterruptibleSupplier<NodeBatch> getBatchAsync(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
-    return () -> batch;
+    return () -> getBatch;
   }
 
   @Override
@@ -83,7 +85,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   @ForOverride
   protected InMemoryNodeEntry newNodeEntry(SkyKey key) {
-    return new InMemoryNodeEntry();
+    return new InMemoryNodeEntry(key);
   }
 
   /**
@@ -99,7 +101,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     for (SkyKey key : keys) {
       nodeMap.computeIfAbsent(key, newNodeEntryFunction);
     }
-    return batch;
+    return createIfAbsentBatch;
   }
 
   @Override
@@ -125,7 +127,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   static final class EdgelessInMemoryGraphImpl extends InMemoryGraphImpl {
     @Override
     protected InMemoryNodeEntry newNodeEntry(SkyKey key) {
-      return new EdgelessInMemoryNodeEntry();
+      return new EdgelessInMemoryNodeEntry(key);
     }
   }
 }

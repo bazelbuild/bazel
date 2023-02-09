@@ -92,8 +92,9 @@ class OutputJarSimpleTest : public ::testing::Test {
   void SetUp() override { runfiles.reset(Runfiles::CreateForTest()); }
 
   void CreateOutput(const string &out_path, const std::vector<string> &args) {
-    const char *option_list[100] = {"--output", out_path.c_str()};
-    int nargs = 2;
+    const char *option_list[100] = {"--output", out_path.c_str(),
+                                    "--build_target", "//some/target"};
+    int nargs = 4;
     for (auto &arg : args) {
       if (arg.empty()) {
         continue;
@@ -215,7 +216,7 @@ TEST_F(OutputJarSimpleTest, Empty) {
       "\r\n",
       manifest);
   string build_properties = GetEntryContents(out_path, "build-data.properties");
-  EXPECT_PRED2(HasSubstr, build_properties, "build.target=");
+  EXPECT_PRED2(HasSubstr, build_properties, "build.target=//some/target");
 }
 
 // Source jars.
@@ -315,7 +316,7 @@ TEST_F(OutputJarSimpleTest, JDKLibModules) {
   CreateOutput(out_path, {"--java_launcher", launcher_path,
                           "--jdk_lib_modules", jdk_lib_modules_path});
 
-  // Test META-INF/MANIFEST.MF attribute.
+  // Test META-INF/MANIFEST.MF attributes.
   string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
   size_t pagesize;
 #ifndef _WIN32
@@ -325,9 +326,19 @@ TEST_F(OutputJarSimpleTest, JDKLibModules) {
   GetSystemInfo(&si);
   pagesize = si.dwPageSize;
 #endif
-  char attr[128];
-  snprintf(attr, sizeof(attr), "JDK-Lib-Modules-Offset: %ld", pagesize);
-  EXPECT_PRED2(HasSubstr, manifest, attr);
+  struct stat statbuf;
+  stat(jdk_lib_modules_path.c_str(), &statbuf);
+  size_t modules_size = statbuf.st_size;
+
+  char offset_attr[128];
+  snprintf(offset_attr, sizeof(offset_attr),
+           "JDK-Lib-Modules-Offset: %ld", pagesize);
+  EXPECT_PRED2(HasSubstr, manifest, offset_attr);
+
+  char size_attr[128];
+  snprintf(size_attr, sizeof(size_attr),
+           "JDK-Lib-Modules-Size: %ld", modules_size);
+  EXPECT_PRED2(HasSubstr, manifest, size_attr);
 }
 
 // --cds_archive & --jdk_lib_modules options
@@ -358,6 +369,9 @@ TEST_F(OutputJarSimpleTest, CDSAndJDKLibModules) {
   size_t page_aligned_cds_offset = pagesize;
   char buf[8];
   size_t buf_len = sizeof(buf);
+  struct stat statbuf;
+  stat(jdk_lib_modules_path.c_str(), &statbuf);
+  size_t modules_size = statbuf.st_size;
 
   char cds_attr[128];
   snprintf(cds_attr, sizeof(cds_attr), "Jsa-Offset: %ld",
@@ -369,10 +383,15 @@ TEST_F(OutputJarSimpleTest, CDSAndJDKLibModules) {
   ASSERT_EQ(cds_data, string(buf, buf_len));
 
   size_t page_aligned_modules_offset = pagesize * 2;
-  char modules_attr[128];
-  snprintf(modules_attr, sizeof(modules_attr), "JDK-Lib-Modules-Offset: %ld",
+  char modules_offset_attr[128];
+  snprintf(modules_offset_attr, sizeof(modules_offset_attr),
+           "JDK-Lib-Modules-Offset: %ld",
            page_aligned_modules_offset);
-  EXPECT_PRED2(HasSubstr, manifest, modules_attr);
+  EXPECT_PRED2(HasSubstr, manifest, modules_offset_attr);
+  char modules_size_attr[128];
+  snprintf(modules_size_attr, sizeof(modules_size_attr),
+           "JDK-Lib-Modules-Size: %ld", modules_size);
+  EXPECT_PRED2(HasSubstr, manifest, modules_size_attr);
 
   fseek(fp, page_aligned_modules_offset, 0);
   fread(buf, 1, buf_len, fp);

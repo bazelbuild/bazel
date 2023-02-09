@@ -137,7 +137,9 @@ public class ShBinary implements RuleConfiguredTargetFactory {
     }
 
     // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
-    PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext.getExecutionPlatform());
+    PathFragment shExecutable =
+        ShToolchain.getPathForPlatform(
+            ruleContext.getConfiguration(), ruleContext.getExecutionPlatform());
     return createWindowsExeLauncher(ruleContext, shExecutable);
   }
 }

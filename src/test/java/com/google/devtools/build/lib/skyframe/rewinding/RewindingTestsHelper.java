@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.SpawnExecException;
@@ -76,7 +74,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.TrackingAwaiter;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import com.google.errorprone.annotations.ForOverride;
-import com.google.errorprone.annotations.Keep;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -215,7 +212,8 @@ public class RewindingTestsHelper {
 
   final List<SkyKey> collectOrderedDirtiedKeys(boolean exactNestedSets) {
     List<SkyKey> dirtiedKeys = new ArrayList<>();
-    injectListenerAtStartOfNextBuild(collectOrderedDirtyKeysListener(dirtiedKeys, exactNestedSets));
+    testCase.injectListenerAtStartOfNextBuild(
+        collectOrderedDirtyKeysListener(dirtiedKeys, exactNestedSets));
     return dirtiedKeys;
   }
 
@@ -251,36 +249,6 @@ public class RewindingTestsHelper {
         }
       }
     };
-  }
-
-  /**
-   * Lazily injects the given listener at the start of the next build.
-   *
-   * <p>Injecting the listener immediately would reach the <em>current</em> evaluator, but the next
-   * build may create a new evaluator, which happens when {@link
-   * com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor} is not tracking incremental
-   * state.
-   */
-  private void injectListenerAtStartOfNextBuild(NotifyingHelper.Listener listener) {
-    testCase
-        .getRuntimeWrapper()
-        .registerSubscriber(
-            new Object() {
-              private boolean injected = false;
-
-              @Subscribe
-              @Keep
-              void buildStarting(@SuppressWarnings("unused") BuildStartingEvent event) {
-                if (!injected) {
-                  testCase
-                      .getSkyframeExecutor()
-                      .getEvaluator()
-                      .injectGraphTransformerForTesting(
-                          NotifyingHelper.makeNotifyingTransformer(listener));
-                  injected = true;
-                }
-              }
-            });
   }
 
   static void assertOnlyActionsDirtied(List<SkyKey> dirtiedKeys) {
@@ -396,12 +364,12 @@ public class RewindingTestsHelper {
         "foo/BUILD",
         "genrule(name = 'top', outs = ['top.out'], srcs = [':dep'], cmd = 'cp $< $@')",
         "genrule(name = 'dep', outs = ['dep.out'], cmd = 'touch $@')");
-    injectListenerAtStartOfNextBuild(
+    testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
           if (type == EventType.GET_BATCH
               && order == Order.BEFORE
               && context == Reason.PREFETCH
-              && isActionExecutionKey(key, Label.parseAbsoluteUnchecked("//foo:dep"))) {
+              && isActionExecutionKey(key, Label.parseCanonicalUnchecked("//foo:dep"))) {
             try {
               testCase
                   .getSkyframeExecutor()
@@ -537,9 +505,9 @@ public class RewindingTestsHelper {
     CountDownLatch looseHeaderDepDeclared = new CountDownLatch(1);
     CountDownLatch gensrcRestarted = new CountDownLatch(1);
     CountDownLatch cppRestarted = new CountDownLatch(1);
-    Label cppLabel = Label.parseAbsoluteUnchecked("//test:loser");
-    Label gensrcLabel = Label.parseAbsoluteUnchecked("//test:gensrc");
-    injectListenerAtStartOfNextBuild(
+    Label cppLabel = Label.parseCanonicalUnchecked("//test:loser");
+    Label gensrcLabel = Label.parseCanonicalUnchecked("//test:gensrc");
+    testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
           if (EventType.ADD_REVERSE_DEP.equals(type)
               && isActionExecutionKey(context, cppLabel)
@@ -1383,7 +1351,7 @@ public class RewindingTestsHelper {
     AtomicInteger shared2ADirtied = new AtomicInteger(0);
     AtomicInteger shared2AReady = new AtomicInteger(0);
     AtomicInteger shared2BReady = new AtomicInteger(0);
-    injectListenerAtStartOfNextBuild(
+    testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
           // Count the times shared_1{A,B} are dirtied.
           if (type.equals(NotifyingHelper.EventType.MARK_DIRTY) && order.equals(Order.AFTER)) {
@@ -2513,6 +2481,73 @@ public class RewindingTestsHelper {
 
     assertOnlyActionsDirtied(dirtiedKeys);
     assertThat(dirtiedArtifactOwnerLabels(dirtiedKeys)).containsExactly("//genheader:gen_header");
+  }
+
+  /**
+   * Regression test for b/242179728.
+   *
+   * <p>Exercises a scenario where a failing action depends on another action which is rewound
+   * between the time that the action fails and the dep is looked up for signaling. The order of
+   * events in this scenario (synchronized so that they execute sequentially) is:
+   *
+   * <ol>
+   *   <li>{@code //foo:dep} executes successfully and produces two outputs, {@code dep.out1} and
+   *       {@code dep.out2}.
+   *   <li>{@code //foo:fail}, which depends on {@code dep.out1}, executes and fails due to a
+   *       regular action execution failure (not a lost input).
+   *   <li>{@code //foo:other}, which depends on {@code dep.out2}, executes and observes a lost
+   *       input. {@code //foo:dep} is rewound.
+   *   <li>{@code //foo:fail} looks up {@code //foo:dep} for {@link Reason#RDEP_ADDITION} and
+   *       observes it to be dirty.
+   * </ol>
+   */
+  public final void runDoneToDirtyDepForNodeInError() throws Exception {
+    testCase.write(
+        "foo/BUILD",
+        "genrule(name = 'other', srcs = [':dep.out2'], outs = ['other.out'], cmd = 'cp $< $@')",
+        "genrule(name = 'fail', srcs = [':dep.out1'], outs = ['fail.out'], cmd = 'false')",
+        "genrule(name = 'dep', outs = ['dep.out1', 'dep.out2'], cmd = 'touch $(OUTS)')");
+    CountDownLatch depDone = new CountDownLatch(1);
+    CountDownLatch failExecuting = new CountDownLatch(1);
+    CountDownLatch depRewound = new CountDownLatch(1);
+    Label fail = Label.parseCanonicalUnchecked("//foo:fail");
+    Label dep = Label.parseCanonicalUnchecked("//foo:dep");
+    addSpawnShim(
+        "Executing genrule //foo:fail",
+        (spawn, context) -> {
+          failExecuting.countDown();
+          return ExecResult.delegate();
+        });
+    addSpawnShim(
+        "Executing genrule //foo:other",
+        (spawn, context) -> {
+          ImmutableList<ActionInput> lostInputs =
+              ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "dep.out2"));
+          return createLostInputsExecException(
+              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+        });
+    testCase.injectListenerAtStartOfNextBuild(
+        (key, type, order, context) -> {
+          if (isActionExecutionKey(key, fail) && type == EventType.CREATE_IF_ABSENT) {
+            awaitUninterruptibly(depDone);
+          } else if (isActionExecutionKey(key, dep)
+              && type == EventType.SET_VALUE
+              && order == Order.AFTER) {
+            depDone.countDown();
+          } else if (isActionExecutionKey(key, dep)
+              && type == EventType.ADD_REVERSE_DEP
+              && order == Order.BEFORE
+              && isActionExecutionKey(context, fail)) {
+            awaitUninterruptibly(depRewound);
+          } else if (isActionExecutionKey(key, dep)
+              && type == EventType.MARK_DIRTY
+              && order == Order.AFTER) {
+            depRewound.countDown();
+          }
+        });
+
+    assertThrows(BuildFailedException.class, () -> testCase.buildTarget("//foo:all"));
+    testCase.assertContainsError("Executing genrule //foo:fail failed");
   }
 
   private static boolean isActionExecutionKey(Object key, Label label) {

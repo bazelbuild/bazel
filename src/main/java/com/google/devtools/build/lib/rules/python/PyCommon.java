@@ -200,7 +200,7 @@ public final class PyCommon {
     this.mainArtifact = requiresMainFile ? initMainArtifact(ruleContext) : null;
     this.directPythonSources =
         initAndMaybeValidateDirectPythonSources(
-            ruleContext, semantics, /*validate=*/ validateSources, this.mainArtifact);
+            ruleContext, semantics, /* validate= */ validateSources, this.mainArtifact);
     this.usesSharedLibraries = initUsesSharedLibraries(ruleContext);
     this.imports = initImports(ruleContext, semantics);
     this.hasPy2OnlySources = initHasPy2OnlySources(ruleContext, this.sourcesVersion);
@@ -475,7 +475,7 @@ public final class PyCommon {
       return null;
     }
     Label toolchainType = ruleContext.attributes().get("$py_toolchain_type", BuildType.NODEP_LABEL);
-    ToolchainInfo toolchainInfo = ruleContext.getToolchainContext().forToolchainType(toolchainType);
+    ToolchainInfo toolchainInfo = ruleContext.getToolchainInfo(toolchainType);
     Preconditions.checkArgument(
         toolchainInfo != null,
         "Could not retrieve a Python toolchain for '%s' rule",
@@ -736,8 +736,7 @@ public final class PyCommon {
             .build());
   }
 
-  public void addCommonTransitiveInfoProviders(
-      RuleConfiguredTargetBuilder builder, NestedSet<Artifact> filesToBuild) {
+  public void addCommonTransitiveInfoProviders(RuleConfiguredTargetBuilder builder) {
     addPyInfoProvider(builder);
 
     // Add PyRuntimeInfo if this is an executable rule.
@@ -767,6 +766,13 @@ public final class PyCommon {
     if (ruleContext.getConfiguration().getActionListeners().isEmpty()) {
       return;
     }
+    registerPyExtraActionPseudoAction(ruleContext, dependencyTransitivePythonSources);
+  }
+
+  // Public so that Starlark bindings can access it. Should only be called by PyStarlarkBuiltins.
+  // TODO(b/253059598): Remove support for this; https://github.com/bazelbuild/bazel/issues/16455
+  public static void registerPyExtraActionPseudoAction(
+      RuleContext ruleContext, NestedSet<Artifact> dependencyTransitivePythonSources) {
     ruleContext.registerAction(
         makePyExtraActionPseudoAction(
             ruleContext.getActionOwner(),
@@ -858,20 +864,13 @@ public final class PyCommon {
    * {@code requiresMainFile} set to false (or there was an error in determining the main artifact).
    */
   @Nullable
-  public String determineMainExecutableSource(boolean withWorkspaceName) {
+  public String determineMainExecutableSource() {
     if (mainArtifact == null) {
       return null;
-    }
-    if (!withWorkspaceName) {
-      return mainArtifact.getRunfilesPath().getPathString();
     }
     PathFragment workspaceName =
         PathFragment.create(ruleContext.getRule().getPackage().getWorkspaceName());
     return workspaceName.getRelative(mainArtifact.getRunfilesPath()).getPathString();
-  }
-
-  public String determineMainExecutableSource() {
-    return determineMainExecutableSource(true);
   }
 
   public Artifact getExecutable() {

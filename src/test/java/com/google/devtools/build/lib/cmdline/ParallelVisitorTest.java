@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.testutil.TestThread;
 import java.util.ArrayList;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -115,7 +114,7 @@ public class ParallelVisitorTest {
     invocationLatch.await();
     testThread.interrupt();
 
-    // Verify that the thread is interruptable (unit test will time out if it's not interruptable).
+    // Verify that the thread is interruptible (unit test will time out if it's not interruptible).
     testThread.join();
   }
 
@@ -153,12 +152,7 @@ public class ParallelVisitorTest {
       synchronized (this) {
         visits.add(values);
       }
-      return new Visit(
-          values,
-          Iterables.concat(
-              Iterables.transform(
-                  values,
-                  v -> Optional.ofNullable(successorMap.get(v)).orElse(ImmutableList.of()))));
+      return new Visit(values, Iterables.concat(Iterables.transform(values, successorMap::get)));
     }
 
     @Override

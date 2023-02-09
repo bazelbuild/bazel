@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
@@ -40,13 +42,14 @@ public final class FileWriteStrategy implements FileWriteActionContext {
   private static final Duration MIN_LOGGING = Duration.ofMillis(100);
 
   @Override
-  public SpawnContinuation beginWriteOutputToFile(
+  public ImmutableList<SpawnResult> writeOutputToFile(
       AbstractAction action,
       ActionExecutionContext actionExecutionContext,
       DeterministicWriter deterministicWriter,
       boolean makeExecutable,
       boolean isRemotable,
-      Artifact output) {
+      Artifact output)
+      throws ExecException {
     actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
     // TODO(ulfjack): Consider acquiring local resources here before trying to write the file.
     try (AutoProfiler p =
@@ -61,10 +64,9 @@ public final class FileWriteStrategy implements FileWriteActionContext {
           outputPath.setExecutable(true);
         }
       } catch (IOException e) {
-        return SpawnContinuation.failedWithExecException(
-            new EnvironmentalExecException(e, Code.FILE_WRITE_IO_EXCEPTION));
+        throw new EnvironmentalExecException(e, Code.FILE_WRITE_IO_EXCEPTION);
       }
     }
-    return SpawnContinuation.immediate();
+    return ImmutableList.of();
   }
 }

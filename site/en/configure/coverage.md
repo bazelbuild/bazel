@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Code coverage with Bazel
 
+{% include "_buttons.html" %}
+
 Bazel features a `coverage` sub-command to produce code coverage
 reports on repositories that can be tested with `bazel coverage`. Due
 to the idiosyncrasies of the various language ecosystems, it is not
@@ -199,7 +201,7 @@ Instead, add in your `WORKSPACE` e.g.
 
 ```starlark
 http_archive(
-    name = "coverage_linux_x86_64"",
+    name = "coverage_linux_x86_64",
     build_file_content = """
 py_library(
     name = "coverage",

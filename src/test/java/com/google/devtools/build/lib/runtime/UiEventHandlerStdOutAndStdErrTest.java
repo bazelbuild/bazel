@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -34,6 +35,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,8 +44,10 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public final class UiEventHandlerStdOutAndStdErrTest {
 
-  private static final BuildCompleteEvent BUILD_COMPETE =
+  private static final BuildCompleteEvent BUILD_COMPLETE_EVENT =
       new BuildCompleteEvent(new BuildResult(/*startTimeMillis=*/ 0));
+  private static final String BUILD_DID_NOT_COMPLETE_MESSAGE =
+      "\033[31m\033[1mERROR: \033[0mBuild did NOT complete successfully" + System.lineSeparator();
 
   @TestParameter private TestedOutput testedOutput;
 
@@ -90,25 +94,54 @@ public final class UiEventHandlerStdOutAndStdErrTest {
   }
 
   @Test
-  public void buildComplete_outputsNothing() {
-    uiEventHandler.buildComplete(BUILD_COMPETE);
-    output.assertFlushed();
+  public void buildComplete_outputsBuildFailedOnStderr() {
+    uiEventHandler.buildComplete(BUILD_COMPLETE_EVENT);
+
+    if (testedOutput == TestedOutput.STDOUT) {
+      output.assertFlushed();
+    } else {
+      output.assertFlushed(BUILD_DID_NOT_COMPLETE_MESSAGE);
+    }
   }
 
   @Test
   public void buildComplete_flushesBufferedMessage() {
     uiEventHandler.handle(output("hello"));
-    uiEventHandler.buildComplete(BUILD_COMPETE);
+    uiEventHandler.buildComplete(BUILD_COMPLETE_EVENT);
 
-    output.assertFlushed("hello");
+    if (testedOutput == TestedOutput.STDOUT) {
+      output.assertFlushed("hello");
+    } else {
+      output.assertFlushed("hello", System.lineSeparator() + BUILD_DID_NOT_COMPLETE_MESSAGE);
+    }
   }
 
   @Test
-  public void buildComplete_emptyBuffer_outputsNothing() {
+  public void buildComplete_successfulBuild() {
     uiEventHandler.handle(output(""));
-    uiEventHandler.buildComplete(BUILD_COMPETE);
+    var buildSuccessResult = new BuildResult(/*startTimeMillis=*/ 0);
+    buildSuccessResult.setDetailedExitCode(DetailedExitCode.success());
+    uiEventHandler.buildComplete(new BuildCompleteEvent(buildSuccessResult));
 
-    output.assertFlushed();
+    if (testedOutput == TestedOutput.STDOUT) {
+      output.assertFlushed();
+    } else {
+      output.assertFlushed(
+          "\033[32mINFO: \033[0mBuild completed successfully, 0 total actions"
+              + System.lineSeparator());
+    }
+  }
+
+  @Test
+  public void buildComplete_emptyBuffer_outputsBuildFailedOnStderr() {
+    uiEventHandler.handle(output(""));
+    uiEventHandler.buildComplete(BUILD_COMPLETE_EVENT);
+
+    if (testedOutput == TestedOutput.STDOUT) {
+      output.assertFlushed();
+    } else {
+      output.assertFlushed(BUILD_DID_NOT_COMPLETE_MESSAGE);
+    }
   }
 
   @Test
@@ -121,9 +154,13 @@ public final class UiEventHandlerStdOutAndStdErrTest {
   public void handleOutputEvent_concatenatesInBuffer() {
     uiEventHandler.handle(output("hello "));
     uiEventHandler.handle(output("there"));
-    uiEventHandler.buildComplete(BUILD_COMPETE);
+    uiEventHandler.buildComplete(BUILD_COMPLETE_EVENT);
 
-    output.assertFlushed("hello there");
+    if (testedOutput == TestedOutput.STDOUT) {
+      output.assertFlushed("hello there");
+    } else {
+      output.assertFlushed("hello there", System.lineSeparator() + BUILD_DID_NOT_COMPLETE_MESSAGE);
+    }
   }
 
   @Test
@@ -174,6 +211,24 @@ public final class UiEventHandlerStdOutAndStdErrTest {
     // Unterminated strings are saved in memory and not pushed out at all.
     assertThat(output.flushed).isEmpty();
     assertThat(output.writtenSinceFlush).isEmpty();
+  }
+
+  @Test
+  public void buildCompleteMessageDoesntOverrideError() {
+    Assume.assumeTrue(testedOutput == TestedOutput.STDERR);
+    UiOptions uiOptions = new UiOptions();
+    uiOptions.showProgress = true;
+    uiOptions.useCursesEnum = UiOptions.UseCurses.YES;
+    uiOptions.eventFilters = ImmutableList.of();
+    createUiEventHandler(uiOptions);
+
+    uiEventHandler.buildComplete(BUILD_COMPLETE_EVENT);
+    uiEventHandler.handle(Event.error("Show me this!"));
+    uiEventHandler.afterCommand(new AfterCommandEvent());
+
+    assertThat(output.flushed.size()).isEqualTo(4);
+    assertThat(output.flushed.get(2)).contains("Show me this!");
+    assertThat(output.flushed.get(3)).doesNotContain("\033[1A\033[K");
   }
 
   private Event output(String message) {

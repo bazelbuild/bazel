@@ -110,7 +110,7 @@ public class ExecutionOptions extends OptionsBase {
           "Override which spawn strategy should be used to execute spawn actions that have "
               + "descriptions matching a certain regex_filter. See --per_file_copt for details on"
               + "regex_filter matching. "
-              + "The first regex_filter that matches the description is used. "
+              + "The last regex_filter that matches the description is used. "
               + "This option overrides other flags for specifying strategy. "
               + "Example: --strategy_regexp=//foo.*\\.cc,-//foo/bar=local means to run actions "
               + "using local strategy if their descriptions match //foo.*.cc but not //foo/bar. "
@@ -324,6 +324,23 @@ public class ExecutionOptions extends OptionsBase {
               + " the amount of RAM available and will use 67% of it.",
       converter = RamResourceConverter.class)
   public float localRamResources;
+
+  @Option(
+      name = "local_extra_resources",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help =
+          "Set the number of extra resources available to Bazel. "
+              + "Takes in a string-float pair. Can be used multiple times to specify multiple "
+              + "types of extra resources. Bazel will limit concurrently running actions "
+              + "based on the available extra resources and the extra resources required. "
+              + "Tests can declare the amount of extra resources they need "
+              + "by using a tag of the \"resources:<resoucename>:<amount>\" format. "
+              + "Available CPU, RAM and resources cannot be set with this flag.",
+      converter = Converters.StringToFloatAssignmentConverter.class)
+  public List<Map.Entry<String, Float>> localExtraResources;
 
   @Option(
       name = "local_test_jobs",

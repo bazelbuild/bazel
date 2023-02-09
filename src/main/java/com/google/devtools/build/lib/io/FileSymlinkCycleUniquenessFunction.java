@@ -38,7 +38,7 @@ public class FileSymlinkCycleUniquenessFunction extends AbstractFileChainUniquen
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class Key extends AbstractSkyKey<ImmutableList<RootedPath>> {
+  static class Key extends AbstractSkyKey.WithCachedHashCode<ImmutableList<RootedPath>> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
     private Key(ImmutableList<RootedPath> arg) {

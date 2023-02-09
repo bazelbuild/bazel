@@ -25,7 +25,6 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.Futures;
@@ -45,7 +44,6 @@ import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -73,10 +71,8 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
@@ -168,9 +164,8 @@ public final class Utils {
             .setSpawnMetrics(spawnMetrics)
             .setRemote(true)
             .setDigest(
-                Optional.of(
-                    SpawnResult.Digest.of(
-                        actionKey.getDigest().getHash(), actionKey.getDigest().getSizeBytes())));
+                SpawnResult.Digest.of(
+                    actionKey.getDigest().getHash(), actionKey.getDigest().getSizeBytes()));
     if (exitCode != 0) {
       builder.setFailureDetail(
           FailureDetail.newBuilder()
@@ -188,37 +183,6 @@ public final class Utils {
 
   private static Instant timestampToInstant(Timestamp timestamp) {
     return Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos());
-  }
-
-  /** Returns {@code true} if all spawn outputs should be downloaded to disk. */
-  public static boolean shouldDownloadAllSpawnOutputs(
-      RemoteOutputsMode remoteOutputsMode, int exitCode, boolean hasTopLevelOutputs) {
-    return remoteOutputsMode.downloadAllOutputs()
-        ||
-        // In case the action failed, download all outputs. It might be helpful for debugging
-        // and there is no point in injecting output metadata of a failed action.
-        exitCode != 0
-        ||
-        // If one output of a spawn is a top level output then download all outputs. Spawns
-        // are typically structured in a way that either all or no outputs are top level and
-        // it's much simpler to implement under this assumption.
-        (remoteOutputsMode.downloadToplevelOutputsOnly() && hasTopLevelOutputs);
-  }
-
-  /** Returns {@code true} if outputs contains one or more top level outputs. */
-  public static boolean hasFilesToDownload(
-      Collection<? extends ActionInput> outputs, ImmutableSet<PathFragment> filesToDownload) {
-    if (filesToDownload.isEmpty()) {
-      return false;
-    }
-
-    for (ActionInput output : outputs) {
-      if (filesToDownload.contains(output.getExecPath())) {
-        return true;
-      }
-    }
-
-    return false;
   }
 
   private static String statusName(int code) {
@@ -384,7 +348,7 @@ public final class Utils {
         + errorDetailsMessage(status.getDetailsList());
   }
 
-  public static String grpcAwareErrorMessage(IOException e) {
+  private static String grpcAwareErrorMessage(IOException e) {
     io.grpc.Status errStatus = io.grpc.Status.fromThrowable(e);
     if (e.getCause() instanceof ExecutionStatusException) {
       // Display error message returned by the remote service.
@@ -576,9 +540,9 @@ public final class Utils {
   }
 
   private static final ImmutableList<String> UNITS = ImmutableList.of("KiB", "MiB", "GiB", "TiB");
-  // Format as single digit decimal number, but skipping the trailing .0.
+  // Format as single digit decimal number.
   private static final DecimalFormat BYTE_COUNT_FORMAT =
-      new DecimalFormat("0.#", new DecimalFormatSymbols(Locale.US));
+      new DecimalFormat("0.0", new DecimalFormatSymbols(Locale.US));
 
   /**
    * Converts the number of bytes to a human readable string, e.g. 1024 -> 1 KiB.

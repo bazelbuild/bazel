@@ -19,7 +19,7 @@ Utilities to help work with c++ toolchains.
 
 CPP_TOOLCHAIN_TYPE = "@bazel_tools//tools/cpp:toolchain_type"
 
-def find_cpp_toolchain(ctx):
+def find_cpp_toolchain(ctx, *, mandatory = True):
     """
     Finds the c++ toolchain.
 
@@ -29,9 +29,14 @@ def find_cpp_toolchain(ctx):
 
     Args:
       ctx: The rule context for which to find a toolchain.
+      mandatory: If this is set to False, this function will return None rather
+        than fail if no toolchain is found. To use this parameter, the calling
+        rule should have a `_cc_toolchain` label attribute with default
+        `@bazel_tools//tools/cpp:optional_current_cc_toolchain`.
 
     Returns:
-      A CcToolchainProvider.
+      A CcToolchainProvider, or None if the c++ toolchain is declared as
+      optional, mandatory is False and no toolchain has been found.
     """
 
     # Check the incompatible flag for toolchain resolution.
@@ -40,6 +45,9 @@ def find_cpp_toolchain(ctx):
             fail("In order to use find_cpp_toolchain, you must include the '%s' in the toolchains argument to your rule." % CPP_TOOLCHAIN_TYPE)
         toolchain_info = ctx.toolchains[CPP_TOOLCHAIN_TYPE]
         if toolchain_info == None:
+            if not mandatory:
+                return None
+
             # No cpp toolchain was found, so report an error.
             fail("Unable to find a CC toolchain using toolchain resolution. Target: %s, Platform: %s, Exec platform: %s" %
                  (ctx.label, ctx.fragments.platform.platform, ctx.fragments.platform.host_platform))

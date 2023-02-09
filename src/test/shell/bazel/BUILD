@@ -357,6 +357,7 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 3,
+    tags = ["requires-network"],
 )
 
 sh_test(
@@ -597,6 +598,15 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_permissions_test",
+    size = "small",
+    srcs = ["bazel_permissions_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
     name = "bazel_execute_testlog",
     srcs = ["bazel_execute_testlog.sh"],
     data = [":test-deps"],
@@ -716,17 +726,6 @@ sh_test(
 )
 
 sh_test(
-    name = "git_repository_test",
-    size = "large",
-    srcs = ["git_repository_test.sh"],
-    data = [
-        ":test-deps",
-        "//src/test/shell/bazel/testdata:git-repos",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-)
-
-sh_test(
     name = "starlark_git_repository_test",
     size = "large",
     srcs = ["starlark_git_repository_test.sh"],
@@ -832,7 +831,10 @@ sh_test(
     size = "medium",
     srcs = ["runfiles_test.sh"],
     data = [":test-deps"],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
@@ -1013,7 +1015,10 @@ sh_test(
     size = "medium",
     srcs = ["execroot_test.sh"],
     data = [":test-deps"],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
@@ -1056,12 +1061,12 @@ sh_test(
     srcs = ["bazel_bootstrap_distfile_test.sh"],
     args = [
         "$(location //:bazel-distfile)",
-        "$(location //src:embedded_jdk_allmodules_cached)",
+        "$(location //src:embedded_jdk_allmodules)",
     ],
     data = [
         ":test-deps",
         "//:bazel-distfile",
-        "//src:embedded_jdk_allmodules_cached",
+        "//src:embedded_jdk_allmodules",
         "@bazel_tools//tools/bash/runfiles",
     ],
     exec_compatible_with = ["//:highcpu_machine"],
@@ -1074,12 +1079,12 @@ sh_test(
     srcs = ["bazel_bootstrap_distfile_test.sh"],
     args = [
         "$(location //:bazel-distfile-tar)",
-        "$(location //src:embedded_jdk_allmodules_cached)",
+        "$(location //src:embedded_jdk_allmodules)",
     ],
     data = [
         ":test-deps",
         "//:bazel-distfile-tar",
-        "//src:embedded_jdk_allmodules_cached",
+        "//src:embedded_jdk_allmodules",
         "@bazel_tools//tools/bash/runfiles",
     ],
     exec_compatible_with = ["//:highcpu_machine"],

@@ -28,11 +28,16 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -64,6 +69,7 @@ import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -75,8 +81,10 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
+import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
@@ -422,7 +430,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testLabelListWithAspectsError() throws Exception {
     ev.checkEvalErrorContains(
-        "at index 0 of aspects, got element of type int, want Aspect",
+        "at index 1 of aspects, got element of type int, want Aspect",
         "def _impl(target, ctx):",
         "   pass",
         "my_aspect = aspect(implementation = _impl)",
@@ -558,7 +566,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
     assertThat(attribute.getName()).isEqualTo("$extra_deps");
     assertThat(attribute.getDefaultValue(null))
-        .isEqualTo(Label.parseAbsoluteUnchecked("//foo/bar:baz"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//foo/bar:baz"));
   }
 
   @Test
@@ -701,8 +709,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testAttrAllowedRuleClassesSpecificRuleClasses() throws Exception {
     Attribute attr = buildAttribute("a",
         "attr.label_list(allow_rules = ['java_binary'], allow_files = True)");
-    assertThat(attr.getAllowedRuleClassesPredicate().apply(ruleClass("java_binary"))).isTrue();
-    assertThat(attr.getAllowedRuleClassesPredicate().apply(ruleClass("genrule"))).isFalse();
+    assertThat(attr.getAllowedRuleClassObjectPredicate().apply(ruleClass("java_binary"))).isTrue();
+    assertThat(attr.getAllowedRuleClassObjectPredicate().apply(ruleClass("genrule"))).isFalse();
   }
 
   @Test
@@ -715,20 +723,20 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testLabelAttrDefaultValueAsString() throws Exception {
     Attribute sligleAttr = buildAttribute("a1", "attr.label(default = '//foo:bar')");
     assertThat(sligleAttr.getDefaultValueUnchecked())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//foo:bar"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//foo:bar"));
 
     Attribute listAttr =
         buildAttribute("a2", "attr.label_list(default = ['//foo:bar', '//bar:foo'])");
     assertThat(listAttr.getDefaultValueUnchecked())
         .isEqualTo(
             ImmutableList.of(
-                Label.parseAbsoluteUnchecked("//foo:bar"),
-                Label.parseAbsoluteUnchecked("//bar:foo")));
+                Label.parseCanonicalUnchecked("//foo:bar"),
+                Label.parseCanonicalUnchecked("//bar:foo")));
 
     Attribute dictAttr =
         buildAttribute("a3", "attr.label_keyed_string_dict(default = {'//foo:bar': 'my value'})");
     assertThat(dictAttr.getDefaultValueUnchecked())
-        .isEqualTo(ImmutableMap.of(Label.parseAbsoluteUnchecked("//foo:bar"), "my value"));
+        .isEqualTo(ImmutableMap.of(Label.parseCanonicalUnchecked("//foo:bar"), "my value"));
   }
 
   @Test
@@ -772,13 +780,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testAttrBadKeywordArguments() throws Exception {
     ev.checkEvalErrorContains(
         "string() got unexpected keyword argument 'bad_keyword'", "attr.string(bad_keyword = '')");
-  }
-
-  @Test
-  public void testAttrCfgNoMoreHost() throws Exception {
-    Attribute attr = buildAttribute("a1", "attr.label(cfg = 'host', allow_files = True)");
-    assertThat(attr.getTransitionFactory().isHost()).isFalse();
-    assertThat(attr.getTransitionFactory().isTool()).isTrue();
   }
 
   @Test
@@ -900,7 +901,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     // (see --incompatible_no_attr_license)
   }
 
-  private static final Label FAKE_LABEL = Label.parseAbsoluteUnchecked("//fake/label.bzl");
+  private static final Label FAKE_LABEL = Label.parseCanonicalUnchecked("//fake/label.bzl");
 
   @Test
   public void testRuleAddAttribute() throws Exception {
@@ -1114,6 +1115,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testLabel() throws Exception {
     Object result = ev.eval("Label('//foo/foo:foo')");
+    assertThat(result).isInstanceOf(Label.class);
+    assertThat(result.toString()).isEqualTo("//foo/foo:foo");
+  }
+
+  @Test
+  public void testLabelIdempotence() throws Exception {
+    Object result = ev.eval("Label(Label('//foo/foo:foo'))");
     assertThat(result).isInstanceOf(Label.class);
     assertThat(result.toString()).isEqualTo("//foo/foo:foo");
   }
@@ -2381,8 +2389,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
     assertThat(c.getExecutionPlatformConstraints())
         .containsExactly(
-            Label.parseAbsoluteUnchecked("//constraint:cv1"),
-            Label.parseAbsoluteUnchecked("//constraint:cv2"));
+            Label.parseCanonicalUnchecked("//constraint:cv1"),
+            Label.parseCanonicalUnchecked("//constraint:cv2"));
   }
 
   @Test
@@ -2827,5 +2835,59 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     ev.assertContainsError(
         "Error in analysis_test: 'name' cannot be set or overridden in 'attr_values'");
+  }
+
+  private Object eval(Module module, String... lines) throws Exception {
+    ParserInput input = ParserInput.fromLines(lines);
+    return Starlark.eval(input, FileOptions.DEFAULT, module, ev.getStarlarkThread());
+  }
+
+  @Test
+  public void testLabelWithStrictVisibility() throws Exception {
+    ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
+    StarlarkModules.addPredeclared(predeclared);
+    RepositoryName currentRepo = RepositoryName.createUnvalidated("module~1.2.3");
+    RepositoryName otherRepo = RepositoryName.createUnvalidated("dep~4.5");
+    Label bzlLabel =
+        Label.create(
+            PackageIdentifier.create(currentRepo, PathFragment.create("lib")), "label.bzl");
+    Object clientData =
+        BazelModuleContext.create(
+            bzlLabel,
+            RepositoryMapping.create(
+                ImmutableMap.of("my_module", currentRepo, "dep", otherRepo), currentRepo),
+            "lib/label.bzl",
+            /*loads=*/ ImmutableMap.of(),
+            /*bzlTransitiveDigest=*/ new byte[0]);
+    Module module =
+        Module.withPredeclaredAndData(
+            StarlarkSemantics.DEFAULT, predeclared.buildOrThrow(), clientData);
+
+    assertThat(eval(module, "Label('//foo:bar').workspace_root"))
+        .isEqualTo("external/module~1.2.3");
+    assertThat(eval(module, "Label('@my_module//foo:bar').workspace_root"))
+        .isEqualTo("external/module~1.2.3");
+    assertThat(eval(module, "Label('@@module~1.2.3//foo:bar').workspace_root"))
+        .isEqualTo("external/module~1.2.3");
+    assertThat(eval(module, "Label('@dep//foo:bar').workspace_root")).isEqualTo("external/dep~4.5");
+    assertThat(eval(module, "Label('@@dep~4.5//foo:bar').workspace_root"))
+        .isEqualTo("external/dep~4.5");
+    assertThat(eval(module, "Label('@@//foo:bar').workspace_root")).isEqualTo("");
+
+    assertThat(eval(module, "str(Label('@//foo:bar'))")).isEqualTo("@//foo:bar");
+    assertThat(
+            assertThrows(
+                EvalException.class, () -> eval(module, "Label('@//foo:bar').workspace_name")))
+        .hasMessageThat()
+        .isEqualTo(
+            "'workspace_name' is not allowed on invalid Label @[unknown repo '' requested from"
+                + " @module~1.2.3]//foo:bar");
+    assertThat(
+            assertThrows(
+                EvalException.class, () -> eval(module, "Label('@//foo:bar').workspace_root")))
+        .hasMessageThat()
+        .isEqualTo(
+            "'workspace_root' is not allowed on invalid Label @[unknown repo '' requested from"
+                + " @module~1.2.3]//foo:bar");
   }
 }

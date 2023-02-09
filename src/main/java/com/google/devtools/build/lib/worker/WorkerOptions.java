@@ -32,26 +32,11 @@ import java.util.Map.Entry;
 public class WorkerOptions extends OptionsBase {
   public static final WorkerOptions DEFAULTS = Options.getDefaults(WorkerOptions.class);
 
-  @Option(
-      name = "experimental_persistent_javac",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help = "Enable the experimental persistent Java compiler.",
-      expansion = {
-        "--strategy=Javac=worker",
-        "--strategy=JavaIjar=local",
-        "--strategy=JavaDeployJar=local",
-        "--strategy=JavaSourceJar=local",
-        "--strategy=Turbine=local"
-      })
-  public Void experimentalPersistentJavac;
-
   /**
    * Defines a resource converter for named values in the form [name=]value, where the value is
    * {@link ResourceConverter.FLAG_SYNTAX}. If no name is provided (used when setting a default),
    * the empty string is used as the key. The default value for unspecified mnemonics is defined in
-   * {@link WorkerPool.createWorkerPools}. "auto" currently returns the default.
+   * {@link WorkerPoolImpl.createWorkerPools}. "auto" currently returns the default.
    */
   public static class MultiResourceConverter extends Converter.Contextless<Entry<String, Integer>> {
 
@@ -90,9 +75,12 @@ public class WorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
-          "How many instances of a worker process (like the persistent Java compiler) may be "
+          "How many instances of each kind of persistent worker may be "
               + "launched if you use the 'worker' strategy. May be specified as [name=value] to "
-              + "give a different value per worker mnemonic. Takes "
+              + "give a different value per mnemonic. The limit is based on worker keys, which are "
+              + "differentiated based on mnemonic, but also on startup flags and environment, so "
+              + "there can in some cases be more workers per mnemonic than this flag specifies. "
+              + "Takes "
               + ResourceConverter.FLAG_SYNTAX
               + ". 'auto' calculates a reasonable default based on machine capacity. "
               + "\"=value\" sets a default for unspecified mnemonics.",
@@ -100,15 +88,20 @@ public class WorkerOptions extends OptionsBase {
   public List<Map.Entry<String, Integer>> workerMaxInstances;
 
   @Option(
-      name = "experimental_worker_max_multiplex_instances",
+      name = "worker_max_multiplex_instances",
+      oldName = "experimental_worker_max_multiplex_instances",
+      oldNameWarning = false,
       converter = MultiResourceConverter.class,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "How many WorkRequests a multiplex worker process may receive in parallel if you use the"
-              + " 'worker' strategy with --experimental_worker_multiplex. May be specified as"
-              + " [name=value] to give a different value per worker mnemonic. Takes "
+              + " 'worker' strategy with --experimental_worker_multiplex. May be specified as "
+              + "[name=value] to give a different value per mnemonic. The limit is based on worker "
+              + "keys, which are differentiated based on mnemonic, but also on startup flags and "
+              + "environment, so there can in some cases be more workers per mnemonic than this "
+              + "flag specifies. Takes "
               + ResourceConverter.FLAG_SYNTAX
               + ". 'auto' calculates a reasonable default based on machine capacity. "
               + "\"=value\" sets a default for unspecified mnemonics.",
@@ -182,10 +175,10 @@ public class WorkerOptions extends OptionsBase {
 
   @Option(
       name = "experimental_worker_as_resource",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help = "If enabled, workers are acquired as resources from ResourceManager.")
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "No-op, will be removed soon.")
   public boolean workerAsResource;
 
   @Option(
@@ -220,4 +213,12 @@ public class WorkerOptions extends OptionsBase {
           "If this limit is greater than zero idle workers might be killed if the total memory"
               + " usage of all  workers exceed the limit.")
   public int totalWorkerMemoryLimitMb;
+
+  @Option(
+      name = "experimental_worker_sandbox_hardening",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "If enabled, workers are run in a hardened sandbox, if the implementation allows it.")
+  public boolean sandboxHardening;
 }

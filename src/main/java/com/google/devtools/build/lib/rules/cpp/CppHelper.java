@@ -158,12 +158,6 @@ public class CppHelper {
     return ImmutableList.copyOf(expandMakeVariables(ruleContext, attr, unexpanded));
   }
 
-  // Called from CcCommon.
-  static ImmutableList<String> getPackageCopts(RuleContext ruleContext) {
-    List<String> unexpanded = ruleContext.getRule().getPackage().getDefaultCopts();
-    return ImmutableList.copyOf(expandMakeVariables(ruleContext, "copts", unexpanded));
-  }
-
   /** Tokenizes and expands make variables. */
   public static List<String> expandLinkopts(
       RuleContext ruleContext, String attrName, Iterable<String> values) {
@@ -373,7 +367,7 @@ public class CppHelper {
 
   private static CcToolchainProvider getToolchainFromPlatformConstraints(
       RuleContext ruleContext, Label toolchainType) throws RuleErrorException {
-    ToolchainInfo toolchainInfo = ruleContext.getToolchainContext().forToolchainType(toolchainType);
+    ToolchainInfo toolchainInfo = ruleContext.getToolchainInfo(toolchainType);
     if (toolchainInfo == null) {
       throw ruleContext.throwWithRuleError(
           "Unable to find a CC toolchain using toolchain resolution. Did you properly set"
@@ -603,7 +597,8 @@ public class CppHelper {
       FeatureConfiguration featureConfiguration) {
     return cppConfiguration.forcePic()
         || (toolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
-            && cppConfiguration.getCompilationMode() != CompilationMode.OPT);
+            && (cppConfiguration.getCompilationMode() != CompilationMode.OPT
+                || featureConfiguration.isEnabled(CppRuleClasses.PREFER_PIC_FOR_OPT_BINARIES)));
   }
 
   /**

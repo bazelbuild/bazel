@@ -156,8 +156,7 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap, Label label) {
     for (ConfiguredTargetAndData prerequisite :
         prerequisiteMap.get(DependencyKind.VISIBILITY_DEPENDENCY)) {
-      if (prerequisite.getTarget().getLabel().equals(label)
-          && prerequisite.getConfiguration() == null) {
+      if (prerequisite.getTargetLabel().equals(label) && prerequisite.getConfiguration() == null) {
         return prerequisite.getConfiguredTarget();
       }
     }
@@ -177,7 +176,6 @@ public final class ConfiguredTargetFactory {
       ArtifactFactory artifactFactory,
       Target target,
       BuildConfigurationValue config,
-      BuildConfigurationValue hostConfig,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
@@ -193,7 +191,6 @@ public final class ConfiguredTargetFactory {
             analysisEnvironment,
             (Rule) target,
             config,
-            hostConfig,
             configuredTargetKey,
             prerequisiteMap,
             configConditions,
@@ -288,23 +285,23 @@ public final class ConfiguredTargetFactory {
       AnalysisEnvironment env,
       Rule rule,
       BuildConfigurationValue configuration,
-      BuildConfigurationValue hostConfiguration,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder)
-      throws InterruptedException, ActionConflictException, InvalidExecGroupException,
+      throws InterruptedException,
+          ActionConflictException,
+          InvalidExecGroupException,
           AnalysisFailurePropagationException {
     RuleClass ruleClass = rule.getRuleClassObject();
     ConfigurationFragmentPolicy configurationFragmentPolicy =
         ruleClass.getConfigurationFragmentPolicy();
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext =
-        new RuleContext.Builder(env, rule, /*aspects=*/ ImmutableList.of(), configuration)
+        new RuleContext.Builder(env, rule, /* aspects= */ ImmutableList.of(), configuration)
             .setRuleClassProvider(ruleClassProvider)
-            .setHostConfiguration(hostConfiguration)
             .setConfigurationFragmentPolicy(configurationFragmentPolicy)
             .setActionOwnerSymbol(configuredTargetKey)
             .setMutability(Mutability.create("configured target"))
@@ -319,7 +316,8 @@ public final class ConfiguredTargetFactory {
                     configuration,
                     ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
                     configConditions,
-                    prerequisiteMap.values()))
+                    Iterables.transform(
+                        prerequisiteMap.values(), ConfiguredTargetAndData::getConfiguredTarget)))
             .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
             .build();
 
@@ -501,7 +499,8 @@ public final class ConfiguredTargetFactory {
    */
   public ConfiguredAspect createAspect(
       AnalysisEnvironment env,
-      ConfiguredTargetAndData associatedTarget,
+      Target associatedTarget,
+      ConfiguredTarget configuredTarget,
       ImmutableList<Aspect> aspectPath,
       ConfiguredAspectFactory aspectFactory,
       Aspect aspect,
@@ -510,20 +509,17 @@ public final class ConfiguredTargetFactory {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable ExecGroupCollection.Builder execGroupCollectionBuilder,
       BuildConfigurationValue aspectConfiguration,
-      BuildConfigurationValue hostConfiguration,
       @Nullable NestedSet<Package> transitivePackages,
       AspectKeyCreator.AspectKey aspectKey)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException {
     RuleContext ruleContext =
-        new RuleContext.Builder(env, associatedTarget.getTarget(), aspectPath, aspectConfiguration)
+        new RuleContext.Builder(env, associatedTarget, aspectPath, aspectConfiguration)
             .setRuleClassProvider(ruleClassProvider)
-            .setHostConfiguration(hostConfiguration)
             .setConfigurationFragmentPolicy(aspect.getDefinition().getConfigurationFragmentPolicy())
             .setActionOwnerSymbol(aspectKey)
             .setMutability(Mutability.create("aspect"))
             .setVisibility(
-                convertVisibility(
-                    prerequisiteMap, env.getEventHandler(), associatedTarget.getTarget()))
+                convertVisibility(prerequisiteMap, env.getEventHandler(), associatedTarget))
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap))
             .setAspectAttributes(mergeAspectAttributes(aspectPath))
             .setConfigConditions(configConditions)
@@ -534,11 +530,14 @@ public final class ConfiguredTargetFactory {
                 RequiredFragmentsUtil.getAspectRequiredFragmentsIfEnabled(
                     aspect,
                     aspectFactory,
-                    associatedTarget.getTarget().getAssociatedRule(),
+                    associatedTarget.getAssociatedRule(),
                     aspectConfiguration,
                     ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
                     configConditions,
-                    Iterables.concat(prerequisiteMap.values(), ImmutableList.of(associatedTarget))))
+                    Iterables.concat(
+                        Iterables.transform(
+                            prerequisiteMap.values(), ConfiguredTargetAndData::getConfiguredTarget),
+                        ImmutableList.of(configuredTarget))))
             .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
             .build();
 
@@ -547,7 +546,7 @@ public final class ConfiguredTargetFactory {
     boolean allowAnalysisFailures = ruleContext.getConfiguration().allowAnalysisFailures();
 
     List<NestedSet<AnalysisFailure>> analysisFailures =
-        depAnalysisFailures(ruleContext, ImmutableList.of(associatedTarget.getConfiguredTarget()));
+        depAnalysisFailures(ruleContext, ImmutableList.of(configuredTarget));
     if (!analysisFailures.isEmpty()) {
       return erroredConfiguredAspectWithFailures(ruleContext, analysisFailures);
     }
@@ -559,7 +558,8 @@ public final class ConfiguredTargetFactory {
     try {
       configuredAspect =
           aspectFactory.create(
-              associatedTarget,
+              associatedTarget.getLabel(),
+              configuredTarget,
               ruleContext,
               aspect.getParameters(),
               ruleClassProvider.getToolsRepository());
@@ -574,7 +574,7 @@ public final class ConfiguredTargetFactory {
         configuredAspect,
         aspectKey,
         aspect.getDefinition().getAdvertisedProviders(),
-        associatedTarget.getTarget(),
+        associatedTarget,
         env.getEventHandler());
     return configuredAspect;
   }

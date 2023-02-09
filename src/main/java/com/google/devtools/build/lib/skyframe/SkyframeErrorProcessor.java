@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.skyframe.ActionArtifactCycleReporter.IS_ARTIFACT_OR_ACTION_SKY_KEY;
+import static com.google.devtools.build.lib.skyframe.ActionArtifactCycleReporter.ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
+import com.google.devtools.build.lib.skyframe.ArtifactNestedSetFunction.ArtifactNestedSetEvalException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
@@ -92,7 +93,7 @@ public final class SkyframeErrorProcessor {
    * the build, in case of --nokeep_going.
    *
    * <p>The various attributes will be used later on to construct the FailureDetail in {@link
-   * com.google.devtools.build.lib.analysis.BuildView#createFailureDetail}.
+   * com.google.devtools.build.lib.analysis.BuildView#createAnalysisFailureDetail}.
    */
   @AutoValue
   abstract static class ErrorProcessingResult {
@@ -287,7 +288,7 @@ public final class SkyframeErrorProcessor {
       Label label = getLabel(errorKey);
       IndividualErrorProcessingResult individualErrorProcessingResult =
           processIndividualError(
-              result, eventHandler, configurationLookupSupplier, errorKey, errorInfo);
+              result, eventHandler, bugReporter, configurationLookupSupplier, errorKey, errorInfo);
 
       // For action conflicts, more downstream operations are required to have all the
       // information. We intentionally don't send out any failure event, throw any exception (even
@@ -437,6 +438,7 @@ public final class SkyframeErrorProcessor {
   private static IndividualErrorProcessingResult processIndividualError(
       EvaluationResult<? extends SkyValue> result,
       ExtendedEventHandler eventHandler,
+      BugReporter bugReporter,
       Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
       SkyKey errorKey,
       ErrorInfo errorInfo) {
@@ -454,7 +456,11 @@ public final class SkyframeErrorProcessor {
         TopLevelConflictException tlce = (TopLevelConflictException) exception;
         actionConflicts = tlce.getTransitiveActionConflicts();
       } else if (isExecutionException(exception)) {
-        executionDetailedExitCode = getExecutionDetailedExitCodeFromCause(result, exception);
+        executionDetailedExitCode =
+            getExecutionDetailedExitCodeFromCause(result, exception, bugReporter);
+      } else if (!errorInfo.getCycleInfo().isEmpty()
+          && isExecutionCycle(errorInfo.getCycleInfo())) {
+        executionDetailedExitCode = CYCLE_CODE;
       }
       return IndividualErrorProcessingResult.create(
           actionConflicts,
@@ -467,10 +473,8 @@ public final class SkyframeErrorProcessor {
     if (errorKey.argument() instanceof ActionLookupData) {
       return IndividualErrorProcessingResult.create(
           /*actionConflicts=*/ ImmutableMap.of(),
-          getExecutionDetailedExitCodeFromCause(result, exception),
-          /*analysisRootCauses=*/ exception instanceof ActionExecutionException
-              ? ((ActionExecutionException) exception).getRootCauses()
-              : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          getExecutionDetailedExitCodeFromCause(result, exception, bugReporter),
+          /*analysisRootCauses=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /*loadingRootCauses=*/ ImmutableSet.of());
     }
 
@@ -533,7 +537,8 @@ public final class SkyframeErrorProcessor {
     } else if (exception instanceof TargetCompatibilityCheckException) {
       analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     } else if (isExecutionException(exception)) {
-      executionDetailedExitCode = getExecutionDetailedExitCodeFromCause(result, exception);
+      executionDetailedExitCode =
+          getExecutionDetailedExitCodeFromCause(result, exception, bugReporter);
       analysisRootCauses =
           exception instanceof ActionExecutionException
               ? ((ActionExecutionException) exception).getRootCauses()
@@ -552,13 +557,25 @@ public final class SkyframeErrorProcessor {
   }
 
   private static DetailedExitCode getExecutionDetailedExitCodeFromCause(
-      EvaluationResult<? extends SkyValue> result, Exception cause) {
-    DetailedExitCode executionDetailedExitCode;
-    executionDetailedExitCode = DetailedException.getDetailedExitCode(cause);
+      EvaluationResult<? extends SkyValue> result, Exception cause, BugReporter bugReporter) {
+    DetailedExitCode executionDetailedExitCode = DetailedException.getDetailedExitCode(cause);
     if (executionDetailedExitCode == null) {
-      executionDetailedExitCode = createDetailedExitCodeForUndetailedExecutionCause(result, cause);
+      executionDetailedExitCode =
+          sendBugReportAndCreateUnknownExecutionDetailedExitCode(result, cause, bugReporter);
     }
     return executionDetailedExitCode;
+  }
+
+  private static DetailedExitCode sendBugReportAndCreateUnknownExecutionDetailedExitCode(
+      EvaluationResult<? extends SkyValue> result, Throwable cause, BugReporter bugReporter) {
+    // An undetailed exception means we may incorrectly attribute responsibility for the failure:
+    // we need to fix that.
+    bugReporter.sendNonFatalBugReport(
+        new IllegalStateException(
+            "action terminated with unexpected exception with result " + result, cause));
+    String message =
+        "Unexpected exception, please file an issue with the Bazel team: " + cause.getMessage();
+    return createDetailedExecutionExitCode(message, UNKNOWN_EXECUTION);
   }
 
   private static void printWarningMessage(
@@ -585,7 +602,7 @@ public final class SkyframeErrorProcessor {
     if (keepGoing
         && skyKey instanceof BuildDriverKey
         && !isExecutionException(errorInfo.getException())) {
-      eventBus.post(TopLevelEntityAnalysisConcludedEvent.create(skyKey));
+      eventBus.post(TopLevelEntityAnalysisConcludedEvent.failure(skyKey));
     }
   }
 
@@ -745,7 +762,9 @@ public final class SkyframeErrorProcessor {
   private static boolean isExecutionException(Throwable cause) {
     return cause instanceof ActionExecutionException
         || cause instanceof InputFileErrorException
-        || cause instanceof TestExecException;
+        || cause instanceof TestExecException
+        // Refer to UnusedInputsFailureIntegrationTest#incrementalFailureOnUnusedInput.
+        || cause instanceof ArtifactNestedSetEvalException;
   }
 
   /**
@@ -782,7 +801,7 @@ public final class SkyframeErrorProcessor {
         rethrow(result.getCatastrophe(), bugReporter, result);
       }
       if (keepGoing) {
-        return getDetailedExitCode(result);
+        return getDetailedExitCodeKeepGoing(result);
       }
       ErrorInfo errorInfo = Preconditions.checkNotNull(result.getError(), result);
       Exception exception = errorInfo.getException();
@@ -801,7 +820,7 @@ public final class SkyframeErrorProcessor {
     return null;
   }
 
-  private static DetailedExitCode getDetailedExitCode(EvaluationResult<?> result) {
+  private static DetailedExitCode getDetailedExitCodeKeepGoing(EvaluationResult<?> result) {
     // If build fails and keepGoing is true, an exit code is assigned using reported errors
     // in the following order:
     //   1. First infrastructure error with non-null exit code
@@ -833,7 +852,7 @@ public final class SkyframeErrorProcessor {
     if (detailedExitCode != null) {
       return detailedExitCode;
     }
-    return createDetailedExitCodeForUndetailedExecutionCause(result, undetailedCause);
+    return createDetailedExitCodeForUndetailedExecutionCauseKeepGoing(result, undetailedCause);
   }
 
   /**
@@ -882,19 +901,15 @@ public final class SkyframeErrorProcessor {
           cause.getMessage(), ((DetailedException) cause).getDetailedExitCode());
     }
 
-    // An undetailed exception means we may incorrectly attribute responsibility for the failure:
-    // we need to fix that.
-    bugReporter.sendBugReport(
-        new IllegalStateException(
-            "action terminated with unexpected exception with result " + resultForDebugging,
-            cause));
-    String message =
-        "Unexpected exception, please file an issue with the Bazel team: " + cause.getMessage();
+    DetailedExitCode unknownExitCode =
+        sendBugReportAndCreateUnknownExecutionDetailedExitCode(
+            resultForDebugging, cause, bugReporter);
     throw new BuildFailedException(
-        message, createDetailedExecutionExitCode(message, UNKNOWN_EXECUTION));
+        Preconditions.checkNotNull(unknownExitCode.getFailureDetail()).getMessage(),
+        unknownExitCode);
   }
 
-  private static DetailedExitCode createDetailedExitCodeForUndetailedExecutionCause(
+  private static DetailedExitCode createDetailedExitCodeForUndetailedExecutionCauseKeepGoing(
       EvaluationResult<?> result, Throwable undetailedCause) {
     if (undetailedCause == null) {
       BugReport.sendBugReport("No exceptions found despite error in %s", result);
@@ -932,7 +947,7 @@ public final class SkyframeErrorProcessor {
 
   private static boolean isExecutionCycle(Iterable<CycleInfo> cycleInfoCollection) {
     for (CycleInfo cycleInfo : cycleInfoCollection) {
-      if (cycleInfo.getCycle().stream().allMatch(IS_ARTIFACT_OR_ACTION_SKY_KEY)) {
+      if (cycleInfo.getCycle().stream().allMatch(ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP)) {
         // All these cycle info belong to the same top level key. If one of them is
         // execution-related, we consider the error to be execution-related.
         return true;

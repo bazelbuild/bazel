@@ -14,7 +14,8 @@
 package com.google.devtools.build.android;
 
 import com.android.build.gradle.tasks.ResourceUsageAnalyzer;
-import com.android.builder.core.VariantType;
+import com.android.builder.core.VariantTypeImpl;
+import com.android.builder.internal.aapt.AaptOptions;
 import com.android.ide.common.xml.AndroidManifestParser;
 import com.android.ide.common.xml.ManifestData;
 import com.android.io.StreamException;
@@ -23,7 +24,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
-import com.google.devtools.build.android.AndroidResourceProcessor.FlagAaptOptions;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.VariantTypeConverter;
@@ -76,58 +76,53 @@ public class ResourceShrinkerAction {
   /** Flag specifications for this action. */
   public static final class Options extends OptionsBase {
     @Option(
-      name = "shrunkJar",
-      defaultValue = "null",
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = ExistingPathConverter.class,
-      help = "Path to the shrunk jar from a Proguard run with shrinking enabled."
-    )
+        name = "shrunkJar",
+        defaultValue = "null",
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        converter = ExistingPathConverter.class,
+        help = "Path to the shrunk jar from a Proguard run with shrinking enabled.")
     public Path shrunkJar;
 
     @Option(
-      name = "proguardMapping",
-      defaultValue = "null",
-      category = "input",
-      converter = PathConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Path to the Proguard obfuscation mapping of shrunkJar."
-    )
+        name = "proguardMapping",
+        defaultValue = "null",
+        category = "input",
+        converter = PathConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to the Proguard obfuscation mapping of shrunkJar.")
     public Path proguardMapping;
 
     @Option(
-      name = "resources",
-      defaultValue = "null",
-      category = "input",
-      converter = ExistingPathConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Path to the resources zip to be shrunk."
-    )
+        name = "resources",
+        defaultValue = "null",
+        category = "input",
+        converter = ExistingPathConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to the resources zip to be shrunk.")
     public Path resourcesZip;
 
     @Option(
-      name = "rTxt",
-      defaultValue = "null",
-      category = "input",
-      converter = ExistingPathConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Path to the R.txt of the complete resource tree."
-    )
+        name = "rTxt",
+        defaultValue = "null",
+        category = "input",
+        converter = ExistingPathConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to the R.txt of the complete resource tree.")
     public Path rTxt;
 
     @Option(
-      name = "primaryManifest",
-      defaultValue = "null",
-      category = "input",
-      converter = ExistingPathConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Path to the primary manifest for the resources to be shrunk."
-    )
+        name = "primaryManifest",
+        defaultValue = "null",
+        category = "input",
+        converter = ExistingPathConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to the primary manifest for the resources to be shrunk.")
     public Path primaryManifest;
 
     @Option(
@@ -142,58 +137,53 @@ public class ResourceShrinkerAction {
     public List<Path> dependencyManifests;
 
     @Option(
-      name = "resourcePackages",
-      defaultValue = "",
-      category = "input",
-      converter = CommaSeparatedOptionListConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "A list of packages that resources have been generated for."
-    )
+        name = "resourcePackages",
+        defaultValue = "",
+        category = "input",
+        converter = CommaSeparatedOptionListConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "A list of packages that resources have been generated for.")
     public List<String> resourcePackages;
 
     @Option(
-      name = "shrunkResourceApk",
-      defaultValue = "null",
-      category = "output",
-      converter = PathConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Path to where the shrunk resource.ap_ should be written."
-    )
+        name = "shrunkResourceApk",
+        defaultValue = "null",
+        category = "output",
+        converter = PathConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to where the shrunk resource.ap_ should be written.")
     public Path shrunkApk;
 
     @Option(
-      name = "shrunkResources",
-      defaultValue = "null",
-      category = "output",
-      converter = PathConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Path to where the shrunk resource.ap_ should be written."
-    )
+        name = "shrunkResources",
+        defaultValue = "null",
+        category = "output",
+        converter = PathConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to where the shrunk resource.ap_ should be written.")
     public Path shrunkResources;
 
     @Option(
-      name = "rTxtOutput",
-      defaultValue = "null",
-      converter = PathConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      category = "output",
-      help = "Path to where the R.txt should be written."
-    )
+        name = "rTxtOutput",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        category = "output",
+        help = "Path to where the R.txt should be written.")
     public Path rTxtOutput;
 
     @Option(
-      name = "log",
-      defaultValue = "null",
-      category = "output",
-      converter = PathConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Path to where the shrinker log should be written."
-    )
+        name = "log",
+        defaultValue = "null",
+        category = "output",
+        converter = PathConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to where the shrinker log should be written.")
     public Path log;
 
     @Option(
@@ -207,15 +197,15 @@ public class ResourceShrinkerAction {
 
     @Option(
         name = "packageType",
-        defaultValue = "DEFAULT",
+        defaultValue = "BASE_APK",
         converter = VariantTypeConverter.class,
         category = "config",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
             "Variant configuration type for packaging the resources."
-                + " Acceptable values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST")
-    public VariantType packageType;
+                + " Acceptable values BASE_APK, LIBRARY, ANDROID_TEST, UNIT_TEST")
+    public VariantTypeImpl packageType;
   }
 
   private static String getManifestPackage(Path manifest)
@@ -302,10 +292,12 @@ public class ResourceShrinkerAction {
           aaptConfigOptions.aapt,
           aaptConfigOptions.androidJar,
           aaptConfigOptions.buildToolsVersion,
-          VariantType.DEFAULT,
+          VariantTypeImpl.BASE_APK,
           aaptConfigOptions.debug,
           /* customPackageForR= */ null,
-          new FlagAaptOptions(aaptConfigOptions),
+          new AaptOptions(
+              /* noCompress= */ aaptConfigOptions.uncompressedExtensions,
+              /* additionalParameters= */ ImmutableList.of()),
           aaptConfigOptions.resourceConfigs,
           aaptConfigOptions.useDataBindingAndroidX,
           new MergedAndroidData(
@@ -323,7 +315,7 @@ public class ResourceShrinkerAction {
       }
       if (options.rTxtOutput != null) {
         AndroidResourceOutputs.copyRToOutput(
-            generatedSources, options.rTxtOutput, options.packageType == VariantType.LIBRARY);
+            generatedSources, options.rTxtOutput, options.packageType == VariantTypeImpl.LIBRARY);
       }
       logger.fine(
           String.format(

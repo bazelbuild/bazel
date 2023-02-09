@@ -26,7 +26,7 @@ java_library(
         ":javac-bootclasspath-locations",
     ],
     data = ["//tools/jdk:platformclasspath"],
-    visibility = ["//visibility:public"],
+    visibility = ["//visibility:private"],
     deps = ["//third_party:guava"],
 )
 

@@ -61,6 +61,26 @@ public interface QueryableGraph {
     return getBatchMap(requestor, reason, keys)::get;
   }
 
+  /** A hint about the most efficient way to look up a key in the graph. */
+  enum LookupHint {
+    INDIVIDUAL,
+    BATCH
+  }
+
+  /**
+   * Hints to the caller about the most efficient way to look up a key in this graph.
+   *
+   * <p>A return of {@link LookupHint#INDIVIDUAL} indicates that the given key can efficiently be
+   * looked up by calling {@link #get}. In such a case, it is not worth the effort to aggregate the
+   * key into a collection with other keys for a {@link #getBatch} call.
+   *
+   * <p>A return of {@link LookupHint#BATCH} indicates that the given key should ideally be
+   * requested with other keys as part of a call to {@link #getBatch}. This may be the case if, for
+   * example, the corresponding node is stored remotely, and requesting keys in a single batch
+   * reduces trips to remote storage.
+   */
+  LookupHint getLookupHint(SkyKey key);
+
   /**
    * A version of {@link #getBatch} that returns an {@link InterruptibleSupplier} to possibly
    * retrieve the results later.

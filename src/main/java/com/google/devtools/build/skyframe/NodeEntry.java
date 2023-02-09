@@ -441,7 +441,7 @@ public interface NodeEntry {
    * SkyFunction} last build, meaning independently of the values of any other deps in this group
    * (although possibly depending on deps in earlier groups). Thus the caller may check all the deps
    * in this group in parallel, since the deps in all previous groups are verified unchanged. See
-   * {@link SkyFunction.Environment#getOrderedValuesAndExceptions} for more on dependency groups.
+   * {@link SkyFunction.Environment#getValuesAndExceptions} for more on dependency groups.
    *
    * @see DirtyBuildingState#getNextDirtyDirectDeps()
    */
@@ -495,7 +495,7 @@ public interface NodeEntry {
 
   /**
    * Returns the {@link GroupedList} of direct dependencies. This may only be called while the node
-   * is being evaluated, that is, before {@link #setValue} and after {@link #markDirty}.
+   * is being evaluated (i.e. before {@link #setValue} and after {@link #markDirty}.
    */
   @ThreadSafe
   GroupedList<SkyKey> getTemporaryDirectDeps();
@@ -557,10 +557,20 @@ public interface NodeEntry {
   void addExternalDep();
 
   /**
-   * Returns true if the node is ready to be evaluated, i.e., it has been signaled exactly as many
-   * times as it has temporary dependencies. This may only be called while the node is being
-   * evaluated, that is, before {@link #setValue} and after {@link #markDirty}.
+   * Returns true if the node has been signaled exactly as many times as it has temporary
+   * dependencies, or if {@code getKey().supportsPartialReevaluation()}. This may only be called
+   * while the node is being evaluated (i.e. before {@link #setValue} and after {@link #markDirty}).
    */
   @ThreadSafe
-  boolean isReady();
+  boolean isReadyToEvaluate();
+
+  /**
+   * Returns true if the node has not been signaled exactly as many times as it has temporary
+   * dependencies. This may only be called while the node is being evaluated (i.e. before {@link
+   * #setValue} and after {@link #markDirty}).
+   *
+   * <p>The node must not complete or be reset while in this state because it may yet be signaled.
+   */
+  @ThreadSafe
+  boolean hasUnsignaledDeps();
 }

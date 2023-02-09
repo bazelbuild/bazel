@@ -81,7 +81,7 @@ public abstract class RuleType {
    * </pre>
    * }
    *
-   * @throws IOException for whatever reason the implementator feels like, but mostly just when
+   * @throws IOException for whatever reason the implementer feels like, but mostly just when
    *     a scratch file couldn't be created
    */
   abstract Iterable<String> requiredAttributes(

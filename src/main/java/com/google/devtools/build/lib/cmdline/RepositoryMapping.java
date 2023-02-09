@@ -19,6 +19,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -35,7 +37,8 @@ public abstract class RepositoryMapping {
   // Always fallback to the requested name
   public static final RepositoryMapping ALWAYS_FALLBACK = createAllowingFallback(ImmutableMap.of());
 
-  abstract ImmutableMap<String, RepositoryName> repositoryMapping();
+  /** Returns all the entries in this repo mapping. */
+  public abstract ImmutableMap<String, RepositoryName> entries();
 
   /**
    * The owner repo of this repository mapping. It is for providing useful debug information when
@@ -64,7 +67,7 @@ public abstract class RepositoryMapping {
    */
   public RepositoryMapping withAdditionalMappings(Map<String, RepositoryName> additionalMappings) {
     HashMap<String, RepositoryName> allMappings = new HashMap<>(additionalMappings);
-    allMappings.putAll(repositoryMapping());
+    allMappings.putAll(entries());
     return new AutoValue_RepositoryMapping(ImmutableMap.copyOf(allMappings), ownerRepo());
   }
 
@@ -74,7 +77,7 @@ public abstract class RepositoryMapping {
    * repo of the given additional mappings is ignored.
    */
   public RepositoryMapping withAdditionalMappings(RepositoryMapping additionalMappings) {
-    return withAdditionalMappings(additionalMappings.repositoryMapping());
+    return withAdditionalMappings(additionalMappings.entries());
   }
 
   /**
@@ -82,7 +85,7 @@ public abstract class RepositoryMapping {
    * provided apparent repo name is assumed to be valid.
    */
   public RepositoryName get(String preMappingName) {
-    RepositoryName canonicalRepoName = repositoryMapping().get(preMappingName);
+    RepositoryName canonicalRepoName = entries().get(preMappingName);
     if (canonicalRepoName != null) {
       return canonicalRepoName;
     }
@@ -92,5 +95,23 @@ public abstract class RepositoryMapping {
     } else {
       return RepositoryName.createUnvalidated(preMappingName).toNonVisible(ownerRepo());
     }
+  }
+
+  /**
+   * Whether the repo with this mapping is subject to strict deps; when strict deps is off, unknown
+   * apparent names are silently treated as canonical names.
+   */
+  public boolean usesStrictDeps() {
+    return ownerRepo() != null;
+  }
+
+  /**
+   * Returns the first apparent name in this mapping that maps to the given canonical name, if any.
+   */
+  public Optional<String> getInverse(RepositoryName postMappingName) {
+    return entries().entrySet().stream()
+        .filter(e -> e.getValue().equals(postMappingName))
+        .map(Entry::getKey)
+        .findFirst();
   }
 }

@@ -14,12 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKOPT;
-
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -31,7 +26,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExt
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Set;
 
 /** Build variable extensions for templating a toolchain for objc builds. */
 class ObjcVariablesExtension implements VariablesExtension {
@@ -40,12 +34,7 @@ class ObjcVariablesExtension implements VariablesExtension {
   static final String FRAMEWORKS_PATH_NAME = "framework_paths";
   static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
   static final String OBJC_MODULE_CACHE_KEY = "modules_cache_path";
-  static final String OBJ_LIST_PATH_VARIABLE_NAME = "obj_list_path";
   static final String ARCHIVE_PATH_VARIABLE_NAME = "archive_path";
-  static final String FULLY_LINKED_ARCHIVE_PATH_VARIABLE_NAME = "fully_linked_archive_path";
-  static final String OBJC_LIBRARY_EXEC_PATHS_VARIABLE_NAME = "objc_library_exec_paths";
-  static final String CC_LIBRARY_EXEC_PATHS_VARIABLE_NAME = "cc_library_exec_paths";
-  static final String IMPORTED_LIBRARY_EXEC_PATHS_VARIABLE_NAME = "imported_library_exec_paths";
   static final String LINKMAP_EXEC_PATH = "linkmap_exec_path";
   static final String BITCODE_SYMBOL_MAP_PATH_VARAIBLE_NAME = "bitcode_symbol_map_path";
 
@@ -67,14 +56,14 @@ class ObjcVariablesExtension implements VariablesExtension {
   static final String NO_OBJC_ARC_VARIABLE_NAME = "no_objc_arc";
 
   private final RuleContext ruleContext;
-  private final ObjcProvider objcProvider;
-  private final Artifact fullyLinkArchive;
   private final IntermediateArtifacts intermediateArtifacts;
   private final BuildConfigurationValue buildConfiguration;
   private final ImmutableList<String> frameworkSearchPaths;
-  private final Set<String> frameworkNames;
+  private final ImmutableList<String> frameworkNames;
+  private final ImmutableList<String> weakFrameworkNames;
   private final ImmutableList<String> libraryNames;
   private final ImmutableSet<Artifact> forceLoadArtifacts;
+  private final ImmutableList<String> depLinkopts;
   private final ImmutableList<String> attributeLinkopts;
   private final ImmutableSet<VariableCategory> activeVariableCategories;
   private final Artifact dsymSymbol;
@@ -84,14 +73,14 @@ class ObjcVariablesExtension implements VariablesExtension {
 
   private ObjcVariablesExtension(
       RuleContext ruleContext,
-      ObjcProvider objcProvider,
-      Artifact fullyLinkArchive,
       IntermediateArtifacts intermediateArtifacts,
       BuildConfigurationValue buildConfiguration,
       ImmutableList<String> frameworkSearchPaths,
-      Set<String> frameworkNames,
+      ImmutableList<String> frameworkNames,
+      ImmutableList<String> weakFrameworkNames,
       ImmutableList<String> libraryNames,
       ImmutableSet<Artifact> forceLoadArtifacts,
+      ImmutableList<String> depLinkopts,
       ImmutableList<String> attributeLinkopts,
       ImmutableSet<VariableCategory> activeVariableCategories,
       Artifact dsymSymbol,
@@ -99,14 +88,14 @@ class ObjcVariablesExtension implements VariablesExtension {
       Artifact bitcodeSymbolMap,
       boolean arcEnabled) {
     this.ruleContext = ruleContext;
-    this.objcProvider = objcProvider;
-    this.fullyLinkArchive = fullyLinkArchive;
     this.intermediateArtifacts = intermediateArtifacts;
     this.buildConfiguration = buildConfiguration;
     this.frameworkSearchPaths = frameworkSearchPaths;
     this.frameworkNames = frameworkNames;
+    this.weakFrameworkNames = weakFrameworkNames;
     this.libraryNames = libraryNames;
     this.forceLoadArtifacts = forceLoadArtifacts;
+    this.depLinkopts = depLinkopts;
     this.attributeLinkopts = attributeLinkopts;
     this.activeVariableCategories = activeVariableCategories;
     this.dsymSymbol = dsymSymbol;
@@ -117,8 +106,6 @@ class ObjcVariablesExtension implements VariablesExtension {
 
   /** Type of build variable that can optionally exported by this extension. */
   public enum VariableCategory {
-    ARCHIVE_VARIABLES,
-    FULLY_LINK_VARIABLES,
     EXECUTABLE_LINKING_VARIABLES,
     DSYM_VARIABLES,
     LINKMAP_VARIABLES,
@@ -131,12 +118,6 @@ class ObjcVariablesExtension implements VariablesExtension {
     addPchVariables(builder);
     if (activeVariableCategories.contains(VariableCategory.MODULE_MAP_VARIABLES)) {
       addModuleMapVariables(builder);
-    }
-    if (activeVariableCategories.contains(VariableCategory.ARCHIVE_VARIABLES)) {
-      addArchiveVariables(builder);
-    }
-    if (activeVariableCategories.contains(VariableCategory.FULLY_LINK_VARIABLES)) {
-      addFullyLinkArchiveVariables(builder);
     }
     if (activeVariableCategories.contains(VariableCategory.EXECUTABLE_LINKING_VARIABLES)) {
       addExecutableLinkVariables(builder);
@@ -173,42 +154,11 @@ class ObjcVariablesExtension implements VariablesExtension {
             + OBJC_MODULE_CACHE_DIR_NAME);
   }
 
-  private void addArchiveVariables(CcToolchainVariables.Builder builder) {
-    builder.addStringVariable(
-        OBJ_LIST_PATH_VARIABLE_NAME,
-        intermediateArtifacts.archiveObjList().getExecPathString());
-  }
-
-  private void addFullyLinkArchiveVariables(CcToolchainVariables.Builder builder) {
-    builder.addStringVariable(
-        FULLY_LINKED_ARCHIVE_PATH_VARIABLE_NAME, fullyLinkArchive.getExecPathString());
-
-    // ObjcProvider.getObjcLibraries contains both libraries from objc providers
-    // as well as those from CcInfo. ObjcProvider.getCcLibraries only contains
-    // those from CcInfo. We have to split these lists to make sure duplicate
-    // libraries are not included in the fully linked archive.
-    ImmutableSet<Artifact> ccLibs = ImmutableSet.copyOf(objcProvider.getCcLibraries());
-    Predicate<Artifact> isNotCcLib = library -> !ccLibs.contains(library);
-    Iterable<Artifact> objcLibraries =
-        objcProvider.getObjcLibraries().stream().filter(isNotCcLib).collect(toImmutableList());
-
-    builder.addStringSequenceVariable(
-        OBJC_LIBRARY_EXEC_PATHS_VARIABLE_NAME, Artifact.toExecPaths(objcLibraries));
-    builder.addStringSequenceVariable(
-        CC_LIBRARY_EXEC_PATHS_VARIABLE_NAME,
-        Artifact.toExecPaths(objcProvider.getCcLibraries()));
-    builder.addStringSequenceVariable(
-        IMPORTED_LIBRARY_EXEC_PATHS_VARIABLE_NAME,
-        Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY).toList()));
-  }
-
   private void addExecutableLinkVariables(CcToolchainVariables.Builder builder) {
     builder.addStringSequenceVariable(FRAMEWORKS_PATH_NAME, frameworkSearchPaths);
     builder.addStringSequenceVariable(
         FRAMEWORK_NAMES_VARIABLE_NAME, frameworkNames);
-    builder.addStringSequenceVariable(
-        WEAK_FRAMEWORK_NAMES_VARIABLE_NAME,
-        objcProvider.get(ObjcProvider.WEAK_SDK_FRAMEWORK).toList());
+    builder.addStringSequenceVariable(WEAK_FRAMEWORK_NAMES_VARIABLE_NAME, weakFrameworkNames);
     builder.addStringSequenceVariable(LIBRARY_NAMES_VARIABLE_NAME, libraryNames);
     builder.addStringVariable(
         FILELIST_VARIABLE_NAME, intermediateArtifacts.linkerObjList().getExecPathString());
@@ -221,7 +171,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     builder.addStringSequenceVariable(
         FORCE_LOAD_EXEC_PATHS_VARIABLE_NAME,
         Artifact.toExecPaths(forceLoadArtifacts));
-    builder.addStringSequenceVariable(DEP_LINKOPTS_VARIABLE_NAME, objcProvider.get(LINKOPT));
+    builder.addStringSequenceVariable(DEP_LINKOPTS_VARIABLE_NAME, depLinkopts);
     builder.addStringSequenceVariable(ATTR_LINKOPTS_VARIABLE_NAME, attributeLinkopts);
   }
 
@@ -245,14 +195,14 @@ class ObjcVariablesExtension implements VariablesExtension {
   /** A Builder for {@link ObjcVariablesExtension}. */
   static class Builder {
     private RuleContext ruleContext;
-    private ObjcProvider objcProvider;
-    private Artifact fullyLinkArchive;
     private IntermediateArtifacts intermediateArtifacts;
     private BuildConfigurationValue buildConfiguration;
     private ImmutableList<String> frameworkSearchPaths;
-    private Set<String> frameworkNames;
+    private ImmutableList<String> frameworkNames;
+    private ImmutableList<String> weakFrameworkNames;
     private ImmutableSet<Artifact> forceLoadArtifacts;
     private ImmutableList<String> libraryNames;
+    private ImmutableList<String> depLinkopts;
     private ImmutableList<String> attributeLinkopts;
     private Artifact dsymSymbol;
     private Artifact linkmap;
@@ -266,20 +216,6 @@ class ObjcVariablesExtension implements VariablesExtension {
     @CanIgnoreReturnValue
     public Builder setRuleContext(RuleContext ruleContext) {
       this.ruleContext = Preconditions.checkNotNull(ruleContext);
-      return this;
-    }
-
-    /** Sets the {@link ObjcProvider} for this extension. */
-    @CanIgnoreReturnValue
-    public Builder setObjcProvider(ObjcProvider objcProvider) {
-      this.objcProvider = Preconditions.checkNotNull(objcProvider);
-      return this;
-    }
-
-    /** Sets the output of the fully link action. */
-    @CanIgnoreReturnValue
-    public Builder setFullyLinkArchive(Artifact fullyLinkArchive) {
-      this.fullyLinkArchive = Preconditions.checkNotNull(fullyLinkArchive);
       return this;
     }
 
@@ -306,8 +242,15 @@ class ObjcVariablesExtension implements VariablesExtension {
 
     /** Sets the framework names to be passed to the linker using {@code -framework}. */
     @CanIgnoreReturnValue
-    public Builder setFrameworkNames(Set<String> frameworkNames) {
+    public Builder setFrameworkNames(ImmutableList<String> frameworkNames) {
       this.frameworkNames = Preconditions.checkNotNull(frameworkNames);
+      return this;
+    }
+
+    /** Sets the weak framework names to be passed to the linker using {@code -weak_framework}. */
+    @CanIgnoreReturnValue
+    public Builder setWeakFrameworkNames(ImmutableList<String> weakFrameworkNames) {
+      this.weakFrameworkNames = Preconditions.checkNotNull(weakFrameworkNames);
       return this;
     }
 
@@ -322,6 +265,13 @@ class ObjcVariablesExtension implements VariablesExtension {
     @CanIgnoreReturnValue
     public Builder setForceLoadArtifacts(ImmutableSet<Artifact> forceLoadArtifacts) {
       this.forceLoadArtifacts = Preconditions.checkNotNull(forceLoadArtifacts);
+      return this;
+    }
+
+    /** Sets linkopts from dependency. */
+    @CanIgnoreReturnValue
+    public Builder setDepLinkopts(ImmutableList<String> depLinkopts) {
+      this.depLinkopts = Preconditions.checkNotNull(depLinkopts);
       return this;
     }
 
@@ -375,16 +325,13 @@ class ObjcVariablesExtension implements VariablesExtension {
       Preconditions.checkNotNull(ruleContext, "missing RuleContext");
       Preconditions.checkNotNull(buildConfiguration, "missing BuildConfigurationValue");
       Preconditions.checkNotNull(intermediateArtifacts, "missing IntermediateArtifacts");
-      if (activeVariableCategories.contains(VariableCategory.FULLY_LINK_VARIABLES)) {
-        Preconditions.checkNotNull(objcProvider, "missing ObjcProvider");
-        Preconditions.checkNotNull(fullyLinkArchive, "missing fully-link archive");
-      }
       if (activeVariableCategories.contains(VariableCategory.EXECUTABLE_LINKING_VARIABLES)) {
-        Preconditions.checkNotNull(objcProvider, "missing ObjcProvider");
         Preconditions.checkNotNull(frameworkSearchPaths, "missing FrameworkSearchPaths");
         Preconditions.checkNotNull(frameworkNames, "missing framework names");
+        Preconditions.checkNotNull(weakFrameworkNames, "missing weak framework names");
         Preconditions.checkNotNull(libraryNames, "missing library names");
         Preconditions.checkNotNull(forceLoadArtifacts, "missing force-load artifacts");
+        Preconditions.checkNotNull(depLinkopts, "missing dep linkopts");
         Preconditions.checkNotNull(attributeLinkopts, "missing attribute linkopts");
       }
       if (activeVariableCategories.contains(VariableCategory.DSYM_VARIABLES)) {
@@ -399,14 +346,14 @@ class ObjcVariablesExtension implements VariablesExtension {
 
       return new ObjcVariablesExtension(
           ruleContext,
-          objcProvider,
-          fullyLinkArchive,
           intermediateArtifacts,
           buildConfiguration,
           frameworkSearchPaths,
           frameworkNames,
+          weakFrameworkNames,
           libraryNames,
           forceLoadArtifacts,
+          depLinkopts,
           attributeLinkopts,
           activeVariableCategories,
           dsymSymbol,

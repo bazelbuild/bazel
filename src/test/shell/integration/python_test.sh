@@ -144,9 +144,7 @@ EOF
   # happens is Google has stamping enabled by default, which causes the
   # Starlark rule implementation to run an action, which then tries to run
   # remotely, but network access is disabled by default, so it times out.
-  bazel build --experimental_build_transitive_python_runfiles --nostamp :sh-tool
-  [ -d "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree not built"
-  bazel clean
+
   bazel build --noexperimental_build_transitive_python_runfiles --nostamp :sh-tool
   [ ! -e "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree built"
 }

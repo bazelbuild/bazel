@@ -69,7 +69,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         "        cmd = '')");
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
     assertThat(result.hasError()).isTrue();
-    Label topLevel = Label.parseAbsoluteUnchecked("//foo");
+    Label topLevel = Label.parseCanonicalUnchecked("//foo");
 
     assertThat(collector.events.keySet()).containsExactly(topLevel);
 
@@ -95,8 +95,8 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         "        outs = ['foo.txt'])");
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
     assertThat(result.hasError()).isTrue();
-    Label topLevel = Label.parseAbsoluteUnchecked("//foo");
-    Label causeLabel = Label.parseAbsoluteUnchecked("//bar");
+    Label topLevel = Label.parseCanonicalUnchecked("//foo");
+    Label causeLabel = Label.parseCanonicalUnchecked("//bar");
     assertThat(collector.events.keySet()).containsExactly(topLevel);
     assertThat(collector.events.get(topLevel))
         .containsExactly(
@@ -124,7 +124,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         ")");
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//test:bad");
     assertThat(result.hasError()).isTrue();
-    Label topLevel = Label.parseAbsoluteUnchecked("//test:bad");
+    Label topLevel = Label.parseCanonicalUnchecked("//test:bad");
     assertThat(collector.events.keySet()).containsExactly(topLevel);
     assertThat(collector.events)
         .valuesForKey(topLevel)
@@ -158,7 +158,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//gp");
     assertThat(result.hasError()).isTrue();
 
-    Label topLevel = Label.parseAbsoluteUnchecked("//gp");
+    Label topLevel = Label.parseCanonicalUnchecked("//gp");
     String message =
         "Symlink issue while evaluating globs: Symlink cycle:" + " /workspace/cycles1/cycles1.sh";
     Code code = Code.EVAL_GLOBS_SYMLINK_ERROR;
@@ -180,7 +180,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
     assertThat(result.hasError()).isTrue();
 
-    Label topLevel = Label.parseAbsoluteUnchecked("//foo");
+    Label topLevel = Label.parseCanonicalUnchecked("//foo");
     assertThat(collector.events.get(topLevel))
         .containsExactly(
             new AnalysisFailedCause(
@@ -203,7 +203,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
     assertThat(result.hasError()).isTrue();
 
-    Label topLevel = Label.parseAbsoluteUnchecked("//foo");
+    Label topLevel = Label.parseCanonicalUnchecked("//foo");
     assertThat(collector.events)
         .valuesForKey(topLevel)
         .containsExactly(
@@ -237,12 +237,9 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
       // Ignored; we check for the correct eventbus event below.
     }
 
-    Label topLevel = Label.parseAbsoluteUnchecked("//foo");
+    Label topLevel = Label.parseCanonicalUnchecked("//foo");
     BuildConfigurationValue expectedConfig =
-        skyframeExecutor
-            .getSkyframeBuildView()
-            .getBuildConfigurationCollection()
-            .getTargetConfiguration();
+        skyframeExecutor.getSkyframeBuildView().getBuildConfiguration();
     String message =
         "in sh_test rule //foo:foo: target '//bar:bar' is not visible from"
             + " target '//foo:foo'. Check the visibility declaration of the"

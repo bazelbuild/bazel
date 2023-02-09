@@ -63,21 +63,12 @@ public interface TransitionFactory<T extends TransitionFactory.Data> {
 
   // TODO(https://github.com/bazelbuild/bazel/issues/7814): Once everything uses TransitionFactory,
   // remove these methods.
-  /** Returns {@code true} if the result of this {@link TransitionFactory} is a host transition. */
-  default boolean isHost() {
-    return false;
-  }
 
   /**
    * Returns {@code true} if the result of this {@link TransitionFactory} should be considered as
    * part of the tooling rather than a dependency of the original target.
    */
   default boolean isTool() {
-    if (isHost()) {
-      // Every host dependency is also a tool dependency.
-      return true;
-    }
-
     return false;
   }
 

@@ -62,6 +62,7 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
   private final PythonVersion pythonVersion;
 
   private final String stubShebang;
+  @Nullable private final Artifact bootstrapTemplate;
 
   private PyRuntimeInfo(
       @Nullable Location location,
@@ -71,7 +72,8 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
       @Nullable Artifact coverageTool,
       @Nullable Depset coverageFiles,
       PythonVersion pythonVersion,
-      @Nullable String stubShebang) {
+      @Nullable String stubShebang,
+      @Nullable Artifact bootstrapTemplate) {
     Preconditions.checkArgument((interpreterPath == null) != (interpreter == null));
     Preconditions.checkArgument((interpreter == null) == (files == null));
     Preconditions.checkArgument((coverageTool == null) == (coverageFiles == null));
@@ -88,6 +90,7 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
     } else {
       this.stubShebang = PyRuntimeInfoApi.DEFAULT_STUB_SHEBANG;
     }
+    this.bootstrapTemplate = bootstrapTemplate;
   }
 
   @Override
@@ -107,16 +110,18 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
       @Nullable Artifact coverageTool,
       @Nullable NestedSet<Artifact> coverageFiles,
       PythonVersion pythonVersion,
-      @Nullable String stubShebang) {
+      @Nullable String stubShebang,
+      @Nullable Artifact bootstrapTemplate) {
     return new PyRuntimeInfo(
-        /*location=*/ null,
-        /*interpreterPath=*/ null,
+        /* location= */ null,
+        /* interpreterPath= */ null,
         interpreter,
         Depset.of(Artifact.TYPE, files),
         coverageTool,
         coverageFiles == null ? null : Depset.of(Artifact.TYPE, coverageFiles),
         pythonVersion,
-        stubShebang);
+        stubShebang,
+        bootstrapTemplate);
   }
 
   /** Constructs an instance from native rule logic (built-in location) for a platform runtime. */
@@ -125,16 +130,18 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
       @Nullable Artifact coverageTool,
       @Nullable NestedSet<Artifact> coverageFiles,
       PythonVersion pythonVersion,
-      @Nullable String stubShebang) {
+      @Nullable String stubShebang,
+      @Nullable Artifact bootstrapTemplate) {
     return new PyRuntimeInfo(
-        /*location=*/ null,
+        /* location= */ null,
         interpreterPath,
-        /*interpreter=*/ null,
-        /*files=*/ null,
+        /* interpreter= */ null,
+        /* files= */ null,
         coverageTool,
         coverageFiles == null ? null : Depset.of(Artifact.TYPE, coverageFiles),
         pythonVersion,
-        stubShebang);
+        stubShebang,
+        bootstrapTemplate);
   }
 
   @Override
@@ -202,6 +209,12 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
     return stubShebang;
   }
 
+  @Override
+  @Nullable
+  public Artifact getBootstrapTemplate() {
+    return bootstrapTemplate;
+  }
+
   @Nullable
   public NestedSet<Artifact> getFiles() {
     try {
@@ -264,11 +277,16 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
         Object coverageFilesUncast,
         String pythonVersion,
         String stubShebang,
+        Object bootstrapTemplateUncast,
         StarlarkThread thread)
         throws EvalException {
       String interpreterPath =
           interpreterPathUncast == NONE ? null : (String) interpreterPathUncast;
       Artifact interpreter = interpreterUncast == NONE ? null : (Artifact) interpreterUncast;
+      Artifact bootstrapTemplate = null;
+      if (bootstrapTemplateUncast != NONE) {
+        bootstrapTemplate = (Artifact) bootstrapTemplateUncast;
+      }
       Depset filesDepset = null;
       if (filesUncast != NONE) {
         // Validate type of filesDepset.
@@ -306,23 +324,25 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
         }
         return new PyRuntimeInfo(
             loc,
-            /*interpreterPath=*/ null,
+            /* interpreterPath= */ null,
             interpreter,
             filesDepset,
             coverageTool,
             coverageDepset,
             parsedPythonVersion,
-            stubShebang);
+            stubShebang,
+            bootstrapTemplate);
       } else {
         return new PyRuntimeInfo(
             loc,
             PathFragment.create(interpreterPath),
-            /*interpreter=*/ null,
-            /*files=*/ null,
+            /* interpreter= */ null,
+            /* files= */ null,
             coverageTool,
             coverageDepset,
             parsedPythonVersion,
-            stubShebang);
+            stubShebang,
+            bootstrapTemplate);
       }
     }
   }

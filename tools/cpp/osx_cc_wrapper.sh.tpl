@@ -27,8 +27,6 @@
 #
 set -eu
 
-INSTALL_NAME_TOOL="/usr/bin/install_name_tool"
-
 LIBS=
 LIB_DIRS=
 RPATHS=
@@ -42,7 +40,7 @@ function parse_option() {
         LIBS="${BASH_REMATCH[1]} $LIBS"
     elif [[ "$opt" =~ ^-L(.*)$ ]]; then
         LIB_DIRS="${BASH_REMATCH[1]} $LIB_DIRS"
-    elif [[ "$opt" =~ ^-Wl,-rpath,\@loader_path/(.*)$ ]]; then
+    elif [[ "$opt" =~ ^\@loader_path/(.*)$ ]]; then
         RPATHS="${BASH_REMATCH[1]} ${RPATHS}"
     elif [[ "$opt" = "-o" ]]; then
         # output is coming
@@ -110,7 +108,7 @@ for rpath in ${RPATHS}; do
         if [[ -n "${libname-}" ]]; then
             libpath=$(get_library_path ${lib})
             if [ -n "${libpath}" ]; then
-                ${INSTALL_NAME_TOOL} -change $(get_otool_path "${libpath}") \
+                /usr/bin/xcrun install_name_tool -change $(get_otool_path "${libpath}") \
                     "@loader_path/${rpath}/${libname}" "${OUTPUT}"
             fi
         fi

@@ -76,8 +76,7 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
    * Builder for {@link ExtraLinkTimeLibraries}.
    */
   public static final class Builder {
-    private Map<Class<? extends ExtraLinkTimeLibrary>, ExtraLinkTimeLibrary.Builder> libraries =
-          new LinkedHashMap<>();
+    private final Map<Object, ExtraLinkTimeLibrary.Builder> libraries = new LinkedHashMap<>();
 
     private Builder() {
       // Nothing to do.
@@ -98,19 +97,17 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
     @CanIgnoreReturnValue
     public final Builder addTransitive(ExtraLinkTimeLibraries dep) {
       for (ExtraLinkTimeLibrary depLibrary : dep.getExtraLibraries()) {
-        Class<? extends ExtraLinkTimeLibrary> c = depLibrary.getClass();
-        libraries.computeIfAbsent(c, k -> depLibrary.getBuilder());
-        libraries.get(c).addTransitive(depLibrary);
+        add(depLibrary);
       }
       return this;
     }
 
     /** Add a single library to build. */
     @CanIgnoreReturnValue
-    public final Builder add(ExtraLinkTimeLibrary b) {
-      Class<? extends ExtraLinkTimeLibrary> c = b.getClass();
-      libraries.computeIfAbsent(c, k -> b.getBuilder());
-      libraries.get(c).addTransitive(b);
+    public final Builder add(ExtraLinkTimeLibrary depLibrary) {
+      Object key = depLibrary.getKey();
+      libraries.computeIfAbsent(key, k -> depLibrary.getBuilder());
+      libraries.get(key).addTransitive(depLibrary);
       return this;
     }
   }

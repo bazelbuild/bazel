@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.skyframe.PlatformMappingValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -87,19 +87,16 @@ public final class ConfigurationResolver {
 
   private final SkyFunction.Environment env;
   private final TargetAndConfiguration ctgValue;
-  private final BuildConfigurationValue hostConfiguration;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final StarlarkTransitionCache starlarkTransitionCache;
 
   public ConfigurationResolver(
       SkyFunction.Environment env,
       TargetAndConfiguration ctgValue,
-      BuildConfigurationValue hostConfiguration,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       StarlarkTransitionCache starlarkTransitionCache) {
     this.env = env;
     this.ctgValue = ctgValue;
-    this.hostConfiguration = hostConfiguration;
     this.configConditions = configConditions;
     this.starlarkTransitionCache = starlarkTransitionCache;
   }
@@ -152,8 +149,8 @@ public final class ConfigurationResolver {
       if (depConfig == null) {
         // Instead of returning immediately, give the loop a chance to queue up every missing
         // dependency, then return all at once. That prevents re-executing this code an unnecessary
-        // number of times. i.e. this is equivalent to calling env.getOrderedValuesAndExceptions()
-        // once over all deps.
+        // number of times. i.e. this is equivalent to calling env.getValuesAndExceptions() once
+        // over all deps.
         needConfigsFromSkyframe = true;
       } else {
         resolvedDeps.putAll(dependencyKind, depConfig);
@@ -185,8 +182,6 @@ public final class ConfigurationResolver {
         return null; // Need Skyframe deps.
       }
       return ImmutableList.of(resolvedDep);
-    } else if (transition.isHostTransition()) {
-      return ImmutableList.of(resolveHostTransition(dependencyBuilder, dependencyKey));
     }
 
     return resolveGenericTransition(dependencyBuilder, dependencyKey, eventHandler);
@@ -212,14 +207,6 @@ public final class ConfigurationResolver {
     }
 
     return dependencyBuilder.withNullConfiguration().build();
-  }
-
-  private Dependency resolveHostTransition(
-      Dependency.Builder dependencyBuilder, DependencyKey dependencyKey) {
-    return dependencyBuilder
-        .setConfiguration(hostConfiguration)
-        .setAspects(dependencyKey.getAspects())
-        .build();
   }
 
   @Nullable
@@ -272,8 +259,7 @@ public final class ConfigurationResolver {
       throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
     }
 
-    SkyframeIterableResult depConfigValues =
-        env.getOrderedValuesAndExceptions(configurationKeys.values());
+    SkyframeLookupResult depConfigValues = env.getValuesAndExceptions(configurationKeys.values());
     List<Dependency> dependencies = new ArrayList<>();
     try {
       for (Map.Entry<String, BuildConfigurationKey> entry : configurationKeys.entrySet()) {
@@ -281,7 +267,7 @@ public final class ConfigurationResolver {
         // TODO(blaze-configurability-team): Should be able to just use BuildConfigurationKey
         BuildConfigurationValue configuration =
             (BuildConfigurationValue)
-                depConfigValues.nextOrThrow(InvalidConfigurationException.class);
+                depConfigValues.getOrThrow(entry.getValue(), InvalidConfigurationException.class);
         if (configuration == null) {
           continue;
         }

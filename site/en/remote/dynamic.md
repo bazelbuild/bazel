@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Dynamic Execution
 
+{% include "_buttons.html" %}
+
 __Dynamic execution__ is a feature in Bazel
 [since version 0.21](https://blog.bazel.build/2019/02/01/dynamic-spawn-scheduler.html){: .external},
 where local and remote execution of the same action are started in parallel,
@@ -15,7 +17,7 @@ This page describes how to enable, tune, and debug dynamic execution. If you
 have both local and remote execution set up and are trying to adjust Bazel
 settings for better performance, this page is for you. If you don't already have
 remote execution set up, go to the Bazel
-[Remote Execution Overview](/docs/remote-execution) first.
+[Remote Execution Overview](/remote/rbe) first.
 
 ## Enabling dynamic execution? {:#enabling-dynamic-execution}
 
@@ -39,7 +41,7 @@ the Javac mnemonic only. The remote version works the same way. Both flags can
 be specified multiple times. If an action cannot be executed locally, it is
 executed remotely as normal, and vice-versa.
 
-If your remote system has a cache, the `--experimental_local_execution_delay`
+If your remote system has a cache, the `--dynamic_local_execution_delay`
 flag adds a delay in milliseconds to the local execution after the remote system
 has indicated a cache hit. This avoids running local execution when more cache
 hits are likely. The default value is 1000ms, but should be tuned to being just
@@ -51,12 +53,11 @@ away to add roundtrip latency. You can use the
 to look at how long typical cache hits take.
 
 Dynamic execution can be used with local sandboxed strategy as well as with
-[persistent workers](/docs/persistent-workers). Persistent workers will
+[persistent workers](/remote/persistent). Persistent workers will
 automatically run with sandboxing when used with dynamic execution, and cannot
-use [multiplex workers](/docs/multiplex-worker). On Darwin and Windows systems,
-the sandboxed strategy can be slow, you can pass
-`--experimental_reuse_sandbox_directories` to try a new approach speeding up
-sandboxes on these systems.
+use [multiplex workers](/remote/multiplex). On Darwin and Windows systems,
+the sandboxed strategy can be slow; you can pass
+`--reuse_sandbox_directories` to reduce overhead of creating sandboxes on these systems.
 
 Dynamic execution can also run with the `standalone` strategy, though since the
 `standalone` strategy must take the output lock when it starts executing, it
@@ -76,13 +77,13 @@ Merino's excellent
 ## When should I use dynamic execution? {:#when-to-use}
 
 Dynamic execution requires some form of
-[remote execution system](/docs/remote-execution). It is not currently
+[remote execution system](/remote/rbe). It is not currently
 possible to use a cache-only remote system, as a cache miss would be considered
 a failed action.
 
 Not all types of actions are well suited for remote execution. The best
 candidates are those that are inherently faster locally, for instance through
-the use of [persistent workers](/docs/persistent-workers), or those that run
+the use of [persistent workers](/remote/persistent), or those that run
 fast enough that the overhead of remote execution dominates execution time.
 Since each locally executed action locks some amount of CPU and memory
 resources, running actions that don't fall into those categories merely delays
@@ -123,9 +124,9 @@ mnemonics, which would often lead to these kinds of problems.
 
 Problems with dynamic execution can be subtle and hard to debug, as they can
 manifest only under some specific combinations of local and remote execution.
-The `--experimental_debug_spawn_scheduler` adds extra output from the dynamic
+The `--debug_spawn_scheduler` adds extra output from the dynamic
 execution system that can help debug these problems. You can also adjust the
-`--experimental_local_execution_delay` flag and number of remote vs. local jobs
+`--dynamic_local_execution_delay` flag and number of remote vs. local jobs
 to make it easier to reproduce the problems.
 
 If you are experiencing problems with dynamic execution using the `standalone`

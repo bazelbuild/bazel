@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
@@ -37,17 +38,17 @@ import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LocationExpander;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.Runfiles.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.ShToolchain;
+import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
@@ -118,9 +119,11 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
 
   private static final ImmutableSet<PackageIdentifier> PRIVATE_STARLARKIFICATION_ALLOWLIST =
       ImmutableSet.of(
+          PackageIdentifier.createUnchecked("_builtins", ""),
           PackageIdentifier.createInMainRepo("test"), // for tests
-          PackageIdentifier.createInMainRepo("tools/build_defs/android/dev"),
-          PackageIdentifier.createInMainRepo("tools/build_defs/android/release/blaze"));
+          PackageIdentifier.createInMainRepo("third_party/bazel_rules/rules_android"),
+          PackageIdentifier.createUnchecked("build_bazel_rules_android", ""),
+          PackageIdentifier.createInMainRepo("tools/build_defs/android"));
 
   public static final String EXECUTABLE_OUTPUT_NAME = "executable";
 
@@ -136,7 +139,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   // `nullify()` when the object becomes featureless (analogous to freezing).
   private RuleContext ruleContext;
   private FragmentCollection fragments;
-  private FragmentCollection hostFragments;
   @Nullable private AspectDescriptor aspectDescriptor;
 
   /**
@@ -190,8 +192,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.actionFactory = new StarlarkActionFactory(this);
     this.ruleLabelCanonicalName = ruleContext.getLabel().getCanonicalForm();
-    this.fragments = new FragmentCollection(ruleContext, NoTransition.INSTANCE);
-    this.hostFragments = new FragmentCollection(ruleContext, HostTransition.INSTANCE);
+    this.fragments = new FragmentCollection(ruleContext);
     this.aspectDescriptor = aspectDescriptor;
     this.isForAspect = aspectDescriptor != null;
 
@@ -435,7 +436,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public void nullify() {
     ruleContext = null;
     fragments = null;
-    hostFragments = null;
     aspectDescriptor = null;
     cachedMakeVariables = null;
     attributesCollection = null;
@@ -610,21 +610,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public FragmentCollection getHostFragments() throws EvalException {
-    checkMutable("host_fragments");
-    return hostFragments;
-  }
-
-  @Override
   public BuildConfigurationValue getConfiguration() throws EvalException {
     checkMutable("configuration");
     return ruleContext.getConfiguration();
-  }
-
-  @Override
-  public BuildConfigurationValue getHostConfiguration() throws EvalException {
-    checkMutable("host_configuration");
-    return ruleContext.getHostConfiguration();
   }
 
   @Override
@@ -750,10 +738,46 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
         : ((ImmutableKeyTrackingDict<String, String>) cachedMakeVariables).getAccessedKeys();
   }
 
+  private ImmutableSet<Label> getAutomaticExecGroupLabels() {
+    ToolchainCollection<ResolvedToolchainContext> toolchainContexts =
+        ruleContext.getToolchainContexts();
+
+    return toolchainContexts.getExecGroupNames().stream()
+        .flatMap(
+            execGroupName ->
+                toolchainContexts
+                    .getToolchainContext(execGroupName)
+                    .requestedToolchainTypeLabels()
+                    .keySet()
+                    .stream()
+                    .filter(label -> label.toString().equals(execGroupName))
+                    .findAny()
+                    .stream())
+        .collect(toImmutableSet());
+  }
+
   @Override
   public ToolchainContextApi toolchains() throws EvalException {
     checkMutable("toolchains");
-    return StarlarkToolchainContext.create(ruleContext.getToolchainContext());
+
+    if (ruleContext.getToolchainContext() == null) {
+      return StarlarkToolchainContext.TOOLCHAINS_NOT_VALID;
+    }
+
+    if (ruleContext.useAutoExecGroups()) {
+      return StarlarkToolchainContext.create(
+          /* targetDescription= */ ruleContext.getToolchainContext().targetDescription(),
+          /* resolveToolchainInfoFunc= */ ruleContext::getToolchainInfo,
+          /* resolvedToolchainTypeLabels= */ getAutomaticExecGroupLabels());
+    } else {
+      return StarlarkToolchainContext.create(
+          /* targetDescription= */ ruleContext.getToolchainContext().targetDescription(),
+          /* resolveToolchainInfoFunc= */ ruleContext.getToolchainContext()::forToolchainType,
+          /* resolvedToolchainTypeLabels= */ ruleContext
+              .getToolchainContext()
+              .requestedToolchainTypeLabels()
+              .keySet());
+    }
   }
 
   @Override
@@ -892,6 +916,10 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     return attributesCollection.getExecutableRunfilesMap().get(executable);
   }
 
+  boolean areRunfilesFromDeps(FilesToRunProvider executable) {
+    return attributesCollection.getExecutableRunfilesMap().containsValue(executable);
+  }
+
   @Override
   public Artifact getStableWorkspaceStatus() throws InterruptedException, EvalException {
     checkMutable("info_file");
@@ -936,8 +964,11 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     Label label =
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();
-    if (!PRIVATE_STARLARKIFICATION_ALLOWLIST.contains(label.getPackageIdentifier())
-        && !label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
+    if (PRIVATE_STARLARKIFICATION_ALLOWLIST.stream()
+        .noneMatch(
+            allowedPrefix ->
+                label.getRepository().equals(allowedPrefix.getRepository())
+                    && label.getPackageFragment().startsWith(allowedPrefix.getPackageFragment()))) {
       throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
   }
@@ -949,8 +980,13 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       Boolean collectData,
       Boolean collectDefault,
       Object symlinks,
-      Object rootSymlinks)
+      Object rootSymlinks,
+      boolean skipConflictChecking,
+      StarlarkThread thread)
       throws EvalException, TypeException {
+    if (skipConflictChecking) {
+      checkPrivateAccess(thread);
+    }
     checkMutable("runfiles");
     Runfiles.Builder builder =
         new Runfiles.Builder(
@@ -983,9 +1019,10 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       builder.addTransitiveArtifacts(transitiveArtifacts);
     }
     if (isDepset(symlinks)) {
+      // If Starlark code directly manipulates symlinks, activate more stringent validity checking.
+      checkConflicts = true;
       builder.addSymlinks(((Depset) symlinks).getSet(SymlinkEntry.class));
     } else if (isNonEmptyDict(symlinks)) {
-      // If Starlark code directly manipulates symlinks, activate more stringent validity checking.
       checkConflicts = true;
       for (Map.Entry<String, Artifact> entry :
           Dict.cast(symlinks, String.class, Artifact.class, "symlinks").entrySet()) {
@@ -993,6 +1030,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       }
     }
     if (isDepset(rootSymlinks)) {
+      checkConflicts = true;
       builder.addRootSymlinks(((Depset) rootSymlinks).getSet(SymlinkEntry.class));
     } else if (isNonEmptyDict(rootSymlinks)) {
       checkConflicts = true;
@@ -1002,7 +1040,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       }
     }
     Runfiles runfiles = builder.build();
-    if (checkConflicts) {
+    if (checkConflicts && !skipConflictChecking) {
       runfiles.setConflictPolicy(Runfiles.ConflictPolicy.ERROR);
     }
     return runfiles;
@@ -1058,7 +1096,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
                 "execution_requirements"));
     // TODO(b/234923262): Take exec_group into consideration instead of using the default
     // exec_group.
-    PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext.getExecutionPlatform());
+    PathFragment shExecutable =
+        ShToolchain.getPathForPlatform(
+            ruleContext.getConfiguration(), ruleContext.getExecutionPlatform());
 
     BashCommandConstructor constructor =
         CommandHelper.buildBashCommandConstructor(

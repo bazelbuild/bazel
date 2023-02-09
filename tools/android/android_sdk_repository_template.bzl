@@ -194,7 +194,7 @@ def create_android_sdk_rules(
             "build-tools/%s/lib/**" % build_tools_directory,
             # Build tools version 24.0.0 added a lib64 folder.
             "build-tools/%s/lib64/**" % build_tools_directory,
-        ]),
+        ], allow_empty = True),
     )
 
     for tool in ["aapt", "aapt2", "aidl", "zipalign"]:
@@ -444,7 +444,7 @@ def create_system_images_filegroups(system_image_dirs):
             )
             native.filegroup(
                 name = "%s_qemu2_extra" % name,
-                srcs = native.glob(["%s/kernel-ranchu" % system_image_dir]),
+                srcs = native.glob(["%s/kernel-ranchu" % system_image_dir], allow_empty = True),
             )
         else:
             # For supported system images that are not installed in the SDK, we

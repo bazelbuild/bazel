@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Repository Rules
 
+{% include "_buttons.html" %}
+
 This page covers how to create repository rules and provides examples for
 more details.
 

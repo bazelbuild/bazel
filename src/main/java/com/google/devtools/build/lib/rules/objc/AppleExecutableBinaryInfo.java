@@ -18,7 +18,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleExecutableBinaryApi;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleExecutableBinaryApi;
 
 /**
  * Provider containing the executable binary output that was built using an apple_binary target with
@@ -26,6 +27,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleExecutableBinar
  *
  * <ul>
  *   <li>'binary': The executable binary artifact output by apple_binary
+ *   <li>'cc_info': A {@link CcInfo} which contains information about the transitive dependencies
+ *       linked into the binary.
  *   <li>'objc': An {@link ObjcProvider} which contains information about the transitive
  *       dependencies linked into the binary, (intended so that bundle loaders depending on this
  *       executable may avoid relinking symbols included in the loadable binary
@@ -44,15 +47,17 @@ public final class AppleExecutableBinaryInfo extends NativeInfo
           STARLARK_NAME, AppleExecutableBinaryInfo.class) {};
 
   private final Artifact appleExecutableBinary;
+  private final CcInfo depsCcInfo;
   private final ObjcProvider depsObjcProvider;
 
   /**
    * Creates a new AppleExecutableBinaryInfo provider that propagates the given apple_binary
    * configured as an executable.
    */
-  public AppleExecutableBinaryInfo(Artifact appleExecutableBinary,
-      ObjcProvider depsObjcProvider) {
+  public AppleExecutableBinaryInfo(
+      Artifact appleExecutableBinary, CcInfo depsCcInfo, ObjcProvider depsObjcProvider) {
     this.appleExecutableBinary = appleExecutableBinary;
+    this.depsCcInfo = depsCcInfo;
     this.depsObjcProvider = depsObjcProvider;
   }
 
@@ -67,6 +72,15 @@ public final class AppleExecutableBinaryInfo extends NativeInfo
   @Override
   public Artifact getAppleExecutableBinary() {
     return appleExecutableBinary;
+  }
+
+  /**
+   * Returns the {@link CcInfo} which contains information about the transitive dependencies linked
+   * into the dylib.
+   */
+  @Override
+  public CcInfo getDepsCcInfo() {
+    return depsCcInfo;
   }
 
   /**

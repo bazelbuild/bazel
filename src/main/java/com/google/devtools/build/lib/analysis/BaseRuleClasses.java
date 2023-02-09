@@ -143,13 +143,16 @@ public class BaseRuleClasses {
       "//tools/test:coverage_report_generator";
 
   @SerializationConstant @AutoCodec.VisibleForSerialization
-  static final Resolver<TestConfiguration, Label> COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER =
-      (rule, attributes, configuration) -> configuration.getCoverageReportGenerator();
+  static final Resolver<CoverageConfiguration, Label>
+      COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER =
+          (rule, attributes, configuration) -> configuration.reportGenerator();
 
-  public static LabelLateBoundDefault<TestConfiguration> coverageReportGeneratorAttribute(
+  public static LabelLateBoundDefault<CoverageConfiguration> coverageReportGeneratorAttribute(
       Label defaultValue) {
     return LabelLateBoundDefault.fromTargetConfiguration(
-        TestConfiguration.class, defaultValue, COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER);
+        CoverageConfiguration.class,
+        defaultValue,
+        COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER);
   }
 
   public static LabelLateBoundDefault<CoverageConfiguration> getCoverageOutputGeneratorLabel() {
@@ -282,7 +285,7 @@ public class BaseRuleClasses {
     if (testRuntimeLabelList == null) {
       testRuntimeLabelList =
           ImmutableList.of(
-              Label.parseAbsoluteUnchecked(
+              Label.parseCanonicalUnchecked(
                   env.getToolsRepository() + TOOLS_TEST_RUNTIME_TARGET_PATTERN));
     }
     return testRuntimeLabelList;
@@ -291,6 +294,9 @@ public class BaseRuleClasses {
   /**
    * The attribute used to list the configuration properties used by a target and its transitive
    * dependencies. Currently only supports config_feature_flag.
+   *
+   * <p>A special value of "//command_line_option/fragments:test" instructs
+   * TestTrimmingTransitionFactory to skip trimming for this rule.
    */
   public static final String TAGGED_TRIMMING_ATTR = "transitive_configs";
 

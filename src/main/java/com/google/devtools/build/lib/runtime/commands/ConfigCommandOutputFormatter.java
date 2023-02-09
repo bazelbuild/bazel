@@ -41,16 +41,16 @@ abstract class ConfigCommandOutputFormatter {
     this.writer = writer;
   }
 
-  /** Outputs a list of configuration hash IDs. * */
+  /** Outputs a list of configuration hash IDs. */
   public abstract void writeConfigurationIDs(Iterable<ConfigurationForOutput> configurations);
 
-  /** Outputs a single configuration. * */
+  /** Outputs a single configuration. */
   public abstract void writeConfiguration(ConfigurationForOutput configuration);
 
-  /** Outputs a series of configurations. * */
+  /** Outputs a series of configurations. */
   public abstract void writeConfigurations(Iterable<ConfigurationForOutput> configurations);
 
-  /** Outputs the diff between two configurations * */
+  /** Outputs the diff between two configurations */
   public abstract void writeConfigurationDiff(ConfigurationDiffForOutput diff);
 
   /** A {@link ConfigCommandOutputFormatter} that outputs plan user-readable text. */
@@ -65,11 +65,8 @@ abstract class ConfigCommandOutputFormatter {
       configurations.forEach(
           config ->
               writer.printf(
-                  "%s %s%s%s%n",
-                  config.configHash,
-                  config.mnemonic,
-                  (config.isHost ? " (host)" : ""),
-                  (config.isExec ? " (exec)" : "")));
+                  "%s %s%s%n",
+                  config.configHash, config.mnemonic, (config.isExec ? " (exec)" : "")));
     }
 
     @Override

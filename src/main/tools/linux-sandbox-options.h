@@ -28,6 +28,8 @@ struct Options {
   int timeout_secs;
   // How long to wait before sending SIGKILL in case of timeout (-t)
   int kill_delay_secs;
+  // If set, the process persists after the death of its parent thread (-p)
+  bool persistent_process;
   // Send a SIGTERM to the child on receipt of a SIGINT (-i)
   bool sigint_sends_sigterm;
   // Where to redirect stdout (-l)
@@ -52,12 +54,17 @@ struct Options {
   bool fake_root;
   // Set the username inside the sandbox to 'nobody' (-U)
   bool fake_username;
+  // Enable writing to /dev/pts and map the user's gid to tty to enable
+  // pseudoterminals (-P)
+  bool enable_pty;
   // Print debugging messages (-D)
   bool debug;
   // Improved hermetic build using whitelisting strategy (-h)
   bool hermetic;
   // The sandbox root directory (-s)
   std::string sandbox_root;
+  // Directory to use for cgroup control
+  std::string cgroups_dir;
   // Command to run (--)
   std::vector<char *> args;
 };

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Support Policy
 
+{% include "_buttons.html" %}
+
 The Bazel team generally avoids making backwards-incompatible changes. However,
 these changes are sometimes necessary to fix bugs, make improvements (such as
 improving performance or usability) to the system, or to lock down APIs that

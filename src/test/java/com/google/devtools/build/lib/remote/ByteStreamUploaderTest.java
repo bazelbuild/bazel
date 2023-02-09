@@ -197,7 +197,7 @@ public class ByteStreamUploaderTest {
 
     byte[] blob = {'A'};
 
-    // Set a chunk size that should have no problem accomodating the compressed
+    // Set a chunk size that should have no problem accommodating the compressed
     // blob, even though the blob most likely has a compression ratio >= 1.
     Chunker chunker =
         Chunker.builder().setInput(blob).setCompressed(true).setChunkSize(100).build();

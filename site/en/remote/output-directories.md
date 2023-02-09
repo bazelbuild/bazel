@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Output Directory Layout
 
+{% include "_buttons.html" %}
+
 This page covers requirements and layout for output directories.
 
 ## Requirements {:#requirements}
@@ -43,7 +45,8 @@ The solution that's currently implemented:
   directory. So, for example, if Bazel is running in the workspace directory
   `/home/user/src/my-project` (or in a directory symlinked to that one), then
   an output base directory is created called:
-  `/home/user/.cache/bazel/_bazel_user/7ffd56a6e4cb724ea575aba15733d113`.
+  `/home/user/.cache/bazel/_bazel_user/7ffd56a6e4cb724ea575aba15733d113`. You
+  can also run `echo -n $(pwd) | md5sum` in a Bazel workspace to get the MD5.
 * You can use Bazel's `--output_base` startup option to override the default
   output base directory. For example,
   `bazel --output_base=/tmp/bazel/output build x/y:z`.
@@ -77,7 +80,7 @@ The directories are laid out as follows:
                                               the bazel executable on first run (such as helper scripts and the
                                               main Java file BazelServer_deploy.jar)
     7ffd56a6e4cb724ea575aba15733d113/     <== Hash of the client's workspace directory (such as
-                                              /home/some-user/src/my-project): outputBase
+                                              /home/user/src/my-project): outputBase
       action_cache/                       <== Action cache directory hierarchy
                                               This contains the persistent record of the file
                                               metadata (timestamps, and perhaps eventually also MD5
@@ -97,7 +100,7 @@ The directories are laid out as follows:
                                               actions run in a directory that mimics execroot.
                                               Implementation details, such as where the directories
                                               are created, are intentionally hidden from the action.
-                                              All actions can access its inputs and outputs relative
+                                              Every action can access its inputs and outputs relative
                                               to the execroot directory.
         &lt;workspace-name&gt;/                 <== Working tree for the Bazel build & root of symlink forest: execRoot
           _bin/                           <== Helper tools are linked from or copied to here.

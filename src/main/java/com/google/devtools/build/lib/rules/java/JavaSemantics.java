@@ -157,13 +157,6 @@ public interface JavaSemantics {
           (rule, attributes, javaConfig) -> javaConfig.getProguardBinary());
 
   @SerializationConstant
-  LabelListLateBoundDefault<JavaConfiguration> EXTRA_PROGUARD_SPECS =
-      LabelListLateBoundDefault.fromTargetConfiguration(
-          JavaConfiguration.class,
-          (rule, attributes, javaConfig) ->
-              ImmutableList.copyOf(javaConfig.getExtraProguardSpecs()));
-
-  @SerializationConstant
   LabelLateBoundDefault<JavaConfiguration> BYTECODE_OPTIMIZER =
       LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
@@ -276,6 +269,9 @@ public interface JavaSemantics {
       NestedSet<Artifact> hermeticInputs,
       NestedSet<String> addExports,
       NestedSet<String> addOpens);
+
+  ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, int stamp)
+      throws RuleErrorException, InterruptedException;
 
   /**
    * Creates the action that writes the Java executable stub script.

@@ -12,11 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Builds the Objective-C provider"""
+"""Common functionality for Objc rules."""
 
 objc_internal = _builtins.internal.objc_internal
 CcInfo = _builtins.toplevel.CcInfo
 apple_common = _builtins.toplevel.apple_common
+
+CPP_SOURCES = [".cc", ".cpp", ".mm", ".cxx", ".C"]
+NON_CPP_SOURCES = [".m", ".c"]
+ASSEMBLY_SOURCES = [".s", ".S", ".asm"]
+OBJECT_FILE_SOURCES = [".o"]
+HEADERS = [".h", ".inc", ".hpp", ".hh"]
+
+COMPILABLE_SRCS = CPP_SOURCES + NON_CPP_SOURCES + ASSEMBLY_SOURCES
+SRCS = COMPILABLE_SRCS + OBJECT_FILE_SOURCES + HEADERS
+NON_ARC_SRCS = [".m", ".mm"]
+
+extensions = struct(
+    CPP_SOURCES = CPP_SOURCES,
+    NON_CPP_SOURCES = NON_CPP_SOURCES,
+    ASSEMBLY_SOURCES = ASSEMBLY_SOURCES,
+    HEADERS = HEADERS,
+    SRCS = SRCS,
+    NON_ARC_SRCS = NON_ARC_SRCS,
+)
 
 def _create_context_and_provider(
         ctx,
@@ -28,11 +47,15 @@ def _create_context_and_provider(
         extra_import_libraries,
         deps,
         runtime_deps,
-        linkopts):
+        attr_linkopts):
     objc_providers = []
-    cc_linking_contexts = []
     cc_compilation_contexts = []
-    cc_linkstamp_contexts = []
+    cc_linking_contexts = []
+
+    # List of CcLinkingContext to be merged into ObjcProvider, to be done for
+    # deps that don't have ObjcProviders.  TODO(waltl): remove after objc link
+    # info migration.
+    cc_linking_contexts_for_merging = []
     for dep in deps:
         if apple_common.Objc in dep:
             objc_providers.append(dep[apple_common.Objc])
@@ -40,15 +63,11 @@ def _create_context_and_provider(
             # We only use CcInfo's linking info if there is no ObjcProvider.
             # This is required so that objc_library archives do not get treated
             # as if they are from cc targets.
-            cc_linking_contexts.append(dep[CcInfo].linking_context)
+            cc_linking_contexts_for_merging.append(dep[CcInfo].linking_context)
 
         if CcInfo in dep:
             cc_compilation_contexts.append(dep[CcInfo].compilation_context)
-
-            # Temporary solution to specially handle linkstamps, so that they
-            # don't get dropped.  When linking info has been fully migrated to
-            # CcInfo, we can drop this.
-            cc_linkstamp_contexts.append(dep[CcInfo].linking_context)
+            cc_linking_contexts.append(dep[CcInfo].linking_context)
 
     runtime_objc_providers = []
     for runtime_dep in runtime_deps:
@@ -73,7 +92,6 @@ def _create_context_and_provider(
         "providers": objc_providers,
         "cc_library": [],
         "sdk_framework": [],
-        "linkstamp": [],
         "force_load_library": [],
         "umbrella_header": [],
         "module_map": [],
@@ -90,25 +108,29 @@ def _create_context_and_provider(
         "includes": [],
     }
 
-    for link_provider in cc_linking_contexts:
-        link_opts = []
-        libraries_to_link = []
-        for linker_input in link_provider.linker_inputs.to_list():
-            link_opts.extend(linker_input.user_link_flags)
-            libraries_to_link.extend(linker_input.libraries)
-        _add_linkopts(objc_provider_kwargs, link_opts)
+    # Merge cc_linking_context's library and linkopt information into
+    # objc_provider.
+    all_non_sdk_linkopts = []
+    for cc_linking_context in cc_linking_contexts_for_merging:
+        if not ctx.fragments.objc.linking_info_migration:
+            linkopts = []
+            for linker_input in cc_linking_context.linker_inputs.to_list():
+                linkopts.extend(linker_input.user_link_flags)
+            non_sdk_linkopts = _add_linkopts(objc_provider_kwargs, linkopts)
+            all_non_sdk_linkopts.extend(non_sdk_linkopts)
 
+        libraries_to_link = []
+        for linker_input in cc_linking_context.linker_inputs.to_list():
+            libraries_to_link.extend(linker_input.libraries)
         objc_provider_kwargs["cc_library"].append(
             depset(direct = libraries_to_link, order = "topological"),
         )
 
-    _add_linkopts(
+    non_sdk_linkopts = _add_linkopts(
         objc_provider_kwargs,
-        objc_internal.expand_toolchain_and_ctx_variables(ctx = ctx, flags = linkopts),
+        objc_internal.expand_toolchain_and_ctx_variables(ctx = ctx, flags = attr_linkopts),
     )
-
-    for cc_linkstamp_context in cc_linkstamp_contexts:
-        objc_provider_kwargs["linkstamp"].extend(cc_linkstamp_context.linkstamps().to_list())
+    all_non_sdk_linkopts.extend(non_sdk_linkopts)
 
     if compilation_attributes != None:
         sdk_dir = apple_common.apple_toolchain().sdk_dir()
@@ -138,10 +160,8 @@ def _create_context_and_provider(
         objc_compilation_context_kwargs["includes"].extend(sdk_includes)
 
     if compilation_artifacts != None:
-        all_sources = []
-        all_sources.extend(compilation_artifacts.srcs)
-        all_sources.extend(compilation_artifacts.non_arc_srcs)
-        all_sources.extend(compilation_artifacts.private_hdrs)
+        all_sources = _filter_out_by_extension(compilation_artifacts.srcs, OBJECT_FILE_SOURCES) + \
+                      compilation_artifacts.non_arc_srcs
 
         if compilation_artifacts.archive != None:
             objc_provider_kwargs["library"] = [
@@ -150,19 +170,11 @@ def _create_context_and_provider(
         objc_provider_kwargs["source"].extend(all_sources)
 
         objc_compilation_context_kwargs["public_hdrs"].extend(
-            compilation_artifacts.additional_hdrs.to_list(),
+            compilation_artifacts.additional_hdrs,
         )
-        objc_compilation_context_kwargs["private_hdrs"].extend(compilation_artifacts.private_hdrs)
-
-        uses_cpp = False
-        arc_and_non_arc_srcs = []
-        arc_and_non_arc_srcs.extend(compilation_artifacts.srcs)
-        arc_and_non_arc_srcs.extend(compilation_artifacts.non_arc_srcs)
-        for source_file in arc_and_non_arc_srcs:
-            uses_cpp = uses_cpp or _is_cpp_source(source_file)
-
-        if uses_cpp:
-            objc_provider_kwargs["flag"] = ["uses_cpp"]
+        objc_compilation_context_kwargs["private_hdrs"].extend(
+            _filter_by_extension(compilation_artifacts.srcs, HEADERS),
+        )
 
     if alwayslink:
         direct = []
@@ -201,35 +213,90 @@ def _create_context_and_provider(
         **objc_compilation_context_kwargs
     )
 
-    return (apple_common.new_objc_provider(**objc_provider_kwargs_built), objc_compilation_context)
+    # The non-straightfoward way we initialize the sdk related
+    # information in linkopts (sdk_framework, weak_sdk_framework,
+    # sdk_dylib):
+    #
+    # - Filter them out of cc_linking_contexts_for_merging and self's
+    #   linkopts.  Add them to corresponding fields in
+    #   objc_provider_kwargs.  This also has the side effect that it
+    #   deduplicates those fields.
+    #
+    # - Use the sdk fields in objc_provider_kwargs to construct
+    #   cc_linking_context's linkopts.
+    all_linkopts = all_non_sdk_linkopts
+    for sdk_framework in objc_provider_kwargs["sdk_framework"]:
+        all_linkopts.append("-framework")
+        all_linkopts.append(sdk_framework)
+
+    for weak_sdk_framework in objc_provider_kwargs["weak_sdk_framework"]:
+        all_linkopts.append("-weak_framework")
+        all_linkopts.append(weak_sdk_framework)
+
+    for sdk_dylib in objc_provider_kwargs["sdk_dylib"]:
+        if sdk_dylib.startswith("lib"):
+            sdk_dylib = sdk_dylib[3:]
+        all_linkopts.append("-l%s" % sdk_dylib)
+
+    objc_linking_context = struct(
+        cc_linking_contexts = cc_linking_contexts,
+        linkopts = all_linkopts,
+    )
+
+    return (
+        apple_common.new_objc_provider(**objc_provider_kwargs_built),
+        objc_compilation_context,
+        objc_linking_context,
+    )
 
 def _is_cpp_source(source_file):
-    return source_file.extension in ["cc", "cpp", "mm", "cxx", "C"]
+    return "." + source_file.extension in CPP_SOURCES
 
-def _add_linkopts(objc_provider_kwargs, link_opts):
-    framework_link_opts = {}
-    non_framework_link_opts = []
+def _filter_by_extension(file_list, extensions):
+    return [file for file in file_list if "." + file.extension in extensions]
+
+def _filter_out_by_extension(file_list, extensions):
+    return [file for file in file_list if "." + file.extension not in extensions]
+
+def _add_linkopts(objc_provider_kwargs, linkopts):
+    non_sdk_linkopts = []
+    sdk_frameworks = {}
+    weak_sdk_frameworks = {}
+    sdk_dylib = {}
     i = 0
     skip_next = False
-    for arg in link_opts:
+    for arg in linkopts:
         if skip_next:
             skip_next = False
             i += 1
             continue
-        if arg == "-framework" and i < len(link_opts) - 1:
-            framework_link_opts[link_opts[i + 1]] = True
+        if arg == "-framework" and i < len(linkopts) - 1:
+            sdk_frameworks[linkopts[i + 1]] = True
             skip_next = True
+        elif arg == "-weak_framework" and i < len(linkopts) - 1:
+            weak_sdk_frameworks[linkopts[i + 1]] = True
+            skip_next = True
+        elif arg.startswith("-Wl,-framework,"):
+            sdk_frameworks[arg[len("-Wl,-framework,"):]] = True
+        elif arg.startswith("-Wl,-weak_framework,"):
+            weak_sdk_frameworks[arg[len("-Wl,-weak_framework,"):]] = True
+        elif arg.startswith("-l"):
+            sdk_dylib[arg[2:]] = True
         else:
-            non_framework_link_opts.append(arg)
+            non_sdk_linkopts.append(arg)
         i += 1
 
-    objc_provider_kwargs["sdk_framework"].extend(framework_link_opts.keys())
+    objc_provider_kwargs["sdk_framework"].extend(sdk_frameworks.keys())
+    objc_provider_kwargs["weak_sdk_framework"].extend(weak_sdk_frameworks.keys())
+    objc_provider_kwargs["sdk_dylib"].extend(sdk_dylib.keys())
     objc_provider_kwargs["linkopt"].append(
         depset(
-            direct = non_framework_link_opts,
+            direct = non_sdk_linkopts,
             order = "topological",
         ),
     )
+
+    return non_sdk_linkopts
 
 objc_common = struct(
     create_context_and_provider = _create_context_and_provider,

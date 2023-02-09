@@ -25,7 +25,6 @@ import build.bazel.remote.execution.v2.PriorityCapabilities;
 import build.bazel.remote.execution.v2.PriorityCapabilities.PriorityRange;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -234,25 +233,12 @@ class RemoteServerCapabilities {
                 digestFunction, cacheCap.getDigestFunctionsList()));
       }
 
-      // Check updating remote cache is allowed, if we ever need to do that.
-      boolean remoteExecution = !Strings.isNullOrEmpty(remoteOptions.remoteExecutor);
-      if (remoteExecution) {
-        if (remoteOptions.remoteLocalFallback
-            && remoteOptions.remoteUploadLocalResults
-            && !cacheCap.getActionCacheUpdateCapabilities().getUpdateEnabled()) {
-          result.addError(
-              "--remote_local_fallback and --remote_upload_local_results are set, "
-                  + "but the current account is not authorized to write local results "
-                  + "to the remote cache.");
-        }
-      } else {
-        // Local execution: check updating remote cache is allowed.
-        if (remoteOptions.remoteUploadLocalResults
-            && !cacheCap.getActionCacheUpdateCapabilities().getUpdateEnabled()) {
-          result.addError(
-              "--remote_upload_local_results is set, but the current account is not authorized "
-                  + "to write local results to the remote cache.");
-        }
+      if (remoteOptions.remoteUploadLocalResults
+          && !cacheCap.getActionCacheUpdateCapabilities().getUpdateEnabled()) {
+        result.addWarning(
+            "--remote_upload_local_results is set, but the remote cache does not support uploading "
+                + "action results or the current account is not authorized to write local results "
+                + "to the remote cache.");
       }
 
       if (remoteOptions.cacheCompression

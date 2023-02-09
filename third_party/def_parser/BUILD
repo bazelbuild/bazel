@@ -15,6 +15,9 @@ cc_library(
     name = "def_parser_lib",
     srcs = ["def_parser.cc"],
     hdrs = ["def_parser.h"],
+    tags = [
+        "__DONT_DEPEND_ON_DEF_PARSER__"
+    ],
 )
 
 cc_binary(
@@ -22,6 +25,9 @@ cc_binary(
     srcs = ["def_parser_main.cc"],
     deps = [
         ":def_parser_lib",
+    ],
+    tags = [
+        "__DONT_DEPEND_ON_DEF_PARSER__"
     ],
 )
 

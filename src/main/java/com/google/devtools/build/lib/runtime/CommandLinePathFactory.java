@@ -87,7 +87,7 @@ public final class CommandLinePathFactory {
     if (path.containsUplevelReferences()) {
       throw new CommandLinePathFactoryException(
           String.format(
-              Locale.US, "Path must not contain any uplevel references ('..'), got '%s'", value));
+              Locale.US, "Path '%s' must not contain any uplevel references ('..')", value));
     }
 
     // Case 1: `path` is relative to a well-known root.
@@ -113,7 +113,10 @@ public final class CommandLinePathFactory {
     // it as relative to the user's `PATH`.
     if (path.segmentCount() > 1) {
       throw new CommandLinePathFactoryException(
-          "Path must either be absolute or not contain any path separators");
+          String.format(
+              Locale.US,
+              "Path '%s' must either be absolute or not contain any path separators",
+              value));
     }
 
     String pathVariable = env.getOrDefault("PATH", "");

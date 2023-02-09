@@ -54,6 +54,11 @@ public interface InMemoryGraph extends ProcessableGraph {
   }
 
   @Override
+  default LookupHint getLookupHint(SkyKey key) {
+    return LookupHint.INDIVIDUAL;
+  }
+
+  @Override
   Map<SkyKey, ? extends NodeEntry> getBatchMap(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys);
 

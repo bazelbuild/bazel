@@ -483,7 +483,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "my_rule = rule(",
         "  _main_rule_impl,",
         "  attrs = { ",
-        "    'exe' : attr.label(executable = True, allow_files = True, cfg='host'),",
+        "    'exe' : attr.label(executable = True, allow_files = True, cfg='exec'),",
         "  },",
         ")");
     scratch.file("bar/bar.bzl", lines.build().toArray(new String[] {}));
@@ -903,7 +903,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
    * encoded string which has been ingested as Latin 1. The hack converts the string to its
    * "correct" UTF-8 value. Once Blaze starts calling {@link
    * net.starlark.java.syntax.ParserInput#fromUTF8} instead of {@code fromLatin1} and the hack for
-   * the substituations parameter is removed, this test will fail.
+   * the substitutions parameter is removed, this test will fail.
    */
   @Test
   public void testCreateTemplateActionWithWrongEncoding() throws Exception {
@@ -1033,7 +1033,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             "  symlinks = {'sym1': ruleContext.files.srcs[1]})");
     Runfiles runfiles = (Runfiles) result;
     reporter.removeHandler(failFastHandler); // So it doesn't throw an exception.
-    runfiles.getRunfilesInputs(reporter, null);
+    var unused = runfiles.getRunfilesInputs(reporter, null, null);
     assertContainsEvent("ERROR <no location>: overwrote runfile");
   }
 
@@ -2696,8 +2696,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
 
-    assertThat(expected).hasMessageThat()
-        .contains("has to declare 'apple' as a required fragment in target configuration");
+    assertThat(expected).hasMessageThat().contains("has to declare 'apple' as a required fragment");
   }
 
   @Test
@@ -3336,21 +3335,51 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
+  public void testDisablingRunfilesSymlinkChecksIsPrivateAPI() throws Exception {
+    scratch.file(
+        "abc/rule.bzl",
+        "def _impl(ctx):",
+        " ctx.runfiles(skip_conflict_checking = True)",
+        " return []",
+        "",
+        "r = rule(implementation = _impl)");
+    scratch.file("abc/BUILD", "load(':rule.bzl', 'r')", "", "r(name = 'foo')");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//abc:foo"));
+
+    assertThat(error)
+        .hasMessageThat()
+        .contains("Error in runfiles: Rule in 'abc' cannot use private API");
+  }
+
+  @Test
   public void testDeclareSharedArtifact_differentFileRoot() throws Exception {
     scratch.file(
         "test/rule.bzl",
+        "RootProvider = provider(fields = ['root'])",
         "def _impl(ctx):",
+        "  if not ctx.attr.dep:",
+        "      return [RootProvider(root = ctx.configuration.bin_dir)]", // This is the child.
+        "  exec_config_root = ctx.attr.dep[RootProvider].root",
         "  a1 = ctx.actions.declare_shareable_artifact(ctx.label.name + '1.so')",
         "  ctx.actions.write(a1, '')",
         "  a2 = ctx.actions.declare_shareable_artifact(",
         "           ctx.label.name + '2.so',",
-        "           ctx.host_configuration.bin_dir",
+        "           exec_config_root",
         "       )",
         "  ctx.actions.write(a2, '')",
         "  return [DefaultInfo(files = depset([a1, a2]))]",
         "",
-        "r = rule(implementation = _impl)");
-    scratch.file("test/BUILD", "load(':rule.bzl', 'r')", "r(name = 'foo')");
+        "r = rule(",
+        "    implementation = _impl,",
+        "    attrs = {'dep': attr.label(cfg = 'exec')},",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'r')",
+        "r(name = 'foo', dep = ':exec_configured_child')",
+        "r(name = 'exec_configured_child')");
 
     ConfiguredTarget target = getConfiguredTarget("//test:foo");
 
@@ -3369,6 +3398,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             .findFirst()
             .orElse(null);
     assertThat(a2).isNotNull();
-    assertThat(a2.getRoot().getExecPathString()).isEqualTo(getRelativeOutputPath() + "/host/bin");
+    assertThat(a2.getRoot().getExecPathString())
+        .matches(getRelativeOutputPath() + "/[\\w\\-]+\\-exec\\-[\\w\\-]+/bin");
   }
 }

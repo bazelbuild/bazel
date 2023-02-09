@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.BuildView;
+import com.google.devtools.build.lib.analysis.BuildView.BuildConfigurationsCreated;
 import com.google.devtools.build.lib.analysis.BuildView.ExecutionSetup;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
+import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -76,10 +78,16 @@ public final class AnalysisAndExecutionPhaseRunner {
       BuildRequest request,
       BuildOptions buildOptions,
       TargetPatternPhaseValue loadingResult,
-      ExecutionSetup executionSetupCallback)
-      throws BuildFailedException, InterruptedException, ViewCreationFailedException,
-          TargetParsingException, LoadingFailedException, AbruptExitException,
-          InvalidConfigurationException, TestExecException, RepositoryMappingResolutionException {
+      ExecutionSetup executionSetupCallback,
+      BuildConfigurationsCreated buildConfigurationCreatedCallback,
+      BuildDriverKeyTestContext buildDriverKeyTestContext)
+      throws BuildFailedException,
+          InterruptedException,
+          ViewCreationFailedException,
+          AbruptExitException,
+          InvalidConfigurationException,
+          TestExecException,
+          RepositoryMappingResolutionException {
 
     // Compute the heuristic instrumentation filter if needed.
     if (request.needsInstrumentationFilter()) {
@@ -107,7 +115,7 @@ public final class AnalysisAndExecutionPhaseRunner {
 
     AnalysisAndExecutionResult analysisAndExecutionResult = null;
     if (request.getBuildOptions().performAnalysisPhase) {
-      Profiler.instance().markPhase(ProfilePhase.ANALYZE);
+      Profiler.instance().markPhase(ProfilePhase.ANALYZE_AND_EXECUTE);
 
       // The build info factories are immutable during the life time of this server. However, we
       // sometimes clean the graph, which requires re-injecting the value, which requires a hook to
@@ -126,17 +134,29 @@ public final class AnalysisAndExecutionPhaseRunner {
                   env.getRuntime().getBlazeModules(), env, request, buildOptions)) {
         analysisAndExecutionResult =
             runAnalysisAndExecutionPhase(
-                env, request, loadingResult, buildOptions, executionSetupCallback);
+                env,
+                request,
+                loadingResult,
+                buildOptions,
+                executionSetupCallback,
+                buildConfigurationCreatedCallback,
+                buildDriverKeyTestContext);
       }
+
       BuildResultListener buildResultListener = env.getBuildResultListener();
-      AnalysisPhaseRunner.reportTargets(
-          env, buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
+      if (request.shouldRunTests()) {
+        AnalysisPhaseRunner.reportTargetsWithTests(
+            env, buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
+      } else {
+        AnalysisPhaseRunner.reportTargets(env, buildResultListener.getAnalyzedTargets());
+      }
 
     } else {
       env.getReporter().handle(Event.progress("Loading complete."));
       env.getReporter().post(new NoAnalyzeEvent());
       logger.atInfo().log("No analysis requested, so finished");
-      FailureDetail failureDetail = BuildView.createFailureDetail(loadingResult, null, null);
+      FailureDetail failureDetail =
+          BuildView.createAnalysisFailureDetail(loadingResult, null, null);
       if (failureDetail != null) {
         throw new BuildFailedException(
             failureDetail.getMessage(), DetailedExitCode.of(failureDetail));
@@ -186,9 +206,15 @@ public final class AnalysisAndExecutionPhaseRunner {
       BuildRequest request,
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
-      ExecutionSetup executionSetupCallback)
-      throws InterruptedException, InvalidConfigurationException, ViewCreationFailedException,
-          BuildFailedException, TestExecException, RepositoryMappingResolutionException,
+      ExecutionSetup executionSetupCallback,
+      BuildConfigurationsCreated buildConfigurationCreatedCallback,
+      BuildDriverKeyTestContext buildDriverKeyTestContext)
+      throws InterruptedException,
+          InvalidConfigurationException,
+          ViewCreationFailedException,
+          BuildFailedException,
+          TestExecException,
+          RepositoryMappingResolutionException,
           AbruptExitException {
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
 
@@ -216,17 +242,18 @@ public final class AnalysisAndExecutionPhaseRunner {
             request.getViewOptions(),
             request.getKeepGoing(),
             request.getCheckForActionConflicts(),
-            request.getLoadingPhaseThreadCount(),
+            env.getQuiescingExecutors(),
             request.getTopLevelArtifactContext(),
             request.reportIncompatibleTargets(),
             env.getReporter(),
             env.getEventBus(),
             env.getRuntime().getBugReporter(),
-            /*includeExecutionPhase=*/ true,
-            request.getBuildOptions().jobs,
+            /* includeExecutionPhase= */ true,
             env.getLocalResourceManager(),
             env.getBuildResultListener(),
-            executionSetupCallback);
+            executionSetupCallback,
+            buildConfigurationCreatedCallback,
+            buildDriverKeyTestContext);
   }
 
   /**

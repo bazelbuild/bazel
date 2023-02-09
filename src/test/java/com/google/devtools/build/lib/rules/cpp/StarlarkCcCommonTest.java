@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
+import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FILENAME_LENGTH;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -1368,7 +1369,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     doTestCcLinkingContext(
         ImmutableList.of("a.a", "libdep2.a", "b.rlib", "c.a", "d.a", "libdep1.a"),
         ImmutableList.of("a.pic.a", "b.rlib", "c.pic.a", "e.pic.a"),
-        // The suffix of dynamic library is caculated based on repository name and package path
+        // The suffix of dynamic library is calculated based on repository name and package path
         // to avoid conflicts with dynamic library from other packages.
         ImmutableList.of("a.so", "libdep2_61.so", "b.so", "e.so", "libdep1_61.so"));
   }
@@ -1525,6 +1526,35 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                             .toString())
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("libcustom.ifso");
+  }
+
+  @Test
+  public void testReallyLongSolibLink() throws Exception {
+    setUpCcLinkingContextTest(false);
+
+    String longpath =
+        "this/is/a/really/really/really/really/really/really/really/really/really/really/"
+            + "really/really/really/really/really/really/really/really/really/really/really/"
+            + "really/really/long/path/that/generates/really/long/solib/link/path";
+    scratch.file(
+        longpath + "/BUILD",
+        "load('//tools/build_defs/cc:rule.bzl', 'crule')",
+        "crule(name='a',",
+        "   dynamic_library = 'a.so',",
+        ")");
+
+    ConfiguredTarget a = getConfiguredTarget("//" + longpath + ":a");
+    StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
+    Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
+    ImmutableList<String> dynamicLibraryParentDirectories =
+        librariesToLink.toList(LibraryToLink.class).stream()
+            .filter(x -> x.getDynamicLibrary() != null)
+            .map(
+                x -> x.getDynamicLibrary().getRootRelativePath().getParentDirectory().getBaseName())
+            .collect(ImmutableList.toImmutableList());
+    for (String dynamicLibraryParentDirectory : dynamicLibraryParentDirectories) {
+      assertThat(dynamicLibraryParentDirectory.length()).isLessThan(MAX_FILENAME_LENGTH + 1);
+    }
   }
 
   private void doTestCcLinkingContext(
@@ -3362,7 +3392,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             () -> CcModule.flagSetFromStarlark(flagSetStruct, /* actionName= */ null));
     assertThat(e)
         .hasMessageThat()
-        .contains("at index 0 of actions, got element of type struct, want string");
+        .contains("at index 1 of actions, got element of type struct, want string");
   }
 
   @Test
@@ -5266,10 +5296,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "'a.pic.o' does not have any of the allowed extensions .a, .lib, .pic.a or .rlib");
     assertThat(e)
         .hasMessageThat()
-        .contains("'a.ifso' does not have any of the allowed extensions .so, .dylib or .dll");
+        .contains("'a.ifso' does not have any of the allowed extensions .so, .dylib, .dll or .pyd");
     assertThat(e)
         .hasMessageThat()
-        .contains("'a.lib' does not have any of the allowed extensions .so, .dylib or .dll");
+        .contains("'a.lib' does not have any of the allowed extensions .so, .dylib, .dll or .pyd");
     assertThat(e)
         .hasMessageThat()
         .contains(
@@ -5294,11 +5324,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         (CcCompilationOutputs) getMyInfoFromTarget(target).getValue("compilation_outputs");
     assertThat(
             AnalysisTestUtil.artifactsToStrings(
-                masterConfig, compilationOutputs.getObjectFiles(/* usePic= */ true)))
+                targetConfig, compilationOutputs.getObjectFiles(/* usePic= */ true)))
         .containsExactly("src foo/pic_object1.o", "src foo/pic_object2.o");
     assertThat(
             AnalysisTestUtil.artifactsToStrings(
-                masterConfig, compilationOutputs.getObjectFiles(/* usePic= */ false)))
+                targetConfig, compilationOutputs.getObjectFiles(/* usePic= */ false)))
         .containsExactly("src foo/object1.o", "src foo/object2.o");
   }
 
@@ -6410,7 +6440,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "      '_grep_includes': attr.label(",
         "             executable = True,",
         "             default = Label('//tools/cpp/grep_includes:grep-includes'),",
-        "             cfg = 'host'",
+        "             cfg = 'exec'",
         "       ),",
         "      'additional_outputs': attr.output_list(),",
         "    },",
@@ -7420,40 +7450,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           "    '_grep_includes': attr.label(",
           "          executable = True,",
           "          default = Label('//tools/cpp/grep_includes:grep-includes'),",
-          "          cfg = 'host'",
+          "          cfg = 'exec'",
           "    ),",
           "  },",
           "  fragments = ['cpp'],",
-          ")");
-      invalidatePackages();
-      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
-      assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
-    }
-  }
-
-  @Test
-  public void testExtraLinkTimeLibraryApiRaisesError() throws Exception {
-    scratch.file(
-        "b/BUILD",
-        "load('//b:rule.bzl', 'cc_rule')",
-        "cc_library(name='cc_dep', srcs=['cc_dep.cc'])",
-        "cc_rule(name='foo', cc_dep=':cc_dep')");
-    ImmutableList<String> calls =
-        ImmutableList.of(
-            "cc_common.create_linking_context(linker_inputs=depset([]), go_link_c_archive=None)",
-            "linking_context.go_link_c_archive()");
-    for (String call : calls) {
-      scratch.overwriteFile(
-          "b/rule.bzl",
-          "def _impl(ctx):",
-          "  linking_context = ctx.attr.cc_dep[CcInfo].linking_context",
-          "  " + call,
-          "  return [DefaultInfo()]",
-          "cc_rule = rule(",
-          "  implementation = _impl,",
-          "  attrs = { ",
-          "    'cc_dep': attr.label(),",
-          "  },",
           ")");
       invalidatePackages();
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));

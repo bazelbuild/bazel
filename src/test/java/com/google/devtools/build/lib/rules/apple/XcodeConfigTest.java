@@ -1514,15 +1514,15 @@ public class XcodeConfigTest extends BuildViewTestCase {
     assertThat(provider.getXcodeVersion()).isEqualTo(DottedVersion.fromString(version));
   }
 
-  private void assertAvailability(XcodeConfigInfo.Availability availabilty) throws Exception {
-    assertAvailability(availabilty, "//xcode:foo");
+  private void assertAvailability(XcodeConfigInfo.Availability availability) throws Exception {
+    assertAvailability(availability, "//xcode:foo");
   }
 
   private void assertAvailability(
-      XcodeConfigInfo.Availability availabilty, String providerTargetLabel) throws Exception {
+      XcodeConfigInfo.Availability availability, String providerTargetLabel) throws Exception {
     ConfiguredTarget xcodeConfig = getConfiguredTarget(providerTargetLabel);
     XcodeConfigInfo provider = xcodeConfig.get(XcodeConfigInfo.PROVIDER);
-    assertThat(provider.getAvailability()).isEqualTo(availabilty);
+    assertThat(provider.getAvailability()).isEqualTo(availability);
   }
 
   private void assertHasRequirements(List<String> executionRequirements) throws Exception {

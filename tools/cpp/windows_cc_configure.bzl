@@ -31,7 +31,7 @@ _targets_lib_folder = {"x86": "", "arm": "arm", "arm64": "arm64"}
 def _lookup_env_var(env, name, default = None):
     """Lookup environment variable case-insensitve.
 
-    If a matching (case-insesitive) entry is found in the env dict both
+    If a matching (case-insensitive) entry is found in the env dict both
     the key and the value are returned. The returned key might differ from
     name in casing.
 
@@ -423,7 +423,7 @@ def _get_latest_subversion(repository_ctx, vc_path):
     version_list = sorted(version_list)
     latest_version = version_list[-1][1]
 
-    auto_configure_warning_maybe(repository_ctx, "Found the following VC verisons:\n%s\n\nChoosing the latest version = %s" % ("\n".join(versions), latest_version))
+    auto_configure_warning_maybe(repository_ctx, "Found the following VC versions:\n%s\n\nChoosing the latest version = %s" % ("\n".join(versions), latest_version))
     return latest_version
 
 def _get_vc_full_version(repository_ctx, vc_path):

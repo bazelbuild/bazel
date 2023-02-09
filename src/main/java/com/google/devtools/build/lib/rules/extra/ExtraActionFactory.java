@@ -48,7 +48,7 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     List<Artifact> resolvedData = Lists.newArrayList();
 
     CommandHelper commandHelper =
-        CommandHelper.builder(context).addHostToolDependencies("tools").build();
+        CommandHelper.builder(context).addToolDependencies("tools").build();
 
     resolvedData.addAll(context.getPrerequisiteArtifacts("data").list());
     List<String>outputTemplates =
@@ -75,7 +75,8 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
         context.attributes().get("requires_action_output", Type.BOOLEAN);
 
     // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
-    PathFragment shExecutable = ShToolchain.getPathOrError(context.getExecutionPlatform());
+    PathFragment shExecutable =
+        ShToolchain.getPathForPlatform(context.getConfiguration(), context.getExecutionPlatform());
     if (context.hasErrors()) {
       return null;
     }

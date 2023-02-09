@@ -3,9 +3,12 @@ Book: /_book.yaml
 
 # Rules
 
+{% dynamic setvar source_file "site/en/rules/index.md" %}
+{% include "_buttons.html" %}
+
 The Bazel ecosystem has a growing and evolving set of rules to support popular
 languages and packages. Much of Bazel's strength comes from the ability to
-[define new rules](/rules/concepts) that can be used by others.
+[define new rules](/extending/concepts) that can be used by others.
 
 This page describes the recommended, native, and non-native Bazel rules.
 
@@ -14,7 +17,6 @@ This page describes the recommended, native, and non-native Bazel rules.
 Here is a selection of recommended rules:
 
 * [Android](/docs/bazel-and-android)
-* [Boost](https://github.com/nelhage/rules_boost){: .external}
 * [C / C++](/docs/bazel-and-cpp)
 * [Docker](https://github.com/bazelbuild/rules_docker){: .external}
 * [Go](https://github.com/bazelbuild/rules_go){: .external}
@@ -36,7 +38,7 @@ additional functions that can be useful when writing new rules and new
 macros.
 
 The rules above were reviewed and follow our
-[requirements for recommended rules](/contribute/recommended-rules){: .external}.
+[requirements for recommended rules](/community/recommended-rules){: .external}.
 Contact the respective rule set's maintainers regarding issues and feature
 requests.
 
@@ -79,7 +81,6 @@ the `@bazel_tools` built-in external repository.
 
 * Repository rules
   - [`git_repository`](/rules/lib/repo/git#git_repository)
-  - [`new_git_repository`](/rules/lib/repo/git#new_git_repository)
   - [`http_archive`](/rules/lib/repo/http#http_archive)
   - [`http_file`](/rules/lib/repo/http#http_archive)
   - [`http_jar`](/rules/lib/repo/http#http_jar)

@@ -47,6 +47,7 @@ def _compile(
         additional_tools = [],
         additional_inputs = depset(),
         resource_set = None,
+        experimental_exec_group = None,
         experimental_progress_message = None):
     """Creates proto compile action for compiling *.proto files to language specific sources.
 
@@ -68,7 +69,9 @@ def _compile(
       resource_set: (func) A callback function that is passed to the created action.
         See `ctx.actions.run`, `resource_set` parameter for full definition of
         the callback.
-      experimental_progress_message: Overrides progres_message from the toolchain.
+      experimental_exec_group: (str) Sets `exec_group` on proto compile action.
+        Avoid using this parameter.
+      experimental_progress_message: Overrides progress_message from the toolchain.
         Don't use this parameter. It's only intended for the transition.
     """
     args = actions.args()
@@ -110,6 +113,7 @@ def _compile(
         tools = tools,
         use_default_shell_env = True,
         resource_set = resource_set,
+        exec_group = experimental_exec_group,
     )
 
 _BAZEL_TOOLS_PREFIX = "external/bazel_tools/"

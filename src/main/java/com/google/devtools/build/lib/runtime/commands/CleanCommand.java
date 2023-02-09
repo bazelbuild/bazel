@@ -131,15 +131,7 @@ public final class CleanCommand implements BlazeCommand {
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     // Assert that there is no residue and warn about Starlark options.
-    List<String> starlarkOptions = options.getSkippedArgs();
     List<String> residue = options.getResidue();
-    if (!starlarkOptions.isEmpty()) {
-      env.getReporter()
-          .handle(
-              Event.warn(
-                  "Blaze clean does not support starlark options. Ignoring options: "
-                      + starlarkOptions));
-    }
     if (!residue.isEmpty()) {
       String message = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
       env.getReporter().handle(Event.error(message));
@@ -177,13 +169,10 @@ public final class CleanCommand implements BlazeCommand {
 
   @VisibleForTesting
   public static boolean canUseAsync(boolean async, boolean expunge, OS os, Reporter reporter) {
-    // TODO(dmarting): Deactivate expunge_async on non-Linux platform until we completely fix it
-    // for non-Linux platforms (https://github.com/bazelbuild/bazel/issues/1906).
-    // MacOS and FreeBSD support setsid(2) but don't have /usr/bin/setsid, so if we wanted to
-    // support --expunge_async on these platforms, we'd have to write a wrapper that calls setsid(2)
-    // and exec(2).
-    boolean asyncSupport = os == OS.LINUX;
-    if (async && !asyncSupport) {
+    // TODO(bazel-team): Deactivate expunge_async on Windows or Unknown platforms as support for
+    // daemonizing is done in daemonize.c and does not support those platforms.
+    boolean asyncSupportMissing = os == OS.WINDOWS || os == OS.UNKNOWN;
+    if (async && asyncSupportMissing) {
       String fallbackName = expunge ? "--expunge" : "synchronous clean";
       reporter.handle(
           Event.info(
@@ -193,7 +182,7 @@ public final class CleanCommand implements BlazeCommand {
     }
 
     String cleanBanner =
-        (async || !asyncSupport)
+        (async || asyncSupportMissing)
             ? "Starting clean."
             : "Starting clean (this may take a while). "
                 + "Consider using --async if the clean takes more than several minutes.";

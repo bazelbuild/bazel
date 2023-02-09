@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import java.util.Objects;
@@ -47,8 +46,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
 
   private final ImmutableSet<StarlarkAspect> requiredAspects;
   private final ImmutableSet<String> fragments;
-  private final ConfigurationTransition hostTransition;
-  private final ImmutableSet<String> hostFragments;
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
   private final boolean applyToGeneratingRules;
   private final ImmutableSet<Label> execCompatibleWith;
@@ -72,9 +69,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       ImmutableSet<String> paramAttributes,
       ImmutableSet<StarlarkAspect> requiredAspects,
       ImmutableSet<String> fragments,
-      // The host transition is in lib.analysis, so we can't reference it directly here.
-      ConfigurationTransition hostTransition,
-      ImmutableSet<String> hostFragments,
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
       boolean applyToGeneratingRules,
       ImmutableSet<Label> execCompatibleWith,
@@ -88,8 +82,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     this.paramAttributes = paramAttributes;
     this.requiredAspects = requiredAspects;
     this.fragments = fragments;
-    this.hostTransition = hostTransition;
-    this.hostFragments = hostFragments;
     this.toolchainTypes = toolchainTypes;
     this.applyToGeneratingRules = applyToGeneratingRules;
     this.execCompatibleWith = execCompatibleWith;
@@ -199,7 +191,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     }
     builder.advertiseProvider(advertisedStarlarkProviders.build());
     builder.requiresConfigurationFragmentsByStarlarkBuiltinName(fragments);
-    builder.requiresConfigurationFragmentsByStarlarkBuiltinName(hostTransition, hostFragments);
     builder.addToolchainTypes(toolchainTypes);
     builder.applyToGeneratingRules(applyToGeneratingRules);
     ImmutableSet.Builder<AspectClass> requiredAspectsClasses = ImmutableSet.builder();
@@ -413,8 +404,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         && Objects.equals(paramAttributes, that.paramAttributes)
         && Objects.equals(requiredAspects, that.requiredAspects)
         && Objects.equals(fragments, that.fragments)
-        && Objects.equals(hostTransition, that.hostTransition)
-        && Objects.equals(hostFragments, that.hostFragments)
         && Objects.equals(toolchainTypes, that.toolchainTypes)
         && Objects.equals(aspectClass, that.aspectClass);
   }
@@ -431,8 +420,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         paramAttributes,
         requiredAspects,
         fragments,
-        hostTransition,
-        hostFragments,
         toolchainTypes,
         aspectClass);
   }

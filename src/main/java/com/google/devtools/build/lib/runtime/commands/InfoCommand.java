@@ -189,16 +189,7 @@ public class InfoCommand implements BlazeCommand {
         }
       }
 
-      List<String> starlarkOptions = optionsParsingResult.getSkippedArgs();
       List<String> residue = optionsParsingResult.getResidue();
-      if (!starlarkOptions.isEmpty()) {
-        env.getReporter()
-            .handle(
-                Event.warn(
-                    "info command does not support starlark options. Ignoring options: "
-                        + starlarkOptions));
-      }
-
       env.getEventBus().post(new NoBuildEvent());
       if (!residue.isEmpty()) {
         ImmutableSet.Builder<String> unknownKeysBuilder = ImmutableSet.builder();
@@ -230,7 +221,7 @@ public class InfoCommand implements BlazeCommand {
               FailureDetails.InfoCommand.Code.KEY_NOT_RECOGNIZED);
         }
       } else { // print them all
-        configurationSupplier.get();  // We'll need this later anyway
+        var unused = configurationSupplier.get(); // We'll need this later anyway
         for (InfoItem infoItem : items.values()) {
           if (infoItem.isHidden()) {
             continue;

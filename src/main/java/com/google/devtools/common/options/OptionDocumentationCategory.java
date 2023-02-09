@@ -107,6 +107,9 @@ public enum OptionDocumentationCategory {
   /** This option relates to modquery (external dependencies) output and semantics. */
   MODQUERY,
 
+  /** This option relates to Bzlmod (external dependencies) output and semantics. */
+  BZLMOD,
+
   /**
    * This option specifies or alters a generic input to a Bazel command. This category should only
    * be used if the input is generic and does not fall into other categories, such as toolchain-

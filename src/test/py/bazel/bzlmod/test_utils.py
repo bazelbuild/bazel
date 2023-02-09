@@ -90,6 +90,13 @@ class BazelRegistry:
     self.archives.mkdir(parents=True, exist_ok=True)
     self.registry_suffix = registry_suffix
 
+  def setModuleBasePath(self, module_base_path):
+    bazel_registry = {
+        'module_base_path': module_base_path,
+    }
+    with self.root.joinpath('bazel_registry.json').open('w') as f:
+      json.dump(bazel_registry, f, indent=4, sort_keys=True)
+
   def getURL(self):
     """Return the URL of this registry."""
     return self.root.resolve().as_uri()
@@ -238,3 +245,57 @@ class BazelRegistry:
       module.set_patches(patches, patch_strip)
     self.addModule(module)
     return self
+
+  def addMetadata(self,
+                  name,
+                  homepage=None,
+                  maintainers=None,
+                  versions=None,
+                  yanked_versions=None):
+    """Generate a module metadata file and add it to the registry."""
+    if maintainers is None:
+      maintainers = []
+    if versions is None:
+      versions = []
+    if yanked_versions is None:
+      yanked_versions = {}
+
+    module_dir = self.root.joinpath('modules', name)
+    module_dir.mkdir(parents=True, exist_ok=True)
+
+    metadata = {
+        'homepage': homepage,
+        'maintainers': maintainers,
+        'versions': versions,
+        'yanked_versions': yanked_versions
+    }
+
+    with module_dir.joinpath('metadata.json').open('w') as f:
+      json.dump(metadata, f, indent=4, sort_keys=True)
+
+    return self
+
+  def createLocalPathModule(self, name, version, path, deps=None):
+    """Add a local module into the registry."""
+    module_dir = self.root.joinpath('modules', name, version)
+    module_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create source.json & copy patch files to the registry
+    source = {
+        'type': 'local_path',
+        'path': path,
+    }
+
+    if deps is None:
+      deps = {}
+
+    scratchFile(
+        module_dir.joinpath('MODULE.bazel'), [
+            'module(',
+            '  name = "%s",' % name,
+            '  version = "%s",' % version,
+            ')',
+        ] + ['bazel_dep(name="%s",version="%s")' % p for p in deps.items()])
+
+    with module_dir.joinpath('source.json').open('w') as f:
+      json.dump(source, f, indent=4, sort_keys=True)

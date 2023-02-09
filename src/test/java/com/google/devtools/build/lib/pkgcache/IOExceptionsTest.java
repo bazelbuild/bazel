@@ -61,7 +61,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
   private boolean visitTransitively(Label label) throws InterruptedException {
     SkyKey key = TransitiveTargetKey.of(label);
     EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder().setNumThreads(5).setEventHandler(reporter).build();
+        EvaluationContext.newBuilder().setParallelism(5).setEventHandler(reporter).build();
     EvaluationResult<SkyValue> result =
         skyframeExecutor.prepareAndGet(ImmutableSet.of(key), evaluationContext);
     TransitiveTargetValue value = (TransitiveTargetValue) result.get(key);

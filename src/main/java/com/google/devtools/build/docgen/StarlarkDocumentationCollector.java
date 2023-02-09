@@ -60,9 +60,9 @@ final class StarlarkDocumentationCollector {
       all =
           collectModules(
               Iterables.concat(
-                  Classpath.findClasses("com/google/devtools/build"), // Bazel
-                  Classpath.findClasses("net/starlark/java")),
-              expander); // Starlark
+                  /*Bazel*/ Classpath.findClasses("com/google/devtools/build"),
+                  /*Starlark*/ Classpath.findClasses("net/starlark/java")),
+              expander);
     }
     return all;
   }
@@ -80,7 +80,11 @@ final class StarlarkDocumentationCollector {
     modules.put(
         topLevelModule.name(),
         new StarlarkBuiltinDoc(
-            topLevelModule, /*title=*/ "Globals", TopLevelModule.class, expander));
+            topLevelModule,
+            /*title=*/ "Globals",
+            TopLevelModule.class,
+            expander,
+            /*isTopLevel=*/ true));
 
     // Creating module documentation is done in three passes.
     // 1. Add all classes/interfaces annotated with @StarlarkBuiltin with documented = true.

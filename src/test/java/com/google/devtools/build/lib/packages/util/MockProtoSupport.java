@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages.util;
 
-import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
@@ -26,10 +25,6 @@ public final class MockProtoSupport {
   private MockProtoSupport() {
     throw new UnsupportedOperationException();
   }
-
-  /** This is workarround for tests that do not use {@code Scratch} (e.g. aquery-tests). */
-  public static final String MIGRATION_TAG =
-      String.format("tags = ['%s'],", ProtoCommon.PROTO_RULES_MIGRATION_LABEL);
 
   /**
    * Setup the support for building proto_library. You additionally need to setup support for each

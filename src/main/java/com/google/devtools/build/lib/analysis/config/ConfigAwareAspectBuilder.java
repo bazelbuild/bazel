@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Collection;
 
 /**
  * A wrapper for {@link AspectDefinition.Builder} that supports access to {@link
@@ -50,43 +48,5 @@ public class ConfigAwareAspectBuilder {
    */
   public AspectDefinition.Builder originalBuilder() {
     return aspectBuilder;
-  }
-
-  /**
-   * Declares the fragments required by this aspect for the configuration of the host machine this
-   * aspect's actions execute on.
-   *
-   * <p>This is not the same as the aspect's configuration. The aspect's configuration is its
-   * <i>target</i> configuration, which determines the platform it builds outputs for. The actions
-   * created by this aspect run on a host machine, which is what the host configuration corresponds
-   * to.
-   *
-   * <p>The value is inherited by subclasses.
-   */
-  @CanIgnoreReturnValue
-  public ConfigAwareAspectBuilder requiresHostConfigurationFragments(
-      Class<? extends Fragment>... configurationFragments) {
-    aspectBuilder.requiresConfigurationFragments(HostTransition.INSTANCE, configurationFragments);
-    return this;
-  }
-
-  /**
-   * Declares the fragments required by this aspect for the configuration of the host machine this
-   * aspect's actions execute on.
-   *
-   * <p>This is not the same as the aspect's configuration. The aspect's configuration is its
-   * <i>target</i> configuration, which determines the platform it builds outputs for. The actions
-   * created by this aspect run on a host machine, which is what the host configuration corresponds
-   * to.
-   *
-   * <p>In contrast to {@link #requiresHostConfigurationFragments(Class...)}, this method takes
-   * Starlark module names of fragments instead of their classes.
-   */
-  @CanIgnoreReturnValue
-  public ConfigAwareAspectBuilder requiresHostConfigurationFragmentsByStarlarkBuiltinName(
-      Collection<String> configurationFragmentNames) {
-    aspectBuilder.requiresConfigurationFragmentsByStarlarkBuiltinName(
-        HostTransition.INSTANCE, configurationFragmentNames);
-    return this;
   }
 }

@@ -69,7 +69,7 @@ def _get_value(it):
         return "\"%s\"" % it
 
 def _find_tool(repository_ctx, tool, overriden_tools):
-    """Find a tool for repository, taking overriden tools into account."""
+    """Find a tool for repository, taking overridden tools into account."""
     if tool in overriden_tools:
         return overriden_tools[tool]
     return which(repository_ctx, tool, "/usr/bin/" + tool)
@@ -118,7 +118,7 @@ def _cxx_inc_convert(path):
         path = path[:-_OSX_FRAMEWORK_SUFFIX_LEN].strip()
     return path
 
-def _get_cxx_include_directories(repository_ctx, cc, lang_flag, additional_flags = []):
+def _get_cxx_include_directories(repository_ctx, print_resource_dir_supported, cc, lang_flag, additional_flags = []):
     """Compute the list of C++ include directories."""
     result = repository_ctx.execute([cc, "-E", lang_flag, "-", "-v"] + additional_flags)
     index1 = result.stderr.find(_INC_DIR_MARKER_BEGIN)
@@ -141,9 +141,9 @@ def _get_cxx_include_directories(repository_ctx, cc, lang_flag, additional_flags
         for p in inc_dirs.split("\n")
     ]
 
-    if _is_compiler_option_supported(repository_ctx, cc, "-print-resource-dir"):
+    if print_resource_dir_supported:
         resource_dir = repository_ctx.execute(
-            [cc, "-print-resource-dir"],
+            [cc, "-print-resource-dir"] + additional_flags,
         ).stdout.strip() + "/share"
         inc_directories.append(_prepare_include_path(repository_ctx, resource_dir))
 
@@ -297,7 +297,7 @@ def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False,
             result = env_value
             env_value_with_paren = " (%s)" % env_value
     if result.startswith("/"):
-        # Absolute path, maybe we should make this suported by our which function.
+        # Absolute path, maybe we should make this supported by our which function.
         return result
     result = repository_ctx.which(result)
     if result == None:
@@ -384,7 +384,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     )
     if darwin:
         overriden_tools["gcc"] = "cc_wrapper.sh"
-        overriden_tools["ar"] = "/usr/bin/libtool"
+        overriden_tools["ar"] = _find_generic(repository_ctx, "libtool", "LIBTOOL", overriden_tools)
     auto_configure_warning_maybe(repository_ctx, "CC used: " + str(cc))
     tool_paths = _get_tool_paths(repository_ctx, overriden_tools)
     cc_toolchain_identifier = escape_string(get_env_var(
@@ -405,6 +405,13 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{env}": escape_string(get_env(repository_ctx)),
         },
     )
+
+    conly_opts = split_escaped(get_env_var(
+        repository_ctx,
+        "BAZEL_CONLYOPTS",
+        "",
+        False,
+    ), ":")
 
     cxx_opts = split_escaped(get_env_var(
         repository_ctx,
@@ -445,32 +452,42 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         if ld_path.dirname != cc_path.dirname:
             bin_search_flags.append("-B" + str(ld_path.dirname))
     coverage_compile_flags, coverage_link_flags = _coverage_flags(repository_ctx, darwin)
+    print_resource_dir_supported = _is_compiler_option_supported(
+        repository_ctx,
+        cc,
+        "-print-resource-dir",
+    )
+    no_canonical_prefixes_opt = _get_no_canonical_prefixes_opt(repository_ctx, cc)
     builtin_include_directories = _uniq(
-        _get_cxx_include_directories(repository_ctx, cc, "-xc") +
-        _get_cxx_include_directories(repository_ctx, cc, "-xc++", cxx_opts) +
+        _get_cxx_include_directories(repository_ctx, print_resource_dir_supported, cc, "-xc", conly_opts) +
+        _get_cxx_include_directories(repository_ctx, print_resource_dir_supported, cc, "-xc++", cxx_opts) +
         _get_cxx_include_directories(
             repository_ctx,
+            print_resource_dir_supported,
             cc,
             "-xc++",
             cxx_opts + ["-stdlib=libc++"],
         ) +
         _get_cxx_include_directories(
             repository_ctx,
+            print_resource_dir_supported,
             cc,
             "-xc",
-            _get_no_canonical_prefixes_opt(repository_ctx, cc),
+            no_canonical_prefixes_opt,
         ) +
         _get_cxx_include_directories(
             repository_ctx,
+            print_resource_dir_supported,
             cc,
             "-xc++",
-            cxx_opts + _get_no_canonical_prefixes_opt(repository_ctx, cc),
+            cxx_opts + no_canonical_prefixes_opt,
         ) +
         _get_cxx_include_directories(
             repository_ctx,
+            print_resource_dir_supported,
             cc,
             "-xc++",
-            cxx_opts + _get_no_canonical_prefixes_opt(repository_ctx, cc) + ["-stdlib=libc++"],
+            cxx_opts + no_canonical_prefixes_opt + ["-stdlib=libc++"],
         ),
     )
 
@@ -561,6 +578,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                 ],
             ),
             "%{cxx_flags}": get_starlark_list(cxx_opts + _escaped_cplus_include_paths(repository_ctx)),
+            "%{conly_flags}": get_starlark_list(conly_opts),
             "%{link_flags}": get_starlark_list((
                 ["-fuse-ld=" + gold_or_lld_linker_path] if gold_or_lld_linker_path else []
             ) + _add_linker_option_if_supported(
@@ -575,8 +593,6 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                 "-z",
             ) + (
                 [
-                    "-undefined",
-                    "dynamic_lookup",
                     "-headerpad_max_install_names",
                 ] if darwin else bin_search_flags + [
                     # Gold linker only? Can we enable this by default?
@@ -617,7 +633,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                 ],
             ),
             "%{opt_link_flags}": get_starlark_list(
-                [] if darwin else _add_linker_option_if_supported(
+                ["-Wl,-dead_strip"] if darwin else _add_linker_option_if_supported(
                     repository_ctx,
                     cc,
                     "-Wl,--gc-sections",

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -61,7 +62,11 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(
-            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
+            BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR));
   }
 
   @Test
@@ -92,7 +97,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
                             && toolchain
                                 .toolchainLabel()
                                 .equals(
-                                    Label.parseAbsoluteUnchecked("//toolchain:toolchain_1_impl"))))
+                                    Label.parseCanonicalUnchecked("//toolchain:toolchain_1_impl"))))
         .isTrue();
 
     assertThat(
@@ -105,7 +110,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
                             && toolchain
                                 .toolchainLabel()
                                 .equals(
-                                    Label.parseAbsoluteUnchecked("//toolchain:toolchain_2_impl"))))
+                                    Label.parseCanonicalUnchecked("//toolchain:toolchain_2_impl"))))
         .isTrue();
   }
 
@@ -137,8 +142,8 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     // Verify that the target registered with the extra_toolchains flag is first in the list.
     assertToolchainLabels(result.get(toolchainsKey))
         .containsAtLeast(
-            Label.parseAbsoluteUnchecked("//extra:extra_toolchain_impl"),
-            Label.parseAbsoluteUnchecked("//toolchain:toolchain_1_impl"))
+            Label.parseCanonicalUnchecked("//extra:extra_toolchain_impl"),
+            Label.parseCanonicalUnchecked("//toolchain:toolchain_1_impl"))
         .inOrder();
   }
 
@@ -180,9 +185,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     // Verify that the target registered with the extra_toolchains flag is first in the list.
     assertToolchainLabels(result.get(toolchainsKey))
         .containsAtLeast(
-            Label.parseAbsoluteUnchecked("//extra:extra_toolchain_impl_1"),
-            Label.parseAbsoluteUnchecked("//extra:extra_toolchain_impl_2"),
-            Label.parseAbsoluteUnchecked("//toolchain:toolchain_1_impl"))
+            Label.parseCanonicalUnchecked("//extra:extra_toolchain_impl_1"),
+            Label.parseCanonicalUnchecked("//extra:extra_toolchain_impl_2"),
+            Label.parseCanonicalUnchecked("//toolchain:toolchain_1_impl"))
         .inOrder();
   }
 
@@ -233,9 +238,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     assertThatEvaluationResult(result).hasNoError();
     assertToolchainLabels(result.get(toolchainsKey), PackageIdentifier.createInMainRepo("extra"))
         .containsExactly(
-            Label.parseAbsoluteUnchecked("//extra:extra_toolchain1_impl"),
-            Label.parseAbsoluteUnchecked("//extra:extra_toolchain2_impl"),
-            Label.parseAbsoluteUnchecked("//extra/more:more_toolchain_impl"));
+            Label.parseCanonicalUnchecked("//extra:extra_toolchain1_impl"),
+            Label.parseCanonicalUnchecked("//extra:extra_toolchain2_impl"),
+            Label.parseCanonicalUnchecked("//extra/more:more_toolchain_impl"));
   }
 
   @Test
@@ -267,9 +272,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     assertThatEvaluationResult(result).hasNoError();
     assertToolchainLabels(result.get(toolchainsKey))
         .containsAtLeast(
-            Label.parseAbsoluteUnchecked("//extra:extra_toolchain1_impl"),
-            Label.parseAbsoluteUnchecked("//extra:extra_toolchain2_impl"),
-            Label.parseAbsoluteUnchecked("//extra/more:more_toolchain_impl"));
+            Label.parseCanonicalUnchecked("//extra:extra_toolchain1_impl"),
+            Label.parseCanonicalUnchecked("//extra:extra_toolchain2_impl"),
+            Label.parseCanonicalUnchecked("//extra/more:more_toolchain_impl"));
   }
 
   @Test
@@ -281,7 +286,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
     assertToolchainLabels(result.get(toolchainsKey))
-        .contains(Label.parseAbsoluteUnchecked("//toolchain:toolchain_1_impl"));
+        .contains(Label.parseCanonicalUnchecked("//toolchain:toolchain_1_impl"));
 
     // Re-write the WORKSPACE.
     rewriteWorkspace("register_toolchains('//toolchain:toolchain_2')");
@@ -290,7 +295,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     result = requestToolchainsFromSkyframe(toolchainsKey);
     assertThatEvaluationResult(result).hasNoError();
     assertToolchainLabels(result.get(toolchainsKey))
-        .contains(Label.parseAbsoluteUnchecked("//toolchain:toolchain_2_impl"));
+        .contains(Label.parseCanonicalUnchecked("//toolchain:toolchain_2_impl"));
   }
 
   @Test
@@ -396,18 +401,18 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     DeclaredToolchainInfo toolchain1 =
         DeclaredToolchainInfo.builder()
             .toolchainType(
-                ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//test:toolchain")))
+                ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//test:toolchain")))
             .addExecConstraints(ImmutableList.of())
             .addTargetConstraints(ImmutableList.of())
-            .toolchainLabel(Label.parseAbsoluteUnchecked("//test/toolchain_impl_1"))
+            .toolchainLabel(Label.parseCanonicalUnchecked("//test/toolchain_impl_1"))
             .build();
     DeclaredToolchainInfo toolchain2 =
         DeclaredToolchainInfo.builder()
             .toolchainType(
-                ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//test:toolchain")))
+                ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//test:toolchain")))
             .addExecConstraints(ImmutableList.of())
             .addTargetConstraints(ImmutableList.of())
-            .toolchainLabel(Label.parseAbsoluteUnchecked("//test/toolchain_impl_2"))
+            .toolchainLabel(Label.parseCanonicalUnchecked("//test/toolchain_impl_2"))
             .build();
 
     new EqualsTester()

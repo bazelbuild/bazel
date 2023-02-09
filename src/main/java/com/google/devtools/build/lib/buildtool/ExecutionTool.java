@@ -110,6 +110,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -301,14 +302,14 @@ public class ExecutionTool {
         startLocalOutputBuild();
       }
     }
-    if (outputService == null || outputService.actionFileSystemType().supportLocalActions()) {
+    if (outputService == null || outputService.actionFileSystemType().supportsLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
     }
 
     ActionCache actionCache = null;
     if (buildRequestOptions.useActionCache) {
-      actionCache = getActionCache();
+      actionCache = getOrLoadActionCache();
       actionCache.resetStatistics();
     }
     SkyframeBuilder skyframeBuilder;
@@ -330,6 +331,8 @@ public class ExecutionTool {
       skyframeExecutor.configureActionExecutor(
           skyframeBuilder.getFileCache(), skyframeBuilder.getActionInputPrefetcher());
     }
+
+    skyframeExecutor.deleteActionsIfRemoteOptionsChanged(request);
     try (SilentCloseable c =
         Profiler.instance().profile("prepareSkyframeActionExecutorForExecution")) {
       skyframeExecutor.prepareSkyframeActionExecutorForExecution(
@@ -357,8 +360,8 @@ public class ExecutionTool {
    * @param buildId UUID of the build id
    * @param analysisResult the analysis phase output
    * @param buildResult the mutable build result
-   * @param packageRoots package roots collected from loading phase and BuildConfigurationCollection
-   *     creation. May be empty if {@link
+   * @param packageRoots package roots collected from loading phase and {@link
+   *     BuildConfigurationValue} creation. May be empty if {@link
    *     SkyframeExecutor#getForcedSingleSourceRootIfNoExecrootSymlinkCreation} is false.
    */
   void executeBuild(
@@ -388,7 +391,7 @@ public class ExecutionTool {
       }
     }
 
-    if (outputService == null || outputService.actionFileSystemType().supportLocalActions()) {
+    if (outputService == null || outputService.actionFileSystemType().supportsLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
     }
@@ -398,7 +401,7 @@ public class ExecutionTool {
     BuildRequestOptions options = request.getBuildOptions();
     ActionCache actionCache = null;
     if (options.useActionCache) {
-      actionCache = getActionCache();
+      actionCache = getOrLoadActionCache();
       actionCache.resetStatistics();
     }
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
@@ -525,8 +528,6 @@ public class ExecutionTool {
               buildResultListener.getAnalyzedAspects().keySet(),
               buildResultListener.getBuiltAspects()));
       buildResult.setSkippedTargets(buildResultListener.getSkippedTargets());
-      buildResult.setActualTargets(buildResultListener.getAnalyzedTargets());
-      buildResult.setTestTargets(buildResultListener.getAnalyzedTests());
       BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
       buildResultPrinter.showBuildResult(
           request,
@@ -663,15 +664,6 @@ public class ExecutionTool {
           Code.TEMP_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE,
           e);
     }
-
-    try {
-      env.getPersistentActionOutsDirectory().createDirectoryAndParents();
-    } catch (IOException e) {
-      throw createExitException(
-          "Couldn't create persistent action output directory",
-          Code.PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE,
-          e);
-    }
   }
 
   /**
@@ -743,7 +735,7 @@ public class ExecutionTool {
                 .distinct()
                 .map((key) -> executor.getConfiguration(reporter, key))
                 .collect(toImmutableSet())
-            : ImmutableSet.of(analysisResult.getConfigurationCollection().getTargetConfiguration());
+            : ImmutableSet.of(analysisResult.getConfiguration());
 
     String productName = runtime.getProductName();
     try (SilentCloseable c =
@@ -874,7 +866,7 @@ public class ExecutionTool {
   }
 
   /** Get action cache if present or reload it from the on-disk cache. */
-  ActionCache getActionCache() throws AbruptExitException {
+  ActionCache getOrLoadActionCache() throws AbruptExitException {
     try {
       return env.getBlazeWorkspace().getOrLoadPersistentActionCache(getReporter());
     } catch (IOException e) {
@@ -901,8 +893,7 @@ public class ExecutionTool {
       ModifiedFileSet modifiedOutputFiles) {
     BuildRequestOptions options = request.getBuildOptions();
 
-    skyframeExecutor.setActionOutputRoot(
-        env.getActionTempsDirectory(), env.getPersistentActionOutsDirectory());
+    skyframeExecutor.setActionOutputRoot(env.getActionTempsDirectory());
 
     Predicate<Action> executionFilter =
         CheckUpToDateFilter.fromOptions(request.getOptions(ExecutionOptions.class));
@@ -935,10 +926,17 @@ public class ExecutionTool {
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
+    ImmutableMap<String, Float> extraResources =
+        options.localExtraResources.stream()
+            .collect(
+                ImmutableMap.toImmutableMap(
+                    Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v2));
+
     resourceMgr.setAvailableResources(
         ResourceSet.create(
             options.localRamResources,
             options.localCpuResources,
+            extraResources,
             options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
   }
 
@@ -980,11 +978,11 @@ public class ExecutionTool {
   }
 
   private static AbruptExitException createExitException(
-      String message, Code detailedCode, IOException e) {
+      String messagePrefix, Code detailedCode, IOException e) {
     return new AbruptExitException(
         DetailedExitCode.of(
             FailureDetail.newBuilder()
-                .setMessage(message)
+                .setMessage(String.format("%s: %s", messagePrefix, e.getMessage()))
                 .setExecution(Execution.newBuilder().setCode(detailedCode))
                 .build()),
         e);

@@ -15,18 +15,22 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
+import com.google.common.eventbus.EventBus;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
@@ -58,7 +62,15 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
   @Override
   protected AbstractActionInputPrefetcher createPrefetcher(Map<HashCode, byte[]> cas) {
     RemoteCache remoteCache = newCache(options, digestUtil, cas);
-    return new RemoteActionInputFetcher("none", "none", remoteCache, execRoot, tempPathGenerator);
+    return new RemoteActionInputFetcher(
+        new Reporter(new EventBus()),
+        "none",
+        "none",
+        remoteCache,
+        execRoot,
+        tempPathGenerator,
+        ImmutableList.of(),
+        OutputPermissions.READONLY);
   }
 
   @Test
@@ -67,7 +79,15 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     MetadataProvider metadataProvider = new StaticMetadataProvider(new HashMap<>());
     RemoteCache remoteCache = newCache(options, digestUtil, new HashMap<>());
     RemoteActionInputFetcher actionInputFetcher =
-        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot, tempPathGenerator);
+        new RemoteActionInputFetcher(
+            new Reporter(new EventBus()),
+            "none",
+            "none",
+            remoteCache,
+            execRoot,
+            tempPathGenerator,
+            ImmutableList.of(),
+            OutputPermissions.READONLY);
     VirtualActionInput a = ActionsTestUtil.createVirtualActionInput("file1", "hello world");
 
     // act
@@ -87,7 +107,15 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     MetadataProvider metadataProvider = new StaticMetadataProvider(new HashMap<>());
     RemoteCache remoteCache = newCache(options, digestUtil, new HashMap<>());
     RemoteActionInputFetcher actionInputFetcher =
-        new RemoteActionInputFetcher("none", "none", remoteCache, execRoot, tempPathGenerator);
+        new RemoteActionInputFetcher(
+            new Reporter(new EventBus()),
+            "none",
+            "none",
+            remoteCache,
+            execRoot,
+            tempPathGenerator,
+            ImmutableList.of(),
+            OutputPermissions.READONLY);
 
     // act
     wait(
@@ -107,6 +135,10 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
           DigestUtil.buildDigest(entry.getKey().asBytes(), entry.getValue().length),
           entry.getValue());
     }
-    return new RemoteCache(new InMemoryCacheClient(cacheEntries), options, digestUtil);
+    return new RemoteCache(
+        CacheCapabilities.getDefaultInstance(),
+        new InMemoryCacheClient(cacheEntries),
+        options,
+        digestUtil);
   }
 }

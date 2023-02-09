@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -56,7 +57,8 @@ public class PlatformRule implements RuleDefinition {
         .add(
             attr(CONSTRAINT_VALUES_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ConstraintValueInfo.PROVIDER.id()))
+                .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
+                .nonconfigurable("Part of the configuration"))
 
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(parents) -->
         The label of a <code>platform</code> target that this platform should inherit from. Although
@@ -67,7 +69,8 @@ public class PlatformRule implements RuleDefinition {
         .add(
             attr(PARENTS_PLATFORM_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(PlatformInfo.PROVIDER.id()))
+                .mandatoryProviders(PlatformInfo.PROVIDER.id())
+                .nonconfigurable("Part of the configuration"))
 
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(remote_execution_properties) -->
         DEPRECATED. Please use exec_properties attribute instead.
@@ -92,7 +95,7 @@ public class PlatformRule implements RuleDefinition {
         This attribute is a full replacement for the deprecated
         <code>remote_execution_properties</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .override(attr(EXEC_PROPS_ATTR, Type.STRING_DICT))
+        .add(attr(EXEC_PROPS_ATTR, Type.STRING_DICT).value(ImmutableMap.of()))
 
         // Undocumented. Indicates that this platform should auto-configure the platform constraints
         // based on the current host OS and CPU settings.
@@ -132,14 +135,24 @@ public class PlatformRule implements RuleDefinition {
         .build();
   }
 }
-/*<!-- #BLAZE_RULE (NAME = platform, FAMILY = Platform)[GENERIC_RULE] -->
+/*<!-- #FAMILY_SUMMARY -->
+
+<p>
+This set of rules exists to allow you to model specific hardware platforms you are
+building for and specify the specific tools you may need to compile code for those platforms.
+The user should be familiar with the concepts explained <a href="/extending/platforms">here</a>.
+</p>
+
+<!-- #END_FAMILY_SUMMARY -->*/
+
+/*<!-- #BLAZE_RULE (NAME = platform, FAMILY = Platforms and Toolchains)[GENERIC_RULE] -->
 
 <p>This rule defines a new platform -- a named collection of constraint choices
 (such as cpu architecture or compiler version) describing an environment in
 which part of the build may run.
 
-For more details, see the
-<a href="https://bazel.build/docs/platforms">Platforms</a> page.
+For more details, see the <a href="//extending/platforms">Platforms</a> page.
+
 
 <h4 id="platform_examples">Example</h4>
 <p>

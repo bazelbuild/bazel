@@ -565,6 +565,35 @@ EOF
   bazel build //a:c || fail "build failed"
 }
 
+function test_cc_proto_library_with_toolchain_resolution() {
+  write_workspace ""
+  mkdir -p a
+  cat > a/BUILD <<EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
+proto_library(name='p', srcs=['p.proto'])
+cc_proto_library(name='cp', deps=[':p'])
+cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
+EOF
+
+  cat > a/p.proto <<EOF
+syntax = "proto2";
+package a;
+message A {
+  optional int32 a = 1;
+}
+EOF
+
+  cat > a/c.cc <<EOF
+#include "a/p.pb.h"
+
+void f() {
+  a::A a;
+}
+EOF
+
+  bazel build --incompatible_enable_cc_toolchain_resolution //a:c || fail "build failed"
+}
+
 function test_cc_proto_library_import_prefix_stripping() {
   write_workspace ""
   mkdir -p a/dir

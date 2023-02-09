@@ -169,6 +169,11 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
     return optionAnnotation.oldName();
   }
 
+  /** {@link Option#oldNameWarning()} */
+  public boolean getOldNameWarning() {
+    return optionAnnotation.oldNameWarning();
+  }
+
   /** Returns whether an option --foo has a negative equivalent --nofoo. */
   public boolean hasNegativeOption() {
     return getType().equals(boolean.class) || getType().equals(TriState.class);
@@ -233,7 +238,8 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
     } else {
       try {
         // Instantiate the given Converter class.
-        Constructor<?> constructor = converterClass.getConstructor();
+        Constructor<?> constructor = converterClass.getDeclaredConstructor();
+        constructor.setAccessible(true);
         converter = (Converter<?>) constructor.newInstance();
       } catch (SecurityException | IllegalArgumentException | ReflectiveOperationException e) {
         // This indicates an error in the Converter, and should be discovered the first time it is

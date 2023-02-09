@@ -530,8 +530,8 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
             .handle(
                 Event.info(
                     String.format(
-                        "Caught InterruptedException from ExecException for %s branch of %s, which"
-                            + " may cause a crash.",
+                        "Caught InterruptedException from ExecutionException for %s branch of %s,"
+                            + " which may cause a crash.",
                         mode, getSpawnReadableId(branch.getSpawn()))));
         return null;
       } else {

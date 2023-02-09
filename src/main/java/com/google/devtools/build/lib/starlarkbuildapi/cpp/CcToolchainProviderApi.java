@@ -17,11 +17,14 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -33,7 +36,12 @@ import net.starlark.java.eval.StarlarkThread;
 public interface CcToolchainProviderApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         BranchFdoProfileT extends BranchFdoProfileApi,
-        FdoContextT extends FdoContextApi<BranchFdoProfileT>>
+        FdoContextT extends FdoContextApi<BranchFdoProfileT>,
+        ConstraintValueT extends ConstraintValueInfoApi,
+        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
+        InvalidConfigurationExceptionT extends Exception,
+        CppConfigurationT extends CppConfigurationApi<InvalidConfigurationExceptionT>,
+        CcToolchainVariablesT extends CcToolchainVariablesApi>
     extends StructApi {
 
   @StarlarkMethod(
@@ -263,4 +271,40 @@ public interface CcToolchainProviderApi<
       documented = false,
       useStarlarkThread = true)
   String getLegacyCcFlagsMakeVariableForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "get_additional_make_variables",
+      documented = false,
+      useStarlarkThread = true)
+  Dict<String, String> getAdditionalMakeVariablesForStarlark(StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "get_all_files_including_libc",
+      documented = false,
+      useStarlarkThread = true)
+  Depset getAllFilesIncludingLibcForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "get_abi", documented = false, useStarlarkThread = true)
+  String getAbiForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "get_abi_glibc_version", documented = false, useStarlarkThread = true)
+  String getAbiGlibcVersionForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "get_crosstool_top_path", documented = false, useStarlarkThread = true)
+  String getCrosstoolTopPathForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "get_build_variables",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "cpp_configuration", positional = false, named = true)
+      })
+  CcToolchainVariablesT getBuildVariablesForStarlark(
+      StarlarkRuleContextT starlarkRuleContext,
+      CppConfigurationT cppConfiguration,
+      StarlarkThread thread)
+      throws EvalException;
 }

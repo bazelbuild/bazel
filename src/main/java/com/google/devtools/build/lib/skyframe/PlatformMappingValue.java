@@ -199,6 +199,11 @@ public final class PlatformMappingValue implements SkyValue {
       throws OptionsParsingException {
     BuildOptions originalOptions = original.getOptions();
 
+    if (originalOptions.hasNoConfig()) {
+      // The empty configuration (produced by NoConfigTransition) is terminal: it'll never change.
+      return original;
+    }
+
     checkArgument(
         originalOptions.contains(PlatformOptions.class),
         "When using platform mappings, all configurations must contain platform options");

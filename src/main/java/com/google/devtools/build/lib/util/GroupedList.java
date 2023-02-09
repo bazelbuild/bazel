@@ -30,6 +30,7 @@ import java.lang.annotation.Target;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -50,7 +51,7 @@ import org.checkerframework.framework.qual.SubtypeOf;
  *
  * <p>The generic type {@code T} <em>must not</em> be a {@link List}.
  */
-public final class GroupedList<T> implements Iterable<List<T>> {
+public class GroupedList<T> implements Iterable<List<T>> {
 
   /**
    * Indicates that the annotated element is a compressed {@link GroupedList}, so that it can be
@@ -247,10 +248,11 @@ public final class GroupedList<T> implements Iterable<List<T>> {
   }
 
   /**
-   * Returns true if this list contains {@code needle}. Takes time proportional to list size. Call
-   * {@link #toSet} instead and use the result if doing multiple contains checks.
+   * Returns true if this list contains {@code needle}. May take time proportional to list size.
+   * Call {@link #toSet} instead and use the result if doing multiple contains checks and this is
+   * not a {@link WithHashSet}.
    */
-  public boolean expensiveContains(T needle) {
+  public boolean contains(T needle) {
     return contains(elements, needle);
   }
 
@@ -488,6 +490,42 @@ public final class GroupedList<T> implements Iterable<List<T>> {
         return;
       default:
         elements.add(group);
+    }
+  }
+
+  /**
+   * A {@link GroupedList} which keeps a {@link HashSet} of its elements up to date, resulting in a
+   * higher memory cost and faster {@link #contains} operations.
+   */
+  public static class WithHashSet<T> extends GroupedList<T> {
+    private final HashSet<T> set = new HashSet<>();
+
+    @Override
+    public void appendSingleton(T t) {
+      super.appendSingleton(t);
+      set.add(t);
+    }
+
+    @Override
+    public void appendGroup(ImmutableList<T> group) {
+      super.appendGroup(group);
+      set.addAll(group);
+    }
+
+    @Override
+    public void remove(Set<T> toRemove) {
+      super.remove(toRemove);
+      set.removeAll(toRemove);
+    }
+
+    @Override
+    public boolean contains(T needle) {
+      return set.contains(needle);
+    }
+
+    @Override
+    public ImmutableSet<T> toSet() {
+      return ImmutableSet.copyOf(set);
     }
   }
 }

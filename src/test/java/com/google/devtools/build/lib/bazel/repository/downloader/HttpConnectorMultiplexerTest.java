@@ -32,6 +32,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.RetryingInputStream.Reconnector;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -163,9 +164,10 @@ public class HttpConnectorMultiplexerTest {
             ImmutableMap.of("Authentication", ImmutableList.of("Zm9vOmZvb3NlY3JldA==")));
 
     Function<URL, ImmutableMap<String, List<String>>> headerFunction =
-        HttpConnectorMultiplexer.getHeaderFunction(baseHeaders, additionalHeaders);
+        HttpConnectorMultiplexer.getHeaderFunction(
+            baseHeaders, new StaticCredentials(additionalHeaders));
 
-    // Unreleated URL
+    // Unrelated URL
     assertThat(headerFunction.apply(new URL("http://example.org/some/path/file.txt")))
         .containsExactly(
             "Accept-Encoding",
@@ -215,7 +217,8 @@ public class HttpConnectorMultiplexerTest {
     ImmutableMap<String, List<String>> annonAuth =
         ImmutableMap.of("Authentication", ImmutableList.of("YW5vbnltb3VzOmZvb0BleGFtcGxlLm9yZw=="));
     Function<URL, ImmutableMap<String, List<String>>> combinedHeaders =
-        HttpConnectorMultiplexer.getHeaderFunction(annonAuth, additionalHeaders);
+        HttpConnectorMultiplexer.getHeaderFunction(
+            annonAuth, new StaticCredentials(additionalHeaders));
     assertThat(combinedHeaders.apply(new URL("http://hosting.example.com/user/foo/file.txt")))
         .containsExactly("Authentication", ImmutableList.of("Zm9vOmZvb3NlY3JldA=="));
     assertThat(combinedHeaders.apply(new URL("http://unreleated.example.org/user/foo/file.txt")))

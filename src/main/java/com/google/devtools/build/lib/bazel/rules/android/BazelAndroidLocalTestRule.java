@@ -123,8 +123,8 @@ repository</a> to your <code>WORKSPACE</code> file:
 <pre class="code">
 http_archive(
     name = "robolectric",
-    urls = ["https://github.com/robolectric/robolectric/archive/&lt;COMMIT&gt;.tar.gz"],
-    strip_prefix = "robolectric-&lt;COMMIT&gt;",
+    urls = ["https://github.com/robolectric/robolectric-bazel/archive/&lt;COMMIT&gt;.tar.gz"],
+    strip_prefix = "robolectric-bazel-&lt;COMMIT&gt;",
     sha256 = "&lt;HASH&gt;",
 )
 load("@robolectric//bazel:robolectric.bzl", "robolectric_repositories")
@@ -147,7 +147,7 @@ android_local_test(
     manifest = "LibManifest.xml",
     deps = [
         ":sample_test_lib",
-        "@robolectric//bazel:robolectric",
+        "@robolectric//bazel:android-all",
     ],
 )
 

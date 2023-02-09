@@ -16,6 +16,7 @@ java_library(
         "//third_party:netty_tcnative",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/grpc-java:grpc-jar",

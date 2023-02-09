@@ -3,15 +3,17 @@ Book: /_book.yaml
 
 # Commands and Options
 
+{% include "_buttons.html" %}
+
 This page covers the options that are available with various Bazel commands,
 such as `bazel build`, `bazel run`, and `bazel test`. This page is a companion
-to the list of Bazel's commands in [Build with Bazel](/docs/build).
+to the list of Bazel's commands in [Build with Bazel](/run/build).
 
 ## Target syntax {:#target-syntax}
 
 Some commands, like `build` or `test`, can operate on a list of targets. They
 use a syntax more flexible than labels, which is documented in
-[Specifying targets to build](/docs/build#specifying-build-targets).
+[Specifying targets to build](/run/build#specifying-build-targets).
 
 ## Options {:#build-options}
 
@@ -60,7 +62,7 @@ Package path elements may be specified in three formats:
     `/home/bob/clients/bob_client/bazel/foo` directory.
 
 If you use a non-default package path, specify it in your
-[Bazel configuration file](/docs/bazelrc) for convenience.
+[Bazel configuration file](/run/bazelrc) for convenience.
 
 _Bazel doesn't require any packages to be in the
 current directory_, so you can do a build from an empty bazel
@@ -81,7 +83,8 @@ Example: Building from an empty client
 This option specifies a comma-separated list of packages which Bazel
 should consider deleted, and not attempt to load from any directory
 on the package path. This can be used to simulate the deletion of packages without
-actually deleting them.
+actually deleting them. This option can be passed multiple times, in which case
+the individual lists are concatenated.
 
 ### Error checking {:#error-checking}
 
@@ -159,30 +162,30 @@ effect at link time (such as `-l`) should be specified in
 #### `--host_copt={{ "<var>" }}cc-option{{ "</var>" }}` {:#host-copt}
 
 This option takes an argument which is to be passed to the compiler for source files
-that are compiled in the host configuration. This is analogous to
+that are compiled in the exec configuration. This is analogous to
 the [`--copt`](#copt) option, but applies only to the
-host configuration.
+exec configuration.
 
 #### `--host_conlyopt={{ "<var>" }}cc-option{{ "</var>" }}` {:#host-conlyopt}
 
 This option takes an argument which is to be passed to the compiler for C source files
-that are compiled in the host configuration. This is analogous to
+that are compiled in the exec configuration. This is analogous to
 the [`--conlyopt`](#cconlyopt) option, but applies only
-to the host configuration.
+to the exec configuration.
 
 #### `--host_cxxopt={{ "<var>" }}cc-option{{ "</var>" }}` {:#host-cxxopt}
 
 This option takes an argument which is to be passed to the compiler for C++ source files
-that are compiled in the host configuration. This is analogous to
+that are compiled in the exec configuration. This is analogous to
 the [`--cxxopt`](#cxxopt) option, but applies only to the
-host configuration.
+exec configuration.
 
 #### `--host_linkopt={{ "<var>" }}linker-option{{ "</var>" }}` {:#host-linkopt}
 
 This option takes an argument which is to be passed to the linker for source files
-that are compiled in the host configuration. This is analogous to
+that are compiled in the exec configuration. This is analogous to
 the [`--linkopt`](#linkopt) option, but applies only to
-the host configuration.
+the exec configuration.
 
 #### `--conlyopt={{ "<var>" }}cc-option{{ "</var>" }}` {:#cconlyopt}
 
@@ -312,18 +315,6 @@ extension.
 
 The options `--fdo_instrument` and `--fdo_optimize` cannot be used at the same time.
 
-#### `--[no]output_symbol_counts` {:#output-symbol-counts}
-
-If enabled, each gold-invoked link of a C++ executable binary will output
-a _symbol counts_ file (via the `--print-symbol-counts` gold
-option). For each linker input, the file logs the number of symbols that were
-defined and the number of symbols that were used in the binary.
-This information can be used to track unnecessary link dependencies.
-The symbol counts file is written to the binary's output path with the name
-`[targetname].sc`.
-
-This option is disabled by default.
-
 #### `--java_language_version={{ "<var>" }}version{{ "</var>" }}` {:#java-language-version}
 
 This option specifies the version of Java sources. For example:
@@ -353,8 +344,8 @@ example:
 
 downloads JDK 11 from a remote repository and run the Java application using it.
 
-Default value is `localjdk`.
-Possible values are: `localjdk`, `localjdk_{{ "<var>" }}version{{ "</var>" }}`,
+Default value is `local_jdk`.
+Possible values are: `local_jdk`, `local_jdk_{{ "<var>" }}version{{ "</var>" }}`,
 `remotejdk_11`, and `remote_jdk17`.
 You can extend the values by registering custom JVM using either
 `local_java_repository` or `remote_java_repostory` repository rules.
@@ -400,15 +391,6 @@ Note: Changing `--javacopt` settings will force a recompilation
 of all affected classes. Also note that javacopts parameters listed in
 specific java_library or java_binary build rules will be placed on the javac
 command line _after_ these options.
-
-##### `-extra_checks[:(off|on)]` {:#extra-checks}
-
-This javac option enables extra correctness checks. Any problems found will
-be presented as errors.
-Either `-extra_checks` or `-extra_checks:on` may be used
-to force the checks to be turned on. `-extra_checks:off` completely
-disables the analysis.
-When this option is not specified, the default behavior is used.
 
 #### `--strict_java_deps (default|strict|off|warn|error)` {:#strict-java-deps}
 
@@ -473,7 +455,7 @@ variable across multiple `--action_env` flags, the latest assignment wins.
 #### `--experimental_action_listener={{ "<var>" }}label{{ "</var>" }}` {:#experimental-action-listener}
 
 Warning: Extra actions are deprecated. Use
-[aspects](/rules/aspects)
+[aspects](/extending/aspects)
 instead.
 
 The `experimental_action_listener` option instructs Bazel to use
@@ -483,7 +465,7 @@ insert [`extra_actions`](/reference/be/extra-actions#extra_action) into the buil
 #### `--[no]experimental_extra_action_top_level_only` {:experimental-extra-action-top-level-only}
 
 Warning: Extra actions are deprecated. Use
-[aspects](/rules/aspects) instead.
+[aspects](/extending/aspects) instead.
 
 If this option is set to true, extra actions specified by the
 [ `--experimental_action_listener`](#experimental-action-listener) command
@@ -492,7 +474,7 @@ line option will only be scheduled for top level targets.
 #### `--experimental_extra_action_filter={{ "<var>" }}regex{{ "</var>" }}` {:#experimental-extra-action-filter}
 
 Warning: Extra actions are deprecated. Use
-[aspects](/rules/aspects) instead.
+[aspects](/extending/aspects) instead.
 
 The `experimental_extra_action_filter` option instructs Bazel to
 filter the set of targets to schedule `extra_actions` for.
@@ -652,7 +634,7 @@ settings for `--compiler`.
 #### `--host_crosstool_top={{ "<var>" }}label{{ "</var>" }}` {:#host-crosstool-top}
 
 If not specified, Bazel uses the value of `--crosstool_top` to compile
-code in the host configuration, such as tools run during the build. The main purpose of this flag
+code in the exec configuration, such as tools run during the build. The main purpose of this flag
 is to enable cross-compilation.
 
 #### `--apple_crosstool_top={{ "<var>" }}label{{ "</var>" }}` {:#apple-crosstool-top}
@@ -696,7 +678,7 @@ source files.
 #### `--host_java_toolchain={{ "<var>" }}label{{ "</var>" }}` {:#host-java-toolchain}
 
 If not specified, bazel uses the value of `--java_toolchain` to compile
-code in the host configuration, such as for tools run during the build. The main purpose of this flag
+code in the exec configuration, such as for tools run during the build. The main purpose of this flag
 is to enable cross-compilation.
 
 #### `--javabase=({{ "<var>" }}label{{ "</var>" }})` {:#javabase}
@@ -708,7 +690,7 @@ _bazel test_, and for Java binaries built by `java_binary` and
 
 #### `--host_javabase={{ "<var>" }}label{{ "</var>" }}` {:#host-javabase}
 
-This option sets the _label_ of the base Java installation to use in the host configuration,
+This option sets the _label_ of the base Java installation to use in the exec configuration,
 for example for host build tools including JavaBuilder and Singlejar.
 
 This does not select the Java compiler that is used to compile Java
@@ -799,6 +781,9 @@ The default is 0, that means an incremental algorithm: the first
 report will be printed after 10 seconds, then 30 seconds and after
 that progress is reported once every minute.
 
+When bazel is using cursor control, as specified by
+[`--curses`](#curses), progress is reported every second.
+
 #### `--local_{ram,cpu}_resources {{ "<var>" }}resources or resource expression{{ "</var>" }}` {:#local-resources}
 
 These options specify the amount of local resources (RAM in MB and number of CPU logical cores)
@@ -844,9 +829,9 @@ be created remotely from in-memory manifests.
 
 When this option is enabled, Bazel will discard the analysis cache
 right before execution starts, thus freeing up additional memory
-(around 10%) for the [execution phase](/docs/build#execution).
+(around 10%) for the [execution phase](/run/build#execution).
 The drawback is that further incremental builds will be slower. See also
-[memory-saving mode](/docs/memory-saving-mode).
+[memory-saving mode](/configure/memory).
 
 #### `--[no]keep_going`  (-k) {:#keep-going}
 
@@ -1034,36 +1019,39 @@ By default, test tag filtering is not applied. Note that you can also filter
 on test's `size` and `local` tags in
 this manner.
 
-#### `--test_lang_filters={{ "<var>" }}lang[,lang]*{{ "</var>" }}` {:#test-lang-filters}
+#### `--test_lang_filters={{ "<var>" }}string[,string]*{{ "</var>" }}` {:#test-lang-filters}
 
-Specifies a comma-separated list of test languages for languages with an official `*_test` rule the
-(see [build encyclopedia](/reference/be/overview) for a full list of these). Each
-language can be optionally preceded with '-' to specify excluded
-languages. The name used for each language should be the same as
-the language prefix in the `*_test` rule, for example,
-`cc`, `java` or `sh`.
+Specifies a comma-separated list of strings referring to names of test rule
+classes. To refer to the rule class `foo_test`, use the string "foo". Bazel will
+test (or build if `--build_tests_only` is also specified) only
+targets of the referenced rule classes. To instead exclude those targets, use
+the string "-foo". For example,
 
-If specified, Bazel will test (or build if `--build_tests_only`
-is also specified) only test targets of the specified language(s).
-
-For example,
-
+</p>
 <pre>
-  % bazel test --test_lang_filters=cc,java foo/...
+  % bazel test --test_lang_filters=foo,bar //baz/...
 </pre>
-
-will test only the C/C++ and Java tests (defined using
-`cc_test` and `java_test` rules, respectively)
-in `foo/...`, while
-
+<p>
+  will test only targets that are instances of `foo_test` or `bar_test` in
+  `//baz/...`, while
+</p>
 <pre>
-  % bazel test --test_lang_filters=-sh,-java foo/...
+  % bazel test --test_lang_filters=-foo,-bar //baz/...
 </pre>
+<p>
+  will test all the targets in `//baz/...` except for the `foo_test` and
+  `bar_test` instances.
+</p>
 
-will run all of the tests in `foo/...` except for the
-`sh_test` and `java_test` tests.
+Tip: You can use `bazel query --output=label_kind "//p:t"` to
+learn the rule class name of the target `//p:t`. And you can
+look at the pair of instantiation stacks in the output of
+`bazel query --output=build "//p:t"` to learn why that target
+is an instance of that rule class.
 
-By default, test language filtering is not applied.
+Warning: The option name "--test_lang_filter" is vestigal and is therefore
+unfortunately misleading; don't make assumptions about the semantics based on
+the name.
 
 #### `--test_filter={{ "<var>" }}filter-expression{{ "</var>" }}` {:#test-filter}
 
@@ -1135,11 +1123,10 @@ default. When disabled, progress messages are suppressed.
 
 #### `--show_progress_rate_limit={{ "<var>" }}n{{ "</var>" }}` {:#show-progress-rate}
 
-This option causes bazel to display only
-one progress message per `n` seconds, where {{ "<var>" }}n{{ "</var>" }} is a real number.
-If `n` is -1, all progress messages will be displayed. The default value for
-this option is 0.02, meaning bazel will limit the progress messages to one per every
-0.02 seconds.
+This option causes bazel to display at most one progress message per `n` seconds,
+where {{ "<var>" }}n{{ "</var>" }} is a real number.
+The default value for this option is 0.02, meaning bazel will limit the progress
+messages to one per every 0.02 seconds.
 
 #### `--show_result={{ "<var>" }}n{{ "</var>" }}` {:#show-result}
 
@@ -1168,7 +1155,7 @@ during the compile-edit-test cycle) and a large group of targets
 regression tests). In the former case, the result information is
 very useful whereas in the latter case it is less so. As with all
 options, this can be specified implicitly via
-the [`.bazelrc`](/docs/bazelrc) file.
+the [`.bazelrc`](/run/bazelrc) file.
 
 The files are printed so as to make it easy to copy and paste the
 filename to the shell, to run built executables. The "up-to-date"
@@ -1308,7 +1295,7 @@ Stamping can be enabled or disabled explicitly on a per-rule basis using the
 a rule sets `stamp = -1` (the default for `*_binary` rules), this option
 determines whether stamping is enabled.
 
-Bazel never stamps binaries that are built for the host configuration,
+Bazel never stamps binaries that are built for the exec configuration,
 regardless of this option or the `stamp` attribute. For rules that set `stamp =
 0` (the default for `*_test` rules), stamping is disabled regardless of
 `--[no]stamp`. Specifying `--stamp` does not force targets to be rebuilt if
@@ -1322,7 +1309,7 @@ reduces input volatility and maximizes build caching.
 Use these options to control the host and target platforms that configure how builds work, and to
 control what execution platforms and toolchains are available to Bazel rules.
 
-Please see background information on [Platforms](/docs/platforms) and [Toolchains](/docs/toolchains).
+Please see background information on [Platforms](/extending/platforms) and [Toolchains](/extending/toolchains).
 
 #### `--platforms={{ "<var>" }}labels{{ "</var>" }}` {:#platforms}
 
@@ -1360,7 +1347,7 @@ of Bazel or Starlark rules with debugging failures due to missing toolchains.
 
 A convenience flag used to bind longer Starlark build settings to a shorter name. For more
 details, see the
-[Starlark Configurations](/rules/config#using-build-setting-aliases).
+[Starlark Configurations](/extending/config#using-build-setting-aliases).
 
 #### `--symlink_prefix={{ "<var>" }}string{{ "</var>" }}` {:#symlink-prefix}
 
@@ -1402,12 +1389,6 @@ for comparisons.
 
 Temporary flag for testing bazel default visibility changes. Not intended for general use
 but documented for completeness' sake.
-
-#### `--[no]use_action_cache` {:#use-action-cache}
-
-This option is enabled by default. If disabled, Bazel will not use its local action cache.
-Disabling the local action cache saves memory and disk space for clean builds, but will make
-incremental builds slower.
 
 #### `--starlark_cpu_profile=_file_` {:#starlark-cpu-profile}
 
@@ -1451,10 +1432,10 @@ engineers using Bazel.
 
 When using Bazel for release builds, the same issues arise as for other scripts
 that perform a build. For more details, see
-[Call Bazel from scripts](/docs/scripts). In particular, the following options
+[Call Bazel from scripts](/run/scripts). In particular, the following options
 are strongly recommended:
 
-*   [`--bazelrc=/dev/null`](/docs/bazelrc)
+*   [`--bazelrc=/dev/null`](/run/bazelrc)
 *   [`--nokeep_state_after_build`](/reference/command-line-reference#flag--keep_state_after_build)
 
 These options are also important:
@@ -1727,7 +1708,7 @@ filter args to the test runner.
 #### Other options for `bazel test` {:#bazel-test-other-options}
 
 The syntax and the remaining options are exactly like
-[`bazel build`](/docs/build).
+[`bazel build`](/run/build).
 
 ## Running executables {:#running-executables}
 
@@ -1860,14 +1841,14 @@ rather than using `clean`.
 Bazel includes a query language for asking questions about the
 dependency graph used during the build. The query language is used
 by two commands: query and cquery. The major difference between the
-two commands is that query runs after the [loading phase](/docs/build#loading)
-and cquery runs after the [analysis phase](/docs/build#analysis). These tools are an
+two commands is that query runs after the [loading phase](/run/build#loading)
+and cquery runs after the [analysis phase](/run/build#analysis). These tools are an
 invaluable aid to many software engineering tasks.
 
 The query language is based on the idea of
 algebraic operations over graphs; it is documented in detail in
 
-[Bazel Query Reference](/reference/query).
+[Bazel Query Reference](/query/language).
 Please refer to that document for reference, for
 examples, and for query-specific command-line options.
 
@@ -1912,7 +1893,7 @@ It supports the same set of functions that is also available to traditional
 `query` but `siblings`, `buildfiles` and
 `tests`.
 
-For more details, see [Action Graph Query](/docs/aquery).
+For more details, see [Action Graph Query](/query/aquery).
 
 ## Miscellaneous commands and options {:#misc-commands-options}
 
@@ -1920,7 +1901,7 @@ For more details, see [Action Graph Query](/docs/aquery).
 
 The `help` command provides on-line help. By default, it
 shows a summary of available commands and help topics, as shown in
-[Building with Bazel](/docs/build#quickstart).
+[Building with Bazel](/run/build#quickstart).
 Specifying an argument displays detailed help for a particular
 topic. Most topics are Bazel commands, such as `build`
 or `query`, but there are some additional help topics
@@ -1939,7 +1920,7 @@ Bazel server processes may be stopped by using the `shutdown`
 command. This command causes the Bazel server to exit as soon as it
 becomes idle (for example, after the completion of any builds or other
 commands that are currently in progress). For more details, see
-[Client/server implementation](/docs/client-server).
+[Client/server implementation](/run/client-server).
 
 Bazel servers stop themselves after an idle timeout, so this command
 is rarely necessary; however, it can be useful in scripts when it is
@@ -2232,19 +2213,9 @@ Example:
 
 ### `analyze-profile` {:#analyze-profile}
 
-The `analyze-profile` command analyzes data previously gathered
-during the build using `--profile` option. It provides several
-options to either perform analysis of the build execution or export data in
-the specified format.
-
-The following options are supported:
-
-* `--dump` displays all gathered data in a
-  human-readable format. However,
-  this it does not support other formats yet.
-
-For format details and usage help, see
-[Troubleshooting performance by profiling](/rules/performance#performance-profiling).
+The `analyze-profile` command analyzes a
+[JSON trace profile](/config/json-trace-profile) previously gathered during a
+Bazel invocation.
 
 ### `canonicalize-flags` {:#canonicalize-flags}
 
@@ -2402,7 +2373,7 @@ run Bazel with.
 #### `--batch` {:#batch}
 
 Batch mode causes Bazel to not use the
-[standard client/server mode](/docs/client-server), but instead runs a bazel
+[standard client/server mode](/run/client-server), but instead runs a bazel
 java process for a single command, which has been used for more predictable
 semantics with respect to signal handling, job control, and environment
 variable inheritance, and is necessary for running bazel in a chroot jail.
@@ -2508,7 +2479,7 @@ of the setting of the TERM environment variable.
 #### `--config={{ "<var>" }}name{{ "</var>" }}` {:#config}
 
 Selects additional config section from
-[the rc files](/docs/bazelrc#bazelrc-file-locations); for the current `command`,
+[the rc files](/run/bazelrc#bazelrc-file-locations); for the current `command`,
 it also pulls in the options from `command:name` if such a section exists. Can be
 specified multiple times to add flags from several config sections. Expansions can refer to other
 definitions (for example, expansions can be chained).

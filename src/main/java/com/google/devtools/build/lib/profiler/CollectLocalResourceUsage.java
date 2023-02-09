@@ -17,11 +17,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.flogger.GoogleLogger;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ResourceEstimator;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.profiler.SystemNetworkStats.NetIfAddr;
-import com.google.devtools.build.lib.profiler.SystemNetworkStats.NetIoCounter;
+import com.google.devtools.build.lib.profiler.NetworkMetricsCollector.SystemNetworkUsages;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.worker.WorkerMetric;
@@ -32,15 +32,16 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 
 /** Thread to collect local resource usage data and log into JSON profile. */
 public class CollectLocalResourceUsage extends Thread {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   // TODO(twerth): Make these configurable.
   private static final Duration BUCKET_DURATION = Duration.ofSeconds(1);
@@ -50,91 +51,71 @@ public class CollectLocalResourceUsage extends Thread {
   private final boolean collectWorkerDataInProfiler;
   private final boolean collectLoadAverage;
   private final boolean collectSystemNetworkUsage;
+  private final boolean collectResourceManagerEstimation;
 
   private volatile boolean stopLocalUsageCollection;
   private volatile boolean profilingStarted;
 
   @GuardedBy("this")
-  private TimeSeries localCpuUsage;
-
-  @GuardedBy("this")
-  private TimeSeries systemCpuUsage;
-
-  @GuardedBy("this")
-  private TimeSeries localMemoryUsage;
-
-  @GuardedBy("this")
-  private TimeSeries systemMemoryUsage;
-
-  @GuardedBy("this")
-  private TimeSeries workersMemoryUsage;
-
-  @GuardedBy("this")
-  private TimeSeries systemLoadAverage;
-
-  @GuardedBy("this")
-  private TimeSeries systemNetworkUpUsage;
-
-  @GuardedBy("this")
-  private TimeSeries systemNetworkDownUsage;
+  @Nullable
+  private Map<ProfilerTask, TimeSeries> timeSeries;
 
   private Stopwatch stopwatch;
 
   private final WorkerMetricsCollector workerMetricsCollector;
 
+  private final ResourceEstimator resourceEstimator;
+
   CollectLocalResourceUsage(
       BugReporter bugReporter,
       WorkerMetricsCollector workerMetricsCollector,
+      ResourceEstimator resourceEstimator,
       boolean collectWorkerDataInProfiler,
       boolean collectLoadAverage,
-      boolean collectSystemNetworkUsage) {
+      boolean collectSystemNetworkUsage,
+      boolean collectResourceManagerEstimation) {
+    super("collect-local-resources");
     this.bugReporter = checkNotNull(bugReporter);
     this.collectWorkerDataInProfiler = collectWorkerDataInProfiler;
     this.workerMetricsCollector = workerMetricsCollector;
     this.collectLoadAverage = collectLoadAverage;
     this.collectSystemNetworkUsage = collectSystemNetworkUsage;
+    this.collectResourceManagerEstimation = collectResourceManagerEstimation;
+    this.resourceEstimator = resourceEstimator;
   }
 
   @Override
   public void run() {
-    ImmutableSet<String> localLoopbackInterfaces;
-    if (collectSystemNetworkUsage) {
-      localLoopbackInterfaces = getLocalLoopbackInterfaces();
-    } else {
-      localLoopbackInterfaces = ImmutableSet.of();
-    }
     int numProcessors = Runtime.getRuntime().availableProcessors();
     stopwatch = Stopwatch.createStarted();
     synchronized (this) {
-      localCpuUsage =
-          new TimeSeries(
-              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-      localMemoryUsage =
-          new TimeSeries(
-              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-      systemCpuUsage =
-          new TimeSeries(
-              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-      systemMemoryUsage =
-          new TimeSeries(
-              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+      timeSeries = new HashMap<>();
+      Duration startTime = stopwatch.elapsed();
+      List<ProfilerTask> enabledCounters = new ArrayList<>();
+      enabledCounters.addAll(
+          ImmutableList.of(
+              ProfilerTask.LOCAL_CPU_USAGE,
+              ProfilerTask.LOCAL_MEMORY_USAGE,
+              ProfilerTask.SYSTEM_CPU_USAGE,
+              ProfilerTask.SYSTEM_MEMORY_USAGE));
+
       if (collectWorkerDataInProfiler) {
-        workersMemoryUsage =
-            new TimeSeries(
-                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+        enabledCounters.add(ProfilerTask.WORKERS_MEMORY_USAGE);
       }
       if (collectLoadAverage) {
-        systemLoadAverage =
-            new TimeSeries(
-                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+        enabledCounters.add(ProfilerTask.SYSTEM_LOAD_AVERAGE);
       }
       if (collectSystemNetworkUsage) {
-        systemNetworkUpUsage =
-            new TimeSeries(
-                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-        systemNetworkDownUsage =
-            new TimeSeries(
-                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+        enabledCounters.add(ProfilerTask.SYSTEM_NETWORK_UP_USAGE);
+        enabledCounters.add(ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE);
+      }
+      if (collectResourceManagerEstimation) {
+        enabledCounters.add(ProfilerTask.MEMORY_USAGE_ESTIMATION);
+        enabledCounters.add(ProfilerTask.CPU_USAGE_ESTIMATION);
+      }
+
+      for (ProfilerTask counter : enabledCounters) {
+        timeSeries.put(counter, new TimeSeries(startTime, BUCKET_DURATION));
       }
     }
     OperatingSystemMXBean osBean =
@@ -142,7 +123,6 @@ public class CollectLocalResourceUsage extends Thread {
     MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
     Duration previousElapsed = stopwatch.elapsed();
     long previousCpuTimeNanos = osBean.getProcessCpuTime();
-    Map<String, NetIoCounter> previousNetworkIoCounters = null;
     profilingStarted = true;
     while (!stopLocalUsageCollection) {
       try {
@@ -154,6 +134,12 @@ public class CollectLocalResourceUsage extends Thread {
       long nextCpuTimeNanos = osBean.getProcessCpuTime();
 
       double systemCpuLoad = osBean.getSystemCpuLoad();
+      if (Double.isNaN(systemCpuLoad)) {
+        // Unlike advertised, on Mac the system CPU load is NaN sometimes.
+        // There is no good way to handle this, so to avoid any downstream method crashing on this,
+        // we reset the CPU value here.
+        systemCpuLoad = 0;
+      }
       double systemUsage = systemCpuLoad * numProcessors;
 
       long systemMemoryUsageMb = -1;
@@ -189,13 +175,15 @@ public class CollectLocalResourceUsage extends Thread {
 
       int workerMemoryUsageMb = 0;
       if (collectWorkerDataInProfiler) {
-        workerMemoryUsageMb =
-            this.workerMetricsCollector.collectMetrics().stream()
-                    .map(WorkerMetric::getWorkerStat)
-                    .filter(Objects::nonNull)
-                    .mapToInt(WorkerMetric.WorkerStat::getUsedMemoryInKB)
-                    .sum()
-                / 1024;
+        try (SilentCloseable c = Profiler.instance().profile("Worker metrics collection")) {
+          workerMemoryUsageMb =
+              this.workerMetricsCollector.collectMetrics().stream()
+                      .map(WorkerMetric::getWorkerStat)
+                      .filter(Objects::nonNull)
+                      .mapToInt(WorkerMetric.WorkerStat::getUsedMemoryInKB)
+                      .sum()
+                  / 1024;
+        }
       }
       double loadAverage = 0;
       if (collectLoadAverage) {
@@ -205,60 +193,59 @@ public class CollectLocalResourceUsage extends Thread {
       double deltaNanos = nextElapsed.minus(previousElapsed).toNanos();
       double cpuLevel = (nextCpuTimeNanos - previousCpuTimeNanos) / deltaNanos;
 
-      Map<String, NetIoCounter> nextNetworkIoCounters = null;
+      SystemNetworkUsages systemNetworkUsages = null;
       if (collectSystemNetworkUsage) {
-        try {
-          nextNetworkIoCounters = SystemNetworkStats.getNetIoCounters();
-        } catch (IOException e) {
-          logger.atWarning().withCause(e).log("Failed to get Net IO counters");
-        }
-        if (previousNetworkIoCounters == null) {
-          previousNetworkIoCounters = nextNetworkIoCounters;
-        }
+        systemNetworkUsages =
+            NetworkMetricsCollector.instance().collectSystemNetworkUsages(deltaNanos);
+      }
+
+      double estimatedCpuUsage = 0;
+      double estimatedMemoryUsageInMb = 0;
+      if (collectResourceManagerEstimation) {
+        estimatedCpuUsage = resourceEstimator.getUsedCPU();
+        estimatedMemoryUsageInMb = resourceEstimator.getUsedMemoryInMb();
       }
 
       synchronized (this) {
-        if (localCpuUsage != null) {
-          localCpuUsage.addRange(previousElapsed.toMillis(), nextElapsed.toMillis(), cpuLevel);
+        addRange(ProfilerTask.LOCAL_CPU_USAGE, previousElapsed, nextElapsed, cpuLevel);
+        if (memoryUsage != -1) {
+          double memoryUsageMb = (double) memoryUsage / (1024 * 1024);
+          addRange(ProfilerTask.LOCAL_MEMORY_USAGE, previousElapsed, nextElapsed, memoryUsageMb);
         }
-        if (localMemoryUsage != null && memoryUsage != -1) {
-          long memoryUsageMb = memoryUsage / (1024 * 1024);
-          localMemoryUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), (double) memoryUsageMb);
+        addRange(ProfilerTask.SYSTEM_CPU_USAGE, previousElapsed, nextElapsed, systemUsage);
+        addRange(
+            ProfilerTask.SYSTEM_MEMORY_USAGE,
+            previousElapsed,
+            nextElapsed,
+            (double) systemMemoryUsageMb);
+        addRange(
+            ProfilerTask.WORKERS_MEMORY_USAGE, previousElapsed, nextElapsed, workerMemoryUsageMb);
+        if (loadAverage > 0) {
+          addRange(ProfilerTask.SYSTEM_LOAD_AVERAGE, previousElapsed, nextElapsed, loadAverage);
         }
-        if (systemCpuUsage != null) {
-          systemCpuUsage.addRange(previousElapsed.toMillis(), nextElapsed.toMillis(), systemUsage);
+        if (systemNetworkUsages != null) {
+          addRange(
+              ProfilerTask.SYSTEM_NETWORK_UP_USAGE,
+              previousElapsed,
+              nextElapsed,
+              systemNetworkUsages.megabitsSentPerSec());
+          addRange(
+              ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE,
+              previousElapsed,
+              nextElapsed,
+              systemNetworkUsages.megabitsRecvPerSec());
         }
-        if (systemMemoryUsage != null) {
-          systemMemoryUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), (double) systemMemoryUsageMb);
-        }
-        if (collectWorkerDataInProfiler && (workersMemoryUsage != null)) {
-          workersMemoryUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), workerMemoryUsageMb);
-        }
-        if (collectLoadAverage && loadAverage > 0) {
-          systemLoadAverage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), loadAverage);
-        }
-        if (collectSystemNetworkUsage
-            && previousNetworkIoCounters != null
-            && nextNetworkIoCounters != null) {
-          AggregatedNetIoCounter aggregated =
-              aggregateNetIoCounter(
-                  previousNetworkIoCounters,
-                  nextNetworkIoCounters,
-                  deltaNanos,
-                  localLoopbackInterfaces);
-          systemNetworkUpUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), aggregated.upMbps);
-          systemNetworkDownUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), aggregated.downMbps);
-        }
+
+        addRange(
+            ProfilerTask.MEMORY_USAGE_ESTIMATION,
+            previousElapsed,
+            nextElapsed,
+            estimatedMemoryUsageInMb);
+        addRange(
+            ProfilerTask.CPU_USAGE_ESTIMATION, previousElapsed, nextElapsed, estimatedCpuUsage);
       }
       previousElapsed = nextElapsed;
       previousCpuTimeNanos = nextCpuTimeNanos;
-      previousNetworkIoCounters = nextNetworkIoCounters;
     }
   }
 
@@ -276,140 +263,29 @@ public class CollectLocalResourceUsage extends Thread {
     long endTimeNanos = System.nanoTime();
     long elapsedNanos = stopwatch.elapsed(TimeUnit.NANOSECONDS);
     long startTimeNanos = endTimeNanos - elapsedNanos;
+    Duration profileStart = Duration.ofNanos(startTimeNanos);
     int len = (int) (elapsedNanos / BUCKET_DURATION.toNanos()) + 1;
     Profiler profiler = Profiler.instance();
 
-    logCollectedData(profiler, localCpuUsage, ProfilerTask.LOCAL_CPU_USAGE, startTimeNanos, len);
-    localCpuUsage = null;
-
-    logCollectedData(
-        profiler, localMemoryUsage, ProfilerTask.LOCAL_MEMORY_USAGE, startTimeNanos, len);
-    localMemoryUsage = null;
-
-    logCollectedData(profiler, systemCpuUsage, ProfilerTask.SYSTEM_CPU_USAGE, startTimeNanos, len);
-    systemCpuUsage = null;
-
-    logCollectedData(
-        profiler, systemMemoryUsage, ProfilerTask.SYSTEM_MEMORY_USAGE, startTimeNanos, len);
-    systemMemoryUsage = null;
-
-    if (collectWorkerDataInProfiler) {
-      logCollectedData(
-          profiler, workersMemoryUsage, ProfilerTask.WORKERS_MEMORY_USAGE, startTimeNanos, len);
+    for (ProfilerTask task : timeSeries.keySet()) {
+      profiler.logCounters(
+          ImmutableMap.ofEntries(Map.entry(task, timeSeries.get(task).toDoubleArray(len))),
+          profileStart,
+          BUCKET_DURATION);
     }
-    workersMemoryUsage = null;
-
-    if (collectLoadAverage) {
-      logCollectedData(
-          profiler, systemLoadAverage, ProfilerTask.SYSTEM_LOAD_AVERAGE, startTimeNanos, len);
-    }
-    systemLoadAverage = null;
-
-    if (collectSystemNetworkUsage) {
-      logCollectedData(
-          profiler,
-          systemNetworkUpUsage,
-          ProfilerTask.SYSTEM_NETWORK_UP_USAGE,
-          startTimeNanos,
-          len);
-      logCollectedData(
-          profiler,
-          systemNetworkDownUsage,
-          ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE,
-          startTimeNanos,
-          len);
-    }
-    systemNetworkUpUsage = null;
-    systemNetworkDownUsage = null;
+    timeSeries = null;
   }
 
-  private static void logCollectedData(
-      Profiler profiler, TimeSeries timeSeries, ProfilerTask type, long startTimeNanos, int len) {
-    double[] localResourceValues = timeSeries.toDoubleArray(len);
-    for (int i = 0; i < len; i++) {
-      long eventTimeNanos = startTimeNanos + i * BUCKET_DURATION.toNanos();
-      profiler.logEventAtTime(eventTimeNanos, type, String.valueOf(localResourceValues[i]));
-    }
-  }
-
-  private boolean isLocalLoopback(List<NetIfAddr> addresses) {
-    for (NetIfAddr addr : addresses) {
-      switch (addr.family()) {
-        case AF_INET:
-          if (addr.ipAddr().equals("127.0.0.1")) {
-            return true;
-          }
-          break;
-        case AF_INET6:
-          if (addr.ipAddr().equals("::1")) {
-            return true;
-          }
-          break;
-        case UNKNOWN:
+  private void addRange(
+      ProfilerTask type, Duration previousElapsed, Duration nextElapsed, double value) {
+    synchronized (this) {
+      if (timeSeries == null) {
+        return;
+      }
+      TimeSeries series = timeSeries.get(type);
+      if (series != null) {
+        series.addRange(previousElapsed, nextElapsed, value);
       }
     }
-    return false;
-  }
-
-  private ImmutableSet<String> getLocalLoopbackInterfaces() {
-    ImmutableSet.Builder<String> result = ImmutableSet.builder();
-    try {
-      for (Map.Entry<String, List<NetIfAddr>> entry :
-          SystemNetworkStats.getNetIfAddrs().entrySet()) {
-        if (isLocalLoopback(entry.getValue())) {
-          result.add(entry.getKey());
-        }
-      }
-    } catch (IOException e) {
-      logger.atWarning().withCause(e).log("Failed to query network interfaces");
-    }
-    return result.build();
-  }
-
-  static class AggregatedNetIoCounter {
-    private final double upMbps;
-    private final double downMbps;
-
-    AggregatedNetIoCounter(double upMbps, double downMbps) {
-      this.upMbps = upMbps;
-      this.downMbps = downMbps;
-    }
-  }
-
-  private AggregatedNetIoCounter aggregateNetIoCounter(
-      Map<String, NetIoCounter> previousNetIoCounters,
-      Map<String, NetIoCounter> nextNetIoCounters,
-      double deltaNanos,
-      Set<String> excludedInterfaces) {
-    long deltaBytesSent = 0;
-    long deltaBytesRecv = 0;
-    for (Map.Entry<String, NetIoCounter> entry : previousNetIoCounters.entrySet()) {
-      String name = entry.getKey();
-      if (excludedInterfaces.contains(name)) {
-        continue;
-      }
-      NetIoCounter previous = entry.getValue();
-      NetIoCounter next = nextNetIoCounters.get(name);
-      if (next != null) {
-        deltaBytesSent += calcDeltaBytes(previous.bytesSent(), next.bytesSent());
-        deltaBytesRecv += calcDeltaBytes(previous.bytesRecv(), next.bytesRecv());
-      }
-    }
-    double upMbps = calcNetworkMbps(deltaBytesSent, deltaNanos);
-    double downMbps = calcNetworkMbps(deltaBytesRecv, deltaNanos);
-    return new AggregatedNetIoCounter(upMbps, downMbps);
-  }
-
-  private long calcDeltaBytes(long prevBytes, long nextBytes) {
-    // The nextBytes could wrap, and if that happens, assume prevBytes is 0 (best effort).
-    if (nextBytes < prevBytes) {
-      return nextBytes;
-    } else {
-      return nextBytes - prevBytes;
-    }
-  }
-
-  private double calcNetworkMbps(long deltaBytes, double deltaNanos) {
-    return deltaBytes / deltaNanos * 8000;
   }
 }

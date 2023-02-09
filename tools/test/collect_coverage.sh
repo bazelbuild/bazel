@@ -235,7 +235,6 @@ LCOV_MERGER_CMD="${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
   --filter_sources=/usr/lib/.+ \
   --filter_sources=/usr/include.+ \
   --filter_sources=/Applications/.+ \
-  --filter_sources=.*external/.+ \
   --source_file_manifest=${COVERAGE_MANIFEST}"
 
 if [[ $COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE ]]; then

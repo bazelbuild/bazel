@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -345,18 +346,18 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       // disabled with a second flag (to avoid the incremental build performance cost at the expense
       // of safety.)
       if (javaConfig.enforceOneVersionOnJavaTests() || !isJavaTestRule(ruleContext)) {
-        builder.addOutputGroup(
-            OutputGroupInfo.VALIDATION,
+        Artifact oneVersionOutputArtifact =
             OneVersionCheckActionBuilder.newBuilder()
                 .withEnforcementLevel(javaConfig.oneVersionEnforcementLevel())
-                .outputArtifact(
-                    ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_ONE_VERSION_ARTIFACT))
                 .useToolchain(JavaToolchainProvider.from(ruleContext))
                 .checkJars(
                     NestedSetBuilder.fromNestedSet(attributes.getRuntimeClassPath())
                         .add(classJar)
                         .build())
-                .build(ruleContext));
+                .build(ruleContext);
+        if (oneVersionOutputArtifact != null) {
+          builder.addOutputGroup(OutputGroupInfo.VALIDATION, oneVersionOutputArtifact);
+        }
       }
     }
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
@@ -413,15 +414,16 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       if (!createExecutable) {
         ruleContext.ruleError("hermetic specified but create_executable is false");
       }
+
       JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext);
-      if (javaRuntime.libModules() == null) {
-        ruleContext.attributeError(
-            "hermetic", "hermetic specified but java_runtime.lib_modules is absent");
+      if (!javaRuntime.hermeticInputs().isEmpty()
+          && javaRuntime.libModules() != null
+          && !javaRuntime.hermeticStaticLibs().isEmpty()) {
+        deployArchiveBuilder
+            .setJavaHome(javaRuntime.javaHomePathFragment())
+            .setLibModules(javaRuntime.libModules())
+            .setHermeticInputs(javaRuntime.hermeticInputs());
       }
-      deployArchiveBuilder
-          .setJavaHome(javaRuntime.javaHomePathFragment())
-          .setLibModules(javaRuntime.libModules())
-          .setHermeticInputs(javaRuntime.hermeticInputs());
     }
 
     deployArchiveBuilder
@@ -495,6 +497,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
                   // This matches the code below in collectDefaultRunfiles.
                   .addTransitiveArtifactsWrappedInStableOrder(common.getRuntimeClasspath())
                   .build(),
+              null,
               true));
       filesBuilder.add(runtimeClasspathArtifact);
 
@@ -509,9 +512,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
       // Make single jar reachable from the coverage environment because it needs to be executed
       // by the coverage collection script.
-      Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
-      coverageEnvironment.add(new Pair<>("SINGLE_JAR_TOOL", singleJar.getExecPathString()));
-      coverageSupportFiles.add(singleJar);
+      FilesToRunProvider singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+      coverageEnvironment.add(
+          new Pair<>("SINGLE_JAR_TOOL", singleJar.getExecutable().getExecPathString()));
+      coverageSupportFiles.addTransitive(singleJar.getFilesToRun());
     }
 
     common.addTransitiveInfoProviders(
@@ -739,7 +743,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         builder.addSymlinks(runfiles.getSymlinks());
         builder.addRootSymlinks(runfiles.getRootSymlinks());
       } else {
-        builder.addTarget(defaultLauncher, RunfilesProvider.DEFAULT_RUNFILES);
+        builder.addTarget(
+            defaultLauncher,
+            RunfilesProvider.DEFAULT_RUNFILES,
+            ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData());
       }
     }
 
@@ -748,7 +755,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     List<? extends TransitiveInfoCollection> runtimeDeps =
         ruleContext.getPrerequisites("runtime_deps");
-    builder.addTargets(runtimeDeps, RunfilesProvider.DEFAULT_RUNFILES);
+    builder.addTargets(
+        runtimeDeps,
+        RunfilesProvider.DEFAULT_RUNFILES,
+        ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData());
 
     builder.addTransitiveArtifactsWrappedInStableOrder(common.getRuntimeClasspath());
 

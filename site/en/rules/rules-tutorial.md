@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Rules Tutorial
 
+{% include "_buttons.html" %}
+
 <!-- [TOC] -->
 
 [Starlark](https://github.com/bazelbuild/starlark) is a Python-like
@@ -15,7 +17,7 @@ of Bazel. Bazel augments the core language with numerous build-related functions
 such as `glob`, `genrule`, `java_binary`, and so on.
 
 See the
-[Bazel](/start/getting-started) and [Starlark](/rules/concepts) documentation for
+[Bazel](/start/) and [Starlark](/extending/concepts) documentation for
 more details, and the
 [Rules SIG template](https://github.com/bazel-contrib/rules-template) as a
 starting point for new rulesets.
@@ -112,7 +114,7 @@ Make a few observations:
 * The callback function `_foo_binary_impl` is not called. Bazel query loads
   `BUILD` files, but doesn't analyze targets.
 
-To analyze the targets, use the [`cquery`](/docs/cquery) ("configured
+To analyze the targets, use the [`cquery`](/query/cquery) ("configured
 query") or the `build` command:
 
 ```
@@ -364,7 +366,7 @@ exports_files(["file.cc.tpl"])
 
 ## Going further
 
-*   Take a look at the [reference documentation for rules](rules#contents).
-*   Get familiar with [depsets](depsets).
+*   Take a look at the [reference documentation for rules](/extending/rules#contents).
+*   Get familiar with [depsets](/extending/depsets).
 *   Check out the [examples repository](https://github.com/bazelbuild/examples/tree/master/rules)
     which includes additional examples of rules.

@@ -169,6 +169,8 @@ class OptionsParserImpl {
    */
   private final List<ParsedOptionDescription> parsedOptions = new ArrayList<>();
 
+  private final List<ParsedOptionDescription> skippedOptions = new ArrayList<>();
+
   private final Map<String, String> flagAliasMappings;
   // We want to keep the invariant that warnings are produced as they are encountered, but only
   // show each one once.
@@ -268,6 +270,10 @@ class OptionsParserImpl {
         .collect(toCollection(ArrayList::new));
   }
 
+  List<ParsedOptionDescription> getSkippedOptions() {
+    return skippedOptions;
+  }
+
   /** Implements {@link OptionsParser#canonicalize}. */
   List<String> asCanonicalizedList() {
     return asCanonicalizedListOfParsedOptions().stream()
@@ -320,9 +326,13 @@ class OptionsParserImpl {
     if (parsedOption.getPriority().getPriorityCategory().equals(INVOCATION_POLICY)) {
       return;
     }
+    OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
+    if (!optionDefinition.getOldNameWarning()) {
+      return;
+    }
     String commandLineForm = parsedOption.getCommandLineForm();
-    String oldOptionName = parsedOption.getOptionDefinition().getOldOptionName();
-    String optionName = parsedOption.getOptionDefinition().getOptionName();
+    String oldOptionName = optionDefinition.getOldOptionName();
+    String optionName = optionDefinition.getOptionName();
     if (commandLineForm.startsWith(String.format("--%s=", oldOptionName))) {
       addDeprecationWarning(oldOptionName, String.format("Use --%s instead", optionName));
     }
@@ -470,6 +480,18 @@ class OptionsParserImpl {
       if (!arg.startsWith("-")) {
         unparsedArgs.add(arg);
         continue; // not an option arg
+      }
+
+      if (arg.startsWith("-//") || arg.startsWith("-@")) {
+        // Fail with a helpful error when an invalid option looks like an absolute negative target
+        // pattern or a typoed Starlark option.
+        throw new OptionsParsingException(
+            String.format(
+                "Invalid options syntax: %s\n"
+                    + "Note: Negative target patterns can only appear after the end of options"
+                    + " marker ('--'). Flags corresponding to Starlark-defined build settings"
+                    + " always start with '--', not '-'.",
+                arg));
       }
 
       arg = swapShorthandAlias(arg);
@@ -648,14 +670,17 @@ class OptionsParserImpl {
     // As much as possible, we want the behaviors of these different types of flags to be
     // identical, as this minimizes the number of edge cases, but we do not yet track these values
     // in the same way.
-
-    // Do not list the internal "skipped args" option that is only used to accumulate skipped
-    // arguments.
-    if (parsedOption.getImplicitDependent() == null
-        && !Objects.equals(parsedOption.getOptionDefinition(), skippedArgsDefinition)) {
-      // Log explicit options and expanded options in the order they are parsed (can be sorted
-      // later). This information is needed to correctly canonicalize flags.
-      parsedOptions.add(parsedOption);
+    if (parsedOption.getImplicitDependent() == null) {
+      if (Objects.equals(parsedOption.getOptionDefinition(), skippedArgsDefinition)) {
+        // This may be a Starlark option. Don't parse it here (save it for StarlarkOptionsParser)
+        // but keep the context so we can track if the option was explicitly set or not for BEP
+        // reporting.
+        skippedOptions.add(parsedOption);
+      } else {
+        // Log explicit options and expanded options in the order they are parsed (can be sorted
+        // later). This information is needed to correctly canonicalize flags.
+        parsedOptions.add(parsedOption);
+      }
 
       if (aliasFlag != null && parsedOption.getCommandLineForm().startsWith(aliasFlag)) {
         List<String> alias =
@@ -780,7 +805,7 @@ class OptionsParserImpl {
         OptionsData.getAllOptionDefinitionsForClass(optionsClass)) {
       Object value;
       OptionValueDescription optionValue = optionValues.get(optionDefinition);
-      if (optionValue == null) {
+      if (optionValue == null || optionValue.containsErrors()) {
         value = optionDefinition.getDefaultValue(conversionContext);
       } else {
         value = optionValue.getValue();

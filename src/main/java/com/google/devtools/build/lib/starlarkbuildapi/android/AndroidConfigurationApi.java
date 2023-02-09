@@ -232,7 +232,7 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   boolean persistentBusyboxTools();
 
   @StarlarkMethod(
-      name = "experimental_persistent_multiplex_busybox_tools",
+      name = "persistent_multiplex_busybox_tools",
       structField = true,
       doc = "",
       documented = false)
@@ -254,4 +254,11 @@ public interface AndroidConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "hwasan", structField = true, doc = "", documented = false)
   boolean isHwasan();
+
+  @StarlarkMethod(
+      name = "filter_library_jar_with_program_jar",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean filterLibraryJarWithProgramJar();
 }

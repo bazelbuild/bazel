@@ -23,7 +23,7 @@ def _impl(rctx):
     srcs_excludes = "XXXXXXXXXXXXXX1268778dfsdf4"
 
     # Depending in ~/.git/logs/HEAD is a trick to depends on something that
-    # change everytime the workspace content change.
+    # change every time the workspace content change.
     r = rctx.execute(["test", "-f", "%s/.git/logs/HEAD" % workspace])
     if r.return_code == 0:
         # We only add the dependency if it exists.

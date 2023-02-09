@@ -30,6 +30,6 @@ import net.starlark.java.eval.Structure;
             + " in the rule definition may be accessed in this collection.</p><p>See the <a"
             + " href=\"https://bazel.build/rules/lib/starlark-configuration-fragment\">configuration"
             + " fragment reference</a> for a list of available fragments and the <a"
-            + " href=\"https://bazel.build/rules/rules#configuration_fragments\">rules"
+            + " href=\"https://bazel.build/extending/rules#configuration_fragments\">rules"
             + " documentation</a> for how to use them.")
 public interface FragmentCollectionApi extends Structure, StarlarkValue {}

@@ -151,4 +151,10 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
             allowedTypes = {@ParamType(type = Boolean.class)})
       })
   Depset getStarlarkTransitiveModules(boolean usePic, StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "virtual_to_original_headers",
+      documented = false,
+      useStarlarkThread = true)
+  Depset getStarlarkVirtualToOriginalHeaders(StarlarkThread thread) throws EvalException;
 }

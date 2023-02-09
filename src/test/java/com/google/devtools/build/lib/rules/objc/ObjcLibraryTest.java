@@ -27,14 +27,11 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -386,8 +383,14 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setAndCreateFiles("hdrs", "a.h")
         .setList("deps", "//baselib:baselib")
         .write();
-    ObjcProvider provider = providerForTarget("//lib:lib");
+
+    ObjcProvider provider = objcProviderForTarget("//lib:lib");
     assertThat(provider.get(LIBRARY).toList())
+        .containsExactlyElementsIn(archiveAction("//baselib:baselib").getOutputs());
+
+    CcLinkingContext ccLinkingContext =
+        getConfiguredTarget("//lib:lib").get(CcInfo.PROVIDER).getCcLinkingContext();
+    assertThat(ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries())
         .containsExactlyElementsIn(archiveAction("//baselib:baselib").getOutputs());
   }
 
@@ -396,7 +399,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     checkError(
         "x",
         "x",
-        "does not produce any objc_library srcs files (expected " + SRCS_TYPE + ")",
+        "does not produce any objc_library srcs files",
         "filegroup(name = 'fg', srcs = [])",
         "objc_library(name = 'x', srcs = ['fg'])");
   }
@@ -421,9 +424,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     checkError(
         "x",
         "x",
-        "'//x:cc.cc' does not produce any objc_library non_arc_srcs files (expected "
-            + NON_ARC_SRCS_TYPE
-            + ")",
+        "non_arc_srcs attribute of objc_library rule @//x:x: source file '@//x:cc.cc' is misplaced"
+            + " here",
         "objc_library(name = 'x', non_arc_srcs = ['cc.cc'])");
   }
 
@@ -899,19 +901,15 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(archiveAction.getArguments())
         .isEqualTo(
             ImmutableList.of(
-                "tools/osx/crosstool/iossim/libtool",
-                "-static",
-                "-filelist",
-                getBinArtifact("lib-archive.objlist", getConfiguredTarget("//objc:lib"))
+                "tools/osx/crosstool/iossim/ar_wrapper",
+                "rcs",
+                Iterables.getOnlyElement(archiveAction.getOutputs()).getExecPathString(),
+                getBinArtifact("_objs/lib/arc/a.o", getConfiguredTarget("//objc:lib"))
                     .getExecPathString(),
-                "-arch_only",
-                "i386",
-                "-syslibroot",
-                AppleToolchain.sdkDir(),
-                "-o",
-                Iterables.getOnlyElement(archiveAction.getOutputs()).getExecPathString()));
+                getBinArtifact("_objs/lib/arc/b.o", getConfiguredTarget("//objc:lib"))
+                    .getExecPathString()));
     assertThat(baseArtifactNames(archiveAction.getInputs()))
-        .containsAtLeast("a.o", "b.o", "lib-archive.objlist", "ar", "libempty.a", "libtool");
+        .containsAtLeast("a.o", "b.o", "ar", "libempty.a", "libtool");
     assertThat(baseArtifactNames(archiveAction.getOutputs())).containsExactly("liblib.a");
     assertRequiresDarwin(archiveAction);
   }
@@ -928,19 +926,14 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(archiveAction.getArguments())
         .isEqualTo(
             ImmutableList.of(
-                "tools/osx/crosstool/ios/libtool",
-                "-static",
-                "-filelist",
-                getBinArtifact("lib-archive.objlist", getConfiguredTarget("//objc:lib"))
+                "tools/osx/crosstool/ios/ar_wrapper",
+                "rcs",
+                Iterables.getOnlyElement(archiveAction.getOutputs()).getExecPathString(),
+                getBinArtifact("_objs/lib/arc/a.o", getConfiguredTarget("//objc:lib"))
                     .getExecPathString(),
-                "-arch_only",
-                "armv7",
-                "-syslibroot",
-                AppleToolchain.sdkDir(),
-                "-o",
-                Iterables.getOnlyElement(archiveAction.getOutputs()).getExecPathString()));
-    assertThat(baseArtifactNames(archiveAction.getInputs()))
-        .containsAtLeast("a.o", "b.o", "lib-archive.objlist");
+                getBinArtifact("_objs/lib/arc/b.o", getConfiguredTarget("//objc:lib"))
+                    .getExecPathString()));
+    assertThat(baseArtifactNames(archiveAction.getInputs())).containsAtLeast("a.o", "b.o");
     assertThat(baseArtifactNames(archiveAction.getOutputs())).containsExactly("liblib.a");
     assertRequiresDarwin(archiveAction);
   }
@@ -956,7 +949,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setAndCreateFiles("hdrs", "c.h", "d.h")
         .setList("deps", "//objc:lib_dep")
         .write();
-    ObjcProvider objcProvider = providerForTarget("//objc2:lib");
+    ObjcProvider objcProvider = objcProviderForTarget("//objc2:lib");
     assertThat(objcProvider.get(CC_LIBRARY).toList()).isEmpty();
   }
 
@@ -1083,9 +1076,13 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             .setAndCreateFiles("hdrs", "c.h", "d.h")
             .setList("deps", "//objc:lib")
             .write();
+
     assertThat(getArifactPaths(target, LIBRARY)).containsExactly("objc/liblib.a");
     assertThat(getArifactPaths(depender, LIBRARY)).containsExactly(
         "objc/liblib.a", "objc2/liblib.a");
+    assertThat(getArifactPathsOfLibraries(target)).containsExactly("objc/liblib.a");
+    assertThat(getArifactPathsOfLibraries(depender))
+        .containsExactly("objc/liblib.a", "objc2/liblib.a");
     assertThat(getArifactPathsOfHeaders(target))
         .containsExactly("objc/a.h", "objc/b.h", "objc/private.h");
     assertThat(getArifactPathsOfHeaders(depender))
@@ -1099,13 +1096,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         target.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(artifactKey));
   }
 
-  private static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
-    return Artifact.toRootRelativePaths(
-        target.get(CcInfo.PROVIDER).getCcCompilationContext().getDeclaredIncludeSrcs());
-  }
-
   @Test
-  public void testWeakSdkFrameworks_objcProvider() throws Exception {
+  public void testCollectsWeakSdkFrameworksTransitively() throws Exception {
     createLibraryTargetWriter("//base_lib:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setList("weak_sdk_frameworks", "foo")
@@ -1116,11 +1108,18 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("deps", "//base_lib:lib")
         .write();
 
-    ObjcProvider baseProvider = providerForTarget("//base_lib:lib");
-    ObjcProvider dependerProvider = providerForTarget("//depender_lib:lib");
-
+    ObjcProvider baseProvider = objcProviderForTarget("//base_lib:lib");
+    ObjcProvider dependerProvider = objcProviderForTarget("//depender_lib:lib");
     assertThat(baseProvider.get(WEAK_SDK_FRAMEWORK).toList()).containsExactly("foo");
     assertThat(dependerProvider.get(WEAK_SDK_FRAMEWORK).toList()).containsExactly("foo", "bar");
+
+    ImmutableList<String> baseLinkFlags = getCcInfoUserLinkFlagsFromTarget("//base_lib:lib");
+    assertThat(baseLinkFlags).containsExactly("-weak_framework", "foo").inOrder();
+    ImmutableList<String> dependerLinkFlags =
+        getCcInfoUserLinkFlagsFromTarget("//depender_lib:lib");
+    assertThat(dependerLinkFlags)
+        .containsExactly("-weak_framework", "bar", "-weak_framework", "foo")
+        .inOrder();
   }
 
   @Test
@@ -1157,31 +1156,17 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setList("sdk_dylibs", "libdy1", "libdy2")
         .write();
-    ObjcProvider provider = providerForTarget("//lib:lib");
-    assertThat(provider.get(SDK_DYLIB).toList()).containsExactly("libdy1", "libdy2").inOrder();
+
+    ObjcProvider provider = objcProviderForTarget("//lib:lib");
+    assertThat(provider.get(SDK_DYLIB).toList()).containsExactly("libdy1", "libdy2");
+
+    CcLinkingContext ccLinkingContext = ccInfoForTarget("//lib:lib").getCcLinkingContext();
+    assertThat(ccLinkingContext.getFlattenedUserLinkFlags()).containsExactly("-ldy1", "-ldy2");
   }
 
   @Test
   public void testPopulatesCompilationArtifacts() throws Exception {
     checkPopulatesCompilationArtifacts(RULE_TYPE);
-  }
-
-  @Test
-  public void testObjcListFileInArchiveGeneration() throws Exception {
-    scratch.file("lib/a.m");
-    scratch.file("lib/b.m");
-    scratch.file("lib/BUILD", "objc_library(name = 'lib1', srcs = ['a.m', 'b.m'])");
-    ConfiguredTarget target = getConfiguredTarget("//lib:lib1");
-    Artifact lib = getBinArtifact("liblib1.a", target);
-    Action action = getGeneratingAction(lib);
-    assertThat(paramFileArgsForAction(action))
-        .containsExactlyElementsIn(
-            Artifact.toExecPaths(inputsEndingWith(archiveAction("//lib:lib1"), ".o")));
-  }
-
-  @Test
-  public void testErrorsWrongFileTypeForSrcsWhenCompiling() throws Exception {
-    checkErrorsWrongFileTypeForSrcsWhenCompiling(RULE_TYPE);
   }
 
   @Test
@@ -1440,7 +1425,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setAndCreateFiles("hdrs", "c.h", "d.h")
         .setList("deps", "//cc:lib", "//third_party/cc_lib:cc_lib_impl")
         .write();
-    ObjcProvider objcProvider = providerForTarget("//objc2:lib");
+    ObjcProvider objcProvider = objcProviderForTarget("//objc2:lib");
 
     Iterable<String> linkerInputArtifacts =
         Iterables.transform(
@@ -1469,32 +1454,32 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("deps", "//base_lib:lib")
         .write();
 
-    ObjcProvider baseProvider = providerForTarget("//base_lib:lib");
-    ObjcProvider dependerProvider = providerForTarget("//depender_lib:lib");
+    ObjcProvider baseProvider = objcProviderForTarget("//base_lib:lib");
+    ObjcProvider dependerProvider = objcProviderForTarget("//depender_lib:lib");
+    assertThat(baseProvider.get(SDK_FRAMEWORK).toList()).containsExactly("foo");
+    assertThat(dependerProvider.get(SDK_FRAMEWORK).toList()).containsExactly("foo", "bar");
 
-    Set<String> baseFrameworks = ImmutableSet.of("foo");
-    Set<String> dependerFrameworks = ImmutableSet.of("foo", "bar");
-    assertThat(baseProvider.get(SDK_FRAMEWORK).toList()).containsExactlyElementsIn(baseFrameworks);
-    assertThat(dependerProvider.get(SDK_FRAMEWORK).toList())
-        .containsExactlyElementsIn(dependerFrameworks);
+    ImmutableList<String> baseLinkFlags = getCcInfoUserLinkFlagsFromTarget("//base_lib:lib");
+    assertThat(baseLinkFlags).containsExactly("-framework", "foo").inOrder();
+    ImmutableList<String> dependerLinkFlags =
+        getCcInfoUserLinkFlagsFromTarget("//depender_lib:lib");
+    assertThat(dependerLinkFlags)
+        .containsExactly("-framework", "bar", "-framework", "foo")
+        .inOrder();
 
     // Make sure that the archive action does not actually include the frameworks. This is needed
     // for creating binaries but is ignored for libraries.
     CommandAction archiveAction = archiveAction("//depender_lib:lib");
     assertThat(archiveAction.getArguments())
-        .containsAtLeastElementsIn(
-            new ImmutableList.Builder<String>()
-                .add("-static")
-                .add("-filelist")
-                .add(
-                    getBinArtifact("lib-archive.objlist", getConfiguredTarget("//depender_lib:lib"))
-                        .getExecPathString())
-                .add("-arch_only", "x86_64")
-                .add("-syslibroot")
-                .add(AppleToolchain.sdkDir())
-                .add("-o")
-                .addAll(Artifact.toExecPaths(archiveAction.getOutputs()))
-                .build());
+        .isEqualTo(
+            ImmutableList.of(
+                "tools/osx/crosstool/mac/ar_wrapper",
+                "rcs",
+                Iterables.getOnlyElement(archiveAction.getOutputs()).getExecPathString(),
+                getBinArtifact("_objs/lib/arc/a.o", getConfiguredTarget("//depender_lib:lib"))
+                    .getExecPathString(),
+                getBinArtifact("_objs/lib/arc/b.o", getConfiguredTarget("//depender_lib:lib"))
+                    .getExecPathString()));
   }
 
   @Test
@@ -1965,7 +1950,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    deps = [':foo'],",
         ")");
 
-    ObjcProvider dependerProvider = providerForTarget("//x:bar");
+    ObjcProvider dependerProvider = objcProviderForTarget("//x:bar");
     assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.SOURCE)))
         .containsExactly("bar.m", "bar_impl.h");
 
@@ -2217,7 +2202,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "        compilation_outputs=compilation_outputs,",
         "        name = ctx.label.name,",
         "        cc_toolchain=toolchain,",
-        "        language='objc'",
+        "        language='c++'",
         "    )",
         "    files_to_build = []",
         "    files_to_build.extend(compilation_outputs.pic_objects)",
@@ -2343,7 +2328,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "def _var_providing_rule_impl(ctx):",
         "   return [",
         "       CcInfo(),",
-        "       apple_common.new_dynamic_framework_provider(objc=ctx.attr.dep[apple_common.Objc])",
+        "       apple_common.new_dynamic_framework_provider(",
+        "           cc_info=ctx.attr.dep[CcInfo],",
+        "           objc=ctx.attr.dep[apple_common.Objc],",
+        "       )",
         "   ]",
         "var_providing_rule = rule(",
         "   implementation = _var_providing_rule_impl,",
@@ -2532,6 +2520,30 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(instrumentedFilesInfo.getCoverageSupportFiles().toList()).isEmpty();
   }
 
+  @Test
+  public void testCoverageMetadataFiles() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_toolchain_alias(name = 'toolchain')",
+        "objc_library(",
+        "    name = 'foo',",
+        "    srcs = ['foo.m'],",
+        ")",
+        "objc_library(",
+        "     name = 'bar',",
+        "     srcs = ['bar.m'],",
+        "     deps = [':foo'],",
+        ")");
+    useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
+
+    InstrumentedFilesInfo instrumentedFilesInfo =
+        getConfiguredTarget("//a:bar").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+
+    assertThat(
+            Artifact.toRootRelativePaths(instrumentedFilesInfo.getInstrumentationMetadataFiles()))
+        .containsExactly("a/_objs/foo/arc/foo.gcno", "a/_objs/bar/arc/bar.gcno");
+  }
+
   private ImmutableList<String> getCcInfoUserLinkFlagsFromTarget(String target)
       throws LabelSyntaxException {
     return getConfiguredTarget(target)
@@ -2554,6 +2566,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    linkopts = [",
         "        '-lxml2',",
         "        '-framework AVFoundation',",
+        "        '-Wl,-framework,Framework',",
         "    ],",
         "    sdk_dylibs = ['libz'],",
         "    sdk_frameworks = ['CoreData'],",
@@ -2563,6 +2576,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    name = 'bar',",
         "    linkopts = [",
         "        '-lsqlite3',",
+        "        '-Wl,-weak_framework,WeakFrameworkFromLinkOpt',",
         "    ],",
         "    sdk_frameworks = ['Foundation'],",
         ")",
@@ -2572,6 +2586,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "        '-framework UIKit',",
         "    ],",
         "    sdk_dylibs = ['libc++'],",
+        "    weak_sdk_frameworks = ['WeakFramework'],",
         ")");
 
     ImmutableList<String> userLinkFlags = getCcInfoUserLinkFlagsFromTarget("//x:foo");
@@ -2581,46 +2596,53 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(userLinkFlags).containsAtLeast("-framework", "Foundation").inOrder();
     assertThat(userLinkFlags).containsAtLeast("-framework", "UIKit").inOrder();
     assertThat(userLinkFlags).containsAtLeast("-lz", "-lc++", "-lxml2", "-lsqlite3");
+    assertThat(userLinkFlags).containsAtLeast("-framework", "Framework").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-weak_framework", "WeakFramework").inOrder();
+    assertThat(userLinkFlags)
+        .containsAtLeast("-weak_framework", "WeakFrameworkFromLinkOpt")
+        .inOrder();
   }
 
   @Test
-  public void testNoDuplicateSdkUserLinkFlagsFromMultipleDepsOnCcInfo() throws Exception {
+  public void testTreeArtifactSrcs() throws Exception {
+    doTestTreeAtrifactInAttributes("srcs");
+  }
+
+  @Test
+  public void testTreeArtifactNonArcSrcs() throws Exception {
+    doTestTreeAtrifactInAttributes("non_arc_srcs");
+  }
+
+  @Test
+  public void testTreeArtifactHdrs() throws Exception {
+    doTestTreeAtrifactInAttributes("hdrs");
+  }
+
+  private void doTestTreeAtrifactInAttributes(String attrName) throws Exception {
+    reporter.removeHandler(failFastHandler);
     scratch.file(
-        "x/BUILD",
+        "bar/create_tree_artifact.bzl",
+        "def _impl(ctx):",
+        "    tree = ctx.actions.declare_directory('dir')",
+        "    ctx.actions.run_shell(",
+        "        outputs = [tree],",
+        "        inputs = [],",
+        "        arguments = [tree.path],",
+        "        command = 'mkdir $1',",
+        "    )",
+        "    return [DefaultInfo(files = depset([tree]))]",
+        "create_tree_artifact = rule(implementation = _impl)");
+    scratch.file(
+        "bar/BUILD",
+        "load(':create_tree_artifact.bzl', 'create_tree_artifact')",
+        "create_tree_artifact(name = 'tree_artifact')",
         "objc_library(",
-        "    name = 'foo',",
-        "    linkopts = [",
-        "        '-lsqlite3',",
-        "        '-framework UIKit',",
-        "    ],",
-        "    sdk_dylibs = ['libc++'],",
-        "    sdk_frameworks = ['Foundation'],",
-        "    deps = [':bar', ':car'],",
-        ")",
-        "objc_library(",
-        "    name = 'bar',",
-        "    linkopts = [",
-        "        '-lsqlite3',",
-        "        '-framework CoreData',",
-        "    ],",
-        "    sdk_frameworks = ['Foundation'],",
-        ")",
-        "objc_library(",
-        "    name = 'car',",
-        "    linkopts = [",
-        "        '-framework UIKit',",
-        "        '-framework CoreData',",
-        "    ],",
-        "    sdk_dylibs = ['libc++'],",
+        "    name = 'lib',",
+        "    " + attrName + " = [':tree_artifact'],",
         ")");
-    ImmutableList<String> userLinkFlags = getCcInfoUserLinkFlagsFromTarget("//x:foo");
-    assertThat(userLinkFlags).isNotEmpty();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "CoreData").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "Foundation").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-framework", "UIKit").inOrder();
-    assertThat(userLinkFlags).containsAtLeast("-lc++", "-lsqlite3");
-    ImmutableList<String> userLinkFlagsWithoutFrameworkFlags =
-        userLinkFlags.stream().filter(s -> !s.equals("-framework")).collect(toImmutableList());
-    assertThat(userLinkFlagsWithoutFrameworkFlags).containsNoDuplicates();
+
+    getConfiguredTarget("//bar:lib");
+
+    assertNoEvents();
   }
 }

@@ -1724,7 +1724,7 @@ EOF
 }
 
 function test_cache_hit_reported() {
-  # Verify that information about a chache hit is reported
+  # Verify that information about a cache hit is reported
   # if an error happend in that repository. This information
   # is useful as users sometimes change the URL but do not
   # update the hash.
@@ -2173,7 +2173,7 @@ genrule(
 )
 EOF
   bazel build --curses=yes //:local > "${TEST_log}" 2>&1 \
-      || fail "exepected succes"
+      || fail "expected success"
   expect_log "foo.*First action"
   expect_log "foo.*Second action"
 }
@@ -2533,7 +2533,7 @@ EOF
 
   expect_log "you have to add.*this_repo_is_missing.*WORKSPACE"
   # Also verify that the repository class and its definition is reported, to
-  # help finding out where the implict dependency comes from.
+  # help finding out where the implicit dependency comes from.
   expect_log "Repository data instantiated at:"
   expect_log ".../WORKSPACE:[0-9]*"
   expect_log "Repository rule data_repo defined at:"

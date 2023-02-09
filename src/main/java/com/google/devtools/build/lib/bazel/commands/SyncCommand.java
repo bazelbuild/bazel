@@ -124,7 +124,7 @@ public final class SyncCommand implements BlazeCommand {
       LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
-              .setNumThreads(threadsOption.threads)
+              .setParallelism(threadsOption.threads)
               .setEventHandler(env.getReporter())
               .build();
       EvaluationResult<SkyValue> packageLookupValue =
@@ -218,11 +218,13 @@ public final class SyncCommand implements BlazeCommand {
             "Repository fetch failure.");
       }
     } catch (InterruptedException e) {
+      String errorMessage = "Sync interrupted: " + e.getMessage();
+      env.getReporter().handle(Event.error(errorMessage));
       reportNoBuildRequestFinished(env, ExitCode.INTERRUPTED);
-      BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(e.getMessage()));
+      return BlazeCommandResult.detailedExitCode(
+          InterruptedFailureDetails.detailedExitCode(errorMessage));
     } catch (AbruptExitException e) {
-      env.getReporter().handle(Event.error(e.getMessage()));
+      env.getReporter().handle(Event.error("Unknown error: " + e.getMessage()));
       reportNoBuildRequestFinished(env, ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
     }

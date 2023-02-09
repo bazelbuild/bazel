@@ -49,7 +49,15 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
           + ""
           + "<p>Each element of the list is an <code>*Info</code> object returned by "
           + "<a href='globals.html#provider'><code>provider()</code></a>, except that a legacy "
-          + "provider is represented by its string name instead.";
+          + "provider is represented by its string name instead."
+          + ""
+          + "When a target of the rule is used as a dependency for a target that declares a "
+          + "required provider, it is not necessary to specify that provider here. It is enough "
+          + "that the implementation function returns it. However, it is considered best "
+          + "practice to specify it, even though this is not required. The "
+          + "<a href='globals#aspect.required_providers'><code>required_providers</code></a> field "
+          + "of an <a href='globals.html#aspect'>aspect</a> does, however, require that providers "
+          + "are specified here.";
 
   @StarlarkMethod(
       name = "provider",
@@ -65,15 +73,15 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
               + "    # my_info.x == 2\n"
               + "    # my_info.y == 3\n"
               + "    ..." //
-              + "</pre><p>See <a href='https://bazel.build/rules/rules#providers'>Rules"
+              + "</pre><p>See <a href='https://bazel.build/extending/rules#providers'>Rules"
               + " (Providers)</a> for a comprehensive guide on how to use providers." //
               + "<p>Returns a <a href='Provider.html#Provider'><code>Provider</code></a> callable "
               + "value if <code>init</code> is not specified." //
               + "<p>If <code>init</code> is specified, returns a tuple of 2 elements: a <a"
               + " href='Provider.html#Provider'><code>Provider</code></a> callable value and a"
               + " <em>raw constructor</em> callable value. See <a"
-              + " href='https://bazel.build/rules/rules#custom_initialization_of_providers'>Rules"
-              + " (Custom initialization of custom providers)</a> and the discussion of the"
+              + " href='https://bazel.build/extending/rules#custom_initialization_of_providers'>"
+              + " Rules (Custom initialization of custom providers)</a> and the discussion of the"
               + " <code>init</code> parameter below for details.",
       parameters = {
         @Param(
@@ -108,8 +116,8 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " during instantiation. If <code>init</code> is specified,"
                     + " <code>provider()</code> returns a tuple of 2 elements: the normal provider"
                     + " symbol and a <em>raw constructor</em>." //
-                    + "<p>A precise description follows; see <a"
-                    + " href='https://bazel.build/rules/rules#custom_initialization_of_providers'>"
+                    + "<p>A precise description follows; see <a href='"
+                    + "https://bazel.build/extending/rules#custom_initialization_of_providers'>"
                     + "Rules (Custom initialization of providers)</a>"
                     + " for an intuitive discussion and use cases." //
                     + "<p>Let <code>P</code> be the provider symbol created by calling"
@@ -209,7 +217,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " considered <a href='#rule.executable'>executable</a>; it is unnecessary"
                     + " (and discouraged) to explicitly set <code>executable = True</code> for a"
                     + " test rule. See the <a"
-                    + " href='https://bazel.build/rules/rules#executable_rules_and_test_rules'>"
+                    + " href='https://bazel.build/extending/rules#executable_rules_and_test_rules'>"
                     + " Rules page</a> for more information."),
         @Param(
             name = "attrs",
@@ -248,7 +256,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " href='attr.html#output'><code>output</code></a> and <a"
                     + " href='attr.html#output_list'><code>output_list</code></a> attributes, the"
                     + " user does not specify the labels for these files. See the <a"
-                    + " href='https://bazel.build/rules/rules#files'>Rules page</a> for more on"
+                    + " href='https://bazel.build/extending/rules#files'>Rules page</a> for more on"
                     + " predeclared outputs.<p>The value of this argument is either a dictionary or"
                     + " a callback function that produces a dictionary. The callback works similar"
                     + " to computed dependency attributes: The function's parameter names are"
@@ -293,7 +301,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             doc =
                 "Whether this rule is considered executable, that is, whether it may be the subject"
                     + " of a <code>blaze run</code> command. See the <a"
-                    + " href='https://bazel.build/rules/rules#executable_rules_and_test_rules'>"
+                    + " href='https://bazel.build/extending/rules#executable_rules_and_test_rules'>"
                     + " Rules page</a> for more information."),
         @Param(
             name = "output_to_genfiles",
@@ -693,18 +701,26 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
   @StarlarkMethod(
       name = "Label",
       doc =
-          "Creates a Label referring to a BUILD target. Use this function when you want to give a"
-              + " default value for the label attributes of a rule or when referring to a target"
-              + " via an absolute label from a macro. The argument must refer to an absolute label."
-              + " The repo part of the label (or its absence) is interpreted in the context of the"
-              + " repo where this Label() call appears. Example: <br><pre"
-              + " class=language-python>Label(\"//tools:default\")</pre>",
+          "Converts a label string into a <code>Label</code> object, in the context of the package"
+              + " where the calling <code>.bzl</code> source file lives. If the given value is"
+              + " already a <code>Label</code>, it is returned unchanged."
+              + "<p>For macros, a related function,"
+              + " <code><a"
+              + " href='native#package_relative_label'>native.package_relative_label()</a></code>,"
+              + " converts the input into a <code>Label</code> in the context of the package"
+              + " currently being constructed. Use that function to mimic the string-to-label"
+              + " conversion that is automatically done by label-valued rule attributes.",
       parameters = {
-        @Param(name = "label_string", doc = "the label string."),
+        @Param(
+            name = "input",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = Label.class)},
+            doc =
+                "The input label string or Label object. If a Label object is passed, it's"
+                    + " returned as is.")
       },
       useStarlarkThread = true)
   @StarlarkConstructor
-  Label label(String labelString, StarlarkThread thread) throws EvalException;
+  Label label(Object input, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "exec_group",

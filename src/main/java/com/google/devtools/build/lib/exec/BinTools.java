@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.exec;
 
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.InputStream;
@@ -164,10 +166,13 @@ public final class BinTools {
   }
 
   /** An ActionInput pointing at an absolute path. */
-  public static final class PathActionInput implements VirtualActionInput {
+  @VisibleForTesting
+  public static final class PathActionInput extends VirtualActionInput {
     private final Path path;
     private final PathFragment execPath;
     private FileArtifactValue metadata;
+    /** Contains the digest of the input once it has been written. */
+    private volatile byte[] digest;
 
     public PathActionInput(Path path, PathFragment execPath) {
       this.path = path;
@@ -185,6 +190,27 @@ public final class BinTools {
     public boolean isSymlink() {
       // There are no unresolved symlinks embedded in the binary. We don't need them (embedded
       // binaries are just a few simple tools) and zip doesn't support them anyway.
+      return false;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    protected byte[] atomicallyWriteTo(Path outputPath, String uniqueSuffix) throws IOException {
+      // The embedded tools do not change, but we need to be sure they're written out without race
+      // conditions.
+      if (digest == null || !outputPath.exists()) {
+        synchronized (this) {
+          if (digest == null || !outputPath.exists()) {
+            outputPath.getParentDirectory().createDirectoryAndParents();
+            digest = writeTo(outputPath);
+          }
+        }
+      }
+      return digest;
+    }
+
+    @Override
+    public boolean isDirectory() {
       return false;
     }
 

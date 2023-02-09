@@ -186,11 +186,16 @@ public final class Attribute implements Comparable<Attribute> {
     /**
      * This method should return null if the edge is valid, or a suitable error message if it is
      * not. Note that warnings are not supported.
+     *
+     * @param toRuleTags the tags of the rule, used as a workaround in {@code J2ObjcLibraryBaseRule}
+     *     and should probably be deleted.
      */
-    String checkValid(Rule from, Rule to);
+    @Nullable
+    String checkValid(Rule from, String toRuleClass, Set<String> toRuleTags);
   }
 
-  @SerializationConstant public static final ValidityPredicate ANY_EDGE = (from, to) -> null;
+  @SerializationConstant
+  public static final ValidityPredicate ANY_EDGE = (from, toRuleClass, toRuleTags) -> null;
 
   /** A predicate class to check if the value of the attribute comes from a predefined set. */
   public static class AllowedValueSet implements PredicateWithMessage<Object> {
@@ -1560,7 +1565,7 @@ public final class Attribute implements Comparable<Attribute> {
 
     /**
      * Returns the input type that the attribute expects. This is almost always a configuration
-     * fragment to be retrieved from the target's configuration (or the host configuration).
+     * fragment to be retrieved from the target's configuration (or the exec configuration).
      *
      * <p>It may also be {@link Void} to receive null. This is rarely necessary, but can be used,
      * e.g., if the attribute is named to match an attribute in another rule which is late-bound.
@@ -1990,7 +1995,11 @@ public final class Attribute implements Comparable<Attribute> {
    * thing", rather than actually allowing all rule classes in that attribute. Others parts of bazel
    * code check for that specific instance.
    */
-  public Predicate<RuleClass> getAllowedRuleClassesPredicate() {
+  public Predicate<RuleClass> getAllowedRuleClassObjectPredicate() {
+    return allowedRuleClassesForLabels.asPredicateOfRuleClassObject();
+  }
+
+  public Predicate<String> getAllowedRuleClassPredicate() {
     return allowedRuleClassesForLabels.asPredicateOfRuleClass();
   }
 
@@ -1999,7 +2008,11 @@ public final class Attribute implements Comparable<Attribute> {
    * attribute with warning. If this is not a label or label-list attribute, the returned predicate
    * always evaluates to true.
    */
-  public Predicate<RuleClass> getAllowedRuleClassesWarningPredicate() {
+  public Predicate<RuleClass> getAllowedRuleClassObjectWarningPredicate() {
+    return allowedRuleClassesForLabelsWarning.asPredicateOfRuleClassObject();
+  }
+
+  public Predicate<String> getAllowedRuleClassWarningPredicate() {
     return allowedRuleClassesForLabelsWarning.asPredicateOfRuleClass();
   }
 

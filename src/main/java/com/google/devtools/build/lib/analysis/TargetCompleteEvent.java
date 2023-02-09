@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -54,11 +53,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TestTimeout;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -82,7 +77,7 @@ public final class TargetCompleteEvent
 
   /** Lightweight data needed about the configured target in this event. */
   public static class ExecutableTargetData {
-    @Nullable private final Path runfilesDirectory;
+    @Nullable private final RunfilesSupport runfilesSupport;
     @Nullable private final Artifact executable;
 
     private ExecutableTargetData(ConfiguredTargetAndData targetAndData) {
@@ -90,20 +85,27 @@ public final class TargetCompleteEvent
           targetAndData.getConfiguredTarget().getProvider(FilesToRunProvider.class);
       if (provider != null) {
         this.executable = provider.getExecutable();
-        if (null != provider.getRunfilesSupport()) {
-          this.runfilesDirectory = provider.getRunfilesSupport().getRunfilesDirectory();
-        } else {
-          this.runfilesDirectory = null;
-        }
+        this.runfilesSupport = provider.getRunfilesSupport();
       } else {
         this.executable = null;
-        this.runfilesDirectory = null;
+        this.runfilesSupport = null;
       }
     }
 
     @Nullable
     public Path getRunfilesDirectory() {
-      return runfilesDirectory;
+      if (runfilesSupport != null) {
+        return runfilesSupport.getRunfilesDirectory();
+      }
+      return null;
+    }
+
+    @Nullable
+    public Runfiles getRunfiles() {
+      if (runfilesSupport != null) {
+        return runfilesSupport.getRunfiles();
+      }
+      return null;
     }
 
     @Nullable
@@ -121,7 +123,8 @@ public final class TargetCompleteEvent
   private final CompletionContext completionContext;
   private final ImmutableMap<String, ArtifactsInOutputGroup> outputs;
   private final NestedSet<Artifact> baselineCoverageArtifacts;
-  private final Label aliasLabel;
+  // The label as appeared in the BUILD file.
+  private final Label originalLabel;
   private final boolean isTest;
   private final boolean announceTargetSummary;
   @Nullable private final Long testTimeoutSeconds;
@@ -144,10 +147,10 @@ public final class TargetCompleteEvent
     this.executableTargetData = new ExecutableTargetData(targetAndData);
     ImmutableList.Builder<BuildEventId> postedAfterBuilder = ImmutableList.builder();
     this.label = targetAndData.getConfiguredTarget().getLabel();
-    this.aliasLabel = targetAndData.getConfiguredTarget().getOriginalLabel();
+    this.originalLabel = targetAndData.getConfiguredTarget().getOriginalLabel();
     this.configuredTargetKey =
         ConfiguredTargetKey.fromConfiguredTarget(targetAndData.getConfiguredTarget());
-    postedAfterBuilder.add(BuildEventIdUtil.targetConfigured(aliasLabel));
+    postedAfterBuilder.add(BuildEventIdUtil.targetConfigured(originalLabel));
     DetailedExitCode mostImportantDetailedExitCode = null;
     for (Cause cause : getRootCauses().toList()) {
       mostImportantDetailedExitCode =
@@ -183,25 +186,7 @@ public final class TargetCompleteEvent
         this.baselineCoverageArtifacts = null;
       }
     }
-    // For tags, we are only interested in targets that are rules.
-    if (!(targetAndData.getConfiguredTarget() instanceof RuleConfiguredTarget)) {
-      this.tags = ImmutableList.of();
-    } else {
-      AttributeMap attributes =
-          ConfiguredAttributeMapper.of(
-              (Rule) targetAndData.getTarget(),
-              targetAndData.getConfiguredTarget().getConfigConditions(),
-              configuration);
-      // Every build rule (implicitly) has a "tags" attribute. However other rule configured targets
-      // are repository rules (which don't have a tags attribute); morevoer, thanks to the virtual
-      // "external" package, they are user visible as targets and can create a completed event as
-      // well.
-      if (attributes.has("tags", Type.STRING_LIST)) {
-        this.tags = attributes.get("tags", Type.STRING_LIST);
-      } else {
-        this.tags = ImmutableList.of();
-      }
-    }
+    this.tags = targetAndData.getRuleTags();
   }
 
   /** Construct a successful target completion event. */
@@ -243,6 +228,15 @@ public final class TargetCompleteEvent
     return label;
   }
 
+  /**
+   * Returns the original label of the target.
+   *
+   * <p>See {@link ConfiguredTarget#getOriginalLabel()}.
+   */
+  public Label getOriginalLabel() {
+    return originalLabel;
+  }
+
   public ConfiguredTargetKey getConfiguredTargetKey() {
     return configuredTargetKey;
   }
@@ -276,7 +270,7 @@ public final class TargetCompleteEvent
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventIdUtil.targetCompleted(aliasLabel, configEventId);
+    return BuildEventIdUtil.targetCompleted(originalLabel, configEventId);
   }
 
   @Override
@@ -297,7 +291,7 @@ public final class TargetCompleteEvent
       childrenBuilder.add(BuildEventIdUtil.testSummary(label, configEventId));
     }
     if (announceTargetSummary) {
-      childrenBuilder.add(BuildEventIdUtil.targetSummary(aliasLabel, configEventId));
+      childrenBuilder.add(BuildEventIdUtil.targetSummary(originalLabel, configEventId));
     }
     return childrenBuilder.build();
   }
@@ -567,8 +561,7 @@ public final class TargetCompleteEvent
    */
   private static Long getTestTimeoutSeconds(ConfiguredTargetAndData targetAndData) {
     BuildConfigurationValue configuration = targetAndData.getConfiguration();
-    Rule associatedRule = targetAndData.getTarget().getAssociatedRule();
-    TestTimeout categoricalTimeout = TestTimeout.getTestTimeout(associatedRule);
+    TestTimeout categoricalTimeout = targetAndData.getTestTimeout();
     return configuration
         .getFragment(TestConfiguration.class)
         .getTestTimeout()

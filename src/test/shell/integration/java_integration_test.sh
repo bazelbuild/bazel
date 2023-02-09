@@ -841,12 +841,11 @@ java_binary(
     main_class = 'hello.Hello'
 )
 EOF
-  bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar >& "$TEST_log" \
+  bazel build --incompatible_disallow_java_import_empty_jars=0 //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar >& "$TEST_log" \
       || fail "Expected success"
-  bazel run //$pkg/java/hello:hello -- --singlejar >& "$TEST_log"
+  bazel run --incompatible_disallow_java_import_empty_jars=0 //$pkg/java/hello:hello -- --singlejar >& "$TEST_log"
   expect_log "Hello World!"
 }
-
 
 function test_arg_compile_action() {
   local package="${FUNCNAME[0]}"

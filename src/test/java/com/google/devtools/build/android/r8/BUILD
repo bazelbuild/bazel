@@ -50,7 +50,6 @@ java_test(
     data = [
         ":arithmetic",
         ":barray",
-        ":dexmergersample",
         ":naming001",
         ":twosimpleclasses",
     ],
@@ -98,16 +97,6 @@ java_library(
 java_library(
     name = "barray",
     srcs = glob(["testdata/barray/*.java"]),
-    # Must be compiled as java8, otherwise CompatDx complains about invoke-customs
-    javacopts = [
-        "-source 8",
-        "-target 8",
-    ],
-)
-
-java_library(
-    name = "dexmergersample",
-    srcs = glob(["testdata/dexmergersample/*.java"]),
     # Must be compiled as java8, otherwise CompatDx complains about invoke-customs
     javacopts = [
         "-source 8",
