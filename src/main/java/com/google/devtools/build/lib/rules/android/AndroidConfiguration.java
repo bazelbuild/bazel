@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelOrderedSetConverter;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -299,7 +299,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
     @Option(
         name = "fat_apk_cpu",
-        converter = Converters.CommaSeparatedOptionListConverter.class,
+        converter = Converters.CommaSeparatedOptionSetConverter.class,
         defaultValue = "armeabi-v7a",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {
@@ -316,7 +316,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "android_platforms",
-        converter = LabelListConverter.class,
+        converter = LabelOrderedSetConverter.class,
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         defaultValue = "",
         effectTags = {
