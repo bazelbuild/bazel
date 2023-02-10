@@ -16,8 +16,8 @@
 
 load(":common/objc/semantics.bzl", objc_semantics = "semantics")
 load(":common/paths.bzl", "paths")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
-CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
 CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo

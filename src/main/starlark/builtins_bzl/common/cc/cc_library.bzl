@@ -16,8 +16,8 @@
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", "semantics")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
-CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
 

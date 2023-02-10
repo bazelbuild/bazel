@@ -17,8 +17,8 @@
 
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "graph_structure_aspect")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
-CcInfo = _builtins.toplevel.CcInfo
 cc_internal = _builtins.internal.cc_internal
 
 cc_binary_attrs_with_aspects = {
