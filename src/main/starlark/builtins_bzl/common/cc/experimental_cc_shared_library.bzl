@@ -418,6 +418,12 @@ def _get_deps(ctx):
     if not len(deps):
         deps = ctx.attr.roots
 
+    if len(deps) == 0:
+        fail(
+            "'cc_shared_library' must have at least one dependency in 'deps' (or 'roots')",
+            attr = "deps",
+        )
+
     return deps
 
 def _cc_shared_library_impl(ctx):
