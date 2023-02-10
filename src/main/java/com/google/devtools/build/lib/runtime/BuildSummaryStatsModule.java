@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Optional;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 
 /**
  * Blaze module for the build summary message that reports various stats to the user.
@@ -139,10 +140,8 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @AllowConcurrentEvents
   public void actionResultReceived(ActionResultReceivedEvent event) {
     spawnStats.countActionResult(event.getActionResult());
-    Duration cpuUserTimeForActionsDuration = event.getActionResult().cumulativeCommandExecutionUserTime();
-    cpuUserTimeForActions = addCPUTime(cpuUserTimeForActionsDuration, cpuUserTimeForActions);
-    Duration cpuSystemTimeForActionsDuration = event.getActionResult().cumulativeCommandExecutionSystemTime();
-    cpuSystemTimeForActions = addCPUTime(cpuSystemTimeForActionsDuration, cpuSystemTimeForActions);
+    cpuUserTimeForActions = addCpuTime(event.getActionResult().cumulativeCommandExecutionUserTime(), cpuUserTimeForActions);
+    cpuSystemTimeForActions = addCpuTime(event.getActionResult().cumulativeCommandExecutionSystemTime(), cpuSystemTimeForActions);
   }
 
   @Subscribe
@@ -274,9 +273,13 @@ public class BuildSummaryStatsModule extends BlazeModule {
     }
   }
   
-  private static Duration addCPUTime(Optional<Duration> sumDuration, Duration termDuration) {
-    if(sumDuration.isPresent() && (termDuration.toMillis() !=  UNKNOWN_CPU_TIME)) {
-      termDuration = termDuration.plus(sumDuration.get());
+  private static Duration addCpuTime(@Nullable Duration sumDuration, Duration termDuration) {
+    if (sumDuration != null) {
+      if(sumDuration.isPresent() && (termDuration.toMillis() !=  UNKNOWN_CPU_TIME)) {
+        termDuration = termDuration.plus(sumDuration.get());
+      } else {
+        termDuration = Duration.ofMillis(UNKNOWN_CPU_TIME);
+      }
     } else {
       termDuration = Duration.ofMillis(UNKNOWN_CPU_TIME);
     }
