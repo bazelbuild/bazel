@@ -492,3 +492,9 @@ no_exporting_static_lib_test(
     name = "no_exporting_static_lib_test",
     target_under_test = ":lib_with_no_exporting_roots",
 )
+
+build_failure_test(
+    name = "shared_library_without_deps",
+    message = "'cc_shared_library' must have at least one dependency in 'deps' (or 'roots')",
+    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:failing_with_no_deps_so",
+)

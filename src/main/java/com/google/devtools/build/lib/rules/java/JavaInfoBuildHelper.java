@@ -17,6 +17,7 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Streams.stream;
+import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.BOTH;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.COMPILE_ONLY;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.RUNTIME_ONLY;
@@ -195,6 +196,8 @@ final class JavaInfoBuildHelper {
     if (outputSourceJar == null) {
       outputSourceJar = getDerivedSourceJar(actions.getActionConstructionContext(), outputJar);
     }
+    // TODO(b/253376589): Add automatic exec groups instead of DEFAULT_EXEC_GROUP_NAME if
+    // needed.
     SingleJarActionBuilder.createSourceJarAction(
         actionRegistry,
         actions.getActionConstructionContext(),
@@ -202,7 +205,8 @@ final class JavaInfoBuildHelper {
         NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, sourceFiles),
         NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, sourceJars),
         outputSourceJar,
-        javaToolchain);
+        javaToolchain,
+        DEFAULT_EXEC_GROUP_NAME);
     return outputSourceJar;
   }
 

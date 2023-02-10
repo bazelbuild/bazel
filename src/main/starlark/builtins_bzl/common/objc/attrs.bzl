@@ -15,8 +15,8 @@
 """Attributes common to Objc rules"""
 
 load("@_builtins//:common/objc/semantics.bzl", "semantics")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
-CcInfo = _builtins.toplevel.CcInfo
 AppleDynamicFrameworkInfo = _builtins.toplevel.apple_common.AppleDynamicFramework
 TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
 

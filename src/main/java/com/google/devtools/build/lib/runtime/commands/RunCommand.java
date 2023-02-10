@@ -333,7 +333,7 @@ public class RunCommand implements BlazeCommand {
         if (!targetValidationResult.isSuccess()) {
           throw new RunCommandException(targetValidationResult);
         }
-        if (runUnder != null && target.getLabel().equals(runUnder.getLabel())) {
+        if (runUnder != null && target.getOriginalLabel().equals(runUnder.getLabel())) {
           if (runUnderTarget != null) {
             throw new RunCommandException(
                 reportAndCreateFailureResult(

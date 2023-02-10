@@ -22,8 +22,8 @@ rely on this. It requires bazel >1.2  and passing the flag
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
-CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 
 # TODO(#5200): Add export_define to library_to_link and cc_library
@@ -417,6 +417,12 @@ def _get_deps(ctx):
     deps = ctx.attr.deps
     if not len(deps):
         deps = ctx.attr.roots
+
+    if len(deps) == 0:
+        fail(
+            "'cc_shared_library' must have at least one dependency in 'deps' (or 'roots')",
+            attr = "deps",
+        )
 
     return deps
 

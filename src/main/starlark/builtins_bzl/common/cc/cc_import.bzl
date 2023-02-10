@@ -20,23 +20,11 @@ rely on this. Pass the flag --experimental_starlark_cc_import
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/objc/semantics.bzl", "semantics")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
-CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 
 CPP_LINK_STATIC_LIBRARY_ACTION_NAME = "c++-link-static-library"
-
-def _to_list(element):
-    if element == None:
-        return []
-    else:
-        return [element]
-
-def _to_depset(element):
-    if element == None:
-        return depset()
-    else:
-        return depset([element])
 
 def _perform_error_checks(
         system_provided,
@@ -165,7 +153,7 @@ def _cc_import_impl(ctx):
             linker_inputs = depset([linker_input]),
         )
 
-    (compilation_context, compilation_outputs) = cc_common.compile(
+    (compilation_context, _) = cc_common.compile(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,

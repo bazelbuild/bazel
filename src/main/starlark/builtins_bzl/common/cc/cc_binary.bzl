@@ -17,8 +17,8 @@
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "GraphNodeInfo", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "merge_cc_shared_library_infos", "throw_linked_but_not_exported_errors")
 load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
-CcInfo = _builtins.toplevel.CcInfo
 DebugPackageInfo = _builtins.toplevel.DebugPackageInfo
 cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal

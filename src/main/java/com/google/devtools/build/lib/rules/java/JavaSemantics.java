@@ -88,9 +88,6 @@ public interface JavaSemantics {
   FileType PROPERTIES = FileType.of(".properties");
   FileType SOURCE_JAR = FileType.of(".srcjar");
 
-  /** Label to the Java Toolchain rule. It is resolved from a label given in the java options. */
-  String JAVA_TOOLCHAIN_LABEL = "//tools/jdk:toolchain";
-
   /** The java_toolchain.compatible_javacopts key for Android javacopts */
   public static final String ANDROID_JAVACOPTS_KEY = "android";
   /** The java_toolchain.compatible_javacopts key for proto compilations. */
@@ -108,6 +105,8 @@ public interface JavaSemantics {
   /** Name of the output group used for direct source jars. */
   String DIRECT_SOURCE_JARS_OUTPUT_GROUP =
       OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "direct_source_jars";
+
+  public String getJavaToolchainType();
 
   /**
    * Implementation for the :java_launcher attribute. Note that the Java launcher is disabled by

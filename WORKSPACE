@@ -124,19 +124,19 @@ distdir_tar(
     name = "additional_distfiles",
     # Keep in sync with the archives fetched as part of building bazel.
     archives = [
-        "android_tools_pkg-0.27.0.tar.gz",
+        "android_tools_pkg-0.28.0.tar",
         # for android_gmaven_r8
         "r8-4.0.48.jar",
     ],
     dirname = "derived/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "additional_distfiles" in attrs["used_in"]},
     sha256 = {
-        "android_tools_pkg-0.27.0.tar.gz": "1afa4b7e13c82523c8b69e87f8d598c891ec7e2baa41d9e24e08becd723edb4d",
+        "android_tools_pkg-0.28.0.tar": "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",
         "r8-4.0.48.jar": "f77d9a9ebda9e32092eac4dd8e11644a7362dfa60ed6a3a9d0d32de570bbf524",
     },
     urls = {
-        "android_tools_pkg-0.27.0.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.0.tar.gz",
+        "android_tools_pkg-0.28.0.tar": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
         ],
         "r8-4.0.48.jar": [
             "https://maven.google.com/com/android/tools/r8/4.0.48/r8-4.0.48.jar",
@@ -289,18 +289,18 @@ dist_http_archive(
 distdir_tar(
     name = "test_WORKSPACE_files",
     archives = [
-        "android_tools_pkg-0.27.0.tar.gz",
+        "android_tools_pkg-0.28.0.tar",
         "r8-4.0.48.jar",
     ],
     dirname = "test_WORKSPACE/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "test_WORKSPACE_files" in attrs["used_in"]},
     sha256 = {
-        "android_tools_pkg-0.27.0.tar.gz": "1afa4b7e13c82523c8b69e87f8d598c891ec7e2baa41d9e24e08becd723edb4d",
+        "android_tools_pkg-0.28.0.tar": "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",
         "r8-4.0.48.jar": "f77d9a9ebda9e32092eac4dd8e11644a7362dfa60ed6a3a9d0d32de570bbf524",
     },
     urls = {
-        "android_tools_pkg-0.27.0.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.0.tar.gz",
+        "android_tools_pkg-0.28.0.tar": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
         ],
         "r8-4.0.48.jar": [
             "https://maven.google.com/com/android/tools/r8/4.0.48/r8-4.0.48.jar",
@@ -322,8 +322,8 @@ http_archive(
     name = "android_tools_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "1afa4b7e13c82523c8b69e87f8d598c891ec7e2baa41d9e24e08becd723edb4d",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
-    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.0.tar.gz",
+    sha256 = "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
+    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE

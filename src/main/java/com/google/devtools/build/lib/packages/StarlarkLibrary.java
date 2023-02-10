@@ -98,8 +98,8 @@ public final class StarlarkLibrary {
                 + "<p>A dict is converted to a repeated field of messages with fields named 'key'"
                 + " and 'value'.\n"
                 + "Entries are emitted in iteration (insertion) order.\n"
-                + "The dict's keys must be strings, ints, or bools, and its values must not be"
-                + " sequences or dicts.\n"
+                + "The dict's keys must be strings or ints, and its values must not be sequences or"
+                + " dicts.\n"
                 + "Examples:<br><pre class=language-python>proto.encode_text(struct(field=123))\n"
                 + "# field: 123\n\n"
                 + "proto.encode_text(struct(field=True))\n"
@@ -227,11 +227,18 @@ public final class StarlarkLibrary {
               s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n"),
               "\"");
 
-        } else if (v instanceof StarlarkInt || v instanceof StarlarkFloat || v instanceof Boolean) {
+        } else if (v instanceof StarlarkInt || v instanceof Boolean) {
           emitLine(name, ": ", v.toString());
-
+        } else if (v instanceof StarlarkFloat) {
+          String s = v.toString();
+          // Encoding to textproto via proto.encode_text requires "inf" for "+inf".
+          if (s.equals("+inf")) {
+            s = "inf";
+          }
+          emitLine(name, ": ", s);
         } else {
-          throw Starlark.errorf("got %s, want string, int, bool, or struct", Starlark.type(v));
+          throw Starlark.errorf(
+              "got %s, want string, int, float, bool, or struct", Starlark.type(v));
         }
       }
 
