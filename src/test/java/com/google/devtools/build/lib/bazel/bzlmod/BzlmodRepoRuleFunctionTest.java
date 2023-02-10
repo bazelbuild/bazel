@@ -126,7 +126,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                 .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
                 .put(
                     SkyFunctions.BAZEL_LOCK_FILE,
-                    new BazelLockFileFunction(rootDirectory, FakeRegistry.class))
+                    new BazelLockFileFunction(rootDirectory, registryFactory))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(
                     SkyFunctions.MODULE_FILE,

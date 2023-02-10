@@ -43,11 +43,11 @@ import javax.annotation.Nullable;
 public class BazelLockFileFunction implements SkyFunction {
 
   private static Path rootDirectory;
-  private static Class<? extends Registry> registryType;
+  private static RegistryFactory registryFactory;
 
-  public BazelLockFileFunction(Path rootDirectory, Class<? extends Registry> registryType){
+  public BazelLockFileFunction(Path rootDirectory, RegistryFactory registryFactory){
     this.rootDirectory = rootDirectory;
-    this.registryType = registryType;
+    this.registryFactory = registryFactory;
   }
 
   @Override
@@ -63,7 +63,7 @@ public class BazelLockFileFunction implements SkyFunction {
     }
 
    BazelLockFileValue bazelLockFileValue;
-    Gson gson = TypeAdapterUtil.getLockfileGsonWithTypeAdapters(registryType);
+    Gson gson = TypeAdapterUtil.getLockfileGsonWithTypeAdapters(registryFactory);
     try {
       String json = FileSystemUtils.readContent(lockfilePath.asPath(), StandardCharsets.UTF_8);
       bazelLockFileValue = gson.fromJson(json, BazelLockFileValue.class);
@@ -92,11 +92,11 @@ public class BazelLockFileFunction implements SkyFunction {
 
     BazelLockFileValue value =
         BazelLockFileValue.create(BazelLockFileValue.LOCK_FILE_VERSION, hashedModule, resolvedDepGraph);
-    Gson gson = TypeAdapterUtil.getLockfileGsonWithTypeAdapters(registryType);
+    Gson gson = TypeAdapterUtil.getLockfileGsonWithTypeAdapters(registryFactory);
     try {
       FileSystemUtils.writeContent(lockfilePath.asPath(), StandardCharsets.UTF_8, gson.toJson(value));
     } catch (IOException e) {
-      //TODO(salmasamy) is this the right exception here? or create a new exception?
+      //TODO(salmasamy) is this the right exception here?
       throw new BazelModuleResolutionFunctionException(
           ExternalDepsException.withCauseAndMessage(
               Code.BAD_MODULE,

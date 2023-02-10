@@ -3,35 +3,21 @@ package com.google.devtools.build.lib.bazel.bzlmod.jsontypefactories;
 import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Registry;
+import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactory;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
 import com.google.gson.TypeAdapter;
-import com.google.gson.TypeAdapterFactory;
-import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.List;
 
 public class TypeAdapterUtil {
-
-  public static class RegistryAdapterFactory implements TypeAdapterFactory {
-    private final Class<? extends Registry> implementationClass;
-
-    public RegistryAdapterFactory(Class<? extends Registry> implementationClass) {
-      this.implementationClass = implementationClass;
-    }
-
-    @Override
-    public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {
-      if (!Registry.class.equals(type.getRawType())) return null;
-      return (TypeAdapter<T>) gson.getAdapter(implementationClass);
-    }
-  }
 
   public static TypeAdapter<Version> versionTypeAdapter = new TypeAdapter<>() {
     @Override
@@ -79,16 +65,36 @@ public class TypeAdapterUtil {
     }
   };
 
-  public static Gson getLockfileGsonWithTypeAdapters(final Class<? extends Registry> registryTpe){
-    return new GsonBuilder()
-        .registerTypeAdapterFactory(GenerateTypeAdapter.FACTORY)
-        .registerTypeAdapterFactory(new DictTypeAdapterFactory())
-        .registerTypeAdapterFactory(new ImmutableMapTypeAdapterFactory())
-        .registerTypeAdapterFactory(new ImmutableListTypeAdatperFactory())
-        .registerTypeAdapterFactory(new ImmutableBiMapTypeAdapterFactory())
-        .registerTypeAdapterFactory(new RegistryAdapterFactory(registryTpe))
-        .registerTypeAdapter(Version.class, versionTypeAdapter)
-        .registerTypeAdapter(ModuleKey.class, moduleKeyTypeAdapter)
+  public static TypeAdapter<Registry> registryTypeAdapter(RegistryFactory registryFactory) {
+    return new TypeAdapter<>() {
+      @Override
+      public void write(JsonWriter jsonWriter, Registry registry) throws IOException {
+        jsonWriter.value(registry.getUrl());
+      }
+
+      @Override
+      public Registry read(JsonReader jsonReader) throws IOException {
+        try {
+          return registryFactory.getRegistryWithUrl(jsonReader.nextString());
+        } catch (URISyntaxException e) {
+          throw new RuntimeException("Lockfile registry URL is not valid", e);
+        }
+      }
+    };
+  }
+
+  private static GsonBuilder adapterGson = new GsonBuilder()
+      .registerTypeAdapterFactory(GenerateTypeAdapter.FACTORY)
+      .registerTypeAdapterFactory(new DictTypeAdapterFactory())
+      .registerTypeAdapterFactory(new ImmutableMapTypeAdapterFactory())
+      .registerTypeAdapterFactory(new ImmutableListTypeAdatperFactory())
+      .registerTypeAdapterFactory(new ImmutableBiMapTypeAdapterFactory())
+      .registerTypeAdapter(Version.class, versionTypeAdapter)
+      .registerTypeAdapter(ModuleKey.class, moduleKeyTypeAdapter);
+
+  public static Gson getLockfileGsonWithTypeAdapters(RegistryFactory registryFactory){
+    return adapterGson
+        .registerTypeAdapter(Registry.class, registryTypeAdapter(registryFactory))
         .create();
   }
 

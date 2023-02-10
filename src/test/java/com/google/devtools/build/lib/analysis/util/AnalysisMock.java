@@ -145,7 +145,8 @@ public abstract class AnalysisMock extends LoadingMock {
         SkyFunctions.BAZEL_DEP_GRAPH,
         new BazelDepGraphFunction(),
         SkyFunctions.BAZEL_LOCK_FILE,
-        new BazelLockFileFunction(directories.getWorkspace(), FakeRegistry.class),
+        new BazelLockFileFunction(
+            directories.getWorkspace(),  FakeRegistry.DEFAULT_FACTORY),
         SkyFunctions.BAZEL_MODULE_RESOLUTION,
         new BazelModuleResolutionFunction(),
         SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
