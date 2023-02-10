@@ -418,9 +418,9 @@ distrib_jar_filegroup(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_annotation-2.16.jar",
-        "error_prone/error_prone_check_api-2.16.jar",
-        "error_prone/error_prone_core-2.16.jar",
+        "error_prone/error_prone_annotations-2.18.0.jar",
+        "error_prone/error_prone_check_api-2.18.0.jar",
+        "error_prone/error_prone_core-2.18.0.jar",
     ],
     exports = [
         ":error_prone_annotations",
