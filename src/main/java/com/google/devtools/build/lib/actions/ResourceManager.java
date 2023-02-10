@@ -272,13 +272,15 @@ public class ResourceManager implements ResourceEstimator {
     } catch (InterruptedException e) {
       // Synchronize on this to avoid any racing with #processWaitingThreads
       synchronized (this) {
-        if (latchWithWorker.latch == null || latchWithWorker.latch.getCount() == 0) {
-          // Resources already acquired by other side. Release them, but not inside this
-          // synchronized block to avoid deadlock.
-          release(resources, latchWithWorker.worker);
-        } else {
-          // Inform other side that resources shouldn't be acquired.
-          latchWithWorker.latch.countDown();
+        if (latchWithWorker != null) {
+          if (latchWithWorker.latch == null || latchWithWorker.latch.getCount() == 0) {
+            // Resources already acquired by other side. Release them, but not inside this
+            // synchronized block to avoid deadlock.
+            release(resources, latchWithWorker.worker);
+          } else {
+            // Inform other side that resources shouldn't be acquired.
+            latchWithWorker.latch.countDown();
+          }
         }
       }
       throw e;
