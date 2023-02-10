@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.Optional;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.Nullable;
 
 /**
  * Blaze module for the build summary message that reports various stats to the user.
@@ -273,7 +272,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
     }
   }
   
-  private static Duration addCpuTime(@Nullable Duration sumDuration, Duration termDuration) {
+  private static Duration addCpuTime(Duration sumDuration, Duration termDuration) {
     if (sumDuration != null) {
       if(sumDuration.isPresent() && (termDuration.toMillis() !=  UNKNOWN_CPU_TIME)) {
         termDuration = termDuration.plus(sumDuration.get());
