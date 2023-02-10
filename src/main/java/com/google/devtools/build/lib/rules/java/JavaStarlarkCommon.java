@@ -155,6 +155,15 @@ public class JavaStarlarkCommon
         || injectingRuleKind != Starlark.NONE) {
       checkPrivateAccess(thread);
     }
+
+    if (starlarkRuleContext.getRuleContext().useAutoExecGroups()) {
+      String javaToolchainType = javaSemantics.getJavaToolchainType();
+      if (!starlarkRuleContext.getRuleContext().hasToolchainContext(javaToolchainType)) {
+        throw Starlark.errorf(
+            "Action declared for non-existent toolchain '%s'.", javaToolchainType);
+      }
+    }
+
     return JavaInfoBuildHelper.getInstance()
         .createJavaCompileAction(
             starlarkRuleContext,

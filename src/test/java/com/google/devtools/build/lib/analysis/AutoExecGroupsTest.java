@@ -14,18 +14,24 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.regex.Pattern;
@@ -62,7 +68,15 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "rule/BUILD",
         "exports_files(['test_toolchain/bzl'])",
         "toolchain_type(name = 'toolchain_type_1')",
-        "toolchain_type(name = 'toolchain_type_2')");
+        "toolchain_type(name = 'toolchain_type_2')",
+        "java_runtime(",
+        "    name = 'jvm-k8',",
+        "    srcs = [",
+        "        'k8/a', ",
+        "        'k8/b',",
+        "    ], ",
+        "    java_home = 'k8',",
+        ")");
     scratch.file(
         "toolchain/BUILD",
         "load('//rule:test_toolchain.bzl', 'test_toolchain')",
@@ -845,5 +859,426 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "`toolchain` and `exec_group` parameters inside actions.{run, run_shell} are not"
             + " compatible; use one of them or define `toolchain` which is compatible with the"
             + " exec_group (already exists inside the `exec_group`)");
+  }
+
+  @Test
+  public void
+      javaCommonCompile_automaticExecGroupsEnabled_optimizationJarActionExecutesOnFirstPlatform()
+          throws Exception {
+    scratch.file(
+        "java/com/google/optimizationtest/BUILD",
+        "java_binary(",
+        "    name = 'optimizer',",
+        "    srcs = ['Foo.java'],",
+        ")",
+        "exports_files(['config.txt'])");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
+        "  java_info = java_common.compile(",
+        "    ctx,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
+        "  )",
+        "  return [DefaultInfo(files = depset([output_jar]))]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    '_use_auto_exec_groups': attr.bool(default = True),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_2', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name')");
+    useConfiguration(
+        "--experimental_local_java_optimizations",
+        "--experimental_bytecode_optimizers=Optimizer=//java/com/google/optimizationtest:optimizer",
+        "--experimental_local_java_optimization_configuration=//java/com/google/optimizationtest:config.txt");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    Action action = getGeneratingAction(target, "test/lib_custom_rule_name.jar");
+
+    assertThat(action.getMnemonic()).isEqualTo("Optimizer");
+    assertThat(action.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
+
+  @Test
+  public void
+      javaCommonCompile_automaticExecGroupsDisabled_optimizationJarActionExecutesOnSecondPlatform()
+          throws Exception {
+    scratch.file(
+        "java/com/google/optimizationtest/BUILD",
+        "java_binary(",
+        "    name = 'optimizer',",
+        "    srcs = ['Foo.java'],",
+        ")",
+        "exports_files(['config.txt'])");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
+        "  java_info = java_common.compile(",
+        "    ctx,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
+        "  )",
+        "  return [java_info, DefaultInfo(files = depset([output_jar]))]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  toolchains = ['//rule:toolchain_type_2', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  provides = [JavaInfo],",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name')");
+    useConfiguration(
+        "--experimental_local_java_optimizations",
+        "--experimental_bytecode_optimizers=Optimizer=//java/com/google/optimizationtest:optimizer",
+        "--experimental_local_java_optimization_configuration=//java/com/google/optimizationtest:config.txt");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    Action action = getGeneratingAction(target, "test/lib_custom_rule_name.jar");
+
+    assertThat(action.getMnemonic()).isEqualTo("Optimizer");
+    assertThat(action.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
+  }
+
+  @Test
+  public void javaCommonCompile_automaticExecGroupsEnabled_outputActionExecutesOnFirstPlatform()
+      throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
+        "  java_info = java_common.compile(",
+        "    ctx,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
+        "  )",
+        "  return [DefaultInfo(files = depset([output_jar]))]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  toolchains = ['//rule:toolchain_type_2', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name')");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    Action action = getGeneratingAction(target, "test/lib_custom_rule_name.jar");
+
+    assertThat(action.getMnemonic()).isEqualTo("Javac");
+    assertThat(action.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
+
+  @Test
+  public void javaCommonCompile_automaticExecGroupsDisabled_outputActionExecutesOnSecondPlatform()
+      throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
+        "  java_info = java_common.compile(",
+        "    ctx,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
+        "  )",
+        "  return [DefaultInfo(files = depset([output_jar]))]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  toolchains = ['//rule:toolchain_type_2', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name')");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    Action action = getGeneratingAction(target, "test/lib_custom_rule_name.jar");
+
+    assertThat(action.getMnemonic()).isEqualTo("Javac");
+    assertThat(action.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
+  }
+
+  @Test
+  public void javaCommonCompile_automaticExecGroupsEnabled_javaInfoActionsExecuteOnFirstPlatform()
+      throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
+        "  java_info = java_common.compile(",
+        "    ctx,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
+        "    plugins = [ctx.attr._plugins[JavaPluginInfo]],",
+        "  )",
+        "  return [java_info]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    '_plugins': attr.label(",
+        "      default = Label('//test:test_plugin'),",
+        "    ),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_2', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  provides = [JavaInfo],",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "java_plugin(",
+        "  name = 'test_plugin',",
+        "  processor_class = 'GeneratedProcessor',",
+        ")",
+        "custom_rule(name = 'custom_rule_name')");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    Action genSrcOutputAction =
+        getGeneratingAction(javaInfo.getOutputJars().getAllSrcOutputJars().get(0));
+    JavaGenJarsProvider javaGenJarsProvider = javaInfo.getGenJarsProvider();
+    Action genClassAction = getGeneratingAction(javaGenJarsProvider.getGenClassJar());
+    Action genSourceAction = getGeneratingAction(javaGenJarsProvider.getGenSourceJar());
+
+    assertThat(genSrcOutputAction.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+    assertThat(genClassAction.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+    assertThat(genSourceAction.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
+
+  @Test
+  public void javaCommonCompile_automaticExecGroupsDisabled_javaInfoActionsExecuteOnSecondPlatform()
+      throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
+        "  java_info = java_common.compile(",
+        "    ctx,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
+        "    plugins = [ctx.attr._plugins[JavaPluginInfo]],",
+        "  )",
+        "  return [java_info]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    '_plugins': attr.label(",
+        "      default = Label('//test:test_plugin'),",
+        "    ),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_2', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  provides = [JavaInfo],",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "java_plugin(",
+        "  name = 'test_plugin',",
+        "  processor_class = 'GeneratedProcessor',",
+        ")",
+        "custom_rule(name = 'custom_rule_name')");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    Action genSrcOutputAction =
+        getGeneratingAction(javaInfo.getOutputJars().getAllSrcOutputJars().get(0));
+    JavaGenJarsProvider javaGenJarsProvider = javaInfo.getGenJarsProvider();
+    Action genClassAction = getGeneratingAction(javaGenJarsProvider.getGenClassJar());
+    Action genSourceAction = getGeneratingAction(javaGenJarsProvider.getGenSourceJar());
+
+    assertThat(genSrcOutputAction.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
+    assertThat(genClassAction.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
+    assertThat(genSourceAction.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
+  }
+
+  @Test
+  public void javaCommonCompile_automaticExecGroupsEnabled_lazyActionExecutesOnFirstPlatform()
+      throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
+        "  java_info = java_common.compile(",
+        "    ctx,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
+        "    source_files = ctx.files.srcs,",
+        "  )",
+        "  return [java_info, DefaultInfo(files = depset([output_jar]))]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  toolchains = ['//rule:toolchain_type_2', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "  },",
+        "  provides = [JavaInfo],",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name', srcs = ['Main.java'])");
+    useConfiguration("--incompatible_auto_exec_groups", "--collect_code_coverage");
+
+    ImmutableList<Action> actions =
+        getActions("//test:custom_rule_name", LazyWritePathsFileAction.class);
+
+    assertThat(actions).hasSize(1);
+    assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
+
+  @Test
+  public void javaCommonCompile_automaticExecGroupsDisabled_lazyActionExecutesOnSecondPlatform()
+      throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
+        "  java_info = java_common.compile(",
+        "    ctx,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
+        "    source_files = ctx.files.srcs,",
+        "  )",
+        "  return [java_info, DefaultInfo(files = depset([output_jar]))]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  toolchains = ['//rule:toolchain_type_2', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "  },",
+        "  provides = [JavaInfo],",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name', srcs = ['Main.java'])");
+    useConfiguration("--collect_code_coverage");
+
+    ImmutableList<Action> actions =
+        getActions("//test:custom_rule_name", LazyWritePathsFileAction.class);
+
+    assertThat(actions).hasSize(1);
+    assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
+  }
+
+  @Test
+  public void
+      javaCommonCompile_automaticExecGroupsEnabled_javaResourceActionsExecuteOnFirstPlatform()
+          throws Exception {
+    scratch.file(
+        "bazel_internal/test/defs.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
+        "  java_info = java_common.compile(",
+        "    ctx,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
+        "    resources = ctx.files.resources,",
+        "    resource_jars = ctx.files.resource_jars,",
+        "    classpath_resources = ctx.files.classpath_resources,",
+        "  )",
+        "  return [java_info, DefaultInfo(files = depset([output_jar]))]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  toolchains = ['//rule:toolchain_type_2', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  attrs = {",
+        "    'resources': attr.label_list(allow_files = True),",
+        "    'resource_jars': attr.label_list(allow_files = True),",
+        "    'classpath_resources': attr.label_list(allow_files = True),",
+        "  },",
+        "  provides = [JavaInfo],",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "bazel_internal/test/BUILD",
+        "load('//bazel_internal/test:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name', resources = ['Resources.java'], resource_jars ="
+            + " ['ResourceJars.java'], classpath_resources = ['ClasspathResources.java'])");
+    useConfiguration(
+        "--incompatible_auto_exec_groups", "--experimental_turbine_annotation_processing");
+
+    ImmutableList<Action> actions = getActions("//bazel_internal/test:custom_rule_name");
+    ImmutableList<Action> javaResourceActions =
+        actions.stream()
+            .filter(action -> action.getMnemonic().equals("JavaResourceJar"))
+            .collect(toImmutableList());
+
+    assertThat(javaResourceActions).hasSize(1);
+    assertThat(javaResourceActions.get(0).getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
+
+  @Test
+  public void
+      javaCommonCompile_automaticExecGroupsDisabled_javaResourceActionsExecuteOnSecondPlatform()
+          throws Exception {
+    scratch.file(
+        "bazel_internal/test/defs.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
+        "  java_info = java_common.compile(",
+        "    ctx,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
+        "    resources = ctx.files.resources,",
+        "    resource_jars = ctx.files.resource_jars,",
+        "    classpath_resources = ctx.files.classpath_resources,",
+        "  )",
+        "  return [java_info, DefaultInfo(files = depset([output_jar]))]",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  toolchains = ['//rule:toolchain_type_2', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  attrs = {",
+        "    'resources': attr.label_list(allow_files = True),",
+        "    'resource_jars': attr.label_list(allow_files = True),",
+        "    'classpath_resources': attr.label_list(allow_files = True),",
+        "  },",
+        "  provides = [JavaInfo],",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "bazel_internal/test/BUILD",
+        "load('//bazel_internal/test:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name', resources = ['Resources.java'], resource_jars ="
+            + " ['ResourceJars.java'], classpath_resources = ['ClasspathResources.java'])");
+    useConfiguration("--experimental_turbine_annotation_processing");
+
+    ImmutableList<Action> actions = getActions("//bazel_internal/test:custom_rule_name");
+    ImmutableList<Action> javaResourceActions =
+        actions.stream()
+            .filter(action -> action.getMnemonic().equals("JavaResourceJar"))
+            .collect(toImmutableList());
+
+    assertThat(javaResourceActions).hasSize(1);
+    assertThat(javaResourceActions.get(0).getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
   }
 }
