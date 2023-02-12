@@ -17,6 +17,9 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
 
+/**
+ * Utility class to hold type adapters and helper methods to get gson registered with type adapters
+ */
 public class TypeAdapterUtil {
 
   public static TypeAdapter<Version> versionTypeAdapter = new TypeAdapter<>() {
@@ -92,6 +95,11 @@ public class TypeAdapterUtil {
       .registerTypeAdapter(Version.class, versionTypeAdapter)
       .registerTypeAdapter(ModuleKey.class, moduleKeyTypeAdapter);
 
+  /**
+   * Gets a gson with registered adapters needed to read the lockfile.
+   * @param registryFactory Registry factory to use in the registry adapter
+   * @return gson with type adapters
+   */
   public static Gson getLockfileGsonWithTypeAdapters(RegistryFactory registryFactory){
     return adapterGson
         .registerTypeAdapter(Registry.class, registryTypeAdapter(registryFactory))
