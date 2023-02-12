@@ -58,6 +58,8 @@ public abstract class BazelLockFileValue implements SkyValue {
     );
   }
 
+  //TODO(salmasamy) we need to add yankedVersions and bazelCompatibility & directDeps error level
+
   /** Current version of the lock file */
   public abstract int getLockFileVersion();
 
