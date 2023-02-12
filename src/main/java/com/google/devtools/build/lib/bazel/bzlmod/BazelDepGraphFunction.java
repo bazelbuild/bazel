@@ -28,7 +28,9 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.LabelConverter;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -36,6 +38,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * This function runs Bazel module resolution, extracts the dependency graph from it and creates a
@@ -54,24 +57,34 @@ public class BazelDepGraphFunction implements SkyFunction {
     if (root == null) {
       return null;
     }
-    BazelLockFileValue lockFile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
-    if(lockFile == null) {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
       return null;
     }
 
-    ImmutableMap<ModuleKey, Module> depGraph;
     // If the module has not changed (has the same hash as the lockfile module hash),
     // read the dependency graph from the lock file, else run selection and update lockfile
-    if(lockFile.getModuleFileHash().equals(root.getModuleHash())){
-      depGraph = lockFile.getModuleDepGraph();
-    } else {
+    ImmutableMap<ModuleKey, Module> depGraph = null;
+    if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_LOCKFILE)){
+      BazelLockFileValue lockFile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
+      if(lockFile == null) {
+        return null;
+      }
+      if(lockFile.getModuleFileHash().equals(root.getModuleHash())) {
+        depGraph = lockFile.getModuleDepGraph();
+      }
+    }
+
+    if(depGraph == null){
       BazelModuleResolutionValue selectionResult =
           (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
       if (env.valuesMissing()) {
         return null;
       }
       depGraph = selectionResult.getResolvedDepGraph();
-      BazelLockFileFunction.updateLockedModule(root.getModuleHash(), depGraph);
+      if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_LOCKFILE)) {
+        BazelLockFileFunction.updateLockedModule(root.getModuleHash(), depGraph);
+      }
     }
 
     ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
