@@ -17,10 +17,13 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
@@ -49,10 +52,6 @@ import net.starlark.java.eval.StarlarkSemantics;
 
 /** A builder for {@link BuildConfigurationValue} instances. */
 public final class BuildConfigurationFunction implements SkyFunction {
-
-  // The length of the hash of the config tacked onto the end of the output path.
-  // Limited for ergonomics and MAX_PATH reasons.
-  private static final int HASH_LENGTH = 12;
 
   private final BlazeDirectories directories;
   private final ConfiguredRuleClassProvider ruleClassProvider;
@@ -269,14 +268,18 @@ public final class BuildConfigurationFunction implements SkyFunction {
 
   @VisibleForTesting
   public static String transitionDirectoryNameFragment(Iterable<String> opts) {
+    Preconditions.checkArgument(!Iterables.isEmpty(opts));
     Fingerprint fp = new Fingerprint();
     for (String opt : opts) {
       fp.addString(opt);
     }
-    // Shorten the hash to 48 bits. This should provide sufficient collision avoidance
-    // (that is, we don't expect anyone to experience a collision ever).
-    // Shortening the hash is important for Windows paths that tend to be short.
-    String suffix = fp.hexDigestAndReset().substring(0, HASH_LENGTH);
+    byte[] digest = fp.digestAndReset();
+    // Shorten the hash to 45 bits (nine Base32 digits). This should provide sufficient collision
+    // avoidance (that is, we don't expect anyone to experience a collision ever). More efficient
+    // encoding schemes such as Base64 can't be used as some file systems are not case sensitive.
+    // Shortening the hash is important for paths on Windows where MAX_PATH is very low.
+    String suffix = BaseEncoding.base32Hex().lowerCase().omitPadding().encode(digest)
+        .substring(0, 9);
     return "ST-" + suffix;
   }
 }
