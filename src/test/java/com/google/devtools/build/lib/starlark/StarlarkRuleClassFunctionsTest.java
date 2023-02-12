@@ -1120,6 +1120,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLabelIdempotence() throws Exception {
+    Object result = ev.eval("Label(Label('//foo/foo:foo'))");
+    assertThat(result).isInstanceOf(Label.class);
+    assertThat(result.toString()).isEqualTo("//foo/foo:foo");
+  }
+
+  @Test
   public void testLabelSameInstance() throws Exception {
     Object l1 = ev.eval("Label('//foo/foo:foo')");
     // Implicitly creates a new pkgContext and environment, yet labels should be the same.
@@ -1246,10 +1253,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     checkTextMessage("struct(name=['a', 'b']).to_proto()", "name: \"a\"", "name: \"b\"");
     checkTextMessage("struct(name=123).to_proto()", "name: 123");
     checkTextMessage(
-        "struct(a=1.2e34, b=float('nan'), c=float('-inf')).to_proto()",
+        "struct(a=1.2e34, b=float('nan'), c=float('-inf'), d=float('+inf')).to_proto()",
         "a: 1.2e+34",
         "b: nan",
-        "c: -inf");
+        "c: -inf",
+        // Caution! textproto requires +inf be encoded as "inf" rather than "+inf"
+        "d: inf");
     checkTextMessage("struct(name=123).to_proto()", "name: 123");
     checkTextMessage("struct(name=[1, 2, 3]).to_proto()", "name: 1", "name: 2", "name: 3");
     checkTextMessage("struct(a=struct(b='b')).to_proto()", "a {", "  b: \"b\"", "}");
@@ -1331,12 +1340,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testTextMessageInvalidStructure() throws Exception {
     // list in list
     ev.checkEvalErrorContains(
-        "in struct field .a: at list index 0: got list, want string, int, bool, or struct",
+        "in struct field .a: at list index 0: got list, want string, int, float, bool, or struct",
         "struct(a=[['b']]).to_proto()");
 
     // dict in list
     ev.checkEvalErrorContains(
-        "in struct field .a: at list index 0: got dict, want string, int, bool, or struct",
+        "in struct field .a: at list index 0: got dict, want string, int, float, bool, or struct",
         "struct(a=[{'b': 1}]).to_proto()");
 
     // tuple as dict key
@@ -1346,13 +1355,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     // dict in dict
     ev.checkEvalErrorContains(
-        "in struct field .name: in value for dict key \"a\": got dict, want string, int, bool, or"
-            + " struct",
+        "in struct field .name: in value for dict key \"a\": got dict, want string, int, float,"
+            + " bool, or struct",
         "struct(name={'a': {'b': [1, 2]}}).to_proto()");
 
     // callable in field
     ev.checkEvalErrorContains(
-        "in struct field .a: got builtin_function_or_method, want string, int, bool, or struct",
+        "in struct field .a: got builtin_function_or_method, want string, int, float, bool, or"
+            + " struct",
         "struct(a=rule).to_proto()");
   }
 

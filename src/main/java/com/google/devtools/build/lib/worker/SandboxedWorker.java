@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.File;
@@ -66,6 +67,8 @@ final class SandboxedWorker extends SingleplexWorker {
 
     abstract int memoryLimit();
 
+    abstract ImmutableSet<Path> inaccessiblePaths();
+
     public static WorkerSandboxOptions create(
         Path sandboxBinary,
         boolean fakeHostname,
@@ -73,7 +76,8 @@ final class SandboxedWorker extends SingleplexWorker {
         boolean debugMode,
         ImmutableList<PathFragment> tmpfsPath,
         ImmutableList<String> writablePaths,
-        int memoryLimit) {
+        int memoryLimit,
+        ImmutableSet<Path> inaccessiblePaths) {
       return new AutoValue_SandboxedWorker_WorkerSandboxOptions(
           fakeHostname,
           fakeUsername,
@@ -81,7 +85,8 @@ final class SandboxedWorker extends SingleplexWorker {
           tmpfsPath,
           writablePaths,
           sandboxBinary,
-          memoryLimit);
+          memoryLimit,
+          inaccessiblePaths);
     }
   }
 
@@ -91,6 +96,9 @@ final class SandboxedWorker extends SingleplexWorker {
   @Nullable private final WorkerSandboxOptions hardenedSandboxOptions;
   /** If non-null, a directory that allows cgroup control. */
   private String cgroupsDir;
+
+  private Path inaccessibleHelperDir;
+  private Path inaccessibleHelperFile;
 
   SandboxedWorker(
       WorkerKey workerKey,
@@ -136,13 +144,23 @@ final class SandboxedWorker extends SingleplexWorker {
   }
 
   private ImmutableList<BindMount> getBindMounts(Path sandboxExecRoot, @Nullable Path sandboxTmp)
-      throws UserExecException {
+      throws UserExecException, IOException {
     Path tmpPath = sandboxExecRoot.getFileSystem().getPath("/tmp");
     final SortedMap<Path, Path> bindMounts = Maps.newTreeMap();
     ImmutableList.Builder<BindMount> result = ImmutableList.builder();
     // Mount a fresh, empty temporary directory as /tmp for each sandbox rather than reusing the
     // host filesystem's /tmp. Since we're in a worker, we clean this dir between requests.
     bindMounts.put(tmpPath, sandboxTmp);
+    // TODO(larsrc): Add support for sandboxAdditionalMounts
+    inaccessibleHelperFile = LinuxSandboxUtil.getInaccessibleHelperFile(sandboxExecRoot);
+    inaccessibleHelperDir = LinuxSandboxUtil.getInaccessibleHelperDir(sandboxExecRoot);
+    for (Path inaccessiblePath : hardenedSandboxOptions.inaccessiblePaths()) {
+      if (inaccessiblePath.isDirectory(Symlinks.NOFOLLOW)) {
+        bindMounts.put(inaccessiblePath, inaccessibleHelperDir);
+      } else {
+        bindMounts.put(inaccessiblePath, inaccessibleHelperFile);
+      }
+    }
     // TODO(larsrc): Handle hermetic tmp
     for (Map.Entry<Path, Path> bindMount : bindMounts.entrySet()) {
       result.add(BindMount.of(bindMount.getKey(), bindMount.getValue()));
@@ -257,6 +275,12 @@ final class SandboxedWorker extends SingleplexWorker {
   void destroy() {
     super.destroy();
     try {
+      if (inaccessibleHelperFile != null) {
+        inaccessibleHelperFile.delete();
+      }
+      if (inaccessibleHelperDir != null) {
+        inaccessibleHelperDir.delete();
+      }
       if (cgroupsDir != null) {
         // This is only to not leave too much behind in the cgroups tree, can ignore errors.
         new File(cgroupsDir).delete();

@@ -152,6 +152,7 @@ def _create_deploy_archive(
     args.set_param_file_format("shell").use_param_file("@%s", use_always = True)
 
     args.add("--output", output)
+    args.add("--build_target", str(ctx.label)[:-len(DEPLOY_JAR_RULE_NAME_SUFFIX)])
     args.add("--normalize")
     args.add("--compression")
     if main_class:

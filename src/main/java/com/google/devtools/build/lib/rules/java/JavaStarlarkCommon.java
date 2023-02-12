@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
@@ -154,6 +155,15 @@ public class JavaStarlarkCommon
         || injectingRuleKind != Starlark.NONE) {
       checkPrivateAccess(thread);
     }
+
+    if (starlarkRuleContext.getRuleContext().useAutoExecGroups()) {
+      String javaToolchainType = javaSemantics.getJavaToolchainType();
+      if (!starlarkRuleContext.getRuleContext().hasToolchainContext(javaToolchainType)) {
+        throw Starlark.errorf(
+            "Action declared for non-existent toolchain '%s'.", javaToolchainType);
+      }
+    }
+
     return JavaInfoBuildHelper.getInstance()
         .createJavaCompileAction(
             starlarkRuleContext,
@@ -347,10 +357,14 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public String getTargetKind(Object target, StarlarkThread thread) throws EvalException {
+  public String getTargetKind(Object target, boolean dereferenceAliases, StarlarkThread thread)
+      throws EvalException {
     checkPrivateAccess(thread);
     if (target instanceof MergedConfiguredTarget) {
       target = ((MergedConfiguredTarget) target).getBaseConfiguredTarget();
+    }
+    if (dereferenceAliases && target instanceof ConfiguredTarget) {
+      target = ((ConfiguredTarget) target).getActual();
     }
     if (target instanceof AbstractConfiguredTarget) {
       return ((AbstractConfiguredTarget) target).getRuleClassString();

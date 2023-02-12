@@ -17,9 +17,13 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
+import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
 
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -89,7 +93,10 @@ public final class TieredPriorityExecutorTest {
             receiver.incrementAndGet();
           });
     }
-    poolFull.await(); // Waits for the pool to fill to ensure that tasks have been enqueued.
+    // Waits for the pool to fill to ensure tasks have been enqueued.
+    if (!poolFull.await(WAIT_TIMEOUT_SECONDS, SECONDS)) {
+      fail("timed out waiting for " + POOL_SIZE + " tasks to start: " + executor);
+    }
     go.countDown();
     executor.awaitQuiescence(/* interruptWorkers= */ true);
     assertThat(receiver.get()).isEqualTo(100);
@@ -121,7 +128,9 @@ public final class TieredPriorityExecutorTest {
               awaitUninterruptibly(gate);
             }));
 
-    allBlockersStarted.await();
+    if (!allBlockersStarted.await(WAIT_TIMEOUT_SECONDS, SECONDS)) {
+      fail("timed out waiting for initial threads to start: " + executor);
+    }
 
     var sequence = new AtomicInteger(100);
     CountDownLatch sequenceCheckDone = new CountDownLatch(100 - CPU_PERMITS);
@@ -197,7 +206,9 @@ public final class TieredPriorityExecutorTest {
     }
 
     gate.countDown();
-    load.await();
+    if (!load.await(WAIT_TIMEOUT_SECONDS, SECONDS)) {
+      fail("timed out waiting for tasks to execute: " + executor);
+    }
     holdAllButOneThread.countDown();
     executor.awaitQuiescence(/* interruptWorkers= */ true);
     assertThat(received)
@@ -604,7 +615,9 @@ public final class TieredPriorityExecutorTest {
     // to happen before the interrupt happens. It's hard to guarantee this, but chances are small
     // that all the above threads will start and not call Future.get until after the interrupt below
     // propagates.
-    allStarted.await();
+    if (!allStarted.await(WAIT_TIMEOUT_SECONDS, SECONDS)) {
+      fail("timed out waiting for threads to start: " + executor);
+    }
 
     thread.interrupt();
     thread.join();
@@ -644,12 +657,118 @@ public final class TieredPriorityExecutorTest {
     thread.start();
 
     // Waits for all threads to start before interrupting.
-    allStarted.await();
+    if (!allStarted.await(WAIT_TIMEOUT_SECONDS, SECONDS)) {
+      fail("timed out waiting for tasks to start:" + executor);
+    }
 
     thread.interrupt();
     thread.join();
 
     assertThat(interruptedCount.get()).isEqualTo(POOL_SIZE);
+  }
+
+  @Test
+  public void taskQueueOverflow_executesTasks() throws InterruptedException {
+    var allHoldersStarted = new CountDownLatch(POOL_SIZE);
+    var holdAllThreads = new CountDownLatch(1);
+    for (int i = 0; i < POOL_SIZE; ++i) {
+      executor.execute(
+          () -> {
+            allHoldersStarted.countDown();
+            awaitUninterruptibly(holdAllThreads);
+          });
+    }
+
+    // Waits for holders to start, otherwise they might race against the filling of the queue below.
+    allHoldersStarted.await();
+
+    // Fills up the queue.
+    var executed = new ArrayList<Integer>();
+    var expected = new ArrayList<Integer>();
+    for (int i = 0; i < PriorityWorkerPool.TASKS_MAX_VALUE; ++i) {
+      expected.add(i);
+
+      final int index = i;
+      executor.execute(() -> executed.add(index));
+    }
+
+    // Adds tasks that would overflow the queue. Since overflows consume tasks from the queue, this
+    // causes all the tasks above to be executed.
+    var donorValues = Sets.<Integer>newConcurrentHashSet();
+    for (int i = 0; i < PriorityWorkerPool.TASKS_MAX_VALUE; ++i) {
+      final int index = i;
+      executor.execute(() -> donorValues.add(index));
+    }
+
+    assertThat(executed).isEqualTo(expected);
+    assertThat(donorValues).isEmpty();
+
+    holdAllThreads.countDown();
+    executor.awaitQuiescence(/* interruptWorkers= */ true);
+
+    assertThat(donorValues).containsExactlyElementsIn(expected);
+  }
+
+  @Test
+  public void taskQueueOverflow_doesNotExecuteWhenCancelled() throws InterruptedException {
+    var holdAllThreads = new CountDownLatch(1);
+    for (int i = 0; i < POOL_SIZE; ++i) {
+      executor.execute(() -> awaitUninterruptibly(holdAllThreads));
+    }
+
+    Thread thread =
+        new Thread(
+            () ->
+                assertThrows(
+                    InterruptedException.class,
+                    () -> executor.awaitQuiescence(/* interruptWorkers= */ true)));
+    thread.start();
+
+    // Interrupts the executor and waits for the interrupt to be noticed.
+    thread.interrupt();
+    do {
+      waitForInterruptPolling();
+    } while (!executor.isCancelledForTestingOnly());
+
+    // Overfills the queue: none of these should run due to the cancellation, but they are enqueued
+    // internally until the queue overflows, after which they are dropped.
+    var executed = new ArrayList<Integer>();
+    for (int i = 0; i < 2 * PriorityWorkerPool.TASKS_MAX_VALUE; ++i) {
+      final int index = i;
+      executor.execute(() -> executed.add(index));
+    }
+
+    holdAllThreads.countDown();
+    thread.join();
+
+    assertThat(executed).isEmpty();
+  }
+
+  @Test
+  public void fjpExecute_alwaysStartsThreads() throws InterruptedException {
+    // This test demonstrates a category of flakes that may rarely occur in other tests in this file
+    // caused by a (JDK Bug)[https://bugs.openjdk.org/browse/JDK-8292969] that is fixed in more
+    // recent versions of Java.
+    ForkJoinPool pool = new ForkJoinPool(10);
+    CountDownLatch allStarted = new CountDownLatch(10);
+    CountDownLatch gate = new CountDownLatch(1);
+    Runnable task =
+        () -> {
+          allStarted.countDown();
+          awaitUninterruptibly(gate);
+        };
+
+    for (int i = 0; i < 10; ++i) {
+      pool.execute(task);
+    }
+
+    if (!allStarted.await(WAIT_TIMEOUT_SECONDS, SECONDS)) {
+      fail("timed out waiting: " + pool);
+    }
+
+    gate.countDown();
+    pool.shutdown();
+    assertThat(pool.awaitQuiescence(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
   }
 
   private static class CpuHeavyRunnable implements ComparableRunnable {

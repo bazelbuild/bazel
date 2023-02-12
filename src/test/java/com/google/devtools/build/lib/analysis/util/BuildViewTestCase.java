@@ -1886,6 +1886,19 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ImmutableList.copyOf(result);
   }
 
+  protected ImmutableList<Action> getActions(String label, Class<?> actionClass) throws Exception {
+    return ((RuleConfiguredTarget) getConfiguredTarget(label))
+        .getActions().stream()
+            .map(Action.class::cast)
+            .filter(action -> action.getClass().equals(actionClass))
+            .collect(toImmutableList());
+  }
+
+  protected ImmutableList<Action> getActions(String label) throws Exception {
+    return ((RuleConfiguredTarget) getConfiguredTarget(label))
+        .getActions().stream().map(Action.class::cast).collect(toImmutableList());
+  }
+
   protected static NestedSet<Artifact> getOutputGroup(
       TransitiveInfoCollection target, String outputGroup) {
     OutputGroupInfo provider = OutputGroupInfo.get(target);

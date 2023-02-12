@@ -97,6 +97,13 @@ public class BazelJavaSemantics implements JavaSemantics {
   private BazelJavaSemantics() {
   }
 
+  private static final String JAVA_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:toolchain_type";
+
+  @Override
+  public String getJavaToolchainType() {
+    return JAVA_TOOLCHAIN_TYPE;
+  }
+
   @Override
   public void checkRule(RuleContext ruleContext, JavaCommon javaCommon) {
   }

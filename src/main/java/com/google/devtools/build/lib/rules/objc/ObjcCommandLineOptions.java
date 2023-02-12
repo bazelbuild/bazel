@@ -181,6 +181,17 @@ public class ObjcCommandLineOptions extends FragmentOptions {
               + "details and migration information")
   public boolean incompatibleObjcLinkingInfoMigration;
 
+  @Option(
+      name = "incompatible_disallow_sdk_frameworks_attributes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, disallow sdk_frameworks and weak_sdk_frameworks attributes in objc_library and"
+              + "objc_import.")
+  public boolean incompatibleDisallowSdkFrameworksAttributes;
+
   /** @deprecated delete when we are sure it's not used anywhere. */
   @Deprecated
   @Option(
@@ -201,6 +212,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     exec.incompatibleAvoidHardcodedObjcCompilationFlags =
         incompatibleAvoidHardcodedObjcCompilationFlags;
     exec.incompatibleObjcLinkingInfoMigration = incompatibleObjcLinkingInfoMigration;
+    exec.incompatibleDisallowSdkFrameworksAttributes = incompatibleDisallowSdkFrameworksAttributes;
     return exec;
   }
 }

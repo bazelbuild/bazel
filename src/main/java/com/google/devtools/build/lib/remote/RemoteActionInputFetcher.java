@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -73,10 +71,7 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   @Override
   protected void prefetchVirtualActionInput(VirtualActionInput input) throws IOException {
-    if (!(input instanceof EmptyActionInput)) {
-      Path outputPath = execRoot.getRelative(input.getExecPath());
-      SandboxHelpers.atomicallyWriteVirtualInput(input, outputPath, ".fetcher");
-    }
+    input.atomicallyWriteRelativeTo(execRoot, ".fetcher");
   }
 
   @Override

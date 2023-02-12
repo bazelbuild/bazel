@@ -36,8 +36,14 @@ cc_binary(
     name = "binary",
     srcs = ["main.cc"],
     dynamic_deps = ["foo_so"],
-    deps = ["foo"],
+    deps = [
+        ":foo",
+    ],
 )
+
+# TODO(bazel-team): Add a test for proto dependencies once these tests are run
+# directly from a BUILD file and not from within a shell test. Right now
+# mocking what's needed to have a single proto dependency makes it impractical.
 
 cc_binary(
     name = "binary_with_bar_so_twice",
@@ -98,7 +104,10 @@ cc_shared_library(
         ],
         "//conditions:default": [],
     }),
-    dynamic_deps = ["bar_so"],
+    dynamic_deps = [
+        "bar_so",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg_so"
+    ],
     features = ["windows_export_all_symbols"],
     preloaded_deps = ["preloaded_dep"],
     deps = [
@@ -144,6 +153,7 @@ cc_library(
         "qux",
         "qux2",
         "prebuilt",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg"
     ],
 )
 
@@ -331,8 +341,8 @@ build_failure_test(
 
 cc_library(
     name = "prebuilt",
+    hdrs = ["direct_so_file_cc_lib.h"],
     srcs = [
-        "direct_so_file_cc_lib.h",
         ":just_main_output",
     ],
 )
@@ -481,4 +491,10 @@ runfiles_test(
 no_exporting_static_lib_test(
     name = "no_exporting_static_lib_test",
     target_under_test = ":lib_with_no_exporting_roots",
+)
+
+build_failure_test(
+    name = "shared_library_without_deps",
+    message = "'cc_shared_library' must have at least one dependency in 'deps' (or 'roots')",
+    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:failing_with_no_deps_so",
 )

@@ -100,3 +100,8 @@ cc_shared_library(
     ],
     tags = TAGS,
 )
+
+cc_shared_library(
+    name = "failing_with_no_deps_so",
+    tags = TAGS,
+)

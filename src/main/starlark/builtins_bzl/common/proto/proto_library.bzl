@@ -296,4 +296,5 @@ proto_library = rule(
     fragments = ["proto"] + semantics.EXTRA_FRAGMENTS,
     provides = [ProtoInfo],
     output_to_genfiles = True,  # TODO(b/204266604) move to bin dir
+    exec_groups = semantics.EXEC_GROUPS,
 )

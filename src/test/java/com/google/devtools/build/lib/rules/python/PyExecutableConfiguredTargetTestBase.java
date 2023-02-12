@@ -175,26 +175,6 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   }
 
   @Test
-  public void versionAttrTakesPrecedence_NonDefaultValue() throws Exception {
-    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled
-    setBuildLanguageOptions(
-        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
-    scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
-
-    assertPythonVersionIs_UnderNewConfig("//pkg:foo", PythonVersion.PY3, "--python_version=PY2");
-  }
-
-  @Test
-  public void versionAttrTakesPrecedence_DefaultValue() throws Exception {
-    PythonTestUtils.assumeIsBazel(); // Google has py2 disabled
-    setBuildLanguageOptions(
-        "--experimental_builtins_injection_override=-py_test,-py_binary,-py_library");
-    scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
-
-    assertPythonVersionIs_UnderNewConfig("//pkg:foo", PythonVersion.PY3, "--python_version=PY2");
-  }
-
-  @Test
   public void targetInPackageWithHyphensOkIfSrcsFromOtherPackage() throws Exception {
     scratch.file(
         "pkg/BUILD", //

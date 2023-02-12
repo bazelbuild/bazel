@@ -734,8 +734,14 @@ def _create_providers(
         DefaultInfo(
             executable = executable,
             files = files_to_build,
-            default_runfiles = runfiles_details.default_runfiles,
-            data_runfiles = runfiles_details.data_runfiles,
+            default_runfiles = _py_builtins.make_runfiles_respect_legacy_external_runfiles(
+                ctx,
+                runfiles_details.default_runfiles,
+            ),
+            data_runfiles = _py_builtins.make_runfiles_respect_legacy_external_runfiles(
+                ctx,
+                runfiles_details.data_runfiles,
+            ),
         ),
         create_instrumented_files_info(ctx),
         _create_run_environment_info(ctx, inherited_environment),
