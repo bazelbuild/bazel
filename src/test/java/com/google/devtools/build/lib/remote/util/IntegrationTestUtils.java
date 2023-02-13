@@ -25,8 +25,15 @@ import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import java.io.IOException;
 import java.net.DatagramSocket;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.net.SocketAddress;
 import java.net.SocketException;
+import java.nio.channels.SocketChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Comparator;
 import java.util.Random;
 
 /** Integration test utilities. */
@@ -73,6 +80,23 @@ public final class IntegrationTestUtils {
     throw new IOException("Failed to find available port");
   }
 
+  public static void waitForPortOpen(int port) throws IOException, InterruptedException {
+    boolean scanning = true;
+    while (scanning) {
+      try {
+        SocketAddress addr = new InetSocketAddress("localhost", port);
+        try (var socketChannel = SocketChannel.open()) {
+          socketChannel.configureBlocking(/* block= */ true);
+          socketChannel.connect(addr);
+        }
+        scanning = false;
+      } catch (IOException ignored) {
+        System.out.println("Connect failed, waiting and trying again");
+        Thread.sleep(1);
+      }
+    }
+  }
+
   public static WorkerInstance startWorker() throws IOException, InterruptedException {
     return startWorker(/* useHttp= */ false);
   }
@@ -82,7 +106,6 @@ public final class IntegrationTestUtils {
     PathFragment testTmpDir = PathFragment.create(tmpDirFile().getAbsolutePath());
     PathFragment workPath = testTmpDir.getRelative("remote.work_path");
     PathFragment casPath = testTmpDir.getRelative("remote.cas_path");
-    PathFragment pidPath = testTmpDir.getRelative("remote.pid_file");
     int workerPort = pickUnusedRandomPort();
     ensureMkdir(workPath);
     ensureMkdir(casPath);
@@ -94,20 +117,10 @@ public final class IntegrationTestUtils {
                     workerPath,
                     "--work_path=" + workPath.getSafePathString(),
                     "--cas_path=" + casPath.getSafePathString(),
-                    (useHttp ? "--http_listen_port=" : "--listen_port=") + workerPort,
-                    "--pid_file=" + pidPath))
+                    (useHttp ? "--http_listen_port=" : "--listen_port=") + workerPort))
             .start();
-
-    File pidFile = new File(pidPath.getSafePathString());
-    while (!pidFile.exists()) {
-      if (!workerProcess.isAlive()) {
-        String message = new String(workerProcess.getErrorStream().readAllBytes(), UTF_8);
-        throw new IOException("Failed to start worker: " + message);
-      }
-      Thread.sleep(1);
-    }
-
-    return new WorkerInstance(workerProcess, workerPort, workPath, casPath, pidPath);
+    waitForPortOpen(workerPort);
+    return new WorkerInstance(workerProcess, workerPort, workPath, casPath);
   }
 
   private static void ensureMkdir(PathFragment path) throws IOException {
@@ -125,23 +138,28 @@ public final class IntegrationTestUtils {
     private final int port;
     private final PathFragment workPath;
     private final PathFragment casPath;
-    private final PathFragment pidPath;
 
     private WorkerInstance(
         Subprocess process,
         int port,
         PathFragment workPath,
-        PathFragment casPath,
-        PathFragment pidPath) {
+        PathFragment casPath) {
       this.process = process;
       this.port = port;
       this.workPath = workPath;
       this.casPath = casPath;
-      this.pidPath = pidPath;
     }
 
-    public void stop() {
+    public void stop() throws IOException {
       process.destroyAndWait();
+      deleteDir(workPath);
+      deleteDir(casPath);
+    }
+
+    private static void deleteDir(PathFragment path) throws IOException {
+      try (var stream = Files.walk(Paths.get(path.getSafePathString()))) {
+        stream.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+      }
     }
 
     public int getPort() {
@@ -154,10 +172,6 @@ public final class IntegrationTestUtils {
 
     public PathFragment getCasPath() {
       return casPath;
-    }
-
-    public PathFragment getPidPath() {
-      return pidPath;
     }
   }
 }
