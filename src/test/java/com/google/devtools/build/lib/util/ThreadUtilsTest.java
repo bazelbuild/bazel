@@ -56,7 +56,7 @@ public class ThreadUtilsTest {
           }
 
           @Override
-          public void sendNonFatalBugReport(Exception exception) {
+          public void sendNonFatalBugReport(Throwable exception) {
             throw new UnsupportedOperationException();
           }
 

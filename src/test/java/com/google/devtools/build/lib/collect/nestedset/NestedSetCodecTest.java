@@ -128,7 +128,7 @@ public final class NestedSetCodecTest {
 
   @Test
   public void missingNestedSetException_hiddenUntilNestedSetIsConsumed() throws Exception {
-    MissingNestedSetException missingNestedSetException =
+    Throwable missingNestedSetException =
         new MissingNestedSetException(ByteString.copyFromUtf8("fingerprint"));
     NestedSetStorageEndpoint storageEndpoint =
         new NestedSetStorageEndpoint() {
@@ -154,7 +154,7 @@ public final class NestedSetCodecTest {
     assertThat(deserialized).isInstanceOf(NestedSet.class);
     assertThrows(
         MissingNestedSetException.class, ((NestedSet<?>) deserialized)::toListInterruptibly);
-    verify(bugReporter).sendBugReport(missingNestedSetException);
+    verify(bugReporter).sendNonFatalBugReport(missingNestedSetException);
   }
 
   @Test
