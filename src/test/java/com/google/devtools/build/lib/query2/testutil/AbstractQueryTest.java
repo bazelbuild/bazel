@@ -684,6 +684,8 @@ public abstract class AbstractQueryTest<T> {
       }
       String expectedDependencies =
           helper.getToolsRepository()
+              + "//tools/cpp:link_extra_lib + "
+              + helper.getToolsRepository()
               + "//tools/cpp:malloc + //configurable:main + "
               + "//configurable:main.cc + //configurable:adep + //configurable:bdep + "
               + "//configurable:defaultdep + //conditions:a + //conditions:b "
@@ -1016,6 +1018,7 @@ public abstract class AbstractQueryTest<T> {
 
     // Implicit dependencies:
     String hostDepsExpr = helper.getToolsRepository() + "//tools/cpp:malloc";
+    hostDepsExpr += " + " + helper.getToolsRepository() + "//tools/cpp:link_extra_lib";
     if (!analysisMock.isThisBazel()) {
       hostDepsExpr += " + //tools/cpp:malloc.cc";
     }

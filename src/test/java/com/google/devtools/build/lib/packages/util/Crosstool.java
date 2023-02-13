@@ -583,6 +583,8 @@ public final class Crosstool {
                 "    name = 'interface_library_builder',",
                 "    srcs = ['build_interface_so'],",
                 ")",
+                // We add an empty :link_extra_lib target in case we need it.
+                "cc_library(name = 'link_extra_lib')",
                 // We add an empty :malloc target in case we need it.
                 "cc_library(name = 'malloc')",
                 // Fake targets to get us through loading/analysis.

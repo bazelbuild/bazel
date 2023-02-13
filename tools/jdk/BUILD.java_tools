@@ -135,21 +135,25 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+# Create intermediate cc_library, which does not implicitly depend on "malloc"
+# and "link_extra_lib" in @bazel_tools//tools/cpp, and thereby avoids include
+# path /Iexternal/tools being used in compiling actions which would result in
+# the wrong headers being picked up.
 cc_library(
-    name = "malloc",
-)
-
-cc_binary(
-    name = "ijar_cc_binary",
+    name = "ijar_cc_binary_main",
     srcs = [
         "java_tools/ijar/classfile.cc",
         "java_tools/ijar/ijar.cc",
     ],
     copts = SUPRESSED_WARNINGS,
-    # Remove dependency on @bazel_tools//tools/cpp:malloc, which avoid /Iexternal/tools being used
-    # in compiling actions.
-    malloc = ":malloc",
+    linkstatic = 1, # provides main()
     deps = [":zip"],
+    alwayslink = 1,
+)
+
+cc_binary(
+    name = "ijar_cc_binary",
+    deps = [":ijar_cc_binary_main"],
 )
 
 cc_library(
@@ -364,8 +368,9 @@ cc_library(
 
 ##################### singlejar
 
-cc_binary(
-    name = "singlejar_cc_bin",
+# See comment for ":ijar_cc_binary_main".
+cc_library(
+    name = "singlejar_cc_bin_main",
     srcs = [
         "java_tools/src/tools/singlejar/singlejar_main.cc",
     ],
@@ -375,11 +380,7 @@ cc_binary(
         ":openbsd": ["-lm"],
         "//conditions:default": [],
     }),
-    linkstatic = 1,
-    # Remove dependency on @bazel_tools//tools/cpp:malloc, which avoid /Iexternal/tools being used
-    # in compiling actions.
-    malloc = ":malloc",
-    visibility = ["//visibility:public"],
+    linkstatic = 1, # provides main()
     deps = [
         ":combiners",
         ":diag",
@@ -387,6 +388,14 @@ cc_binary(
         ":output_jar",
         "//java_tools/zlib",
     ],
+    alwayslink = 1,
+)
+
+cc_binary(
+    name = "singlejar_cc_bin",
+    visibility = ["//visibility:public"],
+    linkstatic = 1,
+    deps = [":singlejar_cc_bin_main"],
 )
 
 cc_binary(

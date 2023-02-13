@@ -132,9 +132,15 @@ def _get_coverage_env(ctx):
 def _get_cc_runtimes(ctx, is_library):
     if is_library:
         return []
+
+    runtimes = [ctx.attr._link_extra_lib]
+
     if ctx.fragments.cpp.custom_malloc != None:
-        return [ctx.attr._default_malloc]
-    return [ctx.attr.malloc]
+        runtimes.append(ctx.attr._default_malloc)
+    else:
+        runtimes.append(ctx.attr.malloc)
+
+    return runtimes
 
 def _should_use_legacy_cc_test(_):
     return True
