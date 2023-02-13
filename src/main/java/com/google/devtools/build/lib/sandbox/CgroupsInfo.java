@@ -291,7 +291,7 @@ public class CgroupsInfo {
   /**
    * Creates a cgroups directory with the given memory limit.
    *
-   * @param memoryLimit Memory limit in bytes.
+   * @param memoryLimit Memory limit in megabytes (MiB).
    * @param dirName Base name of the directory created. In cgroups v2, <code>.scope</code> gets
    *     appended.
    */
@@ -304,13 +304,13 @@ public class CgroupsInfo {
       // In cgroups v2, we need to propagate the controllers into new subdirs.
       Files.asCharSink(new File(cgroupsDir, "memory.oom.group"), UTF_8).write("1\n");
       Files.asCharSink(new File(cgroupsDir, "memory.max"), UTF_8)
-          .write(Integer.toString(memoryLimit));
+          .write(Long.toString(memoryLimit * 1024L * 1024L));
     } else {
       cgroupsDir = new File(getBlazeDir(), dirName);
       cgroupsDir.mkdirs();
       cgroupsDir.deleteOnExit();
       Files.asCharSink(new File(cgroupsDir, "memory.limit_in_bytes"), UTF_8)
-          .write(Integer.toString(memoryLimit));
+          .write(Long.toString(memoryLimit * 1024L * 1024L));
     }
     return cgroupsDir.toString();
   }

@@ -269,16 +269,20 @@ function test_sandbox_hardening_with_cgroups_v1() {
 
   mkdir pkg
   cat >pkg/BUILD <<EOF
-genrule(name = "pkg", outs = ["pkg.out"], cmd = "pwd; echo >\$@")
+genrule(
+  name = "pkg",
+  outs = ["pkg.out"],
+  cmd = "pwd; hexdump -C -n 250000 < /dev/random | sort > /dev/null 2>\$@"
+)
 EOF
   local genfiles_base="$(bazel info ${PRODUCT_NAME}-genfiles)"
 
   bazel build --genrule_strategy=linux-sandbox \
-    --experimental_sandbox_memory_limit=1000000 //pkg \
+    --experimental_sandbox_memory_limit_mb=1000 //pkg \
     >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
   rm -f ${genfiles_base}/pkg/pkg.out
   bazel build --genrule_strategy=linux-sandbox \
-    --experimental_sandbox_memory_limit=100 //pkg \
+    --experimental_sandbox_memory_limit_mb=1 //pkg \
     >"${TEST_log}" 2>&1 && fail "Expected build to fail" || true
 }
 
@@ -298,7 +302,11 @@ function test_sandbox_hardening_with_cgroups_v2() {
 
   mkdir pkg
   cat >pkg/BUILD <<EOF
-genrule(name = "pkg", outs = ["pkg.out"], cmd = "pwd; echo >\$@")
+genrule(
+  name = "pkg",
+  outs = ["pkg.out"],
+  cmd = "pwd; hexdump -C -n 250000 < /dev/random | sort > /dev/null 2>\$@"
+)
 EOF
   local genfiles_base="$(bazel info ${PRODUCT_NAME}-genfiles)"
   # Need to make sure the bazel server runs under systemd, too.
@@ -306,14 +314,14 @@ EOF
 
   XDG_RUNTIME_DIR=/run/user/$( id -u ) systemd-run --user --scope \
   bazel build --genrule_strategy=linux-sandbox \
-    --experimental_sandbox_memory_limit=1000000 //pkg \
+    --experimental_sandbox_memory_limit_mb=1000 //pkg \
     >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
   rm -f ${genfiles_base}/pkg/pkg.out
 
   bazel shutdown
   XDG_RUNTIME_DIR=/run/user/$( id -u ) systemd-run --user --scope \
   bazel build --genrule_strategy=linux-sandbox \
-    --experimental_sandbox_memory_limit=100 //pkg \
+    --experimental_sandbox_memory_limit_mb=1 //pkg \
     >"${TEST_log}" 2>&1 && fail "Expected build to fail" || true
 }
 
