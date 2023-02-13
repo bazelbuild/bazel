@@ -58,7 +58,7 @@ import javax.annotation.Nullable;
  * BuildConfigurationKey.
  */
 @AutoCodec
-public class ConfiguredTargetKey extends ActionLookupKey {
+public class ConfiguredTargetKey implements ActionLookupKey {
   /**
    * Cache so that the number of ConfiguredTargetKey instances is {@code O(configured targets)} and
    * not {@code O(edges between configured targets)}.
@@ -101,7 +101,6 @@ public class ConfiguredTargetKey extends ActionLookupKey {
   }
 
   @Nullable
-  @Override
   public final BuildConfigurationKey getConfigurationKey() {
     return configurationKey;
   }

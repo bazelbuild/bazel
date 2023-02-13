@@ -54,7 +54,7 @@ public class WorkspaceStatusValue extends BasicActionLookupValue {
   }
 
   /** {@link com.google.devtools.build.skyframe.SkyKey} for {@link WorkspaceStatusValue}. */
-  public static final class BuildInfoKey extends ActionLookupKey {
+  public static final class BuildInfoKey implements ActionLookupKey {
     private BuildInfoKey() {}
 
     @Override

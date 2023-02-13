@@ -14,11 +14,9 @@
 package com.google.devtools.build.skyframe;
 
 /**
- * A {@link SkyKey} for a {@link SkyFunction} that causes heavy resource consumption.
- *
- * <p>This applies to both {@link SkyKey}s that have a high resource footprint and ancestors of
- * those {@link SkyKey}s that depend on them, transitively.
+ * An empty interface used to annotate whether the evaluation of a SkyKey contributes significantly
+ * to the CPU footprint of Skyframe.
  *
  * <p>This is currently only applicable to the loading/analysis phase of Skyframe.
  */
-public abstract class CPUHeavySkyKey implements SkyKey {}
+public interface CPUHeavySkyKey extends SkyKey {}

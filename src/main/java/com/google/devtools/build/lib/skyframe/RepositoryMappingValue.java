@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -100,13 +99,9 @@ public class RepositoryMappingValue implements SkyValue {
     return repositoryMapping.toString();
   }
 
-  /**
-   * {@link SkyKey} for {@link RepositoryMappingValue}.
-   *
-   * <p>Marked CPU heavy because it causes package loading.
-   */
+  /** {@link SkyKey} for {@link RepositoryMappingValue}. */
   @AutoValue
-  public abstract static class Key extends CPUHeavySkyKey {
+  public abstract static class Key implements SkyKey {
 
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
