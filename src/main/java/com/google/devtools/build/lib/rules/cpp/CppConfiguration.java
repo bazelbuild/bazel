@@ -744,16 +744,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.targetLibcTopLabel;
   }
 
-  @StarlarkMethod(name = "enable_legacy_cc_provider", documented = false, useStarlarkThread = true)
-  public boolean enableLegacyCcProviderForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return enableLegacyCcProvider();
-  }
-
-  public boolean enableLegacyCcProvider() {
-    return !cppOptions.disableLegacyCcProvider;
-  }
-
   public boolean dontEnableHostNonhost() {
     return cppOptions.dontEnableHostNonhost;
   }

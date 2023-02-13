@@ -890,7 +890,7 @@ def cc_binary_impl(ctx, additional_linkopts):
         result.append(StaticallyLinkedMarkerInfo(is_linked_statically = True))
     if cc_launcher_info != None:
         result.append(cc_launcher_info)
-    return binary_info, cc_info, result
+    return binary_info, result
 
 ALLOWED_SRC_FILES = []
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.CC_SOURCE)
@@ -907,31 +907,24 @@ ALLOWED_SRC_FILES.extend(cc_helper.extensions.OBJECT_FILE)
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.PIC_OBJECT_FILE)
 
 def _impl(ctx):
-    binary_info, cc_info, other_providers = cc_binary_impl(ctx, [])
+    binary_info, providers = cc_binary_impl(ctx, [])
 
     # We construct DefaultInfo here, as other cc_binary-like rules (cc_test) need
     # a different DefaultInfo.
-    other_providers.append(DefaultInfo(
+    providers.append(DefaultInfo(
         files = binary_info.files,
         runfiles = binary_info.runfiles,
         executable = binary_info.executable,
     ))
 
     # We construct RunEnvironmentInfo here as well.
-    other_providers.append(RunEnvironmentInfo(
+    providers.append(RunEnvironmentInfo(
         environment = cc_helper.get_expanded_env(ctx, {}),
         # cc_binary does not have env_inherit attr.
         inherited_environment = [],
     ))
 
-    if ctx.fragments.cpp.enable_legacy_cc_provider():
-        # buildifier: disable=rule-impl-return
-        return struct(
-            cc = cc_internal.create_cc_provider(cc_info = cc_info),
-            providers = other_providers,
-        )
-    else:
-        return other_providers
+    return providers
 
 def make_cc_binary(cc_binary_attrs, **kwargs):
     return rule(

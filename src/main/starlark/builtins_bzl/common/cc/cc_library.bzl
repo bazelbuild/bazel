@@ -318,14 +318,7 @@ def _cc_library_impl(ctx):
     providers.append(OutputGroupInfo(**merged_output_groups))
     providers.append(instrumented_files_info)
 
-    if ctx.fragments.cpp.enable_legacy_cc_provider():
-        # buildifier: disable=rule-impl-return
-        return struct(
-            cc = cc_internal.create_cc_provider(cc_info = cc_info),
-            providers = providers,
-        )
-    else:
-        return providers
+    return providers
 
 def _add_linker_artifacts_output_groups(output_group_builder, linking_outputs):
     archive_file = []

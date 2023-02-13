@@ -258,22 +258,6 @@ java_test(
 )
 
 java_test(
-    name = "CcStarlarkApiProviderTest",
-    srcs = ["CcStarlarkApiProviderTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "CcToolchainFeaturesTest",
     srcs = ["CcToolchainFeaturesTest.java"],
     deps = [

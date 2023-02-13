@@ -91,16 +91,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     }
   }
 
-  @StarlarkMethod(
-      name = "create_cc_provider",
-      documented = false,
-      parameters = {
-        @Param(name = "cc_info", positional = false, named = true),
-      })
-  public CcStarlarkApiInfo createCcProvider(CcInfo ccInfo) {
-    return new CcStarlarkApiInfo(ccInfo);
-  }
-
   @StarlarkMethod(name = "launcher_provider", documented = false, structField = true)
   public ProviderApi getCcLauncherInfoProvider() throws EvalException {
     return CcLauncherInfo.PROVIDER;

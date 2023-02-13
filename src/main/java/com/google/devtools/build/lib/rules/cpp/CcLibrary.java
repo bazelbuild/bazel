@@ -483,7 +483,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             featureConfiguration,
             ruleContext,
             /* generateHiddenTopLevelGroup= */ true);
-    CcStarlarkApiProvider.maybeAdd(ruleContext, targetBuilder);
     targetBuilder
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(
