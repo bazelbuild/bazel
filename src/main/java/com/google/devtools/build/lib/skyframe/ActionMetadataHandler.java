@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -512,7 +513,7 @@ final class ActionMetadataHandler implements MetadataHandler {
       throws IOException {
     checkState(!artifact.isTreeArtifact(), "%s is a tree artifact", artifact);
 
-    FileArtifactValue value =
+    var statAndValue =
         fileArtifactValueFromArtifact(
             artifact,
             artifactPathResolver,
@@ -522,6 +523,7 @@ final class ActionMetadataHandler implements MetadataHandler {
             // Prevent constant metadata artifacts from notifying the timestamp granularity monitor
             // and potentially delaying the build for no reason.
             artifact.isConstantMetadata() ? null : tsgm);
+    var value = statAndValue.fileArtifactValue();
 
     // Ensure that we don't have both an injected digest and a digest from the filesystem.
     byte[] fileDigest = value.getDigest();
@@ -568,8 +570,14 @@ final class ActionMetadataHandler implements MetadataHandler {
     if (injectedDigest == null && type.isFile()) {
       // We don't have an injected digest and there is no digest in the file value (which attempts a
       // fast digest). Manually compute the digest instead.
-      injectedDigest =
-          DigestUtils.manuallyComputeDigest(artifactPathResolver.toPath(artifact), value.getSize());
+      Path path = statAndValue.pathNoFollow();
+      if (statAndValue.statNoFollow() != null
+          && statAndValue.statNoFollow().isSymbolicLink()
+          && statAndValue.realPath() != null) {
+        path = statAndValue.realPath();
+      }
+
+      injectedDigest = DigestUtils.manuallyComputeDigest(path, value.getSize());
     }
     return FileArtifactValue.createFromInjectedDigest(value, injectedDigest);
   }
@@ -594,10 +602,32 @@ final class ActionMetadataHandler implements MetadataHandler {
         statNoFollow,
         /*digestWillBeInjected=*/ false,
         xattrProvider,
-        tsgm);
+        tsgm).fileArtifactValue();
   }
 
-  private static FileArtifactValue fileArtifactValueFromArtifact(
+  @AutoValue
+  abstract static class FileArtifactStatAndValue {
+    public static FileArtifactStatAndValue create(
+        Path pathNoFollow,
+        @Nullable Path realPath,
+        @Nullable FileStatusWithDigest statNoFollow,
+        FileArtifactValue fileArtifactValue) {
+      return new AutoValue_ActionMetadataHandler_FileArtifactStatAndValue(
+          pathNoFollow, realPath, statNoFollow, fileArtifactValue);
+    }
+
+    public abstract Path pathNoFollow();
+
+    @Nullable
+    public abstract Path realPath();
+
+    @Nullable
+    public abstract FileStatusWithDigest statNoFollow();
+
+    public abstract FileArtifactValue fileArtifactValue();
+  }
+
+  private static FileArtifactStatAndValue fileArtifactValueFromArtifact(
       Artifact artifact,
       ArtifactPathResolver artifactPathResolver,
       @Nullable FileStatusWithDigest statNoFollow,
@@ -611,7 +641,8 @@ final class ActionMetadataHandler implements MetadataHandler {
     // If we expect a symlink, we can readlink it directly and handle errors appropriately - there
     // is no need for the stat below.
     if (artifact.isSymlink()) {
-      return FileArtifactValue.createForUnresolvedSymlink(pathNoFollow);
+      var fileArtifactValue = FileArtifactValue.createForUnresolvedSymlink(pathNoFollow);
+      return FileArtifactStatAndValue.create(pathNoFollow, /* realPath= */ null, statNoFollow, fileArtifactValue);
     }
 
     RootedPath rootedPathNoFollow =
@@ -628,8 +659,9 @@ final class ActionMetadataHandler implements MetadataHandler {
     }
 
     if (statNoFollow == null || !statNoFollow.isSymbolicLink()) {
-      return fileArtifactValueFromStat(
+      var fileArtifactValue = fileArtifactValueFromStat(
           rootedPathNoFollow, statNoFollow, digestWillBeInjected, xattrProvider, tsgm);
+      return FileArtifactStatAndValue.create(pathNoFollow, /* realPath= */ null, statNoFollow, fileArtifactValue);
     }
 
     // We use FileStatus#isSymbolicLink over Path#isSymbolicLink to avoid the unnecessary stat
@@ -649,8 +681,9 @@ final class ActionMetadataHandler implements MetadataHandler {
     // and is a source file (since changes to those are checked separately).
     FileStatus realStat = realRootedPath.asPath().statIfFound(Symlinks.NOFOLLOW);
     FileStatusWithDigest realStatWithDigest = FileStatusWithDigestAdapter.maybeAdapt(realStat);
-    return fileArtifactValueFromStat(
+    var fileArtifactValue = fileArtifactValueFromStat(
         realRootedPath, realStatWithDigest, digestWillBeInjected, xattrProvider, tsgm);
+    return FileArtifactStatAndValue.create(pathNoFollow, realPath, statNoFollow, fileArtifactValue);
   }
 
   private static FileArtifactValue fileArtifactValueFromStat(
