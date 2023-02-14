@@ -14,14 +14,18 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.min;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import javax.annotation.Nullable;
+import sun.misc.Unsafe;
 
 /**
  * State for a node that has been dirtied, and will be checked to see if it needs re-evaluation, and
@@ -30,16 +34,19 @@ import javax.annotation.Nullable;
  * <p>This class is public only for the benefit of alternative graph implementations outside of the
  * package.
  */
-public abstract class DirtyBuildingState {
+public abstract class DirtyBuildingState implements PriorityTracker {
   private static final int NOT_EVALUATING_SENTINEL = -1;
 
   static DirtyBuildingState create(
-      DirtyType dirtyType, GroupedList<SkyKey> lastBuildDirectDeps, SkyValue lastBuildValue) {
-    return new FullDirtyBuildingState(dirtyType, lastBuildDirectDeps, lastBuildValue);
+      DirtyType dirtyType,
+      GroupedList<SkyKey> lastBuildDirectDeps,
+      SkyValue lastBuildValue,
+      boolean hasLowFanout) {
+    return new FullDirtyBuildingState(dirtyType, lastBuildDirectDeps, lastBuildValue, hasLowFanout);
   }
 
-  static DirtyBuildingState createNew() {
-    return new FullDirtyBuildingState(DirtyType.CHANGE, null, null);
+  static DirtyBuildingState createNew(boolean hasLowFanout) {
+    return new FullDirtyBuildingState(DirtyType.CHANGE, null, null, hasLowFanout);
   }
 
   /**
@@ -88,6 +95,22 @@ public abstract class DirtyBuildingState {
   private int externalDeps;
 
   /**
+   * Priority information packed into 32-bits.
+   *
+   * <p>Packing is used because Java lacks support for native short operations and masking
+   * operations are needed to fit 1-bit of information about whether the {@link SkyKey} has low
+   * fanout. This field has the following layout.
+   *
+   * <ol>
+   *   <li><i>Has Low Fanout</i> (1-bit) - 1 if {@link SkyKey#hasLowFanout} is true for the
+   *       underlying key.
+   *   <li><i>Depth</i> (15-bits) - the current estimated depth.
+   *   <li><i>Restart Count</i> (16-bits, unsigned) - incremented when this node restarts.
+   * </ol>
+   */
+  private volatile int priority = HAS_LOW_FANOUT_MASK;
+
+  /**
    * The dependencies requested (with group markers) last time the node was built (and below, the
    * value last time the node was built). They will be compared to dependencies requested on this
    * build to check whether this node has changed in {@link NodeEntry#setValue}. If they are null,
@@ -123,11 +146,20 @@ public abstract class DirtyBuildingState {
    */
   protected int dirtyDirectDepIndex;
 
-  protected DirtyBuildingState(DirtyType dirtyType) {
+  /**
+   * Constructor.
+   *
+   * @param hasLowFanout indicates that this node is not expected to have high dependency fanout.
+   *     Satisfied by by {@link SkyKey#hasLowFanout}.
+   */
+  protected DirtyBuildingState(DirtyType dirtyType, boolean hasLowFanout) {
     dirtyState = dirtyType.getInitialDirtyState();
     // We need to iterate through the deps to see if they have changed, or to remove them if one
     // has. Initialize the iterating index.
     dirtyDirectDepIndex = 0;
+    if (!hasLowFanout) {
+      this.priority = 0;
+    }
   }
 
   /** Returns true if this state does have information about a previously built version. */
@@ -296,6 +328,13 @@ public abstract class DirtyBuildingState {
     signaledDeps = 0;
     externalDeps = 0;
     dirtyDirectDepIndex = 0;
+
+    // Resets the evaluation count.
+    int snapshot;
+    do {
+      snapshot = priority;
+    } while (!UNSAFE.compareAndSwapInt(
+        this, PRIORITY_OFFSET, snapshot, snapshot & ~EVALUATION_COUNT_MASK));
   }
 
   protected void markRebuilding() {
@@ -326,12 +365,71 @@ public abstract class DirtyBuildingState {
     return signaledDeps == numDirectDeps + externalDeps;
   }
 
+  /**
+   * A bound on depth to avoid overflow.
+   *
+   * <p>The maximum observed depth in our benchmark is ~150.
+   */
+  @VisibleForTesting static final int DEPTH_SATURATION_BOUND = 512;
+
+  /**
+   * A bound on evaluation count to avoid overflow.
+   *
+   * <p>The maximum observed evaluation count in our benchmark is 4.
+   */
+  @VisibleForTesting static final int EVALUATION_COUNT_SATURATION_BOUND = 32;
+
+  @Override
+  public int getPriority() {
+    int snapshot = priority;
+
+    // Fanout occupies the top-most bit. Shifts it over one bit so later computations don't need to
+    // consider negative priority values. Since this is the highest set bit, low-fanout nodes
+    // always have higher priority than high-fanout nodes.
+    int fanoutAdjustment = (snapshot & HAS_LOW_FANOUT_MASK) >>> 1;
+    int depth = min((snapshot & DEPTH_MASK) >> DEPTH_BIT_OFFSET, DEPTH_SATURATION_BOUND);
+    int evaluationCount = min(snapshot & EVALUATION_COUNT_MASK, EVALUATION_COUNT_SATURATION_BOUND);
+
+    // This formula was found to produce good results in our benchmark. There's no deep rationale
+    // behind it. It's likely possible to improve it, but iterating is slow.
+    return fanoutAdjustment + depth + evaluationCount * evaluationCount;
+  }
+
+  @Override
+  public int depth() {
+    return (priority & DEPTH_MASK) >> DEPTH_BIT_OFFSET;
+  }
+
+  @Override
+  public void updateDepthIfGreater(int proposedDepth) {
+    // Shifts the input for comparison instead of the snapshot, which might otherwise need to be
+    // shifted repeatedly.
+    proposedDepth = (proposedDepth << DEPTH_BIT_OFFSET) & DEPTH_MASK;
+    int snapshot;
+    do {
+      snapshot = priority;
+      if (proposedDepth <= (snapshot & DEPTH_MASK)) {
+        return;
+      }
+    } while (!UNSAFE.compareAndSwapInt(
+        this, PRIORITY_OFFSET, snapshot, (snapshot & ~DEPTH_MASK) | proposedDepth));
+  }
+
+  @Override
+  public void incrementEvaluationCount() {
+    UNSAFE.getAndAddInt(this, PRIORITY_OFFSET, ONE_EVALUATION);
+  }
+
   protected MoreObjects.ToStringHelper getStringHelper() {
+    int snapshot = priority;
     return MoreObjects.toStringHelper(this)
         .add("dirtyState", dirtyState)
         .add("signaledDeps", signaledDeps)
         .add("externalDeps", externalDeps)
-        .add("dirtyDirectDepIndex", dirtyDirectDepIndex);
+        .add("dirtyDirectDepIndex", dirtyDirectDepIndex)
+        .add("has low fanout", (snapshot & HAS_LOW_FANOUT_MASK) != 0)
+        .add("depth", (snapshot & DEPTH_MASK) >> DEPTH_BIT_OFFSET)
+        .add("evaluation count", (snapshot & EVALUATION_COUNT_MASK));
   }
 
   @Override
@@ -344,8 +442,11 @@ public abstract class DirtyBuildingState {
     private final SkyValue lastBuildValue;
 
     private FullDirtyBuildingState(
-        DirtyType dirtyType, GroupedList<SkyKey> lastBuildDirectDeps, SkyValue lastBuildValue) {
-      super(dirtyType);
+        DirtyType dirtyType,
+        GroupedList<SkyKey> lastBuildDirectDeps,
+        SkyValue lastBuildValue,
+        boolean hasLowFanout) {
+      super(dirtyType, hasLowFanout);
       this.lastBuildDirectDeps = lastBuildDirectDeps;
       checkState(
           !dirtyType.equals(DirtyType.DIRTY) || getNumOfGroupsInLastBuildDirectDeps() > 0,
@@ -384,6 +485,35 @@ public abstract class DirtyBuildingState {
       return super.getStringHelper()
           .add("lastBuildDirectDeps", lastBuildDirectDeps)
           .add("lastBuildValue", lastBuildValue);
+    }
+  }
+
+  // Masks for `priority`.
+  private static final int HAS_LOW_FANOUT_MASK = 0x8000_0000;
+
+  private static final int DEPTH_MASK = 0x7FFF_0000;
+  private static final int DEPTH_BIT_OFFSET = 16;
+
+  private static final int EVALUATION_COUNT_MASK = 0xFFFF;
+  private static final int ONE_EVALUATION = 1;
+
+  static {
+    checkState(Integer.numberOfTrailingZeros(DEPTH_MASK) == DEPTH_BIT_OFFSET);
+    checkState(
+        Integer.numberOfTrailingZeros(EVALUATION_COUNT_MASK)
+            == Integer.numberOfTrailingZeros(ONE_EVALUATION));
+  }
+
+  private static final Unsafe UNSAFE = UnsafeProvider.unsafe();
+
+  private static final long PRIORITY_OFFSET;
+
+  static {
+    try {
+      PRIORITY_OFFSET =
+          UNSAFE.objectFieldOffset(DirtyBuildingState.class.getDeclaredField("priority"));
+    } catch (ReflectiveOperationException e) {
+      throw new ExceptionInInitializerError(e);
     }
   }
 }
