@@ -172,6 +172,18 @@ std::wstring BashEscapeArg(const std::wstring& argument) {
         escaped_arg += L"\\\\";
         break;
 
+      case L'&':
+      case L'|':
+      case L'(':
+      case L')':
+      case L'<':
+      case L'>':
+      case L'^':
+        // Escape special characters.
+        escaped_arg += L'^';
+        escaped_arg += ch;
+        break;
+
       default:
         escaped_arg += ch;
     }
