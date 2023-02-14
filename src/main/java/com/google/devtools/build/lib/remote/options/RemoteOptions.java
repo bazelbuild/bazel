@@ -660,7 +660,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
 
   @Option(
       name = "incompatible_remote_use_new_exit_code_for_lost_inputs",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
