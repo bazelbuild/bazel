@@ -806,7 +806,7 @@ public class CommandEnvironment {
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
         commonOptions.keepStateAfterBuild,
         commonOptions.trackIncrementalState,
-        commonOptions.experimentalHeuristicallyDropNodes,
+        commonOptions.heuristicallyDropNodes,
         viewOptions != null && viewOptions.discardAnalysisCache,
         reporter);
 

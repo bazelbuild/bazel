@@ -513,7 +513,9 @@ public class CommonCommandOptions extends OptionsBase {
   public List<Map.Entry<String, String>> repositoryEnvironment;
 
   @Option(
-      name = "experimental_heuristically_drop_nodes",
+      name = "heuristically_drop_nodes",
+      oldName = "experimental_heuristically_drop_nodes",
+      oldNameWarning = false,
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
@@ -522,7 +524,7 @@ public class CommonCommandOptions extends OptionsBase {
               + " and DirectoryListing node is done to save memory. We expect that it is less"
               + " likely that these nodes will be needed again. If so, the program will re-evaluate"
               + " them.")
-  public boolean experimentalHeuristicallyDropNodes;
+  public boolean heuristicallyDropNodes;
 
   /** The option converter to check that the user can only specify legal profiler tasks. */
   public static class ProfilerTaskConverter extends EnumConverter<ProfilerTask> {

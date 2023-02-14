@@ -725,9 +725,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       if (heuristicallyDropNodes) {
         eventHandler.handle(
             Event.warn(
-                "--experimental_heuristically_drop_nodes was specified with track incremental state"
-                    + " also being true. The flag is ignored and no node is heuristically dropped"
-                    + " in the track incremental mode."));
+                "--heuristically_drop_nodes was specified with track incremental state also being"
+                    + " true. The flag is ignored and no node is heuristically dropped in the track"
+                    + " incremental mode."));
       }
       this.heuristicallyDropNodes = false;
     } else {
