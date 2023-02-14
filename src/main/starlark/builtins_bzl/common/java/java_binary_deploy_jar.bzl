@@ -34,6 +34,7 @@ def create_deploy_archives(
         main_class,
         coverage_main_class,
         strip_as_default,
+        build_target,
         hermetic = False,
         add_exports = depset(),
         add_opens = depset(),
@@ -51,6 +52,7 @@ def create_deploy_archives(
         runfiles: (Depset) the runfiles for the deploy jar
         main_class: (String) FQN of the entry point for execution
         coverage_main_class: (String) FQN of the entry point for coverage collection
+        build_target: (String) Name of the build target for stamping
         strip_as_default: (bool) Whether to create unstripped deploy jar
         hermetic: (bool)
         add_exports: (depset)
@@ -85,6 +87,7 @@ def create_deploy_archives(
         runtime_classpath,
         manifest_lines,
         build_info_files,
+        build_target,
         output = ctx.outputs.deployjar,
         shared_archive = shared_archive,
         one_version_level = one_version_level,
@@ -108,6 +111,7 @@ def create_deploy_archives(
             runtime_classpath,
             manifest_lines,
             build_info_files,
+            build_target,
             output = ctx.outputs.unstrippeddeployjar,
             multi_release = multi_release,
             hermetic = hermetic,
@@ -127,6 +131,7 @@ def _create_deploy_archive(
         runtime_classpath,
         manifest_lines,
         build_info_files,
+        build_target,
         output,
         shared_archive = None,
         one_version_level = "OFF",
@@ -152,7 +157,7 @@ def _create_deploy_archive(
     args.set_param_file_format("shell").use_param_file("@%s", use_always = True)
 
     args.add("--output", output)
-    args.add("--build_target", str(ctx.label)[:-len(DEPLOY_JAR_RULE_NAME_SUFFIX)])
+    args.add("--build_target", build_target)
     args.add("--normalize")
     args.add("--compression")
     if main_class:
