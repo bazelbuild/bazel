@@ -59,7 +59,7 @@ def _impl(ctx):
         # This is the "legacy" cc_test flow
         return _cc_test_impl(ctx)
 
-    cc_test_info = ctx.attr._test_toolchain.cc_test_info
+    cc_test_info = ctx.attr._test_toolchain[cc_internal.CcTestRunnerInfo]
 
     binary_info, providers = cc_binary_impl(ctx, cc_test_info.linkopts)
     processed_environment = cc_helper.get_expanded_env(ctx, {})
