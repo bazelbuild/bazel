@@ -20,7 +20,7 @@ the supplied value of the `create_executable` attribute.
 
 load(":common/java/java_binary_deploy_jar.bzl", "DEPLOY_JAR_RULE_NAME_SUFFIX")
 
-def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_customlauncher, rule_deploy_jars, is_test_rule_class = False, **kwargs):
+def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_customlauncher, rule_deploy_jars = None, is_test_rule_class = False, **kwargs):
     """Registers the correct java_binary rule and deploy jar rule
 
     Args:
@@ -45,7 +45,9 @@ def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_cu
     else:
         rule_exec(**kwargs)
 
-    if not kwargs.get("tags", []) or "nodeployjar" not in kwargs.get("tags", []):
+    if rule_deploy_jars and (
+        not kwargs.get("tags", []) or "nodeployjar" not in kwargs.get("tags", [])
+    ):
         deploy_jar_args = _filtered_dict(kwargs, _DEPLOY_JAR_RULE_ATTRS)
         if is_test_rule_class:
             deploy_jar_args["testonly"] = True
