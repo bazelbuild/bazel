@@ -21,6 +21,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.TreeSet;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -110,9 +111,10 @@ public final class RegexFilter implements Predicate<String> {
     if (regexList.isEmpty()) {
       return null;
     }
+    TreeSet<String> deduped = new TreeSet<>(regexList);
     // Wraps each individual regex into an independent group, then combines them using '|' and
     // wraps the result in a non-capturing group.
-    return Pattern.compile("(?:(?>" + Joiner.on(")|(?>").join(regexList) + "))");
+    return Pattern.compile("(?:(?>" + Joiner.on(")|(?>").join(deduped) + "))");
   }
 
   /**
