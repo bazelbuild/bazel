@@ -327,7 +327,7 @@ public final class Starlark {
     // but `getStarlarkBuiltin` is quite expensive.
     if (c.equals(StarlarkList.class)) {
       return "list";
-    } else if (c.equals(Tuple.class)) {
+    } else if (Tuple.class.isAssignableFrom(c)) {
       return "tuple";
     } else if (c.equals(Dict.class)) {
       return "dict";
