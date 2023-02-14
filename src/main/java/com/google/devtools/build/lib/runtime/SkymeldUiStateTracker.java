@@ -171,6 +171,7 @@ final class SkymeldUiStateTracker extends UiStateTracker {
     } else {
       additionalMessage = labelsCount + " targets";
     }
+    mainRepositoryMapping = event.getMainRepositoryMapping();
   }
 
   @Override
