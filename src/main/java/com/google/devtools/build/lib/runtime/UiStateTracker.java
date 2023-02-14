@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressRecei
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
@@ -69,7 +71,7 @@ import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.GuardedBy; 
 import javax.annotation.concurrent.ThreadSafe;
 
 /** Tracks state for the UI. */
@@ -89,6 +91,8 @@ class UiStateTracker {
 
   private String status;
   protected String additionalMessage;
+  // Not null after the loading phase has completed.
+  protected RepositoryMapping mainRepositoryMapping;
 
   protected final Clock clock;
 
@@ -427,6 +431,7 @@ class UiStateTracker {
     } else {
       additionalMessage = count + " targets";
     }
+    mainRepositoryMapping = event.getMainRepositoryMapping();
   }
 
   /**
@@ -641,11 +646,11 @@ class UiStateTracker {
    * If possible come up with a human-readable description of the label that fits within the given
    * width; a non-positive width indicates not no restriction at all.
    */
-  private static String shortenedLabelString(Label label, int width) {
+  private String shortenedLabelString(Label label, int width) {
     if (width <= 0) {
-      return label.toString();
+      return label.getDisplayForm(mainRepositoryMapping);
     }
-    String name = label.toString();
+    String name = label.getDisplayForm(mainRepositoryMapping);
     if (name.length() <= width) {
       return name;
     }
@@ -787,7 +792,7 @@ class UiStateTracker {
       postfix += " " + strategy;
     }
 
-    String message = action.getProgressMessage();
+    String message = action.getProgressMessage(mainRepositoryMapping);
     if (message == null) {
       message = action.prettyPrint();
     }
