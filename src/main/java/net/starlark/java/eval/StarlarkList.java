@@ -86,6 +86,16 @@ public abstract class StarlarkList<E> extends AbstractList<E>
    * the StarlarkList instance may do so.
    */
   static <T> StarlarkList<T> wrap(@Nullable Mutability mutability, Object[] elems) {
+    if (mutability == null || mutability.isFrozen()) {
+      switch (elems.length) {
+        case 0:
+          return empty();
+        case 1:
+          return new ImmutableSingletonStarlarkList<>(elems[0]);
+        default:
+          return new ImmutableStarlarkList<>(elems);
+      }
+    }
     return new MutableStarlarkList<>(mutability, elems, elems.length);
   }
 
@@ -102,7 +112,7 @@ public abstract class StarlarkList<E> extends AbstractList<E>
    * environments were then frozen. This instance is for empty lists that were always frozen from
    * the beginning.
    */
-  private static final StarlarkList<?> EMPTY = wrap(Mutability.IMMUTABLE, EMPTY_ARRAY);
+  private static final StarlarkList<?> EMPTY = new ImmutableStarlarkList<>(EMPTY_ARRAY);
 
   /** Returns an empty frozen list of the desired type. */
   @SuppressWarnings("unchecked")

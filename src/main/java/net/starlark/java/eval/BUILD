@@ -26,6 +26,8 @@ java_library(
         "FormatParser.java",
         "GuardedValue.java",
         "HasBinary.java",
+        "ImmutableSingletonStarlarkList.java",
+        "ImmutableStarlarkList.java",
         "JNI.java",
         "MethodDescriptor.java",
         "MethodLibrary.java",
