@@ -358,7 +358,7 @@ class LauncherTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel(['build', '//foo:gen'])
+    exit_code, _, stderr = self.RunBazel(['build', '-s', '//foo:gen'])
     self.AssertExitCode(exit_code, 0, stderr)
 
     with open(os.path.join(bazel_bin, 'foo/out.txt')) as f:

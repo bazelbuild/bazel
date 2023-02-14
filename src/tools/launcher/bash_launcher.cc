@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stdio.h>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -51,6 +52,9 @@ ExitCode BashBinaryLauncher::Launch() {
   }
 
   vector<wstring> origin_args = this->GetCommandlineArguments();
+  for (int i = 0; i < origin_args.size(); i++) {
+    fwprintf(stderr, L"origin_arg[%d]: %ls\n", i, origin_args[i].c_str());
+  }
   wostringstream bash_command;
   wstring bash_main_file = GetBinaryPathWithoutExtension(GetLauncherPath());
   bash_command << BashEscapeArg(bash_main_file);
@@ -62,6 +66,9 @@ ExitCode BashBinaryLauncher::Launch() {
   vector<wstring> args;
   args.push_back(L"-c");
   args.push_back(BashEscapeArg(bash_command.str()));
+  for (int i = 0; i < args.size(); i++) {
+    fwprintf(stderr, L"arg[%d]: %ls\n", i, args[i].c_str());
+  }
   return this->LaunchProcess(bash_binary, args);
 }
 
