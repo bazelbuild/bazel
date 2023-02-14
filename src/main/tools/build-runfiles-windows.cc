@@ -164,8 +164,8 @@ class RunfilesCreator {
         continue;
       }
 
-      size_t space_pos = line.find_first_of(' ');
       wstring wline = blaze_util::CstringToWstring(line);
+      size_t space_pos = wline.find_first_of(' ');
       wstring link, target;
       if (space_pos == string::npos) {
         link = wline;
