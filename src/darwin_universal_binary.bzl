@@ -51,4 +51,5 @@ darwin_universal_binary = rule(
         "_allowlist_function_transition": attr.label(default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
     },
     fragments = ["apple"],
+    exec_compatible_with = ["@platforms//os:macos"],
 )
