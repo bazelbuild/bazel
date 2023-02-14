@@ -41,6 +41,8 @@ import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -713,5 +715,33 @@ public final class ActionMetadataHandlerTest {
 
     assertThat(fileArtifactValueFromArtifactResult.couldBeModifiedSince(getMetadataResult))
         .isFalse();
+  }
+
+  @Test
+  public void fileArtifactValueForSymlink_readFromCache() throws Exception {
+    DigestUtils.configureCache(1);
+    Artifact target =
+        ActionsTestUtil.createArtifactWithRootRelativePath(
+            outputRoot, PathFragment.create("bin/target"));
+    scratch.file(target.getPath().getPathString(), "contents");
+    Artifact symlink =
+        ActionsTestUtil.createArtifactWithRootRelativePath(
+            outputRoot, PathFragment.create("bin/symlink"));
+    scratch
+        .getFileSystem()
+        .getPath(symlink.getPath().getPathString())
+        .createSymbolicLink(scratch.getFileSystem().getPath(target.getPath().getPathString()));
+    ActionMetadataHandler handler =
+        createHandler(
+            new ActionInputMap(0),
+            /* forInputDiscovery= */ false,
+            /* outputs= */ ImmutableSet.of(target, symlink));
+    var targetMetadata = handler.getMetadata(target);
+    assertThat(DigestUtils.getCacheStats().hitCount()).isEqualTo(0);
+
+    var symlinkMetadata = handler.getMetadata(symlink);
+
+    assertThat(symlinkMetadata).isEqualTo(targetMetadata);
+    assertThat(DigestUtils.getCacheStats().hitCount()).isEqualTo(1);
   }
 }
