@@ -37,12 +37,12 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -160,7 +160,8 @@ public abstract class ActionInputPrefetcherTestBase {
   protected abstract AbstractActionInputPrefetcher createPrefetcher(Map<HashCode, byte[]> cas);
 
   @Test
-  public void prefetchFiles_fileExists_doNotDownload() throws IOException, InterruptedException {
+  public void prefetchFiles_fileExists_doNotDownload()
+      throws IOException, ExecException, InterruptedException {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
     Artifact a = createRemoteArtifact("file", "hello world", metadata, cas);
@@ -177,7 +178,7 @@ public abstract class ActionInputPrefetcherTestBase {
 
   @Test
   public void prefetchFiles_fileExistsButContentMismatches_download()
-      throws IOException, InterruptedException {
+      throws IOException, ExecException, InterruptedException {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
     Artifact a = createRemoteArtifact("file", "hello world remote", metadata, cas);
@@ -304,7 +305,7 @@ public abstract class ActionInputPrefetcherTestBase {
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(new HashMap<>());
 
     assertThrows(
-        BulkTransferException.class,
+        Exception.class,
         () -> wait(prefetcher.prefetchFiles(ImmutableList.of(a), metadataProvider)));
 
     assertThat(prefetcher.downloadedFiles()).isEmpty();
@@ -347,7 +348,7 @@ public abstract class ActionInputPrefetcherTestBase {
             () -> {
               try {
                 wait(prefetcher.prefetchFiles(ImmutableList.of(artifact), metadataProvider));
-              } catch (IOException | InterruptedException ignored) {
+              } catch (IOException | ExecException | InterruptedException ignored) {
                 // do nothing
               }
             });
@@ -357,7 +358,7 @@ public abstract class ActionInputPrefetcherTestBase {
             () -> {
               try {
                 wait(prefetcher.prefetchFiles(ImmutableList.of(artifact), metadataProvider));
-              } catch (IOException | InterruptedException ignored) {
+              } catch (IOException | ExecException | InterruptedException ignored) {
                 // do nothing
               }
             });
@@ -394,7 +395,7 @@ public abstract class ActionInputPrefetcherTestBase {
             () -> {
               try {
                 wait(prefetcher.prefetchFiles(ImmutableList.of(artifact), metadataProvider));
-              } catch (IOException | InterruptedException ignored) {
+              } catch (IOException | ExecException | InterruptedException ignored) {
                 // do nothing
               }
             });
@@ -406,7 +407,7 @@ public abstract class ActionInputPrefetcherTestBase {
               try {
                 wait(prefetcher.prefetchFiles(ImmutableList.of(artifact), metadataProvider));
                 successful.set(true);
-              } catch (IOException | InterruptedException ignored) {
+              } catch (IOException | ExecException | InterruptedException ignored) {
                 // do nothing
               }
             });
@@ -489,13 +490,14 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   protected static void wait(ListenableFuture<Void> future)
-      throws IOException, InterruptedException {
+      throws IOException, ExecException, InterruptedException {
     try {
       future.get();
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
       if (cause != null) {
         throwIfInstanceOf(cause, IOException.class);
+        throwIfInstanceOf(cause, ExecException.class);
         throwIfInstanceOf(cause, InterruptedException.class);
         throwIfInstanceOf(cause, RuntimeException.class);
       }
