@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
@@ -110,6 +111,8 @@ public class CommandEnvironment {
   private final Consumer<String> shutdownReasonConsumer;
   private final BuildResultListener buildResultListener;
   private final CommandLinePathFactory commandLinePathFactory;
+
+  private final boolean mergedAnalysisAndExecution;
 
   private OutputService outputService;
   private String workspaceName;
@@ -281,6 +284,36 @@ public class CommandEnvironment {
 
     this.commandLinePathFactory =
         CommandLinePathFactory.create(runtime.getFileSystem(), directories);
+
+    this.mergedAnalysisAndExecution =
+        determineIfRunningWithMergedAnalysisAndExecution(options, packageLocator, warnings);
+  }
+
+  private static boolean determineIfRunningWithMergedAnalysisAndExecution(
+      OptionsParsingResult options,
+      @Nullable PathPackageLocator packageLocator,
+      List<String> warnings) {
+    // --nobuild means no execution will be carried out, hence it doesn't make sense to interleave
+    // analysis and execution in that case and --experimental_merged_skyframe_analysis_execution
+    // should be ignored.
+    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+    boolean valueFromFlags =
+        buildRequestOptions != null
+            && buildRequestOptions.mergedSkyframeAnalysisExecutionDoNotUseDirectly
+            && buildRequestOptions.performExecutionPhase;
+    boolean havingMultiPackagePath =
+        packageLocator != null && packageLocator.getPathEntries().size() > 1;
+
+    // TODO(b/246324830): Skymeld and multi-package_path are incompatible.
+    if (valueFromFlags && havingMultiPackagePath) {
+      warnings.add(
+          "--experimental_merged_skyframe_analysis_execution is "
+              + "incompatible with multiple --package_path ("
+              + packageLocator.getPathEntries()
+              + ") and its value will be ignored.");
+    }
+
+    return valueFromFlags && !havingMultiPackagePath;
   }
 
   private Path computeWorkingDirectory(CommonCommandOptions commandOptions)
@@ -425,6 +458,14 @@ public class CommandEnvironment {
    */
   public Map<String, String> getAllowlistedTestEnv() {
     return filterClientEnv(visibleTestEnv);
+  }
+
+  /**
+   * This should be the source of truth for whether this build should be run with merged analysis
+   * and execution phases.
+   */
+  public boolean withMergedAnalysisAndExecution() {
+    return mergedAnalysisAndExecution;
   }
 
   private Map<String, String> filterClientEnv(Set<String> vars) {
