@@ -125,15 +125,12 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
     try (AutoProfiler ignored =
         GoogleAutoProfilerUtils.logged("deletion marking", MIN_TIME_TO_LOG_DELETION)) {
       Set<SkyKey> toDelete = Sets.newConcurrentHashSet();
-      graph
-          .getAllValuesMutable()
-          .forEachEntry(
-              /*parallelismThreshold=*/ 1024,
-              e -> {
-                if (e.getValue().isDirty() || deletePredicate.test(e.getKey())) {
-                  toDelete.add(e.getKey());
-                }
-              });
+      graph.parallelForEach(
+          e -> {
+            if (e.isDirty() || deletePredicate.test(e.getKey())) {
+              toDelete.add(e.getKey());
+            }
+          });
       valuesToDelete.addAll(toDelete);
     }
   }
@@ -304,7 +301,7 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
   }
 
   @Override
-  protected InMemoryGraph inMemoryGraph() {
+  public InMemoryGraph getInMemoryGraph() {
     return graph;
   }
 

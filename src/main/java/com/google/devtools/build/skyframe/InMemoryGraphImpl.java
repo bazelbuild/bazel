@@ -15,12 +15,15 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -31,6 +34,8 @@ import javax.annotation.Nullable;
  * <p>This class is public only for use in alternative graph implementations.
  */
 public class InMemoryGraphImpl implements InMemoryGraph {
+
+  private static final int PARALLELISM_THRESHOLD = 1024;
 
   protected final ConcurrentHashMap<SkyKey, InMemoryNodeEntry> nodeMap;
   private final NodeBatch getBatch;
@@ -96,6 +101,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   private final Function<SkyKey, InMemoryNodeEntry> newNodeEntryFunction = this::newNodeEntry;
 
   @Override
+  @CanIgnoreReturnValue
   public NodeBatch createIfAbsentBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     for (SkyKey key : keys) {
@@ -110,18 +116,31 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
+  public int valuesSize() {
+    return nodeMap.size();
+  }
+
+  @Override
   public Map<SkyKey, SkyValue> getValues() {
     return Collections.unmodifiableMap(Maps.transformValues(nodeMap, InMemoryNodeEntry::toValue));
   }
 
   @Override
-  public Map<SkyKey, InMemoryNodeEntry> getAllValues() {
-    return Collections.unmodifiableMap(nodeMap);
+  public Map<SkyKey, SkyValue> getDoneValues() {
+    return Collections.unmodifiableMap(
+        Maps.filterValues(
+            Maps.transformValues(nodeMap, entry -> entry.isDone() ? entry.getValue() : null),
+            Objects::nonNull));
   }
 
   @Override
-  public ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable() {
-    return nodeMap;
+  public Collection<InMemoryNodeEntry> getAllNodeEntries() {
+    return Collections.unmodifiableCollection(nodeMap.values());
+  }
+
+  @Override
+  public void parallelForEach(Consumer<InMemoryNodeEntry> consumer) {
+    nodeMap.forEachValue(PARALLELISM_THRESHOLD, consumer);
   }
 
   static final class EdgelessInMemoryGraphImpl extends InMemoryGraphImpl {

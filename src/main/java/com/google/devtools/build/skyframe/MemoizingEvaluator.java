@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.io.PrintStream;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -86,14 +85,12 @@ public interface MemoizingEvaluator {
   Map<SkyKey, SkyValue> getValues();
 
   /**
-   * Returns a mutable map of {@link InMemoryNodeEntry} entries in the graph. It is used to power
-   * --discard_analysis_cache and therefore should only be called between evaluations or for test
-   * infrastructure.
+   * Returns an {@link InMemoryGraph} containing all of the nodes backing this evaluator.
    *
-   * <p>This method should only be supported if all analysis phase nodes are stored in-memory since
-   * deleting nodes otherwise will break graph invariants and cause a crash.
+   * <p>Throws {@link UnsupportedOperationException} if this evaluator does not store its entire
+   * graph in memory.
    */
-  ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable();
+  InMemoryGraph getInMemoryGraph();
 
   /**
    * Informs the evaluator that a sequence of evaluations at the same version has finished.

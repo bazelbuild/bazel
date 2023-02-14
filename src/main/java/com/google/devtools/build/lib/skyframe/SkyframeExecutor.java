@@ -205,6 +205,7 @@ import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.ImmutableDiff;
+import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -232,7 +233,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
@@ -256,7 +256,6 @@ import net.starlark.java.eval.StarlarkSemantics;
  */
 public abstract class SkyframeExecutor implements WalkableGraphFactory, ConfigurationsCollector {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-  private static final int PARALLELISM_THRESHOLD = 1024;
 
   protected MemoizingEvaluator memoizingEvaluator;
   private final NestedSetVisitor.VisitedState emittedEventState =
@@ -1058,19 +1057,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     ImmutableSet<PackageIdentifier> topLevelPackages = packageSetBuilder.build();
     try (SilentCloseable p = trackDiscardAnalysisCache(discardType)) {
       lastAnalysisDiscarded = true;
-      ConcurrentHashMap<SkyKey, InMemoryNodeEntry> mutableNodeMap =
-          memoizingEvaluator.getAllValuesMutable();
-      mutableNodeMap.forEach(
-          PARALLELISM_THRESHOLD,
-          (k, e) -> {
+      InMemoryGraph graph = memoizingEvaluator.getInMemoryGraph();
+      graph.parallelForEach(
+          e -> {
             if (!e.isDone()) {
               return;
             }
             boolean removeNode =
                 processDiscardAndDetermineRemoval(
-                    k, e, discardType, topLevelPackages, topLevelTargets, topLevelAspects);
+                    e, discardType, topLevelPackages, topLevelTargets, topLevelAspects);
             if (removeNode) {
-              mutableNodeMap.remove(k);
+              graph.remove(e.getKey());
             }
           });
     }
@@ -1079,12 +1076,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   /** Signals whether nodes (or some internal node data) can be removed from the analysis cache. */
   @ForOverride
   protected boolean processDiscardAndDetermineRemoval(
-      SkyKey key,
-      NodeEntry entry,
+      InMemoryNodeEntry entry,
       DiscardType discardType,
       ImmutableSet<PackageIdentifier> topLevelPackages,
       Collection<ConfiguredTarget> topLevelTargets,
       ImmutableSet<AspectKey> topLevelAspects) {
+    SkyKey key = entry.getKey();
     SkyFunctionName functionName = key.functionName();
     if (discardType.discardsLoading()) {
       // Keep packages for top-level targets and aspects in memory to get the target from later.
@@ -1097,12 +1094,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
     if (discardType.discardsAnalysis()) {
       if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
-        ConfiguredTargetValue ctValue;
-        try {
-          ctValue = (ConfiguredTargetValue) entry.getValue();
-        } catch (InterruptedException e) {
-          throw new IllegalStateException("No interruption in in-memory retrieval: " + entry, e);
-        }
+        ConfiguredTargetValue ctValue = (ConfiguredTargetValue) entry.getValue();
         // ctValue may be null if target was not successfully analyzed.
         if (ctValue != null) {
           if (!(ctValue instanceof ActionLookupValue)
@@ -1118,12 +1110,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           }
         }
       } else if (functionName.equals(SkyFunctions.ASPECT)) {
-        AspectValue aspectValue;
-        try {
-          aspectValue = (AspectValue) entry.getValue();
-        } catch (InterruptedException e) {
-          throw new IllegalStateException("No interruption in in-memory retrieval: " + entry, e);
-        }
+        AspectValue aspectValue = (AspectValue) entry.getValue();
         // aspectValue may be null if target was not successfully analyzed.
         if (aspectValue != null) {
           aspectValue.clear(!topLevelAspects.contains(key));
@@ -3115,7 +3102,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               "FILE SkyKey (%s) does not have a RootedPath typed argument (%s)",
               skyKey,
               argument);
-          memoizingEvaluator.getAllValuesMutable().remove(argument);
+          memoizingEvaluator.getInMemoryGraph().remove((RootedPath) argument);
         } else if (skyKey.functionName().equals(SkyFunctions.DIRECTORY_LISTING)) {
           Preconditions.checkArgument(
               argument instanceof RootedPath,
@@ -3123,7 +3110,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               skyKey,
               argument);
           SkyKey directoryListingStateKey = DirectoryListingStateValue.key((RootedPath) argument);
-          memoizingEvaluator.getAllValuesMutable().remove(directoryListingStateKey);
+          memoizingEvaluator.getInMemoryGraph().remove(directoryListingStateKey);
         }
       }
 
