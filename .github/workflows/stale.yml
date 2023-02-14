@@ -30,20 +30,20 @@ jobs:
         stale-issue-message: >
           Thank you for contributing to the Bazel repository!
           This issue has been marked as stale since it has not had any activity in the last 30 days. It will be closed in the next 7
-          days unless any other activity occurs or the "not stale" label is added.
+          days unless any other activity occurs or one of the following labels is added: "not stale", "awaiting-bazeler".
         close-issue-message: >
           This issue has been automatically closed due to inactivity. If you're still interested in pursuing this, please reach out
           to a maintainer to add the "not stale" label. Thanks!
         stale-pr-message: >
           Thank you for contributing to the Bazel repository!
           This pull request has been marked as stale since it has not had any activity in the last 30 days. It will be closed in the next
-          14 days unless any other activity occurs or one of the following labels are added: "not stale", "awaiting-review", "awaiting-PR-merge".
+          14 days unless any other activity occurs or one of the following labels is added: "not stale", "awaiting-review", "awaiting-PR-merge".
           Please provide a status update or let us know when you're ready.
         close-pr-message: >
           This pull request has been automatically closed due to inactivity. If you're still interested in pursuing this, please reach
           out to a maintainer to add the "not stale" label. Thanks!
         stale-issue-label: 'stale'
-        exempt-issue-labels: 'not stale'
+        exempt-issue-labels: 'not stale,awaiting-bazeler'
         stale-pr-label: 'stale'
         exempt-pr-labels: 'not stale,awaiting-review,awaiting-PR-merge'
         exempt-draft-pr: true
