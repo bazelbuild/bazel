@@ -574,6 +574,9 @@ final class ActionMetadataHandler implements MetadataHandler {
       if (statAndValue.statNoFollow() != null
           && statAndValue.statNoFollow().isSymbolicLink()
           && statAndValue.realPath() != null) {
+        // If the file is a symlink, we compute the digest using the target path so that it's
+        // possible to hit the digest cache - we probably already computed the digest for the
+        // target during previous action execution.
         path = statAndValue.realPath();
       }
 
