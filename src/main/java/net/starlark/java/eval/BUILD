@@ -31,6 +31,7 @@ java_library(
         "MethodLibrary.java",
         "Module.java",
         "Mutability.java",
+        "MutableStarlarkList.java",
         "NoneType.java",
         "ParamDescriptor.java",
         "Printer.java",

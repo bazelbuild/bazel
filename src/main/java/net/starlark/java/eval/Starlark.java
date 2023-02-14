@@ -325,7 +325,7 @@ public final class Starlark {
     // Shortcut for the most common types.
     // These cases can be handled by `getStarlarkBuiltin`
     // but `getStarlarkBuiltin` is quite expensive.
-    if (c.equals(StarlarkList.class)) {
+    if (StarlarkList.class.isAssignableFrom(c)) {
       return "list";
     } else if (Tuple.class.isAssignableFrom(c)) {
       return "tuple";
