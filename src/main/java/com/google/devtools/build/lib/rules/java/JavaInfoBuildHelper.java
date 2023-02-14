@@ -420,7 +420,8 @@ final class JavaInfoBuildHelper {
       Artifact inputJar,
       @Nullable Artifact outputJar,
       @Nullable Label targetLabel,
-      JavaToolchainProvider javaToolchain)
+      JavaToolchainProvider javaToolchain,
+      String execGroup)
       throws EvalException {
     Artifact interfaceJar;
     if (outputJar != null) {
@@ -443,7 +444,8 @@ final class JavaInfoBuildHelper {
             .setProgressMessage("Extracting interface for jar %s", inputJar.getFilename())
             .addCommandLine(commandLine.build())
             .useDefaultShellEnvironment()
-            .setMnemonic("JavaIjar");
+            .setMnemonic("JavaIjar")
+            .setExecGroup(execGroup);
     actions.registerAction(actionBuilder.build(actions.getActionConstructionContext()));
     return interfaceJar;
   }

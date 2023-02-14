@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -204,6 +205,14 @@ public class JavaStarlarkCommon
             thread);
   }
 
+  private String getExecGroup(boolean useAutoExecGroups) {
+    if (useAutoExecGroups) {
+      return javaSemantics.getJavaToolchainType();
+    } else {
+      return DEFAULT_EXEC_GROUP_NAME;
+    }
+  }
+
   @Override
   public Artifact runIjar(
       StarlarkActionFactory actions,
@@ -222,7 +231,8 @@ public class JavaStarlarkCommon
             jar,
             output != Starlark.NONE ? (Artifact) output : null,
             targetLabel != Starlark.NONE ? (Label) targetLabel : null,
-            javaToolchain);
+            javaToolchain,
+            getExecGroup(actions.getRuleContext().useAutoExecGroups()));
   }
 
   @Override
