@@ -1,3 +1,11 @@
+## Release 7.0.0-pre.20230128.3 (2023-02-14)
+
+```
+Baseline: d13c9641a187b5a3026ebb9093aeb480fdfe1838
+```
+
+This release contains contributions from many people at Google, as well as Benjamin Lee, Benjamin Peterson, Ed Schouten, Fabian Meumertzheim, Lee Mracek, lripoche, Nick Korostelev, Saleem Abdulrasool, Sara Adams, Uri Baghin.
+
 ## Release 7.0.0-pre.20230123.5 (2023-02-02)
 
 ```
