@@ -203,7 +203,7 @@ class LauncherTest(test_base.TestBase):
             os.path.join(bazel_bin, '%s/%s%s.runfiles' % (package, target_name,
                                                           bin_suffix))))
 
-    arguments = ['a', 'a b', '"b"', 'C:\\a\\b\\', '"C:\\a b\\c\\"']
+    arguments = ['a', 'a b', '"b"', 'C:\\a\\b\\', '"C:\\a b\\c\\"', 'f(x).y']
     exit_code, stdout, stderr = self.RunProgram([bin1] + arguments)
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual(stdout, arguments)
@@ -326,6 +326,44 @@ class LauncherTest(test_base.TestBase):
     os.chmod(foo_sh, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
     self._buildAndCheckArgumentPassing('foo', 'bin')
+
+  def testShBinaryGenrule(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('foo/BUILD', [
+        'sh_binary(',
+        '  name = "bin",',
+        '  srcs = ["bin.sh"],',
+        ')',
+        'genrule(',
+        '  name = "gen",',
+        '  outs = ["out.txt"],',
+        '  cmd = "$(location :bin) a \'b c\' \'f(x).y\' > $@",',
+        '  tools = [":bin"],',
+        ')',
+      ])
+    foo_sh = self.ScratchFile('foo/bin.sh', [
+      '#!/usr/bin/env bash',
+      '# Store arguments in a array',
+      'args=("$@")',
+      '# Get the number of arguments',
+      'N=${#args[@]}',
+      '# Echo each argument',
+      'for (( i=0;i<$N;i++)); do',
+      ' echo ${args[${i}]}',
+      'done',
+    ])
+    os.chmod(foo_sh, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_bin = stdout[0]
+
+    exit_code, _, stderr = self.RunBazel(['build', '//foo:gen'])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    with open(os.path.join(bazel_bin, 'foo/out.txt')) as f:
+      lines = [line.strip() for line in f.readlines()]
+      self.assertEqual(lines, ['a', 'b c', 'f(x).y'])
 
   def testPyBinaryLauncher(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
