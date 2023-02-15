@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -49,13 +50,14 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   private final RemoteCache remoteCache;
 
   RemoteActionInputFetcher(
+      Reporter reporter,
       String buildRequestId,
       String commandId,
       RemoteCache remoteCache,
       Path execRoot,
       TempPathGenerator tempPathGenerator,
       ImmutableList<Pattern> patternsToDownload) {
-    super(execRoot, tempPathGenerator, patternsToDownload);
+    super(reporter, execRoot, tempPathGenerator, patternsToDownload);
     this.buildRequestId = Preconditions.checkNotNull(buildRequestId);
     this.commandId = Preconditions.checkNotNull(commandId);
     this.remoteCache = Preconditions.checkNotNull(remoteCache);
