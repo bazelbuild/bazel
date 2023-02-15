@@ -260,7 +260,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",

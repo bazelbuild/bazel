@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.BindMount;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Subprocess;
@@ -41,6 +42,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
@@ -69,6 +71,8 @@ final class SandboxedWorker extends SingleplexWorker {
 
     abstract ImmutableSet<Path> inaccessiblePaths();
 
+    abstract ImmutableList<Entry<String, String>> additionalMountPaths();
+
     public static WorkerSandboxOptions create(
         Path sandboxBinary,
         boolean fakeHostname,
@@ -77,7 +81,8 @@ final class SandboxedWorker extends SingleplexWorker {
         ImmutableList<PathFragment> tmpfsPath,
         ImmutableList<String> writablePaths,
         int memoryLimit,
-        ImmutableSet<Path> inaccessiblePaths) {
+        ImmutableSet<Path> inaccessiblePaths,
+        ImmutableList<Entry<String, String>> sandboxAdditionalMounts) {
       return new AutoValue_SandboxedWorker_WorkerSandboxOptions(
           fakeHostname,
           fakeUsername,
@@ -86,7 +91,8 @@ final class SandboxedWorker extends SingleplexWorker {
           writablePaths,
           sandboxBinary,
           memoryLimit,
-          inaccessiblePaths);
+          inaccessiblePaths,
+          sandboxAdditionalMounts);
     }
   }
 
@@ -126,32 +132,33 @@ final class SandboxedWorker extends SingleplexWorker {
     ImmutableSet.Builder<Path> writableDirs =
         ImmutableSet.<Path>builder().add(sandboxExecRoot).add(sandboxExecRoot.getRelative("/tmp"));
 
-    FileSystem fileSystem = sandboxExecRoot.getFileSystem();
+    FileSystem fs = sandboxExecRoot.getFileSystem();
     for (String writablePath : hardenedSandboxOptions.writablePaths()) {
-      Path path = fileSystem.getPath(writablePath);
+      Path path = fs.getPath(writablePath);
       writableDirs.add(path);
       if (path.isSymbolicLink()) {
         writableDirs.add(path.resolveSymbolicLinks());
       }
     }
 
-    FileSystem fs = sandboxExecRoot.getFileSystem();
     writableDirs.add(fs.getPath("/dev/shm").resolveSymbolicLinks());
     writableDirs.add(fs.getPath("/tmp"));
-    // writableDirs.add(fs.getPath("/sys/fs/cgroup"));
 
     return writableDirs.build();
   }
 
   private ImmutableList<BindMount> getBindMounts(Path sandboxExecRoot, @Nullable Path sandboxTmp)
       throws UserExecException, IOException {
-    Path tmpPath = sandboxExecRoot.getFileSystem().getPath("/tmp");
+    FileSystem fs = sandboxExecRoot.getFileSystem();
+    Path tmpPath = fs.getPath("/tmp");
     final SortedMap<Path, Path> bindMounts = Maps.newTreeMap();
     ImmutableList.Builder<BindMount> result = ImmutableList.builder();
     // Mount a fresh, empty temporary directory as /tmp for each sandbox rather than reusing the
     // host filesystem's /tmp. Since we're in a worker, we clean this dir between requests.
     bindMounts.put(tmpPath, sandboxTmp);
-    // TODO(larsrc): Add support for sandboxAdditionalMounts
+    SandboxHelpers.mountAdditionalPaths(
+        hardenedSandboxOptions.additionalMountPaths(), sandboxExecRoot, bindMounts);
+
     inaccessibleHelperFile = LinuxSandboxUtil.getInaccessibleHelperFile(sandboxExecRoot);
     inaccessibleHelperDir = LinuxSandboxUtil.getInaccessibleHelperDir(sandboxExecRoot);
     for (Path inaccessiblePath : hardenedSandboxOptions.inaccessiblePaths()) {
@@ -179,12 +186,9 @@ final class SandboxedWorker extends SingleplexWorker {
       Path sandboxTmp = workDir.getParentDirectory().getRelative(TMP_DIR_MOUNT_NAME);
       sandboxTmp.createDirectoryAndParents();
 
-      // TODO(larsrc): Need to make sure error messages go to stderr.
       LinuxSandboxCommandLineBuilder commandLineBuilder =
           LinuxSandboxCommandLineBuilder.commandLineBuilder(
                   this.hardenedSandboxOptions.sandboxBinary(), args)
-              // TODO(larsrc): Figure out which things can change and make sure workers get
-              // restarted
               .setWritableFilesAndDirectories(getWritableDirs(workDir))
               .setTmpfsDirectories(ImmutableSet.copyOf(this.hardenedSandboxOptions.tmpfsPath()))
               .setPersistentProcess(true)
