@@ -982,23 +982,22 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
       '  deps = ["@sss//:lib_sss"],',
       ')',
     ])
-    #run first time with lockfile to get it created and filled
-    _, stdout, _ = self.RunBazel(['aquery', '--nobuild', 'deps(//:main)'], allow_failure=False)
-    #assert aaa is a dep
-    self.assertIn('Target: @sss//:lib_sss', stdout)
-    self.assertIn('Target: @@aaa~1.1//:lib_aaa', stdout)
+    self.RunBazel(['build', '--nobuild', '//:main'], allow_failure=False)
 
-    #change registry -> update 'sss' to not depend on 'aaa'
-    self.main_registry.createCcModule('sss', '1.3')
+    #change registry -> update 'sss' module file (corrupt it)
+    module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
+    scratchFile(
+      module_dir.joinpath('MODULE.bazel'), ['whatever!']
+    )
 
-    # shutdown bazel to empty any cache of the deps tree
+    # clean bazel to empty any cache of the deps tree
     self.RunBazel(['clean', '--expunge'])
-    #runing should run the resolution again and get the registry updates
-    _, stdout, _ = self.RunBazel(['aquery', '--nobuild', 'deps(//:main)'], allow_failure=False)
-    #assert that 'aaa' was NOT called
-    self.assertIn('Target: @sss//:lib_sss', stdout)
-    self.assertNotIn('Target: @@aaa~1.1//:lib_aaa', stdout)
-
+    #runing again will try to get 'sss' which should produce an error
+    exit_code, _, stderr = self.RunBazel(['build', '--nobuild', '//:main'], allow_failure=True)
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+      'ERROR: Error computing the main repository mapping: error parsing MODULE.bazel file for sss@1.3',
+      stderr)
 
   def testChangeModuleInRegistryWithLockfile(self):
     #Add module 'sss' to the registry with dep on 'aaa'
@@ -1014,22 +1013,19 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
       '  deps = ["@sss//:lib_sss"],',
       ')',
     ])
-    #run first time with lockfile to get it created and filled
-    _, stdout, _ = self.RunBazel(['aquery', '--nobuild', '--experimental_enable_bzlmod_lockfile', 'deps(//:main)'], allow_failure=False)
-    #assert aaa is a dep
-    self.assertIn('Target: @sss//:lib_sss', stdout)
-    self.assertIn('Target: @@aaa~1.1//:lib_aaa', stdout)
+    self.RunBazel(['build', '--nobuild', '--experimental_enable_bzlmod_lockfile', '//:main'], allow_failure=False)
 
-    #change registry -> update 'sss' to not depend on 'aaa'
-    self.main_registry.createCcModule('sss', '1.3')
+    #change registry -> update 'sss' module file (corrupt it)
+    module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
+    scratchFile(
+      module_dir.joinpath('MODULE.bazel'), ['whatever!']
+    )
 
-    # shutdown bazel to empty any cache of the dep tree
+    # shutdown bazel to empty any cache of the deps tree
     self.RunBazel(['clean', '--expunge'])
-    #runing again should run the resolution again and get the registry updates
-    _, stdout, _ = self.RunBazel(['aquery', '--nobuild', '--experimental_enable_bzlmod_lockfile', 'deps(//:main)'], allow_failure=False)
-    #assert that 'aaa' was still called
-    self.assertIn('Target: @sss//:lib_sss', stdout)
-    self.assertIn('Target: @@aaa~1.1//:lib_aaa', stdout)
+    #runing with the lockfile, shoudl not recognize the registry changes, hence find no errors
+    self.RunBazel(['build', '--nobuild', '--experimental_enable_bzlmod_lockfile', '//:main'], allow_failure=False)
+
 
 if __name__ == '__main__':
   unittest.main()
