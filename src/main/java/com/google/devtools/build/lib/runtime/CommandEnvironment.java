@@ -286,17 +286,30 @@ public class CommandEnvironment {
         CommandLinePathFactory.create(runtime.getFileSystem(), directories);
 
     this.mergedAnalysisAndExecution =
-        determineIfRunningWithMergedAnalysisAndExecution(options, packageLocator, warnings);
+        determineIfRunningWithMergedAnalysisAndExecution(
+            options, command.name(), packageLocator, warnings);
   }
 
   private static boolean determineIfRunningWithMergedAnalysisAndExecution(
       OptionsParsingResult options,
+      String commandName,
       @Nullable PathPackageLocator packageLocator,
       List<String> warnings) {
+    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     // --nobuild means no execution will be carried out, hence it doesn't make sense to interleave
     // analysis and execution in that case and --experimental_merged_skyframe_analysis_execution
     // should be ignored.
-    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+    // Aquery and Cquery implicitly set --nobuild, so there's no need to have a warning here: it
+    // makes no different from the users' perspective.
+    if (buildRequestOptions != null
+        && buildRequestOptions.mergedSkyframeAnalysisExecutionDoNotUseDirectly
+        && !buildRequestOptions.performExecutionPhase
+        && !(commandName.equals("aquery") || commandName.equals("cquery"))) {
+      warnings.add(
+          "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild and"
+              + " will be ignored.");
+    }
+
     boolean valueFromFlags =
         buildRequestOptions != null
             && buildRequestOptions.mergedSkyframeAnalysisExecutionDoNotUseDirectly
