@@ -220,13 +220,11 @@ def _create_deploy_archive(
     )
     return output
 
-DEPLOY_JAR_RULE_NAME_SUFFIX = "_deployjars_internal_rule"
-
-def _implicit_outputs(name):
-    actual_name = name[:-len(DEPLOY_JAR_RULE_NAME_SUFFIX)]
+def _implicit_outputs(binary):
+    binary_name = binary.name
     return {
-        "deployjar": "%s_deploy.jar" % actual_name,
-        "unstrippeddeployjar": "%s_deploy.jar.unstripped" % actual_name,
+        "deployjar": "%s_deploy.jar" % binary_name,
+        "unstrippeddeployjar": "%s_deploy.jar.unstripped" % binary_name,
     }
 
 def make_deploy_jars_rule(implementation):
