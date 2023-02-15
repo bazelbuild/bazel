@@ -344,6 +344,7 @@ public class BlazeRuntimeWrapper {
               /* collectWorkerDataInProfiler= */ false,
               /* collectLoadAverage= */ false,
               /* collectSystemNetworkUsage= */ false,
+              /* collectPressureStallIndicators= */ false,
               /* collectResourceEstimation= */ false,
               ResourceManager.instance(),
               WorkerMetricsCollector.instance(),

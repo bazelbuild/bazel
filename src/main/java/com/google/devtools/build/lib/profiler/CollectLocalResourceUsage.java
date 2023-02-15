@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ResourceEstimator;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.profiler.NetworkMetricsCollector.SystemNetworkUsages;
@@ -28,9 +29,11 @@ import com.google.devtools.build.lib.worker.WorkerMetric;
 import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.sun.management.OperatingSystemMXBean;
+import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
+import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,6 +41,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** Thread to collect local resource usage data and log into JSON profile. */
@@ -65,6 +70,7 @@ public class CollectLocalResourceUsage extends Thread {
   private final WorkerMetricsCollector workerMetricsCollector;
 
   private final ResourceEstimator resourceEstimator;
+  private final boolean collectPressureStallIndicators;
 
   CollectLocalResourceUsage(
       BugReporter bugReporter,
@@ -73,7 +79,8 @@ public class CollectLocalResourceUsage extends Thread {
       boolean collectWorkerDataInProfiler,
       boolean collectLoadAverage,
       boolean collectSystemNetworkUsage,
-      boolean collectResourceManagerEstimation) {
+      boolean collectResourceManagerEstimation,
+      boolean collectPressureStallIndicators) {
     super("collect-local-resources");
     this.bugReporter = checkNotNull(bugReporter);
     this.collectWorkerDataInProfiler = collectWorkerDataInProfiler;
@@ -82,6 +89,7 @@ public class CollectLocalResourceUsage extends Thread {
     this.collectSystemNetworkUsage = collectSystemNetworkUsage;
     this.collectResourceManagerEstimation = collectResourceManagerEstimation;
     this.resourceEstimator = resourceEstimator;
+    this.collectPressureStallIndicators = collectPressureStallIndicators;
   }
 
   @Override
@@ -112,6 +120,10 @@ public class CollectLocalResourceUsage extends Thread {
       if (collectResourceManagerEstimation) {
         enabledCounters.add(ProfilerTask.MEMORY_USAGE_ESTIMATION);
         enabledCounters.add(ProfilerTask.CPU_USAGE_ESTIMATION);
+      }
+      if (collectPressureStallIndicators) {
+        enabledCounters.add(ProfilerTask.PRESSURE_STALL_IO);
+        enabledCounters.add(ProfilerTask.PRESSURE_STALL_MEMORY);
       }
 
       for (ProfilerTask counter : enabledCounters) {
@@ -189,6 +201,12 @@ public class CollectLocalResourceUsage extends Thread {
       if (collectLoadAverage) {
         loadAverage = osBean.getSystemLoadAverage();
       }
+      double pressureStallIo = 0;
+      double pressureStallMemory = 0;
+      if (collectPressureStallIndicators) {
+        pressureStallIo = readPressureStallIndicator("io");
+        pressureStallMemory = readPressureStallIndicator("memory");
+      }
 
       double deltaNanos = nextElapsed.minus(previousElapsed).toNanos();
       double cpuLevel = (nextCpuTimeNanos - previousCpuTimeNanos) / deltaNanos;
@@ -223,6 +241,13 @@ public class CollectLocalResourceUsage extends Thread {
         if (loadAverage > 0) {
           addRange(ProfilerTask.SYSTEM_LOAD_AVERAGE, previousElapsed, nextElapsed, loadAverage);
         }
+        if (pressureStallIo >= 0) {
+          addRange(ProfilerTask.PRESSURE_STALL_IO, previousElapsed, nextElapsed, pressureStallIo);
+        }
+        if (pressureStallMemory >= 0) {
+          addRange(
+              ProfilerTask.PRESSURE_STALL_IO, previousElapsed, nextElapsed, pressureStallMemory);
+        }
         if (systemNetworkUsages != null) {
           addRange(
               ProfilerTask.SYSTEM_NETWORK_UP_USAGE,
@@ -246,6 +271,35 @@ public class CollectLocalResourceUsage extends Thread {
       }
       previousElapsed = nextElapsed;
       previousCpuTimeNanos = nextCpuTimeNanos;
+    }
+  }
+
+  private static final Pattern PSI_AVG10_VALUE_PATTERN = Pattern.compile("^full avg10=([\\d.]+).*");
+
+  /**
+   * Reads the Pressure Staller Indicator file for a given type and returns the double value for
+   * `avg10`, or -1 if we couldn't read that value.
+   */
+  private double readPressureStallIndicator(String type) {
+    String fileName = "/proc/pressure/" + type;
+    File procFile = new File(fileName);
+    if (!procFile.canRead()) {
+      return -1.0;
+    }
+    try {
+      List<String> lines = Files.readLines(procFile, Charset.defaultCharset());
+      for (String l : lines) {
+        if (l.startsWith("full avg10")) {
+          Matcher matcher = PSI_AVG10_VALUE_PATTERN.matcher(l);
+          if (!matcher.matches()) {
+            return -1.0;
+          }
+          return Double.parseDouble(matcher.group(1));
+        }
+      }
+      return -1.0;
+    } catch (IOException e) {
+      return -1.0;
     }
   }
 

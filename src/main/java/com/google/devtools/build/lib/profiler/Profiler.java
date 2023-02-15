@@ -419,6 +419,7 @@ public final class Profiler {
    * @param clock a {@code BlazeClock.instance()}
    * @param execStartTimeNanos execution start time in nanos obtained from {@code clock.nanoTime()}
    * @param collectLoadAverage If true, collects system load average (as seen in uptime(1))
+   * @param collectPressureStallIndicators Whether to collect PSI information for memory and I/O
    */
   public synchronized void start(
       ImmutableSet<ProfilerTask> profiledTasks,
@@ -436,6 +437,7 @@ public final class Profiler {
       boolean collectWorkerDataInProfiler,
       boolean collectLoadAverage,
       boolean collectSystemNetworkUsage,
+      boolean collectPressureStallIndicators,
       boolean collectResourceEstimation,
       ResourceEstimator resourceEstimator,
       WorkerMetricsCollector workerMetricsCollector,
@@ -488,7 +490,8 @@ public final class Profiler {
             collectWorkerDataInProfiler,
             collectLoadAverage,
             collectSystemNetworkUsage,
-            collectResourceEstimation);
+            collectResourceEstimation,
+            collectPressureStallIndicators);
     resourceUsageThread.setDaemon(true);
     resourceUsageThread.start();
   }
