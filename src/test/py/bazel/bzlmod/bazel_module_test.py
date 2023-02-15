@@ -941,5 +941,95 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     self.assertIn('6th: @@//bleb:bleb', stderr)
 
 
+  #For now, this should pass as we don't store yankedversion in the lockfile
+  def testChangingAllowedYankedVersionWithLockfile(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
+    self.ScratchFile('MODULE.bazel', [
+      'bazel_dep(name = "ddd", version = "1.0")',
+    ])
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD', [
+      'cc_binary(',
+      '  name = "main",',
+      '  srcs = ["main.cc"],',
+      '  deps = ["@ddd//:lib_ddd"],',
+      ')',
+    ])
+
+    self.RunBazel(
+      ['build', '--nobuild', '--experimental_enable_bzlmod_lockfile', '//:main'],
+      env_add={'BZLMOD_ALLOW_YANKED_VERSIONS': 'yanked1@1.0,yanked2@1.0'},
+      allow_failure=False)
+
+    # changing yanked versions should fail the build, but it won't as the
+    # resolution won't run again because of the lockfile
+    exit_code, _, stderr = self.RunBazel(
+      ['build', '--nobuild', '--experimental_enable_bzlmod_lockfile', '//:main'],
+      env_add={'BZLMOD_ALLOW_YANKED_VERSIONS': 'yanked2@1.0'},
+      allow_failure=False)
+
+  def testChangeModuleInRegistryWithoutLockfile(self):
+    #Add module 'sss' to the registry with dep on 'aaa'
+    self.main_registry.createCcModule('sss', '1.3', {'aaa': '1.1'})
+    #create a project with deps on 'sss'
+    self.ScratchFile('MODULE.bazel', [
+        'bazel_dep(name = "sss", version = "1.3")',
+    ])
+    self.ScratchFile('BUILD', [
+      'cc_binary(',
+      '  name = "main",',
+      '  srcs = ["main.cc"],',
+      '  deps = ["@sss//:lib_sss"],',
+      ')',
+    ])
+    #run first time with lockfile to get it created and filled
+    _, stdout, _ = self.RunBazel(['aquery', '--nobuild', 'deps(//:main)'], allow_failure=False)
+    #assert aaa is a dep
+    self.assertIn('Target: @sss//:lib_sss', stdout)
+    self.assertIn('Target: @@aaa~1.1//:lib_aaa', stdout)
+
+    #change registry -> update 'sss' to not depend on 'aaa'
+    self.main_registry.createCcModule('sss', '1.3')
+
+    # shutdown bazel to empty any cache of the deps tree
+    self.RunBazel(['clean', '--expunge'])
+    #runing should run the resolution again and get the registry updates
+    _, stdout, _ = self.RunBazel(['aquery', '--nobuild', 'deps(//:main)'], allow_failure=False)
+    #assert that 'aaa' was NOT called
+    self.assertIn('Target: @sss//:lib_sss', stdout)
+    self.assertNotIn('Target: @@aaa~1.1//:lib_aaa', stdout)
+
+
+  def testChangeModuleInRegistryWithLockfile(self):
+    #Add module 'sss' to the registry with dep on 'aaa'
+    self.main_registry.createCcModule('sss', '1.3', {'aaa': '1.1'})
+    #create a project with deps on 'sss'
+    self.ScratchFile('MODULE.bazel', [
+      'bazel_dep(name = "sss", version = "1.3")',
+    ])
+    self.ScratchFile('BUILD', [
+      'cc_binary(',
+      '  name = "main",',
+      '  srcs = ["main.cc"],',
+      '  deps = ["@sss//:lib_sss"],',
+      ')',
+    ])
+    #run first time with lockfile to get it created and filled
+    _, stdout, _ = self.RunBazel(['aquery', '--nobuild', '--experimental_enable_bzlmod_lockfile', 'deps(//:main)'], allow_failure=False)
+    #assert aaa is a dep
+    self.assertIn('Target: @sss//:lib_sss', stdout)
+    self.assertIn('Target: @@aaa~1.1//:lib_aaa', stdout)
+
+    #change registry -> update 'sss' to not depend on 'aaa'
+    self.main_registry.createCcModule('sss', '1.3')
+
+    # shutdown bazel to empty any cache of the dep tree
+    self.RunBazel(['clean', '--expunge'])
+    #runing again should run the resolution again and get the registry updates
+    _, stdout, _ = self.RunBazel(['aquery', '--nobuild', '--experimental_enable_bzlmod_lockfile', 'deps(//:main)'], allow_failure=False)
+    #assert that 'aaa' was still called
+    self.assertIn('Target: @sss//:lib_sss', stdout)
+    self.assertIn('Target: @@aaa~1.1//:lib_aaa', stdout)
+
 if __name__ == '__main__':
   unittest.main()
