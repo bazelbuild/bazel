@@ -52,6 +52,38 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testTargetIgnoresHostFeatures() throws Exception {
+    useConfiguration("--features=feature", "--host_features=host_feature");
+    scratch.file("a/BUILD", "cc_library(name = 'a')");
+    ImmutableSet<String> features = getRuleContext(configure("//a")).getFeatures();
+    assertThat(features).contains("feature");
+    assertThat(features).doesNotContain("host_feature");
+  }
+
+  @Test
+  public void testHostFeatures() throws Exception {
+    useConfiguration(
+        "--features=feature",
+        "--host_features=host_feature",
+        "--incompatible_use_host_features=true");
+    scratch.file("a/BUILD", "cc_library(name = 'a')");
+    ImmutableSet<String> features =
+        getRuleContext(getConfiguredTarget("//a", getExecConfiguration())).getFeatures();
+    assertThat(features).contains("host_feature");
+    assertThat(features).doesNotContain("feature");
+  }
+
+  @Test
+  public void testHostFeaturesIncompatibleDisabled() throws Exception {
+    useConfiguration("--features=feature", "--host_features=host_feature");
+    scratch.file("a/BUILD", "cc_library(name = 'a')");
+    ImmutableSet<String> features =
+        getRuleContext(getConfiguredTarget("//a", getExecConfiguration())).getFeatures();
+    assertThat(features).contains("feature");
+    assertThat(features).doesNotContain("host_feature");
+  }
+
+  @Test
   public void testFeatureDisabledOnCommandLine() throws Exception {
     useConfiguration("--features=-feature");
     scratch.file("a/BUILD", "cc_library(name = 'a')");
