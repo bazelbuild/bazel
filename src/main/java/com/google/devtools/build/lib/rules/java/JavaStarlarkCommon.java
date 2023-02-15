@@ -242,7 +242,13 @@ public class JavaStarlarkCommon
       Label targetLabel,
       JavaToolchainProvider javaToolchain)
       throws EvalException {
-    return JavaInfoBuildHelper.getInstance().stampJar(actions, jar, targetLabel, javaToolchain);
+    return JavaInfoBuildHelper.getInstance()
+        .stampJar(
+            actions,
+            jar,
+            targetLabel,
+            javaToolchain,
+            getExecGroup(actions.getRuleContext().useAutoExecGroups()));
   }
 
   @Override

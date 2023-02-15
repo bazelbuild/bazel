@@ -452,7 +452,8 @@ final class JavaInfoBuildHelper {
       StarlarkActionFactory actions,
       Artifact inputJar,
       Label targetLabel,
-      JavaToolchainProvider javaToolchain)
+      JavaToolchainProvider javaToolchain,
+      String execGroup)
       throws EvalException {
     String basename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-stamped.jar";
     Artifact outputJar = actions.declareFile(basename, inputJar);
@@ -472,7 +473,8 @@ final class JavaInfoBuildHelper {
             .setProgressMessage("Stamping target label into jar %s", inputJar.getFilename())
             .addCommandLine(commandLine.build())
             .useDefaultShellEnvironment()
-            .setMnemonic("JavaIjar");
+            .setMnemonic("JavaIjar")
+            .setExecGroup(execGroup);
     actions.registerAction(actionBuilder.build(actions.getActionConstructionContext()));
     return outputJar;
   }
