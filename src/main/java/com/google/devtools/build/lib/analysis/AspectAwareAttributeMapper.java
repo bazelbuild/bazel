@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -96,10 +96,7 @@ class AspectAwareAttributeMapper implements AttributeMap {
 
   @Override
   public Iterable<String> getAttributeNames() {
-    return ImmutableList.<String>builder()
-        .addAll(ruleAttributes.getAttributeNames())
-        .addAll(aspectAttributes.keySet())
-        .build();
+    return Iterables.concat(ruleAttributes.getAttributeNames(), aspectAttributes.keySet());
   }
 
   @Override
