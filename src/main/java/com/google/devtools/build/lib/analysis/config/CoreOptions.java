@@ -913,7 +913,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "experimental_throttle_action_cache_check",
-      defaultValue = "false",
+      defaultValue = "true",
       converter = BooleanConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
