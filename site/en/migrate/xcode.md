@@ -22,12 +22,12 @@ troubleshooting solutions to address common errors.
 *   When building Xcode projects with Bazel, the `BUILD` file(s) become the
     source of truth. If you work on the project in Xcode, you must generate a
     new version of the Xcode project that matches the `BUILD` files using
-    [rules_xcodeproj](https://github.com/buildbuddy-io/rules_xcodeproj/) whenever you 
-    update the `BUILD` files. Certain changes to the `BUILD` files such as adding
-    dependencies to a target don't require regenerating the project which can 
-    speed up development. If you're not using Xcode, the `bazel build` and 
-    `bazel test` commands provide build and test capabilities with certain
-    limitations described later in this guide.
+    [rules_xcodeproj](https://github.com/buildbuddy-io/rules_xcodeproj/){: .external}
+    whenever you update the `BUILD` files. Certain changes to the `BUILD` files
+    such as adding dependencies to a target don't require regenerating the
+    project which can speed up development. If you're not using Xcode, the
+    `bazel build` and `bazel test` commands provide build and test capabilities
+    with certain limitations described later in this guide.
 
 ## Before you begin {:#before-you-begin}
 
