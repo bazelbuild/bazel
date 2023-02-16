@@ -148,6 +148,7 @@ java_test(
     size = "large",
     srcs = ["BuildWithoutTheBytesIntegrationTest.java"],
     shard_count = 5,
+    tags = ["requires-network"],
     runtime_deps = [
         "//third_party/grpc-java:grpc-jar",
     ],
@@ -171,6 +172,7 @@ java_test(
 java_test(
     name = "DiskCacheIntegrationTest",
     srcs = ["DiskCacheIntegrationTest.java"],
+    tags = ["requires-network"],
     runtime_deps = [
         "//third_party/grpc-java:grpc-jar",
     ],
