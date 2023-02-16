@@ -17,8 +17,6 @@
    installed on the local host.
 """
 
-_EXECUTE_TIMEOUT = 120
-
 def _search_string(fullstring, prefix, suffix):
     """Returns the substring between two given substrings of a larger string.
 
@@ -55,8 +53,7 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
     repository_ctx.report_progress("Fetching SDK information for Xcode %s" % version)
     xcodebuild_result = repository_ctx.execute(
         ["xcrun", "xcodebuild", "-version", "-sdk"],
-        _EXECUTE_TIMEOUT,
-        {"DEVELOPER_DIR": developer_dir},
+        environment = {"DEVELOPER_DIR": developer_dir},
     )
     if (xcodebuild_result.return_code != 0):
         error_msg = (
@@ -135,7 +132,7 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
         "-o",
         "xcode-locator-bin",
         xcodeloc_src_path,
-    ], _EXECUTE_TIMEOUT)
+    ])
 
     if (xcrun_result.return_code != 0):
         suggestion = ""
@@ -156,7 +153,6 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
     repository_ctx.report_progress("Running xcode-locator")
     xcode_locator_result = repository_ctx.execute(
         ["./xcode-locator-bin", "-v"],
-        _EXECUTE_TIMEOUT,
     )
     if (xcode_locator_result.return_code != 0):
         error_msg = (
@@ -195,7 +191,7 @@ def _darwin_build_file(repository_ctx):
         "xcrun",
         "xcodebuild",
         "-version",
-    ], _EXECUTE_TIMEOUT)
+    ])
 
     (toolchains, xcodeloc_err) = run_xcode_locator(
         repository_ctx,
