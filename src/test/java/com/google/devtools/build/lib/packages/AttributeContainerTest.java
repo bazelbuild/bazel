@@ -14,193 +14,198 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static org.junit.Assert.assertThrows;
 
-import com.google.devtools.build.lib.packages.AttributeContainer.Mutable;
-import java.util.ArrayList;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.MockRule;
+import com.google.devtools.build.lib.analysis.util.MockRuleDefaults;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
+import java.util.stream.IntStream;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link AttributeContainer}.
- */
-@RunWith(JUnit4.class)
-public class AttributeContainerTest {
+/** Unit tests for {@link AttributeContainer}. */
+@RunWith(TestParameterInjector.class)
+public final class AttributeContainerTest extends BuildViewTestCase {
 
-  private static final int ATTR1 = 2;
-  private static final int ATTR2 = 6;
+  private static final String STRING_DEFAULT = Type.STRING.getDefaultValue();
+  private static final int COMPUTED_DEFAULT_OFFSET = 1;
 
-  @Test
-  public void testAttributeSettingAndRetrieval() {
-    AttributeContainer container = new Mutable((short) 10);
-    Object someValue1 = new Object();
-    Object someValue2 = new Object();
-    container.setAttributeValue(ATTR1, someValue1, /*explicit=*/ true);
-    container.setAttributeValue(ATTR2, someValue2, /*explicit=*/ true);
-    assertThat(container.getAttributeValue(ATTR1)).isEqualTo(someValue1);
-    assertThat(container.getAttributeValue(ATTR2)).isEqualTo(someValue2);
-    assertThrows(IndexOutOfBoundsException.class, () -> container.getAttributeValue(10));
-  }
+  private enum ContainerSize {
+    SMALL(16, AttributeContainer.Small.class),
+    LARGE(128, AttributeContainer.Large.class);
 
-  @Test
-  public void testAttributeSettingAndRetrieval_afterFreezing() {
-    AttributeContainer container = new Mutable((short) 10);
-    Object someValue1 = new Object();
-    Object someValue2 = new Object();
-    container.setAttributeValue(ATTR1, someValue1, /*explicit=*/ true);
-    container.setAttributeValue(ATTR2, someValue2, /*explicit=*/ true);
-    AttributeContainer frozen = container.freeze();
-    assertThat(frozen.getAttributeValue(ATTR1)).isEqualTo(someValue1);
-    assertThat(frozen.getAttributeValue(ATTR2)).isEqualTo(someValue2);
-    assertThrows(IndexOutOfBoundsException.class, () -> container.getAttributeValue(10));
-  }
+    private final int numAttrs;
+    private final Class<? extends AttributeContainer> expectedFrozenClass;
 
-  @Test
-  public void testExplicitSpecificationsByInstance() {
-    AttributeContainer container = new Mutable((short) 10);
-    Object someValue = new Object();
-    container.setAttributeValue(ATTR1, someValue, true);
-    container.setAttributeValue(ATTR2, someValue, false);
-    assertThat(container.isAttributeValueExplicitlySpecified(ATTR1)).isTrue();
-    assertThat(container.isAttributeValueExplicitlySpecified(ATTR2)).isFalse();
-  }
-
-  @Test
-  public void testExplicitStateForOffByOneError() {
-    AttributeContainer container = new Mutable((short) 30);
-    // Set index 3 explicitly and check neighbouring indices dont leak that.
-    Object valA = new Object();
-    Object valB = new Object();
-    Object valC = new Object();
-    container.setAttributeValue(2, valA, true);
-    container.setAttributeValue(3, valB, true);
-    container.setAttributeValue(4, valC, false);
-    assertThat(container.isAttributeValueExplicitlySpecified(2)).isTrue();
-    assertThat(container.isAttributeValueExplicitlySpecified(3)).isTrue();
-    assertThat(container.isAttributeValueExplicitlySpecified(4)).isFalse();
-  }
-
-  @Test
-  public void testPackedState() throws Exception {
-    Random rng = new Random();
-    // The state packing machinery has special behavior at multiples of 8,
-    // so set enough explicit values to exercise that.
-    final int numAttributes = 17;
-    List<Integer> attrIndices = new ArrayList<>();
-    for (int attrIndex = 0; attrIndex < numAttributes; ++attrIndex) {
-      attrIndices.add(attrIndex);
-    }
-
-    Object someValue = new Object();
-    for (int explicitCount = 0; explicitCount <= numAttributes; ++explicitCount) {
-      AttributeContainer container = new Mutable((short) 20);
-      // Shuffle the attributes each time through, to exercise
-      // different stored indices and orderings.
-      Collections.shuffle(attrIndices);
-        // Also randomly interleave calls to the two setters.
-        int valuePassKey = rng.nextInt(1 << numAttributes);
-        for (int pass = 0; pass <= 1; ++pass) {
-          for (int i = 0; i < explicitCount; ++i) {
-            if (pass == ((valuePassKey >> i) & 1)) {
-            container.setAttributeValue(i, someValue, true);
-            }
-          }
-        }
-
-        for (int i = 0; i < numAttributes; ++i) {
-          boolean expected = i < explicitCount;
-        assertThat(container.isAttributeValueExplicitlySpecified(i)).isEqualTo(expected);
-        }
+    ContainerSize(int numAttrs, Class<? extends AttributeContainer> expectedFrozenClass) {
+      this.numAttrs = numAttrs;
+      this.expectedFrozenClass = expectedFrozenClass;
     }
   }
 
-  private void checkFreezeWorks(
-      short maxAttrCount, Class<? extends AttributeContainer> expectedImplClass) {
-    AttributeContainer container = new Mutable(maxAttrCount);
-    Object someValue1 = new Object();
-    Object someValue2 = new Object();
-    container.setAttributeValue(ATTR1, someValue1, /*explicit=*/ true);
-    container.setAttributeValue(ATTR2, someValue2, /*explicit=*/ false);
-    AttributeContainer frozen = container.freeze();
-    assertThat(frozen).isInstanceOf(expectedImplClass);
+  @TestParameter private ContainerSize containerSize;
+
+  private Rule rule;
+  private int firstCustomAttrIndex;
+  private int lastCustomAttrIndex;
+  private int computedDefaultIndex;
+
+  private AttributeContainer container;
+
+  @Override
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
+    int numDefaultAttrs = MockRuleDefaults.DEFAULT_ATTRIBUTES.size() + 1; // +1 for name.
+    int numCustomAttrs = containerSize.numAttrs - numDefaultAttrs;
+    MockRule exampleRule =
+        () ->
+            MockRule.define(
+                "example_rule",
+                IntStream.range(0, numCustomAttrs)
+                    .mapToObj(
+                        i -> {
+                          var attr = attr("attr" + i, Type.STRING);
+                          // Make one of the attributes a computed default.
+                          if (i == COMPUTED_DEFAULT_OFFSET) {
+                            attr.value(
+                                new ComputedDefault() {
+                                  @Override
+                                  public Object getDefault(AttributeMap rule) {
+                                    return "computed";
+                                  }
+                                });
+                          }
+                          return attr;
+                        })
+                    .toArray(Attribute.Builder[]::new));
+    var builder = new ConfiguredRuleClassProvider.Builder().addRuleDefinition(exampleRule);
+    TestRuleClassProvider.addStandardRules(builder);
+    return builder.build();
+  }
+
+  @Before
+  public void setUpForRule() throws Exception {
+    scratch.file("foo/BUILD", "example_rule(name = 'example')");
+    rule = (Rule) getTarget("//foo:example");
+    firstCustomAttrIndex = rule.getRuleClassObject().getAttributeIndex("attr0");
+    lastCustomAttrIndex = rule.getRuleClassObject().getAttributeCount() - 1;
+    computedDefaultIndex = firstCustomAttrIndex + COMPUTED_DEFAULT_OFFSET;
+    container = AttributeContainer.newMutableInstance(rule.getRuleClassObject());
+  }
+
+  @Test
+  public void attributeSettingAndRetrieval(@TestParameter boolean frozen) {
+    container.setAttributeValue(firstCustomAttrIndex, "val1", /* explicit= */ true);
+    container.setAttributeValue(lastCustomAttrIndex, "val2", /* explicit= */ true);
+
+    if (frozen) {
+      container = container.freeze(rule);
+    }
+
+    assertThat(container.getAttributeValue(firstCustomAttrIndex)).isEqualTo("val1");
+    assertThat(container.isAttributeValueExplicitlySpecified(firstCustomAttrIndex)).isTrue();
+    assertThat(container.getAttributeValue(lastCustomAttrIndex)).isEqualTo("val2");
+    assertThat(container.isAttributeValueExplicitlySpecified(lastCustomAttrIndex)).isTrue();
+  }
+
+  @Test
+  public void indexOutOfBounds_throws(@TestParameter boolean frozen) {
+    if (frozen) {
+      container = container.freeze(rule);
+    }
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> container.getAttributeValue(lastCustomAttrIndex + 1));
+  }
+
+  @Test
+  public void testForOffByOneError(@TestParameter boolean frozen) {
+    // Set an index explicitly and check neighbouring indices don't leak that.
+    container.setAttributeValue(firstCustomAttrIndex, "val", true);
+
+    if (frozen) {
+      container = container.freeze(rule);
+    }
+
+    assertThat(container.getAttributeValue(firstCustomAttrIndex - 1)).isNull();
+    assertThat(container.isAttributeValueExplicitlySpecified(firstCustomAttrIndex - 1)).isFalse();
+    assertThat(container.getAttributeValue(firstCustomAttrIndex + 1)).isNull();
+    assertThat(container.isAttributeValueExplicitlySpecified(firstCustomAttrIndex + 1)).isFalse();
+  }
+
+  @Test
+  public void testFreezeWorks() {
+    container.setAttributeValue(firstCustomAttrIndex, "val1", /* explicit= */ true);
+    container.setAttributeValue(lastCustomAttrIndex, "val2", /* explicit= */ false);
+    assertThat(container.isFrozen()).isFalse();
+
+    AttributeContainer frozen = container.freeze(rule);
+
+    assertThat(frozen.isFrozen()).isTrue();
+    assertThat(frozen).isInstanceOf(containerSize.expectedFrozenClass);
     // freezing returned something else.
     assertThat(frozen).isNotSameInstanceAs(container);
     // Double freezing is a no-op
-    assertThat(frozen.freeze()).isSameInstanceAs(frozen);
+    assertThat(frozen.freeze(rule)).isSameInstanceAs(frozen);
     // reads/explicit bits work as expected
-    assertThat(frozen.getAttributeValue(ATTR1)).isEqualTo(someValue1);
-    assertThat(frozen.isAttributeValueExplicitlySpecified(ATTR1)).isTrue();
-    assertThat(frozen.getAttributeValue(ATTR2)).isEqualTo(someValue2);
-    assertThat(frozen.isAttributeValueExplicitlySpecified(ATTR2)).isFalse();
-    // Invalid attribute index.
-    assertThrows(IndexOutOfBoundsException.class, () -> frozen.getAttributeValue(maxAttrCount));
+    assertThat(frozen.getAttributeValue(firstCustomAttrIndex)).isEqualTo("val1");
+    assertThat(frozen.isAttributeValueExplicitlySpecified(firstCustomAttrIndex)).isTrue();
+    assertThat(frozen.getAttributeValue(lastCustomAttrIndex)).isEqualTo("val2");
+    assertThat(frozen.isAttributeValueExplicitlySpecified(lastCustomAttrIndex)).isFalse();
     // writes no longer work.
     assertThrows(
         UnsupportedOperationException.class,
-        () -> frozen.setAttributeValue(ATTR2, new Object(), true));
+        () -> frozen.setAttributeValue(lastCustomAttrIndex, "different", true));
     // Updates to the original container no longer reflected in new container.
-    Object newValue = new Object();
-    container.setAttributeValue(ATTR2, newValue, true);
-    assertThat(container.getAttributeValue(ATTR2)).isEqualTo(newValue);
-    assertThat(frozen.getAttributeValue(ATTR2)).isEqualTo(someValue2);
+    container.setAttributeValue(lastCustomAttrIndex, "different", true);
+    assertThat(container.getAttributeValue(lastCustomAttrIndex)).isEqualTo("different");
+    assertThat(frozen.getAttributeValue(lastCustomAttrIndex)).isEqualTo("val2");
   }
 
   @Test
-  public void testFreezeWorks_smallImplementation() {
-    checkFreezeWorks((short) 20, AttributeContainer.Small.class);
-  }
-
-  @Test
-  public void testFreezeWorks_largeImplementation() {
-    checkFreezeWorks((short) 150, AttributeContainer.Large.class);
-  }
-
-  private void testContainerSize(int size) {
-    AttributeContainer container = new Mutable(size);
+  public void fullContainer(@TestParameter boolean frozen) {
+    int size = rule.getRuleClassObject().getAttributeCount();
     for (int i = 0; i < size; i++) {
       container.setAttributeValue(i, "value " + i, i % 2 == 0);
     }
-    AttributeContainer frozen = container.freeze();
-    // Check values.
+
+    if (frozen) {
+      container = container.freeze(rule);
+    }
+
     for (int i = 0; i < size; i++) {
-      assertThat(frozen.getAttributeValue(i)).isEqualTo("value " + i);
-      assertThat(frozen.isAttributeValueExplicitlySpecified(i)).isEqualTo(i % 2 == 0);
+      assertThat(container.getAttributeValue(i)).isEqualTo("value " + i);
+      assertWithMessage("attribute " + i)
+          .that(container.isAttributeValueExplicitlySpecified(i))
+          .isEqualTo(i % 2 == 0);
     }
   }
 
   @Test
-  public void testSmallContainer() {
-    // At 127 attributes, we shift from AttributeContainer.Small to AttributeContainer.Large.
-    testContainerSize(126);
-  }
-
-  @Test
-  public void testLargeContainer() {
-    // AttributeContainer.Large can handle at max 254 attributes.
-    testContainerSize(254);
-  }
-
-  @Test
-  public void testMutableGetRawAttributeValuesReturnsNullSafeCopy() {
-    AttributeContainer container = new Mutable(1);
-    assertThat(container.getRawAttributeValues()).containsExactly((Object) null);
-
+  public void getRawAttributeValues_mutableContainer_returnsNullSafeCopy() {
+    List<Object> rawValues = container.getRawAttributeValues();
+    List<Object> expected =
+        Collections.nCopies(rule.getRuleClassObject().getAttributeCount(), null);
+    assertThat(rawValues).isEqualTo(expected);
     container.getRawAttributeValues().set(0, "foo");
-    assertThat(container.getRawAttributeValues()).containsExactly((Object) null);
+    assertThat(container.getRawAttributeValues()).isEqualTo(expected);
   }
 
   @Test
-  public void testGetRawAttributeValuesReturnsCopy() {
-    AttributeContainer mutable = new Mutable(2);
-    mutable.setAttributeValue(0, "hi", /* explicit= */ true);
-    mutable.setAttributeValue(1, null, /* explicit= */ false);
+  public void getRawAttributeValues_frozen_returnsCopyWithoutNulls() {
+    container.setAttributeValue(firstCustomAttrIndex, "hi", /* explicit= */ true);
+    container.setAttributeValue(lastCustomAttrIndex, null, /* explicit= */ false);
 
-    AttributeContainer container = mutable.freeze();
-    // Nulls don't make it into the frozen representation.
+    container = container.freeze(rule);
     assertThat(container.getRawAttributeValues()).containsExactly("hi");
 
     container.getRawAttributeValues().set(0, "foo");
@@ -209,16 +214,72 @@ public class AttributeContainerTest {
 
   /** Regression test for b/269593252. */
   @Test
-  public void boundaryOfLargeContainer() {
-    AttributeContainer mutable = new Mutable(128);
-    mutable.setAttributeValue(0, "0", /* explicit= */ true);
-    mutable.setAttributeValue(127, "127", /* explicit= */ true);
+  public void boundaryOfFrozenContainer() {
+    container.setAttributeValue(0, "0", /* explicit= */ true);
+    container.setAttributeValue(lastCustomAttrIndex, "last", /* explicit= */ true);
 
-    AttributeContainer frozen = mutable.freeze();
+    AttributeContainer frozen = container.freeze(rule);
 
     assertThat(frozen.getAttributeValue(0)).isEqualTo("0");
     assertThat(frozen.isAttributeValueExplicitlySpecified(0)).isTrue();
-    assertThat(frozen.getAttributeValue(127)).isEqualTo("127");
-    assertThat(frozen.isAttributeValueExplicitlySpecified(127)).isTrue();
+    assertThat(frozen.getAttributeValue(lastCustomAttrIndex)).isEqualTo("last");
+    assertThat(frozen.isAttributeValueExplicitlySpecified(lastCustomAttrIndex)).isTrue();
+  }
+
+  @Test
+  public void explictDefaultValue_stored(@TestParameter boolean frozen) {
+    container.setAttributeValue(firstCustomAttrIndex, STRING_DEFAULT, /* explicit= */ true);
+
+    if (frozen) {
+      container = container.freeze(rule);
+    }
+
+    assertThat(container.getAttributeValue(firstCustomAttrIndex)).isNotNull();
+    assertThat(container.isAttributeValueExplicitlySpecified(firstCustomAttrIndex)).isTrue();
+  }
+
+  @Test
+  public void nonExplicitDefaultValue_mutable_stored() {
+    container.setAttributeValue(firstCustomAttrIndex, STRING_DEFAULT, /* explicit= */ false);
+
+    assertThat(container.getAttributeValue(firstCustomAttrIndex)).isNotNull();
+    assertThat(container.isAttributeValueExplicitlySpecified(firstCustomAttrIndex)).isFalse();
+  }
+
+  @Test
+  public void nonExplicitDefaultValue_frozen_notStored() {
+    container.setAttributeValue(firstCustomAttrIndex, STRING_DEFAULT, /* explicit= */ false);
+
+    container = container.freeze(rule);
+
+    assertThat(container.getAttributeValue(firstCustomAttrIndex)).isNull();
+    assertThat(container.isAttributeValueExplicitlySpecified(firstCustomAttrIndex)).isFalse();
+  }
+
+  @Test
+  public void computedDefault_mutable_stored() {
+    Attribute attr = rule.getRuleClassObject().getAttribute(computedDefaultIndex);
+    var computedDefault = attr.getDefaultValue(rule);
+    assertThat(attr.hasComputedDefault()).isTrue();
+    assertThat(computedDefault).isInstanceOf(ComputedDefault.class);
+
+    container.setAttributeValue(computedDefaultIndex, computedDefault, /* explicit= */ false);
+
+    assertThat(container.getAttributeValue(computedDefaultIndex)).isEqualTo(computedDefault);
+    assertThat(container.isAttributeValueExplicitlySpecified(computedDefaultIndex)).isFalse();
+  }
+
+  @Test
+  public void computedDefault_frozen_notStored() {
+    Attribute attr = rule.getRuleClassObject().getAttribute(computedDefaultIndex);
+    var computedDefault = attr.getDefaultValue(rule);
+    assertThat(attr.hasComputedDefault()).isTrue();
+    assertThat(computedDefault).isInstanceOf(ComputedDefault.class);
+
+    container.setAttributeValue(computedDefaultIndex, computedDefault, /* explicit= */ false);
+    container = container.freeze(rule);
+
+    assertThat(container.getAttributeValue(computedDefaultIndex)).isNull();
+    assertThat(container.isAttributeValueExplicitlySpecified(computedDefaultIndex)).isFalse();
   }
 }
