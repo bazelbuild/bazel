@@ -411,6 +411,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     ImmutableList<String> deployManifestLines =
         getDeployManifestLines(ruleContext, originalMainClass);
 
+    // Create the java_binary target specific CDS archive.
     Artifact jsa = createSharedArchive(ruleContext, javaArtifacts, attributes);
 
     if (ruleContext.isAttrDefined("hermetic", BOOLEAN)
@@ -427,6 +428,13 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             .setJavaHome(javaRuntime.javaHomePathFragment())
             .setLibModules(javaRuntime.libModules())
             .setHermeticInputs(javaRuntime.hermeticInputs());
+      }
+
+      if (jsa == null) {
+        // Use the JDK default CDS specified by the JavaRuntime if the
+        // java_binary target specific CDS archive is null, when building
+        // a hermetic deploy JAR.
+        jsa = javaRuntime.defaultCDS();
       }
     }
 

@@ -181,10 +181,6 @@ def _create_deploy_archive(
         if one_version_level == "WARNING":
             args.add("--succeed_on_found_violations")
 
-    if shared_archive:
-        input_files.append(shared_archive)
-        args.add("--cds_archive", shared_archive)
-
     if multi_release:
         args.add("--multi_release")
 
@@ -196,6 +192,13 @@ def _create_deploy_archive(
         args.add("--jdk_lib_modules", lib_modules)
         args.add_all("--resources", hermetic_files)
         input_files.append(lib_modules)
+
+        if shared_archive == None:
+            shared_archive = runtime.default_cds
+
+    if shared_archive:
+        input_files.append(shared_archive)
+        args.add("--cds_archive", shared_archive)
 
     args.add_all("--add_exports", add_exports)
     args.add_all("--add_opens", add_opens)
