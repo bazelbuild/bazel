@@ -473,6 +473,17 @@ public class ExecutionOptions extends OptionsBase {
   public PathFragment executionLogJsonFile;
 
   @Option(
+      name = "execution_log_sort",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to sort the execution log. Set to false to improve memory"
+              + " performance, at the cost of producing the log in nondeterministic"
+              + " order.")
+  public boolean executionLogSort;
+
+  @Option(
       name = "experimental_split_xml_generation",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
