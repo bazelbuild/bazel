@@ -2,6 +2,12 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["*"]),
+    visibility = ["//src:__subpackages__"],
+)
+
 java_library(
     name = "jsontypefactories",
     srcs = glob(["*.java"]),

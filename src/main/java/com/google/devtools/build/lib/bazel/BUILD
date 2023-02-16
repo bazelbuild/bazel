@@ -8,6 +8,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["*"]) + [
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/jsontypefactories:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/commands:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/coverage:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:srcs",
