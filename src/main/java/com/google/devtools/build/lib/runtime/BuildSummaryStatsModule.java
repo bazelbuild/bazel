@@ -139,8 +139,8 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @AllowConcurrentEvents
   public void actionResultReceived(ActionResultReceivedEvent event) {
     spawnStats.countActionResult(event.getActionResult());
-    cpuUserTimeForActions = addCpuTime(event.getActionResult().cumulativeCommandExecutionUserTime(), cpuUserTimeForActions);
-    cpuSystemTimeForActions = addCpuTime(event.getActionResult().cumulativeCommandExecutionSystemTime(), cpuSystemTimeForActions);
+    cpuUserTimeForActions = addCpuTime((Duration) event.getActionResult().cumulativeCommandExecutionUserTime(), cpuUserTimeForActions);
+    cpuSystemTimeForActions = addCpuTime((Duration) event.getActionResult().cumulativeCommandExecutionSystemTime(), cpuSystemTimeForActions);
   }
 
   @Subscribe
