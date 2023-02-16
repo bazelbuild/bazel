@@ -65,7 +65,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   private InMemoryGraphImpl(int initialCapacity, boolean usePooledSkyKeyInterning) {
     this.nodeMap = new ConcurrentHashMap<>(initialCapacity);
     this.getBatch = nodeMap::get;
-    this.createIfAbsentBatch = this::createIfAbsentBatch;
+    this.createIfAbsentBatch = this::createIfAbsent;
     this.usePooledSkyKeyInterning = usePooledSkyKeyInterning;
     if (usePooledSkyKeyInterning) {
       SkyKeyInterner.setGlobalPool(this);
@@ -137,13 +137,13 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   public NodeBatch createIfAbsentBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     for (SkyKey key : keys) {
-      createIfAbsentBatch(key);
+      createIfAbsent(key);
     }
     return createIfAbsentBatch;
   }
 
   @CanIgnoreReturnValue
-  private InMemoryNodeEntry createIfAbsentBatch(SkyKey skyKey) {
+  private InMemoryNodeEntry createIfAbsent(SkyKey skyKey) {
     InMemoryNodeEntry inMemoryNodeEntry = nodeMap.computeIfAbsent(skyKey, newNodeEntryFunction);
     if (usePooledSkyKeyInterning) {
       SkyKeyInterner<?> interner = skyKey.getSkyKeyInterner();
