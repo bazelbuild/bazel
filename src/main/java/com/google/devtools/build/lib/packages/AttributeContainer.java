@@ -321,25 +321,32 @@ abstract class AttributeContainer {
     //  - stateIndex: an index into the state[] array.
     //  - valueIndex: an index into the attributeValues array.
 
+    /** Calculates the number of bytes necessary to have an explicit bit for each attribute. */
     private static int prefixSize(int attrCount) {
       // ceil(max attributes / 8)
-      return (attrCount + 7) >> 3;
+      return (attrCount + 7) / 8;
     }
 
-    /** Set the specified bit in the byte array. Assumes bitIndex is a valid index. */
-    private static void setBit(byte[] bits, int bitIndex) {
-      int idx = (bitIndex + 1);
-      int explicitByte = bits[idx >> 3];
-      byte mask = (byte) (1 << (idx & 0x07));
-      bits[idx >> 3] = (byte) (explicitByte | mask);
+    /**
+     * Sets the explicit bit for {@code attrIndex} in the byte array. Assumes {@code attrIndex} is a
+     * valid index.
+     */
+    private static void setExplicitBit(byte[] bytes, int attrIndex) {
+      int byteIndex = attrIndex / 8;
+      int bitIndex = attrIndex % 8;
+      byte byteValue = bytes[byteIndex];
+      bytes[byteIndex] = (byte) (byteValue | (1 << bitIndex));
     }
 
-    /** Get the specified bit in the byte array. Assumes bitIndex is a valid index. */
-    private static boolean getBit(byte[] bits, int bitIndex) {
-      int idx = (bitIndex + 1);
-      int explicitByte = bits[idx >> 3];
-      int mask = (byte) (1 << (idx & 0x07));
-      return (explicitByte & mask) != 0;
+    /**
+     * Gets the explicit bit for {@code attrIndex} in the byte array. Assumes {@code attrIndex} is a
+     * valid index.
+     */
+    private static boolean getExplicitBit(byte[] bytes, int attrIndex) {
+      int byteIndex = attrIndex / 8;
+      int bitIndex = attrIndex % 8;
+      byte byteValue = bytes[byteIndex];
+      return (byteValue & (1 << bitIndex)) != 0;
     }
 
     /**
@@ -367,7 +374,7 @@ abstract class AttributeContainer {
           continue;
         }
         if (explicitAttrs.get(attrIndex)) {
-          setBit(state, attrIndex);
+          setExplicitBit(state, attrIndex);
         }
         state[index + p] = (byte) attrIndex;
         values[index] = attrValue;
@@ -381,7 +388,7 @@ abstract class AttributeContainer {
      */
     @Override
     boolean isAttributeValueExplicitlySpecified(int attrIndex) {
-      return (attrIndex >= 0) && getBit(state, attrIndex);
+      return (attrIndex >= 0) && getExplicitBit(state, attrIndex);
     }
 
     @Nullable

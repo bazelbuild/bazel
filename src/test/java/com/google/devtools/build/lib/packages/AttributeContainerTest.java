@@ -196,8 +196,8 @@ public class AttributeContainerTest {
   @Test
   public void testGetRawAttributeValuesReturnsCopy() {
     AttributeContainer mutable = new Mutable(2);
-    mutable.setAttributeValue(0, "hi", /*explicit=*/ true);
-    mutable.setAttributeValue(1, null, /*explicit=*/ false);
+    mutable.setAttributeValue(0, "hi", /* explicit= */ true);
+    mutable.setAttributeValue(1, null, /* explicit= */ false);
 
     AttributeContainer container = mutable.freeze();
     // Nulls don't make it into the frozen representation.
@@ -205,5 +205,20 @@ public class AttributeContainerTest {
 
     container.getRawAttributeValues().set(0, "foo");
     assertThat(container.getRawAttributeValues()).containsExactly("hi");
+  }
+
+  /** Regression test for b/269593252. */
+  @Test
+  public void boundaryOfLargeContainer() {
+    AttributeContainer mutable = new Mutable(128);
+    mutable.setAttributeValue(0, "0", /* explicit= */ true);
+    mutable.setAttributeValue(127, "127", /* explicit= */ true);
+
+    AttributeContainer frozen = mutable.freeze();
+
+    assertThat(frozen.getAttributeValue(0)).isEqualTo("0");
+    assertThat(frozen.isAttributeValueExplicitlySpecified(0)).isTrue();
+    assertThat(frozen.getAttributeValue(127)).isEqualTo("127");
+    assertThat(frozen.isAttributeValueExplicitlySpecified(127)).isTrue();
   }
 }
