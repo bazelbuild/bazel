@@ -159,4 +159,9 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     return String.format(
         "%s:%s\n", key.functionName(), key.argument().toString().replace('\n', '_'));
   }
+
+  @Override
+  public void cleanupSkyKeyPool() {
+    getInMemoryGraph().cleanupPool();
+  }
 }

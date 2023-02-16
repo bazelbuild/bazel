@@ -67,6 +67,12 @@ public interface SkyKey extends Serializable {
     return false;
   }
 
+  /** Returns null if the {@link SkyKey} does not participate in pooled interning. */
+  @Nullable
+  default SkyKeyInterner<?> getSkyKeyInterner() {
+    return null;
+  }
+
   static <T extends SkyKey> SkyKeyInterner<T> newInterner() {
     return new SkyKeyInterner<>();
   }
@@ -86,6 +92,12 @@ public interface SkyKey extends Serializable {
      */
     @Nullable
     SkyKey canonicalize(SkyKey key);
+
+    /**
+     * Cleans up {@link SkyKey}s stored in the {@link SkyKeyPool} if necessary and uninstalls the in
+     * memory graph instance from being {@link SkyKeyInterner}'s static global pool.
+     */
+    void cleanupPool();
   }
 
   /**
@@ -159,8 +171,17 @@ public interface SkyKey extends Serializable {
     }
 
     /**
-     * Removes {@link SkyKey} from the weak interner. Client can call this method when the {@link
-     * SkyKey} is already stored in the global pool in order to reduce the memory overhead.
+     * Interns {@code sample} directly into {@link #weakInterner} without checking {@link
+     * #globalPool} and returns the canonical instance of {@code sample}.
+     */
+    @SuppressWarnings("unchecked")
+    public void weakIntern(SkyKey sample) {
+      var unused = weakInterner.intern((T) sample);
+    }
+
+    /**
+     * Removes sample from the weak interner. Client can call this method when the sample is already
+     * stored in the global pool in order to reduce the memory overhead.
      */
     public void removeWeak(SkyKey sample) {
       internerAsMap.remove(sample);

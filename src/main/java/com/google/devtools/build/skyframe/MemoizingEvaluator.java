@@ -201,4 +201,10 @@ public interface MemoizingEvaluator {
    */
   @ThreadHostile
   void dumpRdeps(PrintStream out, Predicate<String> filter) throws InterruptedException;
+
+  /**
+   * Cleans up the graph when it is an {@link InMemoryGraph} instance that implements {@link
+   * com.google.devtools.build.skyframe.SkyKey.SkyKeyPool}.
+   */
+  void cleanupSkyKeyPool();
 }

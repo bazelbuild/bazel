@@ -78,4 +78,14 @@ class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProces
   public void parallelForEach(Consumer<InMemoryNodeEntry> consumer) {
     ((InMemoryGraph) delegate).parallelForEach(consumer);
   }
+
+  @Override
+  public SkyKey canonicalize(SkyKey key) {
+    return ((InMemoryGraph) delegate).canonicalize(key);
+  }
+
+  @Override
+  public void cleanupPool() {
+    ((InMemoryGraph) delegate).cleanupPool();
+  }
 }

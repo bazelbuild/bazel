@@ -85,4 +85,14 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
   public void parallelForEach(Consumer<InMemoryNodeEntry> consumer) {
     ((InMemoryGraph) delegate).parallelForEach(consumer);
   }
+
+  @Override
+  public SkyKey canonicalize(SkyKey key) {
+    return ((InMemoryGraph) delegate).canonicalize(key);
+  }
+
+  @Override
+  public void cleanupPool() {
+    ((InMemoryGraph) delegate).cleanupPool();
+  }
 }
