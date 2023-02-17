@@ -409,3 +409,5 @@ tasks:
     build_targets:
       - "//scripts/docs:gen_release_docs"
       - "//src/main/java/com/google/devtools/build/lib:gen_reference_docs"
+
+buildifier: latest
