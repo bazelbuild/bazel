@@ -20,6 +20,7 @@ import com.android.utils.StdLogger;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.ExistingPathStringDictionaryConverter;
+import com.google.devtools.build.android.Converters.PathListConverter;
 import com.google.devtools.build.android.Converters.MergeTypeConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.StringDictionaryConverter;
@@ -91,6 +92,19 @@ public class ManifestMergerAction {
       help = "A dictionary of manifests, and originating target, to be merged into manifest."
     )
     public Map<Path, String> mergeeManifests;
+
+    @Option(
+      name = "featureManifests",
+      defaultValue = "",
+      converter = ExistingPathStringDictionaryConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = 
+        "A dictionary of feature manifests, and originating target, to be merged into manifest. "
+             + "Accepts at most one entry."
+    )
+    public Map<Path, String> featureManifests;
 
     @Option(
       name = "mergeType",
@@ -228,6 +242,7 @@ public class ManifestMergerAction {
           manifestProcessor.mergeManifest(
               manifest,
               mergeeManifests.buildOrThrow(),
+              options.featureManifests,
               options.mergeType,
               options.manifestValues,
               options.customPackage,
