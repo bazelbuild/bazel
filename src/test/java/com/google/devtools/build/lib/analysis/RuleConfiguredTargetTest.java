@@ -68,7 +68,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
         "--incompatible_use_host_features=true");
     scratch.file("a/BUILD", "cc_library(name = 'a')");
     ImmutableSet<String> features =
-        getRuleContext(getConfiguredTarget("//a", getExecConfiguration())).getFeatures();
+        getRuleContext(getConfiguredTarget("//a", getHostConfiguration())).getFeatures();
     assertThat(features).contains("host_feature");
     assertThat(features).doesNotContain("feature");
   }
@@ -78,7 +78,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--features=feature", "--host_features=host_feature");
     scratch.file("a/BUILD", "cc_library(name = 'a')");
     ImmutableSet<String> features =
-        getRuleContext(getConfiguredTarget("//a", getExecConfiguration())).getFeatures();
+        getRuleContext(getConfiguredTarget("//a", getHostConfiguration())).getFeatures();
     assertThat(features).contains("feature");
     assertThat(features).doesNotContain("host_feature");
   }
