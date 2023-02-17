@@ -34,6 +34,7 @@ def create_deploy_archives(
         main_class,
         coverage_main_class,
         strip_as_default,
+        build_info_files,
         build_target,
         hermetic = False,
         add_exports = depset(),
@@ -73,7 +74,6 @@ def create_deploy_archives(
         ],
         order = "preorder",
     )
-    build_info_files = semantics.get_build_info(ctx, getattr(ctx.attr, "stamp", 0))
     multi_release = ctx.fragments.java.multi_release_deploy_jars
 
     _create_deploy_archive(
@@ -244,7 +244,6 @@ def make_deploy_jars_rule(implementation):
         attrs = {
             "binary": attr.label(mandatory = True),
             "deploy_manifest_lines": attr.string_list(),
-            "stamp": attr.int(default = -1, values = [-1, 0, 1]),
             # TODO(b/245144242): Used by IDE integration, remove when toolchains are used
             "_java_toolchain": attr.label(
                 default = semantics.JAVA_TOOLCHAIN_LABEL,
@@ -253,9 +252,6 @@ def make_deploy_jars_rule(implementation):
             "_cc_toolchain": attr.label(default = "@" + cc_semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
             "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
             "_java_runtime_toolchain_type": attr.label(default = semantics.JAVA_RUNTIME_TOOLCHAIN_TYPE),
-            "_build_info_translator": attr.label(
-                default = semantics.BUILD_INFO_TRANSLATOR,
-            ),
         },
         outputs = _implicit_outputs,
         fragments = ["java"],

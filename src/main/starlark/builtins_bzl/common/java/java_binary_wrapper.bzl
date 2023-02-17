@@ -67,7 +67,6 @@ def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_cu
         )
 
 _DEPLOY_JAR_RULE_ATTRS = {key: None for key in [
-    "stamp",
     "deploy_manifest_lines",
     "visibility",
     "testonly",
