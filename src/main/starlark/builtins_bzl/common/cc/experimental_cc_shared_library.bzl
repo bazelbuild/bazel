@@ -43,12 +43,6 @@ LINKABLE_MORE_THAN_ONCE = "LINKABLE_MORE_THAN_ONCE"
 # be dropped by the linker since there are no incoming symbol references.
 NO_EXPORTING = "NO_EXPORTING"
 
-CcSharedLibraryPermissionsInfo = provider(
-    "Permissions for a cc shared library.",
-    fields = {
-        "targets": "Matches targets that can be exported.",
-    },
-)
 GraphNodeInfo = provider(
     "Nodes in the graph of shared libraries.",
     fields = {
@@ -195,26 +189,10 @@ def _check_if_target_under_path(value, pattern):
 
     return pattern.package == value.package and pattern.name == value.name
 
-def _check_if_target_can_be_exported(target, current_label, permissions):
-    if permissions == None:
-        return True
+def _check_if_target_should_be_exported_without_filter(target, current_label):
+    return _check_if_target_should_be_exported_with_filter(target, current_label, None)
 
-    if (target.workspace_name != current_label.workspace_name or
-        _same_package_or_above(current_label, target)):
-        return True
-
-    matched_by_target = False
-    for permission in permissions:
-        for permission_target in permission[CcSharedLibraryPermissionsInfo].targets:
-            if _check_if_target_under_path(target, permission_target):
-                return True
-
-    return False
-
-def _check_if_target_should_be_exported_without_filter(target, current_label, permissions):
-    return _check_if_target_should_be_exported_with_filter(target, current_label, None, permissions)
-
-def _check_if_target_should_be_exported_with_filter(target, current_label, exports_filter, permissions):
+def _check_if_target_should_be_exported_with_filter(target, current_label, exports_filter):
     should_be_exported = False
     if exports_filter == None:
         should_be_exported = True
@@ -222,20 +200,7 @@ def _check_if_target_should_be_exported_with_filter(target, current_label, expor
         for export_filter in exports_filter:
             export_filter_label = current_label.relative(export_filter)
             if _check_if_target_under_path(target, export_filter_label):
-                should_be_exported = True
-                break
-
-    if should_be_exported:
-        if _check_if_target_can_be_exported(target, current_label, permissions):
-            return True
-        else:
-            matched_by_filter_text = ""
-            if exports_filter:
-                matched_by_filter_text = " (matched by filter) "
-            fail(str(target) + matched_by_filter_text +
-                 " cannot be exported from " + str(current_label) +
-                 " because it's not in the same package/subpackage and the library " +
-                 "doesn't have the necessary permissions. Use cc_shared_library_permissions.")
+                return True
 
     return False
 
@@ -337,7 +302,6 @@ def _filter_inputs(
                 linker_input.owner,
                 ctx.label,
                 ctx.attr.exports_filter,
-                _get_permissions(ctx),
             ):
                 exports[owner] = True
 
@@ -388,11 +352,6 @@ def _same_package_or_above(label_a, label_b):
                 return False
 
     return True
-
-def _get_permissions(ctx):
-    if ctx.fragments.cpp.experimental_enable_target_export_check():
-        return ctx.attr.permissions
-    return None
 
 def _get_deps(ctx):
     if len(ctx.attr.deps) and len(ctx.attr.roots):
@@ -460,7 +419,7 @@ def _cc_shared_library_impl(ctx):
             fail("Trying to export a library already exported by a different shared library: " +
                  str(export.label))
 
-        _check_if_target_should_be_exported_without_filter(export.label, ctx.label, _get_permissions(ctx))
+        _check_if_target_should_be_exported_without_filter(export.label, ctx.label)
 
     link_once_static_libs_map = _build_link_once_static_libs_map(merged_cc_shared_library_info)
 
@@ -634,31 +593,11 @@ def _graph_structure_aspect_impl(target, ctx):
         no_exporting = no_exporting,
     )]
 
-def _cc_shared_library_permissions_impl(ctx):
-    targets = []
-    for target_filter in ctx.attr.targets:
-        target_filter_label = ctx.label.relative(target_filter)
-        if not _check_if_target_under_path(target_filter_label, ctx.label.relative(":__subpackages__")):
-            fail("A cc_shared_library_permissions rule can only list " +
-                 "targets that are in the same package or a sub-package")
-        targets.append(target_filter_label)
-
-    return [CcSharedLibraryPermissionsInfo(
-        targets = targets,
-    )]
-
 graph_structure_aspect = aspect(
     attr_aspects = ["*"],
     required_providers = [[CcInfo], [ProtoInfo]],
     required_aspect_providers = [[CcInfo]],
     implementation = _graph_structure_aspect_impl,
-)
-
-cc_shared_library_permissions = rule(
-    implementation = _cc_shared_library_permissions_impl,
-    attrs = {
-        "targets": attr.string_list(),
-    },
 )
 
 cc_shared_library = rule(
@@ -668,7 +607,6 @@ cc_shared_library = rule(
         "shared_lib_name": attr.string(),
         "dynamic_deps": attr.label_list(providers = [CcSharedLibraryInfo]),
         "exports_filter": attr.string_list(),
-        "permissions": attr.label_list(providers = [CcSharedLibraryPermissionsInfo]),
         "win_def_file": attr.label(allow_single_file = [".def"]),
         "roots": attr.label_list(providers = [CcInfo], aspects = [graph_structure_aspect]),
         "deps": attr.label_list(providers = [CcInfo], aspects = [graph_structure_aspect]),

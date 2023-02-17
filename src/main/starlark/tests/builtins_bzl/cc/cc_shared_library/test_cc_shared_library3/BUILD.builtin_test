@@ -21,10 +21,3 @@ cc_shared_library(
         ":diff_pkg",
     ],
 )
-
-cc_shared_library_permissions(
-    name = "permissions",
-    targets = [
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:bar",
-    ],
-)
