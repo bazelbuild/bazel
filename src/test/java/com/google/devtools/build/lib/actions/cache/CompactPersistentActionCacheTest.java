@@ -208,8 +208,7 @@ public class CompactPersistentActionCacheTest {
             .getHashFunction()
             .hashBytes(bytes)
             .asBytes();
-    return RemoteFileArtifactValue.create(
-        digest, bytes.length, 1, "action-id", materializationExecPath);
+    return RemoteFileArtifactValue.create(digest, bytes.length, 1, materializationExecPath);
   }
 
   private RemoteFileArtifactValue createRemoteMetadata(Artifact artifact, String content) {

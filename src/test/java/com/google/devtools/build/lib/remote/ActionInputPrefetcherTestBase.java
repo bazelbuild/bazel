@@ -100,7 +100,6 @@ public abstract class ActionInputPrefetcherTestBase {
             hashCode.asBytes(),
             contentsBytes.length,
             /* locationIndex= */ 1,
-            "action-id",
             materializationExecPath);
     metadata.put(a, f);
     cas.put(hashCode, contentsBytes);
@@ -134,7 +133,7 @@ public abstract class ActionInputPrefetcherTestBase {
           TreeFileArtifact.createTreeOutput(parent, PathFragment.create(entry.getKey()));
       RemoteFileArtifactValue childValue =
           RemoteFileArtifactValue.create(
-              hashCode.asBytes(), contentsBytes.length, /* locationIndex= */ 1, "action-id");
+              hashCode.asBytes(), contentsBytes.length, /* locationIndex= */ 1);
       treeBuilder.putChild(child, childValue);
       metadata.put(child, childValue);
       cas.put(hashCode, contentsBytes);
