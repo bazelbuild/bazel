@@ -44,6 +44,7 @@ jobs:
           out to a maintainer to add the "not stale" label. Thanks!
         stale-issue-label: 'stale'
         exempt-issue-labels: 'not stale,awaiting-bazeler'
+        close-issue-reason: "not_planned"
         stale-pr-label: 'stale'
         exempt-pr-labels: 'not stale,awaiting-review,awaiting-PR-merge'
         exempt-draft-pr: true
