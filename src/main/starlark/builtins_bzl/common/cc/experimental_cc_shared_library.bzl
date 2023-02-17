@@ -68,9 +68,6 @@ CcSharedLibraryInfo = provider(
                                  "initializers. If we try to link them more than once, " +
                                  "we will throw an error",
         "linker_input": "the resulting linker input artifact for the shared library",
-        "preloaded_deps": "cc_libraries needed by this cc_shared_library that should" +
-                          " be linked the binary. If this is set, this cc_shared_library has to " +
-                          " be a direct dependency of the cc_binary",
     },
 )
 
@@ -78,8 +75,7 @@ CcSharedLibraryInfo = provider(
 # dynamically.
 def _separate_static_and_dynamic_link_libraries(
         direct_children,
-        can_be_linked_dynamically,
-        preloaded_deps_direct_labels):
+        can_be_linked_dynamically):
     node = None
     all_children = list(direct_children)
     targets_to_be_linked_statically_map = {}
@@ -101,7 +97,7 @@ def _separate_static_and_dynamic_link_libraries(
 
         if node_label in can_be_linked_dynamically:
             targets_to_be_linked_dynamically_set[node_label] = True
-        elif node_label not in preloaded_deps_direct_labels:
+        else:
             targets_to_be_linked_statically_map[node_label] = node.linkable_more_than_once
             all_children.extend(node.children)
 
@@ -116,11 +112,6 @@ def _merge_cc_shared_library_infos(ctx):
     dynamic_deps = []
     transitive_dynamic_deps = []
     for dep in ctx.attr.dynamic_deps:
-        # This error is not relevant for cc_binary.
-        if not hasattr(ctx.attr, "_cc_binary") and dep[CcSharedLibraryInfo].preloaded_deps != None:
-            fail("{} can only be a direct dependency of a " +
-                 " cc_binary because it has " +
-                 "preloaded_deps".format(str(dep.label)))
         dynamic_dep_entry = (
             dep[CcSharedLibraryInfo].exports,
             dep[CcSharedLibraryInfo].linker_input,
@@ -254,7 +245,6 @@ def _filter_inputs(
         cc_toolchain,
         deps,
         transitive_exports,
-        preloaded_deps_direct_labels,
         link_once_static_libs_map):
     linker_inputs = []
     curr_link_once_static_libs_set = {}
@@ -278,7 +268,6 @@ def _filter_inputs(
     (targets_to_be_linked_statically_map, targets_to_be_linked_dynamically_set) = _separate_static_and_dynamic_link_libraries(
         graph_structure_aspect_nodes,
         can_be_linked_dynamically,
-        preloaded_deps_direct_labels,
     )
 
     # We keep track of precompiled_only_dynamic_libraries, so that we can add
@@ -473,16 +462,6 @@ def _cc_shared_library_impl(ctx):
 
         _check_if_target_should_be_exported_without_filter(export.label, ctx.label, _get_permissions(ctx))
 
-    preloaded_deps_direct_labels = {}
-    preloaded_dep_merged_cc_info = None
-    if len(ctx.attr.preloaded_deps) != 0:
-        preloaded_deps_cc_infos = []
-        for preloaded_dep in ctx.attr.preloaded_deps:
-            preloaded_deps_direct_labels[str(preloaded_dep.label)] = True
-            preloaded_deps_cc_infos.append(preloaded_dep[CcInfo])
-
-        preloaded_dep_merged_cc_info = cc_common.merge_cc_infos(cc_infos = preloaded_deps_cc_infos)
-
     link_once_static_libs_map = _build_link_once_static_libs_map(merged_cc_shared_library_info)
 
     (exports, linker_inputs, curr_link_once_static_libs_set, precompiled_only_dynamic_libraries) = _filter_inputs(
@@ -491,7 +470,6 @@ def _cc_shared_library_impl(ctx):
         cc_toolchain,
         deps,
         exports_map,
-        preloaded_deps_direct_labels,
         link_once_static_libs_map,
     )
 
@@ -620,7 +598,6 @@ def _cc_shared_library_impl(ctx):
                 owner = ctx.label,
                 libraries = depset([linking_outputs.library_to_link] + precompiled_only_dynamic_libraries),
             ),
-            preloaded_deps = preloaded_dep_merged_cc_info,
         ),
     ]
 
@@ -692,7 +669,6 @@ cc_shared_library = rule(
         "dynamic_deps": attr.label_list(providers = [CcSharedLibraryInfo]),
         "exports_filter": attr.string_list(),
         "permissions": attr.label_list(providers = [CcSharedLibraryPermissionsInfo]),
-        "preloaded_deps": attr.label_list(providers = [CcInfo]),
         "win_def_file": attr.label(allow_single_file = [".def"]),
         "roots": attr.label_list(providers = [CcInfo], aspects = [graph_structure_aspect]),
         "deps": attr.label_list(providers = [CcInfo], aspects = [graph_structure_aspect]),

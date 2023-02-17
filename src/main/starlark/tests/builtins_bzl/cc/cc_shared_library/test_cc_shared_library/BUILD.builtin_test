@@ -109,7 +109,6 @@ cc_shared_library(
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg_so"
     ],
     features = ["windows_export_all_symbols"],
-    preloaded_deps = ["preloaded_dep"],
     deps = [
         "baz",
         "foo",
@@ -123,12 +122,6 @@ cc_shared_library(
         ],
         "//conditions:default": [],
     }),
-)
-
-cc_library(
-    name = "preloaded_dep",
-    srcs = ["preloaded_dep.cc"],
-    hdrs = ["preloaded_dep.h"],
 )
 
 cc_library(
@@ -146,7 +139,6 @@ cc_library(
         "//conditions:default": [],
     }),
     deps = [
-        "preloaded_dep",
         "bar",
         "baz",
         # Not exported.
