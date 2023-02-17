@@ -1884,12 +1884,7 @@ public abstract class CcModule
                 Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
             .setShouldCreateStaticLibraries(!disallowStaticLibraries)
             .addCcLinkingContexts(ccLinkingContexts)
-            .setShouldCreateDynamicLibrary(
-                !disallowDynamicLibraries
-                    && (!featureConfiguration
-                            .getFeatureConfiguration()
-                            .isEnabled(CppRuleClasses.TARGETS_WINDOWS)
-                        || winDefFile != null))
+            .setShouldCreateDynamicLibrary(!disallowDynamicLibraries)
             .setStaticLinkType(staticLinkTargetType)
             .setDynamicLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
             .emitInterfaceSharedLibraries(true)

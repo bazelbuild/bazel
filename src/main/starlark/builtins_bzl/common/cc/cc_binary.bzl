@@ -656,6 +656,8 @@ def cc_binary_impl(ctx, additional_linkopts):
     # Allows the dynamic library generated for code of test targets to be linked separately.
     link_compile_output_separately = ctx.attr._is_test and linking_mode == linker_mode.LINKING_DYNAMIC and cpp_config.dynamic_mode() == "DEFAULT" and ("dynamic_link_test_srcs" in ctx.features)
 
+    is_windows_enabled = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows")
+
     # When linking the object files directly into the resulting binary, we do not need
     # library-level link outputs; thus, we do not let CcCompilationHelper produce link outputs
     # (either shared object files or archives) for a non-library link type [*], and add
@@ -680,6 +682,7 @@ def cc_binary_impl(ctx, additional_linkopts):
             linking_contexts = cc_helper.get_linking_contexts_from_deps(all_deps),
             stamp = cc_helper.is_stamping_enabled(ctx),
             alwayslink = True,
+            disallow_dynamic_library = is_windows_enabled,
         )
 
     is_static_mode = linking_mode != linker_mode.LINKING_DYNAMIC
@@ -687,7 +690,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     generated_def_file = None
     win_def_file = None
     if _is_link_shared(ctx):
-        if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows"):
+        if is_windows_enabled:
             # Make copy of a list, to avoid mutating frozen values.
             object_files = list(cc_compilation_outputs.objects)
             for linker_input in deps_cc_linking_context.linker_inputs.to_list():
