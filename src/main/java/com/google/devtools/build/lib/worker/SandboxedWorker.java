@@ -14,15 +14,11 @@
 
 package com.google.devtools.build.lib.worker;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
@@ -36,11 +32,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
-import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -223,46 +216,6 @@ final class SandboxedWorker extends SingleplexWorker {
     workerExecRoot.createFileSystem(workerFiles, inputFiles, outputs);
 
     super.prepareExecution(inputFiles, outputs, workerFiles);
-  }
-
-  @Override
-  void putRequest(WorkRequest request) throws IOException {
-    try {
-      super.putRequest(request);
-    } catch (IOException e) {
-      if (cgroupsDir != null && wasCgroupEvent()) {
-        throw new IOException("HIT LIMIT", e);
-      }
-      throw e;
-    }
-  }
-
-  private boolean wasCgroupEvent() throws IOException {
-    // Check if we killed it "ourselves", throw specific exception
-    List<String> memoryEvents = Files.readLines(new File(cgroupsDir, "memory.events"), UTF_8);
-    for (String ev : memoryEvents) {
-      if (ev.startsWith("oom_kill") || ev.startsWith("oom_group_kill")) {
-        List<String> pieces = Splitter.on(" ").splitToList(ev);
-        int count = Integer.parseInt(pieces.get(1));
-        if (count > 0) {
-          // BOOM
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  @Override
-  WorkResponse getResponse(int requestId) throws IOException, InterruptedException {
-    try {
-      return super.getResponse(requestId);
-    } catch (IOException e) {
-      if (cgroupsDir != null && wasCgroupEvent()) {
-        throw new IOException("HIT LIMIT", e);
-      }
-      throw e;
-    }
   }
 
   @Override
