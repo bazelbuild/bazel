@@ -43,6 +43,7 @@ def _bazel_deploy_jars_impl(ctx):
         info.strip_as_default,
         info.build_info_files,
         ctx.attr.binary.label.name,
+        manifest_lines = info.manifest_lines,
     )
 
     return []

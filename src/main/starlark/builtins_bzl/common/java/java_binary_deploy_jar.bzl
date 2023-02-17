@@ -149,7 +149,6 @@ def _create_deploy_archive(
     single_jar = semantics.find_java_toolchain(ctx).single_jar
 
     manifest_lines = list(manifest_lines)
-    manifest_lines.extend(ctx.attr.deploy_manifest_lines)
     if ctx.configuration.coverage_enabled:
         manifest_lines.append("Coverage-Main-Class: %s" % coverage_main_class)
 
@@ -243,7 +242,6 @@ def make_deploy_jars_rule(implementation):
         implementation = implementation,
         attrs = {
             "binary": attr.label(mandatory = True),
-            "deploy_manifest_lines": attr.string_list(),
             # TODO(b/245144242): Used by IDE integration, remove when toolchains are used
             "_java_toolchain": attr.label(
                 default = semantics.JAVA_TOOLCHAIN_LABEL,

@@ -42,6 +42,7 @@ InternalDeployJarInfo = provider(
         "hermetic",
         "add_exports",
         "add_opens",
+        "manifest_lines",
     ],
 )
 
@@ -295,6 +296,7 @@ def basic_java_binary(
             hermetic = hasattr(ctx.attr, "hermetic") and ctx.attr.hermetic,
             add_exports = add_exports,
             add_opens = add_opens,
+            manifest_lines = ctx.attr.deploy_manifest_lines,
         ),
     }, default_info, jvm_flags
 
