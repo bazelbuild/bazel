@@ -19,12 +19,16 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.io.Files;
+import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.sun.management.OperatingSystemMXBean;
 import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
+import java.nio.charset.Charset;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Provides methods to measure the current resource usage of the current process. Also provides some
@@ -43,6 +47,7 @@ public final class ResourceUsage {
 
   private static final MemoryMXBean MEM_BEAN = ManagementFactory.getMemoryMXBean();
   private static final Splitter WHITESPACE_SPLITTER = Splitter.on(CharMatcher.whitespace());
+  private static final Pattern PSI_AVG10_VALUE_PATTERN = Pattern.compile("^full avg10=([\\d.]+).*");
 
   private ResourceUsage() {}
 
@@ -109,23 +114,16 @@ public final class ResourceUsage {
 
   /** Returns a measurement of the current resource usage of the current process. */
   public static Measurement measureCurrentResourceUsage() {
-    return measureCurrentResourceUsage("self");
-  }
-
-  /**
-   * Returns a measurement of the current resource usage of the process with the given process id.
-   *
-   * @param processId the process id or <code>self</code> for the current process.
-   */
-  public static Measurement measureCurrentResourceUsage(String processId) {
     return new Measurement(
         MEM_BEAN.getHeapMemoryUsage().getUsed(),
         MEM_BEAN.getHeapMemoryUsage().getCommitted(),
         MEM_BEAN.getNonHeapMemoryUsage().getUsed(),
         MEM_BEAN.getNonHeapMemoryUsage().getCommitted(),
         (float) OS_BEAN.getSystemLoadAverage(),
-        OS_BEAN.getFreePhysicalMemorySize(),
-        getCurrentCpuUtilizationInJiffies(processId));
+        readPressureStallIndicator("memory"),
+        readPressureStallIndicator("io"),
+        getAvailableMemory(),
+        getCurrentCpuUtilizationInJiffies());
   }
 
   /**
@@ -133,12 +131,10 @@ public final class ResourceUsage {
    * returned array contains the following information: The 1st entry is the number of jiffies that
    * the process has executed in user mode, and the 2nd entry is the number of jiffies that the
    * process has executed in kernel mode. Reads /proc/self/stat to obtain this information.
-   *
-   * @param processId the process id or <code>self</code> for the current process.
    */
-  private static long[] getCurrentCpuUtilizationInJiffies(String processId) {
+  private static long[] getCurrentCpuUtilizationInJiffies() {
     try {
-      File file = new File("/proc/" + processId + "/stat");
+      File file = new File("/proc/self/stat");
       if (file.isDirectory()) {
         return new long[2];
       }
@@ -153,6 +149,51 @@ public final class ResourceUsage {
     }
   }
 
+  /**
+   * Reads the Pressure Staller Indicator file for a given type and returns the double value for
+   * `avg10`, or -1 if we couldn't read that value.
+   */
+  public static float readPressureStallIndicator(String type) {
+    String fileName = "/proc/pressure/" + type;
+    File procFile = new File(fileName);
+    if (!procFile.canRead()) {
+      return -1.0F;
+    }
+    try {
+      List<String> lines = Files.readLines(procFile, Charset.defaultCharset());
+      for (String l : lines) {
+        if (l.startsWith("full avg10")) {
+          Matcher matcher = PSI_AVG10_VALUE_PATTERN.matcher(l);
+          if (!matcher.matches()) {
+            return -1.0F;
+          }
+          return Float.parseFloat(matcher.group(1));
+        }
+      }
+      return -1.0F;
+    } catch (IOException e) {
+      return -1.0F;
+    }
+  }
+
+  public static long getAvailableMemory() {
+    long availableMemory;
+    try {
+      // TODO(larsrc): Use control flow instead of execptions
+      ProcMeminfoParser meminfo = new ProcMeminfoParser();
+      // Convert to bytes so that the fallback units are consistent.
+      availableMemory = meminfo.getFreeRamKb() << 10;
+    } catch (IOException e) {
+      // /proc/meminfo isn't available outside Linux. On OS X, the OperatingSystem bean returns the
+      // number of free pages multiplied by the page size, which is still incorrect. What we really
+      // want here is (vm_stats.inactive_count + vm_stats.free_count) * page_size, but Java gives us
+      // only free.
+      // Seems like some virtual Ganeti machines also have issues getting this.
+      availableMemory = OS_BEAN.getFreePhysicalMemorySize();
+    }
+    return availableMemory;
+  }
+
   /** A snapshot of the resource usage of the current process at a point in time. */
   public static final class Measurement {
 
@@ -162,6 +203,8 @@ public final class ResourceUsage {
     private final long nonHeapMemoryUsed;
     private final long nonHeapMemoryCommitted;
     private final float loadAverageLastMinute;
+    private final float memoryPressureLast10Sec;
+    private final float ioPressureLast10Sec;
     private final long freePhysicalMemory;
     private final long[] cpuUtilizationInJiffies;
 
@@ -171,6 +214,8 @@ public final class ResourceUsage {
         long nonHeapMemoryUsed,
         long nonHeapMemoryCommitted,
         float loadAverageLastMinute,
+        float memoryPressureLast10Sec1,
+        float ioPressureLast10Sec1,
         long freePhysicalMemory,
         long[] cpuUtilizationInJiffies) {
       super();
@@ -180,6 +225,8 @@ public final class ResourceUsage {
       this.nonHeapMemoryUsed = nonHeapMemoryUsed;
       this.nonHeapMemoryCommitted = nonHeapMemoryCommitted;
       this.loadAverageLastMinute = loadAverageLastMinute;
+      this.memoryPressureLast10Sec = memoryPressureLast10Sec1;
+      this.ioPressureLast10Sec = ioPressureLast10Sec1;
       this.freePhysicalMemory = freePhysicalMemory;
       this.cpuUtilizationInJiffies = cpuUtilizationInJiffies;
     }
@@ -234,6 +281,22 @@ public final class ResourceUsage {
      */
     public float getLoadAverageLastMinute() {
       return loadAverageLastMinute;
+    }
+
+    /**
+     * Returns the memory pressure from the Linux Pressure Stall Indicator system, or -1 if PSI
+     * cannot be read.
+     */
+    public float getMemoryPressureLast10Sec() {
+      return memoryPressureLast10Sec;
+    }
+
+    /**
+     * Returns the I/O pressure from the Linux Pressure Stall Indicator system, or -1 if PSI cannot
+     * be read.
+     */
+    public float getIoPressureLast10Sec() {
+      return ioPressureLast10Sec;
     }
 
     /** Returns the free physical memmory in bytes at the time of measurement. */

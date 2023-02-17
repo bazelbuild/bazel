@@ -19,21 +19,19 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ResourceEstimator;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.profiler.NetworkMetricsCollector.SystemNetworkUsages;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.worker.WorkerMetric;
 import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.sun.management.OperatingSystemMXBean;
-import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
-import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,8 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** Thread to collect local resource usage data and log into JSON profile. */
@@ -204,8 +200,8 @@ public class CollectLocalResourceUsage extends Thread {
       double pressureStallIo = 0;
       double pressureStallMemory = 0;
       if (collectPressureStallIndicators) {
-        pressureStallIo = readPressureStallIndicator("io");
-        pressureStallMemory = readPressureStallIndicator("memory");
+        pressureStallIo = ResourceUsage.readPressureStallIndicator("io");
+        pressureStallMemory = ResourceUsage.readPressureStallIndicator("memory");
       }
 
       double deltaNanos = nextElapsed.minus(previousElapsed).toNanos();
@@ -271,35 +267,6 @@ public class CollectLocalResourceUsage extends Thread {
       }
       previousElapsed = nextElapsed;
       previousCpuTimeNanos = nextCpuTimeNanos;
-    }
-  }
-
-  private static final Pattern PSI_AVG10_VALUE_PATTERN = Pattern.compile("^full avg10=([\\d.]+).*");
-
-  /**
-   * Reads the Pressure Staller Indicator file for a given type and returns the double value for
-   * `avg10`, or -1 if we couldn't read that value.
-   */
-  private double readPressureStallIndicator(String type) {
-    String fileName = "/proc/pressure/" + type;
-    File procFile = new File(fileName);
-    if (!procFile.canRead()) {
-      return -1.0;
-    }
-    try {
-      List<String> lines = Files.readLines(procFile, Charset.defaultCharset());
-      for (String l : lines) {
-        if (l.startsWith("full avg10")) {
-          Matcher matcher = PSI_AVG10_VALUE_PATTERN.matcher(l);
-          if (!matcher.matches()) {
-            return -1.0;
-          }
-          return Double.parseDouble(matcher.group(1));
-        }
-      }
-      return -1.0;
-    } catch (IOException e) {
-      return -1.0;
     }
   }
 
