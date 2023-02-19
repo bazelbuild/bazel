@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -22,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -30,13 +32,18 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuil
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Class that goes over linker inputs and produces {@link LibraryToLinkValue}s */
 public class LibrariesToLinkCollector {
+
+  private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
+  private static final Joiner PATH_JOINER = Joiner.on(PathFragment.SEPARATOR_CHAR);
 
   private final boolean isNativeDeps;
   private final PathFragment toolchainLibrariesSolibDir;
@@ -50,11 +57,10 @@ public class LibrariesToLinkCollector {
   private final Artifact thinltoParamFile;
   private final FeatureConfiguration featureConfiguration;
   private final boolean needWholeArchive;
-  private final ImmutableList<String> potentialExecRoots;
-  private final ImmutableList<String> rpathRoots;
   private final boolean needToolchainLibrariesRpath;
-  private final Map<Artifact, Artifact> ltoMap;
   private final RuleErrorConsumer ruleErrorConsumer;
+  private final Artifact output;
+  private final String workspaceName;
 
   public LibrariesToLinkCollector(
       boolean isNativeDeps,
@@ -87,114 +93,13 @@ public class LibrariesToLinkCollector {
     this.linkerInputs = linkerInputs;
     this.needWholeArchive = needWholeArchive;
     this.ruleErrorConsumer = ruleErrorConsumer;
+    this.output = output;
+    this.workspaceName = workspaceName;
 
     needToolchainLibrariesRpath =
         toolchainLibrariesSolibDir != null
             && (linkType.isDynamicLibrary()
                 || (linkType == LinkTargetType.EXECUTABLE && linkingMode == LinkingMode.DYNAMIC));
-
-    // Calculate the correct relative value for the "-rpath" link option (which sets
-    // the search path for finding shared libraries).
-    if (isNativeDeps && cppConfiguration.shareNativeDeps()) {
-      // For shared native libraries, special symlinking is applied to ensure C++
-      // toolchain libraries are available under $ORIGIN/_solib_[arch]. So we set the RPATH to find
-      // them.
-      //
-      // Note that we have to do this because $ORIGIN points to different paths for
-      // different targets. In other words, blaze-bin/d1/d2/d3/a_shareddeps.so and
-      // blaze-bin/d4/b_shareddeps.so have different path depths. The first could
-      // reference a standard blaze-bin/_solib_[arch] via $ORIGIN/../../../_solib[arch],
-      // and the second could use $ORIGIN/../_solib_[arch]. But since this is a shared
-      // artifact, both are symlinks to the same place, so
-      // there's no *one* RPATH setting that fits all targets involved in the sharing.
-      potentialExecRoots = ImmutableList.of();
-      rpathRoots = ImmutableList.of(ccToolchainProvider.getSolibDirectory() + "/");
-    } else {
-      // The runtime location of the solib directory relative to the binary depends on four factors:
-      //
-      // * whether the binary is contained in the main repository or an external repository;
-      // * whether the binary is executed directly or from a runfiles tree;
-      // * whether the binary is staged as a symlink (sandboxed execution; local execution if the
-      //   binary is in the runfiles of another target) or a regular file (remote execution) - the
-      //   dynamic linker follows sandbox and runfiles symlinks into its location under the
-      //   unsandboxed execroot, which thus becomes the effective $ORIGIN;
-      // * whether --experimental_sibling_repository_layout is enabled or not.
-      //
-      // The rpaths emitted into the binary thus have to cover the following cases (assuming that
-      // the binary target is located in the pkg `pkg` and has name `file`) for the directory used
-      // as $ORIGIN by the dynamic linker and the directory containing the solib directories:
-      //
-      // 1. main, direct, symlink:
-      //    $ORIGIN:    $EXECROOT/pkg
-      //    solib root: $EXECROOT
-      // 2. main, direct, regular file:
-      //    $ORIGIN:    $EXECROOT/pkg
-      //    solib root: $EXECROOT/pkg/file.runfiles/main_repo
-      // 3. main, runfiles, symlink:
-      //    $ORIGIN:    $EXECROOT/pkg
-      //    solib root: $EXECROOT
-      // 4. main, runfiles, regular file:
-      //    $ORIGIN:    other_target.runfiles/main_repo/pkg
-      //    solib root: other_target.runfiles/main_repo
-      // 5a. external, direct, symlink:
-      //    $ORIGIN:    $EXECROOT/external/other_repo/pkg
-      //    solib root: $EXECROOT
-      // 5b. external, direct, symlink, with --experimental_sibling_repository_layout:
-      //    $ORIGIN:    $EXECROOT/../other_repo/pkg
-      //    solib root: $EXECROOT/../other_repo
-      // 6a. external, direct, regular file:
-      //    $ORIGIN:    $EXECROOT/external/other_repo/pkg
-      //    solib root: $EXECROOT/external/other_repo/pkg/file.runfiles/main_repo
-      // 6b. external, direct, regular file, with --experimental_sibling_repository_layout:
-      //    $ORIGIN:    $EXECROOT/../other_repo/pkg
-      //    solib root: $EXECROOT/../other_repo/pkg/file.runfiles/other_repo
-      // 7a. external, runfiles, symlink:
-      //    $ORIGIN:    $EXECROOT/external/other_repo/pkg
-      //    solib root: $EXECROOT
-      // 7b. external, runfiles, symlink, with --experimental_sibling_repository_layout:
-      //    $ORIGIN:    $EXECROOT/../other_repo/pkg
-      //    solib root: $EXECROOT/../other_repo
-      // 8a. external, runfiles, regular file:
-      //    $ORIGIN:    other_target.runfiles/some_repo/pkg
-      //    solib root: other_target.runfiles/main_repo
-      // 8b. external, runfiles, regular file, with --experimental_sibling_repository_layout:
-      //    $ORIGIN:    other_target.runfiles/some_repo/pkg
-      //    solib root: other_target.runfiles/some_repo
-      //
-      // Cases 1, 3, 4, 5, 7, and 8b are covered by an rpath that walks up the root relative path.
-      // Cases 2 and 6 covered by walking into file.runfiles/main_repo.
-      // Case 8a is covered by walking up some_repo/pkg and then into main_repo.
-      boolean isExternal =
-          output.getRunfilesPath().startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX);
-      boolean usesLegacyRepositoryLayout = output.getRoot().isLegacy();
-      ImmutableList.Builder<String> execRoots = ImmutableList.builder();
-      // Handles cases 1, 3, 4, 5, and 7.
-      execRoots.add("../".repeat(output.getRootRelativePath().segmentCount() - 1));
-      // Handle cases 2 and 6.
-      String solibRepositoryName;
-      if (isExternal && !usesLegacyRepositoryLayout) {
-        // Case 6b
-        solibRepositoryName = output.getRunfilesPath().getSegment(1);
-      } else {
-        // Cases 2 and 6a
-        solibRepositoryName = workspaceName;
-      }
-      execRoots.add(output.getFilename() + ".runfiles/" + solibRepositoryName + "/");
-      if (isExternal && usesLegacyRepositoryLayout) {
-        // Handles case 8a. The runfiles path is of the form ../some_repo/pkg/file and we need to
-        // walk up some_repo/pkg and then down into main_repo.
-        execRoots.add(
-            "../".repeat(output.getRunfilesPath().segmentCount() - 2) + workspaceName + "/");
-      }
-
-      potentialExecRoots = execRoots.build();
-      rpathRoots =
-          potentialExecRoots.stream()
-              .map((execRoot) -> execRoot + ccToolchainProvider.getSolibDirectory() + "/")
-              .collect(toImmutableList());
-    }
-
-    ltoMap = generateLtoMap();
   }
 
   /**
@@ -236,6 +141,252 @@ public class LibrariesToLinkCollector {
     }
   }
 
+  private NestedSet<String> collectToolchainRuntimeLibrarySearchDirectories(
+      ImmutableList<String> potentialSolibParents) {
+    NestedSetBuilder<String> runtimeLibrarySearchDirectories = NestedSetBuilder.linkOrder();
+    if (!needToolchainLibrariesRpath) {
+      return runtimeLibrarySearchDirectories.build();
+    }
+
+    String toolchainLibrariesSolibName = toolchainLibrariesSolibDir.getBaseName();
+    if (!(isNativeDeps && cppConfiguration.shareNativeDeps())) {
+      for (String potentialExecRoot : findToolchainSolibParents(potentialSolibParents)) {
+        runtimeLibrarySearchDirectories.add(potentialExecRoot + toolchainLibrariesSolibName + "/");
+      }
+    }
+    if (isNativeDeps) {
+      runtimeLibrarySearchDirectories.add("../" + toolchainLibrariesSolibName + "/");
+      runtimeLibrarySearchDirectories.add(".");
+    }
+    runtimeLibrarySearchDirectories.add(toolchainLibrariesSolibName + "/");
+
+    return runtimeLibrarySearchDirectories.build();
+  }
+
+  private ImmutableList<String> findPotentialSolibParents() {
+    // The runtime location of the solib directory relative to the binary depends on four factors:
+    //
+    // * whether the binary is contained in the main repository or an external repository;
+    // * whether the binary is executed directly or from a runfiles tree;
+    // * whether the binary is staged as a symlink (sandboxed execution; local execution if the
+    //   binary is in the runfiles of another target) or a regular file (remote execution) - the
+    //   dynamic linker follows sandbox and runfiles symlinks into its location under the
+    //   unsandboxed execroot, which thus becomes the effective $ORIGIN;
+    // * whether --experimental_sibling_repository_layout is enabled or not.
+    //
+    // The rpaths emitted into the binary thus have to cover the following cases (assuming that
+    // the binary target is located in the pkg `pkg` and has name `file`) for the directory used
+    // as $ORIGIN by the dynamic linker and the directory containing the solib directories:
+    //
+    // 1. main, direct, symlink:
+    //    $ORIGIN:    $EXECROOT/pkg
+    //    solib root: $EXECROOT
+    // 2. main, direct, regular file:
+    //    $ORIGIN:    $EXECROOT/pkg
+    //    solib root: $EXECROOT/pkg/file.runfiles/main_repo
+    // 3. main, runfiles, symlink:
+    //    $ORIGIN:    $EXECROOT/pkg
+    //    solib root: $EXECROOT
+    // 4. main, runfiles, regular file:
+    //    $ORIGIN:    other_target.runfiles/main_repo/pkg
+    //    solib root: other_target.runfiles/main_repo
+    // 5a. external, direct, symlink:
+    //    $ORIGIN:    $EXECROOT/external/other_repo/pkg
+    //    solib root: $EXECROOT
+    // 5b. external, direct, symlink, with --experimental_sibling_repository_layout:
+    //    $ORIGIN:    $EXECROOT/../other_repo/pkg
+    //    solib root: $EXECROOT/../other_repo
+    // 6a. external, direct, regular file:
+    //    $ORIGIN:    $EXECROOT/external/other_repo/pkg
+    //    solib root: $EXECROOT/external/other_repo/pkg/file.runfiles/main_repo
+    // 6b. external, direct, regular file, with --experimental_sibling_repository_layout:
+    //    $ORIGIN:    $EXECROOT/../other_repo/pkg
+    //    solib root: $EXECROOT/../other_repo/pkg/file.runfiles/other_repo
+    // 7a. external, runfiles, symlink:
+    //    $ORIGIN:    $EXECROOT/external/other_repo/pkg
+    //    solib root: $EXECROOT
+    // 7b. external, runfiles, symlink, with --experimental_sibling_repository_layout:
+    //    $ORIGIN:    $EXECROOT/../other_repo/pkg
+    //    solib root: $EXECROOT/../other_repo
+    // 8a. external, runfiles, regular file:
+    //    $ORIGIN:    other_target.runfiles/some_repo/pkg
+    //    solib root: other_target.runfiles/main_repo
+    // 8b. external, runfiles, regular file, with --experimental_sibling_repository_layout:
+    //    $ORIGIN:    other_target.runfiles/some_repo/pkg
+    //    solib root: other_target.runfiles/some_repo
+    //
+    // Cases 1, 3, 4, 5, 7, and 8b are covered by an rpath that walks up the root relative path.
+    // Cases 2 and 6 covered by walking into file.runfiles/main_repo.
+    // Case 8a is covered by walking up some_repo/pkg and then into main_repo.
+    boolean isExternal =
+        output.getRunfilesPath().startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX);
+    boolean usesLegacyRepositoryLayout = output.getRoot().isLegacy();
+    ImmutableList.Builder<String> solibParents = ImmutableList.builder();
+    // Handles cases 1, 3, 4, 5, and 7.
+    solibParents.add("../".repeat(output.getRootRelativePath().segmentCount() - 1));
+    // Handle cases 2 and 6.
+    String solibRepositoryName;
+    if (isExternal && !usesLegacyRepositoryLayout) {
+      // Case 6b
+      solibRepositoryName = output.getRunfilesPath().getSegment(1);
+    } else {
+      // Cases 2 and 6a
+      solibRepositoryName = workspaceName;
+    }
+    solibParents.add(output.getFilename() + ".runfiles/" + solibRepositoryName + "/");
+    if (isExternal && usesLegacyRepositoryLayout) {
+      // Handles case 8a. The runfiles path is of the form ../some_repo/pkg/file and we need to
+      // walk up some_repo/pkg and then down into main_repo.
+      solibParents.add(
+          "../".repeat(output.getRunfilesPath().segmentCount() - 2) + workspaceName + "/");
+    }
+
+    return solibParents.build();
+  }
+
+  private ImmutableList<String> findToolchainSolibParents(
+      ImmutableList<String> potentialSolibParents) {
+    boolean usesLegacyRepositoryLayout = output.getRoot().isLegacy();
+    // When -experimental_sibling_repository_layout is not enabled, the toolchain solib sits next to
+    // the solib_<cpu> directory - so that it shares the same parents.
+    if (usesLegacyRepositoryLayout) {
+      return potentialSolibParents;
+    }
+
+    // When -experimental_sibling_repository_layout is enabled, the toolchain solib is located in
+    // these 2 places:
+    // 1. The `bin` directory of the repository where the toolchain target is declared (this is the
+    // parent directory of `toolchainLibrariesSolibDir`).
+    // 2. In `target.runfiles/<toolchain repo>`
+    //
+    // And the following factors affect what $ORIGIN is resolved to:
+    // * whether the binary is contained in the main repository or an external repository;
+    // * whether the binary is executed directly or from a runfiles tree;
+    // * whether the binary is staged as a symlink (sandboxed execution; local execution if the
+    //   binary is in the runfiles of another target) or a regular file (remote execution) - the
+    //   dynamic linker follows sandbox and runfiles symlinks into its location under the
+    //   unsandboxed execroot, which thus becomes the effective $ORIGIN;
+    //
+    // The rpaths emitted into the binary thus have to cover the following cases (assuming that
+    // the binary target is located in the pkg `pkg` and has name `file`) for the directory used
+    // as $ORIGIN by the dynamic linker and the directory containing the solib directories:
+    // 1. main, direct, symlink:
+    //    $ORIGIN:    $EXECROOT/pkg
+    //    solib root: <toolchain repo bin>
+    // 2. main, direct, regular file:
+    //    $ORIGIN:    $EXECROOT/pkg
+    //    solib root: $EXECROOT/pkg/file.runfiles/<toolchain repo>
+    // 3. main, runfiles, symlink:
+    //    $ORIGIN:    $EXECROOT/pkg
+    //    solib root: <toolchain repo bin>
+    // 4. main, runfiles, regular file:
+    //    $ORIGIN:    other_target.runfiles/main_repo/pkg
+    //    solib root: other_target.runfiles/<toolchain repo>
+    // 5. external, direct, symlink:
+    //    $ORIGIN:    $EXECROOT/../other_repo/pkg
+    //    solib root: <toolchain repo bin>
+    // 6. external, direct, regular file:
+    //    $ORIGIN:    $EXECROOT/../other_repo/pkg
+    //    solib root: $EXECROOT/../other_repo/pkg/file.runfiles/<toolchain repo>
+    // 7. external, runfiles, symlink:
+    //    $ORIGIN:    $EXECROOT/../other_repo/pkg
+    //    solib root: <toolchain repo bin>
+    // 8. external, runfiles, regular file:
+    //    $ORIGIN:    other_target.runfiles/some_repo/pkg
+    //    solib root: other_target.runfiles/<toolchain repo>
+    //
+    // For cases 1, 3, 5, 7, we need to compute the relative path from the output artifact to
+    // toolchain repo's bin directory. For 2 and 6, we walk down into `file.runfiles/<toolchain
+    // repo>`. For 4 and 8, we need to compute the relative path from the output runfile to
+    // <toolchain repo> under runfiles.
+    ImmutableList.Builder<String> solibParents = ImmutableList.builder();
+
+    // Cases 1, 3, 5, 7
+    PathFragment toolchainBinExecPath = toolchainLibrariesSolibDir.getParentDirectory();
+    PathFragment binaryOriginExecPath = output.getExecPath().getParentDirectory();
+    solibParents.add(
+        getRelative(binaryOriginExecPath, toolchainBinExecPath).getPathString()
+            + PathFragment.SEPARATOR_CHAR);
+
+    // Cases 2 and 6
+    String toolchainRunfilesRepoName =
+        getRunfilesRepoName(ccToolchainProvider.getCcToolchainLabel().getRepository());
+    solibParents.add(
+        PATH_JOINER.join(output.getFilename() + ".runfiles", toolchainRunfilesRepoName)
+            + PathFragment.SEPARATOR_CHAR);
+
+    // Cases 4 and 8
+    String binaryRepoName = getRunfilesRepoName(output.getOwnerLabel().getRepository());
+    PathFragment toolchainBinRunfilesPath = PathFragment.create(toolchainRunfilesRepoName);
+    PathFragment binaryOriginRunfilesPath =
+        PathFragment.create(binaryRepoName)
+            .getRelative(output.getRepositoryRelativePath())
+            .getParentDirectory();
+    solibParents.add(
+        getRelative(binaryOriginRunfilesPath, toolchainBinRunfilesPath).getPathString()
+            + PathFragment.SEPARATOR_CHAR);
+
+    return solibParents.build();
+  }
+
+  private String getRunfilesRepoName(RepositoryName repo) {
+    if (repo.isMain()) {
+      return workspaceName;
+    }
+    return repo.getName();
+  }
+
+  /**
+   * Returns the relative {@link PathFragment} from "from" to "to".
+   *
+   * <p>Example 1: <code>
+   * getRelative({@link PathFragment}.create("foo"), {@link PathFragment}.create("foo/bar/wiz"))
+   * </code> returns <code>"bar/wiz"</code>.
+   *
+   * <p>Example 2: <code>
+   * getRelative({@link PathFragment}.create("foo/bar/wiz"),
+   * {@link PathFragment}.create("foo/wiz"))
+   * </code> returns <code>"../../wiz"</code>.
+   *
+   * <p>The following requirements / assumptions are made: 1) paths must be both relative; 2) they
+   * are assumed to be relative to the same location; 3) when the {@code from} path starts with
+   * {@code ..} prefixes, the prefix length must not exceed {@code ..} prefixes of the {@code to}
+   * path.
+   */
+  static PathFragment getRelative(PathFragment from, PathFragment to) {
+    if (from.isAbsolute() || to.isAbsolute()) {
+      throw new IllegalArgumentException("Paths must be both relative.");
+    }
+
+    final ImmutableList<String> fromSegments = from.splitToListOfSegments();
+    final ImmutableList<String> toSegments = to.splitToListOfSegments();
+    final int fromSegCount = fromSegments.size();
+    final int toSegCount = toSegments.size();
+
+    int commonSegCount = 0;
+    while (commonSegCount < fromSegCount
+        && commonSegCount < toSegCount
+        && OS.equals(fromSegments.get(commonSegCount), toSegments.get(commonSegCount))) {
+      commonSegCount++;
+    }
+
+    if (commonSegCount < fromSegCount && fromSegments.get(commonSegCount).equals("..")) {
+      throw new IllegalArgumentException(
+          "Unable to compute relative path from \""
+              + from.getPathString()
+              + "\" to \""
+              + to.getPathString()
+              + "\": too many leading \"..\" segments in from path.");
+    }
+    PathFragment relativePath =
+        PathFragment.create(
+            PATH_JOINER.join(Collections.nCopies(fromSegCount - commonSegCount, "..")));
+    if (commonSegCount < toSegCount) {
+      relativePath = relativePath.getRelative(to.subFragment(commonSegCount, toSegCount));
+    }
+    return relativePath;
+  }
+
   /**
    * When linking a shared library fully or mostly static then we need to link in *all* dependent
    * files, not just what the shared library needs for its own code. This is done by wrapping all
@@ -247,48 +398,43 @@ public class LibrariesToLinkCollector {
    */
   public CollectedLibrariesToLink collectLibrariesToLink() {
     NestedSetBuilder<String> librarySearchDirectories = NestedSetBuilder.linkOrder();
-    NestedSetBuilder<String> runtimeLibrarySearchDirectories = NestedSetBuilder.linkOrder();
     ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps = ImmutableSet.builder();
     NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder = NestedSetBuilder.linkOrder();
     // List of command line parameters that need to be placed *outside* of
     // --whole-archive ... --no-whole-archive.
     SequenceBuilder librariesToLink = new SequenceBuilder();
 
-    String toolchainLibrariesSolibName =
-        toolchainLibrariesSolibDir != null ? toolchainLibrariesSolibDir.getBaseName() : null;
+    ImmutableList<String> potentialSolibParents;
+    ImmutableList<String> rpathRoots;
+    // Calculate the correct relative value for the "-rpath" link option (which sets
+    // the search path for finding shared libraries).
     if (isNativeDeps && cppConfiguration.shareNativeDeps()) {
-      if (needToolchainLibrariesRpath) {
-        runtimeLibrarySearchDirectories.add("../" + toolchainLibrariesSolibName + "/");
-      }
+      // For shared native libraries, special symlinking is applied to ensure C++
+      // toolchain libraries are available under $ORIGIN/_solib_[arch]. So we set the RPATH to find
+      // them.
+      //
+      // Note that we have to do this because $ORIGIN points to different paths for
+      // different targets. In other words, blaze-bin/d1/d2/d3/a_shareddeps.so and
+      // blaze-bin/d4/b_shareddeps.so have different path depths. The first could
+      // reference a standard blaze-bin/_solib_[arch] via $ORIGIN/../../../_solib[arch],
+      // and the second could use $ORIGIN/../_solib_[arch]. But since this is a shared
+      // artifact, both are symlinks to the same place, so
+      // there's no *one* RPATH setting that fits all targets involved in the sharing.
+      potentialSolibParents = ImmutableList.of();
+      rpathRoots = ImmutableList.of(ccToolchainProvider.getSolibDirectory() + "/");
     } else {
-      // For all other links, calculate the relative path from the output file to _solib_[arch]
-      // (the directory where all shared libraries are stored, which resides under the blaze-bin
-      // directory. In other words, given blaze-bin/my/package/binary, rpathRoot would be
-      // "../../_solib_[arch]".
-      if (needToolchainLibrariesRpath) {
-        for (String potentialExecRoot : potentialExecRoots) {
-          runtimeLibrarySearchDirectories.add(
-              potentialExecRoot + toolchainLibrariesSolibName + "/");
-        }
-      }
-      if (isNativeDeps) {
-        // We also retain the $ORIGIN/ path to solibs that are in _solib_<arch>, as opposed to
-        // the package directory)
-        if (needToolchainLibrariesRpath) {
-          runtimeLibrarySearchDirectories.add("../" + toolchainLibrariesSolibName + "/");
-        }
-      }
+      potentialSolibParents = findPotentialSolibParents();
+      rpathRoots =
+          potentialSolibParents.stream()
+              .map((execRoot) -> execRoot + ccToolchainProvider.getSolibDirectory() + "/")
+              .collect(toImmutableList());
     }
 
-    if (needToolchainLibrariesRpath) {
-      if (isNativeDeps) {
-        runtimeLibrarySearchDirectories.add(".");
-      }
-      runtimeLibrarySearchDirectories.add(toolchainLibrariesSolibName + "/");
-    }
-
+    Map<Artifact, Artifact> ltoMap = generateLtoMap();
     Pair<Boolean, Boolean> includeSolibsPair =
         addLinkerInputs(
+            rpathRoots,
+            ltoMap,
             librarySearchDirectories,
             rpathRootsForExplicitSoDeps,
             librariesToLink,
@@ -307,7 +453,8 @@ public class LibrariesToLinkCollector {
     }
     allRuntimeLibrarySearchDirectories.addAll(rpathRootsForExplicitSoDeps.build());
     if (includeToolchainLibrariesSolibDir) {
-      allRuntimeLibrarySearchDirectories.addTransitive(runtimeLibrarySearchDirectories.build());
+      allRuntimeLibrarySearchDirectories.addTransitive(
+          collectToolchainRuntimeLibrarySearchDirectories(potentialSolibParents));
     }
 
     return new CollectedLibrariesToLink(
@@ -318,6 +465,8 @@ public class LibrariesToLinkCollector {
   }
 
   private Pair<Boolean, Boolean> addLinkerInputs(
+      ImmutableList<String> rpathRoots,
+      Map<Artifact, Artifact> ltoMap,
       NestedSetBuilder<String> librarySearchDirectories,
       ImmutableSet.Builder<String> rpathEntries,
       SequenceBuilder librariesToLink,
@@ -366,9 +515,10 @@ public class LibrariesToLinkCollector {
             librariesToLink,
             expandedLinkerInputsBuilder,
             librarySearchDirectories,
+            rpathRoots,
             rpathEntries);
       } else {
-        addStaticInputLinkOptions(input, librariesToLink, expandedLinkerInputsBuilder);
+        addStaticInputLinkOptions(input, ltoMap, librariesToLink, expandedLinkerInputsBuilder);
       }
     }
     return Pair.of(includeSolibDir, includeToolchainLibrariesSolibDir);
@@ -384,6 +534,7 @@ public class LibrariesToLinkCollector {
       SequenceBuilder librariesToLink,
       NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder,
       NestedSetBuilder<String> librarySearchDirectories,
+      ImmutableList<String> rpathRoots,
       ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps) {
     Preconditions.checkState(
         input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY
@@ -470,6 +621,7 @@ public class LibrariesToLinkCollector {
    */
   private void addStaticInputLinkOptions(
       LinkerInput input,
+      Map<Artifact, Artifact> ltoMap,
       SequenceBuilder librariesToLink,
       NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder) {
     ArtifactCategory artifactCategory = input.getArtifactCategory();
@@ -528,7 +680,7 @@ public class LibrariesToLinkCollector {
               LinkerInputs.simpleLinkerInput(
                   member,
                   ArtifactCategory.OBJECT_FILE,
-                  /* disableWholeArchive  = */ false,
+                  /* disableWholeArchive= */ false,
                   member.getRootRelativePathString()));
         }
         ImmutableList<Artifact> nonLtoArchiveMembers = nonLtoArchiveMembersBuilder.build();
