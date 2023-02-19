@@ -148,6 +148,7 @@ java_test(
     size = "large",
     srcs = ["BuildWithoutTheBytesIntegrationTest.java"],
     shard_count = 5,
+    tags = ["requires-network"],
     runtime_deps = [
         "//third_party/grpc-java:grpc-jar",
     ],
@@ -161,6 +162,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
         "//third_party:guava",
         "//third_party:junit4",
@@ -171,6 +173,7 @@ java_test(
 java_test(
     name = "DiskCacheIntegrationTest",
     srcs = ["DiskCacheIntegrationTest.java"],
+    tags = ["requires-network"],
     runtime_deps = [
         "//third_party/grpc-java:grpc-jar",
     ],

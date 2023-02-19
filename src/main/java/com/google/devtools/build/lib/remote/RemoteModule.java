@@ -911,12 +911,14 @@ public final class RemoteModule extends BlazeModule {
       Preconditions.checkNotNull(patternsToDownload, "patternsToDownload must not be null");
       actionInputFetcher =
           new RemoteActionInputFetcher(
+              env.getReporter(),
               env.getBuildRequestId(),
               env.getCommandId().toString(),
               actionContextProvider.getRemoteCache(),
               env.getExecRoot(),
               tempPathGenerator,
-              patternsToDownload);
+              patternsToDownload,
+              remoteOptions.useNewExitCodeForLostInputs);
       env.getEventBus().register(actionInputFetcher);
       builder.setActionInputPrefetcher(actionInputFetcher);
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
@@ -930,11 +932,11 @@ public final class RemoteModule extends BlazeModule {
               actionInputFetcher,
               (path) -> {
                 FileSystem fileSystem = path.getFileSystem();
-                Preconditions.checkState(
-                    fileSystem instanceof RemoteActionFileSystem,
-                    "fileSystem must be an instance of RemoteActionFileSystem");
-                return ((RemoteActionFileSystem) path.getFileSystem())
-                    .getRemoteMetadata(path.asFragment());
+                if (fileSystem instanceof RemoteActionFileSystem) {
+                  return ((RemoteActionFileSystem) path.getFileSystem())
+                      .getRemoteMetadata(path.asFragment());
+                }
+                return null;
               });
       env.getEventBus().register(toplevelArtifactsDownloader);
     }
