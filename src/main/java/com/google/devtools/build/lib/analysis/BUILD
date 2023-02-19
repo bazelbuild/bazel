@@ -2543,7 +2543,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:jsr305_checked_in",
     ],
-)        
+)
 
 java_library(
     name = "test/coverage_report",
