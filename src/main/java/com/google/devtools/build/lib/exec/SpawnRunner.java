@@ -162,7 +162,7 @@ public interface SpawnRunner {
      * @see #prefetchInputs()
      */
     default void prefetchInputsAndWait()
-        throws IOException, InterruptedException, ForbiddenActionInputException {
+        throws IOException, ExecException, InterruptedException, ForbiddenActionInputException {
       ListenableFuture<Void> future = prefetchInputs();
       try (SilentCloseable s =
           Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "stage remote inputs")) {
@@ -171,6 +171,7 @@ public interface SpawnRunner {
         Throwable cause = e.getCause();
         if (cause != null) {
           throwIfInstanceOf(cause, IOException.class);
+          throwIfInstanceOf(cause, ExecException.class);
           throwIfInstanceOf(cause, ForbiddenActionInputException.class);
           throwIfInstanceOf(cause, RuntimeException.class);
         }
