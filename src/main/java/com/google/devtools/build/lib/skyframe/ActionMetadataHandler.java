@@ -598,8 +598,29 @@ final class ActionMetadataHandler implements MetadataHandler {
             statNoFollow,
             /* digestWillBeInjected= */ false,
             xattrProvider,
-            tsgm)
-        .fileArtifactValue();
+            tsgm).fileArtifactValue();
+  }
+  
+  @AutoValue
+  abstract static class FileArtifactStatAndValue {
+    public static FileArtifactStatAndValue create(
+        Path pathNoFollow,
+        @Nullable Path realPath,
+        @Nullable FileStatusWithDigest statNoFollow,
+        FileArtifactValue fileArtifactValue) {
+      return new AutoValue_ActionMetadataHandler_FileArtifactStatAndValue(
+          pathNoFollow, realPath, statNoFollow, fileArtifactValue);
+    }
+
+    public abstract Path pathNoFollow();
+
+    @Nullable
+    public abstract Path realPath();
+
+    @Nullable
+    public abstract FileStatusWithDigest statNoFollow();
+
+    public abstract FileArtifactValue fileArtifactValue();
   }
 
   private static FileArtifactStatAndValue fileArtifactValueFromArtifact(
@@ -617,8 +638,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     // is no need for the stat below.
     if (artifact.isSymlink()) {
       var fileArtifactValue = FileArtifactValue.createForUnresolvedSymlink(pathNoFollow);
-      return FileArtifactStatAndValue.create(
-          pathNoFollow, /* realPath= */ null, statNoFollow, fileArtifactValue);
+      return FileArtifactStatAndValue.create(pathNoFollow, /* realPath= */ null, statNoFollow, fileArtifactValue);
     }
 
     RootedPath rootedPathNoFollow =
@@ -659,32 +679,9 @@ final class ActionMetadataHandler implements MetadataHandler {
     // and is a source file (since changes to those are checked separately).
     FileStatus realStat = realRootedPath.asPath().statIfFound(Symlinks.NOFOLLOW);
     FileStatusWithDigest realStatWithDigest = FileStatusWithDigestAdapter.maybeAdapt(realStat);
-    var fileArtifactValue =
-        fileArtifactValueFromStat(
-            realRootedPath, realStatWithDigest, digestWillBeInjected, xattrProvider, tsgm);
+    var fileArtifactValue = fileArtifactValueFromStat(
+        realRootedPath, realStatWithDigest, digestWillBeInjected, xattrProvider, tsgm);
     return FileArtifactStatAndValue.create(pathNoFollow, realPath, statNoFollow, fileArtifactValue);
-  }
-
-  @AutoValue
-  abstract static class FileArtifactStatAndValue {
-    public static FileArtifactStatAndValue create(
-        Path pathNoFollow,
-        @Nullable Path realPath,
-        @Nullable FileStatusWithDigest statNoFollow,
-        FileArtifactValue fileArtifactValue) {
-      return new AutoValue_ActionMetadataHandler_FileArtifactStatAndValue(
-          pathNoFollow, realPath, statNoFollow, fileArtifactValue);
-    }
-
-    public abstract Path pathNoFollow();
-
-    @Nullable
-    public abstract Path realPath();
-
-    @Nullable
-    public abstract FileStatusWithDigest statNoFollow();
-
-    public abstract FileArtifactValue fileArtifactValue();
   }
 
   private static FileArtifactValue fileArtifactValueFromStat(
