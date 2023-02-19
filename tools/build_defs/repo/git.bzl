@@ -42,7 +42,10 @@ def _clone_or_update_repo(ctx):
         for item in ctx.path(dest_link).readdir():
             ctx.symlink(item, root.get_child(item.basename))
 
-    return {"commit": git_.commit, "shallow_since": git_.shallow_since}
+    if ctx.attr.shallow_since:
+        return {"commit": git_.commit, "shallow_since": git_.shallow_since}
+    else:
+        return {"commit": git_.commit}
 
 def _update_git_attrs(orig, keys, override):
     result = update_attrs(orig, keys, override)
@@ -68,12 +71,14 @@ _common_attrs = {
     "shallow_since": attr.string(
         default = "",
         doc =
-            "an optional date, not after the specified commit; the " +
-            "argument is not allowed if a tag is specified (which allows " +
-            "cloning with depth 1). Setting such a date close to the " +
-            "specified commit allows for a more shallow clone of the " +
-            "repository, saving bandwidth " +
-            "and wall-clock time.",
+            "an optional date, not after the specified commit; the argument " +
+            "is not allowed if a tag or branch is specified (which can " +
+            "always be cloned with --depth=1). Setting such a date close to " +
+            "the specified commit may allow for a shallow clone of the " +
+            "repository even if the server does not support shallow fetches " +
+            "of arbitary commits. Due to bugs in git's --shallow-since " +
+            "implementation, using this attribute is not recommended as it " +
+            "may result in fetch failures.",
     ),
     "tag": attr.string(
         default = "",
@@ -183,6 +188,10 @@ makes its targets available for binding. Also determine the id of the
 commit actually checked out and its date, and return a dict with parameters
 that provide a reproducible version of this rule (which a tag not necessarily
 is).
+
+Bazel will first try to perform a shallow fetch of only the specified commit.
+If that fails (usually due to missing server support), it will fall back to a
+full fetch of the repository.
 """,
 )
 

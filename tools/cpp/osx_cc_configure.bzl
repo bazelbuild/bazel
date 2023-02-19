@@ -14,7 +14,11 @@
 # limitations under the License.
 """Configuring the C++ toolchain on macOS."""
 
-load("@bazel_tools//tools/osx:xcode_configure.bzl", "run_xcode_locator")
+load(
+    "@bazel_tools//tools/osx:xcode_configure.bzl",
+    "OSX_EXECUTE_TIMEOUT",
+    "run_xcode_locator",
+)
 load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
     "escape_string",
@@ -54,7 +58,7 @@ def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
     return include_dirs
 
 # TODO: Remove once Xcode 12 is the minimum supported version
-def _compile_cc_file_single_arch(repository_ctx, src_name, out_name):
+def _compile_cc_file_single_arch(repository_ctx, src_name, out_name, timeout):
     env = repository_ctx.os.environ
     xcrun_result = repository_ctx.execute([
         "env",
@@ -71,7 +75,7 @@ def _compile_cc_file_single_arch(repository_ctx, src_name, out_name):
         "-o",
         out_name,
         src_name,
-    ], 60)
+    ], timeout)
     if (xcrun_result.return_code != 0):
         error_msg = (
             "return code {code}, stderr: {err}, stdout: {out}"
@@ -84,7 +88,7 @@ def _compile_cc_file_single_arch(repository_ctx, src_name, out_name):
              "https://github.com/bazelbuild/bazel/issues with the following:\n" +
              error_msg)
 
-def _compile_cc_file(repository_ctx, src_name, out_name):
+def _compile_cc_file(repository_ctx, src_name, out_name, timeout):
     env = repository_ctx.os.environ
     xcrun_result = repository_ctx.execute([
         "env",
@@ -107,7 +111,7 @@ def _compile_cc_file(repository_ctx, src_name, out_name):
         "-o",
         out_name,
         src_name,
-    ], 60)
+    ], timeout)
 
     if xcrun_result.return_code == 0:
         xcrun_result = repository_ctx.execute([
@@ -120,7 +124,7 @@ def _compile_cc_file(repository_ctx, src_name, out_name):
             "--sign",
             "-",
             out_name,
-        ], 60)
+        ], timeout)
         if xcrun_result.return_code != 0:
             error_msg = (
                 "codesign return code {code}, stderr: {err}, stdout: {out}"
@@ -133,7 +137,7 @@ def _compile_cc_file(repository_ctx, src_name, out_name):
                  "https://github.com/bazelbuild/bazel/issues with the following:\n" +
                  error_msg)
     else:
-        _compile_cc_file_single_arch(repository_ctx, src_name, out_name)
+        _compile_cc_file_single_arch(repository_ctx, src_name, out_name, timeout)
 
 def configure_osx_toolchain(repository_ctx, cpu_value, overriden_tools):
     """Configure C++ toolchain on macOS.
@@ -157,6 +161,10 @@ def configure_osx_toolchain(repository_ctx, cpu_value, overriden_tools):
 
     env = repository_ctx.os.environ
     should_use_xcode = "BAZEL_USE_XCODE_TOOLCHAIN" in env and env["BAZEL_USE_XCODE_TOOLCHAIN"] == "1"
+    if "BAZEL_OSX_EXECUTE_TIMEOUT" in env:
+        timeout = int(env["BAZEL_OSX_EXECUTE_TIMEOUT"])
+    else:
+        timeout = OSX_EXECUTE_TIMEOUT
     xcode_toolchains = []
 
     # Make the following logic in sync with //tools/cpp:cc_configure.bzl#cc_autoconf_toolchains_impl
@@ -208,11 +216,16 @@ def configure_osx_toolchain(repository_ctx, cpu_value, overriden_tools):
         libtool_check_unique_src_path = str(repository_ctx.path(
             paths["@bazel_tools//tools/objc:libtool_check_unique.cc"],
         ))
-        _compile_cc_file(repository_ctx, libtool_check_unique_src_path, "libtool_check_unique")
+        _compile_cc_file(
+            repository_ctx,
+            libtool_check_unique_src_path,
+            "libtool_check_unique",
+            timeout,
+        )
         wrapped_clang_src_path = str(repository_ctx.path(
             paths["@bazel_tools//tools/osx/crosstool:wrapped_clang.cc"],
         ))
-        _compile_cc_file(repository_ctx, wrapped_clang_src_path, "wrapped_clang")
+        _compile_cc_file(repository_ctx, wrapped_clang_src_path, "wrapped_clang", timeout)
         repository_ctx.symlink("wrapped_clang", "wrapped_clang_pp")
 
         tool_paths = {}
