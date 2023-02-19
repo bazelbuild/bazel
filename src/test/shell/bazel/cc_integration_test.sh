@@ -1772,8 +1772,9 @@ EOF
   fi
 }
 
-function test_cc_test_no_lcov_merger_dep_without_coverage() {
-  # Regression test for https://github.com/bazelbuild/bazel/issues/16961
+function test_cc_test_no_coverage_tools_dep_without_coverage() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/16961 and
+  # https://github.com/bazelbuild/bazel/issues/15088.
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
 
@@ -1785,12 +1786,9 @@ cc_test(
 EOF
   touch "${package}"/test.cc
 
-  # FIXME: cc_test still unconditionally depends on the LCOV merger binary through
-  #  @remote_coverage_tools//:coverage_output_generator, which is also unnecessary:
-  #  https://github.com/bazelbuild/bazel/issues/15088
-  out=$(bazel cquery "somepath(//${package}:test,@remote_coverage_tools//:lcov_merger)")
+  out=$(bazel cquery "somepath(//${package}:test,@remote_coverage_tools//:all)")
   if [[ -n "$out" ]]; then
-    fail "Expected no dependency on lcov_merger, but got: $out"
+    fail "Expected no dependency on remote coverage tools, but got: $out"
   fi
 }
 
