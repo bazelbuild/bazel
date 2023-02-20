@@ -133,7 +133,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                     .build())
             .buildOrThrow();
 
-    BazelLockFileFunction.updateLockedModule("moduleHash", depGraph);
+    BazelLockFileFunction.updateLockedModule("moduleHash", depGraph, rootDirectory, registryFactory);
     EvaluationResult<BazelLockFileValue> result =
         evaluator.evaluate(ImmutableList.of(BazelLockFileValue.KEY), evaluationContext);
     if (result.hasError()) {
@@ -197,7 +197,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                     .build())
             .buildOrThrow();
 
-    BazelLockFileFunction.updateLockedModule("moduleHash", depGraph);
+    BazelLockFileFunction.updateLockedModule("moduleHash", depGraph, rootDirectory, registryFactory);
 
     EvaluationResult<BazelLockFileValue> result =
         evaluator.evaluate(ImmutableList.of(BazelLockFileValue.KEY), evaluationContext);
@@ -261,7 +261,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                     .build())
             .buildOrThrow();
 
-    BazelLockFileFunction.updateLockedModule("moduleHash", depGraph);
+    BazelLockFileFunction.updateLockedModule("moduleHash", depGraph, rootDirectory, registryFactory);
     EvaluationResult<BazelLockFileValue> result =
         evaluator.evaluate(ImmutableList.of(BazelLockFileValue.KEY), evaluationContext);
     if (result.hasError()) {
