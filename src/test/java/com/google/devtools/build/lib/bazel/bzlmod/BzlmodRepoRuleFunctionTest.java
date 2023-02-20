@@ -123,7 +123,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))
-                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
+                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction(rootDirectory, registryFactory))
                 .put(
                     SkyFunctions.BAZEL_LOCK_FILE,
                     new BazelLockFileFunction(rootDirectory, registryFactory))

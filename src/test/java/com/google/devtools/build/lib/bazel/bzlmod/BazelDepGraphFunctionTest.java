@@ -125,7 +125,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.BAZEL_LOCK_FILE,
                     new BazelLockFileFunction(rootDirectory, registryFactory))
-                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
+                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction(rootDirectory, registryFactory))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, resolutionFunctionMock)
                 .put(
                     SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
