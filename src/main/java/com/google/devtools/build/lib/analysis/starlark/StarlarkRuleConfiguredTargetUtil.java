@@ -333,6 +333,9 @@ public final class StarlarkRuleConfiguredTargetUtil {
           }
         }
       } else {
+        if (info instanceof StarlarkInfo) {
+          info = ((StarlarkInfo) info).unsafeOptimizeMemoryLayout();
+        }
         Provider.Key providerKey = getProviderKey(info);
         // Single declared provider
         declaredProviders.put(providerKey, info);
@@ -341,6 +344,12 @@ public final class StarlarkRuleConfiguredTargetUtil {
       // Sequence of declared providers
       for (Info provider :
           Sequence.cast(rawProviders, Info.class, "result of rule implementation function")) {
+        if (provider instanceof StarlarkInfo) {
+          // Provider instances are optimised recursively, without optimising elements of the list.
+          // Tradeoff is that some object may be duplicated if they are reachable by more than one
+          // path, but we don't expect that much in practice.
+          provider = ((StarlarkInfo) provider).unsafeOptimizeMemoryLayout();
+        }
         Provider.Key providerKey = getProviderKey(provider);
         if (declaredProviders.put(providerKey, provider) != null) {
           context.ruleError("Multiple conflicting returned providers with key " + providerKey);

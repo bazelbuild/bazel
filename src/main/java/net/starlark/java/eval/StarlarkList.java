@@ -418,4 +418,19 @@ public abstract class StarlarkList<E> extends AbstractList<E>
     removeElementAt(index);
     return result;
   }
+
+  /**
+   * Mutates this list in-place to reduce memory usage, and returns an optimized list (which might
+   * be the same as this instance).
+   *
+   * <p>This operation is not protected by the mutability mechanism. It is the caller's
+   * responsibility to ensure this list is not concurrently accessed during this method's execution.
+   *
+   * <p>The mutated list and the returned list are both equivalent to the original list.
+   *
+   * <p>The mutability must be frozen prior to calling this method.
+   */
+  public StarlarkList<E> unsafeOptimizeMemoryLayout() {
+    return this;
+  }
 }
