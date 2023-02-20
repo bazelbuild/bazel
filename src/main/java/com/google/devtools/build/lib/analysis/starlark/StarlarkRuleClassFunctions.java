@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory;
@@ -367,7 +368,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
     if (executable || test) {
       builder.addAttribute(
-          attr("$is_executable", BOOLEAN)
+          attr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, BOOLEAN)
               .value(true)
               .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
               .build());

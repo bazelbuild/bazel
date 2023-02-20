@@ -1012,10 +1012,7 @@ public class RunCommand implements BlazeCommand {
       return false;
     }
     Rule rule = ((Rule) target);
-    if (rule.getRuleClassObject().hasAttr("$is_executable", Type.BOOLEAN)) {
-      return NonconfigurableAttributeMapper.of(rule).get("$is_executable", Type.BOOLEAN);
-    }
-    return false;
+    return rule.isExecutable();
   }
 
   private static boolean isPlainFile(Target target) {

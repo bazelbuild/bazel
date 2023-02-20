@@ -73,6 +73,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   private static final String GENERATOR_FUNCTION = "generator_function";
   private static final String GENERATOR_LOCATION = "generator_location";
 
+  public static final String IS_EXECUTABLE_ATTRIBUTE_NAME = "$is_executable";
+
   private final Label label;
 
   private final Package pkg;
@@ -967,6 +969,13 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     } else {
       return false;
     }
+  }
+
+  public boolean isExecutable() {
+    if (getRuleClassObject().hasAttr(IS_EXECUTABLE_ATTRIBUTE_NAME, Type.BOOLEAN)) {
+      return NonconfigurableAttributeMapper.of(this).get(IS_EXECUTABLE_ATTRIBUTE_NAME, Type.BOOLEAN);
+    }
+    return false;
   }
 
   /**

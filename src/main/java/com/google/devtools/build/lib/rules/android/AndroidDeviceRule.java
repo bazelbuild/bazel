@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 
@@ -166,7 +167,7 @@ public final class AndroidDeviceRule implements RuleDefinition {
                 .exec()
                 .value(env.getToolsLabel("//tools/android/emulator:sdk_path")))
         .add(
-            attr("$is_executable", BOOLEAN)
+            attr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, BOOLEAN)
                 .value(true)
                 .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
         .add(

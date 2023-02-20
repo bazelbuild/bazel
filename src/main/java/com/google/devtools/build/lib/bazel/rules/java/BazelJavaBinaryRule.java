@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJavaBinaryRule;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
@@ -92,7 +93,7 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
                 .allowedRuleClasses("java_binary")
                 .allowedFileTypes(FileTypeSet.NO_FILE))
         .override(
-            attr("$is_executable", BOOLEAN)
+            attr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, BOOLEAN)
                 .nonconfigurable("automatic")
                 .value(
                     new Attribute.ComputedDefault() {
