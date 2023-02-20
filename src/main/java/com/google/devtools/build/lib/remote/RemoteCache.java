@@ -151,15 +151,21 @@ public class RemoteCache extends AbstractReferenceCounted {
    */
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
+    return uploadFile(context, digest, file, /* force= */ false);
+  }
+
+  protected ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
 
     Completable upload =
-        casUploadCache.executeIfNot(
+        casUploadCache.execute(
             digest,
             RxFutures.toCompletable(
-                () -> cacheProtocol.uploadFile(context, digest, file), directExecutor()));
+                () -> cacheProtocol.uploadFile(context, digest, file), directExecutor()),
+            force);
 
     return RxFutures.toListenableFuture(upload);
   }
@@ -176,15 +182,21 @@ public class RemoteCache extends AbstractReferenceCounted {
    */
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
+    return uploadBlob(context, digest, data, /* force= */ false);
+  }
+
+  protected ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
 
     Completable upload =
-        casUploadCache.executeIfNot(
+        casUploadCache.execute(
             digest,
             RxFutures.toCompletable(
-                () -> cacheProtocol.uploadBlob(context, digest, data), directExecutor()));
+                () -> cacheProtocol.uploadBlob(context, digest, data), directExecutor()),
+            force);
 
     return RxFutures.toListenableFuture(upload);
   }

@@ -144,19 +144,11 @@ public class ActionCacheChecker {
     if (!cacheConfig.enabled()) {
       return null; // ignore existing cache when disabled.
     }
-    for (Artifact output : action.getOutputs()) {
-      ActionCache.Entry entry = actionCache.get(output.getExecPathString());
-      if (entry != null) {
-        return entry;
-      }
-    }
-    return null;
+    return ActionCacheUtils.getCacheEntry(actionCache, action);
   }
 
   private void removeCacheEntry(Action action) {
-    for (Artifact output : action.getOutputs()) {
-      actionCache.remove(output.getExecPathString());
-    }
+    ActionCacheUtils.removeCacheEntry(actionCache, action);
   }
 
   @Nullable
