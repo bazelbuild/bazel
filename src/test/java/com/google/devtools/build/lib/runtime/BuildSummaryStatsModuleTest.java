@@ -64,8 +64,8 @@ public class BuildSummaryStatsModuleTest {
 
   private ActionResultReceivedEvent createActionEvent(Duration userTime, Duration systemTime) {
     ActionResult result = mock(ActionResult.class);
-    when(result.cumulativeCommandExecutionUserTime()).thenReturn(Optional.ofNullable(userTime));
-    when(result.cumulativeCommandExecutionSystemTime()).thenReturn(Optional.ofNullable(systemTime));
+    when(result.cumulativeCommandExecutionUserTime()).thenReturn(userTime);
+    when(result.cumulativeCommandExecutionSystemTime()).thenReturn(systemTime);
     when(result.spawnResults()).thenReturn(ImmutableList.of());
     return new ActionResultReceivedEvent(null, result);
   }
