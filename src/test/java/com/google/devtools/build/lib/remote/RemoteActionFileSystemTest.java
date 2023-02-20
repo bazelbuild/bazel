@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -117,7 +118,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
               return Futures.immediateFuture(null);
             })
         .when(inputFetcher)
-        .downloadFile(eq(remoteArtifact.getPath()), eq(inputs.getMetadata(remoteArtifact)));
+        .downloadFile(eq(remoteArtifact.getPath()), any(), eq(inputs.getMetadata(remoteArtifact)));
 
     // act
     Path remoteActionFsPath = actionFs.getPath(remoteArtifact.getPath().asFragment());
@@ -132,7 +133,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(actualRemoteContents).isEqualTo("remote contents");
     assertThat(actualLocalContents).isEqualTo("local contents");
     verify(inputFetcher)
-        .downloadFile(eq(remoteArtifact.getPath()), eq(inputs.getMetadata(remoteArtifact)));
+        .downloadFile(eq(remoteArtifact.getPath()), any(), eq(inputs.getMetadata(remoteArtifact)));
     verifyNoMoreInteractions(inputFetcher);
   }
 

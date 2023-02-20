@@ -274,6 +274,12 @@ public final class BlazeWorkspace {
     return actionCache;
   }
 
+  /** Returns reference to the lazily instantiated persistent action cache instance */
+  @Nullable
+  public ActionCache getPersistentActionCache() {
+    return actionCache;
+  }
+
   /**
    * Generates a README file in the output base directory. This README file
    * contains the name of the workspace directory, so that users can figure out

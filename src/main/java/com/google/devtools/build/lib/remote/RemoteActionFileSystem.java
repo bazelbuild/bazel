@@ -24,6 +24,7 @@ import static com.google.common.collect.Streams.stream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -534,6 +535,12 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   @Nullable
+  protected ActionInput getActionInput(PathFragment path) {
+    PathFragment execPath = path.relativeTo(execRoot);
+    return inputArtifactData.getInput(execPath.getPathString());
+  }
+
+  @Nullable
   protected RemoteFileArtifactValue getRemoteMetadata(PathFragment path) {
     if (!isOutput(path)) {
       return null;
@@ -572,7 +579,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     FileArtifactValue m = getRemoteMetadata(path);
     if (m != null) {
       try {
-        inputFetcher.downloadFile(delegateFs.getPath(path), m);
+        inputFetcher.downloadFile(delegateFs.getPath(path), getActionInput(path), m);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new IOException(
