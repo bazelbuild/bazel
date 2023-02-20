@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -46,6 +47,15 @@ import net.starlark.java.eval.StarlarkSemantics;
  * this stage, module extensions are not evaluated yet.
  */
 public class BazelDepGraphFunction implements SkyFunction {
+
+  private final Path rootDirectory;
+  private final RegistryFactory registryFactory;
+
+  //pass this to the function constructor
+  public BazelDepGraphFunction(Path rootDirectory, RegistryFactory registryFactory) {
+    this.rootDirectory = rootDirectory;
+    this.registryFactory = registryFactory;
+  }
 
   @Override
   @Nullable
@@ -83,7 +93,7 @@ public class BazelDepGraphFunction implements SkyFunction {
       }
       depGraph = selectionResult.getResolvedDepGraph();
       if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_LOCKFILE)) {
-        BazelLockFileFunction.updateLockedModule(root.getModuleHash(), depGraph);
+        BazelLockFileFunction.updateLockedModule(root.getModuleHash(), depGraph, rootDirectory, registryFactory);
       }
     }
 

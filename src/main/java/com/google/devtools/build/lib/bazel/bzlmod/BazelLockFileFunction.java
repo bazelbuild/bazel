@@ -42,8 +42,8 @@ import javax.annotation.Nullable;
  */
 public class BazelLockFileFunction implements SkyFunction {
 
-  private static Path rootDirectory;
-  private static RegistryFactory registryFactory;
+  private final Path rootDirectory;
+  private final RegistryFactory registryFactory;
 
   public BazelLockFileFunction(Path rootDirectory, RegistryFactory registryFactory){
     this.rootDirectory = rootDirectory;
@@ -85,7 +85,7 @@ public class BazelLockFileFunction implements SkyFunction {
    * @param resolvedDepGraph The resolved dependency graph from the module file
    */
   public static void updateLockedModule(String hashedModule,
-      ImmutableMap<ModuleKey, Module> resolvedDepGraph)
+      ImmutableMap<ModuleKey, Module> resolvedDepGraph, Path rootDirectory, RegistryFactory registryFactory)
       throws BazelModuleResolutionFunctionException {
     RootedPath lockfilePath =
         RootedPath.toRootedPath(Root.fromPath(rootDirectory), LabelConstants.MODULE_LOCKFILE_NAME);
