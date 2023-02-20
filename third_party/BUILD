@@ -229,7 +229,6 @@ java_plugin(
 java_library(
     name = "auto_common",
     applicable_licenses = [":auto_license"],
-    enable_distributions = ["debian"],
     exports = ["@maven//:com_google_auto_auto_common"],
 )
 
@@ -463,7 +462,6 @@ license(
 java_library(
     name = "flogger",
     applicable_licenses = [":flogger_license"],
-    enable_distributions = ["debian"],
     exports = [
         "@maven//:com_google_flogger_flogger",
         "@maven//:com_google_flogger_flogger_system_backend",
@@ -704,7 +702,6 @@ java_import(
     deps = [
         ":diffutils",
     ],
-    applicable_licenses = [":truth_license"],
 )
 
 license(
