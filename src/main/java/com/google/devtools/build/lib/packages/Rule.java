@@ -443,12 +443,13 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     }
     Attribute attr = ruleClass.getAttribute(attrIndex);
     if (attr.hasComputedDefault()) {
-      // Attributes with computed defaults are explicitly populated during rule creation.
-      // However, computing those defaults could trigger reads of other attributes
-      // which have not yet been populated. In such a case control comes here, and we return null.
-      // NOTE: In this situation returning null does not result in a correctness issue, since
-      // the value for the attribute is actually a function to compute the value.
-      return null;
+      // Frozen attribute containers don't store computed defaults, so get it from the attribute.
+      // Mutable attribute containers do store computed defaults if they've been populated. If a
+      // mutable container returns null, return null here since resolving the default could trigger
+      // reads of other attributes which have not yet been populated. Note that in this situation
+      // returning null does not result in a correctness issue, since the value for the attribute is
+      // actually a function to compute the value.
+      return attributes.isFrozen() ? attr.getDefaultValue(this) : null;
     }
     switch (attr.getName()) {
       case GENERATOR_FUNCTION:
@@ -633,7 +634,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   void freeze() {
-    attributes = attributes.freeze();
+    attributes = attributes.freeze(this);
   }
 
   /**

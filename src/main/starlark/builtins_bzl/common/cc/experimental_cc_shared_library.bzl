@@ -43,12 +43,6 @@ LINKABLE_MORE_THAN_ONCE = "LINKABLE_MORE_THAN_ONCE"
 # be dropped by the linker since there are no incoming symbol references.
 NO_EXPORTING = "NO_EXPORTING"
 
-CcSharedLibraryPermissionsInfo = provider(
-    "Permissions for a cc shared library.",
-    fields = {
-        "targets": "Matches targets that can be exported.",
-    },
-)
 GraphNodeInfo = provider(
     "Nodes in the graph of shared libraries.",
     fields = {
@@ -68,9 +62,6 @@ CcSharedLibraryInfo = provider(
                                  "initializers. If we try to link them more than once, " +
                                  "we will throw an error",
         "linker_input": "the resulting linker input artifact for the shared library",
-        "preloaded_deps": "cc_libraries needed by this cc_shared_library that should" +
-                          " be linked the binary. If this is set, this cc_shared_library has to " +
-                          " be a direct dependency of the cc_binary",
     },
 )
 
@@ -78,8 +69,7 @@ CcSharedLibraryInfo = provider(
 # dynamically.
 def _separate_static_and_dynamic_link_libraries(
         direct_children,
-        can_be_linked_dynamically,
-        preloaded_deps_direct_labels):
+        can_be_linked_dynamically):
     node = None
     all_children = list(direct_children)
     targets_to_be_linked_statically_map = {}
@@ -101,7 +91,7 @@ def _separate_static_and_dynamic_link_libraries(
 
         if node_label in can_be_linked_dynamically:
             targets_to_be_linked_dynamically_set[node_label] = True
-        elif node_label not in preloaded_deps_direct_labels:
+        else:
             targets_to_be_linked_statically_map[node_label] = node.linkable_more_than_once
             all_children.extend(node.children)
 
@@ -116,11 +106,6 @@ def _merge_cc_shared_library_infos(ctx):
     dynamic_deps = []
     transitive_dynamic_deps = []
     for dep in ctx.attr.dynamic_deps:
-        # This error is not relevant for cc_binary.
-        if not hasattr(ctx.attr, "_cc_binary") and dep[CcSharedLibraryInfo].preloaded_deps != None:
-            fail("{} can only be a direct dependency of a " +
-                 " cc_binary because it has " +
-                 "preloaded_deps".format(str(dep.label)))
         dynamic_dep_entry = (
             dep[CcSharedLibraryInfo].exports,
             dep[CcSharedLibraryInfo].linker_input,
@@ -204,26 +189,10 @@ def _check_if_target_under_path(value, pattern):
 
     return pattern.package == value.package and pattern.name == value.name
 
-def _check_if_target_can_be_exported(target, current_label, permissions):
-    if permissions == None:
-        return True
+def _check_if_target_should_be_exported_without_filter(target, current_label):
+    return _check_if_target_should_be_exported_with_filter(target, current_label, None)
 
-    if (target.workspace_name != current_label.workspace_name or
-        _same_package_or_above(current_label, target)):
-        return True
-
-    matched_by_target = False
-    for permission in permissions:
-        for permission_target in permission[CcSharedLibraryPermissionsInfo].targets:
-            if _check_if_target_under_path(target, permission_target):
-                return True
-
-    return False
-
-def _check_if_target_should_be_exported_without_filter(target, current_label, permissions):
-    return _check_if_target_should_be_exported_with_filter(target, current_label, None, permissions)
-
-def _check_if_target_should_be_exported_with_filter(target, current_label, exports_filter, permissions):
+def _check_if_target_should_be_exported_with_filter(target, current_label, exports_filter):
     should_be_exported = False
     if exports_filter == None:
         should_be_exported = True
@@ -231,20 +200,7 @@ def _check_if_target_should_be_exported_with_filter(target, current_label, expor
         for export_filter in exports_filter:
             export_filter_label = current_label.relative(export_filter)
             if _check_if_target_under_path(target, export_filter_label):
-                should_be_exported = True
-                break
-
-    if should_be_exported:
-        if _check_if_target_can_be_exported(target, current_label, permissions):
-            return True
-        else:
-            matched_by_filter_text = ""
-            if exports_filter:
-                matched_by_filter_text = " (matched by filter) "
-            fail(str(target) + matched_by_filter_text +
-                 " cannot be exported from " + str(current_label) +
-                 " because it's not in the same package/subpackage and the library " +
-                 "doesn't have the necessary permissions. Use cc_shared_library_permissions.")
+                return True
 
     return False
 
@@ -254,7 +210,6 @@ def _filter_inputs(
         cc_toolchain,
         deps,
         transitive_exports,
-        preloaded_deps_direct_labels,
         link_once_static_libs_map):
     linker_inputs = []
     curr_link_once_static_libs_set = {}
@@ -278,7 +233,6 @@ def _filter_inputs(
     (targets_to_be_linked_statically_map, targets_to_be_linked_dynamically_set) = _separate_static_and_dynamic_link_libraries(
         graph_structure_aspect_nodes,
         can_be_linked_dynamically,
-        preloaded_deps_direct_labels,
     )
 
     # We keep track of precompiled_only_dynamic_libraries, so that we can add
@@ -348,7 +302,6 @@ def _filter_inputs(
                 linker_input.owner,
                 ctx.label,
                 ctx.attr.exports_filter,
-                _get_permissions(ctx),
             ):
                 exports[owner] = True
 
@@ -399,11 +352,6 @@ def _same_package_or_above(label_a, label_b):
                 return False
 
     return True
-
-def _get_permissions(ctx):
-    if ctx.fragments.cpp.experimental_enable_target_export_check():
-        return ctx.attr.permissions
-    return None
 
 def _get_deps(ctx):
     if len(ctx.attr.deps) and len(ctx.attr.roots):
@@ -471,17 +419,7 @@ def _cc_shared_library_impl(ctx):
             fail("Trying to export a library already exported by a different shared library: " +
                  str(export.label))
 
-        _check_if_target_should_be_exported_without_filter(export.label, ctx.label, _get_permissions(ctx))
-
-    preloaded_deps_direct_labels = {}
-    preloaded_dep_merged_cc_info = None
-    if len(ctx.attr.preloaded_deps) != 0:
-        preloaded_deps_cc_infos = []
-        for preloaded_dep in ctx.attr.preloaded_deps:
-            preloaded_deps_direct_labels[str(preloaded_dep.label)] = True
-            preloaded_deps_cc_infos.append(preloaded_dep[CcInfo])
-
-        preloaded_dep_merged_cc_info = cc_common.merge_cc_infos(cc_infos = preloaded_deps_cc_infos)
+        _check_if_target_should_be_exported_without_filter(export.label, ctx.label)
 
     link_once_static_libs_map = _build_link_once_static_libs_map(merged_cc_shared_library_info)
 
@@ -491,7 +429,6 @@ def _cc_shared_library_impl(ctx):
         cc_toolchain,
         deps,
         exports_map,
-        preloaded_deps_direct_labels,
         link_once_static_libs_map,
     )
 
@@ -620,7 +557,6 @@ def _cc_shared_library_impl(ctx):
                 owner = ctx.label,
                 libraries = depset([linking_outputs.library_to_link] + precompiled_only_dynamic_libraries),
             ),
-            preloaded_deps = preloaded_dep_merged_cc_info,
         ),
     ]
 
@@ -657,31 +593,11 @@ def _graph_structure_aspect_impl(target, ctx):
         no_exporting = no_exporting,
     )]
 
-def _cc_shared_library_permissions_impl(ctx):
-    targets = []
-    for target_filter in ctx.attr.targets:
-        target_filter_label = ctx.label.relative(target_filter)
-        if not _check_if_target_under_path(target_filter_label, ctx.label.relative(":__subpackages__")):
-            fail("A cc_shared_library_permissions rule can only list " +
-                 "targets that are in the same package or a sub-package")
-        targets.append(target_filter_label)
-
-    return [CcSharedLibraryPermissionsInfo(
-        targets = targets,
-    )]
-
 graph_structure_aspect = aspect(
     attr_aspects = ["*"],
     required_providers = [[CcInfo], [ProtoInfo]],
     required_aspect_providers = [[CcInfo]],
     implementation = _graph_structure_aspect_impl,
-)
-
-cc_shared_library_permissions = rule(
-    implementation = _cc_shared_library_permissions_impl,
-    attrs = {
-        "targets": attr.string_list(),
-    },
 )
 
 cc_shared_library = rule(
@@ -691,8 +607,6 @@ cc_shared_library = rule(
         "shared_lib_name": attr.string(),
         "dynamic_deps": attr.label_list(providers = [CcSharedLibraryInfo]),
         "exports_filter": attr.string_list(),
-        "permissions": attr.label_list(providers = [CcSharedLibraryPermissionsInfo]),
-        "preloaded_deps": attr.label_list(providers = [CcInfo]),
         "win_def_file": attr.label(allow_single_file = [".def"]),
         "roots": attr.label_list(providers = [CcInfo], aspects = [graph_structure_aspect]),
         "deps": attr.label_list(providers = [CcInfo], aspects = [graph_structure_aspect]),

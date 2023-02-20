@@ -64,8 +64,8 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
     if (heuristicallyDropNodes
         && NodeDroppingInconsistencyReceiver.isExpectedInconsistency(
             key, otherKeys, inconsistency)) {
-      // If `--experimental_heuristically_drop_nodes` is enabled, check whether the inconsistency is
-      // caused by dropped state node. If so, tolerate the inconsistency and return.
+      // If `--heuristically_drop_nodes` is enabled, check whether the inconsistency is caused by
+      // dropped state node. If so, tolerate the inconsistency and return.
       return;
     }
 

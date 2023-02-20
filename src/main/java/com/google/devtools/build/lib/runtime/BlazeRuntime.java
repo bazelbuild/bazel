@@ -402,6 +402,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             options.collectWorkerDataInProfiler,
             options.collectLoadAverageInProfiler,
             options.collectSystemNetworkUsage,
+            options.collectPressureStallIndicators,
             options.collectResourceEstimation,
             env.getLocalResourceManager(),
             WorkerMetricsCollector.instance(),

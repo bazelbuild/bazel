@@ -77,7 +77,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -5971,29 +5970,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testWindowsDoesNotProduceDynamicLibraryWithoutWinDef() throws Exception {
-    getAnalysisMock()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(
-                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
-                    CppRuleClasses.TARGETS_WINDOWS,
-                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
-                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY));
-    createFilesForTestingLinking(scratch, "tools/build_defs/foo", /* linkProviderLines= */ "");
-    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
-    assertThat(target).isNotNull();
-    LibraryToLink library =
-        (LibraryToLink) ((StarlarkList) getMyInfoFromTarget(target).getValue("libraries")).get(0);
-    assertThat(library).isNotNull();
-    assertThat(library.getDynamicLibrary()).isNull();
-    assertThat(library.getInterfaceLibrary()).isNull();
-  }
-
-  @Test
   public void testTransitiveLinkForExecutable() throws Exception {
     setupTestTransitiveLink(scratch, "output_type = 'executable'");
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
@@ -7028,7 +7004,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "incompatible_enable_cc_test_feature()",
             "build_test_dwp()",
             "grte_top()",
-            "enable_legacy_cc_provider()",
             "experimental_cc_implementation_deps()",
             "share_native_deps()",
             "experimental_platform_cc_test()");

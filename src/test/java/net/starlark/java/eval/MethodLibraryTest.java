@@ -662,6 +662,7 @@ public final class MethodLibraryTest {
         .testExpression("type('a')", "string")
         .testExpression("type([1, 2])", "list")
         .testExpression("type((1, 2))", "tuple")
+        .testExpression("type((1,))", "tuple")
         .testExpression("type(True)", "bool")
         .testExpression("type(None)", "NoneType")
         .testExpression("type(f)", "function")

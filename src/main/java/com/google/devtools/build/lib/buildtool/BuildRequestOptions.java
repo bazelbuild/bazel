@@ -459,7 +459,10 @@ public class BuildRequestOptions extends OptionsBase {
               + "line. It is an error to specify a file here as well as command-line patterns.")
   public String targetPatternFile;
 
-  /** Do not use directly. Instead use {@link #shouldMergeSkyframeAnalysisExecution}. */
+  /**
+   * Do not use directly. Instead use {@link
+   * com.google.devtools.build.lib.runtime.CommandEnvironment#withMergedAnalysisAndExecution()}.
+   */
   @Option(
       name = "experimental_merged_skyframe_analysis_execution",
       defaultValue = "false",
@@ -514,19 +517,6 @@ public class BuildRequestOptions extends OptionsBase {
               + " Bazel's output base, unless it's an absolute path.")
   @Nullable
   public PathFragment aqueryDumpAfterBuildOutputFile;
-
-  /**
-   * --nobuild means no execution will be carried out, hence it doesn't make sense to interleave
-   * analysis and execution in that case and --experimental_merged_skyframe_analysis_execution
-   * should be ignored.
-   *
-   * <p>This method should always be preferred over {@link
-   * mergedSkyframeAnalysisExecutionDoNotUseDirectly} to determine whether analysis and execution
-   * should be merged. The only exception to this is in {@link BuildRequest}.
-   */
-  public boolean shouldMergeSkyframeAnalysisExecution() {
-    return mergedSkyframeAnalysisExecutionDoNotUseDirectly && performExecutionPhase;
-  }
 
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and

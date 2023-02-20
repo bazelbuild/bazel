@@ -32,22 +32,6 @@ cc_library(
     ],
 )
 
-cc_shared_library(
-    name = "permissions_fail_so",
-    deps = [
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:bar",
-    ],
-    tags = TAGS,
-)
-
-cc_shared_library_permissions(
-    name = "permissions_fail",
-    tags = TAGS,
-    targets = [
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:foo",
-    ],
-)
-
 cc_library(
     name = "a",
     srcs = ["a.cc"],

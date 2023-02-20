@@ -307,7 +307,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     synchronized (this) {
       boolean done = isDone();
       if (!done && dirtyBuildingState == null) {
-        dirtyBuildingState = DirtyBuildingState.createNew();
+        dirtyBuildingState = DirtyBuildingState.createNew(key.hasLowFanout());
       }
       if (reverseDep != null) {
         if (done) {
@@ -439,7 +439,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   @ForOverride
   protected DirtyBuildingState createDirtyBuildingStateForDoneNode(
       DirtyType dirtyType, GroupedList<SkyKey> directDeps, SkyValue value) {
-    return DirtyBuildingState.create(dirtyType, directDeps, value);
+    return DirtyBuildingState.create(dirtyType, directDeps, value, key.hasLowFanout());
   }
 
   private static final GroupedList<SkyKey> EMPTY_LIST = new GroupedList<>();
@@ -657,6 +657,42 @@ public class InMemoryNodeEntry implements NodeEntry {
       }
     }
     checkGroupSizes(!it.hasNext(), deps, groupSizes);
+  }
+
+  @Override
+  public int getPriority() {
+    var snapshot = dirtyBuildingState;
+    if (snapshot == null) {
+      return Integer.MAX_VALUE;
+    }
+    return snapshot.getPriority();
+  }
+
+  @Override
+  public int depth() {
+    var snapshot = dirtyBuildingState;
+    if (snapshot == null) {
+      return 0;
+    }
+    return snapshot.depth();
+  }
+
+  @Override
+  public void updateDepthIfGreater(int proposedDepth) {
+    var snapshot = dirtyBuildingState;
+    if (snapshot == null) {
+      return;
+    }
+    snapshot.updateDepthIfGreater(proposedDepth);
+  }
+
+  @Override
+  public void incrementEvaluationCount() {
+    var snapshot = dirtyBuildingState;
+    if (snapshot == null) {
+      return;
+    }
+    snapshot.incrementEvaluationCount();
   }
 
   private static void checkGroupSizes(

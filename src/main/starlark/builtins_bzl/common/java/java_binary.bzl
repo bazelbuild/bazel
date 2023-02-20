@@ -38,9 +38,11 @@ InternalDeployJarInfo = provider(
         "main_class",
         "coverage_main_class",
         "strip_as_default",
+        "build_info_files",
         "hermetic",
         "add_exports",
         "add_opens",
+        "manifest_lines",
     ],
 )
 
@@ -290,9 +292,11 @@ def basic_java_binary(
             main_class = main_class,
             coverage_main_class = coverage_main_class,
             strip_as_default = strip_as_default,
+            build_info_files = semantics.get_build_info(ctx, ctx.attr.stamp),
             hermetic = hasattr(ctx.attr, "hermetic") and ctx.attr.hermetic,
             add_exports = add_exports,
             add_opens = add_opens,
+            manifest_lines = ctx.attr.deploy_manifest_lines,
         ),
     }, default_info, jvm_flags
 

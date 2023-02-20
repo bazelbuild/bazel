@@ -17,7 +17,7 @@
 load("@_builtins//:common/cc/cc_import.bzl", "cc_import")
 load("@_builtins//:common/cc/cc_binary_wrapper.bzl", "cc_binary")
 load("@_builtins//:common/cc/cc_test_wrapper.bzl", cc_test = "cc_test_wrapper")
-load("@_builtins//:common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "cc_shared_library", "cc_shared_library_permissions")
+load("@_builtins//:common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "cc_shared_library")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
@@ -58,7 +58,6 @@ exported_rules = {
     "objc_library": objc_library,
     "proto_library": proto_library,
     "+cc_shared_library": cc_shared_library,
-    "+cc_shared_library_permissions": cc_shared_library_permissions,
     "+cc_binary": cc_binary,
     "+cc_test": cc_test,
     "+cc_library": cc_library,

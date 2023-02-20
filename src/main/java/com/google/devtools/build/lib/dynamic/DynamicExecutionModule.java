@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -49,6 +50,7 @@ import java.util.concurrent.Executors;
 
 /** {@link BlazeModule} providing support for dynamic spawn execution and scheduling. */
 public class DynamicExecutionModule extends BlazeModule {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private ExecutorService executorService;
   Set<Integer> ignoreLocalSignals = ImmutableSet.of();
@@ -228,15 +230,17 @@ public class DynamicExecutionModule extends BlazeModule {
     // More accurate information could be had through {@code waitid(2)}, but Java does not expose
     // that. But accuracy is not critical here, at worst we are a bit slower in getting either
     // a success or a failure.
-    if (isLocal && ignoreLocalSignals.contains(exitCode - 128)) {
+    int signal = exitCode - 128;
+    if (isLocal && ignoreLocalSignals.contains(signal)) {
       if (verboseFailures) {
         reporter.handle(
             Event.info(
                 String.format(
                     "Local execution for %s stopped by signal %d, ignoring in favor of remote"
                         + " execution.",
-                    spawn.getResourceOwner().prettyPrint(), exitCode - 128)));
+                    spawn.getResourceOwner().prettyPrint(), signal)));
       }
+      logger.atInfo().log("Ignoring dynamic local branch killed by signal %d", signal);
       return true;
     }
     return false;

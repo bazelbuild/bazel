@@ -107,6 +107,9 @@ public class ToplevelArtifactsDownloader {
   public interface PathToMetadataConverter {
     @Nullable
     FileArtifactValue getMetadata(Path path);
+
+    @Nullable
+    ActionInput getActionInput(Path path);
   }
 
   private void downloadTestOutput(Path path) {
@@ -118,9 +121,11 @@ public class ToplevelArtifactsDownloader {
     // action didn't get the chance to execute. In this case the metadata is null which is fine
     // because test outputs are already downloaded (otherwise it cannot hit the action cache).
     FileArtifactValue metadata = pathToMetadataConverter.getMetadata(path);
+    ActionInput actionInput = pathToMetadataConverter.getActionInput(path);
     if (metadata != null) {
       ListenableFuture<Void> future =
-          actionInputPrefetcher.downloadFileAsync(path.asFragment(), metadata, Priority.LOW);
+          actionInputPrefetcher.downloadFileAsync(
+              path.asFragment(), actionInput, metadata, Priority.LOW);
       addCallback(
           future,
           new FutureCallback<Void>() {

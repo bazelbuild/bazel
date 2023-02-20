@@ -34,7 +34,9 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -59,6 +61,7 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
+import com.google.devtools.build.lib.remote.ToplevelArtifactsDownloader.PathToMetadataConverter;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
@@ -983,10 +986,10 @@ public final class RemoteModule extends BlazeModule {
               env.getExecRoot(),
               tempPathGenerator,
               patternsToDownload,
-              outputPermissions);
+              outputPermissions,
+              remoteOptions.useNewExitCodeForLostInputs);
       env.getEventBus().register(actionInputFetcher);
       builder.setActionInputPrefetcher(actionInputFetcher);
-      remoteOutputService.setActionInputFetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);
 
       toplevelArtifactsDownloader =
@@ -995,15 +998,35 @@ public final class RemoteModule extends BlazeModule {
               remoteOutputsMode.downloadToplevelOutputsOnly(),
               env.getSkyframeExecutor().getEvaluator(),
               actionInputFetcher,
-              (path) -> {
-                FileSystem fileSystem = path.getFileSystem();
-                if (fileSystem instanceof RemoteActionFileSystem) {
-                  return ((RemoteActionFileSystem) path.getFileSystem())
-                      .getRemoteMetadata(path.asFragment());
+              new PathToMetadataConverter() {
+                @Nullable
+                @Override
+                public FileArtifactValue getMetadata(Path path) {
+                  FileSystem fileSystem = path.getFileSystem();
+                  if (fileSystem instanceof RemoteActionFileSystem) {
+                    return ((RemoteActionFileSystem) path.getFileSystem())
+                        .getRemoteMetadata(path.asFragment());
+                  }
+                  return null;
                 }
-                return null;
+
+                @Nullable
+                @Override
+                public ActionInput getActionInput(Path path) {
+                  FileSystem fileSystem = path.getFileSystem();
+                  if (fileSystem instanceof RemoteActionFileSystem) {
+                    return ((RemoteActionFileSystem) path.getFileSystem())
+                        .getActionInput(path.asFragment());
+                  }
+                  return null;
+                }
               });
       env.getEventBus().register(toplevelArtifactsDownloader);
+
+      remoteOutputService.setActionInputFetcher(actionInputFetcher);
+      remoteOutputService.setMemoizingEvaluator(env.getSkyframeExecutor().getEvaluator());
+      remoteOutputService.setActionCache(env.getBlazeWorkspace().getPersistentActionCache());
+      env.getEventBus().register(remoteOutputService);
     }
   }
 

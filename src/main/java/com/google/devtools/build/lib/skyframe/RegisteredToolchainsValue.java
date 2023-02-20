@@ -20,7 +20,6 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -37,13 +36,9 @@ public abstract class RegisteredToolchainsValue implements SkyValue {
     return Key.of(configurationKey);
   }
 
-  /**
-   * A {@link SkyKey} for {@code RegisteredToolchainsValue}.
-   *
-   * <p>This is marked CPU-Heavy because it causes package loading.
-   */
+  /** A {@link SkyKey} for {@code RegisteredToolchainsValue}. */
   @AutoCodec
-  static class Key extends CPUHeavySkyKey {
+  static class Key implements SkyKey {
     private static final Interner<Key> interners = BlazeInterners.newWeakInterner();
 
     private final BuildConfigurationKey configurationKey;

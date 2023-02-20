@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -132,10 +132,8 @@ public final class StarlarkBuiltinsValue implements SkyValue {
    * Skyframe key for retrieving the {@code @_builtins} definitions.
    *
    * <p>This has no fields since there is only one {@code StarlarkBuiltinsValue} at a time.
-   *
-   * <p>It is marked CPU heavy because it causes package loading.
    */
-  static final class Key extends CPUHeavySkyKey {
+  static final class Key implements SkyKey {
 
     private static final Key INSTANCE = new Key();
 
