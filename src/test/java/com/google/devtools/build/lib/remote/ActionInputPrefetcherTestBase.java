@@ -90,7 +90,7 @@ public abstract class ActionInputPrefetcherTestBase {
       String contents,
       @Nullable PathFragment materializationExecPath,
       Map<ActionInput, FileArtifactValue> metadata,
-      Map<HashCode, byte[]> cas) {
+      @Nullable Map<HashCode, byte[]> cas) {
     Path p = artifactRoot.getRoot().getRelative(pathFragment);
     Artifact a = ActionsTestUtil.createArtifact(artifactRoot, p);
     byte[] contentsBytes = contents.getBytes(UTF_8);
@@ -103,7 +103,9 @@ public abstract class ActionInputPrefetcherTestBase {
             "action-id",
             materializationExecPath);
     metadata.put(a, f);
-    cas.put(hashCode, contentsBytes);
+    if (cas != null) {
+      cas.put(hashCode, contentsBytes);
+    }
     return a;
   }
 
@@ -111,7 +113,7 @@ public abstract class ActionInputPrefetcherTestBase {
       String pathFragment,
       String contents,
       Map<ActionInput, FileArtifactValue> metadata,
-      Map<HashCode, byte[]> cas) {
+      @Nullable Map<HashCode, byte[]> cas) {
     return createRemoteArtifact(
         pathFragment, contents, /* materializationExecPath= */ null, metadata, cas);
   }
@@ -442,7 +444,7 @@ public abstract class ActionInputPrefetcherTestBase {
     Artifact a1 = createRemoteArtifact("file1", "hello world", metadata, cas);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
-    prefetcher.downloadFile(a1.getPath(), metadata.get(a1));
+    prefetcher.downloadFile(a1.getPath(), /* actionInput= */ null, metadata.get(a1));
 
     assertThat(FileSystemUtils.readContent(a1.getPath(), UTF_8)).isEqualTo("hello world");
     assertThat(a1.getPath().isExecutable()).isTrue();
@@ -471,7 +473,7 @@ public abstract class ActionInputPrefetcherTestBase {
         new Thread(
             () -> {
               try {
-                prefetcher.downloadFile(a1.getPath(), metadata.get(a1));
+                prefetcher.downloadFile(a1.getPath(), /* actionInput= */ null, metadata.get(a1));
               } catch (IOException ignored) {
                 // Intentionally left empty
               } catch (InterruptedException e) {
