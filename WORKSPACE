@@ -98,6 +98,8 @@ dist_http_archive(
 
 dist_http_archive(
     name = "rules_python",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
 load("@rules_python//python:repositories.bzl", "py_repositories")
@@ -711,11 +713,11 @@ maven_install(
         "com.google.protobuf:protobuf-java",
         "com.google.protobuf:protobuf-javalite",
     ],
+    fail_if_repin_required = True,
+    maven_install_json = "//:maven_install.json",
     repositories = [
         "https://repo1.maven.org/maven2",
     ],
-    maven_install_json = "//:maven_install.json",
-    fail_if_repin_required = True,
     strict_visibility = True,
 )
 
