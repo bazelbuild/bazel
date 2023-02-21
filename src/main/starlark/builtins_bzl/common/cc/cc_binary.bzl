@@ -34,7 +34,7 @@ _WATCHOS_DEVICE_TARGET_CPUS = ["watchos_armv7k", "watchos_arm64_32"]
 _TVOS_SIMULATOR_TARGET_CPUS = ["tvos_x86_64", "tvos_sim_arm64"]
 _TVOS_DEVICE_TARGET_CPUS = ["tvos_arm64"]
 _CATALYST_TARGET_CPUS = ["catalyst_x86_64"]
-_MACOS_TARGET_CPUS = ["darwin_x86_64", "darwin_arm64", "darwin_arm64e", "darwin"]
+_MACOS_TARGET_CPUS = ["darwin_x86_64", "darwin_arm64", "darwin_arm64e"]
 
 def _strip_extension(file):
     if file.extension == "":
