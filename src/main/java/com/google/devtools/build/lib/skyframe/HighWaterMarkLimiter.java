@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.eventbus.Subscribe;
@@ -43,24 +44,64 @@ public class HighWaterMarkLimiter {
   private final SkyframeExecutor skyframeExecutor;
   private final SyscallCache syscallCache;
   private final int threshold;
+  private int minorGcDropsRemaining;
+  private int fullGcDropsRemaining;
 
   public HighWaterMarkLimiter(
-      SkyframeExecutor skyframeExecutor, SyscallCache syscallCache, int threshold) {
+      SkyframeExecutor skyframeExecutor,
+      SyscallCache syscallCache,
+      int threshold,
+      int minorGcDropLimit,
+      int fullGcDropLimit) {
     this.skyframeExecutor = skyframeExecutor;
     this.syscallCache = syscallCache;
     this.threshold = threshold;
+
+    checkArgument(
+        minorGcDropLimit >= 0, "minorGcDropLimit must be non-negative, was %s", minorGcDropLimit);
+    this.minorGcDropsRemaining = minorGcDropLimit;
+
+    checkArgument(
+        fullGcDropLimit >= 0, "fullGcDropLimit must be non-negative, was %s", fullGcDropLimit);
+    this.fullGcDropsRemaining = fullGcDropLimit;
   }
 
   @Subscribe
   void handle(MemoryPressureEvent event) {
     int actual = (int) ((event.tenuredSpaceUsedBytes() * 100L) / event.tenuredSpaceMaxBytes());
-    if (actual >= threshold) {
-      logger.atInfo().atMostEvery(10, SECONDS).log(
-          "Dropping unnecessary temporary state in response to memory pressure. actual=%s"
-              + " threshold=%s",
-          actual, threshold);
-      skyframeExecutor.dropUnnecessaryTemporarySkyframeState();
-      syscallCache.clear();
+    if (actual < threshold) {
+      return;
     }
+
+    // This block early-returns if limits are met. Otherwise, it logs the drop, with separate log
+    // statements for full and minor GC events, to avoid #atMostEvery coalescing log statements
+    // across GC event types.
+    String remainingStat = "";
+    if (event.wasFullGc()) {
+      if (fullGcDropsRemaining == 0) {
+        return;
+      }
+      fullGcDropsRemaining--;
+      remainingStat = String.format(" fullGcDropsRemaining=%d", fullGcDropsRemaining);
+
+      logger.atInfo().atMostEvery(10, SECONDS).log(
+          "Dropping unnecessary temporary state in response to full GC and memory pressure."
+              + " actual=%s threshold=%s%s",
+          actual, threshold, remainingStat);
+    } else {
+      if (minorGcDropsRemaining == 0) {
+        return;
+      }
+      minorGcDropsRemaining--;
+      remainingStat = String.format(" minorGcDropsRemaining=%d", minorGcDropsRemaining);
+
+      logger.atInfo().atMostEvery(10, SECONDS).log(
+          "Dropping unnecessary temporary state in response to minor GC and memory pressure."
+              + " actual=%s threshold=%s%s",
+          actual, threshold, remainingStat);
+    }
+
+    skyframeExecutor.dropUnnecessaryTemporarySkyframeState();
+    syscallCache.clear();
   }
 }
