@@ -35,6 +35,7 @@ final class SkymeldUiStateTracker extends UiStateTracker {
     // We explicitly define a starting status, which can be used to determine what to display in
     // cases before the build has started.
     BUILD_NOT_STARTED,
+    COMPUTING_MAIN_REPO_MAPPING,
     BUILD_STARTED,
     TARGET_PATTERN_PARSING,
     LOADING_COMPLETE,
@@ -77,6 +78,9 @@ final class SkymeldUiStateTracker extends UiStateTracker {
     switch (buildStatus) {
       case BUILD_NOT_STARTED:
         return;
+      case COMPUTING_MAIN_REPO_MAPPING:
+        writeBaseProgress("Computing main repo mapping", "", terminalWriter);
+        break;
       case BUILD_STARTED:
         writeBaseProgress("Loading", "", terminalWriter);
         break;
@@ -149,6 +153,11 @@ final class SkymeldUiStateTracker extends UiStateTracker {
         terminalWriter.newline().append("    " + progress.getSecond());
       }
     }
+  }
+
+  @Override
+  void mainRepoMappingComputationStarted() {
+    buildStatus = BuildStatus.COMPUTING_MAIN_REPO_MAPPING;
   }
 
   @Override
