@@ -123,19 +123,20 @@ public final class ResourceUsage {
         readPressureStallIndicator("memory"),
         readPressureStallIndicator("io"),
         getAvailableMemory(),
-        getCurrentCpuUtilizationInJiffies());
+        getCurrentCpuUtilizationInMs());
   }
 
   /**
-   * Returns the current cpu utilization of the current process with the given id in jiffies. The
-   * returned array contains the following information: The 1st entry is the number of jiffies that
-   * the process has executed in user mode, and the 2nd entry is the number of jiffies that the
-   * process has executed in kernel mode. Reads /proc/self/stat to obtain this information.
+   * Returns the current cpu utilization of the current process with the given id in ms. The
+   * returned array contains the following information: The 1st entry is the number of ms that the
+   * process has executed in user mode, and the 2nd entry is the number of ms that the process has
+   * executed in kernel mode. Reads /proc/self/stat to obtain this information. The values may not
+   * have millisecond accuracy.
    */
-  private static long[] getCurrentCpuUtilizationInJiffies() {
+  private static long[] getCurrentCpuUtilizationInMs() {
     try {
       File file = new File("/proc/self/stat");
-      if (file.isDirectory()) {
+      if (file.isDirectory() || !file.canRead()) {
         return new long[2];
       }
       List<String> stat =
@@ -143,7 +144,8 @@ public final class ResourceUsage {
       if (stat.size() < 15) {
         return new long[2]; // Tolerate malformed input.
       }
-      return new long[] {Long.parseLong(stat.get(13)), Long.parseLong(stat.get(14))};
+      // /proc/self/stat contains values in jiffies, which are 10 ms.
+      return new long[] {Long.parseLong(stat.get(13)) * 10, Long.parseLong(stat.get(14)) * 10};
     } catch (NumberFormatException | IOException e) {
       return new long[2];
     }
@@ -206,7 +208,7 @@ public final class ResourceUsage {
     private final float memoryPressureLast10Sec;
     private final float ioPressureLast10Sec;
     private final long freePhysicalMemory;
-    private final long[] cpuUtilizationInJiffies;
+    private final long[] cpuUtilizationInMs;
 
     public Measurement(
         long heapMemoryUsed,
@@ -217,7 +219,7 @@ public final class ResourceUsage {
         float memoryPressureLast10Sec1,
         float ioPressureLast10Sec1,
         long freePhysicalMemory,
-        long[] cpuUtilizationInJiffies) {
+        long[] cpuUtilizationInMs) {
       super();
       timeInNanos = System.nanoTime();
       this.heapMemoryUsed = heapMemoryUsed;
@@ -228,7 +230,7 @@ public final class ResourceUsage {
       this.memoryPressureLast10Sec = memoryPressureLast10Sec1;
       this.ioPressureLast10Sec = ioPressureLast10Sec1;
       this.freePhysicalMemory = freePhysicalMemory;
-      this.cpuUtilizationInJiffies = cpuUtilizationInJiffies;
+      this.cpuUtilizationInMs = cpuUtilizationInMs;
     }
 
     /** Returns the time of the measurement in ms. */
@@ -311,7 +313,7 @@ public final class ResourceUsage {
      * mode. Reads /proc/self/stat to obtain this information.
      */
     public long[] getCpuUtilizationInMs() {
-      return new long[] {cpuUtilizationInJiffies[0] * 10, cpuUtilizationInJiffies[1] * 10};
+      return new long[] {cpuUtilizationInMs[0], cpuUtilizationInMs[1]};
     }
   }
 }
