@@ -433,7 +433,7 @@ public final class BugReport {
     }
 
     @Override
-    public void sendNonFatalBugReport(Exception exception) {
+    public void sendNonFatalBugReport(Throwable exception) {
       BugReport.sendNonFatalBugReport(exception);
     }
 

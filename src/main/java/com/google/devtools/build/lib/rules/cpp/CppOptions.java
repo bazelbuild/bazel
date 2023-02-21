@@ -901,8 +901,7 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If true, the legacy provider accessible by 'dep.cc.' is removed. See #7036.")
-  // TODO(b/122328491): Document migration steps. See #7036.
+      help = "No-op flag. Will be removed in a future release.")
   public boolean disableLegacyCcProvider;
 
   @Option(

@@ -793,7 +793,6 @@ public class RemoteExecutionService {
     FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
     checkState(actionFileSystem instanceof RemoteActionFileSystem);
 
-    RemoteActionExecutionContext context = action.getRemoteActionExecutionContext();
     RemoteActionFileSystem remoteActionFileSystem = (RemoteActionFileSystem) actionFileSystem;
 
     for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
@@ -808,8 +807,7 @@ public class RemoteExecutionService {
         remoteActionFileSystem.injectRemoteFile(
             file.path().asFragment(),
             DigestUtil.toBinaryDigest(file.digest()),
-            file.digest().getSizeBytes(),
-            context.getRequestMetadata().getActionId());
+            file.digest().getSizeBytes());
       }
     }
 
@@ -817,8 +815,7 @@ public class RemoteExecutionService {
       remoteActionFileSystem.injectRemoteFile(
           file.path().asFragment(),
           DigestUtil.toBinaryDigest(file.digest()),
-          file.digest().getSizeBytes(),
-          context.getRequestMetadata().getActionId());
+          file.digest().getSizeBytes());
     }
   }
 

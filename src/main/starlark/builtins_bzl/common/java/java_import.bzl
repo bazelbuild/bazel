@@ -20,9 +20,9 @@ load(":common/java/java_common.bzl", "construct_defaultinfo")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
 load(":common/java/import_deps_check.bzl", "import_deps_check")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
 JavaInfo = _builtins.toplevel.JavaInfo
-CcInfo = _builtins.toplevel.CcInfo
 java_common = _builtins.toplevel.java_common
 
 def _filter_provider(provider, *attrs):

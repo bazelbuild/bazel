@@ -13,17 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.collect.Maps;
 import com.google.devtools.build.skyframe.InMemoryGraphImpl.EdgelessInMemoryGraphImpl;
+import com.google.devtools.build.skyframe.SkyKey.SkyKeyPool;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Collections;
+import java.util.Collection;
 import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** {@link ProcessableGraph} that exposes the contents of the entire graph. */
-public interface InMemoryGraph extends ProcessableGraph {
+public interface InMemoryGraph extends ProcessableGraph, SkyKeyPool {
 
   /** Creates a new in-memory graph suitable for incremental builds. */
   static InMemoryGraph create() {
@@ -76,19 +75,11 @@ public interface InMemoryGraph extends ProcessableGraph {
    * Returns a read-only live view of the done values in the graph. Dirty, changed, and error values
    * are not present in the returned map
    */
-  default Map<SkyKey, SkyValue> getDoneValues() {
-    return transformDoneEntries(getAllValuesMutable());
-  }
+  Map<SkyKey, SkyValue> getDoneValues();
 
-  // Only for use by MemoizingEvaluator#delete
-  Map<SkyKey, InMemoryNodeEntry> getAllValues();
+  /** Returns an unmodifiable, live view of all nodes in the graph. */
+  Collection<InMemoryNodeEntry> getAllNodeEntries();
 
-  ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable();
-
-  static Map<SkyKey, SkyValue> transformDoneEntries(Map<SkyKey, InMemoryNodeEntry> nodeMap) {
-    return Collections.unmodifiableMap(
-        Maps.filterValues(
-            Maps.transformValues(nodeMap, entry -> entry.isDone() ? entry.getValue() : null),
-            Objects::nonNull));
-  }
+  /** Applies the given consumer to each node in the graph, potentially in parallel. */
+  void parallelForEach(Consumer<InMemoryNodeEntry> consumer);
 }

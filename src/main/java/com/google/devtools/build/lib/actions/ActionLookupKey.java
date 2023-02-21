@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
  * are subclasses of {@link ActionLookupKey}. This allows callers to easily find the value key,
  * while remaining agnostic to what action lookup values actually exist.
  */
-public abstract class ActionLookupKey extends CPUHeavySkyKey implements ArtifactOwner {
+public abstract class ActionLookupKey implements ArtifactOwner, CPUHeavySkyKey {
 
   /**
    * Returns the {@link BuildConfigurationKey} for the configuration associated with this key, or
@@ -52,5 +52,10 @@ public abstract class ActionLookupKey extends CPUHeavySkyKey implements Artifact
    */
   public boolean mayOwnShareableActions() {
     return getLabel() != null;
+  }
+
+  @Override
+  public boolean hasLowFanout() {
+    return false; // May have >10k deps.
   }
 }

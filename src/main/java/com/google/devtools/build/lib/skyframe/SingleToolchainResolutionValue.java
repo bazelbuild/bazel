@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -66,13 +65,9 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
         debugTarget);
   }
 
-  /**
-   * {@link SkyKey} implementation used for {@link SingleToolchainResolutionFunction}.
-   *
-   * <p>Marked CPU heavy because it transitively causes package loading.
-   */
+  /** {@link SkyKey} implementation used for {@link SingleToolchainResolutionFunction}. */
   @AutoValue
-  public abstract static class SingleToolchainResolutionKey extends CPUHeavySkyKey {
+  public abstract static class SingleToolchainResolutionKey implements SkyKey {
 
     @Override
     public SkyFunctionName functionName() {

@@ -24,7 +24,6 @@ load(
     "create_py_info",
     "csv",
     "filter_to_py_srcs",
-    "is_bool",
     "union_attrs",
 )
 load(
@@ -817,29 +816,6 @@ def create_base_executable_rule(*, attrs, fragments = [], **kwargs):
         attrs = EXECUTABLE_ATTRS | attrs,
         toolchains = [TOOLCHAIN_TYPE] + cc_helper.use_cpp_toolchain(),
         fragments = fragments,
-        **kwargs
-    )
-
-def py_executable_macro(*, exec_rule, rule_is_test, name, paropts = [], **kwargs):
-    """Wrapper macro for common executable logic.
-
-    Args:
-      exec_rule: rule object; the underlying rule to call. It will be passed `kwargs` among
-          other attributes.
-      name: str, the target name
-      rule_is_test: bool, True if `exec_rule` has test=True, False if not.
-      paropts: list of str; additional flags that affect par building.
-      **kwargs: Additional args passed to `exec_rule`.
-    """
-
-    # The Java version of tristate attributes also accept boolean.
-    if is_bool(kwargs.get("stamp")):
-        kwargs["stamp"] = 1 if kwargs["stamp"] else 0
-    exec_rule(
-        name = name,
-        # Even though the binary rule doesn't generate the par, it still needs
-        # paropts so it can add them to the build_data.txt file.
-        paropts = paropts,  # Google-specific
         **kwargs
     )
 

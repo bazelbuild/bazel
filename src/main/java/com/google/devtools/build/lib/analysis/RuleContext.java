@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.analysis.test.ExecutionInfo.DEFAULT_TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -407,6 +408,38 @@ public final class RuleContext extends TargetContext
   @Override
   public ActionOwner getActionOwner() {
     return getActionOwner(DEFAULT_EXEC_GROUP_NAME);
+  }
+
+  /**
+   * Returns a special action owner for test actions. Test actions should run on the target platform
+   * rather than the host platform. Note that the value is not cached (on the assumption that this
+   * method is only called once).
+   */
+  public ActionOwner getTestActionOwner() {
+    PlatformInfo testExecutionPlatform;
+    ImmutableMap<String, String> testExecProperties;
+
+    // If we have a toolchain, pull the target platform out of it.
+    if (toolchainContexts != null) {
+      // TODO(https://github.com/bazelbuild/bazel/issues/17466): This doesn't respect execution
+      // properties coming from the target's `exec_properties` attribute.
+      // src/test/java/com/google/devtools/build/lib/analysis/test/TestActionBuilderTest.java has a
+      // test to test for it when it gets figured out.
+      testExecutionPlatform = toolchainContexts.getTargetPlatform();
+      testExecProperties = testExecutionPlatform.execProperties();
+    } else {
+      testExecutionPlatform = null;
+      testExecProperties = getExecGroups().getExecProperties(DEFAULT_TEST_RUNNER_EXEC_GROUP);
+    }
+
+    ActionOwner actionOwner =
+        createActionOwner(
+            rule, aspectDescriptors, getConfiguration(), testExecProperties, testExecutionPlatform);
+
+    if (actionOwner == null) {
+      actionOwner = getActionOwner();
+    }
+    return actionOwner;
   }
 
   @Override
@@ -1174,6 +1207,7 @@ public final class RuleContext extends TargetContext
     starlarkThread.mutability().freeze();
     if (starlarkRuleContext != null) {
       starlarkRuleContext.nullify();
+      starlarkRuleContext = null;
     }
   }
 
@@ -1272,8 +1306,16 @@ public final class RuleContext extends TargetContext
     return ruleClassProvider;
   }
 
-  /** Returns the configuration fragments this rule uses. */
+  /**
+   * Returns the configuration fragments this rule uses if it should be included for this rule.
+   * Otherwise it returns null.
+   */
+  @Nullable
   public RequiredConfigFragmentsProvider getRequiredConfigFragments() {
+    if (requiredConfigFragments == null) {
+      return null;
+    }
+
     RequiredConfigFragmentsProvider.Builder merged = null;
 
     // Add variables accessed through ctx.var, if this is a Starlark rule.

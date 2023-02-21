@@ -497,8 +497,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact helloBinExe = getFilesToBuild(helloBin).toList().get(0);
     assertThat(helloBinExe.getExecPathString()).endsWith("hello_bin.exe");
 
-    assertThat(
-            artifactsToStrings(getOutputGroup(hello, CcLibrary.DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME)))
+    assertThat(artifactsToStrings(getOutputGroup(hello, "dynamic_library")))
         .containsExactly("bin hello/hello_5e918d2.dll", "bin hello/hello.if.lib");
   }
 

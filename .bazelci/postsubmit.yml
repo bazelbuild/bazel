@@ -224,6 +224,10 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:PatchApiBlackBoxTest"
       # https://github.com/bazelbuild/bazel/issues/17447
       - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:GitRepositoryBlackBoxTest"
+      # https://github.com/bazelbuild/bazel/issues/17456
+      - "-//src/test/shell/bazel:bazel_determinism_test"
+      # https://github.com/bazelbuild/bazel/issues/17457
+      - "-//src/test/shell/bazel:jdeps_test"
     include_json_profile:
       - build
       - test

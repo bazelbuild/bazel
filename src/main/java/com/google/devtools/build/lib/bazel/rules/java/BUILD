@@ -2,6 +2,7 @@ load("@rules_java//java:defs.bzl", "java_library")
 load("//:distdir_deps.bzl", "gen_workspace_stanza")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 

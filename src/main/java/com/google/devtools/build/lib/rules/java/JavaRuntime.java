@@ -99,6 +99,10 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     ImmutableList<CcInfo> hermeticStaticLibs =
         ImmutableList.copyOf(ruleContext.getPrerequisites("hermetic_static_libs", CcInfo.PROVIDER));
 
+    // If a runtime does not set default_cds in hermetic mode, it is not fatal.
+    // We can skip the default CDS in the check below.
+    Artifact defaultCDS = ruleContext.getPrerequisiteArtifact("default_cds");
+
     if ((!hermeticInputs.isEmpty() || libModules != null || !hermeticStaticLibs.isEmpty())
         && (hermeticInputs.isEmpty() || libModules == null || hermeticStaticLibs.isEmpty())) {
       ruleContext.attributeError(
@@ -124,6 +128,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
             javaBinaryRunfilesPath,
             hermeticInputs,
             libModules,
+            defaultCDS,
             hermeticStaticLibs);
 
     TemplateVariableInfo templateVariableInfo =

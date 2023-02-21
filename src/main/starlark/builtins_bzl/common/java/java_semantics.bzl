@@ -78,5 +78,4 @@ semantics = struct(
     get_coverage_runner = _get_coverage_runner,
     add_constraints = _add_constraints,
     JAVA_STUB_TEMPLATE_LABEL = "@bazel_tools//tools/jdk:java_stub_template.txt",
-    BUILD_INFO_TRANSLATOR = None,
 )

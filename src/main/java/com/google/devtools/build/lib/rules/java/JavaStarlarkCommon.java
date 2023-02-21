@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -155,6 +156,15 @@ public class JavaStarlarkCommon
         || injectingRuleKind != Starlark.NONE) {
       checkPrivateAccess(thread);
     }
+
+    if (starlarkRuleContext.getRuleContext().useAutoExecGroups()) {
+      String javaToolchainType = javaSemantics.getJavaToolchainType();
+      if (!starlarkRuleContext.getRuleContext().hasToolchainContext(javaToolchainType)) {
+        throw Starlark.errorf(
+            "Action declared for non-existent toolchain '%s'.", javaToolchainType);
+      }
+    }
+
     return JavaInfoBuildHelper.getInstance()
         .createJavaCompileAction(
             starlarkRuleContext,
@@ -195,6 +205,14 @@ public class JavaStarlarkCommon
             thread);
   }
 
+  private String getExecGroup(boolean useAutoExecGroups) {
+    if (useAutoExecGroups) {
+      return javaSemantics.getJavaToolchainType();
+    } else {
+      return DEFAULT_EXEC_GROUP_NAME;
+    }
+  }
+
   @Override
   public Artifact runIjar(
       StarlarkActionFactory actions,
@@ -213,7 +231,8 @@ public class JavaStarlarkCommon
             jar,
             output != Starlark.NONE ? (Artifact) output : null,
             targetLabel != Starlark.NONE ? (Label) targetLabel : null,
-            javaToolchain);
+            javaToolchain,
+            getExecGroup(actions.getRuleContext().useAutoExecGroups()));
   }
 
   @Override
@@ -223,7 +242,13 @@ public class JavaStarlarkCommon
       Label targetLabel,
       JavaToolchainProvider javaToolchain)
       throws EvalException {
-    return JavaInfoBuildHelper.getInstance().stampJar(actions, jar, targetLabel, javaToolchain);
+    return JavaInfoBuildHelper.getInstance()
+        .stampJar(
+            actions,
+            jar,
+            targetLabel,
+            javaToolchain,
+            getExecGroup(actions.getRuleContext().useAutoExecGroups()));
   }
 
   @Override
@@ -243,7 +268,8 @@ public class JavaStarlarkCommon
             outputSourceJar instanceof Artifact ? (Artifact) outputSourceJar : null,
             Sequence.cast(sourceFiles, Artifact.class, "sources"),
             Sequence.cast(sourceJars, Artifact.class, "source_jars"),
-            javaToolchain);
+            javaToolchain,
+            getExecGroup(actions.getRuleContext().useAutoExecGroups()));
   }
 
   @Override

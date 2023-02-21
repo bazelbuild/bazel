@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.io.IOException;
 import org.junit.After;
 import org.junit.Test;
@@ -69,6 +70,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   @Override
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
+        .addBlazeModule(new RemoteModule())
         .addBlazeModule(new BuildSummaryStatsModule())
         .addBlazeModule(new BlockWaitingModule());
   }
@@ -79,7 +81,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         .addAll(super.getSpawnModules())
         .add(new StandaloneModule())
         .add(new CredentialModule())
-        .add(new RemoteModule())
         .add(new DynamicExecutionModule())
         .build();
   }
@@ -414,5 +415,101 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "my_rule(name = 'two_remote', local = False, chain_length = 2)");
 
     buildTarget("//a:one_local", "//a:two_local", "//a:one_remote", "//a:two_remote");
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_exitWithCode39() throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write(
+        "a/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['foo.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  srcs = ['foo.out', 'bar.in'],",
+        "  outs = ['bar.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        "  tags = ['no-remote-exec'],",
+        ")");
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    var bytes = FileSystemUtils.readContent(getOutputPath("a/foo.out"));
+    var hashCode = getDigestHashFunction().getHashFunction().hashBytes(bytes);
+    getOutputPath("a/foo.out").delete();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+
+    // Act: Evict blobs from remote cache and do an incremental build
+    worker.restart();
+    write("a/bar.in", "updated bar");
+    var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+
+    // Assert: Exit code is 39
+    assertThat(error)
+        .hasMessageThat()
+        .contains(
+            "Build without the Bytes does not work if your remote cache evicts blobs"
+                + " during builds");
+    assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
+    assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_incrementalBuildCanContinue() throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write(
+        "a/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['foo.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  srcs = ['foo.out', 'bar.in'],",
+        "  outs = ['bar.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        "  tags = ['no-remote-exec'],",
+        ")");
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    getOutputPath("a/foo.out").delete();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+
+    // Evict blobs from remote cache
+    worker.restart();
+
+    // trigger build error
+    write("a/bar.in", "updated bar");
+    // Build failed because of remote cache eviction
+    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+
+    // Act: Do an incremental build without "clean" or "shutdown"
+    buildTarget("//a:bar");
+
+    // Assert: target was successfully built
+    assertValidOutputFile("a/bar.out", "foo" + lineSeparator() + "updated bar" + lineSeparator());
   }
 }

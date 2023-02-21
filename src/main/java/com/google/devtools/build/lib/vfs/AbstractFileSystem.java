@@ -141,7 +141,7 @@ public abstract class AbstractFileSystem extends FileSystem {
       throw new IOException(path + " (Not a directory)");
     }
 
-    chmod(path, 0777);
+    chmod(path, 0755);
     return false;
   }
 

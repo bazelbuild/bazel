@@ -46,4 +46,15 @@ public abstract class StarlarkInfo extends StructImpl implements HasBinary {
   @Nullable
   @Override
   public abstract Object getValue(String name);
+
+  /**
+   * Returns an equivalent memory-optimized version of this provider instance (which might be the
+   * same existing instance modified in-place).
+   *
+   * <p>The existing instance must not be accessed concurrently while calling this method.
+   *
+   * <p>The mutability of any values contained in this instance must already be frozen prior to
+   * calling this method.
+   */
+  public abstract StarlarkInfo unsafeOptimizeMemoryLayout();
 }

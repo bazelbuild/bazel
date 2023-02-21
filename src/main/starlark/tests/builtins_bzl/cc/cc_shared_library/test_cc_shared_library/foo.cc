@@ -15,7 +15,6 @@
 #include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/baz.h"
 #include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/direct_so_file_cc_lib.h"
 #include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/direct_so_file_cc_lib2.h"
-#include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/preloaded_dep.h"
 #include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/qux.h"
 #include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3/diff_pkg.h"
 
@@ -27,7 +26,6 @@ int foo() {
 #ifdef IS_LINUX
   direct_so_file_cc_lib();
   direct_so_file_cc_lib2();
-  preloaded_dep();
 #endif
   return 42;
 }

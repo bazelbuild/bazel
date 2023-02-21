@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
  * <p>Certain graph implementations' node entries can throw {@link InterruptedException} on various
  * accesses. Such exceptions should not be caught locally -- they should be allowed to propagate up.
  */
-public interface NodeEntry {
+public interface NodeEntry extends PriorityTracker {
 
   /**
    * Return code for {@link #addReverseDepAndCheckIfDone} and {@link

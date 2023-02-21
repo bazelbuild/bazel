@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.packages.BzlVisibility;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 import net.starlark.java.eval.Module;
@@ -73,7 +73,7 @@ public class BzlLoadValue implements SkyValue {
   private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
 
   /** SkyKey for a Starlark load. */
-  public abstract static class Key extends CPUHeavySkyKey {
+  public abstract static class Key implements SkyKey {
     // Closed, for class-based equals()/hashCode().
     private Key() {}
 

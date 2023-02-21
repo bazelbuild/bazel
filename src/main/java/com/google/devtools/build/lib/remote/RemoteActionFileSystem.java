@@ -24,6 +24,7 @@ import static com.google.common.collect.Streams.stream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -114,12 +115,11 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     this.metadataInjector = metadataInjector;
   }
 
-  void injectRemoteFile(PathFragment path, byte[] digest, long size, String actionId)
-      throws IOException {
+  void injectRemoteFile(PathFragment path, byte[] digest, long size) throws IOException {
     if (!isOutput(path)) {
       return;
     }
-    remoteOutputTree.injectRemoteFile(path, digest, size, actionId);
+    remoteOutputTree.injectRemoteFile(path, digest, size);
   }
 
   void flush() throws IOException {
@@ -206,7 +206,6 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
               metadata.getDigest(),
               metadata.getSize(),
               metadata.getLocationIndex(),
-              metadata.getActionId(),
               // Avoid a double indirection when the target is already materialized as a symlink.
               metadata.getMaterializationExecPath().orElse(targetPath.relativeTo(execRoot)));
 
@@ -216,10 +215,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   private RemoteFileArtifactValue createRemoteMetadata(RemoteFileInfo remoteFile) {
     return RemoteFileArtifactValue.create(
-        remoteFile.getFastDigest(),
-        remoteFile.getSize(),
-        /* locationIndex= */ 1,
-        remoteFile.getActionId());
+        remoteFile.getFastDigest(), remoteFile.getSize(), /* locationIndex= */ 1);
   }
 
   @Override
@@ -539,6 +535,12 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   @Nullable
+  protected ActionInput getActionInput(PathFragment path) {
+    PathFragment execPath = path.relativeTo(execRoot);
+    return inputArtifactData.getInput(execPath.getPathString());
+  }
+
+  @Nullable
   protected RemoteFileArtifactValue getRemoteMetadata(PathFragment path) {
     if (!isOutput(path)) {
       return null;
@@ -577,7 +579,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     FileArtifactValue m = getRemoteMetadata(path);
     if (m != null) {
       try {
-        inputFetcher.downloadFile(delegateFs.getPath(path), m);
+        inputFetcher.downloadFile(delegateFs.getPath(path), getActionInput(path), m);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new IOException(
@@ -741,8 +743,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       return new RemoteFileInfo(clock);
     }
 
-    void injectRemoteFile(PathFragment path, byte[] digest, long size, String actionId)
-        throws IOException {
+    void injectRemoteFile(PathFragment path, byte[] digest, long size) throws IOException {
       createDirectoryAndParents(path.getParentDirectory());
       InMemoryContentInfo node = getOrCreateWritableInode(path);
       // If a node was already existed and is not a remote file node (i.e. directory or symlink node
@@ -752,7 +753,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       }
 
       RemoteFileInfo remoteFileInfo = (RemoteFileInfo) node;
-      remoteFileInfo.set(digest, size, actionId);
+      remoteFileInfo.set(digest, size);
     }
 
     @Nullable
@@ -769,16 +770,14 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
     private byte[] digest;
     private long size;
-    private String actionId;
 
     RemoteFileInfo(Clock clock) {
       super(clock);
     }
 
-    private void set(byte[] digest, long size, String actionId) {
+    private void set(byte[] digest, long size) {
       this.digest = digest;
       this.size = size;
-      this.actionId = actionId;
     }
 
     @Override
@@ -804,10 +803,6 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     @Override
     public long getSize() {
       return size;
-    }
-
-    public String getActionId() {
-      return actionId;
     }
   }
 }

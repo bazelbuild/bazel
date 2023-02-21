@@ -32,6 +32,6 @@ public final class RamResourceConverter extends ResourceConverter {
 
   @Override
   public String getTypeDescription() {
-    return "an integer, or \"HOST_RAM\", optionally followed by [-|*]<float>.";
+    return "an integer number of MBs, or \"HOST_RAM\", optionally followed by [-|*]<float>.";
   }
 }

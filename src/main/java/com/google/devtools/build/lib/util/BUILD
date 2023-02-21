@@ -237,7 +237,10 @@ java_library(
     srcs = [
         "ResourceUsage.java",
     ],
-    deps = ["//third_party:guava"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
+        "//third_party:guava",
+    ],
 )
 
 java_library(

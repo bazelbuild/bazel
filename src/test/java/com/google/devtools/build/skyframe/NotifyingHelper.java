@@ -80,13 +80,16 @@ public class NotifyingHelper {
     @Override
     public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key)
         throws InterruptedException {
+      var node = delegate.get(requestor, reason, key);
       // Maintains behavior for tests written when all DEP_REQUESTED calls were made as batch
       // requests. Now there are optimizations in SkyFunctionEnvironment for looking up deps
       // individually, but older tests may be written to listen for a GET_BATCH event.
       if (reason == Reason.DEP_REQUESTED) {
         notifyingHelper.graphListener.accept(key, EventType.GET_BATCH, Order.BEFORE, reason);
+      } else if (reason == Reason.EVALUATION) {
+        notifyingHelper.graphListener.accept(key, EventType.EVALUATE, Order.BEFORE, node);
       }
-      return notifyingHelper.wrapEntry(key, delegate.get(requestor, reason, key));
+      return notifyingHelper.wrapEntry(key, node);
     }
 
     @Override
@@ -134,6 +137,7 @@ public class NotifyingHelper {
    */
   public enum EventType {
     CREATE_IF_ABSENT,
+    EVALUATE,
     ADD_REVERSE_DEP,
     ADD_EXTERNAL_DEP,
     REMOVE_REVERSE_DEP,

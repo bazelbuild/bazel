@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 import com.google.devtools.build.skyframe.SkyKey.SkyKeyPool;
+import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -134,11 +135,20 @@ public final class SkyKeyTest {
     SkyKey keyInPool = new SkyKeyForInternerTests("FooBar");
 
     SkyKeyPool globalPool =
-        (SkyKey key) -> {
-          if (key.argument() == "FooBar") {
-            return keyInPool;
-          } else {
-            return null;
+        new SkyKeyPool() {
+          @Nullable
+          @Override
+          public SkyKey canonicalize(SkyKey key) {
+            if (key.argument() == "FooBar") {
+              return keyInPool;
+            } else {
+              return null;
+            }
+          }
+
+          @Override
+          public void cleanupPool() {
+            SkyKeyInterner.setGlobalPool(null);
           }
         };
 
@@ -147,6 +157,8 @@ public final class SkyKeyTest {
 
     assertThat(interner.intern(keyToIntern1)).isSameInstanceAs(keyToIntern1);
     assertThat(interner.intern(keyToIntern2)).isSameInstanceAs(keyInPool);
+
+    globalPool.cleanupPool();
   }
 
   @After

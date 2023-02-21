@@ -15,8 +15,8 @@
 """apple_common.link_multi_arch_static_library Starlark implementation"""
 
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
-CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 apple_common = _builtins.toplevel.apple_common
 objc_internal = _builtins.internal.objc_internal

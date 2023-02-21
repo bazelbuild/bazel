@@ -136,8 +136,13 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       return;
     }
     rawVal = attributeContainer.getAttributeValue(i);
-    if (rawVal == null && !attr.hasComputedDefault()) {
-      rawVal = attr.getDefaultValue(null);
+    if (rawVal == null) {
+      if (!attr.hasComputedDefault()) {
+        rawVal = attr.getDefaultValue(null);
+      } else if (attributeContainer.isFrozen()) {
+        // Frozen attribute containers don't store computed defaults.
+        rawVal = attr.getDefaultValue(rule);
+      }
     }
     if (rawVal instanceof SelectorList) {
       visitLabelsInSelect(

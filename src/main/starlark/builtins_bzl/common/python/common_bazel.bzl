@@ -16,9 +16,9 @@
 load(":common/paths.bzl", "paths")
 load(":common/python/providers.bzl", "PyCcLinkParamsProvider")
 load(":common/python/common.bzl", "is_bool")
+load(":common/cc/cc_info.bzl", _CcInfo = "CcInfo")
 
 _py_builtins = _builtins.internal.py_builtins
-_CcInfo = _builtins.toplevel.CcInfo
 _cc_common = _builtins.toplevel.cc_common
 
 def collect_cc_info(ctx, extra_deps = []):

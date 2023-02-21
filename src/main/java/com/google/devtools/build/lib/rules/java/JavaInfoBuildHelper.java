@@ -181,7 +181,8 @@ final class JavaInfoBuildHelper {
       Artifact outputSourceJar,
       List<Artifact> sourceFiles,
       List<Artifact> sourceJars,
-      JavaToolchainProvider javaToolchain)
+      JavaToolchainProvider javaToolchain,
+      String execGroup)
       throws EvalException {
     if (outputJar == null && outputSourceJar == null) {
       throw Starlark.errorf(
@@ -202,7 +203,8 @@ final class JavaInfoBuildHelper {
         NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, sourceFiles),
         NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, sourceJars),
         outputSourceJar,
-        javaToolchain);
+        javaToolchain,
+        execGroup);
     return outputSourceJar;
   }
 
@@ -416,7 +418,8 @@ final class JavaInfoBuildHelper {
       Artifact inputJar,
       @Nullable Artifact outputJar,
       @Nullable Label targetLabel,
-      JavaToolchainProvider javaToolchain)
+      JavaToolchainProvider javaToolchain,
+      String execGroup)
       throws EvalException {
     Artifact interfaceJar;
     if (outputJar != null) {
@@ -439,7 +442,8 @@ final class JavaInfoBuildHelper {
             .setProgressMessage("Extracting interface for jar %s", inputJar.getFilename())
             .addCommandLine(commandLine.build())
             .useDefaultShellEnvironment()
-            .setMnemonic("JavaIjar");
+            .setMnemonic("JavaIjar")
+            .setExecGroup(execGroup);
     actions.registerAction(actionBuilder.build(actions.getActionConstructionContext()));
     return interfaceJar;
   }
@@ -448,7 +452,8 @@ final class JavaInfoBuildHelper {
       StarlarkActionFactory actions,
       Artifact inputJar,
       Label targetLabel,
-      JavaToolchainProvider javaToolchain)
+      JavaToolchainProvider javaToolchain,
+      String execGroup)
       throws EvalException {
     String basename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-stamped.jar";
     Artifact outputJar = actions.declareFile(basename, inputJar);
@@ -468,7 +473,8 @@ final class JavaInfoBuildHelper {
             .setProgressMessage("Stamping target label into jar %s", inputJar.getFilename())
             .addCommandLine(commandLine.build())
             .useDefaultShellEnvironment()
-            .setMnemonic("JavaIjar");
+            .setMnemonic("JavaIjar")
+            .setExecGroup(execGroup);
     actions.registerAction(actionBuilder.build(actions.getActionConstructionContext()));
     return outputJar;
   }
