@@ -277,7 +277,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private static Duration addCpuTime(Duration sumDuration, Duration termDuration) {
     countLock.lock();
     try {
-      if (（sumDuration != null） && (termDuration.toMillis() !=  UNKNOWN_CPU_TIME)) {
+      if ((sumDuration != null) && (termDuration.toMillis() !=  UNKNOWN_CPU_TIME)) {
         termDuration = termDuration.plus(sumDuration);
       } else {
         termDuration = Duration.ofMillis(UNKNOWN_CPU_TIME);
