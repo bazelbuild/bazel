@@ -42,8 +42,9 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.List;
-import java.util.Optional;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -59,6 +60,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private EventBus eventBus;
   private Reporter reporter;
   private boolean enabled;
+  private static Lock countLock = new ReentrantLock();
 
   private boolean statsSummary;
   private long commandStartMillis;
@@ -273,10 +275,15 @@ public class BuildSummaryStatsModule extends BlazeModule {
   }
   
   private static Duration addCpuTime(Duration sumDuration, Duration termDuration) {
-    if((sumDuration != null) && (termDuration.toMillis() !=  UNKNOWN_CPU_TIME)) {
-      termDuration = termDuration.plus(sumDuration);
-    } else {
-      termDuration = Duration.ofMillis(UNKNOWN_CPU_TIME);
+    countLock.lock();
+    try {
+      if (（sumDuration != null） && (termDuration.toMillis() !=  UNKNOWN_CPU_TIME)) {
+        termDuration = termDuration.plus(sumDuration);
+      } else {
+        termDuration = Duration.ofMillis(UNKNOWN_CPU_TIME);
+      }
+    } finally {
+       countLock.unlock();
     }
     return termDuration;
   }
