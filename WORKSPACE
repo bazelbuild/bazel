@@ -96,15 +96,13 @@ dist_http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
-# This is a mock version of bazelbuild/rules_python that contains only
-# @rules_python//python:defs.bzl. It is used by protobuf.
-# TODO(#9029): We could potentially replace this with the real @rules_python.
-new_local_repository(
+dist_http_archive(
     name = "rules_python",
-    build_file = "//third_party/rules_python:BUILD",
-    path = "./third_party/rules_python",
-    workspace_file = "//third_party/rules_python:rules_python.WORKSPACE",
 )
+
+load("@rules_python//python:repositories.bzl", "py_repositories")
+
+py_repositories()
 
 local_repository(
     name = "googleapis",
