@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Properties;
-import java.util.Optional;
 import java.time.Duration;
 import org.junit.Before;
 import org.junit.Test;
