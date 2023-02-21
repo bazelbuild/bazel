@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /** Integration test utilities. */
@@ -45,6 +46,8 @@ public final class IntegrationTestUtils {
       PathFragment.create(
           "io_bazel/src/tools/remote/worker"
               + (OS.getCurrent() == OS.WINDOWS ? ".exe" : ""));
+
+  private static final AtomicInteger WORKER_COUNTER = new AtomicInteger(0);
 
   private static boolean isPortAvailable(int port) {
     if (port < 1024 || port > 65535) {
@@ -115,7 +118,7 @@ public final class IntegrationTestUtils {
     PathFragment workPath = testTmpDir.getRelative("remote.work_path");
     PathFragment casPath = testTmpDir.getRelative("remote.cas_path");
     int workerPort = pickUnusedRandomPort();
-    var worker = new WorkerInstance(useHttp, workerPort, workPath, casPath);
+    var worker = new WorkerInstance(WORKER_COUNTER, useHttp, workerPort, workPath, casPath);
     worker.start();
     return worker;
   }
@@ -125,27 +128,39 @@ public final class IntegrationTestUtils {
     if (dir.exists()) {
       throw new IOException(path + " already exists");
     }
-    if (!dir.mkdir()) {
+    if (!dir.mkdirs()) {
       throw new IOException("Failed to create directory " + path);
     }
   }
 
   public static class WorkerInstance {
-    @Nullable private Subprocess process;
+    private final AtomicInteger counter;
     private final boolean useHttp;
     private final int port;
-    private final PathFragment workPath;
-    private final PathFragment casPath;
+    private final PathFragment workPathPrefix;
+    private final PathFragment casPathPrefix;
 
-    private WorkerInstance(boolean useHttp, int port, PathFragment workPath, PathFragment casPath) {
+    @Nullable private Subprocess process;
+    @Nullable PathFragment workPath;
+    @Nullable PathFragment casPath;
+
+    private WorkerInstance(AtomicInteger counter, boolean useHttp, int port, PathFragment workPathPrefix, PathFragment casPathPrefix) {
+      this.counter = counter;
       this.useHttp = useHttp;
       this.port = port;
-      this.workPath = workPath;
-      this.casPath = casPath;
+      this.workPathPrefix = workPathPrefix;
+      this.casPathPrefix = casPathPrefix;
     }
 
     private void start() throws IOException, InterruptedException {
       Preconditions.checkState(process == null);
+      Preconditions.checkState(workPath == null);
+      Preconditions.checkState(casPath == null);
+
+      var suffix = String.valueOf(counter.getAndIncrement());
+      workPath = workPathPrefix.getRelative(suffix);
+      casPath = casPathPrefix.getRelative(suffix);
+
       ensureMkdir(workPath);
       ensureMkdir(casPath);
       String workerPath = Runfiles.create().rlocation(WORKER_PATH.getSafePathString());
@@ -167,7 +182,10 @@ public final class IntegrationTestUtils {
       process = null;
 
       deleteDir(workPath);
+      workPath = null;
+
       deleteDir(casPath);
+      casPath = null;
     }
 
     public void restart() throws IOException, InterruptedException {
@@ -183,14 +201,6 @@ public final class IntegrationTestUtils {
 
     public int getPort() {
       return port;
-    }
-
-    public PathFragment getWorkPath() {
-      return workPath;
-    }
-
-    public PathFragment getCasPath() {
-      return casPath;
     }
   }
 }
