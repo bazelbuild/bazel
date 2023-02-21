@@ -453,7 +453,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     assertOutputDoesNotExist("a/foo.out");
 
     // Act: Evict blobs from remote cache and do an incremental build
-    getFileSystem().getPath(worker.getCasPath().getSafePathString()).deleteTreesBelow();
+    worker.restart();
     write("a/bar.in", "updated bar");
     var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
 
@@ -465,5 +465,52 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
                 + " during builds");
     assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
     assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_incrementalBuildCanContinue() throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write(
+        "a/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['foo.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  srcs = ['foo.out', 'bar.in'],",
+        "  outs = ['bar.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        "  tags = ['no-remote-exec'],",
+        ")");
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    getOutputPath("a/foo.out").delete();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+
+    // Evict blobs from remote cache
+    worker.restart();
+
+    // trigger build error
+    write("a/bar.in", "updated bar");
+    // Build failed because of remote cache eviction
+    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+
+    // Act: Do an incremental build without "clean" or "shutdown"
+    buildTarget("//a:bar");
+
+    // Assert: target was successfully built
+    assertValidOutputFile("a/bar.out", "foo" + lineSeparator() + "updated bar" + lineSeparator());
   }
 }
