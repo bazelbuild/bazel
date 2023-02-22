@@ -522,7 +522,7 @@ def _cc_shared_library_impl(ctx):
     debug_files.append(exports_debug_file)
     debug_files.append(link_once_static_libs_debug_file)
 
-    if not ctx.fragments.cpp.experimental_link_static_libraries_once():
+    if not semantics.get_experimental_link_static_libraries_once(ctx):
         curr_link_once_static_libs_set = {}
 
     library = []

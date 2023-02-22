@@ -773,20 +773,6 @@ public interface CcModuleApi<
   boolean checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
-      name = "check_experimental_starlark_cc_import",
-      doc = "DO NOT USE. This is to guard use of cc_import.bzl",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "actions",
-            positional = false,
-            named = true,
-            doc = "<code>actions</code> object."),
-      })
-  void checkExperimentalStarlarkCcImport(StarlarkActionFactoryT starlarkActionFactoryApi)
-      throws EvalException;
-
-  @StarlarkMethod(
       name = "create_linking_context",
       doc = "Creates a <code>LinkingContext</code>.",
       useStarlarkThread = true,

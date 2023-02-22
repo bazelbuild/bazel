@@ -44,7 +44,9 @@ public final class MemoryPressureModule extends BlazeModule {
         new HighWaterMarkLimiter(
             env.getSkyframeExecutor(),
             env.getSyscallCache(),
-            options.skyframeHighWaterMarkMemoryThreshold);
+            options.skyframeHighWaterMarkMemoryThreshold,
+            options.skyframeHighWaterMarkMinorGcDropsPerInvocation,
+            options.skyframeHighWaterMarkFullGcDropsPerInvocation);
 
     retainedHeapLimiter.setOptions(options);
 

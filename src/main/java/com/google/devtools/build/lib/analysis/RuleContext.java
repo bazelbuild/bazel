@@ -1207,6 +1207,7 @@ public final class RuleContext extends TargetContext
     starlarkThread.mutability().freeze();
     if (starlarkRuleContext != null) {
       starlarkRuleContext.nullify();
+      starlarkRuleContext = null;
     }
   }
 
@@ -1305,8 +1306,16 @@ public final class RuleContext extends TargetContext
     return ruleClassProvider;
   }
 
-  /** Returns the configuration fragments this rule uses. */
+  /**
+   * Returns the configuration fragments this rule uses if it should be included for this rule.
+   * Otherwise it returns null.
+   */
+  @Nullable
   public RequiredConfigFragmentsProvider getRequiredConfigFragments() {
+    if (requiredConfigFragments == null) {
+      return null;
+    }
+
     RequiredConfigFragmentsProvider.Builder merged = null;
 
     // Add variables accessed through ctx.var, if this is a Starlark rule.

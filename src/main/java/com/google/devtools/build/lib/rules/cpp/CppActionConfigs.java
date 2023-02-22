@@ -611,7 +611,7 @@ public class CppActionConfigs {
                         "    action: 'c++-link-static-library'",
                         "    flag_group {",
                         ifLinux(platform, "flag: 'rcsD'"),
-                        ifMac(platform, "flag: '-static'", "flag: '-s'"),
+                        ifMac(platform, "flag: '-static'"),
                         "    }",
                         "    flag_group {",
                         "      expand_if_all_available: 'output_execpath'",
