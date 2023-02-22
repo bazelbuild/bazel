@@ -63,7 +63,7 @@ def _compile_cc_file(repository_ctx, src_name, out_name):
         "--sdk",
         "macosx",
         "clang",
-        "-mmacosx-version-min=10.9",
+        "-mmacosx-version-min=10.13",
         "-std=c++11",
         "-lc++",
         "-O3",
@@ -82,6 +82,57 @@ def _compile_cc_file(repository_ctx, src_name, out_name):
         fail(out_name + " failed to generate. Please file an issue at " +
              "https://github.com/bazelbuild/bazel/issues with the following:\n" +
              error_msg)
+
+def _compile_cc_file(repository_ctx, src_name, out_name, timeout):
+    env = repository_ctx.os.environ
+    xcrun_result = repository_ctx.execute([
+        "env",
+        "-i",
+        "DEVELOPER_DIR={}".format(env.get("DEVELOPER_DIR", default = "")),
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "-mmacosx-version-min=10.13",
+        "-std=c++11",
+        "-lc++",
+        "-arch",
+        "arm64",
+        "-arch",
+        "x86_64",
+        "-Wl,-no_adhoc_codesign",
+        "-Wl,-no_uuid",
+        "-O3",
+        "-o",
+        out_name,
+        src_name,
+    ], timeout)
+
+    if xcrun_result.return_code == 0:
+        xcrun_result = repository_ctx.execute([
+            "env",
+            "-i",
+            "codesign",
+            "--identifier",  # Required to be reproducible across archs
+            out_name,
+            "--force",
+            "--sign",
+            "-",
+            out_name,
+        ], timeout)
+        if xcrun_result.return_code != 0:
+            error_msg = (
+                "codesign return code {code}, stderr: {err}, stdout: {out}"
+            ).format(
+                code = xcrun_result.return_code,
+                err = xcrun_result.stderr,
+                out = xcrun_result.stdout,
+            )
+            fail(out_name + " failed to generate. Please file an issue at " +
+                 "https://github.com/bazelbuild/bazel/issues with the following:\n" +
+                 error_msg)
+    else:
+        _compile_cc_file_single_arch(repository_ctx, src_name, out_name, timeout)
 
 def configure_osx_toolchain(repository_ctx, cpu_value, overriden_tools):
     """Configure C++ toolchain on macOS.
