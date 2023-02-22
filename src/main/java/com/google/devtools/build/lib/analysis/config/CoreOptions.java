@@ -173,6 +173,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "disabled.")
   public boolean strictFilesets;
 
+  @Option(
+      name = "incompatible_strict_conflict_checks",
+      oldName = "experimental_strict_conflict_checks",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "Check for action prefix file path conflicts, regardless of action-specific overrides.")
+  public boolean strictConflictChecks;
+
   // This option is only used during execution. However, it is a required input to the analysis
   // phase, as otherwise flipping this flag would not invalidate already-executed actions.
   @Option(
@@ -988,6 +999,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     exec.checkTestonlyForOutputFiles = checkTestonlyForOutputFiles;
     exec.useAutoExecGroups = useAutoExecGroups;
     exec.experimentalWritableOutputs = experimentalWritableOutputs;
+    exec.strictConflictChecks = strictConflictChecks;
 
     // === Runfiles ===
     exec.buildRunfilesManifests = buildRunfilesManifests;
