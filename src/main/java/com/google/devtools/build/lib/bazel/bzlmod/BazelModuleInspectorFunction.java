@@ -95,7 +95,8 @@ public class BazelModuleInspectorFunction implements SkyFunction {
               .setLoaded(true);
 
       for (String childDep : parentModule.getDeps().keySet()) {
-        ModuleKey originalKey = parentModule.getOriginalDeps().get(childDep).getModuleKey();
+        ModuleKey originalKey =
+            parentModule.getOriginalDeps().get(childDep).getMinCompatibilityModuleKey();
         Module originalModule = unprunedDepGraph.get(originalKey);
         ModuleKey key = parentModule.getDeps().get(childDep);
         Module module = unprunedDepGraph.get(key);

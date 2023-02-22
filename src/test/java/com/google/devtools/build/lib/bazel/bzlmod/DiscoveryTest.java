@@ -244,6 +244,51 @@ public class DiscoveryTest extends FoundationTestCase {
   }
 
   @Test
+  public void testMaxCompatibilityLevel() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='2.0')");
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb',"
+                    + " version='1.0');bazel_dep(name='ddd',version='3.0',max_compatibility_level=4)")
+            .addModule(
+                createModuleKey("ccc", "2.0"),
+                "module(name='ccc', version='2.0');bazel_dep(name='ddd',version='3.0')")
+            .addModule(createModuleKey("ddd", "3.0"), "module(name='ddd', version='3.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    EvaluationResult<DiscoveryValue> result =
+        evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
+    assertThat(discoveryValue.getDepGraph().entrySet())
+        .containsExactly(
+            UnresolvedModuleBuilder.create("aaa", "0.1")
+                .setKey(UnresolvedModuleKey.ROOT)
+                .addDep("bbb", createUnresolvedModuleKey("bbb", "1.0"))
+                .addDep("ccc", createUnresolvedModuleKey("ccc", "2.0"))
+                .buildEntry(),
+            UnresolvedModuleBuilder.create("bbb", "1.0")
+                .addDep("ddd", createUnresolvedModuleKey("ddd", "3.0", 4))
+                .setRegistry(registry)
+                .buildEntry(),
+            UnresolvedModuleBuilder.create("ccc", "2.0")
+                .addDep("ddd", createUnresolvedModuleKey("ddd", "3.0"))
+                .setRegistry(registry)
+                .buildEntry(),
+            UnresolvedModuleBuilder.create("ddd", "3.0", 0, 4).setRegistry(registry).buildEntry(),
+            UnresolvedModuleBuilder.create("ddd", "3.0").setRegistry(registry).buildEntry());
+  }
+
+  @Test
   public void testDevDependency() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),

@@ -58,7 +58,9 @@ final class Discovery {
             continue;
           }
           unexpandedSkyKeys.put(
-              depKey, ModuleFileValue.key(depKey.getModuleKey(), overrides.get(depKey.getName())));
+              depKey,
+              ModuleFileValue.key(
+                  depKey.getMinCompatibilityModuleKey(), overrides.get(depKey.getName())));
         }
       }
       SkyframeLookupResult result = env.getValuesAndExceptions(unexpandedSkyKeys.values());
@@ -103,7 +105,8 @@ final class Discovery {
             }
           }
 
-          return UnresolvedModuleKey.create(depKey.getName(), newVersion);
+          return UnresolvedModuleKey.create(
+              depKey.getName(), newVersion, depKey.getMaxCompatibilityLevel());
         });
   }
 }

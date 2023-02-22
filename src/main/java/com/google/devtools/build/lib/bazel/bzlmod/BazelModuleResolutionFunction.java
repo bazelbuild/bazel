@@ -126,7 +126,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     for (Map.Entry<String, UnresolvedModuleKey> dep :
         discoveredRootModule.getUnresolvedDeps().entrySet()) {
       String repoName = dep.getKey();
-      ModuleKey depKey = dep.getValue().getModuleKey();
+      ModuleKey depKey = dep.getValue().getMinCompatibilityModuleKey();
       ModuleKey resolved = resolvedRootModule.getDeps().get(repoName);
       if (!depKey.equals(resolved)) {
         String message =

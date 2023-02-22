@@ -45,12 +45,17 @@ public final class BzlmodTestUtil {
   }
 
   /** Simple wrapper around {@link UnresolvedModuleKey#create} that takes a string version. */
-  public static UnresolvedModuleKey createUnresolvedModuleKey(String name, String version) {
+  public static UnresolvedModuleKey createUnresolvedModuleKey(
+      String name, String version, int maxCompatibilityLevel) {
     try {
-      return UnresolvedModuleKey.create(name, Version.parse(version));
+      return UnresolvedModuleKey.create(name, Version.parse(version), maxCompatibilityLevel);
     } catch (Version.ParseException e) {
       throw new IllegalArgumentException(e);
     }
+  }
+
+  public static UnresolvedModuleKey createUnresolvedModuleKey(String name, String version) {
+    return createUnresolvedModuleKey(name, version, 0);
   }
 
   /**
@@ -66,33 +71,39 @@ public final class BzlmodTestUtil {
     private UnresolvedModuleBuilder() {}
 
     public static UnresolvedModuleBuilder create(
-        String name, Version version, int compatibilityLevel) {
+        String name, Version version, int minCompatibilityLevel, int maxCompatibilityLevel) {
       UnresolvedModuleBuilder moduleBuilder = new UnresolvedModuleBuilder();
       ModuleKey key = ModuleKey.create(name, version);
-      UnresolvedModuleKey depKey = UnresolvedModuleKey.create(name, version);
+      UnresolvedModuleKey depKey = UnresolvedModuleKey.create(name, version, maxCompatibilityLevel);
       moduleBuilder.key = depKey;
       moduleBuilder.builder =
           UnresolvedModule.builder()
               .setName(name)
               .setVersion(version)
               .setKey(key)
-              .setCompatibilityLevel(compatibilityLevel);
+              .setCompatibilityLevel(minCompatibilityLevel);
       return moduleBuilder;
     }
 
     public static UnresolvedModuleBuilder create(
+        String name, String version, int minCompatibilityLevel, int maxCompatibilityLevel)
+        throws ParseException {
+      return create(name, Version.parse(version), minCompatibilityLevel, maxCompatibilityLevel);
+    }
+
+    public static UnresolvedModuleBuilder create(
         String name, String version, int compatibilityLevel) throws ParseException {
-      return create(name, Version.parse(version), compatibilityLevel);
+      return create(name, Version.parse(version), compatibilityLevel, 0);
     }
 
     public static UnresolvedModuleBuilder create(String name, String version)
         throws ParseException {
-      return create(name, Version.parse(version), 0);
+      return create(name, Version.parse(version), 0, 0);
     }
 
     public static UnresolvedModuleBuilder create(String name, Version version)
         throws ParseException {
-      return create(name, version, 0);
+      return create(name, version, 0, 0);
     }
 
     @CanIgnoreReturnValue
@@ -110,7 +121,7 @@ public final class BzlmodTestUtil {
     @CanIgnoreReturnValue
     public UnresolvedModuleBuilder setKey(UnresolvedModuleKey value) {
       this.key = value;
-      this.builder.setKey(value.getModuleKey());
+      this.builder.setKey(value.getMinCompatibilityModuleKey());
       return this;
     }
 
@@ -179,31 +190,38 @@ public final class BzlmodTestUtil {
 
     private ModuleBuilder() {}
 
-    public static ModuleBuilder create(String name, Version version, int compatibilityLevel) {
+    public static ModuleBuilder create(
+        String name, Version version, int minCompatibilityLevel, int maxCompatibilityLevel) {
       ModuleBuilder moduleBuilder = new ModuleBuilder();
       ModuleKey key = ModuleKey.create(name, version);
-      UnresolvedModuleKey depKey = UnresolvedModuleKey.create(name, version);
+      UnresolvedModuleKey depKey = UnresolvedModuleKey.create(name, version, maxCompatibilityLevel);
       moduleBuilder.key = depKey;
       moduleBuilder.builder =
           Module.builder()
               .setName(name)
               .setVersion(version)
               .setKey(key)
-              .setCompatibilityLevel(compatibilityLevel);
+              .setCompatibilityLevel(minCompatibilityLevel);
       return moduleBuilder;
+    }
+
+    public static ModuleBuilder create(
+        String name, String version, int minCompatibilityLevel, int maxCompatibilityLevel)
+        throws ParseException {
+      return create(name, Version.parse(version), minCompatibilityLevel, maxCompatibilityLevel);
     }
 
     public static ModuleBuilder create(String name, String version, int compatibilityLevel)
         throws ParseException {
-      return create(name, Version.parse(version), compatibilityLevel);
+      return create(name, Version.parse(version), compatibilityLevel, 0);
     }
 
     public static ModuleBuilder create(String name, String version) throws ParseException {
-      return create(name, Version.parse(version), 0);
+      return create(name, Version.parse(version), 0, 0);
     }
 
     public static ModuleBuilder create(String name, Version version) throws ParseException {
-      return create(name, version, 0);
+      return create(name, version, 0, 0);
     }
 
     @CanIgnoreReturnValue
@@ -220,7 +238,7 @@ public final class BzlmodTestUtil {
 
     @CanIgnoreReturnValue
     public ModuleBuilder setKey(ModuleKey value) {
-      this.key = UnresolvedModuleKey.create(value.getName(), value.getVersion());
+      this.key = UnresolvedModuleKey.create(value.getName(), value.getVersion(), 0);
       this.builder.setKey(value);
       return this;
     }
@@ -265,12 +283,14 @@ public final class BzlmodTestUtil {
 
       /* Copy dep entries that have not been changed to original deps */
       Map<String, ModuleKey> initOriginalDeps =
-          Maps.transformValues(this.originalDeps.buildOrThrow(), depKey -> depKey.getModuleKey());
+          Maps.transformValues(
+              this.originalDeps.buildOrThrow(), depKey -> depKey.getMinCompatibilityModuleKey());
       for (Entry<String, ModuleKey> e : builtDeps.entrySet()) {
         String repoName = e.getKey();
         if (!initOriginalDeps.containsKey(repoName)) {
           ModuleKey key = e.getValue();
-          originalDeps.put(repoName, UnresolvedModuleKey.create(key.getName(), key.getVersion()));
+          originalDeps.put(
+              repoName, UnresolvedModuleKey.create(key.getName(), key.getVersion(), 0));
         }
       }
       ImmutableMap<String, UnresolvedModuleKey> builtOriginalDeps =
