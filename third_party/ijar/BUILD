@@ -119,7 +119,7 @@ filegroup(
         "zlib_client.cc",
         "zlib_client.h",
         "BUILD",
-        "//src/tools/singlejar:darwin_universal_binary.bzl",
+        "@//src/tools/singlejar:darwin_universal_binary.bzl",
     ] + select({
         "//src:windows": [
             "mapped_file_windows.cc",
