@@ -109,7 +109,6 @@ cc_shared_library(
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg_so"
     ],
     features = ["windows_export_all_symbols"],
-    preloaded_deps = ["preloaded_dep"],
     deps = [
         "baz",
         "foo",
@@ -123,12 +122,6 @@ cc_shared_library(
         ],
         "//conditions:default": [],
     }),
-)
-
-cc_library(
-    name = "preloaded_dep",
-    srcs = ["preloaded_dep.cc"],
-    hdrs = ["preloaded_dep.h"],
 )
 
 cc_library(
@@ -146,7 +139,6 @@ cc_library(
         "//conditions:default": [],
     }),
     deps = [
-        "preloaded_dep",
         "bar",
         "baz",
         # Not exported.
@@ -202,9 +194,6 @@ cc_shared_library(
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:bar",
     ],
     features = ["windows_export_all_symbols"],
-    permissions = [
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:permissions",
-    ],
     deps = [
         "bar",
         "bar2",
@@ -327,18 +316,6 @@ paths_test(
     name = "path_matching_test",
 )
 
-build_failure_test(
-    name = "export_without_permissions_test",
-    message = "doesn't have the necessary permissions",
-    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:permissions_fail_so",
-)
-
-build_failure_test(
-    name = "forbidden_target_permissions_test",
-    message = "can only list targets that are in the same package or a sub-package",
-    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:permissions_fail",
-)
-
 cc_library(
     name = "prebuilt",
     hdrs = ["direct_so_file_cc_lib.h"],
@@ -396,15 +373,6 @@ cc_library(
     srcs = [
         "direct_so_file_cc_lib2.cc",
         "direct_so_file_cc_lib2.h",
-    ],
-)
-
-cc_shared_library_permissions(
-    name = "permissions",
-    targets = [
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:a_suffix",
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux",
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux2",
     ],
 )
 

@@ -999,18 +999,6 @@ public abstract class CcModule
   }
 
   @Override
-  public void checkExperimentalStarlarkCcImport(StarlarkActionFactory starlarkActionFactoryApi)
-      throws EvalException {
-    if (!starlarkActionFactoryApi
-        .getActionConstructionContext()
-        .getConfiguration()
-        .getFragment(CppConfiguration.class)
-        .experimentalStarlarkCcImport()) {
-      throw Starlark.errorf("Pass --experimental_starlark_cc_import to use cc_import.bzl");
-    }
-  }
-
-  @Override
   public CcLinkingContext createCcLinkingInfo(
       Object linkerInputs,
       Object librariesToLinkObject,
@@ -1884,12 +1872,7 @@ public abstract class CcModule
                 Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
             .setShouldCreateStaticLibraries(!disallowStaticLibraries)
             .addCcLinkingContexts(ccLinkingContexts)
-            .setShouldCreateDynamicLibrary(
-                !disallowDynamicLibraries
-                    && (!featureConfiguration
-                            .getFeatureConfiguration()
-                            .isEnabled(CppRuleClasses.TARGETS_WINDOWS)
-                        || winDefFile != null))
+            .setShouldCreateDynamicLibrary(!disallowDynamicLibraries)
             .setStaticLinkType(staticLinkTargetType)
             .setDynamicLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
             .emitInterfaceSharedLibraries(true)

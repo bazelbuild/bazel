@@ -141,9 +141,11 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     BuildResult result = buildTarget("//foo:foo");
 
     assertThat(result.getSuccess()).isTrue();
-    events.assertContainsWarning(
-        "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild and will"
-            + " be ignored");
+    assertThat(
+            runtimeWrapper.workspaceSetupWarningsContains(
+                "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild"
+                    + " and will be ignored"))
+        .isTrue();
   }
 
   @Test

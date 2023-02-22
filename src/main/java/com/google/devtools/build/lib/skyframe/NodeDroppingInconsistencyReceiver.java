@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
 
 /**
  * {@link GraphInconsistencyReceiver} for evaluations operating on graphs when {@code
- * --experimental_heuristically_drop_nodes} flag is applied.
+ * --heuristically_drop_nodes} flag is applied.
  *
  * <p>The expected inconsistency caused by heuristically dropping state nodes should be tolerated
  * while all other inconsistencies should result in throwing an exception.

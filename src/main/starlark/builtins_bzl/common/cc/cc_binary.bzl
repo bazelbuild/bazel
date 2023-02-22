@@ -15,7 +15,7 @@
 """cc_binary Starlark implementation replacing native"""
 
 load(":common/cc/semantics.bzl", "semantics")
-load(":common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "GraphNodeInfo", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "merge_cc_shared_library_infos", "throw_linked_but_not_exported_errors")
+load(":common/cc/experimental_cc_shared_library.bzl", "GraphNodeInfo", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "merge_cc_shared_library_infos", "throw_linked_but_not_exported_errors")
 load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 load(":common/cc/cc_info.bzl", "CcInfo")
 
@@ -352,19 +352,8 @@ def _separate_static_and_dynamic_link_libraries(direct_children, can_be_linked_d
             all_children.extend(node.children)
     return (link_statically_labels, link_dynamically_labels)
 
-def _get_preloaded_deps_from_dynamic_deps(ctx):
-    cc_infos = []
-    for dep in ctx.attr.dynamic_deps:
-        cc_shared_library_info = dep[CcSharedLibraryInfo]
-        preloaded_deps_field = cc_shared_library_info.preloaded_deps
-        if preloaded_deps_field != None:
-            cc_infos.append(preloaded_deps_field)
-
-    return cc_common.merge_cc_infos(direct_cc_infos = cc_infos, cc_infos = cc_infos).linking_context.linker_inputs.to_list()
-
 def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_config):
     merged_cc_shared_library_infos = merge_cc_shared_library_infos(ctx)
-    preloaded_deps = _get_preloaded_deps_from_dynamic_deps(ctx)
     link_once_static_libs_map = build_link_once_static_libs_map(merged_cc_shared_library_infos)
     exports_map = build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos)
     static_linker_inputs = []
@@ -400,8 +389,7 @@ def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_c
     rule_impl_debug_files = None
     if cpp_config.experimental_cc_shared_library_debug():
         debug_linker_inputs_file = ["Owner: " + str(ctx.label)]
-        static_linker_inputs_and_preloaded_deps = static_linker_inputs + preloaded_deps
-        for linker_input in static_linker_inputs_and_preloaded_deps:
+        for linker_input in static_linker_inputs:
             debug_linker_inputs_file.append(str(linker_input.owner))
         link_once_static_libs_debug_file = ctx.actions.declare_file(ctx.label.name + "_link_once_static_libs.txt")
         ctx.actions.write(link_once_static_libs_debug_file, "\n".join(debug_linker_inputs_file), False)
@@ -409,7 +397,7 @@ def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_c
         for dep in ctx.attr.dynamic_deps:
             transitive_debug_files_list.append(dep[OutputGroupInfo].rule_impl_debug_files)
         rule_impl_debug_files = depset([link_once_static_libs_debug_file], transitive = transitive_debug_files_list)
-    return (cc_common.create_linking_context(linker_inputs = depset(exports_map.values() + static_linker_inputs + preloaded_deps, order = "topological")), rule_impl_debug_files)
+    return (cc_common.create_linking_context(linker_inputs = depset(exports_map.values() + static_linker_inputs, order = "topological")), rule_impl_debug_files)
 
 def _create_transitive_linking_actions(
         ctx,
@@ -668,6 +656,8 @@ def cc_binary_impl(ctx, additional_linkopts):
     # Allows the dynamic library generated for code of test targets to be linked separately.
     link_compile_output_separately = ctx.attr._is_test and linking_mode == linker_mode.LINKING_DYNAMIC and cpp_config.dynamic_mode() == "DEFAULT" and ("dynamic_link_test_srcs" in ctx.features)
 
+    is_windows_enabled = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows")
+
     # When linking the object files directly into the resulting binary, we do not need
     # library-level link outputs; thus, we do not let CcCompilationHelper produce link outputs
     # (either shared object files or archives) for a non-library link type [*], and add
@@ -692,6 +682,7 @@ def cc_binary_impl(ctx, additional_linkopts):
             linking_contexts = cc_helper.get_linking_contexts_from_deps(all_deps),
             stamp = cc_helper.is_stamping_enabled(ctx),
             alwayslink = True,
+            disallow_dynamic_library = is_windows_enabled,
         )
 
     is_static_mode = linking_mode != linker_mode.LINKING_DYNAMIC
@@ -699,7 +690,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     generated_def_file = None
     win_def_file = None
     if _is_link_shared(ctx):
-        if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows"):
+        if is_windows_enabled:
             # Make copy of a list, to avoid mutating frozen values.
             object_files = list(cc_compilation_outputs.objects)
             for linker_input in deps_cc_linking_context.linker_inputs.to_list():

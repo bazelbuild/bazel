@@ -57,7 +57,7 @@ public class BuildInfoCollectionValue extends BasicActionLookupValue {
 
   /** Key for BuildInfoCollectionValues. */
   @AutoCodec
-  public static final class BuildInfoKeyAndConfig implements ActionLookupKey {
+  public static final class BuildInfoKeyAndConfig extends ActionLookupKey {
     private static final Interner<BuildInfoKeyAndConfig> keyInterner =
         BlazeInterners.newWeakInterner();
 

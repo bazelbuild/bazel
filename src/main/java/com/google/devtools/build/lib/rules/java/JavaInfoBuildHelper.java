@@ -17,7 +17,6 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Streams.stream;
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.BOTH;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.COMPILE_ONLY;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.RUNTIME_ONLY;
@@ -182,7 +181,8 @@ final class JavaInfoBuildHelper {
       Artifact outputSourceJar,
       List<Artifact> sourceFiles,
       List<Artifact> sourceJars,
-      JavaToolchainProvider javaToolchain)
+      JavaToolchainProvider javaToolchain,
+      String execGroup)
       throws EvalException {
     if (outputJar == null && outputSourceJar == null) {
       throw Starlark.errorf(
@@ -196,8 +196,6 @@ final class JavaInfoBuildHelper {
     if (outputSourceJar == null) {
       outputSourceJar = getDerivedSourceJar(actions.getActionConstructionContext(), outputJar);
     }
-    // TODO(b/253376589): Add automatic exec groups instead of DEFAULT_EXEC_GROUP_NAME if
-    // needed.
     SingleJarActionBuilder.createSourceJarAction(
         actionRegistry,
         actions.getActionConstructionContext(),
@@ -206,7 +204,7 @@ final class JavaInfoBuildHelper {
         NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, sourceJars),
         outputSourceJar,
         javaToolchain,
-        DEFAULT_EXEC_GROUP_NAME);
+        execGroup);
     return outputSourceJar;
   }
 
@@ -454,7 +452,8 @@ final class JavaInfoBuildHelper {
       StarlarkActionFactory actions,
       Artifact inputJar,
       Label targetLabel,
-      JavaToolchainProvider javaToolchain)
+      JavaToolchainProvider javaToolchain,
+      String execGroup)
       throws EvalException {
     String basename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-stamped.jar";
     Artifact outputJar = actions.declareFile(basename, inputJar);
@@ -474,7 +473,8 @@ final class JavaInfoBuildHelper {
             .setProgressMessage("Stamping target label into jar %s", inputJar.getFilename())
             .addCommandLine(commandLine.build())
             .useDefaultShellEnvironment()
-            .setMnemonic("JavaIjar");
+            .setMnemonic("JavaIjar")
+            .setExecGroup(execGroup);
     actions.registerAction(actionBuilder.build(actions.getActionConstructionContext()));
     return outputJar;
   }

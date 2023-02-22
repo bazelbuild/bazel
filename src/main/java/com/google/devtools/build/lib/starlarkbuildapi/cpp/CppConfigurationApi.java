@@ -41,12 +41,6 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
   boolean getExperimentalLinkStaticLibrariesOnce(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
-      name = "experimental_enable_target_export_check",
-      documented = false,
-      useStarlarkThread = true)
-  boolean getExperimentalEnableTargetExportCheck(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
       name = "experimental_cc_shared_library_debug",
       documented = false,
       useStarlarkThread = true)

@@ -500,8 +500,9 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
         @Param(
             name = "short_paths",
             named = true,
+            positional = false,
             defaultValue = "False",
-            doc = "Use root relative paths instead of full exec paths"),
+            documented = false),
       },
       allowReturnNones = true,
       useStarlarkThread = true)

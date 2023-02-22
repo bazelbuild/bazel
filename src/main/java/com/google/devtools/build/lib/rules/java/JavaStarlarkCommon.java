@@ -242,7 +242,13 @@ public class JavaStarlarkCommon
       Label targetLabel,
       JavaToolchainProvider javaToolchain)
       throws EvalException {
-    return JavaInfoBuildHelper.getInstance().stampJar(actions, jar, targetLabel, javaToolchain);
+    return JavaInfoBuildHelper.getInstance()
+        .stampJar(
+            actions,
+            jar,
+            targetLabel,
+            javaToolchain,
+            getExecGroup(actions.getRuleContext().useAutoExecGroups()));
   }
 
   @Override
@@ -262,7 +268,8 @@ public class JavaStarlarkCommon
             outputSourceJar instanceof Artifact ? (Artifact) outputSourceJar : null,
             Sequence.cast(sourceFiles, Artifact.class, "sources"),
             Sequence.cast(sourceJars, Artifact.class, "source_jars"),
-            javaToolchain);
+            javaToolchain,
+            getExecGroup(actions.getRuleContext().useAutoExecGroups()));
   }
 
   @Override

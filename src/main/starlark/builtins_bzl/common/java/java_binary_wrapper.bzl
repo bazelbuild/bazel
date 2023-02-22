@@ -18,7 +18,7 @@ This is needed since the `executable` nature of the target must be computed from
 the supplied value of the `create_executable` attribute.
 """
 
-load(":common/java/java_binary_deploy_jar.bzl", "DEPLOY_JAR_RULE_NAME_SUFFIX")
+_DEPLOY_JAR_RULE_NAME_SUFFIX = "_deployjars_internal_rule"
 
 def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_customlauncher, rule_deploy_jars = None, is_test_rule_class = False, **kwargs):
     """Registers the correct java_binary rule and deploy jar rule
@@ -61,14 +61,12 @@ def register_java_binary_rules(rule_exec, rule_nonexec, rule_nolauncher, rule_cu
             tags.append("manual")
             deploy_jar_args["tags"] = tags
         rule_deploy_jars(
-            name = kwargs["name"] + DEPLOY_JAR_RULE_NAME_SUFFIX,  # to avoid collision
+            name = kwargs["name"] + _DEPLOY_JAR_RULE_NAME_SUFFIX,  # to avoid collision
             binary = kwargs["name"],
             **deploy_jar_args
         )
 
 _DEPLOY_JAR_RULE_ATTRS = {key: None for key in [
-    "stamp",
-    "deploy_manifest_lines",
     "visibility",
     "testonly",
     "tags",

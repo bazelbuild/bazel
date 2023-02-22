@@ -977,6 +977,20 @@ sh_test(
     tags = [
         "no-sandbox",
         "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_sandboxing_networking_test",
+    size = "large",
+    srcs = ["bazel_sandboxing_networking_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/test/shell:sandboxing_test_utils.sh",
+    ],
+    tags = [
+        "no-sandbox",
+        "no_windows",
         "requires-network",
     ],
 )

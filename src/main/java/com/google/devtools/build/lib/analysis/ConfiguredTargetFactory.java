@@ -327,7 +327,7 @@ public final class ConfiguredTargetFactory {
       return erroredConfiguredTargetWithFailures(ruleContext, analysisFailures);
     }
     if (ruleContext.hasErrors()) {
-      return erroredConfiguredTarget(ruleContext);
+      return erroredConfiguredTarget(ruleContext, null);
     }
 
     try {
@@ -353,27 +353,58 @@ public final class ConfiguredTargetFactory {
         return createFailConfiguredTargetForMissingFragmentClass(ruleContext, missingFragmentClass);
       }
 
-      try {
-        ConfiguredTarget target;
-        if (ruleClass.isStarlark()) {
+      final ConfiguredTarget target;
+
+      if (ruleClass.isStarlark()) {
+        final Object rawProviders;
+        final boolean isDefaultExecutableCreated;
+        @Nullable final RequiredConfigFragmentsProvider requiredConfigFragmentsProvider;
+        try {
+          ruleContext.initStarlarkRuleContext();
           // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
-          target =
-              StarlarkRuleConfiguredTargetUtil.buildRule(
-                  ruleContext, ruleClass.getAdvertisedProviders());
-        } else {
+          rawProviders = StarlarkRuleConfiguredTargetUtil.evalRule(ruleContext);
+        } finally {
+          // TODO(b/268525292): isDefaultExecutableCreated is set to True when
+          // ctx.outputs.executable
+          // is accessed in the implementation. This fragile mechanism should be revised and removed
+          isDefaultExecutableCreated =
+              ruleContext.getStarlarkRuleContext().isDefaultExecutableCreated();
+          requiredConfigFragmentsProvider = ruleContext.getRequiredConfigFragments();
+          ruleContext.close();
+        }
+        if (rawProviders == null) {
+          return erroredConfiguredTarget(ruleContext, requiredConfigFragmentsProvider);
+        }
+        // Because ruleContext was closed, rawProviders are now immutable
+        // Postprocess providers to create the finished target.
+        target =
+            StarlarkRuleConfiguredTargetUtil.createTarget(
+                ruleContext,
+                rawProviders,
+                ruleClass.getAdvertisedProviders(),
+                isDefaultExecutableCreated,
+                requiredConfigFragmentsProvider); // may be null
+        return target != null
+            ? target
+            : erroredConfiguredTarget(ruleContext, requiredConfigFragmentsProvider);
+      } else {
+        try {
           target =
               Preconditions.checkNotNull(
                       ruleClass.getConfiguredTargetFactory(RuleConfiguredTargetFactory.class),
                       "No configured target factory for %s",
                       ruleClass)
                   .create(ruleContext);
+
+        } finally {
+          // close() is required if the native rule created StarlarkRuleContext to perform any
+          // Starlark evaluation, i.e. using the @_builtins mechanism.
+          ruleContext.close();
         }
-        return target != null ? target : erroredConfiguredTarget(ruleContext);
-      } finally {
-        ruleContext.close();
+        return target != null ? target : erroredConfiguredTarget(ruleContext, null);
       }
     } catch (RuleErrorException ruleErrorException) {
-      return erroredConfiguredTarget(ruleContext);
+      return erroredConfiguredTarget(ruleContext, null);
     }
   }
 
@@ -428,8 +459,11 @@ public final class ConfiguredTargetFactory {
    * allowed in this build, this returns a stub {@link ConfiguredTarget} which contains information
    * about the failure.
    */
+  // TODO(blaze-team): requiredConfigFragmentsProvider is used for Android feature flags and should
+  // be removed together with them.
   @Nullable
-  private static ConfiguredTarget erroredConfiguredTarget(RuleContext ruleContext)
+  private static ConfiguredTarget erroredConfiguredTarget(
+      RuleContext ruleContext, RequiredConfigFragmentsProvider requiredConfigFragmentsProvider)
       throws ActionConflictException, InterruptedException, AnalysisFailurePropagationException {
     if (ruleContext.getConfiguration().allowAnalysisFailures()) {
       ImmutableList.Builder<AnalysisFailure> analysisFailures = ImmutableList.builder();
@@ -441,6 +475,9 @@ public final class ConfiguredTargetFactory {
       builder.addNativeDeclaredProvider(
           AnalysisFailureInfo.forAnalysisFailures(analysisFailures.build()));
       builder.addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
+      if (requiredConfigFragmentsProvider != null) {
+        builder.addProvider(requiredConfigFragmentsProvider);
+      }
       ConfiguredTarget configuredTarget = builder.build();
       if (configuredTarget == null) {
         // See comment in erroredConfiguredTargetWithFailures.

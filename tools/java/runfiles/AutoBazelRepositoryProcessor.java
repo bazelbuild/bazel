@@ -14,22 +14,18 @@
 
 package com.google.devtools.build.runfiles;
 
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Collections;
-import java.util.List;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Set;
-import java.util.stream.Stream;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedOptions;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic.Kind;
 
@@ -51,7 +47,7 @@ public final class AutoBazelRepositoryProcessor extends AbstractProcessor {
         .flatMap(element -> roundEnv.getElementsAnnotatedWith(element).stream())
         .map(element -> (TypeElement) element)
         .forEach(this::emitClass);
-    return true;
+    return false;
   }
 
   private void emitClass(TypeElement annotatedClass) {
@@ -80,18 +76,14 @@ public final class AutoBazelRepositoryProcessor extends AbstractProcessor {
     // AutoBazelRepository_Outer_Middle_Inner.
     // Note: There can be collisions when local classes are involved, but since the definition of a
     // class depends only on the containing Bazel target, this does not result in ambiguity.
-    List<String> nestedClassNames =
-        Stream.iterate(
-                annotatedClass,
-                element -> element instanceof TypeElement,
-                Element::getEnclosingElement)
-            .map(Element::getSimpleName)
-            .map(Name::toString)
-            .collect(toList());
-    Collections.reverse(nestedClassNames);
-    String generatedClassSimpleName =
-        Stream.concat(Stream.of("AutoBazelRepository"), nestedClassNames.stream())
-            .collect(joining("_"));
+    Deque<String> classNameSegments = new ArrayDeque<>();
+    Element element = annotatedClass;
+    while (element instanceof TypeElement) {
+      classNameSegments.addFirst(element.getSimpleName().toString());
+      element = element.getEnclosingElement();
+    }
+    classNameSegments.addFirst("AutoBazelRepository");
+    String generatedClassSimpleName = String.join("_", classNameSegments);
 
     String generatedClassPackage =
         processingEnv.getElementUtils().getPackageOf(annotatedClass).getQualifiedName().toString();

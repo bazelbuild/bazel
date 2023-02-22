@@ -1319,4 +1319,75 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }
+
+  @Test
+  public void javaCommonPackSources_automaticExecGroupsEnabled_sourceActionExecutesOnFirstPlatform()
+      throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
+        "  source_jar = java_common.pack_sources(",
+        "    ctx.actions,",
+        "    output_source_jar = output_jar,",
+        "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
+        "  )",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  toolchains = ['//rule:toolchain_type_2', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name')");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ImmutableList<Action> actions = getActions("//test:custom_rule_name", SpawnAction.class);
+
+    assertThat(actions).hasSize(1);
+    assertThat(actions.get(0).getMnemonic()).isEqualTo("JavaSourceJar");
+    assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
+
+  @Test
+  public void javaCommonStampJar_automaticExecGroupsEnabled_actionExecutesOnFirstPlatform()
+      throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
+        "  ctx.actions.run(",
+        "    outputs = [output_jar],",
+        "    executable = ctx.toolchains['//rule:toolchain_type_2'].tool,",
+        "    toolchain = '//rule:toolchain_type_2',",
+        "  )",
+        "  source_jar = java_common.stamp_jar(",
+        "    ctx.actions,",
+        "    jar = output_jar,",
+        "    target_label = ctx.label,",
+        "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
+        "  )",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  toolchains = ['//rule:toolchain_type_2', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom_rule_name')");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ImmutableList<Action> actions = getActions("//test:custom_rule_name", SpawnAction.class);
+
+    assertThat(actions).hasSize(1);
+    assertThat(actions.get(0).getProgressMessage())
+        .isEqualTo("Stamping target label into jar lib_custom_rule_name.jar");
+    assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
 }

@@ -55,6 +55,18 @@ public final class JavaRuntimeRule implements RuleDefinition {
                 .singleArtifact()
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(default_cds) -->
+        Default CDS archive for hermetic <code>java_runtime</code>. When hermetic
+        is enabled for a <code>java_binary</code> target and if the target does not
+        provide its own CDS archive by specifying the
+        <a href="${link java_binary.classlist}"><code>classlist</code></a> attribute,
+        the <code>java_runtime</code> default CDS is packaged in the hermetic deploy JAR.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("default_cds", LABEL)
+                .singleArtifact()
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
         .add(
             attr("hermetic_static_libs", LABEL_LIST)
                 .mandatoryProviders(StarlarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey()))

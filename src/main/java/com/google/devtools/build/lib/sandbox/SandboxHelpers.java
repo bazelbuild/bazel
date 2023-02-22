@@ -29,6 +29,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,9 +51,12 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -307,6 +312,27 @@ public final class SandboxHelpers {
         .setMessage(message)
         .setSandbox(Sandbox.newBuilder().setCode(detailedCode))
         .build();
+  }
+
+  /** Adds additional bind mounts entries from {@code paths} to {@code bindMounts}. */
+  public static void mountAdditionalPaths(
+      List<Entry<String, String>> paths, Path sandboxExecRoot, SortedMap<Path, Path> bindMounts)
+      throws UserExecException {
+    FileSystem fs = sandboxExecRoot.getFileSystem();
+    for (Map.Entry<String, String> additionalMountPath : paths) {
+      try {
+        final Path mountTarget = fs.getPath(additionalMountPath.getValue());
+        // If source path is relative, treat it as a relative path inside the execution root
+        final Path mountSource = sandboxExecRoot.getRelative(additionalMountPath.getKey());
+        // If a target has more than one source path, the latter one will take effect.
+        bindMounts.put(mountTarget, mountSource);
+      } catch (IllegalArgumentException e) {
+        throw new UserExecException(
+            createFailureDetail(
+                String.format("Error occurred when analyzing bind mount pairs. %s", e.getMessage()),
+                Code.BIND_MOUNT_ANALYSIS_FAILURE));
+      }
+    }
   }
 
   /** Wrapper class for the inputs of a sandbox. */

@@ -63,7 +63,20 @@ abstract class AttributeContainer {
 
   /** Returns a frozen AttributeContainer with the same attributes, and a compact representation. */
   @CheckReturnValue
-  abstract AttributeContainer freeze();
+  abstract AttributeContainer freeze(Rule rule);
+
+  /**
+   * Returns {@code true} if this container is immutable.
+   *
+   * <p>Frozen containers optimize for space by omitting storage for non-explicit attribute values
+   * that match the {@link Attribute} default. If {@link #getAttributeValue} returns {@code null},
+   * the value should be taken from {@link Attribute#getDefaultValue}, even for computed defaults.
+   *
+   * <p>Mutable containers have no such optimization. During rule creation, this allows for
+   * distinguishing whether a computed default (which may depend on other unset attributes) is
+   * available.
+   */
+  abstract boolean isFrozen();
 
   /** Returns an AttributeContainer for holding attributes of the given rule class. */
   static AttributeContainer newMutableInstance(RuleClass ruleClass) {
@@ -73,20 +86,19 @@ abstract class AttributeContainer {
   }
 
   /** An AttributeContainer to which attributes may be added. */
-  static final class Mutable extends AttributeContainer {
+  private static final class Mutable extends AttributeContainer {
 
     // Sparsely populated array of values, indexed by Attribute.index.
     final Object[] values;
-    final BitSet explicitAttrs = new BitSet();
+    final BitSet explicitIndices = new BitSet();
 
-    @VisibleForTesting
     Mutable(int maxAttrCount) {
       values = new Object[maxAttrCount];
     }
 
     @Override
     public boolean isAttributeValueExplicitlySpecified(int attrIndex) {
-      return (attrIndex >= 0) && explicitAttrs.get(attrIndex);
+      return (attrIndex >= 0) && explicitIndices.get(attrIndex);
     }
 
     /**
@@ -112,23 +124,45 @@ abstract class AttributeContainer {
         throw new IllegalArgumentException(
             "attribute with index " + attrIndex + " is not valid for rule");
       }
-      if (!explicit && explicitAttrs.get(attrIndex)) {
+      if (!explicit && explicitIndices.get(attrIndex)) {
         throw new IllegalArgumentException(
             "attribute with index " + attrIndex + " already explicitly set");
       }
       values[attrIndex] = value;
       if (explicit) {
-        explicitAttrs.set(attrIndex);
+        explicitIndices.set(attrIndex);
       }
     }
 
     @Override
-    public AttributeContainer freeze() {
-      if (values.length < 126) {
-        return new Small(values, explicitAttrs);
-      } else {
-        return new Large(values, explicitAttrs);
+    public AttributeContainer freeze(Rule rule) {
+      BitSet indicesToStore = new BitSet();
+      RuleClass ruleClass = rule.getRuleClassObject();
+
+      for (int i = 0; i < values.length; i++) {
+        Object value = values[i];
+        if (value == null) {
+          continue;
+        }
+        if (!explicitIndices.get(i)) {
+          Attribute attr = ruleClass.getAttribute(i);
+          Object defaultValue = attr.getDefaultValue(attr.hasComputedDefault() ? rule : null);
+          if (value.equals(defaultValue)) {
+            // Non-explicit value matches the attribute's default. Save space by omitting storage.
+            continue;
+          }
+        }
+        indicesToStore.set(i);
       }
+
+      return values.length < 126
+          ? new Small(values, explicitIndices, indicesToStore)
+          : new Large(values, explicitIndices, indicesToStore);
+    }
+
+    @Override
+    public boolean isFrozen() {
+      return false;
     }
 
     @Override
@@ -148,24 +182,14 @@ abstract class AttributeContainer {
     }
 
     @Override
-    final AttributeContainer freeze() {
+    final AttributeContainer freeze(Rule rule) {
       return this;
     }
-  }
 
-  private static final byte[] EMPTY_STATE = {};
-  private static final Object[] EMPTY_VALUES = {};
-
-  /** Returns number of non-null values. */
-  private static int nonNullCount(Object[] attrValues) {
-    // Pre-allocate longer array.
-    int numSet = 0;
-    for (Object val : attrValues) {
-      if (val != null) {
-        numSet++;
-      }
+    @Override
+    final boolean isFrozen() {
+      return true;
     }
-    return numSet;
   }
 
   /** Returns index into state array for attrIndex, or -1 if not found */
@@ -209,7 +233,7 @@ abstract class AttributeContainer {
 
     // The 'value' and 'explicit' components are encoded in the same byte.
     // Since this class only supports ruleClass with < 126 attributes,
-    // state[i] encodes the the 'value' index in the 7 lower bits and 'explicit' in the top bit.
+    // state[i] encodes the 'value' index in the 7 lower bits and 'explicit' in the top bit.
     // This is the common case.
     private final byte[] state;
 
@@ -222,33 +246,27 @@ abstract class AttributeContainer {
     /**
      * Creates a container for a rule of the given rule class. Assumes attrIndex < 126 always.
      *
-     * @param attrValues values for all attributes, null values are considered unset.
-     * @param explicitAttrs holds explicit bit for each attribute index
+     * @param attrValues values for all attributes, null values are considered unset
+     * @param explicitIndices holds explicit bit for each attribute index
+     * @param indicesToStore attribute indices for values that need to be stored, i.e., they were
+     *     explicitly set and/or differ from the attribute's default value
      */
-    private Small(Object[] attrValues, BitSet explicitAttrs) {
-      maxAttrCount = attrValues.length;
-      int numSet = nonNullCount(attrValues);
-      if (numSet == 0) {
-        this.values = EMPTY_VALUES;
-        this.state = EMPTY_STATE;
-        return;
-      }
-      values = new Object[numSet];
-      state = new byte[numSet];
-      int index = 0;
-      int attrIndex = -1;
-      for (Object attrValue : attrValues) {
-        attrIndex++;
-        if (attrValue == null) {
-          continue;
-        }
+    private Small(Object[] attrValues, BitSet explicitIndices, BitSet indicesToStore) {
+      this.maxAttrCount = attrValues.length;
+      int numToStore = indicesToStore.cardinality();
+      this.values = new Object[numToStore];
+      this.state = new byte[numToStore];
+
+      int attrIndex = 0;
+      for (int i = 0; i < numToStore; i++) {
+        attrIndex = indicesToStore.nextSetBit(attrIndex);
         byte stateValue = (byte) (0x7f & attrIndex);
-        if (explicitAttrs.get(attrIndex)) {
+        if (explicitIndices.get(attrIndex)) {
           stateValue = (byte) (stateValue | 0x80);
         }
-        state[index] = stateValue;
-        values[index] = attrValue;
-        index += 1;
+        state[i] = stateValue;
+        values[i] = attrValues[attrIndex];
+        attrIndex++;
       }
     }
 
@@ -321,57 +339,58 @@ abstract class AttributeContainer {
     //  - stateIndex: an index into the state[] array.
     //  - valueIndex: an index into the attributeValues array.
 
+    /** Calculates the number of bytes necessary to have an explicit bit for each attribute. */
     private static int prefixSize(int attrCount) {
       // ceil(max attributes / 8)
-      return (attrCount + 7) >> 3;
+      return (attrCount + 7) / 8;
     }
 
-    /** Set the specified bit in the byte array. Assumes bitIndex is a valid index. */
-    private static void setBit(byte[] bits, int bitIndex) {
-      int idx = (bitIndex + 1);
-      int explicitByte = bits[idx >> 3];
-      byte mask = (byte) (1 << (idx & 0x07));
-      bits[idx >> 3] = (byte) (explicitByte | mask);
+    /**
+     * Sets the explicit bit for {@code attrIndex} in the byte array. Assumes {@code attrIndex} is a
+     * valid index.
+     */
+    private static void setExplicitBit(byte[] bytes, int attrIndex) {
+      int byteIndex = attrIndex / 8;
+      int bitIndex = attrIndex % 8;
+      byte byteValue = bytes[byteIndex];
+      bytes[byteIndex] = (byte) (byteValue | (1 << bitIndex));
     }
 
-    /** Get the specified bit in the byte array. Assumes bitIndex is a valid index. */
-    private static boolean getBit(byte[] bits, int bitIndex) {
-      int idx = (bitIndex + 1);
-      int explicitByte = bits[idx >> 3];
-      int mask = (byte) (1 << (idx & 0x07));
-      return (explicitByte & mask) != 0;
+    /**
+     * Gets the explicit bit for {@code attrIndex} in the byte array. Assumes {@code attrIndex} is a
+     * valid index.
+     */
+    private static boolean getExplicitBit(byte[] bytes, int attrIndex) {
+      int byteIndex = attrIndex / 8;
+      int bitIndex = attrIndex % 8;
+      byte byteValue = bytes[byteIndex];
+      return (byteValue & (1 << bitIndex)) != 0;
     }
 
     /**
      * Creates a container for a rule of the given rule class. Assumes maxAttrCount < 254
      *
      * @param attrValues values for all attributes, null values are considered unset.
-     * @param explicitAttrs holds explicit bit for each attribute index
+     * @param explicitIndices holds explicit bit for each attribute index
+     * @param indicesToStore attribute indices for values that need to be stored, i.e. they were
+     *     explicitly set and/or differ from the attribute's default value
      */
-    private Large(Object[] attrValues, BitSet explicitAttrs) {
+    private Large(Object[] attrValues, BitSet explicitIndices, BitSet indicesToStore) {
       this.maxAttrCount = attrValues.length;
-      int numSet = nonNullCount(attrValues);
-      if (numSet == 0) {
-        this.values = EMPTY_VALUES;
-        this.state = EMPTY_STATE;
-        return;
-      }
+      int numToStore = indicesToStore.cardinality();
       int p = prefixSize(maxAttrCount);
-      values = new Object[numSet];
-      state = new byte[p + numSet];
-      int index = 0;
-      int attrIndex = -1;
-      for (Object attrValue : attrValues) {
+      this.values = new Object[numToStore];
+      this.state = new byte[p + numToStore];
+
+      int attrIndex = 0;
+      for (int i = 0; i < numToStore; i++) {
+        attrIndex = indicesToStore.nextSetBit(attrIndex);
+        if (explicitIndices.get(attrIndex)) {
+          setExplicitBit(state, attrIndex);
+        }
+        state[i + p] = (byte) attrIndex;
+        values[i] = attrValues[attrIndex];
         attrIndex++;
-        if (attrValue == null) {
-          continue;
-        }
-        if (explicitAttrs.get(attrIndex)) {
-          setBit(state, attrIndex);
-        }
-        state[index + p] = (byte) attrIndex;
-        values[index] = attrValue;
-        index += 1;
       }
     }
 
@@ -381,7 +400,7 @@ abstract class AttributeContainer {
      */
     @Override
     boolean isAttributeValueExplicitlySpecified(int attrIndex) {
-      return (attrIndex >= 0) && getBit(state, attrIndex);
+      return (attrIndex >= 0) && getExplicitBit(state, attrIndex);
     }
 
     @Nullable
