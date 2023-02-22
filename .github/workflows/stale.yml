@@ -23,25 +23,26 @@ jobs:
       uses: actions/stale@v5
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
-        days-before-issue-stale: 30
-        days-before-pr-stale: 30
-        days-before-issue-close : 7
+        days-before-issue-stale: 1095
+        days-before-pr-stale: 1095
+        days-before-issue-close: 14
         days-before-pr-close: 14
         stale-issue-message: >
           Thank you for contributing to the Bazel repository!
-          This issue has been marked as stale since it has not had any activity in the last 30 days. It will be closed in the next 7
-          days unless any other activity occurs or one of the following labels is added: "not stale", "awaiting-bazeler".
+          This issue has been marked as stale since it has not had any activity in the last 3 years. It will be closed in the next 14
+          days unless any other activity occurs or one of the following labels is added: "not stale", "awaiting-bazeler". Please reach out 
+          to the triage team (`@bazelbuild/triage`) if you'd like to discuss anything further.
         close-issue-message: >
           This issue has been automatically closed due to inactivity. If you're still interested in pursuing this, please reach out
-          to a maintainer to add the "not stale" label. Thanks!
+          to the triage team (`@bazelbuild/triage`) to add the "not stale" label. Thanks!
         stale-pr-message: >
           Thank you for contributing to the Bazel repository!
           This pull request has been marked as stale since it has not had any activity in the last 30 days. It will be closed in the next
           14 days unless any other activity occurs or one of the following labels is added: "not stale", "awaiting-review", "awaiting-PR-merge".
-          Please provide a status update or let us know when you're ready.
+          Please reach out to the triage team (`@bazelbuild/triage`) if you'd like to discuss anything further.
         close-pr-message: >
-          This pull request has been automatically closed due to inactivity. If you're still interested in pursuing this, please reach
-          out to a maintainer to add the "not stale" label. Thanks!
+          This pull request has been automatically closed due to inactivity. If you're still interested in pursuing this, please reach out
+          to the triage team (`@bazelbuild/triage`) to add the "not stale" label. Thanks!
         stale-issue-label: 'stale'
         exempt-issue-labels: 'not stale,awaiting-bazeler,untriaged,P0,P1'
         close-issue-reason: "not_planned"
