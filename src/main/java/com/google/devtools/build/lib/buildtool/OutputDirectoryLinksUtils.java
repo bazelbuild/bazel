@@ -333,7 +333,7 @@ public final class OutputDirectoryLinksUtils {
     }
     try {
       PathFragment targetForLink =
-          target.startsWith(base) && relativeSymlinks
+          relativeSymlinks
               ? target.relativeTo(base)
               : target.asFragment();
       FileSystemUtils.ensureSymbolicLink(link, targetForLink);
