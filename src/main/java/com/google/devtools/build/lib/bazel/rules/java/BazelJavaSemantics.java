@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubst
 import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -573,6 +574,7 @@ public class BazelJavaSemantics implements JavaSemantics {
   public CustomCommandLine buildSingleJarCommandLine(
       String toolchainIdentifier,
       Artifact output,
+      Label label,
       String mainClass,
       ImmutableList<String> manifestLines,
       Iterable<Artifact> buildInfoFiles,
@@ -593,6 +595,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       NestedSet<String> addOpens) {
     return DeployArchiveBuilder.defaultSingleJarCommandLineWithoutOneVersion(
             output,
+            label,
             mainClass,
             manifestLines,
             buildInfoFiles,
