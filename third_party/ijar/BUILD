@@ -1,4 +1,4 @@
-load("//src:darwin_universal_binary.bzl", "darwin_universal_binary")
+load("//src/tools/singlejar:darwin_universal_binary.bzl", "darwin_universal_binary")
 
 package(
     default_visibility = [
