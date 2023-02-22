@@ -43,6 +43,7 @@ gen_workspace_stanza(
     repos = [
         "rules_license",
         "rules_cc",
+        "rules_python",
     ],
 )
 
