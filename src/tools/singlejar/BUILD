@@ -1,6 +1,6 @@
 load("@rules_java//java:defs.bzl", "java_library")
 load("//src:release_archive.bzl", "release_archive")
-load(":darwin_universal_binary.bzl", "darwin_universal_binary")
+load("//third_party/ijar:darwin_universal_binary.bzl", "darwin_universal_binary")
 
 # Description:
 #   singlejar C++ implementation.
@@ -552,9 +552,4 @@ genrule(
     cmd = "$(JAVABASE)/bin/jar -0cf \"$@\" $(location :output_jar.cc)",
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
-)
-
-exports_files(
-    ["darwin_universal_binary.bzl"],
-    visibility = ["//third_party/ijar:__pkg__"],
 )

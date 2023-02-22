@@ -1,4 +1,4 @@
-load("//src/tools/singlejar:darwin_universal_binary.bzl", "darwin_universal_binary")
+load(":darwin_universal_binary.bzl", "darwin_universal_binary")
 
 package(
     default_visibility = [
@@ -119,7 +119,7 @@ filegroup(
         "zlib_client.cc",
         "zlib_client.h",
         "BUILD",
-        "@//src/tools/singlejar:darwin_universal_binary.bzl",
+        "darwin_universal_binary.bzl",
     ] + select({
         "//src:windows": [
             "mapped_file_windows.cc",
@@ -172,4 +172,9 @@ genrule(
     cmd = "$(location //src:zip_files) ijar $@ $(SRCS)",
     tools = ["//src:zip_files"],
     visibility = ["//visibility:private"],
+)
+
+exports_files(
+    ["darwin_universal_binary.bzl"],
+    visibility = ["//src/tools/singlejar:__pkg__"],
 )
