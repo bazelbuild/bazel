@@ -34,7 +34,7 @@ jobs:
           to the triage team (`@bazelbuild/triage`) if you'd like to discuss anything further.
         close-issue-message: >
           This issue has been automatically closed due to inactivity. If you're still interested in pursuing this, please reach out
-          to the triage team (`@bazelbuild/triage`) to add the "not stale" label. Thanks!
+          to the triage team (`@bazelbuild/triage`). Thanks!
         stale-pr-message: >
           Thank you for contributing to the Bazel repository!
           This pull request has been marked as stale since it has not had any activity in the last 30 days. It will be closed in the next
@@ -42,7 +42,7 @@ jobs:
           Please reach out to the triage team (`@bazelbuild/triage`) if you'd like to discuss anything further.
         close-pr-message: >
           This pull request has been automatically closed due to inactivity. If you're still interested in pursuing this, please reach out
-          to the triage team (`@bazelbuild/triage`) to add the "not stale" label. Thanks!
+          to the triage team (`@bazelbuild/triage`). Thanks!
         stale-issue-label: 'stale'
         exempt-issue-labels: 'not stale,awaiting-bazeler,untriaged,P0,P1'
         close-issue-reason: "not_planned"
