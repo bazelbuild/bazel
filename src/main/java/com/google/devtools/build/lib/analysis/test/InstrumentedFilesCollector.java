@@ -208,7 +208,7 @@ public final class InstrumentedFilesCollector {
       for (TransitiveInfoCollection dep :
           getPrerequisitesForAttributes(ruleContext, spec.sourceAttributes)) {
         for (Artifact artifact : dep.getProvider(FileProvider.class).getFilesToBuild().toList()) {
-          if (artifact.isSourceArtifact() &&
+          if (!artifact.isDirectory() &&
               spec.instrumentedFileTypes.matches(artifact.getFilename())) {
             localSourcesBuilder.add(artifact);
           }
