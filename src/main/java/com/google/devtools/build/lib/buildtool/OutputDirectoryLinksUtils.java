@@ -121,6 +121,7 @@ public final class OutputDirectoryLinksUtils {
     String workspaceBaseName = workspace.getBaseName();
     RepositoryName repositoryName = RepositoryName.MAIN;
     boolean logOnly = mode == ConvenienceSymlinksMode.LOG_ONLY;
+    boolean relativeSymlinks = mode == ConvenienceSymlinksMode.RELATIVE;
 
     for (SymlinkDefinition symlink : getAllLinkDefinitions(symlinkDefinitions)) {
       String linkName = symlink.getLinkName(symlinkPrefix, productName, workspaceBaseName);
@@ -147,6 +148,7 @@ public final class OutputDirectoryLinksUtils {
               Iterables.getOnlyElement(candidatePaths),
               failures,
               convenienceSymlinksBuilder,
+              relativeSymlinks,
               logOnly);
         } else {
           removeLink(workspace, linkName, failures, convenienceSymlinksBuilder, logOnly);
@@ -303,6 +305,7 @@ public final class OutputDirectoryLinksUtils {
       Path target,
       List<String> failures,
       ImmutableList.Builder<ConvenienceSymlink> symlinksBuilder,
+      boolean relativeSymlinks,
       boolean logOnly) {
     // Usually the symlink target falls under the output base, and the path in the BEP event should
     // be relative to that output base. In rare cases where the symlink points elsewhere, use the
@@ -329,7 +332,11 @@ public final class OutputDirectoryLinksUtils {
       return;
     }
     try {
-      FileSystemUtils.ensureSymbolicLink(link, target);
+      PathFragment targetForLink =
+          target.startsWith(base) && relativeSymlinks
+              ? target.relativeTo(base)
+              : target.asFragment();
+      FileSystemUtils.ensureSymbolicLink(link, targetForLink);
     } catch (IOException e) {
       failures.add(String.format("cannot create symbolic link %s -> %s:  %s",
           name, target.getPathString(), e.getMessage()));

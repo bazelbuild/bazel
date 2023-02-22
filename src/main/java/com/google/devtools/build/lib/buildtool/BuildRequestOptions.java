@@ -238,6 +238,7 @@ public class BuildRequestOptions extends OptionsBase {
               + "workspace after the build) will be managed. Possible values:\n"
               + "  normal (default): Each kind of convenience symlink will be created or deleted, "
               + "as determined by the build.\n"
+              + "  relative: As normal but relative links will be created if possible."
               + "  clean: All symlinks will be unconditionally deleted.\n"
               + "  ignore: Symlinks will be left alone.\n"
               + "  log_only: Generate log messages as if 'normal' were passed, but don't actually "
@@ -574,6 +575,8 @@ public class BuildRequestOptions extends OptionsBase {
   enum ConvenienceSymlinksMode {
     /** Will manage symlinks based on the symlink prefix. */
     NORMAL,
+    /** Will manage symlinks based on the symlink prefix, but create relative links when possible. */
+    RELATIVE,
     /** Will clean up any existing symlinks. */
     CLEAN,
     /** Will not create or clean up any symlinks. */
