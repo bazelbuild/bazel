@@ -20,7 +20,6 @@ import com.android.utils.StdLogger;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.ExistingPathStringDictionaryConverter;
-import com.google.devtools.build.android.Converters.PathListConverter;
 import com.google.devtools.build.android.Converters.MergeTypeConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.StringDictionaryConverter;
