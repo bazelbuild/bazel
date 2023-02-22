@@ -31,6 +31,7 @@ gen_workspace_stanza(
         "rules_license",
         "rules_pkg",
         "rules_proto",
+        "rules_python",
     ],
     template = "testenv.sh.tmpl",
     visibility = ["//visibility:public"],

@@ -360,7 +360,7 @@ DIST_DEPS = {
             "strip_prefix": "rules_python-0.18.1",
             "urls": ["https://github.com/bazelbuild/rules_python/releases/download/0.18.1/rules_python-0.18.1.tar.gz"],
             "archive": "rules_python-0.18.1.tar.gz",
-              "used_in": ["test_WORKSPACE_files"],
+              "used_in": [  "additional_distfiles", "test_WORKSPACE_files"],
     },
     "desugar_jdk_libs": {
         # Commit 5847d6a06302136d95a14b4cbd4b55a9c9f1436e of 2021-03-10
