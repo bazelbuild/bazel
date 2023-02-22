@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -70,6 +69,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   /** Label predicate that allows every label. */
   public static final Predicate<Label> ALL_LABELS = Predicates.alwaysTrue();
 
+  private static final String NAME = RuleClass.NAME_ATTRIBUTE.getName();
   private static final String GENERATOR_FUNCTION = "generator_function";
   private static final String GENERATOR_LOCATION = "generator_location";
 
@@ -161,9 +161,14 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   void setAttributeValue(Attribute attribute, Object value, boolean explicit) {
-    Integer attrIndex = ruleClass.getAttributeIndex(attribute.getName());
+    String attrName = attribute.getName();
+    if (attrName.equals(NAME)) {
+      // Avoid unnecessarily storing the name in the attribute container - it's stored in the label.
+      return;
+    }
+    Integer attrIndex = ruleClass.getAttributeIndex(attrName);
     Preconditions.checkArgument(
-        attrIndex != null, "attribute %s is not valid for this rule", attribute.getName());
+        attrIndex != null, "attribute %s is not valid for this rule", attrName);
     attributes.setAttributeValue(attrIndex, value, explicit);
   }
 
@@ -485,6 +490,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
   @Nullable
   public Object getAttr(String attrName) {
+    if (attrName.equals(NAME)) {
+      return getName();
+    }
     Integer attrIndex = ruleClass.getAttributeIndex(attrName);
     return attrIndex == null ? null : getAttrWithIndex(attrIndex);
   }
@@ -496,26 +504,34 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
   @Nullable
   public <T> Object getAttr(String attrName, Type<T> type) {
+    if (attrName.equals(NAME)) {
+      checkAttrType(attrName, type, RuleClass.NAME_ATTRIBUTE);
+      return getName();
+    }
+
     Integer index = ruleClass.getAttributeIndex(attrName);
     if (index == null) {
       throw new IllegalArgumentException(
           "No such attribute " + attrName + " in " + ruleClass + " rule " + label);
     }
-    Attribute attr = ruleClass.getAttribute(index);
-    if (attr.getType() != type) {
+    checkAttrType(attrName, type, ruleClass.getAttribute(index));
+    return getAttrWithIndex(index);
+  }
+
+  private void checkAttrType(String attrName, Type<?> requestedType, Attribute attr) {
+    if (requestedType != attr.getType()) {
       throw new IllegalArgumentException(
           "Attribute "
               + attrName
               + " is of type "
               + attr.getType()
               + " and not of type "
-              + type
+              + requestedType
               + " in "
               + ruleClass
               + " rule "
               + label);
     }
-    return getAttrWithIndex(index);
   }
 
   /**
@@ -561,11 +577,17 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * with the given name.
    */
   public boolean isAttributeValueExplicitlySpecified(String attrName) {
+    if (attrName.equals(NAME)) {
+      return true;
+    }
     if (attrName.equals(GENERATOR_FUNCTION) || attrName.equals(GENERATOR_LOCATION)) {
       return wasCreatedByMacro();
     }
     Integer attrIndex = ruleClass.getAttributeIndex(attrName);
-    return attrIndex != null && attributes.isAttributeValueExplicitlySpecified(attrIndex);
+    if (attrIndex == null) {
+      return false;
+    }
+    return attributes.isAttributeValueExplicitlySpecified(attrIndex);
   }
 
   /**
@@ -616,7 +638,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
-   * Returns a {@link Multimap} containing all non-output labels matching a given {@link
+   * Returns a {@link SetMultimap} containing all non-output labels matching a given {@link
    * DependencyFilter}, keyed by the corresponding attribute.
    *
    * <p>Labels that appear in multiple attributes will be mapped from each of their corresponding
@@ -627,8 +649,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    *     contains the label. The label will be contained in the result iff the predicate returns
    *     {@code true} <em>and</em> the label is not an output.
    */
-  public Multimap<Attribute, Label> getTransitions(DependencyFilter filter) {
-    Multimap<Attribute, Label> transitions = HashMultimap.create();
+  public SetMultimap<Attribute, Label> getTransitions(DependencyFilter filter) {
+    SetMultimap<Attribute, Label> transitions = HashMultimap.create();
     AggregatingAttributeMapper.of(this).visitLabels(filter, transitions::put);
     return transitions;
   }
@@ -969,9 +991,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     }
   }
 
-  /**
-   * @return The repository name.
-   */
   public RepositoryName getRepository() {
     return label.getPackageIdentifier().getRepository();
   }
