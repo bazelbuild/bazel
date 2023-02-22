@@ -273,4 +273,10 @@ maybe(
 {rules_proto}
 )
 
+# Needed only because of proguard_allowlister.
+maybe(
+    http_archive,
+{rules_python}
+)
+
 register_toolchains("@bazel_tools//tools/jdk:all")
