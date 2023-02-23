@@ -21,9 +21,12 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Properties;
 import java.time.Duration;
@@ -33,24 +36,27 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.verify;
 
 @RunWith(JUnit4.class)
 public class BuildSummaryStatsModuleTest {
   private BuildSummaryStatsModule buildSummaryStatsModule;
-  private Reporter reporterMock;
+  private Reporter reporter;
+  private EventBus eventBus;
+  private EventCollector eventCollector;
 
   @Before
   public void setUp() throws Exception {
     CommandEnvironment env = mock(CommandEnvironment.class);
     ActionKeyContext actionKeyContextMock = mock(ActionKeyContext.class);
-    reporterMock = mock(Reporter.class);
+    eventCollector = new EventCollector(EventKind.ERRORS_WARNINGS_AND_INFO);
+    eventBus = new EventBus();
+    reporter = new Reporter(eventBus, eventCollector);
     SkyframeExecutor skyframeExecutorMock = mock(SkyframeExecutor.class);
     EventBus eventBusMock = mock(EventBus.class);
     OptionsParsingResult optionsParsingResultMock = mock(OptionsParsingResult.class);
     ExecutionOptions executionOptions = new ExecutionOptions();
     executionOptions.statsSummary = true;
-    when(env.getReporter()).thenReturn(reporterMock);
+    when(env.getReporter()).thenReturn(reporter);
     when(env.getSkyframeExecutor()).thenReturn(skyframeExecutorMock);
     when(skyframeExecutorMock.getActionKeyContext()).thenReturn(actionKeyContextMock);
     when(env.getEventBus()).thenReturn(eventBusMock);
@@ -83,7 +89,7 @@ public class BuildSummaryStatsModuleTest {
     buildSummaryStatsModule.actionResultReceived(action2);
     buildSummaryStatsModule.setCpuTimeForBazelJvm(Duration.ofMillis(11000));
     buildSummaryStatsModule.buildComplete(createBuildEvent());
-    verify(reporterMock).handle(Event.info(String.format("CPU time %.2fs (user %.2fs, system %.2fs, bazel jvm %.2fs)",88.00, 55.00, 22.00, 11.00)));
+    MoreAsserts.assertContainsEvent(eventCollector, String.format("CPU time %.2fs (user %.2fs, system %.2fs, bazel jvm %.2fs)",88.00, 55.00, 22.00, 11.00));
   }
 
   @Test
@@ -95,7 +101,7 @@ public class BuildSummaryStatsModuleTest {
     buildSummaryStatsModule.actionResultReceived(action1);
     buildSummaryStatsModule.actionResultReceived(action2);
     buildSummaryStatsModule.buildComplete(createBuildEvent());
-    verify(reporterMock).handle(Event.info("CPU time ???s (user ???s, system ???s, bazel jvm ???s)"));
+    MoreAsserts.assertContainsEvent(eventCollector, "CPU time ???s (user ???s, system ???s, bazel jvm ???s)");
   }
 
   @Test
@@ -103,7 +109,7 @@ public class BuildSummaryStatsModuleTest {
     ActionResultReceivedEvent action1 = createActionEvent(Duration.ofSeconds(50), null);
     buildSummaryStatsModule.actionResultReceived(action1);
     buildSummaryStatsModule.buildComplete(createBuildEvent());
-    verify(reporterMock).handle(Event.info(String.format("CPU time ???s (user %.2fs, system ???s, bazel jvm ???s)", 50.00)));
+    MoreAsserts.assertContainsEvent(eventCollector, String.format("CPU time ???s (user %.2fs, system ???s, bazel jvm ???s)", 50.00));
   }
 
   @Test
@@ -113,9 +119,9 @@ public class BuildSummaryStatsModuleTest {
     buildSummaryStatsModule.actionResultReceived(action1);
     buildSummaryStatsModule.setCpuTimeForBazelJvm(Duration.ofMillis(10000));
     buildSummaryStatsModule.buildComplete(createBuildEvent());
-    verify(reporterMock).handle(Event.info(String.format("CPU time %.2fs (user %.2fs, system %.2fs, bazel jvm %.2fs)",80.00, 50.00, 20.00, 10.00)));
+    MoreAsserts.assertContainsEvent(eventCollector, String.format("CPU time %.2fs (user %.2fs, system %.2fs, bazel jvm %.2fs)",80.00, 50.00, 20.00, 10.00));
     // One more build, and verify that previous values are not preserved.
     buildSummaryStatsModule.buildComplete(createBuildEvent());
-    verify(reporterMock).handle(Event.info(String.format("CPU time ???s (user %.2fs, system %.2fs, bazel jvm ???s)",0.00, 0.00)));
+    MoreAsserts.assertContainsEvent(eventCollector, String.format("CPU time ???s (user %.2fs, system %.2fs, bazel jvm ???s)",0.00, 0.00));
   }
 }
