@@ -43,10 +43,11 @@ public class BuildSummaryStatsModuleTest {
   private Reporter reporter;
   private EventBus eventBus;
   private EventCollector eventCollector;
+  private CommandEnvironment env;
 
   @Before
   public void setUp() throws Exception {
-    CommandEnvironment env = mock(CommandEnvironment.class);
+    env = mock(CommandEnvironment.class);
     ActionKeyContext actionKeyContextMock = mock(ActionKeyContext.class);
     eventCollector = new EventCollector(EventKind.ERRORS_WARNINGS_AND_INFO);
     eventBus = new EventBus();
@@ -64,7 +65,6 @@ public class BuildSummaryStatsModuleTest {
     when(optionsParsingResultMock.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
     buildSummaryStatsModule = new BuildSummaryStatsModule();
     buildSummaryStatsModule.beforeCommand(env);
-    buildSummaryStatsModule.executorInit(env, null, null);
   }
 
   private ActionResultReceivedEvent createActionEvent(Duration userTime, Duration systemTime) {
@@ -83,6 +83,7 @@ public class BuildSummaryStatsModuleTest {
 
   @Test
   public void allCpuTimesAreSummarized() throws Exception {
+    buildSummaryStatsModule.executorInit(env, null, null);
     ActionResultReceivedEvent action1 = createActionEvent(Duration.ofSeconds(50), Duration.ofSeconds(20));
     ActionResultReceivedEvent action2 = createActionEvent(Duration.ofSeconds(5), Duration.ofSeconds(2));
     buildSummaryStatsModule.actionResultReceived(action1);
@@ -94,6 +95,7 @@ public class BuildSummaryStatsModuleTest {
 
   @Test
   public void mixOfActionsWithKnownAndUnknownCpuTimesResultInUnknownTimes() throws Exception {
+    buildSummaryStatsModule.executorInit(env, null, null);
     // First action with unknown values
     ActionResultReceivedEvent action1 = createActionEvent(null, null);
     // Followed by action with known values
@@ -106,6 +108,7 @@ public class BuildSummaryStatsModuleTest {
 
   @Test
   public void knownAndUnknownCpuTimesForAnActionIsReportedAndSumBecomeUnknown() throws Exception {
+    buildSummaryStatsModule.executorInit(env, null, null);
     ActionResultReceivedEvent action1 = createActionEvent(Duration.ofSeconds(50), null);
     buildSummaryStatsModule.actionResultReceived(action1);
     buildSummaryStatsModule.buildComplete(createBuildEvent());
@@ -114,6 +117,7 @@ public class BuildSummaryStatsModuleTest {
 
   @Test
   public void reusedBuildSummaryStatsModuleIsClearedBetweenBuilds() throws Exception {
+    buildSummaryStatsModule.executorInit(env, null, null);
     ActionResultReceivedEvent action1 = createActionEvent(Duration.ofSeconds(50),
                                                           Duration.ofSeconds(20));
     buildSummaryStatsModule.actionResultReceived(action1);
@@ -121,6 +125,7 @@ public class BuildSummaryStatsModuleTest {
     buildSummaryStatsModule.buildComplete(createBuildEvent());
     MoreAsserts.assertContainsEvent(eventCollector, String.format("CPU time %.2fs (user %.2fs, system %.2fs, bazel jvm %.2fs)",80.00, 50.00, 20.00, 10.00));
     // One more build, and verify that previous values are not preserved.
+    buildSummaryStatsModule.executorInit(env, null, null);
     buildSummaryStatsModule.buildComplete(createBuildEvent());
     MoreAsserts.assertContainsEvent(eventCollector, String.format("CPU time ???s (user %.2fs, system %.2fs, bazel jvm ???s)",0.00, 0.00));
   }
