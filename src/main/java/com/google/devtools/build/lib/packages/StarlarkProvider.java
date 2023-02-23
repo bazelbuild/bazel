@@ -18,12 +18,16 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -68,6 +72,32 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
   /** Null iff this provider has not yet been exported. Mutated by {@link export}. */
   @Nullable private Key key;
+
+  /**
+   * For schemaful providers, an array of metadata concerning depset optimization.
+   *
+   * <p>Each index in the array holds an optional (nullable) depset element type. The value at that
+   * index is initialized to be the element type of the first non-empty Depset to ever be stored in
+   * the corresponding field from {@link #schema} on any instance of this provider, globally. If no
+   * depsets (or only empty depsets) are ever stored in a field, the value at its index in this
+   * array will remain null.
+   *
+   * <p>Whenever a field is stored in an instance of this provider type, if the value is a depset
+   * whose element type matches the one stored in this array, it is optimized by unwrapping it down
+   * to its {@code NestedSet}. Upon retrieval, the depset wrapper is reconstructed using this saved
+   * element type.
+   *
+   * <p>The optimization may (harmlessly) fail to apply for provider fields that are not strongly
+   * typed across all instances.
+   *
+   * <p>For large builds, this optimization has been observed to save half a percent in retained
+   * heap.
+   *
+   * <p>In the future, the ad hoc heuristic of examining the first stored non-empty depset might be
+   * replaced by stronger type information in the provider's Starlark declaration. However, this
+   * optimization would remain relevant for provider declarations that do not supply such type info.
+   */
+  @Nullable private transient AtomicReferenceArray<Class<?>> depsetTypePredictor;
 
   /**
    * Returns a new empty builder.
@@ -157,6 +187,9 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     this.schema = schema;
     this.init = init;
     this.key = key;
+    if (schema != null) {
+      depsetTypePredictor = new AtomicReferenceArray<>(schema.size());
+    }
   }
 
   private static Object[] toNamedArgs(Object value, String descriptionForError)
@@ -321,6 +354,67 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
   @Override
   public String toString() {
     return Starlark.repr(this);
+  }
+
+  /**
+   * For schemaful providers, given a value to store in the field identified by {@code index},
+   * returns a possibly optimized version of the value. The result (optimized or not) should be
+   * decoded by {@link #retrieveOptimizedField}.
+   *
+   * <p>Mutable values are never optimized.
+   */
+  Object optimizeField(int index, Object value) {
+    if (value instanceof Depset) {
+      Preconditions.checkArgument(depsetTypePredictor != null);
+      Depset depset = (Depset) value;
+      if (depset.isEmpty()) {
+        // Most empty depsets have the empty (null) type. We can't store this type because it
+        // would clash with whatever the actual element type is for non-empty depsets in that
+        // field. So instead just store the optimized (unwrapped) NestedSet without any type
+        // information, and assume it's the empty type upon retrieval.
+        //
+        // This only loses information in the relatively rare case of a native-constructed empty
+        // depset with a type restriction (e.g. empty set of artifacts). In that scenario, an
+        // empty depset retrieved from the provider may "incorrectly" allow itself to participate
+        // in a union with depsets of other types, whereas the original depset would trigger a
+        // Starlark eval error. This is a user-observable difference but a very minor one; the
+        // hazard would be logical errors that are masked by the provider machinery but triggered
+        // by a refactoring of Starlark code. See TODO in Depset#of(Class, NestedSet) for notes
+        // about eliminating this semantic confusion.
+        //
+        // This problem shouldn't arise for non-empty depsets since distinct non-empty element
+        // types are not compatible with one another (i.e. there's no Depset<Any> schema).
+        return depset.getSet();
+      }
+      Class<?> elementClass = depset.getElementClass();
+      if (depsetTypePredictor.compareAndExchange(index, null, elementClass) == elementClass) {
+        return depset.getSet();
+      }
+    }
+    return value;
+  }
+
+  Object retrieveOptimizedField(int index, Object value) {
+    if (value instanceof NestedSet<?>) {
+      // We subvert Depset.of()'s static type checking for consistency between the type token and
+      // NestedSet type. This is safe because these values came from a previous Depset, so we
+      // already know they're consistent.
+      @SuppressWarnings("unchecked")
+      NestedSet<Object> nestedSet = (NestedSet<Object>) value;
+      if (nestedSet.isEmpty()) {
+        // This matches empty depsets created in Starlark with `depset()`. For natively created
+        // empty depsets it may change elementClass to null.
+        return Depset.of(ElementType.EMPTY, nestedSet);
+      }
+      @SuppressWarnings("unchecked") // can't parametrize Class literal by a non-raw type
+      Depset depset = Depset.of((Class<Object>) depsetTypePredictor.get(index), nestedSet);
+      return depset;
+    }
+    return value;
+  }
+
+  boolean isOptimised(int index, Object value) {
+    return value instanceof NestedSet<?>;
   }
 
   /**
