@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.profiler;
 
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.profiler.Profiler.TaskData;
 import com.google.gson.stream.JsonWriter;
 import java.io.BufferedOutputStream;
@@ -174,6 +175,7 @@ class JsonTraceFileWriter implements Runnable {
         writer.beginObject();
         writer.name("otherData");
         writer.beginObject();
+        writer.name("bazel_version").value(BlazeVersionInfo.instance().getReleaseName());
         writer.name("build_id").value(buildID.toString());
         writer.name("output_base").value(outputBase);
         writer.name("date").value(new Date().toString());
