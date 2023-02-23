@@ -102,6 +102,9 @@ public class BuildSummaryStatsModule extends BlazeModule {
       criticalPathComputer = new CriticalPathComputer(actionKeyContext, BlazeClock.instance());
       eventBus.register(criticalPathComputer);
     }
+    cpuUserTimeForActions = Duration.ofMillis(0);
+    cpuSystemTimeForActions = Duration.ofMillis(0);
+    cpuTimeForBazelJvm = Duration.ofMillis(UNKNOWN_CPU_TIME);
   }
 
   @Subscribe
