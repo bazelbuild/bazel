@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -1738,6 +1739,29 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void declaredProviderDocumentation() throws Exception {
+    evalAndExport(
+        ev,
+        "UndocumentedInfo = provider()",
+        "DocumentedInfo = provider(doc = 'My documented provider')",
+        "SchemafulWithoutDocsInfo = provider(fields = ['a', 'b'])",
+        "SchemafulWithDocsInfo = provider(fields = {'a': 'Field a', 'b': 'Field b'})");
+
+    StarlarkProvider undocumentedInfo = (StarlarkProvider) ev.lookup("UndocumentedInfo");
+    StarlarkProvider documentedInfo = (StarlarkProvider) ev.lookup("DocumentedInfo");
+    StarlarkProvider schemafulWithoutDocsInfo =
+        (StarlarkProvider) ev.lookup("SchemafulWithoutDocsInfo");
+    StarlarkProvider schemafulWithDocsInfo = (StarlarkProvider) ev.lookup("SchemafulWithDocsInfo");
+
+    assertThat(undocumentedInfo.getDocumentation()).isEmpty();
+    assertThat(documentedInfo.getDocumentation()).hasValue("My documented provider");
+    assertThat(schemafulWithoutDocsInfo.getSchemaWithDocumentation())
+        .containsExactly("a", Optional.empty(), "b", Optional.empty());
+    assertThat(schemafulWithDocsInfo.getSchemaWithDocumentation())
+        .containsExactly("a", Optional.of("Field a"), "b", Optional.of("Field b"));
+  }
+
+  @Test
   public void declaredProvidersWithInit() throws Exception {
     evalAndExport(
         ev,
@@ -1949,7 +1973,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void declaredProvidersBadTypeForDoc() throws Exception {
-    ev.checkEvalErrorContains("got value of type 'int', want 'string'", "provider(doc = 1)");
+    ev.checkEvalErrorContains(
+        "got value of type 'int', want 'string or NoneType'", "provider(doc = 1)");
   }
 
   @Test

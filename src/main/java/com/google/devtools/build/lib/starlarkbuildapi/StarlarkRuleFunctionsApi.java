@@ -87,7 +87,11 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "doc",
             named = true,
-            defaultValue = "''",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
             doc =
                 "A description of the provider that can be extracted by documentation generating"
                     + " tools."),
@@ -185,7 +189,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "None"),
       },
       useStarlarkThread = true)
-  Object provider(String doc, Object fields, Object init, StarlarkThread thread)
+  Object provider(Object doc, Object fields, Object init, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
