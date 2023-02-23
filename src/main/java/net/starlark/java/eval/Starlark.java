@@ -412,6 +412,42 @@ public final class Starlark {
   }
 
   /**
+   * Returns the name of the type of instances of {@code c} after being converted to Starlark values
+   * by {@link #fromJava}, or "unknown" for {@code Object.class}, since that is used as a wildcard
+   * type by evaluation machinery.
+   *
+   * <p>Note that {@code void.class} is treated as "NoneType" since void methods will return None to
+   * Starlark.
+   *
+   * @throws InvalidStarlarkValueException if {@code c} is not {@code Object.class} and {@link
+   *     #fromJava} would throw for instances of {@code c}.
+   */
+  public static String classTypeFromJava(Class<?> c) {
+    if (c.equals(
+            void.class) // Method.invoke on void-returning methods returns null; we treat it as None
+        || c.equals(String.class)
+        || c.equals(boolean.class)
+        || c.equals(Boolean.class)
+        || StarlarkValue.class.isAssignableFrom(c)
+        || c.equals(Object.class)) {
+      return classType(c);
+    } else if (c.equals(int.class)
+        || c.equals(Integer.class)
+        || c.equals(long.class)
+        || c.equals(Long.class)
+        || BigInteger.class.isAssignableFrom(c)) {
+      return classType(StarlarkInt.class);
+    } else if (c.equals(double.class) || c.equals(Double.class)) {
+      return classType(StarlarkFloat.class);
+    } else if (List.class.isAssignableFrom(c)) {
+      return classType(StarlarkList.class);
+    } else if (Map.class.isAssignableFrom(c)) {
+      return classType(Dict.class);
+    }
+    throw new InvalidStarlarkValueException(c);
+  }
+
+  /**
    * The ordering relation over (some) Starlark values.
    *
    * <p>Starlark values are ordered as follows.
