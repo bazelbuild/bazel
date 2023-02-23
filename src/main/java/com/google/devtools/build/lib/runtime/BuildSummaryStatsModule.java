@@ -255,9 +255,6 @@ public class BuildSummaryStatsModule extends BlazeModule {
         criticalPathComputer = null;
       }
       profilePath = null;
-      cpuUserTimeForActions = Duration.ofMillis(0);
-      cpuSystemTimeForActions = Duration.ofMillis(0);
-      cpuTimeForBazelJvm = Duration.ofMillis(UNKNOWN_CPU_TIME);
     }
   }
 
