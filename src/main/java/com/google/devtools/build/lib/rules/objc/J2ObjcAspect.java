@@ -852,7 +852,11 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   }
 
   private static boolean isProtoRule(ConfiguredTarget base) {
-    return base.get(ProtoInfo.PROVIDER) != null;
+    try {
+      return base.get(ProtoInfo.PROVIDER) != null;
+    } catch (RuleErrorException e) {
+      return false;
+    }
   }
 
   /** Returns a mutable List of objc output files. */

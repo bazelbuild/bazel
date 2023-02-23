@@ -19,7 +19,7 @@ load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo")
 load(":common/proto/proto_semantics.bzl", "semantics")
 
 def _rule_impl(ctx):
-    provided_proto_sources = depset(transitive = [bp[ProtoInfo].transitive_proto_sources() for bp in ctx.attr.blacklisted_protos]).to_list()
+    provided_proto_sources = depset(transitive = [bp[ProtoInfo]._transitive_proto_sources for bp in ctx.attr.blacklisted_protos]).to_list()
 
     flag = ctx.attr.command_line
     if flag.find("$(PLUGIN_OUT)") > -1:
