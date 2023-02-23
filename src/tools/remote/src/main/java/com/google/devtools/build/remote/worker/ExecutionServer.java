@@ -365,7 +365,7 @@ final class ExecutionServer extends ExecutionImplBase {
                 outErr,
                 exitCode,
                 startTime,
-                wallTime);
+                (int) wallTime.toMillis());
         result = manifest.upload(context, cache, NullEventHandler.INSTANCE);
       } catch (ExecException e) {
         if (errStatus == null) {

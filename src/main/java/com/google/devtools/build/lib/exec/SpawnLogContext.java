@@ -167,7 +167,7 @@ public class SpawnLogContext implements ActionContext {
       builder.setProgressMessage(progressMessage);
     }
     builder.setMnemonic(spawn.getMnemonic());
-    builder.setWalltime(durationToProto(result.getMetrics().executionWallTime()));
+    builder.setWalltime(millisToProto(result.getMetrics().executionWallTimeInMs()));
 
     if (spawn.getTargetLabel() != null) {
       builder.setTargetLabel(spawn.getTargetLabel());
@@ -176,35 +176,35 @@ public class SpawnLogContext implements ActionContext {
     if (executionOptions != null && executionOptions.executionLogSpawnMetrics) {
       SpawnMetrics metrics = result.getMetrics();
       Protos.SpawnMetrics.Builder metricsBuilder = builder.getMetricsBuilder();
-      if (!metrics.totalTime().isZero()) {
-        metricsBuilder.setTotalTime(durationToProto(metrics.totalTime()));
+      if (metrics.totalTimeInMs() != 0L) {
+        metricsBuilder.setTotalTime(millisToProto(metrics.totalTimeInMs()));
       }
-      if (!metrics.parseTime().isZero()) {
-        metricsBuilder.setParseTime(durationToProto(metrics.parseTime()));
+      if (metrics.parseTimeInMs() != 0L) {
+        metricsBuilder.setParseTime(millisToProto(metrics.parseTimeInMs()));
       }
-      if (!metrics.networkTime().isZero()) {
-        metricsBuilder.setNetworkTime(durationToProto(metrics.networkTime()));
+      if (metrics.networkTimeInMs() != 0L) {
+        metricsBuilder.setNetworkTime(millisToProto(metrics.networkTimeInMs()));
       }
-      if (!metrics.fetchTime().isZero()) {
-        metricsBuilder.setFetchTime(durationToProto(metrics.fetchTime()));
+      if (metrics.fetchTimeInMs() != 0L) {
+        metricsBuilder.setFetchTime(millisToProto(metrics.fetchTimeInMs()));
       }
-      if (!metrics.queueTime().isZero()) {
-        metricsBuilder.setQueueTime(durationToProto(metrics.queueTime()));
+      if (metrics.queueTimeInMs() != 0L) {
+        metricsBuilder.setQueueTime(millisToProto(metrics.queueTimeInMs()));
       }
-      if (!metrics.setupTime().isZero()) {
-        metricsBuilder.setSetupTime(durationToProto(metrics.setupTime()));
+      if (metrics.setupTimeInMs() != 0L) {
+        metricsBuilder.setSetupTime(millisToProto(metrics.setupTimeInMs()));
       }
-      if (!metrics.uploadTime().isZero()) {
-        metricsBuilder.setUploadTime(durationToProto(metrics.uploadTime()));
+      if (metrics.uploadTimeInMs() != 0L) {
+        metricsBuilder.setUploadTime(millisToProto(metrics.uploadTimeInMs()));
       }
-      if (!metrics.executionWallTime().isZero()) {
-        metricsBuilder.setExecutionWallTime(durationToProto(metrics.executionWallTime()));
+      if (metrics.executionWallTimeInMs() != 0L) {
+        metricsBuilder.setExecutionWallTime(millisToProto(metrics.executionWallTimeInMs()));
       }
-      if (!metrics.processOutputsTime().isZero()) {
-        metricsBuilder.setProcessOutputsTime(durationToProto(metrics.processOutputsTime()));
+      if (metrics.processOutputsTimeInMs() != 0L) {
+        metricsBuilder.setProcessOutputsTime(millisToProto(metrics.processOutputsTimeInMs()));
       }
-      if (!metrics.retryTime().isZero()) {
-        metricsBuilder.setRetryTime(durationToProto(metrics.retryTime()));
+      if (metrics.retryTimeInMs() != 0L) {
+        metricsBuilder.setRetryTime(millisToProto(metrics.retryTimeInMs()));
       }
       metricsBuilder.setInputBytes(metrics.inputBytes());
       metricsBuilder.setInputFiles(metrics.inputFiles());
@@ -214,16 +214,16 @@ public class SpawnLogContext implements ActionContext {
       metricsBuilder.setOutputBytesLimit(metrics.outputBytesLimit());
       metricsBuilder.setOutputFilesLimit(metrics.outputFilesLimit());
       metricsBuilder.setMemoryBytesLimit(metrics.memoryLimit());
-      if (!metrics.timeLimit().isZero()) {
-        metricsBuilder.setTimeLimit(durationToProto(metrics.timeLimit()));
+      if (metrics.timeLimitInMs() != 0L) {
+        metricsBuilder.setTimeLimit(millisToProto(metrics.timeLimitInMs()));
       }
     }
 
     executionLog.write(builder.build());
   }
 
-  private static com.google.protobuf.Duration durationToProto(Duration d) {
-    return Durations.fromNanos(d.toNanos());
+  private static com.google.protobuf.Duration millisToProto(int t) {
+    return Durations.fromMillis(t);
   }
 
   public void close() throws IOException {

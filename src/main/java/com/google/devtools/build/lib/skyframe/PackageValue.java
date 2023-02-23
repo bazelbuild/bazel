@@ -15,9 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
@@ -64,7 +62,7 @@ public class PackageValue implements NotComparableSkyValue {
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   public static class Key extends AbstractSkyKey<PackageIdentifier> implements CPUHeavySkyKey {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(PackageIdentifier arg) {
       super(arg);
@@ -79,6 +77,11 @@ public class PackageValue implements NotComparableSkyValue {
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.PACKAGE;
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 

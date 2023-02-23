@@ -650,6 +650,10 @@ networks.
 Sorbet is a fast, powerful type checker for a subset of Ruby. It scales to
 codebases with millions of lines of code and can be adopted incrementally.
 
+### [Spotify](https://spotify.com){: .external}
+
+Spotify is using Bazel to build their iOS and Android Apps ([source](https://twitter.com/BalestraPatrick/status/1573355078995566594)).
+
 ### [Tink](https://github.com/google/tink){: .external}
 
 Tink is a multi-language, cross-platform, open source library that provides

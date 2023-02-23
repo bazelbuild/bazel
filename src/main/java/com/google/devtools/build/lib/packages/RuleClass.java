@@ -124,6 +124,12 @@ import net.starlark.java.syntax.Location;
 @Immutable
 public class RuleClass {
 
+  /** The name attribute, present for all rules at index 0. */
+  static final Attribute NAME_ATTRIBUTE =
+      attr("name", STRING)
+          .nonconfigurable("All rules have a non-customizable \"name\" attribute")
+          .build();
+
   /**
    * Maximum attributes per RuleClass. Current value was chosen to be high enough to be considered a
    * non-breaking change for reasonable use. It was also chosen to be low enough to give significant
@@ -800,9 +806,7 @@ public class RuleClass {
       this.type = type;
       Preconditions.checkState(starlark || type != RuleClassType.PLACEHOLDER, name);
       this.documented = type != RuleClassType.ABSTRACT;
-      add(
-          attr("name", STRING)
-              .nonconfigurable("All rules have a non-customizable \"name\" attribute"));
+      addAttribute(NAME_ATTRIBUTE);
       for (RuleClass parent : parents) {
         if (parent.getValidityPredicate() != PredicatesWithMessage.<Rule>alwaysTrue()) {
           setValidityPredicate(parent.getValidityPredicate());
@@ -944,7 +948,7 @@ public class RuleClass {
           executionPlatformConstraints,
           execGroups,
           outputFileKind,
-          attributes.values(),
+          ImmutableList.copyOf(attributes.values()),
           buildSetting);
     }
 
@@ -1746,7 +1750,7 @@ public class RuleClass {
       Set<Label> executionPlatformConstraints,
       Map<String, ExecGroup> execGroups,
       OutputFile.Kind outputFileKind,
-      Collection<Attribute> attributes,
+      ImmutableList<Attribute> attributes,
       @Nullable BuildSetting buildSetting) {
     this.name = name;
     this.callstack = callstack;
@@ -1770,8 +1774,7 @@ public class RuleClass {
     this.ruleDefinitionEnvironmentLabel = ruleDefinitionEnvironmentLabel;
     this.ruleDefinitionEnvironmentDigest = ruleDefinitionEnvironmentDigest;
     this.outputFileKind = outputFileKind;
-    validateNoClashInPublicNames(attributes);
-    this.attributes = ImmutableList.copyOf(attributes);
+    this.attributes = attributes;
     this.workspaceOnly = workspaceOnly;
     this.isExecutableStarlark = isExecutableStarlark;
     this.isAnalysisTest = isAnalysisTest;
@@ -1786,37 +1789,36 @@ public class RuleClass {
     this.execGroups = ImmutableMap.copyOf(execGroups);
     this.buildSetting = buildSetting;
 
-    // Create the index and collect non-configurable attributes.
-    int index = 0;
+    // Create the index and collect non-configurable attributes while doing some validation checks.
+    Preconditions.checkState(
+        !attributes.isEmpty() && attributes.get(0).equals(NAME_ATTRIBUTE),
+        "Rule %s does not have name as its first attribute: %s",
+        name,
+        attributes);
     attributeIndex = Maps.newHashMapWithExpectedSize(attributes.size());
+    Map<String, Attribute> publicToPrivateNames =
+        Maps.newHashMapWithExpectedSize(attributes.size());
     boolean computedHasAspects = false;
-    ImmutableList.Builder<String> nonConfigurableAttributesBuilder = ImmutableList.builder();
-    for (Attribute attribute : attributes) {
-      computedHasAspects |= attribute.hasAspects();
-      attributeIndex.put(attribute.getName(), index++);
-      if (!attribute.isConfigurable()) {
-        nonConfigurableAttributesBuilder.add(attribute.getName());
-      }
-    }
-    this.hasAspects = computedHasAspects;
-    this.nonConfigurableAttributes = nonConfigurableAttributesBuilder.build();
-  }
-
-  private void validateNoClashInPublicNames(Iterable<Attribute> attributes) {
-    Map<String, Attribute> publicToPrivateNames = new HashMap<>();
-    for (Attribute attribute : attributes) {
+    ImmutableList.Builder<String> nonConfigurableAttributes = ImmutableList.builder();
+    for (int i = 0; i < attributes.size(); i++) {
+      Attribute attribute = attributes.get(i);
       String publicName = attribute.getPublicName();
-      if (publicToPrivateNames.containsKey(publicName)) {
+      Attribute conflicting = publicToPrivateNames.put(publicName, attribute);
+      if (conflicting != null) {
         throw new IllegalStateException(
             String.format(
                 "Rule %s: Attributes %s and %s have an identical public name: %s",
-                name,
-                attribute.getName(),
-                publicToPrivateNames.get(publicName).getName(),
-                publicName));
+                name, attribute.getName(), conflicting.getName(), publicName));
       }
-      publicToPrivateNames.put(publicName, attribute);
+      computedHasAspects |= attribute.hasAspects();
+      attributeIndex.put(attribute.getName(), i);
+      if (!attribute.isConfigurable()) {
+        nonConfigurableAttributes.add(attribute.getName());
+      }
     }
+
+    this.hasAspects = computedHasAspects;
+    this.nonConfigurableAttributes = nonConfigurableAttributes.build();
   }
 
   /**

@@ -80,7 +80,7 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
     assertThat(spawnResult.setupSuccess()).isTrue();
-    assertThat(spawnResult.getWallTime()).isNotNull();
+    assertThat(spawnResult.getWallTimeInMs()).isNotNull();
   }
 
   @Test
@@ -88,15 +88,15 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    Duration minimumWallTimeToSpend = Duration.ofSeconds(10);
+    int minimumWallTimeToSpend = 10 * 1000;
     // Because of e.g. interference, wall time taken may be much larger than CPU time used.
-    Duration maximumWallTimeToSpend = Duration.ofSeconds(40);
+    int maximumWallTimeToSpend = 40 * 1000;
 
-    Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
-    Duration maximumUserTimeToSpend = minimumUserTimeToSpend.plusSeconds(2);
+    int minimumUserTimeToSpend = minimumWallTimeToSpend;
+    int maximumUserTimeToSpend = minimumUserTimeToSpend + 2 * 1000;
 
-    Duration minimumSystemTimeToSpend = Duration.ZERO;
-    Duration maximumSystemTimeToSpend = minimumSystemTimeToSpend.plusSeconds(2);
+    int minimumSystemTimeToSpend = 0;
+    int maximumSystemTimeToSpend = minimumSystemTimeToSpend + 2 * 1000;
 
     CommandEnvironment commandEnvironment = runtimeWrapper.newCommand();
     commandEnvironment.setWorkspaceName("workspace");
@@ -127,8 +127,8 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     Spawn spawn =
         new SpawnBuilder(
                 cpuTimeSpenderPath.getPathString(),
-                String.valueOf(minimumUserTimeToSpend.getSeconds()),
-                String.valueOf(minimumSystemTimeToSpend.getSeconds()))
+                String.valueOf(minimumUserTimeToSpend / 1000),
+                String.valueOf(minimumSystemTimeToSpend / 1000))
             .build();
 
     FileOutErr fileOutErr =
@@ -142,15 +142,15 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     assertThat(spawnResult.exitCode()).isEqualTo(0);
     assertThat(spawnResult.setupSuccess()).isTrue();
 
-    assertThat(spawnResult.getWallTime()).isNotNull();
-    assertThat(spawnResult.getWallTime()).isAtLeast(minimumWallTimeToSpend);
-    assertThat(spawnResult.getWallTime()).isAtMost(maximumWallTimeToSpend);
-    assertThat(spawnResult.getUserTime()).isNotNull();
-    assertThat(spawnResult.getUserTime()).isAtLeast(minimumUserTimeToSpend);
-    assertThat(spawnResult.getUserTime()).isAtMost(maximumUserTimeToSpend);
-    assertThat(spawnResult.getSystemTime()).isNotNull();
-    assertThat(spawnResult.getSystemTime()).isAtLeast(minimumSystemTimeToSpend);
-    assertThat(spawnResult.getSystemTime()).isAtMost(maximumSystemTimeToSpend);
+    assertThat(spawnResult.getWallTimeInMs()).isNotNull();
+    assertThat(spawnResult.getWallTimeInMs()).isAtLeast(minimumWallTimeToSpend);
+    assertThat(spawnResult.getWallTimeInMs()).isAtMost(maximumWallTimeToSpend);
+    assertThat(spawnResult.getUserTimeInMs()).isNotNull();
+    assertThat(spawnResult.getUserTimeInMs()).isAtLeast(minimumUserTimeToSpend);
+    assertThat(spawnResult.getUserTimeInMs()).isAtMost(maximumUserTimeToSpend);
+    assertThat(spawnResult.getSystemTimeInMs()).isNotNull();
+    assertThat(spawnResult.getSystemTimeInMs()).isAtLeast(minimumSystemTimeToSpend);
+    assertThat(spawnResult.getSystemTimeInMs()).isAtMost(maximumSystemTimeToSpend);
     assertThat(spawnResult.getNumBlockOutputOperations()).isAtLeast(0L);
     assertThat(spawnResult.getNumBlockInputOperations()).isAtLeast(0L);
     assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isAtLeast(0L);
@@ -161,12 +161,12 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     // TODO(b/62588075) Currently no process-wrapper support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    Duration minimumWallTimeToSpend = Duration.ofSeconds(10);
+    int minimumWallTimeToSpend = 10 * 1000;
     // Because of e.g. interference, wall time taken may be much larger than CPU time used.
-    Duration maximumWallTimeToSpend = Duration.ofSeconds(40);
+    int maximumWallTimeToSpend = 40 * 1000;
 
-    Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
-    Duration minimumSystemTimeToSpend = Duration.ZERO;
+    int minimumUserTimeToSpend = minimumWallTimeToSpend;
+    int minimumSystemTimeToSpend = 0;
 
     CommandEnvironment commandEnvironment =
         getCommandEnvironmentWithExecutionStatisticsOptionDisabled("workspace");
@@ -198,8 +198,8 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     Spawn spawn =
         new SpawnBuilder(
                 cpuTimeSpenderPath.getPathString(),
-                String.valueOf(minimumUserTimeToSpend.getSeconds()),
-                String.valueOf(minimumSystemTimeToSpend.getSeconds()))
+                String.valueOf(minimumUserTimeToSpend / 1000),
+                String.valueOf(minimumSystemTimeToSpend / 1000))
             .build();
 
     FileOutErr fileOutErr =
@@ -213,11 +213,11 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     assertThat(spawnResult.exitCode()).isEqualTo(0);
     assertThat(spawnResult.setupSuccess()).isTrue();
 
-    assertThat(spawnResult.getWallTime()).isNotNull();
-    assertThat(spawnResult.getWallTime()).isAtLeast(minimumWallTimeToSpend);
-    assertThat(spawnResult.getWallTime()).isAtMost(maximumWallTimeToSpend);
-    assertThat(spawnResult.getUserTime()).isNull();
-    assertThat(spawnResult.getSystemTime()).isNull();
+    assertThat(spawnResult.getWallTimeInMs()).isNotNull();
+    assertThat(spawnResult.getWallTimeInMs()).isAtLeast(minimumWallTimeToSpend);
+    assertThat(spawnResult.getWallTimeInMs()).isAtMost(maximumWallTimeToSpend);
+    assertThat(spawnResult.getUserTimeInMs()).isEqualTo(0);
+    assertThat(spawnResult.getSystemTimeInMs()).isEqualTo(0);
     assertThat(spawnResult.getNumBlockOutputOperations()).isNull();
     assertThat(spawnResult.getNumBlockInputOperations()).isNull();
     assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isNull();

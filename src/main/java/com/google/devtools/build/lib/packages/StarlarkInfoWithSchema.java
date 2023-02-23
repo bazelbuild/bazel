@@ -28,14 +28,21 @@ import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.TokenKind;
 
-/** A struct-like Info (provider instance) for providers defined in Starlark that have a schema. */
+/**
+ * A struct-like Info (provider instance) for providers defined in Starlark that have a schema.
+ *
+ * <p>Maintainer's note: This class is memory-optimized in a way that can cause profiling
+ * instability in some pathological cases. See {@link StarlarkProvider#optimizeField} for more
+ * information.
+ */
 public class StarlarkInfoWithSchema extends StarlarkInfo {
   private final StarlarkProvider provider;
 
-  // For each field in provider.getFields the table contains on corresponding position either null
-  // or a legal Starlark value
+  // For each field in provider.getFields the table contains on corresponding position either null,
+  // a legal Starlark value, or an optimized value (see StarlarkProvider#optimizeField).
   private final Object[] table;
 
+  // `table` elements should already be optimized by caller, see StarlarkProvider#optimizeField
   private StarlarkInfoWithSchema(
       StarlarkProvider provider, Object[] table, @Nullable Location loc) {
     super(loc);
@@ -68,7 +75,7 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
               "got multiple values for parameter %s in call to instantiate provider %s",
               table[i], provider.getPrintableName());
         }
-        valueTable[pos] = table[i + 1];
+        valueTable[pos] = provider.optimizeField(pos, table[i + 1]);
       } else {
         if (unexpected == null) {
           unexpected = new ArrayList<>();
@@ -106,7 +113,9 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
       return false;
     }
     for (int i = 0; i < table.length; i++) {
-      if (table[i] != null && !Starlark.isImmutable(table[i])) {
+      if (table[i] != null
+          && !(provider.isOptimised(i, table[i]) // optimised fields might not be Starlark values
+              || Starlark.isImmutable(table[i]))) {
         return false;
       }
     }
@@ -118,7 +127,7 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
   public Object getValue(String name) {
     ImmutableList<String> fields = provider.getFields();
     int i = Collections.binarySearch(fields, name);
-    return i >= 0 ? table[i] : null;
+    return i >= 0 ? provider.retrieveOptimizedField(i, table[i]) : null;
   }
 
   @Nullable

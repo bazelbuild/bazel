@@ -16,16 +16,15 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Comparator;
 import javax.annotation.Nullable;
 
@@ -85,7 +84,7 @@ public final class AspectKeyCreator {
   /** Represents an aspect applied to a particular target. */
   @AutoCodec
   public static final class AspectKey extends AspectBaseKey {
-    private static final Interner<AspectKey> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<AspectKey> interner = SkyKey.newInterner();
 
     private final ImmutableList<AspectKey> baseKeys;
     private final AspectDescriptor aspectDescriptor;
@@ -234,6 +233,11 @@ public final class AspectKeyCreator {
           newBaseKeys.build(),
           aspectDescriptor);
     }
+
+    @Override
+    public SkyKeyInterner<AspectKey> getSkyKeyInterner() {
+      return interner;
+    }
   }
 
   /**
@@ -242,7 +246,7 @@ public final class AspectKeyCreator {
    */
   @AutoCodec
   public static final class TopLevelAspectsKey extends AspectBaseKey {
-    private static final Interner<TopLevelAspectsKey> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<TopLevelAspectsKey> interner = SkyKey.newInterner();
 
     private final ImmutableList<AspectClass> topLevelAspectsClasses;
     private final Label targetLabel;
@@ -323,6 +327,11 @@ public final class AspectKeyCreator {
           && Objects.equal(getBaseConfiguredTargetKey(), that.getBaseConfiguredTargetKey())
           && Objects.equal(topLevelAspectsClasses, that.topLevelAspectsClasses)
           && Objects.equal(topLevelAspectsParameters, that.topLevelAspectsParameters);
+    }
+
+    @Override
+    public SkyKeyInterner<TopLevelAspectsKey> getSkyKeyInterner() {
+      return interner;
     }
   }
 }

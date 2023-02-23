@@ -1322,6 +1322,16 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testNoneStructValue() throws Exception {
+    checkTextMessage(
+        "proto.encode_text(struct(a=1, b=None, nested=struct(c=2, d=None)))",
+        "a: 1",
+        "nested {",
+        "  c: 2",
+        "}");
+  }
+
+  @Test
   public void testProtoFieldsOrder() throws Exception {
     checkTextMessage("struct(d=4, b=2, c=3, a=1).to_proto()", "a: 1", "b: 2", "c: 3", "d: 4");
   }
