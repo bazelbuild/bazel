@@ -634,7 +634,11 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "doc",
             named = true,
-            defaultValue = "''",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
             doc =
                 "A description of the aspect that can be extracted by documentation generating "
                     + "tools."),
@@ -691,7 +695,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
       boolean useToolchainTransition,
-      String doc,
+      Object doc,
       Boolean applyToGeneratingRules,
       Sequence<?> execCompatibleWith,
       Object execGroups,

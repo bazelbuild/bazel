@@ -28,6 +28,7 @@ import java.math.BigInteger;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
@@ -211,6 +212,23 @@ public final class Starlark {
       return Dict.copyOf(mutability, (Map<?, ?>) x);
     }
     throw new InvalidStarlarkValueException(x.getClass());
+  }
+
+  /**
+   * Converts a Starlark method's bound, non-None parameter value to a Java Optional wrapping that
+   * value, and an unbound or None value to an empty Optional.
+   *
+   * <p>This is typically used in {@link StarlarkMethod} implementations, with a parameter whose
+   * {@link Param#allowedTypes} is set to be {@code {T}} or {@code {NoneType, T}}.
+   *
+   * @throws ClassCastException if value is bound and non-None but is not of the expected class
+   */
+  public static <T> Optional<T> toJavaOptional(Object x, Class<T> expectedClass) {
+    if (x == Starlark.UNBOUND || x == Starlark.NONE) {
+      return Optional.empty();
+    } else {
+      return Optional.of(expectedClass.cast(x));
+    }
   }
 
   /**

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.StarlarkDefinedAspectSubject.assertThat;
@@ -2178,13 +2179,21 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ev,
         "def _impl(target, ctx):", //
         "   pass",
-        "my_aspect = aspect(_impl, doc='foo')");
+        "documented_aspect = aspect(_impl, doc='My doc string')",
+        "undocumented_aspect = aspect(_impl)");
+
+    StarlarkDefinedAspect documentedAspect = (StarlarkDefinedAspect) ev.lookup("documented_aspect");
+    assertThat(documentedAspect.getDocumentation()).hasValue("My doc string");
+    StarlarkDefinedAspect undocumentedAspect =
+        (StarlarkDefinedAspect) ev.lookup("undocumented_aspect");
+    assertThat(undocumentedAspect.getDocumentation()).isEmpty();
   }
 
   @Test
   public void aspectBadTypeForDoc() throws Exception {
     registerDummyStarlarkFunction();
-    ev.checkEvalErrorContains("got value of type 'int', want 'string'", "aspect(impl, doc = 1)");
+    ev.checkEvalErrorContains(
+        "got value of type 'int', want 'string or NoneType'", "aspect(impl, doc = 1)");
   }
 
   @Test

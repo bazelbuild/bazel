@@ -195,7 +195,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
       boolean useToolchainTransition,
-      String doc,
+      Object doc,
       Boolean applyToFiles,
       Sequence<?> execCompatibleWith,
       Object execGroups,
@@ -225,10 +225,8 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
 
     // Only the Builder is passed to AspectInfoWrapper as the aspect name is not yet available.
     AspectInfo.Builder aspectInfo =
-        AspectInfo.newBuilder()
-            .setDocString(doc)
-            .addAllAttribute(attrInfos)
-            .addAllAspectAttribute(aspectAttrs);
+        AspectInfo.newBuilder().addAllAttribute(attrInfos).addAllAspectAttribute(aspectAttrs);
+    Starlark.toJavaOptional(doc, String.class).ifPresent(aspectInfo::setDocString);
 
     aspectInfoList.add(new AspectInfoWrapper(fakeAspect, thread.getCallerLocation(), aspectInfo));
 
