@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -103,7 +101,7 @@ public class RepositoryMappingValue implements SkyValue {
   @AutoValue
   public abstract static class Key implements SkyKey {
 
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     /** The name of the repo to grab mappings for. */
     public abstract RepositoryName repoName();
@@ -123,6 +121,11 @@ public class RepositoryMappingValue implements SkyValue {
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.REPOSITORY_MAPPING;
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 

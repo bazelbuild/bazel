@@ -409,6 +409,11 @@ class UiStateTracker {
     this.sampleSize = Math.max(1, sampleSize);
   }
 
+  void mainRepoMappingComputationStarted() {
+    status = "Computing main repo mapping";
+    additionalMessage = "";
+  }
+
   void buildStarted() {
     status = "Loading";
     additionalMessage = "";

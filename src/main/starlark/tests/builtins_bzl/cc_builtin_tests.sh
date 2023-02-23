@@ -70,9 +70,7 @@ EOF
 
   bazel $START_OPTS test --define=is_bazel=true --test_output=streamed \
     --experimental_cc_shared_library_debug \
-    --experimental_link_static_libraries_once \
-    --experimental_enable_target_export_check --experimental_cc_shared_library \
-    --experimental_builtins_injection_override=+cc_binary \
+    --experimental_cc_shared_library \
     //src/main/starlark/tests/builtins_bzl/cc/... || fail "expected success"
 }
 

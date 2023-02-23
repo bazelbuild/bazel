@@ -25,17 +25,17 @@ DIST_DEPS = {
     #
     ########################################
     "platforms": {
-        "archive": "platforms-0.0.5.tar.gz",
-        "sha256": "379113459b0feaf6bfbb584a91874c065078aa673222846ac765f86661c27407",
+        "archive": "platforms-0.0.6.tar.gz",
+        "sha256": "5308fc1d8865406a49427ba24a9ab53087f17f5266a7aabbfc28823f3916e1ca",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.5/platforms-0.0.5.tar.gz",
-            "https://github.com/bazelbuild/platforms/releases/download/0.0.5/platforms-0.0.5.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.6/platforms-0.0.6.tar.gz",
+            "https://github.com/bazelbuild/platforms/releases/download/0.0.6/platforms-0.0.6.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
-        "package_version": "0.0.5",
+        "package_version": "0.0.6",
     },
     "bazelci_rules": {
         "archive": "bazelci_rules-1.0.0.tar.gz",
@@ -54,21 +54,22 @@ DIST_DEPS = {
     # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_cc": {
-        "archive": "rules_cc-0.0.2.tar.gz",
-        "sha256": "58bff40957ace85c2de21ebfc72e53ed3a0d33af8cc20abd0ceec55c63be7de2",
-        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.2/rules_cc-0.0.2.tar.gz"],
+        "archive": "rules_cc-0.0.6.tar.gz",
+        "sha256": "3d9e271e2876ba42e114c9b9bc51454e379cbf0ec9ef9d40e2ae4cec61a31b40",
+        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.6/rules_cc-0.0.6.tar.gz"],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
-        "package_version": "0.0.2",
+        "package_version": "0.0.6",
+        "strip_prefix": "rules_cc-0.0.6",
     },
     "rules_java": {
-        "archive": "rules_java-5.4.0.tar.gz",
-        "sha256": "9b87757af5c77e9db5f7c000579309afae75cf6517da745de01ba0c6e4870951",
+        "archive": "rules_java-5.4.1.tar.gz",
+        "sha256": "a1f82b730b9c6395d3653032bd7e3a660f9d5ddb1099f427c1e1fe768f92e395",
         "strip_prefix": "",
         "urls": [
-            "https://github.com/bazelbuild/rules_java/releases/download/5.4.0/rules_java-5.4.0.tar.gz",
+            "https://github.com/bazelbuild/rules_java/releases/download/5.4.1/rules_java-5.4.1.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -77,7 +78,7 @@ DIST_DEPS = {
         "license_kinds": [
             "@rules_license//licenses/spdx:Apache-2.0",
         ],
-        "package_version": "5.4.0",
+        "package_version": "5.4.1",
     },
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_proto": {

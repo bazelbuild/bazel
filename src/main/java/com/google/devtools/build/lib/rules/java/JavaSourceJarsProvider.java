@@ -19,12 +19,14 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Collection;
 import java.util.Iterator;
 
 /** The collection of source jars from the transitive closure. */
@@ -76,7 +78,8 @@ public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
   /** A builder for {@link JavaSourceJarsProvider}. */
   public static final class Builder {
 
-    private final ImmutableList.Builder<Artifact> sourceJars = ImmutableList.builder();
+    // CompactHashSet preserves insertion order here since we never perform any removals
+    private final CompactHashSet<Artifact> sourceJars = CompactHashSet.create();
     private final NestedSetBuilder<Artifact> transitiveSourceJars = NestedSetBuilder.stableOrder();
 
     /** Add a source jar that is to be built when the target is on the command line. */
@@ -88,7 +91,7 @@ public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
 
     /** Add source jars to be built when the target is on the command line. */
     @CanIgnoreReturnValue
-    public Builder addAllSourceJars(Iterable<Artifact> sourceJars) {
+    public Builder addAllSourceJars(Collection<Artifact> sourceJars) {
       this.sourceJars.addAll(Preconditions.checkNotNull(sourceJars));
       return this;
     }
@@ -122,7 +125,8 @@ public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
     }
 
     public JavaSourceJarsProvider build() {
-      return JavaSourceJarsProvider.create(transitiveSourceJars.build(), sourceJars.build());
+      return JavaSourceJarsProvider.create(
+          transitiveSourceJars.build(), ImmutableList.copyOf(sourceJars));
     }
   }
 }

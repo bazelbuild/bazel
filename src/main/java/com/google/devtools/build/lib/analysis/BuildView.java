@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver.TopLevelTargetsAndConfigsResult;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.constraints.PlatformRestrictionsResult;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
@@ -424,7 +425,7 @@ public class BuildView {
                     getCoverageArtifactsHelper(
                         configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult),
                 keepGoing,
-                viewOptions.strictConflictChecks,
+                targetOptions.get(CoreOptions.class).strictConflictChecks,
                 checkForActionConflicts,
                 executors,
                 /* shouldDiscardAnalysisCache= */ viewOptions.discardAnalysisCache
@@ -442,7 +443,7 @@ public class BuildView {
                 bugReporter,
                 keepGoing,
                 executors,
-                viewOptions.strictConflictChecks,
+                targetOptions.get(CoreOptions.class).strictConflictChecks,
                 checkForActionConflicts);
         setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
       }

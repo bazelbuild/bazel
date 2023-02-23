@@ -251,6 +251,7 @@ public interface JavaSemantics {
   CustomCommandLine buildSingleJarCommandLine(
       String toolchainIdentifier,
       Artifact output,
+      Label label,
       String mainClass,
       ImmutableList<String> manifestLines,
       Iterable<Artifact> buildInfoFiles,

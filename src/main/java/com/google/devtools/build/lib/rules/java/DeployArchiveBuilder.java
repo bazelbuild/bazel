@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -239,6 +240,7 @@ public class DeployArchiveBuilder {
 
   public static CustomCommandLine.Builder defaultSingleJarCommandLineWithoutOneVersion(
       Artifact outputJar,
+      Label label,
       String javaMainClass,
       ImmutableList<String> deployManifestLines,
       Iterable<Artifact> buildInfoFiles,
@@ -255,6 +257,7 @@ public class DeployArchiveBuilder {
       NestedSet<String> addOpens) {
     return defaultSingleJarCommandLine(
         outputJar,
+        label,
         javaMainClass,
         deployManifestLines,
         buildInfoFiles,
@@ -275,6 +278,7 @@ public class DeployArchiveBuilder {
 
   public static CustomCommandLine.Builder defaultSingleJarCommandLine(
       Artifact outputJar,
+      Label label,
       String javaMainClass,
       ImmutableList<String> deployManifestLines,
       Iterable<Artifact> buildInfoFiles,
@@ -294,6 +298,7 @@ public class DeployArchiveBuilder {
 
     CustomCommandLine.Builder args = CustomCommandLine.builder();
     args.addExecPath("--output", outputJar);
+    args.add("--build_target", label.getCanonicalForm());
     if (compress == Compression.COMPRESSED) {
       args.add("--compression");
     }
@@ -449,6 +454,7 @@ public class DeployArchiveBuilder {
         semantics.buildSingleJarCommandLine(
             toolchainIdentifier,
             outputJar,
+            ruleContext.getLabel(),
             javaStartClass,
             deployManifestLines,
             buildInfoArtifacts,

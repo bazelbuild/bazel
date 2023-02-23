@@ -15,9 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -57,7 +55,7 @@ public final class BuildConfigurationKey implements SkyKey {
     return interner.intern(new BuildConfigurationKey(options));
   }
 
-  private static final Interner<BuildConfigurationKey> interner = BlazeInterners.newWeakInterner();
+  private static final SkyKeyInterner<BuildConfigurationKey> interner = SkyKey.newInterner();
 
   private final BuildOptions options;
 
@@ -95,5 +93,10 @@ public final class BuildConfigurationKey implements SkyKey {
   public String toString() {
     // This format is depended on by integration tests.
     return "BuildConfigurationKey[" + options.checksum() + "]";
+  }
+
+  @Override
+  public SkyKeyInterner<BuildConfigurationKey> getSkyKeyInterner() {
+    return interner;
   }
 }
