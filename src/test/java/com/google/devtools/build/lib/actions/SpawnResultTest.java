@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.protobuf.ByteString;
-import java.time.Duration;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,7 +38,7 @@ public final class SpawnResultTest {
     SpawnResult r =
         new SpawnResult.Builder()
             .setStatus(SpawnResult.Status.TIMEOUT)
-            .setWallTime(Duration.ofSeconds(5))
+            .setWallTimeInMs(5 * 1000)
             .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
             .setFailureDetail(
                 FailureDetail.newBuilder()

@@ -1227,10 +1227,10 @@ public class RemoteSpawnRunnerTest {
   public void accountingAddsDurationsForStages() {
     SpawnMetrics.Builder builder =
         SpawnMetrics.Builder.forRemoteExec()
-            .setQueueTime(Duration.ofSeconds(1))
-            .setSetupTime(Duration.ofSeconds(2))
-            .setExecutionWallTime(Duration.ofSeconds(2))
-            .setProcessOutputsTime(Duration.ofSeconds(2));
+            .setQueueTimeInMs(1 * 1000)
+            .setSetupTimeInMs(2 * 1000)
+            .setExecutionWallTimeInMs(2 * 1000)
+            .setProcessOutputsTimeInMs(2 * 1000);
     Timestamp queued = Timestamp.getDefaultInstance();
     com.google.protobuf.Duration oneSecond = Durations.fromMillis(1000);
     Timestamp workerStart = Timestamps.add(queued, oneSecond);
@@ -1251,13 +1251,13 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner.spawnMetricsAccounting(builder, executedMetadata);
     SpawnMetrics spawnMetrics = builder.build();
     // remote queue time is accumulated
-    assertThat(spawnMetrics.queueTime()).isEqualTo(Duration.ofSeconds(2));
+    assertThat(spawnMetrics.queueTimeInMs()).isEqualTo(2 * 1000L);
     // setup time is substituted
-    assertThat(spawnMetrics.setupTime()).isEqualTo(Duration.ofSeconds(1));
+    assertThat(spawnMetrics.setupTimeInMs()).isEqualTo(1 * 1000L);
     // execution time is unspecified, assume substituted
-    assertThat(spawnMetrics.executionWallTime()).isEqualTo(Duration.ofSeconds(1));
+    assertThat(spawnMetrics.executionWallTimeInMs()).isEqualTo(1 * 1000L);
     // ProcessOutputs time is unspecified, assume substituted
-    assertThat(spawnMetrics.processOutputsTime()).isEqualTo(Duration.ofSeconds(1));
+    assertThat(spawnMetrics.processOutputsTimeInMs()).isEqualTo(1 * 1000L);
   }
 
   @Test

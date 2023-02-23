@@ -126,7 +126,9 @@ public class CriticalPathComputer {
     }
 
     return new AggregatedCriticalPath(
-        criticalPath.getAggregatedElapsedTime(), metricsBuilder.build(), components.build());
+        (int) criticalPath.getAggregatedElapsedTime().toMillis(),
+        metricsBuilder.build(),
+        components.build());
   }
 
   public Map<Artifact, CriticalPathComponent> getCriticalPathComponentsMap() {

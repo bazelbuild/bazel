@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -24,6 +23,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /** Timing, size, and memory statistics for a Spawn execution. */
+@SuppressWarnings("GoodTime") // Use ints instead of Durations to improve build time (cl/505728570)
 public final class SpawnMetrics {
 
   /** Indicates whether the metrics correspond to the remote, local or worker execution. */
@@ -52,21 +52,25 @@ public final class SpawnMetrics {
   /** Any non important stats < than 10% will not be shown in the summary. */
   private static final double STATS_SHOW_THRESHOLD = 0.10;
 
-  public static SpawnMetrics forLocalExecution(Duration wallTime) {
-    return Builder.forLocalExec().setTotalTime(wallTime).setExecutionWallTime(wallTime).build();
+  public static SpawnMetrics forLocalExecution(int wallTimeInMs) {
+    return Builder.forLocalExec()
+        .setTotalTimeInMs(wallTimeInMs)
+        .setExecutionWallTimeInMs(wallTimeInMs)
+        .build();
   }
 
   private final ExecKind execKind;
-  private final Duration totalTime;
-  private final Duration parseTime;
-  private final Duration fetchTime;
-  private final Duration queueTime;
-  private final Duration uploadTime;
-  private final Duration setupTime;
-  private final Duration executionWallTime;
-  private final Duration processOutputsTime;
-  private final Duration networkTime;
-  private final Map<Integer, Duration> retryTime;
+  private final int totalTimeInMs;
+  private final int parseTimeInMs;
+  private final int fetchTimeInMs;
+  private final int queueTimeInMs;
+  private final int uploadTimeInMs;
+  private final int setupTimeInMs;
+  private final int executionWallTimeInMs;
+  private final int processOutputsTimeInMs;
+  private final int networkTimeInMs;
+  // error code to duration in ms
+  private final Map<Integer, Integer> retryTimeInMs;
   private final long inputBytes;
   private final long inputFiles;
   private final long memoryEstimateBytes;
@@ -75,20 +79,20 @@ public final class SpawnMetrics {
   private final long outputBytesLimit;
   private final long outputFilesLimit;
   private final long memoryBytesLimit;
-  private final Duration timeLimit;
+  private final int timeLimitInMs;
 
   private SpawnMetrics(Builder builder) {
     this.execKind = builder.execKind;
-    this.totalTime = builder.totalTime;
-    this.parseTime = builder.parseTime;
-    this.networkTime = builder.networkTime;
-    this.fetchTime = builder.fetchTime;
-    this.queueTime = builder.queueTime;
-    this.setupTime = builder.setupTime;
-    this.uploadTime = builder.uploadTime;
-    this.executionWallTime = builder.executionWallTime;
-    this.retryTime = builder.retryTime;
-    this.processOutputsTime = builder.processOutputsTime;
+    this.totalTimeInMs = builder.totalTimeInMs;
+    this.parseTimeInMs = builder.parseTimeInMs;
+    this.networkTimeInMs = builder.networkTimeInMs;
+    this.fetchTimeInMs = builder.fetchTimeInMs;
+    this.queueTimeInMs = builder.queueTimeInMs;
+    this.setupTimeInMs = builder.setupTimeInMs;
+    this.uploadTimeInMs = builder.uploadTimeInMs;
+    this.executionWallTimeInMs = builder.executionWallTimeInMs;
+    this.retryTimeInMs = builder.retryTimeInMs;
+    this.processOutputsTimeInMs = builder.processOutputsTimeInMs;
     this.inputBytes = builder.inputBytes;
     this.inputFiles = builder.inputFiles;
     this.memoryEstimateBytes = builder.memoryEstimateBytes;
@@ -97,7 +101,7 @@ public final class SpawnMetrics {
     this.outputBytesLimit = builder.outputBytesLimit;
     this.outputFilesLimit = builder.outputFilesLimit;
     this.memoryBytesLimit = builder.memoryBytesLimit;
-    this.timeLimit = builder.timeLimit;
+    this.timeLimitInMs = builder.timeLimitInMs;
   }
 
   /** The kind of execution the metrics refer to (remote/local/worker). */
@@ -107,91 +111,96 @@ public final class SpawnMetrics {
 
   /** Returns true if {@link #totalTime()} is zero. */
   public boolean isEmpty() {
-    return totalTime.isZero();
+    return totalTimeInMs == 0;
   }
 
   /**
-   * Total (measured locally) wall time spent running a spawn. This should be at least as large as
-   * all the other times summed together.
+   * Total (measured locally) wall time in milliseconds spent running a spawn. This should be at
+   * least as large as all the other times summed together.
    */
-  public Duration totalTime() {
-    return totalTime;
+  public int totalTimeInMs() {
+    return totalTimeInMs;
   }
 
   /**
-   * Total time spent getting on network. This includes time getting network-side errors and the
-   * time of the round-trip, found by taking the difference of wall time here and the server time
-   * reported by the RPC. This is 0 for locally executed spawns.
+   * Total time in milliseconds spent getting on network. This includes time getting network-side
+   * errors and the time of the round-trip, found by taking the difference of wall time here and the
+   * server time reported by the RPC. This is 0 for locally executed spawns.
    */
-  public Duration networkTime() {
-    return networkTime;
+  public int networkTimeInMs() {
+    return networkTimeInMs;
   }
 
-  /** Total time waiting in queues. Includes queue time for any failed attempts. */
-  public Duration queueTime() {
-    return queueTime;
-  }
-
-  /** The time spent transferring files to the backends. This is 0 for locally executed spawns. */
-  public Duration uploadTime() {
-    return uploadTime;
+  /** Total time in milliseconds waiting in queues. Includes queue time for any failed attempts. */
+  public int queueTimeInMs() {
+    return queueTimeInMs;
   }
 
   /**
-   * The time required to setup the environment in which the spawn is run. This may be 0 for locally
-   * executed spawns, or may include time to setup a sandbox or other environment. Does not include
-   * failed attempts.
+   * The time in milliseconds spent transferring files to the backends. This is 0 for locally
+   * executed spawns.
    */
-  public Duration setupTime() {
-    return setupTime;
+  public int uploadTimeInMs() {
+    return uploadTimeInMs;
+  }
+
+  /**
+   * The time in milliseconds required to setup the environment in which the spawn is run. This may
+   * be 0 for locally executed spawns, or may include time to setup a sandbox or other environment.
+   * Does not include failed attempts.
+   */
+  public int setupTimeInMs() {
+    return setupTimeInMs;
   }
 
   /** Time spent running the subprocess. */
-  public Duration executionWallTime() {
-    return executionWallTime;
+  public int executionWallTimeInMs() {
+    return executionWallTimeInMs;
   }
 
   /**
-   * The time taken to convert the spawn into a network request, e.g., collecting runfiles, and
-   * digests for all input files.
+   * The time in milliseconds taken to convert the spawn into a network request, e.g., collecting
+   * runfiles, and digests for all input files.
    */
-  public Duration parseTime() {
-    return parseTime;
+  public int parseTimeInMs() {
+    return parseTimeInMs;
   }
 
-  /** Total time spent fetching remote outputs. */
-  public Duration fetchTime() {
-    return fetchTime;
+  /** Total time in milliseconds spent fetching remote outputs. */
+  public int fetchTimeInMs() {
+    return fetchTimeInMs;
   }
 
   /** Time spent in previous failed attempts. Does not include queue time. */
-  public Duration retryTime() {
-    return retryTime.values().stream().reduce(Duration.ZERO, Duration::plus);
+  public int retryTimeInMs() {
+    return retryTimeInMs.values().stream().reduce(0, Integer::sum);
   }
 
   /** Time spent in previous failed attempts, keyed by error code. Does not include queue time. */
-  public Map<Integer, Duration> retryTimeByError() {
-    return retryTime;
+  public Map<Integer, Integer> retryTimeByError() {
+    return retryTimeInMs;
   }
-
 
   /** Time spend by the execution framework on processing outputs. */
-  public Duration processOutputsTime() {
-    return processOutputsTime;
+  public int processOutputsTimeInMs() {
+    return processOutputsTimeInMs;
   }
 
-  /** Any time that is not measured by a more specific component, out of {@code totalTime()}. */
-  public Duration otherTime() {
-    return totalTime
-        .minus(parseTime)
-        .minus(networkTime)
-        .minus(queueTime)
-        .minus(uploadTime)
-        .minus(setupTime)
-        .minus(executionWallTime)
-        .minus(fetchTime)
-        .minus(retryTime())
-        .minus(processOutputsTime);
+  /**
+   * Any time in milliseconds that is not measured by a more specific component, out of {@code
+   * totalTime()}.
+   */
+  public int otherTimeInMs() {
+    return totalTimeInMs
+        - parseTimeInMs
+        - networkTimeInMs
+        - queueTimeInMs
+        - uploadTimeInMs
+        - setupTimeInMs
+        - executionWallTimeInMs
+        - fetchTimeInMs
+        - retryTimeInMs()
+        - processOutputsTimeInMs;
   }
 
   /** Total size in bytes of inputs or 0 if unavailable. */
@@ -234,33 +243,33 @@ public final class SpawnMetrics {
     return memoryBytesLimit;
   }
 
-  /** Time limit or 0 if unavailable. */
-  public Duration timeLimit() {
-    return timeLimit;
+  /** Time limit in milliseconds or 0 if unavailable. */
+  public int timeLimitInMs() {
+    return timeLimitInMs;
   }
 
   /**
    * Generates a String representation of the stats.
    *
-   * @param total total time used to compute the percentages
+   * @param total total time in milliseconds used to compute the percentages
    * @param summary whether to exclude input file count and sizes, and memory estimates
    */
-  public String toString(Duration total, boolean summary) {
+  public String toString(int total, boolean summary) {
     StringBuilder sb = new StringBuilder();
     sb.append("(");
-    sb.append(prettyPercentage(totalTime, total));
+    sb.append(prettyPercentage(totalTimeInMs, total));
     sb.append(" of the time): [");
     List<String> stats = new ArrayList<>(8);
-    addStatToString(stats, "parse", !summary, parseTime, total);
-    addStatToString(stats, "queue", true, queueTime, total);
-    addStatToString(stats, "network", !summary, networkTime, total);
-    addStatToString(stats, "upload", !summary, uploadTime, total);
-    addStatToString(stats, "setup", true, setupTime, total);
-    addStatToString(stats, "process", true, executionWallTime, total);
-    addStatToString(stats, "fetch", !summary, fetchTime, total);
-    addStatToString(stats, "retry", !summary, retryTime(), total);
-    addStatToString(stats, "processOutputs", !summary, processOutputsTime, total);
-    addStatToString(stats, "other", !summary, otherTime(), total);
+    addStatToString(stats, "parse", !summary, parseTimeInMs, total);
+    addStatToString(stats, "queue", true, queueTimeInMs, total);
+    addStatToString(stats, "network", !summary, networkTimeInMs, total);
+    addStatToString(stats, "upload", !summary, uploadTimeInMs, total);
+    addStatToString(stats, "setup", true, setupTimeInMs, total);
+    addStatToString(stats, "process", true, executionWallTimeInMs, total);
+    addStatToString(stats, "fetch", !summary, fetchTimeInMs, total);
+    addStatToString(stats, "retry", !summary, retryTimeInMs(), total);
+    addStatToString(stats, "processOutputs", !summary, processOutputsTimeInMs, total);
+    addStatToString(stats, "other", !summary, otherTimeInMs(), total);
     if (!summary) {
       stats.add("input files: " + inputFiles);
       stats.add("input bytes: " + inputBytes);
@@ -270,7 +279,7 @@ public final class SpawnMetrics {
       stats.add("output files limit: " + outputFilesLimit);
       stats.add("output bytes limit: " + outputBytesLimit);
       stats.add("memory limit: " + memoryBytesLimit);
-      stats.add("time limit: " + timeLimit.getSeconds() + " seconds");
+      stats.add("time limit: " + timeLimitInMs / 1000 + " seconds");
     }
     Joiner.on(", ").appendTo(sb, stats);
     sb.append("]");
@@ -282,15 +291,14 @@ public final class SpawnMetrics {
    * forceShow} is set to false it will only show if it is above certain threshold.
    */
   private static void addStatToString(
-      List<String> strings, String name, boolean forceShow, Duration time, Duration totalTime) {
+      List<String> strings, String name, boolean forceShow, int time, int totalTime) {
     if (forceShow || isAboveThreshold(time, totalTime)) {
       strings.add(name + ": " + prettyPercentage(time, totalTime));
     }
   }
 
-  private static boolean isAboveThreshold(Duration time, Duration totalTime) {
-    return totalTime.toMillis() > 0
-        && (((float) time.toMillis() / totalTime.toMillis()) >= STATS_SHOW_THRESHOLD);
+  private static boolean isAboveThreshold(int time, int totalTime) {
+    return totalTime > 0 && (((float) time / totalTime) >= STATS_SHOW_THRESHOLD);
   }
 
   /**
@@ -298,28 +306,28 @@ public final class SpawnMetrics {
    *
    * @return formatted percentage string or "N/A" if result is undefined
    */
-  private static String prettyPercentage(Duration duration, Duration total) {
+  private static String prettyPercentage(int duration, int total) {
     // Duration.toMillis() != 0 does not imply !Duration.isZero() (due to truncation).
-    if (total.toMillis() == 0) {
+    if (total == 0) {
       // Return "not available" string if total is 0 and result is undefined.
       return "N/A";
     }
-    return String.format(Locale.US, "%.2f%%", duration.toMillis() * 100.0 / total.toMillis());
+    return String.format(Locale.US, "%.2f%%", duration * 100.0 / total);
   }
 
   /** Builder class for SpawnMetrics. */
   public static class Builder {
     private ExecKind execKind = null;
-    private Duration totalTime = Duration.ZERO;
-    private Duration parseTime = Duration.ZERO;
-    private Duration networkTime = Duration.ZERO;
-    private Duration fetchTime = Duration.ZERO;
-    private Duration queueTime = Duration.ZERO;
-    private Duration setupTime = Duration.ZERO;
-    private Duration uploadTime = Duration.ZERO;
-    private Duration executionWallTime = Duration.ZERO;
-    private Duration processOutputsTime = Duration.ZERO;
-    private Map<Integer, Duration> retryTime = new HashMap<>();
+    private int totalTimeInMs = 0;
+    private int parseTimeInMs = 0;
+    private int networkTimeInMs = 0;
+    private int fetchTimeInMs = 0;
+    private int queueTimeInMs = 0;
+    private int setupTimeInMs = 0;
+    private int uploadTimeInMs = 0;
+    private int executionWallTimeInMs = 0;
+    private int processOutputsTimeInMs = 0;
+    private Map<Integer, Integer> retryTimeInMs = new HashMap<>();
     private long inputBytes = 0;
     private long inputFiles = 0;
     private long memoryEstimateBytes = 0;
@@ -328,7 +336,7 @@ public final class SpawnMetrics {
     private long outputBytesLimit = 0;
     private long outputFilesLimit = 0;
     private long memoryBytesLimit = 0;
-    private Duration timeLimit = Duration.ZERO;
+    private int timeLimitInMs = 0;
 
     public static Builder forLocalExec() {
       return forExec(ExecKind.LOCAL);
@@ -367,75 +375,75 @@ public final class SpawnMetrics {
     }
 
     @CanIgnoreReturnValue
-    public Builder setTotalTime(Duration totalTime) {
-      this.totalTime = totalTime;
+    public Builder setTotalTimeInMs(int totalTimeInMs) {
+      this.totalTimeInMs = totalTimeInMs;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder setParseTime(Duration parseTime) {
-      this.parseTime = parseTime;
+    public Builder setParseTimeInMs(int parseTimeInMs) {
+      this.parseTimeInMs = parseTimeInMs;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder setNetworkTime(Duration networkTime) {
-      this.networkTime = networkTime;
+    public Builder setNetworkTimeInMs(int networkTimeInMs) {
+      this.networkTimeInMs = networkTimeInMs;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder setFetchTime(Duration fetchTime) {
-      this.fetchTime = fetchTime;
+    public Builder setFetchTimeInMs(int fetchTimeInMs) {
+      this.fetchTimeInMs = fetchTimeInMs;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder setQueueTime(Duration queueTime) {
-      this.queueTime = queueTime;
+    public Builder setQueueTimeInMs(int queueTimeInMs) {
+      this.queueTimeInMs = queueTimeInMs;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder setSetupTime(Duration setupTime) {
-      this.setupTime = setupTime;
+    public Builder setSetupTimeInMs(int setupTimeInMs) {
+      this.setupTimeInMs = setupTimeInMs;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder addSetupTime(Duration setupTime) {
-      this.setupTime = this.setupTime.plus(setupTime);
+    public Builder addSetupTimeInMs(int setupTimeInMs) {
+      this.setupTimeInMs = this.setupTimeInMs + setupTimeInMs;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder setUploadTime(Duration uploadTime) {
-      this.uploadTime = uploadTime;
+    public Builder setUploadTimeInMs(int uploadTimeInMs) {
+      this.uploadTimeInMs = uploadTimeInMs;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder setExecutionWallTime(Duration executionWallTime) {
-      this.executionWallTime = executionWallTime;
+    public Builder setExecutionWallTimeInMs(int executionWallTimeInMs) {
+      this.executionWallTimeInMs = executionWallTimeInMs;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder addRetryTime(int errorCode, Duration retryTime) {
-      Duration d = this.retryTime.getOrDefault(errorCode, Duration.ZERO);
-      this.retryTime.put(errorCode, d.plus(retryTime));
+    public Builder addRetryTimeInMs(int errorCode, int retryTimeInMs) {
+      Integer t = this.retryTimeInMs.getOrDefault(errorCode, 0);
+      this.retryTimeInMs.put(errorCode, t + retryTimeInMs);
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder setRetryTime(Map<Integer, Duration> retryTime) {
-      this.retryTime = new HashMap<>(retryTime);
+    public Builder setRetryTimeInMs(Map<Integer, Integer> retryTimeInMs) {
+      this.retryTimeInMs = new HashMap<>(retryTimeInMs);
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder setProcessOutputsTime(Duration processOutputsTime) {
-      this.processOutputsTime = processOutputsTime;
+    public Builder setProcessOutputsTimeInMs(int processOutputsTimeInMs) {
+      this.processOutputsTimeInMs = processOutputsTimeInMs;
       return this;
     }
 
@@ -488,25 +496,25 @@ public final class SpawnMetrics {
     }
 
     @CanIgnoreReturnValue
-    public Builder setTimeLimit(Duration timeLimit) {
-      this.timeLimit = timeLimit;
+    public Builder setTimeLimitInMs(int timeLimitInMs) {
+      this.timeLimitInMs = timeLimitInMs;
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder addDurations(SpawnMetrics metric) {
-      totalTime = totalTime.plus(metric.totalTime());
-      parseTime = parseTime.plus(metric.parseTime());
-      networkTime = networkTime.plus(metric.networkTime());
-      fetchTime = fetchTime.plus(metric.fetchTime());
-      queueTime = queueTime.plus(metric.queueTime());
-      uploadTime = uploadTime.plus(metric.uploadTime());
-      setupTime = setupTime.plus(metric.setupTime());
-      executionWallTime = executionWallTime.plus(metric.executionWallTime());
-      for (Map.Entry<Integer, Duration> entry : metric.retryTime.entrySet()) {
-        addRetryTime(entry.getKey().intValue(), entry.getValue());
+      totalTimeInMs += metric.totalTimeInMs();
+      parseTimeInMs += metric.parseTimeInMs();
+      networkTimeInMs += metric.networkTimeInMs();
+      fetchTimeInMs += metric.fetchTimeInMs();
+      queueTimeInMs += metric.queueTimeInMs();
+      uploadTimeInMs += metric.uploadTimeInMs();
+      setupTimeInMs += metric.setupTimeInMs();
+      executionWallTimeInMs += metric.executionWallTimeInMs();
+      for (Map.Entry<Integer, Integer> entry : metric.retryTimeInMs.entrySet()) {
+        addRetryTimeInMs(entry.getKey().intValue(), entry.getValue());
       }
-      processOutputsTime = processOutputsTime.plus(metric.processOutputsTime());
+      processOutputsTimeInMs += metric.processOutputsTimeInMs();
       return this;
     }
 
@@ -520,7 +528,7 @@ public final class SpawnMetrics {
       outputFilesLimit += metric.outputFilesLimit();
       outputBytesLimit += metric.outputBytesLimit();
       memoryBytesLimit += metric.memoryLimit();
-      timeLimit = timeLimit.plus(metric.timeLimit());
+      timeLimitInMs += metric.timeLimitInMs();
       return this;
     }
 
@@ -534,8 +542,7 @@ public final class SpawnMetrics {
       outputFilesLimit = Long.max(outputFilesLimit, metric.outputFilesLimit());
       outputBytesLimit = Long.max(outputBytesLimit, metric.outputBytesLimit());
       memoryBytesLimit = Long.max(memoryBytesLimit, metric.memoryLimit());
-      timeLimit =
-          Duration.ofSeconds(Long.max(timeLimit.getSeconds(), metric.timeLimit().getSeconds()));
+      timeLimitInMs = Integer.max(timeLimitInMs, metric.timeLimitInMs());
       return this;
     }
   }

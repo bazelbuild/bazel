@@ -1276,7 +1276,7 @@ public class RemoteExecutionService {
               action.getSpawnExecutionContext().getFileOutErr(),
               spawnResult.exitCode(),
               spawnResult.getStartTime(),
-              spawnResult.getWallTime());
+              spawnResult.getWallTimeInMs());
         });
   }
 

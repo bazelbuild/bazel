@@ -27,12 +27,12 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.InputStream;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import javax.annotation.Nullable;
 
 /** The result of a {@link Spawn}'s execution. */
+@SuppressWarnings("GoodTime") // Use ints instead of Durations to improve build time (cl/505728570)
 public interface SpawnResult {
 
   int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/ 128 + /*SIGALRM=*/ 14;
@@ -183,29 +183,26 @@ public interface SpawnResult {
   /**
    * Returns the wall time taken by the {@link Spawn}'s execution.
    *
-   * @return the measurement, or null in case of execution errors or when the measurement is not
+   * @return the measurement, or 0 in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
-  @Nullable
-  Duration getWallTime();
+  int getWallTimeInMs();
 
   /**
    * Returns the user time taken by the {@link Spawn}'s execution.
    *
-   * @return the measurement, or null in case of execution errors or when the measurement is not
+   * @return the measurement, or 0 in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
-  @Nullable
-  Duration getUserTime();
+  int getUserTimeInMs();
 
   /**
    * Returns the system time taken by the {@link Spawn}'s execution.
    *
-   * @return the measurement, or null in case of execution errors or when the measurement is not
+   * @return the measurement, or 0 in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
-  @Nullable
-  Duration getSystemTime();
+  int getSystemTimeInMs();
 
   /**
    * Returns the number of block output operations during the {@link Spawn}'s execution.
@@ -308,9 +305,9 @@ public interface SpawnResult {
     private final String runnerSubtype;
     private final SpawnMetrics spawnMetrics;
     @Nullable private final Instant startTime;
-    @Nullable private final Duration wallTime;
-    @Nullable private final Duration userTime;
-    @Nullable private final Duration systemTime;
+    private final int wallTimeInMs;
+    private final int userTimeInMs;
+    private final int systemTimeInMs;
     @Nullable private final Long numBlockOutputOperations;
     @Nullable private final Long numBlockInputOperations;
     @Nullable private final Long numInvoluntaryContextSwitches;
@@ -336,12 +333,11 @@ public interface SpawnResult {
       this.spawnMetrics =
           builder.spawnMetrics != null
               ? builder.spawnMetrics
-              : SpawnMetrics.forLocalExecution(
-                  builder.wallTime == null ? Duration.ZERO : builder.wallTime);
+              : SpawnMetrics.forLocalExecution(builder.wallTimeInMs);
       this.startTime = builder.startTime;
-      this.wallTime = builder.wallTime;
-      this.userTime = builder.userTime;
-      this.systemTime = builder.systemTime;
+      this.wallTimeInMs = builder.wallTimeInMs;
+      this.userTimeInMs = builder.userTimeInMs;
+      this.systemTimeInMs = builder.systemTimeInMs;
       this.numBlockOutputOperations = builder.numBlockOutputOperations;
       this.numBlockInputOperations = builder.numBlockInputOperations;
       this.numInvoluntaryContextSwitches = builder.numInvoluntaryContextSwitches;
@@ -397,18 +393,18 @@ public interface SpawnResult {
     }
 
     @Override
-    public Duration getWallTime() {
-      return wallTime;
+    public int getWallTimeInMs() {
+      return wallTimeInMs;
     }
 
     @Override
-    public Duration getUserTime() {
-      return userTime;
+    public int getUserTimeInMs() {
+      return userTimeInMs;
     }
 
     @Override
-    public Duration getSystemTime() {
-      return systemTime;
+    public int getSystemTimeInMs() {
+      return systemTimeInMs;
     }
 
     @Override
@@ -452,12 +448,13 @@ public interface SpawnResult {
       String explanation = Strings.isNullOrEmpty(message) ? "" : ": " + message;
 
       if (status() == Status.TIMEOUT) {
-        if (getWallTime() != null) {
+        // 0 wall time means no measurement
+        if (getWallTimeInMs() != 0) {
           explanation +=
               String.format(
                   Locale.US,
                   " (failed due to timeout after %.2f seconds.)",
-                  getWallTime().toMillis() / 1000.0);
+                  getWallTimeInMs() / 1000.0);
         } else {
           explanation += " (failed due to timeout.)";
         }
@@ -506,9 +503,9 @@ public interface SpawnResult {
     private String runnerSubtype = "";
     private SpawnMetrics spawnMetrics;
     private Instant startTime;
-    private Duration wallTime;
-    private Duration userTime;
-    private Duration systemTime;
+    private int wallTimeInMs;
+    private int userTimeInMs;
+    private int systemTimeInMs;
     private Long numBlockOutputOperations;
     private Long numBlockInputOperations;
     private Long numInvoluntaryContextSwitches;
@@ -605,20 +602,20 @@ public interface SpawnResult {
     }
 
     @CanIgnoreReturnValue
-    public Builder setWallTime(Duration wallTime) {
-      this.wallTime = wallTime;
+    public Builder setWallTimeInMs(int wallTimeInMs) {
+      this.wallTimeInMs = wallTimeInMs;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder setUserTime(Duration userTime) {
-      this.userTime = userTime;
+    public Builder setUserTimeInMs(int userTimeInMs) {
+      this.userTimeInMs = userTimeInMs;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder setSystemTime(Duration systemTime) {
-      this.systemTime = systemTime;
+    public Builder setSystemTimeInMs(int systemTimeInMs) {
+      this.systemTimeInMs = systemTimeInMs;
       return this;
     }
 

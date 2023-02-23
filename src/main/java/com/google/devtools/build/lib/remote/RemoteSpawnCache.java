@@ -118,9 +118,9 @@ final class RemoteSpawnCache implements SpawnCache {
           fetchTime.stop();
           totalTime.stop();
           spawnMetrics
-              .setFetchTime(fetchTime.elapsed())
-              .setTotalTime(totalTime.elapsed())
-              .setNetworkTime(action.getNetworkTime().getDuration());
+              .setFetchTimeInMs((int) fetchTime.elapsed().toMillis())
+              .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
+              .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
           SpawnResult spawnResult =
               createSpawnResult(
                   action.getActionKey(),

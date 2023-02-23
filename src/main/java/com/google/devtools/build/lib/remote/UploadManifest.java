@@ -62,7 +62,6 @@ import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -102,7 +101,7 @@ public class UploadManifest {
       FileOutErr outErr,
       int exitCode,
       Instant startTime,
-      Duration wallTime)
+      int wallTimeInMs)
       throws ExecException, IOException {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.setExitCode(exitCode);
@@ -127,9 +126,10 @@ public class UploadManifest {
       result.setStdoutDigest(manifest.getStdoutDigest());
     }
 
-    if (startTime != null && wallTime != null) {
+    // if wallTime is zero, than it's not set
+    if (startTime != null && wallTimeInMs != 0) {
       Timestamp startTimestamp = instantToTimestamp(startTime);
-      Timestamp completedTimestamp = instantToTimestamp(startTime.plus(wallTime));
+      Timestamp completedTimestamp = instantToTimestamp(startTime.plusMillis(wallTimeInMs));
       result
           .getExecutionMetadataBuilder()
           .setWorkerStartTimestamp(startTimestamp)
