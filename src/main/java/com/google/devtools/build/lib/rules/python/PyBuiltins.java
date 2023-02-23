@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
@@ -53,6 +54,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.Location;
 
 /** Bridge to allow builtins bzl code to call Java code. */
 @StarlarkBuiltin(name = "py_builtins", documented = false)
@@ -519,5 +521,19 @@ public abstract class PyBuiltins implements StarlarkValue {
             "dependency_transitive_python_sources");
     PyCommon.registerPyExtraActionPseudoAction(
         starlarkCtx.getRuleContext(), dependencyTransitivePythonSources);
+  }
+
+  private static final StarlarkProvider starlarkVisibleForTestingInfo =
+      StarlarkProvider.builder(Location.BUILTIN)
+          .setExported(
+              new StarlarkProvider.Key(
+                  Label.parseCanonicalUnchecked(
+                      "//tools/build_defs/python/tests/base_rules:util.bzl"),
+                  "VisibleForTestingInfo"))
+          .build();
+
+  @StarlarkMethod(name = "VisibleForTestingInfo", documented = false, structField = true)
+  public StarlarkProvider visibleForTestingInfo() throws EvalException {
+    return starlarkVisibleForTestingInfo;
   }
 }
