@@ -137,7 +137,7 @@ final class RemoteSpawnCache implements SpawnCache {
       } catch (CacheNotFoundException e) {
         // Intentionally left blank
       } catch (IOException e) {
-        if (BulkTransferException.isOnlyCausedByCacheNotFoundException(e)) {
+        if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
           // Intentionally left blank
         } else {
           String errorMessage = Utils.grpcAwareErrorMessage(e, verboseFailures);

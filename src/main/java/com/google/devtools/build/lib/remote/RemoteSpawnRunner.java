@@ -223,7 +223,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                 () -> action.getNetworkTime().getDuration(),
                 spawnMetrics);
           } catch (BulkTransferException e) {
-            if (!e.onlyCausedByCacheNotFoundException()) {
+            if (!e.allCausedByCacheNotFoundException()) {
               throw e;
             }
             // No cache hit, so we fall through to local or remote execution.
@@ -293,7 +293,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                   () -> action.getNetworkTime().getDuration(),
                   spawnMetrics);
             } catch (BulkTransferException e) {
-              if (e.onlyCausedByCacheNotFoundException()) {
+              if (e.allCausedByCacheNotFoundException()) {
                 // No cache hit, so if we retry this execution, we must no longer accept
                 // cached results, it must be reexecuted
                 useCachedResult.set(false);
@@ -516,8 +516,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private SpawnResult handleError(
       RemoteAction action, IOException exception, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
-    boolean remoteCacheFailed =
-        BulkTransferException.isOnlyCausedByCacheNotFoundException(exception);
+    boolean remoteCacheFailed = BulkTransferException.allCausedByCacheNotFoundException(exception);
     if (exception.getCause() instanceof ExecutionStatusException) {
       ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
       if (e.getResponse() != null) {

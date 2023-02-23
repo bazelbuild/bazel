@@ -512,4 +512,53 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Assert: target was successfully built
     assertValidOutputFile("a/bar.out", "foo" + lineSeparator() + "updated bar" + lineSeparator());
   }
+
+  @Test
+  public void remoteCacheEvictBlobs_treeArtifact_incrementalBuildCanContinue() throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write("BUILD");
+    writeOutputDirRule();
+    write(
+        "a/BUILD",
+        "load('//:output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo.out',",
+        "  manifest = ':manifest',",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  srcs = ['foo.out', 'bar.in'],",
+        "  outs = ['bar.out'],",
+        "  cmd = '( ls $(location :foo.out); cat $(location :bar.in) ) > $@',",
+        "  tags = ['no-remote-exec'],",
+        ")");
+    write("a/manifest", "file-inside");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    getOutputPath("a/foo.out").deleteTreesBelow();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out/file-inside");
+
+    // Evict blobs from remote cache
+    worker.restart();
+
+    // trigger build error
+    write("a/bar.in", "updated bar");
+    // Build failed because of remote cache eviction
+    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+
+    // Act: Do an incremental build without "clean" or "shutdown"
+    buildTarget("//a:bar");
+
+    // Assert: target was successfully built
+    assertValidOutputFile(
+        "a/bar.out", "file-inside" + lineSeparator() + "updated bar" + lineSeparator());
+  }
 }

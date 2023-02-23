@@ -101,7 +101,7 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   @Override
   protected Completable onErrorResumeNext(Throwable error) {
     if (error instanceof BulkTransferException) {
-      if (((BulkTransferException) error).onlyCausedByCacheNotFoundException()) {
+      if (((BulkTransferException) error).allCausedByCacheNotFoundException()) {
         var code =
             useNewExitCodeForLostInputs ? Code.REMOTE_CACHE_EVICTED : Code.REMOTE_CACHE_FAILED;
         error =
