@@ -194,8 +194,9 @@ public class BuildSummaryStatsModule extends BlazeModule {
         // Since the BEP currently shuts down at the BuildCompleteEvent, we cannot just move posting
         // the BuildToolLogs to afterCommand of this module.
         try {
-          if(Profiler.getProcessCpuTimeMaybe() != null) {
-            cpuTimeForBazelJvm = Duration.ofMillis(Profiler.getProcessCpuTimeMaybe().toMillis());
+          Duration cpuTime = Profiler.getProcessCpuTimeMaybe();
+          if (cpuTime != null) {
+            cpuTimeForBazelJvm = Duration.ofMillis(cpuTime.toMillis());
           }
           Profiler.instance().stop();
           event
