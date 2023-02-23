@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
@@ -252,7 +253,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     PathFragment prefetchExecPath = treeMetadata.getMaterializationExecPath().orElse(execPath);
 
     Completable prefetch =
-        prefetchInputTree(context, provider, prefetchExecPath, treeFiles, treeMetadata, priority);
+        prefetchInputTree(
+            context, provider, prefetchExecPath, tree, treeFiles, treeMetadata, priority);
 
     // If prefetching to a different path, plant a symlink into it.
     if (!prefetchExecPath.equals(execPath)) {
@@ -288,6 +290,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Context context,
       MetadataProvider provider,
       PathFragment execPath,
+      SpecialArtifact tree,
       List<TreeFileArtifact> treeFiles,
       FileArtifactValue treeMetadata,
       Priority priority) {
@@ -353,6 +356,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                   }
 
                   completed.set(true);
+                })
+            .doOnError(
+                error -> {
+                  if (BulkTransferException.anyCausedByCacheNotFoundException(error)) {
+                    missingActionInputs.add(tree);
+                  }
                 })
             .doFinally(
                 () -> {
