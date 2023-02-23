@@ -58,6 +58,11 @@ public class CrashFailureDetails {
     CrashFailureDetails.oomDetector = oomDetector;
   }
 
+  /** Returns whether an {@link OutOfMemoryError} was detected. */
+  public static boolean oomDetected() {
+    return oomDetector.getAsBoolean();
+  }
+
   public static DetailedExitCode detailedExitCodeForThrowable(Throwable throwable) {
     return DetailedExitCode.of(forThrowable(throwable));
   }
@@ -67,7 +72,7 @@ public class CrashFailureDetails {
     Crash.Builder crashBuilder = Crash.newBuilder();
     if (getRootCauseToleratingCycles(throwable) instanceof OutOfMemoryError) {
       crashBuilder.setCode(Crash.Code.CRASH_OOM);
-    } else if (oomDetector.getAsBoolean()) {
+    } else if (oomDetected()) {
       logger.atWarning().log("Classifying non-OOM crash as OOM");
       crashBuilder.setCode(Crash.Code.CRASH_OOM).setOomDetectorOverride(true);
     } else {
