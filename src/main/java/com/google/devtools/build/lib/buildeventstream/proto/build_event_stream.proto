@@ -872,6 +872,7 @@ message BuildMetrics {
     message RunnerCount {
       string name = 1;
       int32 count = 2;
+      string exec_kind = 3;
     }
     repeated RunnerCount runner_count = 6;
   }
