@@ -441,8 +441,12 @@ static void MakeFilesystemMostlyReadOnly() {
 static void MountProc() {
   // Mount a new proc on top of the old one, because the old one still refers to
   // our parent PID namespace.
-  if (mount("/proc", "/proc", "proc", MS_NODEV | MS_NOEXEC | MS_NOSUID,
-            nullptr) < 0) {
+  // Despite using MS_BIND, this actually mounts a new one that uses our PID
+  // namespace. MS_BIND is necessary to handle some forms of mounts inside the
+  // old proc, otherwise we get EINVAL for trying to reveal files hidden by
+  // those mounts.
+  if (mount("/proc", "/proc", "proc",
+            MS_NODEV | MS_NOEXEC | MS_NOSUID | MS_REC | MS_BIND, nullptr) < 0) {
     DIE("mount");
   }
 }

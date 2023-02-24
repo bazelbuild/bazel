@@ -270,6 +270,17 @@ function test_dev_shm_is_writable() {
     &> $TEST_log || fail
 }
 
+# docker with `--gpus all` does things like this (with subdirectories instead of
+# the whole thing), and we want to ensure linux-sandbox works under that.
+function test_with_mount_in_proc() {
+  unshare --map-root-user --mount --pid --fork --mount-proc -- bash - <<EOF
+set -euo pipefail
+# Pick a victim directory that will always exist but won't break linux-sandbox or true if empty.
+mount -t tmpfs tmpfs /proc/driver
+$linux_sandbox $SANDBOX_DEFAULT_OPTS -- /bin/true
+EOF
+}
+
 function assert_linux_sandbox_exec_time() {
   local user_time_low="$1"; shift
   local user_time_high="$1"; shift
