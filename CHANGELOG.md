@@ -1,3 +1,56 @@
+## Release 7.0.0-pre.20230215.2 (2023-02-24)
+
+```
+Baseline: e8a69f5d5acaeb6af760631490ecbf73e8a04eeb
+
+Cherry picks:
+
+   + 4ef636552b86ddea01f36c9346b78016bdad7798:
+     Check for ctx.configuration.coverage_enabled instead of
+     ctx.coverage_instrumented() in cc_helper.
+```
+
+Incompatible changes:
+
+  - When remote cache evicts blobs, Bazel will exit with code 39.
+
+Important changes:
+
+  - Update Android manifest merger to v30.1.3, and also drop support
+    for legacy (pre-D8) desugaring.
+  - Adds coverage metric support to android_local_test
+  - Correctly encode double value positive infinity as "inf" instead
+    of "+inf" for textprotos.
+
+This release contains contributions from many people at Google, as well as Andreas Herrmann, Benjamin Lee, Daniel Grunwald, Emil Kattainen, Fabian Meumertzheim, hvd, keertk, Keith Smiley, kshyanashree, Kun-Lu.
+
+## Release 7.0.0-pre.20230209.2 (2023-02-16)
+
+```
+Baseline: 66121a75d67b92990966fc94771a22b0b4a062e3
+
+Cherry picks:
+
+   + 534089ed10a253b31c499a284079f52a92bc0347:
+     Automated rollback of commit
+     02b1b78f0278e2d6d9f294b9cfe86f72f0c9a900.
+```
+
+Incompatible changes:
+
+  - --incompatible_python_disable_py2 is flipped to true. See #17293
+    for details.
+
+Important changes:
+
+  - Added a `native.package_relative_label()` function, which
+    converts a label string to a Label object in the context of the
+    calling package, in contrast to `Label()`, which does so in the
+    context of the current .bzl file. Both functions now also accept
+    relative labels such as `:foo`, and are idempotent.
+
+This release contains contributions from many people at Google, as well as Benjamin Lee, Benjamin Peterson, Chirag Ramani, Ezekiel Warren, Fabian Meumertzheim, Jon Parise, jonrose-dev, keertk, Sara Adams, yuzhy8701.
+
 ## Release 7.0.0-pre.20230128.3 (2023-02-14)
 
 ```
