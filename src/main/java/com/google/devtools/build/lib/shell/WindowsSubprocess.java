@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.windows;
+package com.google.devtools.build.lib.shell;
 
 import com.google.common.base.Throwables;
-import com.google.devtools.build.lib.shell.Subprocess;
+import com.google.devtools.build.lib.windows.WindowsProcesses;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
