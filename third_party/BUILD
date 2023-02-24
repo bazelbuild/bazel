@@ -76,9 +76,9 @@ distrib_java_import(
     ],
 )
 
-java_import(
+java_library(
     name = "android-annotations",
-    jars = ["android_common/com.android_annotations_25.0.0.jar"],
+    exports = ["@maven_android//:com_android_tools_annotations"],
 )
 
 java_import(
