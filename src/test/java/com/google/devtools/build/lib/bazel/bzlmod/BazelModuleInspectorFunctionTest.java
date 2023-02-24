@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.AugmentedModuleBuilder.buildAugmentedModule;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createUnresolvedModuleKey;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -46,7 +47,7 @@ public class BazelModuleInspectorFunctionTest {
             .put(
                 ModuleBuilder.create("bbb", "1.0")
                     .addDep("ddd_from_bbb", createModuleKey("ddd", "2.0"))
-                    .addOriginalDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
+                    .addOriginalDep("ddd_from_bbb", createUnresolvedModuleKey("ddd", "1.0"))
                     .buildEntry())
             .put(
                 ModuleBuilder.create("ccc", "2.0")
@@ -102,7 +103,7 @@ public class BazelModuleInspectorFunctionTest {
             .put(
                 ModuleBuilder.create("bbb", "1.0")
                     .addDep("ddd", createModuleKey("ddd", "2.0"))
-                    .addOriginalDep("ddd", createModuleKey("ddd", "1.0"))
+                    .addOriginalDep("ddd", createUnresolvedModuleKey("ddd", "1.0"))
                     .buildEntry())
             .put(
                 ModuleBuilder.create("ccc", "2.0")
@@ -168,7 +169,7 @@ public class BazelModuleInspectorFunctionTest {
             .put(
                 ModuleBuilder.create("ccc", "2.0")
                     .addDep("bbb", createModuleKey("bbb", "1.0"))
-                    .addOriginalDep("bbb", createModuleKey("bbb", "1.0-pre"))
+                    .addOriginalDep("bbb", createUnresolvedModuleKey("bbb", "1.0-pre"))
                     .buildEntry())
             .put(
                 ModuleBuilder.create("bbb", "1.0-pre")
@@ -220,7 +221,7 @@ public class BazelModuleInspectorFunctionTest {
             .put(
                 ModuleBuilder.create("bbb", "1.0")
                     .addDep("ccc", createModuleKey("ccc", "2.0"))
-                    .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
+                    .addOriginalDep("ccc", createUnresolvedModuleKey("ccc", "1.0"))
                     .buildEntry())
             .put(
                 ModuleBuilder.create("ccc", "2.0")
@@ -277,7 +278,7 @@ public class BazelModuleInspectorFunctionTest {
                 ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
                     .addDep("bbb", createModuleKey("bbb", ""))
-                    .addOriginalDep("bbb", createModuleKey("bbb", "1.0"))
+                    .addOriginalDep("bbb", createUnresolvedModuleKey("bbb", "1.0"))
                     .buildEntry())
             .put(
                 ModuleBuilder.create("bbb", "1.0")
@@ -340,7 +341,7 @@ public class BazelModuleInspectorFunctionTest {
             .put(
                 ModuleBuilder.create("bbb", "1.0")
                     .addDep("ccc", createModuleKey("ccc", "1.5"))
-                    .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
+                    .addOriginalDep("ccc", createUnresolvedModuleKey("ccc", "1.0"))
                     .buildEntry())
             .put(
                 ModuleBuilder.create("bbb", "2.0")
@@ -419,10 +420,10 @@ public class BazelModuleInspectorFunctionTest {
                     .setKey(ModuleKey.ROOT)
                     .addDep("bbb1", createModuleKey("bbb1", "1.0"))
                     .addDep("bbb2", createModuleKey("bbb2", "1.1"))
-                    .addOriginalDep("bbb2", createModuleKey("bbb2", "1.0"))
+                    .addOriginalDep("bbb2", createUnresolvedModuleKey("bbb2", "1.0"))
                     .addDep("bbb3", createModuleKey("bbb3", "1.0"))
                     .addDep("bbb4", createModuleKey("bbb4", "1.1"))
-                    .addOriginalDep("bbb4", createModuleKey("bbb4", "1.0"))
+                    .addOriginalDep("bbb4", createUnresolvedModuleKey("bbb4", "1.0"))
                     .buildEntry())
             .put(
                 ModuleBuilder.create("bbb1", "1.0")

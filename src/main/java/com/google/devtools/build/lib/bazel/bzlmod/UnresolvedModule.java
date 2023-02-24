@@ -18,22 +18,23 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
 
 /**
- * Represents a node in the external dependency graph.
+ * Represents a node in the unresolved external dependency graph.
  *
  * <p>In particular, it represents a specific version of a module; there can be multiple {@link
- * Module}s in a dependency graph with the same name but with different versions (such as when
- * there's a multiple_version_override in play).
+ * UnresolvedModule}s in a dependency graph with the same name but with different versions (such as
+ * after discovery but before selection, or when there's a multiple_version_override in play).
  */
 @AutoValue
-public abstract class Module {
+public abstract class UnresolvedModule {
 
   /**
    * The name of the module, as specified in this module's MODULE.bazel file. Can be empty if this
@@ -96,13 +97,8 @@ public abstract class Module {
    */
   public abstract ImmutableList<String> getToolchainsToRegister();
 
-  /**
-   * The resolved direct dependencies of this module, which can be either the original ones,
-   * overridden by a {@code single_version_override}, by a {@code multiple_version_override}, or by
-   * a {@link NonRegistryOverride} (the version will be ""). The key type is the repo name of the
-   * dep, and the value type is the ModuleKey (name+version) of the dep.
-   */
-  public abstract ImmutableMap<String, ModuleKey> getDeps();
+  /* TODO: Intermediary, unresolved deps */
+  public abstract ImmutableMap<String, UnresolvedModuleKey> getUnresolvedDeps();
 
   /**
    * The original direct dependencies of this module as they are declared in their MODULE file. The
@@ -110,29 +106,6 @@ public abstract class Module {
    * (name+version+max_compatibility_level) of the dep.
    */
   public abstract ImmutableMap<String, UnresolvedModuleKey> getOriginalDeps();
-
-  /**
-   * Returns a {@link RepositoryMapping} with only Bazel module repos and no repos from module
-   * extensions. For the full mapping, see {@link BazelDepGraphValue#getFullRepoMapping}.
-   */
-  public final RepositoryMapping getRepoMappingWithBazelDepsOnly() {
-    ImmutableMap.Builder<String, RepositoryName> mapping = ImmutableMap.builder();
-    // If this is the root module, then the main repository should be visible as `@`.
-    if (getKey().equals(ModuleKey.ROOT)) {
-      mapping.put("", RepositoryName.MAIN);
-    }
-    // Every module should be able to reference itself as @<module repo name>.
-    // If this is the root module, this perfectly falls into @<module repo name> => @
-    if (!getRepoName().isEmpty()) {
-      mapping.put(getRepoName(), getCanonicalRepoName());
-    }
-    for (Map.Entry<String, ModuleKey> dep : getDeps().entrySet()) {
-      // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
-      // canonicalRepoName is the empty string. This perfectly maps to the main repo ("@").
-      mapping.put(dep.getKey(), dep.getValue().getCanonicalRepoName());
-    }
-    return RepositoryMapping.create(mapping.buildOrThrow(), getCanonicalRepoName());
-  }
 
   /**
    * The registry where this module came from. Must be null iff the module has a {@link
@@ -149,14 +122,47 @@ public abstract class Module {
 
   /** Returns a new, empty {@link Builder}. */
   public static Builder builder() {
-    return new AutoValue_Module.Builder()
+    return new AutoValue_UnresolvedModule.Builder()
         .setName("")
         .setVersion(Version.EMPTY)
         .setKey(ModuleKey.ROOT)
         .setCompatibilityLevel(0);
   }
 
-  /** Builder type for {@link Module}. */
+  /**
+   * Returns a new {@link UnresolvedModule} with all values in {@link #getUnresolvedDeps}
+   * transformed using the given function.
+   */
+  public UnresolvedModule withUnresolvedDepKeysTransformed(
+      UnaryOperator<UnresolvedModuleKey> transform) {
+    return toBuilder()
+        .setUnresolvedDeps(
+            ImmutableMap.copyOf(Maps.transformValues(getUnresolvedDeps(), transform::apply)))
+        .build();
+  }
+
+  /**
+   * Returns a new {@link Module} with {@link #getDeps} set to the result of transforming all values
+   * in {@link #getUnresolvedDeps} using the given function.
+   */
+  public Module withResolvedDepKeys(Function<UnresolvedModuleKey, ModuleKey> transform) {
+    return Module.builder()
+        .setName(getName())
+        .setVersion(getVersion())
+        .setKey(getKey())
+        .setCompatibilityLevel(getCompatibilityLevel())
+        .setRepoName(getRepoName())
+        .addBazelCompatibilityValues(getBazelCompatibility())
+        .addExecutionPlatformsToRegister(getExecutionPlatformsToRegister())
+        .addToolchainsToRegister(getToolchainsToRegister())
+        .setOriginalDeps(getOriginalDeps())
+        .setRegistry(getRegistry())
+        .setExtensionUsages(getExtensionUsages())
+        .setDeps(ImmutableMap.copyOf(Maps.transformValues(getUnresolvedDeps(), transform::apply)))
+        .build();
+  }
+
+  /** Builder type for {@link UnresolvedModule}. */
   @AutoValue.Builder
   public abstract static class Builder {
     /** Optional; defaults to the empty string. */
@@ -198,13 +204,13 @@ public abstract class Module {
       return this;
     }
 
-    abstract Builder setDeps(ImmutableMap<String, ModuleKey> value);
+    public abstract Builder setUnresolvedDeps(ImmutableMap<String, UnresolvedModuleKey> value);
 
-    abstract ImmutableMap.Builder<String, ModuleKey> depsBuilder();
+    abstract ImmutableMap.Builder<String, UnresolvedModuleKey> unresolvedDepsBuilder();
 
     @CanIgnoreReturnValue
-    Builder addDep(String depRepoName, ModuleKey depKey) {
-      depsBuilder().put(depRepoName, depKey);
+    public Builder addUnresolvedDep(String depRepoName, UnresolvedModuleKey depKey) {
+      unresolvedDepsBuilder().put(depRepoName, depKey);
       return this;
     }
 
@@ -234,9 +240,9 @@ public abstract class Module {
 
     abstract Optional<String> getRepoName();
 
-    abstract Module autoBuild();
+    abstract UnresolvedModule autoBuild();
 
-    final Module build() {
+    final UnresolvedModule build() {
       if (getRepoName().isEmpty()) {
         setRepoName(getName());
       }

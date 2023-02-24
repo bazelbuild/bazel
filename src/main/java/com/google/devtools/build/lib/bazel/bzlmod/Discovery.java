@@ -23,10 +23,8 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayDeque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Queue;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -42,28 +40,31 @@ final class Discovery {
    * dependency is missing and this function needs a restart).
    */
   @Nullable
-  public static ImmutableMap<ModuleKey, Module> run(Environment env, RootModuleFileValue root)
-      throws SkyFunctionException, InterruptedException {
+  public static ImmutableMap<UnresolvedModuleKey, UnresolvedModule> run(
+      Environment env, RootModuleFileValue root) throws SkyFunctionException, InterruptedException {
     String rootModuleName = root.getModule().getName();
     ImmutableMap<String, ModuleOverride> overrides = root.getOverrides();
-    Map<ModuleKey, Module> depGraph = new HashMap<>();
-    depGraph.put(ModuleKey.ROOT, rewriteDepKeys(root.getModule(), overrides, rootModuleName));
-    Queue<ModuleKey> unexpanded = new ArrayDeque<>();
-    unexpanded.add(ModuleKey.ROOT);
+    Map<UnresolvedModuleKey, UnresolvedModule> depGraph = new HashMap<>();
+    depGraph.put(
+        UnresolvedModuleKey.ROOT, rewriteDepKeys(root.getModule(), overrides, rootModuleName));
+    Queue<UnresolvedModuleKey> unexpanded = new ArrayDeque<>();
+    unexpanded.add(UnresolvedModuleKey.ROOT);
     while (!unexpanded.isEmpty()) {
-      Set<SkyKey> unexpandedSkyKeys = new HashSet<>();
+      Map<UnresolvedModuleKey, SkyKey> unexpandedSkyKeys = new HashMap<>();
       while (!unexpanded.isEmpty()) {
-        Module module = depGraph.get(unexpanded.remove());
-        for (ModuleKey depKey : module.getDeps().values()) {
+        UnresolvedModule module = depGraph.get(unexpanded.remove());
+        for (UnresolvedModuleKey depKey : module.getUnresolvedDeps().values()) {
           if (depGraph.containsKey(depKey)) {
             continue;
           }
-          unexpandedSkyKeys.add(ModuleFileValue.key(depKey, overrides.get(depKey.getName())));
+          unexpandedSkyKeys.put(
+              depKey, ModuleFileValue.key(depKey.getModuleKey(), overrides.get(depKey.getName())));
         }
       }
-      SkyframeLookupResult result = env.getValuesAndExceptions(unexpandedSkyKeys);
-      for (SkyKey skyKey : unexpandedSkyKeys) {
-        ModuleKey depKey = ((ModuleFileValue.Key) skyKey).getModuleKey();
+      SkyframeLookupResult result = env.getValuesAndExceptions(unexpandedSkyKeys.values());
+      for (Map.Entry<UnresolvedModuleKey, SkyKey> entry : unexpandedSkyKeys.entrySet()) {
+        UnresolvedModuleKey depKey = entry.getKey();
+        SkyKey skyKey = entry.getValue();
         ModuleFileValue moduleFileValue = (ModuleFileValue) result.get(skyKey);
         if (moduleFileValue == null) {
           // Don't return yet. Try to expand any other unexpanded nodes before returning.
@@ -81,12 +82,14 @@ final class Discovery {
     return ImmutableMap.copyOf(depGraph);
   }
 
-  private static Module rewriteDepKeys(
-      Module module, ImmutableMap<String, ModuleOverride> overrides, String rootModuleName) {
-    return module.withDepKeysTransformed(
+  private static UnresolvedModule rewriteDepKeys(
+      UnresolvedModule module,
+      ImmutableMap<String, ModuleOverride> overrides,
+      String rootModuleName) {
+    return module.withUnresolvedDepKeysTransformed(
         depKey -> {
           if (rootModuleName.equals(depKey.getName())) {
-            return ModuleKey.ROOT;
+            return UnresolvedModuleKey.ROOT;
           }
 
           Version newVersion = depKey.getVersion();
@@ -100,7 +103,7 @@ final class Discovery {
             }
           }
 
-          return ModuleKey.create(depKey.getName(), newVersion);
+          return UnresolvedModuleKey.create(depKey.getName(), newVersion);
         });
   }
 }

@@ -17,8 +17,10 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createRepositoryMapping;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createUnresolvedModuleKey;
 
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.ModuleBuilder;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.UnresolvedModuleBuilder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -28,22 +30,22 @@ import org.junit.runners.JUnit4;
 public class ModuleTest {
 
   @Test
-  public void withDepKeysTransformed() throws Exception {
+  public void withResolvedDepKeys() throws Exception {
     assertThat(
-            ModuleBuilder.create("", "")
-                .addDep("dep_foo", createModuleKey("foo", "1.0"))
-                .addDep("dep_bar", createModuleKey("bar", "2.0"))
+            UnresolvedModuleBuilder.create("", "")
+                .addDep("dep_foo", createUnresolvedModuleKey("foo", "1.0"))
+                .addDep("dep_bar", createUnresolvedModuleKey("bar", "2.0"))
                 .build()
-                .withDepKeysTransformed(
+                .withResolvedDepKeys(
                     key ->
                         createModuleKey(
                             key.getName() + "_new", key.getVersion().getOriginal() + ".1")))
         .isEqualTo(
             ModuleBuilder.create("", "")
                 .addDep("dep_foo", createModuleKey("foo_new", "1.0.1"))
-                .addOriginalDep("dep_foo", createModuleKey("foo", "1.0"))
+                .addOriginalDep("dep_foo", createUnresolvedModuleKey("foo", "1.0"))
                 .addDep("dep_bar", createModuleKey("bar_new", "2.0.1"))
-                .addOriginalDep("dep_bar", createModuleKey("bar", "2.0"))
+                .addOriginalDep("dep_bar", createUnresolvedModuleKey("bar", "2.0"))
                 .build());
   }
 

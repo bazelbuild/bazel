@@ -16,6 +16,7 @@ java_library(
         "ArchiveRepoSpecBuilder.java",
         "ModuleKey.java",
         "RepoSpec.java",
+        "UnresolvedModuleKey.java",
         "Version.java",
     ],
     deps = [
@@ -100,6 +101,7 @@ java_library(
         "SingleExtensionEvalValue.java",
         "SingleExtensionUsagesValue.java",
         "SingleVersionOverride.java",
+        "UnresolvedModule.java",
     ],
     deps = [
         ":common",
@@ -164,6 +166,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:client_environment_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",

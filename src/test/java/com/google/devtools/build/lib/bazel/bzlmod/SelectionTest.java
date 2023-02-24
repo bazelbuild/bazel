@@ -17,11 +17,13 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createUnresolvedModuleKey;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.ModuleBuilder;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.UnresolvedModuleBuilder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,24 +34,24 @@ public class SelectionTest {
 
   @Test
   public void diamond_simple() throws Exception {
-    ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph =
+        ImmutableMap.<UnresolvedModuleKey, UnresolvedModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
-                    .setKey(ModuleKey.ROOT)
-                    .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
-                    .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
+                UnresolvedModuleBuilder.create("aaa", Version.EMPTY)
+                    .setKey(UnresolvedModuleKey.ROOT)
+                    .addDep("bbb_from_aaa", createUnresolvedModuleKey("bbb", "1.0"))
+                    .addDep("ccc_from_aaa", createUnresolvedModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb", "1.0")
-                    .addDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
+                UnresolvedModuleBuilder.create("bbb", "1.0")
+                    .addDep("ddd_from_bbb", createUnresolvedModuleKey("ddd", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("ccc", "2.0")
-                    .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
+                UnresolvedModuleBuilder.create("ccc", "2.0")
+                    .addDep("ddd_from_ccc", createUnresolvedModuleKey("ddd", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ddd", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("ddd", "2.0", 1).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ddd", "1.0", 1).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ddd", "2.0", 1).buildEntry())
             .buildOrThrow();
 
     BazelModuleResolutionValue selectionResult =
@@ -63,7 +65,7 @@ public class SelectionTest {
                 .buildEntry(),
             ModuleBuilder.create("bbb", "1.0")
                 .addDep("ddd_from_bbb", createModuleKey("ddd", "2.0"))
-                .addOriginalDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
+                .addOriginalDep("ddd_from_bbb", createUnresolvedModuleKey("ddd", "1.0"))
                 .buildEntry(),
             ModuleBuilder.create("ccc", "2.0")
                 .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
@@ -80,7 +82,7 @@ public class SelectionTest {
                 .buildEntry(),
             ModuleBuilder.create("bbb", "1.0")
                 .addDep("ddd_from_bbb", createModuleKey("ddd", "2.0"))
-                .addOriginalDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
+                .addOriginalDep("ddd_from_bbb", createUnresolvedModuleKey("ddd", "1.0"))
                 .buildEntry(),
             ModuleBuilder.create("ccc", "2.0")
                 .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
@@ -91,30 +93,30 @@ public class SelectionTest {
 
   @Test
   public void diamond_withFurtherRemoval() throws Exception {
-    ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph =
+        ImmutableMap.<UnresolvedModuleKey, UnresolvedModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
-                    .setKey(ModuleKey.ROOT)
-                    .addDep("bbb", createModuleKey("bbb", "1.0"))
-                    .addDep("ccc", createModuleKey("ccc", "2.0"))
+                UnresolvedModuleBuilder.create("aaa", Version.EMPTY)
+                    .setKey(UnresolvedModuleKey.ROOT)
+                    .addDep("bbb", createUnresolvedModuleKey("bbb", "1.0"))
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb", "1.0")
-                    .addDep("ddd", createModuleKey("ddd", "1.0"))
+                UnresolvedModuleBuilder.create("bbb", "1.0")
+                    .addDep("ddd", createUnresolvedModuleKey("ddd", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("ccc", "2.0")
-                    .addDep("ddd", createModuleKey("ddd", "2.0"))
+                UnresolvedModuleBuilder.create("ccc", "2.0")
+                    .addDep("ddd", createUnresolvedModuleKey("ddd", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("ddd", "1.0")
-                    .addDep("eee", createModuleKey("eee", "1.0"))
+                UnresolvedModuleBuilder.create("ddd", "1.0")
+                    .addDep("eee", createUnresolvedModuleKey("eee", "1.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ddd", "2.0").buildEntry())
+            .put(UnresolvedModuleBuilder.create("ddd", "2.0").buildEntry())
             // Only D@1.0 needs E. When D@1.0 is removed, E should be gone as well (even though
             // E@1.0 is selected for E).
-            .put(ModuleBuilder.create("eee", "1.0").buildEntry())
+            .put(UnresolvedModuleBuilder.create("eee", "1.0").buildEntry())
             .build();
 
     BazelModuleResolutionValue selectionResult =
@@ -128,7 +130,7 @@ public class SelectionTest {
                 .buildEntry(),
             ModuleBuilder.create("bbb", "1.0")
                 .addDep("ddd", createModuleKey("ddd", "2.0"))
-                .addOriginalDep("ddd", createModuleKey("ddd", "1.0"))
+                .addOriginalDep("ddd", createUnresolvedModuleKey("ddd", "1.0"))
                 .buildEntry(),
             ModuleBuilder.create("ccc", "2.0")
                 .addDep("ddd", createModuleKey("ddd", "2.0"))
@@ -145,7 +147,7 @@ public class SelectionTest {
                 .buildEntry(),
             ModuleBuilder.create("bbb", "1.0")
                 .addDep("ddd", createModuleKey("ddd", "2.0"))
-                .addOriginalDep("ddd", createModuleKey("ddd", "1.0"))
+                .addOriginalDep("ddd", createUnresolvedModuleKey("ddd", "1.0"))
                 .buildEntry(),
             ModuleBuilder.create("ccc", "2.0")
                 .addDep("ddd", createModuleKey("ddd", "2.0"))
@@ -159,26 +161,26 @@ public class SelectionTest {
 
   @Test
   public void circularDependencyDueToSelection() throws Exception {
-    ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph =
+        ImmutableMap.<UnresolvedModuleKey, UnresolvedModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
-                    .setKey(ModuleKey.ROOT)
-                    .addDep("bbb", createModuleKey("bbb", "1.0"))
+                UnresolvedModuleBuilder.create("aaa", Version.EMPTY)
+                    .setKey(UnresolvedModuleKey.ROOT)
+                    .addDep("bbb", createUnresolvedModuleKey("bbb", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "2.0"))
+                UnresolvedModuleBuilder.create("bbb", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("ccc", "2.0")
-                    .addDep("bbb", createModuleKey("bbb", "1.0-pre"))
+                UnresolvedModuleBuilder.create("ccc", "2.0")
+                    .addDep("bbb", createUnresolvedModuleKey("bbb", "1.0-pre"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb", "1.0-pre")
-                    .addDep("ddd", createModuleKey("ddd", "1.0"))
+                UnresolvedModuleBuilder.create("bbb", "1.0-pre")
+                    .addDep("ddd", createUnresolvedModuleKey("ddd", "1.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ddd", "1.0").buildEntry())
+            .put(UnresolvedModuleBuilder.create("ddd", "1.0").buildEntry())
             .buildOrThrow();
 
     BazelModuleResolutionValue selectionResult =
@@ -194,7 +196,7 @@ public class SelectionTest {
                 .buildEntry(),
             ModuleBuilder.create("ccc", "2.0")
                 .addDep("bbb", createModuleKey("bbb", "1.0"))
-                .addOriginalDep("bbb", createModuleKey("bbb", "1.0-pre"))
+                .addOriginalDep("bbb", createUnresolvedModuleKey("bbb", "1.0-pre"))
                 .buildEntry())
         .inOrder();
     // D is completely gone.
@@ -210,7 +212,7 @@ public class SelectionTest {
                 .buildEntry(),
             ModuleBuilder.create("ccc", "2.0")
                 .addDep("bbb", createModuleKey("bbb", "1.0"))
-                .addOriginalDep("bbb", createModuleKey("bbb", "1.0-pre"))
+                .addOriginalDep("bbb", createUnresolvedModuleKey("bbb", "1.0-pre"))
                 .buildEntry(),
             ModuleBuilder.create("bbb", "1.0-pre")
                 .addDep("ddd", createModuleKey("ddd", "1.0"))
@@ -220,24 +222,24 @@ public class SelectionTest {
 
   @Test
   public void differentCompatibilityLevelIsRejected() throws Exception {
-    ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph =
+        ImmutableMap.<UnresolvedModuleKey, UnresolvedModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
-                    .setKey(ModuleKey.ROOT)
-                    .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
-                    .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
+                UnresolvedModuleBuilder.create("aaa", Version.EMPTY)
+                    .setKey(UnresolvedModuleKey.ROOT)
+                    .addDep("bbb_from_aaa", createUnresolvedModuleKey("bbb", "1.0"))
+                    .addDep("ccc_from_aaa", createUnresolvedModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb", "1.0")
-                    .addDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
+                UnresolvedModuleBuilder.create("bbb", "1.0")
+                    .addDep("ddd_from_bbb", createUnresolvedModuleKey("ddd", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("ccc", "2.0")
-                    .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
+                UnresolvedModuleBuilder.create("ccc", "2.0")
+                    .addDep("ddd_from_ccc", createUnresolvedModuleKey("ddd", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ddd", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("ddd", "2.0", 2).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ddd", "1.0", 1).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ddd", "2.0", 2).buildEntry())
             .buildOrThrow();
 
     ExternalDepsException e =
@@ -256,32 +258,32 @@ public class SelectionTest {
     //       \-> ccc 1.0
     //        \-> ddd 1.0 -> bbb 1.1
     //         \-> eee 1.0 -> ccc 1.1
-    ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph =
+        ImmutableMap.<UnresolvedModuleKey, UnresolvedModule>builder()
             .put(
-                ModuleBuilder.create("aaa", "1.0")
-                    .setKey(ModuleKey.ROOT)
-                    .addDep("bbb", createModuleKey("bbb", "1.0"))
-                    .addDep("ccc", createModuleKey("ccc", "1.0"))
-                    .addDep("ddd", createModuleKey("ddd", "1.0"))
-                    .addDep("eee", createModuleKey("eee", "1.0"))
+                UnresolvedModuleBuilder.create("aaa", "1.0")
+                    .setKey(UnresolvedModuleKey.ROOT)
+                    .addDep("bbb", createUnresolvedModuleKey("bbb", "1.0"))
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "1.0"))
+                    .addDep("ddd", createUnresolvedModuleKey("ddd", "1.0"))
+                    .addDep("eee", createUnresolvedModuleKey("eee", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "2.0"))
+                UnresolvedModuleBuilder.create("bbb", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ccc", "2.0", 2).buildEntry())
-            .put(ModuleBuilder.create("ccc", "1.0", 1).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "2.0", 2).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "1.0", 1).buildEntry())
             .put(
-                ModuleBuilder.create("ddd", "1.0")
-                    .addDep("bbb", createModuleKey("bbb", "1.1"))
+                UnresolvedModuleBuilder.create("ddd", "1.0")
+                    .addDep("bbb", createUnresolvedModuleKey("bbb", "1.1"))
                     .buildEntry())
-            .put(ModuleBuilder.create("bbb", "1.1").buildEntry())
+            .put(UnresolvedModuleBuilder.create("bbb", "1.1").buildEntry())
             .put(
-                ModuleBuilder.create("eee", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "1.1"))
+                UnresolvedModuleBuilder.create("eee", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "1.1"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ccc", "1.1", 1).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "1.1", 1).buildEntry())
             .buildOrThrow();
 
     // After selection, ccc 2.0 is gone, so we're okay.
@@ -296,9 +298,9 @@ public class SelectionTest {
             ModuleBuilder.create("aaa", "1.0")
                 .setKey(ModuleKey.ROOT)
                 .addDep("bbb", createModuleKey("bbb", "1.1"))
-                .addOriginalDep("bbb", createModuleKey("bbb", "1.0"))
+                .addOriginalDep("bbb", createUnresolvedModuleKey("bbb", "1.0"))
                 .addDep("ccc", createModuleKey("ccc", "1.1"))
-                .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
+                .addOriginalDep("ccc", createUnresolvedModuleKey("ccc", "1.0"))
                 .addDep("ddd", createModuleKey("ddd", "1.0"))
                 .addDep("eee", createModuleKey("eee", "1.0"))
                 .buildEntry(),
@@ -317,9 +319,9 @@ public class SelectionTest {
             ModuleBuilder.create("aaa", "1.0")
                 .setKey(ModuleKey.ROOT)
                 .addDep("bbb", createModuleKey("bbb", "1.1"))
-                .addOriginalDep("bbb", createModuleKey("bbb", "1.0"))
+                .addOriginalDep("bbb", createUnresolvedModuleKey("bbb", "1.0"))
                 .addDep("ccc", createModuleKey("ccc", "1.1"))
-                .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
+                .addOriginalDep("ccc", createUnresolvedModuleKey("ccc", "1.0"))
                 .addDep("ddd", createModuleKey("ddd", "1.0"))
                 .addDep("eee", createModuleKey("eee", "1.0"))
                 .buildEntry(),
@@ -340,16 +342,16 @@ public class SelectionTest {
 
   @Test
   public void multipleVersionOverride_fork_allowedVersionMissingInDepGraph() throws Exception {
-    ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph =
+        ImmutableMap.<UnresolvedModuleKey, UnresolvedModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
-                    .setKey(ModuleKey.ROOT)
-                    .addDep("bbb1", createModuleKey("bbb", "1.0"))
-                    .addDep("bbb2", createModuleKey("bbb", "2.0"))
+                UnresolvedModuleBuilder.create("aaa", Version.EMPTY)
+                    .setKey(UnresolvedModuleKey.ROOT)
+                    .addDep("bbb1", createUnresolvedModuleKey("bbb", "1.0"))
+                    .addDep("bbb2", createUnresolvedModuleKey("bbb", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("bbb", "1.0").buildEntry())
-            .put(ModuleBuilder.create("bbb", "2.0").buildEntry())
+            .put(UnresolvedModuleBuilder.create("bbb", "1.0").buildEntry())
+            .put(UnresolvedModuleBuilder.create("bbb", "2.0").buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
@@ -370,16 +372,16 @@ public class SelectionTest {
   @Test
   public void multipleVersionOverride_fork_goodCase() throws Exception {
     // For more complex good cases, see the "diamond" test cases below.
-    ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph =
+        ImmutableMap.<UnresolvedModuleKey, UnresolvedModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
-                    .setKey(ModuleKey.ROOT)
-                    .addDep("bbb1", createModuleKey("bbb", "1.0"))
-                    .addDep("bbb2", createModuleKey("bbb", "2.0"))
+                UnresolvedModuleBuilder.create("aaa", Version.EMPTY)
+                    .setKey(UnresolvedModuleKey.ROOT)
+                    .addDep("bbb1", createUnresolvedModuleKey("bbb", "1.0"))
+                    .addDep("bbb2", createUnresolvedModuleKey("bbb", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("bbb", "1.0").buildEntry())
-            .put(ModuleBuilder.create("bbb", "2.0").buildEntry())
+            .put(UnresolvedModuleBuilder.create("bbb", "1.0").buildEntry())
+            .put(UnresolvedModuleBuilder.create("bbb", "2.0").buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
@@ -405,18 +407,18 @@ public class SelectionTest {
 
   @Test
   public void multipleVersionOverride_fork_sameVersionUsedTwice() throws Exception {
-    ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph =
+        ImmutableMap.<UnresolvedModuleKey, UnresolvedModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
-                    .setKey(ModuleKey.ROOT)
-                    .addDep("bbb1", createModuleKey("bbb", "1.0"))
-                    .addDep("bbb2", createModuleKey("bbb", "1.3"))
-                    .addDep("bbb3", createModuleKey("bbb", "1.5"))
+                UnresolvedModuleBuilder.create("aaa", Version.EMPTY)
+                    .setKey(UnresolvedModuleKey.ROOT)
+                    .addDep("bbb1", createUnresolvedModuleKey("bbb", "1.0"))
+                    .addDep("bbb2", createUnresolvedModuleKey("bbb", "1.3"))
+                    .addDep("bbb3", createUnresolvedModuleKey("bbb", "1.5"))
                     .buildEntry())
-            .put(ModuleBuilder.create("bbb", "1.0").buildEntry())
-            .put(ModuleBuilder.create("bbb", "1.3").buildEntry())
-            .put(ModuleBuilder.create("bbb", "1.5").buildEntry())
+            .put(UnresolvedModuleBuilder.create("bbb", "1.0").buildEntry())
+            .put(UnresolvedModuleBuilder.create("bbb", "1.3").buildEntry())
+            .put(UnresolvedModuleBuilder.create("bbb", "1.5").buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
@@ -435,24 +437,24 @@ public class SelectionTest {
 
   @Test
   public void multipleVersionOverride_diamond_differentCompatibilityLevels() throws Exception {
-    ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph =
+        ImmutableMap.<UnresolvedModuleKey, UnresolvedModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
-                    .setKey(ModuleKey.ROOT)
-                    .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
-                    .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
+                UnresolvedModuleBuilder.create("aaa", Version.EMPTY)
+                    .setKey(UnresolvedModuleKey.ROOT)
+                    .addDep("bbb_from_aaa", createUnresolvedModuleKey("bbb", "1.0"))
+                    .addDep("ccc_from_aaa", createUnresolvedModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb", "1.0")
-                    .addDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
+                UnresolvedModuleBuilder.create("bbb", "1.0")
+                    .addDep("ddd_from_bbb", createUnresolvedModuleKey("ddd", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("ccc", "2.0")
-                    .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
+                UnresolvedModuleBuilder.create("ccc", "2.0")
+                    .addDep("ddd_from_ccc", createUnresolvedModuleKey("ddd", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ddd", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("ddd", "2.0", 2).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ddd", "1.0", 1).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ddd", "2.0", 2).buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
@@ -484,24 +486,24 @@ public class SelectionTest {
 
   @Test
   public void multipleVersionOverride_diamond_sameCompatibilityLevel() throws Exception {
-    ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph =
+        ImmutableMap.<UnresolvedModuleKey, UnresolvedModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
-                    .setKey(ModuleKey.ROOT)
-                    .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
-                    .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
+                UnresolvedModuleBuilder.create("aaa", Version.EMPTY)
+                    .setKey(UnresolvedModuleKey.ROOT)
+                    .addDep("bbb_from_aaa", createUnresolvedModuleKey("bbb", "1.0"))
+                    .addDep("ccc_from_aaa", createUnresolvedModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb", "1.0")
-                    .addDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
+                UnresolvedModuleBuilder.create("bbb", "1.0")
+                    .addDep("ddd_from_bbb", createUnresolvedModuleKey("ddd", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("ccc", "2.0")
-                    .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
+                UnresolvedModuleBuilder.create("ccc", "2.0")
+                    .addDep("ddd_from_ccc", createUnresolvedModuleKey("ddd", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ddd", "1.0").buildEntry())
-            .put(ModuleBuilder.create("ddd", "2.0").buildEntry())
+            .put(UnresolvedModuleBuilder.create("ddd", "1.0").buildEntry())
+            .put(UnresolvedModuleBuilder.create("ddd", "2.0").buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
@@ -538,42 +540,42 @@ public class SelectionTest {
     //     \-> bbb3@1.0 -> ccc@1.5
     //     \-> bbb4@1.0 -> ccc@1.7  [allowed]
     //     \-> bbb5@1.0 -> ccc@2.0  [allowed]
-    ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph =
+        ImmutableMap.<UnresolvedModuleKey, UnresolvedModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
-                    .setKey(ModuleKey.ROOT)
-                    .addDep("bbb1", createModuleKey("bbb1", "1.0"))
-                    .addDep("bbb2", createModuleKey("bbb2", "1.0"))
-                    .addDep("bbb3", createModuleKey("bbb3", "1.0"))
-                    .addDep("bbb4", createModuleKey("bbb4", "1.0"))
-                    .addDep("bbb5", createModuleKey("bbb5", "1.0"))
+                UnresolvedModuleBuilder.create("aaa", Version.EMPTY)
+                    .setKey(UnresolvedModuleKey.ROOT)
+                    .addDep("bbb1", createUnresolvedModuleKey("bbb1", "1.0"))
+                    .addDep("bbb2", createUnresolvedModuleKey("bbb2", "1.0"))
+                    .addDep("bbb3", createUnresolvedModuleKey("bbb3", "1.0"))
+                    .addDep("bbb4", createUnresolvedModuleKey("bbb4", "1.0"))
+                    .addDep("bbb5", createUnresolvedModuleKey("bbb5", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb1", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "1.0"))
+                UnresolvedModuleBuilder.create("bbb1", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb2", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "1.3"))
+                UnresolvedModuleBuilder.create("bbb2", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "1.3"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb3", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "1.5"))
+                UnresolvedModuleBuilder.create("bbb3", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "1.5"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb4", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "1.7"))
+                UnresolvedModuleBuilder.create("bbb4", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "1.7"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb5", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "2.0"))
+                UnresolvedModuleBuilder.create("bbb5", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ccc", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("ccc", "1.3", 1).buildEntry())
-            .put(ModuleBuilder.create("ccc", "1.5", 1).buildEntry())
-            .put(ModuleBuilder.create("ccc", "1.7", 1).buildEntry())
-            .put(ModuleBuilder.create("ccc", "2.0", 2).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "1.0", 1).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "1.3", 1).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "1.5", 1).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "1.7", 1).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "2.0", 2).buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
@@ -600,14 +602,14 @@ public class SelectionTest {
                 .buildEntry(),
             ModuleBuilder.create("bbb1", "1.0")
                 .addDep("ccc", createModuleKey("ccc", "1.3"))
-                .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
+                .addOriginalDep("ccc", createUnresolvedModuleKey("ccc", "1.0"))
                 .buildEntry(),
             ModuleBuilder.create("bbb2", "1.0")
                 .addDep("ccc", createModuleKey("ccc", "1.3"))
                 .buildEntry(),
             ModuleBuilder.create("bbb3", "1.0")
                 .addDep("ccc", createModuleKey("ccc", "1.7"))
-                .addOriginalDep("ccc", createModuleKey("ccc", "1.5"))
+                .addOriginalDep("ccc", createUnresolvedModuleKey("ccc", "1.5"))
                 .buildEntry(),
             ModuleBuilder.create("bbb4", "1.0")
                 .addDep("ccc", createModuleKey("ccc", "1.7"))
@@ -632,14 +634,14 @@ public class SelectionTest {
                 .buildEntry(),
             ModuleBuilder.create("bbb1", "1.0")
                 .addDep("ccc", createModuleKey("ccc", "1.3"))
-                .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
+                .addOriginalDep("ccc", createUnresolvedModuleKey("ccc", "1.0"))
                 .buildEntry(),
             ModuleBuilder.create("bbb2", "1.0")
                 .addDep("ccc", createModuleKey("ccc", "1.3"))
                 .buildEntry(),
             ModuleBuilder.create("bbb3", "1.0")
                 .addDep("ccc", createModuleKey("ccc", "1.7"))
-                .addOriginalDep("ccc", createModuleKey("ccc", "1.5"))
+                .addOriginalDep("ccc", createUnresolvedModuleKey("ccc", "1.5"))
                 .buildEntry(),
             ModuleBuilder.create("bbb4", "1.0")
                 .addDep("ccc", createModuleKey("ccc", "1.7"))
@@ -659,30 +661,30 @@ public class SelectionTest {
     // aaa --> bbb1@1.0 -> ccc@1.0  [allowed]
     //     \-> bbb2@1.0 -> ccc@1.7
     //     \-> bbb3@1.0 -> ccc@2.0  [allowed]
-    ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph =
+        ImmutableMap.<UnresolvedModuleKey, UnresolvedModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
-                    .setKey(ModuleKey.ROOT)
-                    .addDep("bbb1", createModuleKey("bbb1", "1.0"))
-                    .addDep("bbb2", createModuleKey("bbb2", "1.0"))
-                    .addDep("bbb3", createModuleKey("bbb3", "1.0"))
+                UnresolvedModuleBuilder.create("aaa", Version.EMPTY)
+                    .setKey(UnresolvedModuleKey.ROOT)
+                    .addDep("bbb1", createUnresolvedModuleKey("bbb1", "1.0"))
+                    .addDep("bbb2", createUnresolvedModuleKey("bbb2", "1.0"))
+                    .addDep("bbb3", createUnresolvedModuleKey("bbb3", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb1", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "1.0"))
+                UnresolvedModuleBuilder.create("bbb1", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb2", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "1.7"))
+                UnresolvedModuleBuilder.create("bbb2", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "1.7"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb3", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "2.0"))
+                UnresolvedModuleBuilder.create("bbb3", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ccc", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("ccc", "1.7", 1).buildEntry())
-            .put(ModuleBuilder.create("ccc", "2.0", 2).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "1.0", 1).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "1.7", 1).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "2.0", 2).buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
@@ -704,30 +706,30 @@ public class SelectionTest {
     // aaa --> bbb1@1.0 -> ccc@1.0  [allowed]
     //     \-> bbb2@1.0 -> ccc@2.0  [allowed]
     //     \-> bbb3@1.0 -> ccc@3.0
-    ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph =
+        ImmutableMap.<UnresolvedModuleKey, UnresolvedModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
-                    .setKey(ModuleKey.ROOT)
-                    .addDep("bbb1", createModuleKey("bbb1", "1.0"))
-                    .addDep("bbb2", createModuleKey("bbb2", "1.0"))
-                    .addDep("bbb3", createModuleKey("bbb3", "1.0"))
+                UnresolvedModuleBuilder.create("aaa", Version.EMPTY)
+                    .setKey(UnresolvedModuleKey.ROOT)
+                    .addDep("bbb1", createUnresolvedModuleKey("bbb1", "1.0"))
+                    .addDep("bbb2", createUnresolvedModuleKey("bbb2", "1.0"))
+                    .addDep("bbb3", createUnresolvedModuleKey("bbb3", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb1", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "1.0"))
+                UnresolvedModuleBuilder.create("bbb1", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb2", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "2.0"))
+                UnresolvedModuleBuilder.create("bbb2", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb3", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "3.0"))
+                UnresolvedModuleBuilder.create("bbb3", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "3.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ccc", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("ccc", "2.0", 2).buildEntry())
-            .put(ModuleBuilder.create("ccc", "3.0", 3).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "1.0", 1).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "2.0", 2).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "3.0", 3).buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
@@ -752,40 +754,40 @@ public class SelectionTest {
     //     \-> bbb3@1.0 --> ccc@2.0  [allowed]
     //     \            \-> bbb4@1.1
     //     \-> bbb4@1.0 --> ccc@3.0
-    ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph =
+        ImmutableMap.<UnresolvedModuleKey, UnresolvedModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
-                    .setKey(ModuleKey.ROOT)
-                    .addDep("bbb1", createModuleKey("bbb1", "1.0"))
-                    .addDep("bbb2", createModuleKey("bbb2", "1.0"))
-                    .addDep("bbb3", createModuleKey("bbb3", "1.0"))
-                    .addDep("bbb4", createModuleKey("bbb4", "1.0"))
+                UnresolvedModuleBuilder.create("aaa", Version.EMPTY)
+                    .setKey(UnresolvedModuleKey.ROOT)
+                    .addDep("bbb1", createUnresolvedModuleKey("bbb1", "1.0"))
+                    .addDep("bbb2", createUnresolvedModuleKey("bbb2", "1.0"))
+                    .addDep("bbb3", createUnresolvedModuleKey("bbb3", "1.0"))
+                    .addDep("bbb4", createUnresolvedModuleKey("bbb4", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb1", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "1.0"))
-                    .addDep("bbb2", createModuleKey("bbb2", "1.1"))
+                UnresolvedModuleBuilder.create("bbb1", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "1.0"))
+                    .addDep("bbb2", createUnresolvedModuleKey("bbb2", "1.1"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb2", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "1.5"))
+                UnresolvedModuleBuilder.create("bbb2", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "1.5"))
                     .buildEntry())
-            .put(ModuleBuilder.create("bbb2", "1.1").buildEntry())
+            .put(UnresolvedModuleBuilder.create("bbb2", "1.1").buildEntry())
             .put(
-                ModuleBuilder.create("bbb3", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "2.0"))
-                    .addDep("bbb4", createModuleKey("bbb4", "1.1"))
+                UnresolvedModuleBuilder.create("bbb3", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "2.0"))
+                    .addDep("bbb4", createUnresolvedModuleKey("bbb4", "1.1"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb4", "1.0")
-                    .addDep("ccc", createModuleKey("ccc", "3.0"))
+                UnresolvedModuleBuilder.create("bbb4", "1.0")
+                    .addDep("ccc", createUnresolvedModuleKey("ccc", "3.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("bbb4", "1.1").buildEntry())
-            .put(ModuleBuilder.create("ccc", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("ccc", "1.5", 1).buildEntry())
-            .put(ModuleBuilder.create("ccc", "2.0", 2).buildEntry())
-            .put(ModuleBuilder.create("ccc", "3.0", 3).buildEntry())
+            .put(UnresolvedModuleBuilder.create("bbb4", "1.1").buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "1.0", 1).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "1.5", 1).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "2.0", 2).buildEntry())
+            .put(UnresolvedModuleBuilder.create("ccc", "3.0", 3).buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
@@ -807,10 +809,10 @@ public class SelectionTest {
                 .setKey(ModuleKey.ROOT)
                 .addDep("bbb1", createModuleKey("bbb1", "1.0"))
                 .addDep("bbb2", createModuleKey("bbb2", "1.1"))
-                .addOriginalDep("bbb2", createModuleKey("bbb2", "1.0"))
+                .addOriginalDep("bbb2", createUnresolvedModuleKey("bbb2", "1.0"))
                 .addDep("bbb3", createModuleKey("bbb3", "1.0"))
                 .addDep("bbb4", createModuleKey("bbb4", "1.1"))
-                .addOriginalDep("bbb4", createModuleKey("bbb4", "1.0"))
+                .addOriginalDep("bbb4", createUnresolvedModuleKey("bbb4", "1.0"))
                 .buildEntry(),
             ModuleBuilder.create("bbb1", "1.0")
                 .addDep("ccc", createModuleKey("ccc", "1.0"))
@@ -832,10 +834,10 @@ public class SelectionTest {
                 .setKey(ModuleKey.ROOT)
                 .addDep("bbb1", createModuleKey("bbb1", "1.0"))
                 .addDep("bbb2", createModuleKey("bbb2", "1.1"))
-                .addOriginalDep("bbb2", createModuleKey("bbb2", "1.0"))
+                .addOriginalDep("bbb2", createUnresolvedModuleKey("bbb2", "1.0"))
                 .addDep("bbb3", createModuleKey("bbb3", "1.0"))
                 .addDep("bbb4", createModuleKey("bbb4", "1.1"))
-                .addOriginalDep("bbb4", createModuleKey("bbb4", "1.0"))
+                .addOriginalDep("bbb4", createUnresolvedModuleKey("bbb4", "1.0"))
                 .buildEntry(),
             ModuleBuilder.create("bbb1", "1.0")
                 .addDep("ccc", createModuleKey("ccc", "1.0"))

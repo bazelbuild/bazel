@@ -38,13 +38,13 @@ public abstract class ModuleFileValue implements SkyValue {
    * module might not match the one in the requesting {@link SkyKey} in certain circumstances (for
    * example, for the root module, or when non-registry overrides are in play.
    */
-  public abstract Module getModule();
+  public abstract UnresolvedModule getModule();
 
   /** The {@link ModuleFileValue} for non-root modules. */
   @AutoValue
   public abstract static class NonRootModuleFileValue extends ModuleFileValue {
 
-    public static NonRootModuleFileValue create(Module module) {
+    public static NonRootModuleFileValue create(UnresolvedModule module) {
       return new AutoValue_ModuleFileValue_NonRootModuleFileValue(module);
     }
   }
@@ -69,7 +69,7 @@ public abstract class ModuleFileValue implements SkyValue {
         getNonRegistryOverrideCanonicalRepoNameLookup();
 
     public static RootModuleFileValue create(
-        Module module,
+        UnresolvedModule module,
         ImmutableMap<String, ModuleOverride> overrides,
         ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoNameLookup) {
       return new AutoValue_ModuleFileValue_RootModuleFileValue(

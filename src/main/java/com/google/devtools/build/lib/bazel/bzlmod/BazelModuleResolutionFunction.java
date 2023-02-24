@@ -78,7 +78,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     if (root == null) {
       return null;
     }
-    ImmutableMap<ModuleKey, Module> initialDepGraph = Discovery.run(env, root);
+    ImmutableMap<UnresolvedModuleKey, UnresolvedModule> initialDepGraph = Discovery.run(env, root);
     if (initialDepGraph == null) {
       return null;
     }
@@ -92,7 +92,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     ImmutableMap<ModuleKey, Module> resolvedDepGraph = selectionResultValue.getResolvedDepGraph();
 
     verifyRootModuleDirectDepsAreAccurate(
-        initialDepGraph.get(ModuleKey.ROOT),
+        initialDepGraph.get(UnresolvedModuleKey.ROOT),
         resolvedDepGraph.get(ModuleKey.ROOT),
         Objects.requireNonNull(CHECK_DIRECT_DEPENDENCIES.get(env)),
         env.getListener());
@@ -113,7 +113,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
   }
 
   private static void verifyRootModuleDirectDepsAreAccurate(
-      Module discoveredRootModule,
+      UnresolvedModule discoveredRootModule,
       Module resolvedRootModule,
       CheckDirectDepsMode mode,
       EventHandler eventHandler)
@@ -123,14 +123,17 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     }
 
     boolean failure = false;
-    for (Map.Entry<String, ModuleKey> dep : discoveredRootModule.getDeps().entrySet()) {
-      ModuleKey resolved = resolvedRootModule.getDeps().get(dep.getKey());
-      if (!dep.getValue().equals(resolved)) {
+    for (Map.Entry<String, UnresolvedModuleKey> dep :
+        discoveredRootModule.getUnresolvedDeps().entrySet()) {
+      String repoName = dep.getKey();
+      ModuleKey depKey = dep.getValue().getModuleKey();
+      ModuleKey resolved = resolvedRootModule.getDeps().get(repoName);
+      if (!depKey.equals(resolved)) {
         String message =
             String.format(
                 "For repository '%s', the root module requires module version %s, but got %s in the"
                     + " resolved dependency graph.",
-                dep.getKey(), dep.getValue(), resolved);
+                repoName, depKey, resolved);
         if (mode == CheckDirectDepsMode.WARNING) {
           eventHandler.handle(Event.warn(message));
         } else {

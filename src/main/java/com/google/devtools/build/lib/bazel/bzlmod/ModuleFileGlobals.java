@@ -61,8 +61,8 @@ public class ModuleFileGlobals {
 
   private boolean moduleCalled = false;
   private final boolean ignoreDevDeps;
-  private final Module.Builder module;
-  private final Map<String, ModuleKey> deps = new LinkedHashMap<>();
+  private final UnresolvedModule.Builder module;
+  private final Map<String, UnresolvedModuleKey> deps = new LinkedHashMap<>();
   private final List<ModuleExtensionProxy> extensionProxies = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new HashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
@@ -72,7 +72,7 @@ public class ModuleFileGlobals {
       ModuleKey key,
       @Nullable Registry registry,
       boolean ignoreDevDeps) {
-    module = Module.builder().setKey(key).setRegistry(registry);
+    module = UnresolvedModule.builder().setKey(key).setRegistry(registry);
     this.ignoreDevDeps = ignoreDevDeps;
     if (ModuleKey.ROOT.equals(key)) {
       overrides.putAll(builtinModules);
@@ -82,7 +82,7 @@ public class ModuleFileGlobals {
         // The built-in module does not depend on itself.
         continue;
       }
-      deps.put(builtinModule, ModuleKey.create(builtinModule, Version.EMPTY));
+      deps.put(builtinModule, UnresolvedModuleKey.create(builtinModule, Version.EMPTY));
       try {
         addRepoNameUsage(builtinModule, "as a built-in dependency", Location.BUILTIN);
       } catch (EvalException e) {
@@ -310,7 +310,7 @@ public class ModuleFileGlobals {
     RepositoryName.validateUserProvidedRepoName(repoName);
 
     if (!(ignoreDevDeps && devDependency)) {
-      deps.put(repoName, ModuleKey.create(name, parsedVersion));
+      deps.put(repoName, UnresolvedModuleKey.create(name, parsedVersion));
     }
 
     addRepoNameUsage(repoName, "by a bazel_dep", thread.getCallerLocation());
@@ -819,9 +819,9 @@ public class ModuleFileGlobals {
     addOverride(moduleName, LocalPathOverride.create(path));
   }
 
-  public Module buildModule() {
+  public UnresolvedModule buildModule() {
     return module
-        .setDeps(ImmutableMap.copyOf(deps))
+        .setUnresolvedDeps(ImmutableMap.copyOf(deps))
         .setOriginalDeps(ImmutableMap.copyOf(deps))
         .setExtensionUsages(
             extensionProxies.stream()

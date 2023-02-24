@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
@@ -43,19 +44,146 @@ public final class BzlmodTestUtil {
     }
   }
 
+  /** Simple wrapper around {@link UnresolvedModuleKey#create} that takes a string version. */
+  public static UnresolvedModuleKey createUnresolvedModuleKey(String name, String version) {
+    try {
+      return UnresolvedModuleKey.create(name, Version.parse(version));
+    } catch (Version.ParseException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
+  /**
+   * Builder class to create a {@code Entry<UnresolvedModuleKey, Module>} entry faster inside
+   * UnitTests
+   */
+  static final class UnresolvedModuleBuilder {
+    UnresolvedModule.Builder builder;
+    UnresolvedModuleKey key;
+    ImmutableMap.Builder<String, UnresolvedModuleKey> unresolvedDeps = new ImmutableMap.Builder<>();
+    ImmutableMap.Builder<String, UnresolvedModuleKey> originalDeps = new ImmutableMap.Builder<>();
+
+    private UnresolvedModuleBuilder() {}
+
+    public static UnresolvedModuleBuilder create(
+        String name, Version version, int compatibilityLevel) {
+      UnresolvedModuleBuilder moduleBuilder = new UnresolvedModuleBuilder();
+      ModuleKey key = ModuleKey.create(name, version);
+      UnresolvedModuleKey depKey = UnresolvedModuleKey.create(name, version);
+      moduleBuilder.key = depKey;
+      moduleBuilder.builder =
+          UnresolvedModule.builder()
+              .setName(name)
+              .setVersion(version)
+              .setKey(key)
+              .setCompatibilityLevel(compatibilityLevel);
+      return moduleBuilder;
+    }
+
+    public static UnresolvedModuleBuilder create(
+        String name, String version, int compatibilityLevel) throws ParseException {
+      return create(name, Version.parse(version), compatibilityLevel);
+    }
+
+    public static UnresolvedModuleBuilder create(String name, String version)
+        throws ParseException {
+      return create(name, Version.parse(version), 0);
+    }
+
+    public static UnresolvedModuleBuilder create(String name, Version version)
+        throws ParseException {
+      return create(name, version, 0);
+    }
+
+    @CanIgnoreReturnValue
+    public UnresolvedModuleBuilder addDep(String depRepoName, UnresolvedModuleKey key) {
+      unresolvedDeps.put(depRepoName, key);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public UnresolvedModuleBuilder addOriginalDep(String depRepoName, UnresolvedModuleKey key) {
+      originalDeps.put(depRepoName, key);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public UnresolvedModuleBuilder setKey(UnresolvedModuleKey value) {
+      this.key = value;
+      this.builder.setKey(value.getModuleKey());
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public UnresolvedModuleBuilder setRepoName(String value) {
+      this.builder.setRepoName(value);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public UnresolvedModuleBuilder setRegistry(FakeRegistry value) {
+      this.builder.setRegistry(value);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public UnresolvedModuleBuilder addExecutionPlatformsToRegister(ImmutableList<String> value) {
+      this.builder.addExecutionPlatformsToRegister(value);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public UnresolvedModuleBuilder addToolchainsToRegister(ImmutableList<String> value) {
+      this.builder.addToolchainsToRegister(value);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public UnresolvedModuleBuilder addExtensionUsage(ModuleExtensionUsage value) {
+      this.builder.addExtensionUsage(value);
+      return this;
+    }
+
+    public Map.Entry<UnresolvedModuleKey, UnresolvedModule> buildEntry() {
+      UnresolvedModule module = this.build();
+      return new SimpleEntry<>(this.key, module);
+    }
+
+    public UnresolvedModule build() {
+      ImmutableMap<String, UnresolvedModuleKey> builtUnresolvedDeps =
+          this.unresolvedDeps.buildOrThrow();
+
+      /* Copy unresolved dep entries that have not been changed to original deps */
+      ImmutableMap<String, UnresolvedModuleKey> initOriginalDeps = this.originalDeps.buildOrThrow();
+      for (Entry<String, UnresolvedModuleKey> e : builtUnresolvedDeps.entrySet()) {
+        if (!initOriginalDeps.containsKey(e.getKey())) {
+          originalDeps.put(e);
+        }
+      }
+      ImmutableMap<String, UnresolvedModuleKey> builtOriginalDeps =
+          this.originalDeps.buildOrThrow();
+
+      return this.builder
+          .setUnresolvedDeps(builtUnresolvedDeps)
+          .setOriginalDeps(builtOriginalDeps)
+          .build();
+    }
+  }
+
   /** Builder class to create a {@code Entry<ModuleKey, Module>} entry faster inside UnitTests */
   static final class ModuleBuilder {
     Module.Builder builder;
-    ModuleKey key;
+    UnresolvedModuleKey key;
     ImmutableMap.Builder<String, ModuleKey> deps = new ImmutableMap.Builder<>();
-    ImmutableMap.Builder<String, ModuleKey> originalDeps = new ImmutableMap.Builder<>();
+    ImmutableMap.Builder<String, UnresolvedModuleKey> originalDeps = new ImmutableMap.Builder<>();
 
     private ModuleBuilder() {}
 
     public static ModuleBuilder create(String name, Version version, int compatibilityLevel) {
       ModuleBuilder moduleBuilder = new ModuleBuilder();
       ModuleKey key = ModuleKey.create(name, version);
-      moduleBuilder.key = key;
+      UnresolvedModuleKey depKey = UnresolvedModuleKey.create(name, version);
+      moduleBuilder.key = depKey;
       moduleBuilder.builder =
           Module.builder()
               .setName(name)
@@ -85,14 +213,14 @@ public final class BzlmodTestUtil {
     }
 
     @CanIgnoreReturnValue
-    public ModuleBuilder addOriginalDep(String depRepoName, ModuleKey key) {
+    public ModuleBuilder addOriginalDep(String depRepoName, UnresolvedModuleKey key) {
       originalDeps.put(depRepoName, key);
       return this;
     }
 
     @CanIgnoreReturnValue
     public ModuleBuilder setKey(ModuleKey value) {
-      this.key = value;
+      this.key = UnresolvedModuleKey.create(value.getName(), value.getVersion());
       this.builder.setKey(value);
       return this;
     }
@@ -129,20 +257,24 @@ public final class BzlmodTestUtil {
 
     public Map.Entry<ModuleKey, Module> buildEntry() {
       Module module = this.build();
-      return new SimpleEntry<>(this.key, module);
+      return new SimpleEntry<>(module.getKey(), module);
     }
 
     public Module build() {
       ImmutableMap<String, ModuleKey> builtDeps = this.deps.buildOrThrow();
 
       /* Copy dep entries that have not been changed to original deps */
-      ImmutableMap<String, ModuleKey> initOriginalDeps = this.originalDeps.buildOrThrow();
+      Map<String, ModuleKey> initOriginalDeps =
+          Maps.transformValues(this.originalDeps.buildOrThrow(), depKey -> depKey.getModuleKey());
       for (Entry<String, ModuleKey> e : builtDeps.entrySet()) {
-        if (!initOriginalDeps.containsKey(e.getKey())) {
-          originalDeps.put(e);
+        String repoName = e.getKey();
+        if (!initOriginalDeps.containsKey(repoName)) {
+          ModuleKey key = e.getValue();
+          originalDeps.put(repoName, UnresolvedModuleKey.create(key.getName(), key.getVersion()));
         }
       }
-      ImmutableMap<String, ModuleKey> builtOriginalDeps = this.originalDeps.buildOrThrow();
+      ImmutableMap<String, UnresolvedModuleKey> builtOriginalDeps =
+          this.originalDeps.buildOrThrow();
 
       return this.builder.setDeps(builtDeps).setOriginalDeps(builtOriginalDeps).build();
     }

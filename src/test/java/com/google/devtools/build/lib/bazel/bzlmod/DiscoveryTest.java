@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createUnresolvedModuleKey;
 import static org.junit.Assert.fail;
 
 import com.google.auto.value.AutoValue;
@@ -29,7 +30,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.ModuleBuilder;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.UnresolvedModuleBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -91,11 +92,11 @@ public class DiscoveryTest extends FoundationTestCase {
     static final SkyFunctionName FUNCTION_NAME = SkyFunctionName.createHermetic("test_discovery");
     static final SkyKey KEY = () -> FUNCTION_NAME;
 
-    static DiscoveryValue create(ImmutableMap<ModuleKey, Module> depGraph) {
+    static DiscoveryValue create(ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph) {
       return new AutoValue_DiscoveryTest_DiscoveryValue(depGraph);
     }
 
-    abstract ImmutableMap<ModuleKey, Module> getDepGraph();
+    abstract ImmutableMap<UnresolvedModuleKey, UnresolvedModule> getDepGraph();
   }
 
   static class DiscoveryFunction implements SkyFunction {
@@ -107,7 +108,7 @@ public class DiscoveryTest extends FoundationTestCase {
       if (root == null) {
         return null;
       }
-      ImmutableMap<ModuleKey, Module> depGraph = Discovery.run(env, root);
+      ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph = Discovery.run(env, root);
       return depGraph == null ? null : DiscoveryValue.create(depGraph);
     }
   }
@@ -226,20 +227,20 @@ public class DiscoveryTest extends FoundationTestCase {
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
     assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("aaa", "0.1")
-                .setKey(ModuleKey.ROOT)
-                .addDep("bbb", createModuleKey("bbb", "1.0"))
-                .addDep("ccc", createModuleKey("ccc", "2.0"))
+            UnresolvedModuleBuilder.create("aaa", "0.1")
+                .setKey(UnresolvedModuleKey.ROOT)
+                .addDep("bbb", createUnresolvedModuleKey("bbb", "1.0"))
+                .addDep("ccc", createUnresolvedModuleKey("ccc", "2.0"))
                 .buildEntry(),
-            ModuleBuilder.create("bbb", "1.0")
-                .addDep("ddd", createModuleKey("ddd", "3.0"))
+            UnresolvedModuleBuilder.create("bbb", "1.0")
+                .addDep("ddd", createUnresolvedModuleKey("ddd", "3.0"))
                 .setRegistry(registry)
                 .buildEntry(),
-            ModuleBuilder.create("ccc", "2.0")
-                .addDep("ddd", createModuleKey("ddd", "3.0"))
+            UnresolvedModuleBuilder.create("ccc", "2.0")
+                .addDep("ddd", createUnresolvedModuleKey("ddd", "3.0"))
                 .setRegistry(registry)
                 .buildEntry(),
-            ModuleBuilder.create("ddd", "3.0").setRegistry(registry).buildEntry());
+            UnresolvedModuleBuilder.create("ddd", "3.0").setRegistry(registry).buildEntry());
   }
 
   @Test
@@ -268,13 +269,13 @@ public class DiscoveryTest extends FoundationTestCase {
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
     assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("aaa", "0.1")
-                .setKey(ModuleKey.ROOT)
-                .addDep("bbb", createModuleKey("bbb", "1.0"))
-                .addDep("ccc", createModuleKey("ccc", "1.0"))
+            UnresolvedModuleBuilder.create("aaa", "0.1")
+                .setKey(UnresolvedModuleKey.ROOT)
+                .addDep("bbb", createUnresolvedModuleKey("bbb", "1.0"))
+                .addDep("ccc", createUnresolvedModuleKey("ccc", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("bbb", "1.0").setRegistry(registry).buildEntry(),
-            ModuleBuilder.create("ccc", "1.0").setRegistry(registry).buildEntry());
+            UnresolvedModuleBuilder.create("bbb", "1.0").setRegistry(registry).buildEntry(),
+            UnresolvedModuleBuilder.create("ccc", "1.0").setRegistry(registry).buildEntry());
   }
 
   @Test
@@ -304,11 +305,11 @@ public class DiscoveryTest extends FoundationTestCase {
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
     assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("aaa", "0.1")
-                .setKey(ModuleKey.ROOT)
-                .addDep("bbb", createModuleKey("bbb", "1.0"))
+            UnresolvedModuleBuilder.create("aaa", "0.1")
+                .setKey(UnresolvedModuleKey.ROOT)
+                .addDep("bbb", createUnresolvedModuleKey("bbb", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("bbb", "1.0").setRegistry(registry).buildEntry());
+            UnresolvedModuleBuilder.create("bbb", "1.0").setRegistry(registry).buildEntry());
   }
 
   @Test
@@ -336,16 +337,16 @@ public class DiscoveryTest extends FoundationTestCase {
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
     assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("aaa", "0.1")
-                .setKey(ModuleKey.ROOT)
-                .addDep("bbb", createModuleKey("bbb", "1.0"))
+            UnresolvedModuleBuilder.create("aaa", "0.1")
+                .setKey(UnresolvedModuleKey.ROOT)
+                .addDep("bbb", createUnresolvedModuleKey("bbb", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("bbb", "1.0")
-                .addDep("ccc", createModuleKey("ccc", "2.0"))
+            UnresolvedModuleBuilder.create("bbb", "1.0")
+                .addDep("ccc", createUnresolvedModuleKey("ccc", "2.0"))
                 .setRegistry(registry)
                 .buildEntry(),
-            ModuleBuilder.create("ccc", "2.0")
-                .addDep("bbb", createModuleKey("bbb", "1.0"))
+            UnresolvedModuleBuilder.create("ccc", "2.0")
+                .addDep("bbb", createUnresolvedModuleKey("bbb", "1.0"))
                 .setRegistry(registry)
                 .buildEntry());
   }
@@ -373,13 +374,13 @@ public class DiscoveryTest extends FoundationTestCase {
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
     assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("aaa", "0.1")
-                .setKey(ModuleKey.ROOT)
-                .addDep("bbb", createModuleKey("bbb", "1.0"))
+            UnresolvedModuleBuilder.create("aaa", "0.1")
+                .setKey(UnresolvedModuleKey.ROOT)
+                .addDep("bbb", createUnresolvedModuleKey("bbb", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("bbb", "1.0")
-                .addDep("aaa", ModuleKey.ROOT)
-                .addOriginalDep("aaa", createModuleKey("aaa", "2.0"))
+            UnresolvedModuleBuilder.create("bbb", "1.0")
+                .addDep("aaa", UnresolvedModuleKey.ROOT)
+                .addOriginalDep("aaa", createUnresolvedModuleKey("aaa", "2.0"))
                 .setRegistry(registry)
                 .buildEntry());
   }
@@ -409,16 +410,16 @@ public class DiscoveryTest extends FoundationTestCase {
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
     assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("aaa", "0.1")
-                .setKey(ModuleKey.ROOT)
-                .addDep("bbb", createModuleKey("bbb", "0.1"))
+            UnresolvedModuleBuilder.create("aaa", "0.1")
+                .setKey(UnresolvedModuleKey.ROOT)
+                .addDep("bbb", createUnresolvedModuleKey("bbb", "0.1"))
                 .buildEntry(),
-            ModuleBuilder.create("bbb", "0.1")
-                .addDep("ccc", createModuleKey("ccc", "2.0"))
-                .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
+            UnresolvedModuleBuilder.create("bbb", "0.1")
+                .addDep("ccc", createUnresolvedModuleKey("ccc", "2.0"))
+                .addOriginalDep("ccc", createUnresolvedModuleKey("ccc", "1.0"))
                 .setRegistry(registry)
                 .buildEntry(),
-            ModuleBuilder.create("ccc", "2.0").setRegistry(registry).buildEntry());
+            UnresolvedModuleBuilder.create("ccc", "2.0").setRegistry(registry).buildEntry());
   }
 
   @Test
@@ -451,16 +452,16 @@ public class DiscoveryTest extends FoundationTestCase {
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
     assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("aaa", "0.1")
-                .setKey(ModuleKey.ROOT)
-                .addDep("bbb", createModuleKey("bbb", "0.1"))
+            UnresolvedModuleBuilder.create("aaa", "0.1")
+                .setKey(UnresolvedModuleKey.ROOT)
+                .addDep("bbb", createUnresolvedModuleKey("bbb", "0.1"))
                 .buildEntry(),
-            ModuleBuilder.create("bbb", "0.1")
-                .addDep("ccc", createModuleKey("ccc", "1.0"))
+            UnresolvedModuleBuilder.create("bbb", "0.1")
+                .addDep("ccc", createUnresolvedModuleKey("ccc", "1.0"))
                 .setRegistry(registry1)
                 .buildEntry(),
-            ModuleBuilder.create("ccc", "1.0")
-                .addDep("bbb", createModuleKey("bbb", "0.1"))
+            UnresolvedModuleBuilder.create("ccc", "1.0")
+                .addDep("bbb", createUnresolvedModuleKey("bbb", "0.1"))
                 .setRegistry(registry2)
                 .buildEntry());
   }
@@ -493,16 +494,18 @@ public class DiscoveryTest extends FoundationTestCase {
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
     assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("aaa", "0.1")
-                .setKey(ModuleKey.ROOT)
-                .addDep("bbb", createModuleKey("bbb", "0.1"))
+            UnresolvedModuleBuilder.create("aaa", "0.1")
+                .setKey(UnresolvedModuleKey.ROOT)
+                .addDep("bbb", createUnresolvedModuleKey("bbb", "0.1"))
                 .buildEntry(),
-            ModuleBuilder.create("bbb", "0.1")
-                .addDep("ccc", createModuleKey("ccc", ""))
-                .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
+            UnresolvedModuleBuilder.create("bbb", "0.1")
+                .addDep("ccc", createUnresolvedModuleKey("ccc", ""))
+                .addOriginalDep("ccc", createUnresolvedModuleKey("ccc", "1.0"))
                 .setRegistry(registry)
                 .buildEntry(),
-            ModuleBuilder.create("ccc", "2.0").setKey(createModuleKey("ccc", "")).buildEntry());
+            UnresolvedModuleBuilder.create("ccc", "2.0")
+                .setKey(createUnresolvedModuleKey("ccc", ""))
+                .buildEntry());
   }
 
   @Test
@@ -541,28 +544,32 @@ public class DiscoveryTest extends FoundationTestCase {
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
     assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("", "")
-                .addDep("bazel_tools", createModuleKey("bazel_tools", ""))
-                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
-                .addDep("foo", createModuleKey("foo", "2.0"))
+            UnresolvedModuleBuilder.create("", "")
+                .addDep("bazel_tools", createUnresolvedModuleKey("bazel_tools", ""))
+                .addDep(
+                    "local_config_platform", createUnresolvedModuleKey("local_config_platform", ""))
+                .addDep("foo", createUnresolvedModuleKey("foo", "2.0"))
                 .buildEntry(),
-            ModuleBuilder.create("bazel_tools", "1.0")
-                .setKey(createModuleKey("bazel_tools", ""))
-                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
-                .addDep("foo", createModuleKey("foo", "1.0"))
+            UnresolvedModuleBuilder.create("bazel_tools", "1.0")
+                .setKey(createUnresolvedModuleKey("bazel_tools", ""))
+                .addDep(
+                    "local_config_platform", createUnresolvedModuleKey("local_config_platform", ""))
+                .addDep("foo", createUnresolvedModuleKey("foo", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("local_config_platform", "")
-                .setKey(createModuleKey("local_config_platform", ""))
-                .addDep("bazel_tools", createModuleKey("bazel_tools", ""))
+            UnresolvedModuleBuilder.create("local_config_platform", "")
+                .setKey(createUnresolvedModuleKey("local_config_platform", ""))
+                .addDep("bazel_tools", createUnresolvedModuleKey("bazel_tools", ""))
                 .buildEntry(),
-            ModuleBuilder.create("foo", "1.0")
-                .addDep("bazel_tools", createModuleKey("bazel_tools", ""))
-                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
+            UnresolvedModuleBuilder.create("foo", "1.0")
+                .addDep("bazel_tools", createUnresolvedModuleKey("bazel_tools", ""))
+                .addDep(
+                    "local_config_platform", createUnresolvedModuleKey("local_config_platform", ""))
                 .setRegistry(registry)
                 .buildEntry(),
-            ModuleBuilder.create("foo", "2.0")
-                .addDep("bazel_tools", createModuleKey("bazel_tools", ""))
-                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
+            UnresolvedModuleBuilder.create("foo", "2.0")
+                .addDep("bazel_tools", createUnresolvedModuleKey("bazel_tools", ""))
+                .addDep(
+                    "local_config_platform", createUnresolvedModuleKey("local_config_platform", ""))
                 .setRegistry(registry)
                 .buildEntry());
   }

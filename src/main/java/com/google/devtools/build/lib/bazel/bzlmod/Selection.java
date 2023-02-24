@@ -102,7 +102,8 @@ final class Selection {
    */
   private static ImmutableMap<ModuleNameAndCompatibilityLevel, ImmutableSortedSet<Version>>
       computeAllowedVersionSets(
-          ImmutableMap<String, ModuleOverride> overrides, ImmutableMap<ModuleKey, Module> depGraph)
+          ImmutableMap<String, ModuleOverride> overrides,
+          ImmutableMap<ModuleKey, UnresolvedModule> unresolvedModules)
           throws ExternalDepsException {
     Map<ModuleNameAndCompatibilityLevel, ImmutableSortedSet.Builder<Version>> allowedVersionSets =
         new HashMap<>();
@@ -114,7 +115,8 @@ final class Selection {
       }
       ImmutableList<Version> allowedVersions = ((MultipleVersionOverride) override).getVersions();
       for (Version allowedVersion : allowedVersions) {
-        Module allowedVersionModule = depGraph.get(ModuleKey.create(moduleName, allowedVersion));
+        UnresolvedModule allowedVersionModule =
+            unresolvedModules.get(ModuleKey.create(moduleName, allowedVersion));
         if (allowedVersionModule == null) {
           throw ExternalDepsException.withMessage(
               Code.VERSION_RESOLUTION_ERROR,
@@ -143,7 +145,7 @@ final class Selection {
    * used to compute its targetAllowedVersion.
    */
   private static SelectionGroup computeSelectionGroup(
-      Module module,
+      UnresolvedModule module,
       ImmutableMap<ModuleNameAndCompatibilityLevel, ImmutableSortedSet<Version>>
           allowedVersionSets) {
     ImmutableSortedSet<Version> allowedVersionSet =
@@ -169,12 +171,20 @@ final class Selection {
    * Runs module selection (aka version resolution). Returns a {@link BazelModuleResolutionValue}.
    */
   public static BazelModuleResolutionValue run(
-      ImmutableMap<ModuleKey, Module> depGraph, ImmutableMap<String, ModuleOverride> overrides)
+      ImmutableMap<UnresolvedModuleKey, UnresolvedModule> unresolvedDepGraph,
+      ImmutableMap<String, ModuleOverride> overrides)
       throws ExternalDepsException {
+    ImmutableMap.Builder<ModuleKey, UnresolvedModule> unresolvedModulesBuilder =
+        ImmutableMap.builder();
+    for (UnresolvedModule module : unresolvedDepGraph.values()) {
+      unresolvedModulesBuilder.put(module.getKey(), module);
+    }
+    ImmutableMap<ModuleKey, UnresolvedModule> unresolvedModules = unresolvedModulesBuilder.build();
+
     // For any multiple-version overrides, build a mapping from (moduleName, compatibilityLevel) to
     // the set of allowed versions.
     ImmutableMap<ModuleNameAndCompatibilityLevel, ImmutableSortedSet<Version>> allowedVersionSets =
-        computeAllowedVersionSets(overrides, depGraph);
+        computeAllowedVersionSets(overrides, unresolvedModules);
 
     // For each module in the dep graph, pre-compute its selection group. For most modules this is
     // simply its (moduleName, compatibilityLevel) tuple; for modules with multiple-version
@@ -183,7 +193,7 @@ final class Selection {
     ImmutableMap<ModuleKey, SelectionGroup> selectionGroups =
         ImmutableMap.copyOf(
             Maps.transformValues(
-                depGraph, module -> computeSelectionGroup(module, allowedVersionSets)));
+                unresolvedModules, module -> computeSelectionGroup(module, allowedVersionSets)));
 
     // Figure out the version to select for every selection group.
     Map<SelectionGroup, Version> selectedVersions = new HashMap<>();
@@ -193,131 +203,52 @@ final class Selection {
       selectedVersions.merge(selectionGroup, key.getVersion(), Comparators::max);
     }
 
-    // Build a new dep graph where deps with unselected versions are removed.
-    ImmutableMap.Builder<ModuleKey, Module> newDepGraphBuilder = new ImmutableMap.Builder<>();
-
-    // Also keep a version of the full dep graph with updated deps.
-    ImmutableMap.Builder<ModuleKey, Module> unprunedDepGraphBuilder = new ImmutableMap.Builder<>();
-    for (Module module : depGraph.values()) {
-      // Rewrite deps to point to the selected version.
-      ModuleKey key = module.getKey();
-      Module updatedModule =
-          module.withDepKeysTransformed(
-              depKey ->
-                  ModuleKey.create(
-                      depKey.getName(), selectedVersions.get(selectionGroups.get(depKey))));
-
-      // Add all updated modules to the un-pruned dep graph.
-      unprunedDepGraphBuilder.put(key, updatedModule);
-
-      // Remove any dep whose version isn't selected from the resolved graph.
-      Version selectedVersion = selectedVersions.get(selectionGroups.get(module.getKey()));
-      if (module.getKey().getVersion().equals(selectedVersion)) {
-        newDepGraphBuilder.put(key, updatedModule);
-      }
-    }
-    ImmutableMap<ModuleKey, Module> newDepGraph = newDepGraphBuilder.buildOrThrow();
-    ImmutableMap<ModuleKey, Module> unprunedDepGraph = unprunedDepGraphBuilder.buildOrThrow();
+    // Update deps to use selected versions.
+    ImmutableMap<UnresolvedModuleKey, UnresolvedModule> versionsSelectedDepGraph =
+        ImmutableMap.copyOf(
+            Maps.transformValues(
+                unresolvedDepGraph,
+                module ->
+                    module.withUnresolvedDepKeysTransformed(
+                        depKey ->
+                            UnresolvedModuleKey.create(
+                                depKey.getName(),
+                                selectedVersions.get(
+                                    selectionGroups.get(depKey.getModuleKey()))))));
 
     // Further, removes unreferenced modules from the graph. We can find out which modules are
     // referenced by collecting deps transitively from the root.
     // We can also take this opportunity to check that none of the remaining modules conflict with
     // each other (e.g. same module name but different compatibility levels, or not satisfying
     // multiple_version_override).
-    ImmutableMap<ModuleKey, Module> prunedDepGraph =
-        new DepGraphWalker(newDepGraph, overrides, selectionGroups).walk();
+    ImmutableMap<UnresolvedModuleKey, ModuleKey> resolvedModuleKeys =
+        new DepGraphResolver(versionsSelectedDepGraph, overrides, selectionGroups).walk();
 
-    // Return the result containing both the pruned and un-pruned dep graphs
-    return BazelModuleResolutionValue.create(prunedDepGraph, unprunedDepGraph);
-  }
-
-  /**
-   * Walks the dependency graph from the root node, collecting any reachable nodes through deps into
-   * a new dep graph and checking that nothing conflicts.
-   */
-  static class DepGraphWalker {
-    private static final Joiner JOINER = Joiner.on(", ");
-    private final ImmutableMap<ModuleKey, Module> oldDepGraph;
-    private final ImmutableMap<String, ModuleOverride> overrides;
-    private final ImmutableMap<ModuleKey, SelectionGroup> selectionGroups;
-    private final HashMap<String, ExistingModule> moduleByName;
-
-    DepGraphWalker(
-        ImmutableMap<ModuleKey, Module> oldDepGraph,
-        ImmutableMap<String, ModuleOverride> overrides,
-        ImmutableMap<ModuleKey, SelectionGroup> selectionGroups) {
-      this.oldDepGraph = oldDepGraph;
-      this.overrides = overrides;
-      this.selectionGroups = selectionGroups;
-      this.moduleByName = new HashMap<>();
+    // Now that we have module keys resolved, we can generate `Module`s with resolved deps.
+    HashMap<ModuleKey, Module> resolvedModules = new HashMap<>();
+    for (UnresolvedModule module : versionsSelectedDepGraph.values()) {
+      resolvedModules.put(
+          module.getKey(),
+          module.withResolvedDepKeys(
+              depKey -> {
+                ModuleKey resolvedModuleKey = resolvedModuleKeys.get(depKey);
+                if (resolvedModuleKey != null) {
+                  return resolvedModuleKey;
+                } else {
+                  return versionsSelectedDepGraph.get(depKey).getKey();
+                }
+              }));
     }
 
-    /**
-     * Walks the old dep graph and builds a new dep graph containing only deps reachable from the
-     * root module. The returned map has a guaranteed breadth-first iteration order.
-     */
-    ImmutableMap<ModuleKey, Module> walk() throws ExternalDepsException {
-      ImmutableMap.Builder<ModuleKey, Module> newDepGraph = ImmutableMap.builder();
-      Set<ModuleKey> known = new HashSet<>();
-      Queue<ModuleKeyAndDependent> toVisit = new ArrayDeque<>();
-      toVisit.add(ModuleKeyAndDependent.create(ModuleKey.ROOT, null));
-      known.add(ModuleKey.ROOT);
-      while (!toVisit.isEmpty()) {
-        ModuleKeyAndDependent moduleKeyAndDependent = toVisit.remove();
-        ModuleKey key = moduleKeyAndDependent.getModuleKey();
-        Module module = oldDepGraph.get(key);
-        visit(key, module, moduleKeyAndDependent.getDependent());
+    // Build a new dep graph where deps with unselected versions are removed.
+    ImmutableMap.Builder<ModuleKey, Module> prunedDepGraph = ImmutableMap.builder();
 
-        for (ModuleKey depKey : module.getDeps().values()) {
-          if (known.add(depKey)) {
-            toVisit.add(ModuleKeyAndDependent.create(depKey, key));
-          }
-        }
-        newDepGraph.put(key, module);
-      }
-      return newDepGraph.buildOrThrow();
-    }
+    // Also keep a version of the full dep graph with updated deps.
+    ImmutableMap.Builder<ModuleKey, Module> unprunedDepGraph = ImmutableMap.builder();
 
-    void visit(ModuleKey key, Module module, @Nullable ModuleKey from)
-        throws ExternalDepsException {
-      ModuleOverride override = overrides.get(key.getName());
-      if (override instanceof MultipleVersionOverride) {
-        if (selectionGroups.get(key).getTargetAllowedVersion().isEmpty()) {
-          // This module has no target allowed version, which means that there's no allowed version
-          // higher than its version at the same compatibility level.
-          Preconditions.checkState(
-              from != null, "the root module cannot have a multiple version override");
-          throw ExternalDepsException.withMessage(
-              Code.VERSION_RESOLUTION_ERROR,
-              "%s depends on %s which is not allowed by the multiple_version_override on %s,"
-                  + " which allows only [%s]",
-              from,
-              key,
-              key.getName(),
-              JOINER.join(((MultipleVersionOverride) override).getVersions()));
-        }
-      } else {
-        ExistingModule existingModuleWithSameName =
-            moduleByName.put(
-                module.getName(), ExistingModule.create(key, module.getCompatibilityLevel(), from));
-        if (existingModuleWithSameName != null) {
-          // This has to mean that a module with the same name but a different compatibility level
-          // was also selected.
-          Preconditions.checkState(
-              from != null && existingModuleWithSameName.getDependent() != null,
-              "the root module cannot possibly exist more than once in the dep graph");
-          throw ExternalDepsException.withMessage(
-              Code.VERSION_RESOLUTION_ERROR,
-              "%s depends on %s with compatibility level %d, but %s depends on %s with"
-                  + " compatibility level %d which is different",
-              from,
-              key,
-              module.getCompatibilityLevel(),
-              existingModuleWithSameName.getDependent(),
-              existingModuleWithSameName.getModuleKey(),
-              existingModuleWithSameName.getCompatibilityLevel());
-        }
-      }
+    // Build up in `resolvedModuleKeys` order, to ensure breath-first ordering.
+    for (ModuleKey key : resolvedModuleKeys.values()) {
+      Module module = resolvedModules.remove(key);
 
       // Make sure that we don't have `module` depending on the same dependency version twice.
       HashMap<ModuleKey, String> depKeyToRepoName = new HashMap<>();
@@ -338,17 +269,126 @@ final class Selection {
               key.getName());
         }
       }
+
+      prunedDepGraph.put(key, module);
+      unprunedDepGraph.put(key, module);
+    }
+
+    // Then add the rest of the modules to `unprunedDepGraph`.
+    for (Module module : resolvedModules.values()) {
+      unprunedDepGraph.put(module.getKey(), module);
+    }
+
+    // Return the result containing both the pruned and un-pruned dep graphs
+    return BazelModuleResolutionValue.create(
+        prunedDepGraph.buildOrThrow(), unprunedDepGraph.buildOrThrow());
+  }
+
+  /**
+   * Walks the dependency graph from the root node, collecting any reachable nodes through deps into
+   * an `UnresolvedModuleKey` -> `ModuleKey` map and checking that nothing conflicts.
+   */
+  static class DepGraphResolver {
+    private static final Joiner JOINER = Joiner.on(", ");
+    private final ImmutableMap<UnresolvedModuleKey, UnresolvedModule> unresolvedDepGraph;
+    private final ImmutableMap<String, ModuleOverride> overrides;
+    private final ImmutableMap<ModuleKey, SelectionGroup> selectionGroups;
+    private final HashMap<String, ExistingModule> moduleByName;
+
+    DepGraphResolver(
+        ImmutableMap<UnresolvedModuleKey, UnresolvedModule> unresolvedDepGraph,
+        ImmutableMap<String, ModuleOverride> overrides,
+        ImmutableMap<ModuleKey, SelectionGroup> selectionGroups) {
+      this.unresolvedDepGraph = unresolvedDepGraph;
+      this.overrides = overrides;
+      this.selectionGroups = selectionGroups;
+      this.moduleByName = new HashMap<>();
+    }
+
+    /**
+     * Walks the dependency graph and builds an `UnresolvedModuleKey` -> `ModuleKey` map containing
+     * only deps reachable from the root module. The returned map has a guaranteed breadth-first
+     * iteration order.
+     */
+    ImmutableMap<UnresolvedModuleKey, ModuleKey> walk() throws ExternalDepsException {
+      ImmutableMap.Builder<UnresolvedModuleKey, ModuleKey> resolvedModuleKeys =
+          ImmutableMap.builder();
+      Set<UnresolvedModuleKey> known = new HashSet<>();
+      Queue<UnresolvedModuleKeyAndDependent> toVisit = new ArrayDeque<>();
+      toVisit.add(UnresolvedModuleKeyAndDependent.create(UnresolvedModuleKey.ROOT, null));
+      known.add(UnresolvedModuleKey.ROOT);
+      while (!toVisit.isEmpty()) {
+        UnresolvedModuleKeyAndDependent moduleKeyAndDependent = toVisit.remove();
+        UnresolvedModuleKey unresolvedKey = moduleKeyAndDependent.getUnresolvedModuleKey();
+        ModuleKey dependent = moduleKeyAndDependent.getDependent();
+        UnresolvedModule module = unresolvedDepGraph.get(unresolvedKey);
+        ModuleKey moduleKey = unresolvedModule.getKey();
+        visit(moduleKey, unresolvedModule, dependent);
+
+        for (UnresolvedModuleKey depKey : module.getUnresolvedDeps().values()) {
+          if (known.add(depKey)) {
+            toVisit.add(UnresolvedModuleKeyAndDependent.create(depKey, moduleKey));
+          }
+        }
+        resolvedModuleKeys.put(unresolvedKey, moduleKey);
+      }
+      return resolvedModuleKeys.buildOrThrow();
+    }
+
+    void visit(ModuleKey key, UnresolvedModule module, @Nullable ModuleKey from)
+        throws ExternalDepsException {
+      ModuleOverride override = overrides.get(key.getName());
+      if (override instanceof MultipleVersionOverride) {
+        if (selectionGroups.get(key).getTargetAllowedVersion().isEmpty()) {
+          // This module has no target allowed version, which means that there's no allowed version
+          // higher than its version at the same compatibility level.
+          Preconditions.checkState(
+              from != null, "the root module cannot have a multiple version override");
+          throw ExternalDepsException.withMessage(
+              Code.VERSION_RESOLUTION_ERROR,
+              "%s depends on %s which is not allowed by the multiple_version_override on %s,"
+                  + " which allows only [%s]",
+              from,
+              key,
+              key.getName(),
+              JOINER.join(((MultipleVersionOverride) override).getVersions()));
+        }
+      } else {
+        ExistingModule existingModule =
+            ExistingModule.create(key, module.getCompatibilityLevel(), from);
+        ExistingModule existingModuleWithSameName =
+            moduleByName.put(module.getName(), existingModule);
+        if (existingModuleWithSameName != null) {
+          // This has to mean that a module with the same name but a different compatibility level
+          // was also selected.
+          Preconditions.checkState(
+              from != null && existingModuleWithSameName.getDependent() != null,
+              "the root module cannot possibly exist more than once in the dep graph");
+          throw ExternalDepsException.withMessage(
+              Code.VERSION_RESOLUTION_ERROR,
+              "%s depends on %s with compatibility level %d, but %s depends on %s with"
+                  + " compatibility level %d which is different",
+              existingModule.getDependent(),
+              existingModule.getModuleKey(),
+              existingModule.getCompatibilityLevel(),
+              existingModuleWithSameName.getDependent(),
+              existingModuleWithSameName.getModuleKey(),
+              existingModuleWithSameName.getCompatibilityLevel());
+        }
+      }
     }
 
     @AutoValue
-    abstract static class ModuleKeyAndDependent {
-      abstract ModuleKey getModuleKey();
+    abstract static class UnresolvedModuleKeyAndDependent {
+      abstract UnresolvedModuleKey getUnresolvedModuleKey();
 
       @Nullable
       abstract ModuleKey getDependent();
 
-      static ModuleKeyAndDependent create(ModuleKey moduleKey, @Nullable ModuleKey dependent) {
-        return new AutoValue_Selection_DepGraphWalker_ModuleKeyAndDependent(moduleKey, dependent);
+      static UnresolvedModuleKeyAndDependent create(
+          UnresolvedModuleKey depKey, @Nullable ModuleKey dependent) {
+        return new AutoValue_Selection_DepGraphResolver_UnresolvedModuleKeyAndDependent(
+            depKey, dependent);
       }
     }
 
@@ -361,10 +401,9 @@ final class Selection {
       @Nullable
       abstract ModuleKey getDependent();
 
-      static ExistingModule create(
-          ModuleKey moduleKey, int compatibilityLevel, ModuleKey dependent) {
-        return new AutoValue_Selection_DepGraphWalker_ExistingModule(
-            moduleKey, compatibilityLevel, dependent);
+      static ExistingModule create(ModuleKey depKey, int compatibilityLevel, ModuleKey dependent) {
+        return new AutoValue_Selection_DepGraphResolver_ExistingModule(
+            depKey, compatibilityLevel, dependent);
       }
     }
   }
