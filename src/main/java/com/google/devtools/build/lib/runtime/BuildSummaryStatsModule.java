@@ -144,8 +144,8 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @AllowConcurrentEvents
   public void actionResultReceived(ActionResultReceivedEvent event) {
     spawnStats.countActionResult(event.getActionResult());
-    cpuUserTimeForActions = addCpuTime(event.getActionResult().cumulativeCommandExecutionUserTime(), cpuUserTimeForActions);
-    cpuSystemTimeForActions = addCpuTime(event.getActionResult().cumulativeCommandExecutionSystemTime(), cpuSystemTimeForActions);
+    cpuUserTimeForActions = addCpuTime(event.getActionResult().cumulativeCommandExecutionUserTimeInMs(), cpuUserTimeForActions);
+    cpuSystemTimeForActions = addCpuTime(event.getActionResult().cumulativeCommandExecutionSystemTimeInMs(), cpuSystemTimeForActions);
   }
 
   @Subscribe
@@ -275,11 +275,11 @@ public class BuildSummaryStatsModule extends BlazeModule {
     }
   }
   
-  private static Duration addCpuTime(Duration sumDuration, Duration termDuration) {
+  private static Duration addCpuTime(int sumDuration, Duration termDuration) {
     countLock.lock();
     try {
-      if ((sumDuration != null) && (termDuration.toMillis() !=  UNKNOWN_CPU_TIME)) {
-        termDuration = termDuration.plus(sumDuration);
+      if ((sumDuration != 0) && (termDuration.toMillis() !=  UNKNOWN_CPU_TIME)) {
+        termDuration = termDuration.plusMillis(sumDuration);
       } else {
         termDuration = Duration.ofMillis(UNKNOWN_CPU_TIME);
       }
