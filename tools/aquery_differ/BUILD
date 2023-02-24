@@ -46,6 +46,8 @@ py_library(
         ":aquery_differ_resolvers",
         "//src/main/protobuf:analysis_v2_py_proto",
         "//third_party/py/abseil",
+        # TODO(ilist): remove after py_proto_library is fixed and rules_python updated
+        "@com_google_protobuf//:protobuf_python"
     ],
 )
 
