@@ -608,6 +608,7 @@ load("@rules_jvm_external//:setup.bzl", "rules_jvm_external_setup")
 rules_jvm_external_setup()
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
+load("@rules_jvm_external//:specs.bzl", "maven")
 
 maven_install(
     artifacts = [
@@ -700,9 +701,7 @@ maven_install(
         "org.pcollections:pcollections:3.1.4",
         "org.threeten:threeten-extra:1.5.0",
         "org.tukaani:xz:1.9",
-        # TODO(pcloudy): specify guava-testlib as testonly after merging third_party changes.
-        "com.google.guava:guava-testlib:31.1-jre",
-        # maven.artifact("com.google.guava", "guava-testlib", "31.1-jre", testonly = True),
+        maven.artifact("com.google.guava", "guava-testlib", "31.1-jre", testonly = True),
     ],
     excluded_artifacts = [
         # org.apache.httpcomponents and org.eclipse.jgit:org.eclipse.jgit

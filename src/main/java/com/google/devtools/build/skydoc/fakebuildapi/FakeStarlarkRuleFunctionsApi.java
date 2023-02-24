@@ -36,6 +36,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -84,7 +85,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
   }
 
   @Override
-  public Object provider(String doc, Object fields, Object init, StarlarkThread thread)
+  public Object provider(Object doc, Object fields, Object init, StarlarkThread thread)
       throws EvalException {
     FakeProviderApi fakeProvider = new FakeProviderApi(null);
     // Field documentation will be output preserving the order in which the fields are listed.
@@ -101,7 +102,9 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
     } else {
       // fields is NONE, so there is no field information to add.
     }
-    providerInfoList.add(forProviderInfo(fakeProvider, doc, providerFieldInfos.build()));
+    providerInfoList.add(
+        forProviderInfo(
+            fakeProvider, Starlark.toJavaOptional(doc, String.class), providerFieldInfos.build()));
     if (init == Starlark.NONE) {
       return fakeProvider;
     } else {
@@ -116,7 +119,9 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
 
   /** Constructor for ProviderInfoWrapper. */
   public ProviderInfoWrapper forProviderInfo(
-      StarlarkCallable identifier, String docString, Collection<ProviderFieldInfo> fieldInfos) {
+      StarlarkCallable identifier,
+      Optional<String> docString,
+      Collection<ProviderFieldInfo> fieldInfos) {
     return new ProviderInfoWrapper(identifier, docString, fieldInfos);
   }
 
@@ -195,7 +200,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
       boolean useToolchainTransition,
-      String doc,
+      Object doc,
       Boolean applyToFiles,
       Sequence<?> execCompatibleWith,
       Object execGroups,
@@ -225,10 +230,8 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
 
     // Only the Builder is passed to AspectInfoWrapper as the aspect name is not yet available.
     AspectInfo.Builder aspectInfo =
-        AspectInfo.newBuilder()
-            .setDocString(doc)
-            .addAllAttribute(attrInfos)
-            .addAllAspectAttribute(aspectAttrs);
+        AspectInfo.newBuilder().addAllAttribute(attrInfos).addAllAspectAttribute(aspectAttrs);
+    Starlark.toJavaOptional(doc, String.class).ifPresent(aspectInfo::setDocString);
 
     aspectInfoList.add(new AspectInfoWrapper(fakeAspect, thread.getCallerLocation(), aspectInfo));
 

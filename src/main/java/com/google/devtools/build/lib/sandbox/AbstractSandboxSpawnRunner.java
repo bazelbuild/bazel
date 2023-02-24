@@ -269,7 +269,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
             .setStatus(status)
             .setExitCode(exitCode)
             .setStartTime(startTime)
-            .setWallTime(wallTime)
+            .setWallTimeInMs((int) wallTime.toMillis())
             .setFailureMessage(failureMessage);
 
     if (failureDetail != null) {
@@ -281,8 +281,10 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       ExecutionStatistics.getResourceUsage(statisticsPath)
           .ifPresent(
               resourceUsage -> {
-                spawnResultBuilder.setUserTime(resourceUsage.getUserExecutionTime());
-                spawnResultBuilder.setSystemTime(resourceUsage.getSystemExecutionTime());
+                spawnResultBuilder.setUserTimeInMs(
+                    (int) resourceUsage.getUserExecutionTime().toMillis());
+                spawnResultBuilder.setSystemTimeInMs(
+                    (int) resourceUsage.getSystemExecutionTime().toMillis());
                 spawnResultBuilder.setNumBlockOutputOperations(
                     resourceUsage.getBlockOutputOperations());
                 spawnResultBuilder.setNumBlockInputOperations(

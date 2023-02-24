@@ -26,6 +26,7 @@ import java.util.function.ToLongFunction;
 import javax.annotation.Nullable;
 
 /** Metrics aggregated per execution kind. */
+@SuppressWarnings("GoodTime") // Use ints instead of Durations to improve build time (cl/505728570)
 public final class AggregatedSpawnMetrics {
 
   public static final AggregatedSpawnMetrics EMPTY = new AggregatedSpawnMetrics(ImmutableMap.of());
@@ -131,10 +132,10 @@ public final class AggregatedSpawnMetrics {
    * <p>Example: {@code getTotalDuration(SpawnMetrics::queueTime)} will give the total queue time
    * across all execution kinds.
    */
-  public Duration getTotalDuration(Function<SpawnMetrics, Duration> extract) {
-    Duration result = Duration.ZERO;
+  public int getTotalDuration(Function<SpawnMetrics, Integer> extract) {
+    int result = 0;
     for (SpawnMetrics metric : metricsMap.values()) {
-      result = result.plus(extract.apply(metric));
+      result += extract.apply(metric);
     }
     return result;
   }
@@ -156,7 +157,9 @@ public final class AggregatedSpawnMetrics {
   public String toString(Duration total, boolean summary) {
     // For now keep compatibility with the old output and only report the remote execution.
     // TODO(michalt): Change this once the local and worker executions populate more metrics.
-    return SpawnMetrics.ExecKind.REMOTE + " " + getRemoteMetrics().toString(total, summary);
+    return SpawnMetrics.ExecKind.REMOTE
+        + " "
+        + getRemoteMetrics().toString((int) total.toMillis(), summary);
   }
 
   /** Builder for {@link AggregatedSpawnMetrics}. */

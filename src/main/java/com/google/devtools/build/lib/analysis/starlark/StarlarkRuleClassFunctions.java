@@ -251,13 +251,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
   }
 
   @Override
-  public Object provider(String doc, Object fields, Object init, StarlarkThread thread)
+  public Object provider(Object doc, Object fields, Object init, StarlarkThread thread)
       throws EvalException {
     StarlarkProvider.Builder builder = StarlarkProvider.builder(thread.getCallerLocation());
+    Starlark.toJavaOptional(doc, String.class).ifPresent(builder::setDocumentation);
     if (fields instanceof Sequence) {
       builder.setSchema(Sequence.cast(fields, String.class, "fields"));
     } else if (fields instanceof Dict) {
-      builder.setSchema(Dict.cast(fields, String.class, String.class, "fields").keySet());
+      builder.setSchema(Dict.cast(fields, String.class, String.class, "fields"));
     }
     if (init == Starlark.NONE) {
       return builder.build();
@@ -598,7 +599,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
       boolean useToolchainTransition,
-      String doc,
+      Object doc,
       Boolean applyToGeneratingRules,
       Sequence<?> rawExecCompatibleWith,
       Object rawExecGroups,
@@ -721,6 +722,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
     return new StarlarkDefinedAspect(
         implementation,
+        Starlark.toJavaOptional(doc, String.class),
         attrAspects.build(),
         attributes.build(),
         StarlarkAttrModule.buildProviderPredicate(requiredProvidersArg, "required_providers"),

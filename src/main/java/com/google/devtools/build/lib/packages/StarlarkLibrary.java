@@ -93,6 +93,7 @@ public final class StarlarkLibrary {
                 + "The data structure must be recursively composed of strings, ints, floats, or"
                 + " bools, or structs, sequences, and dicts of these types.\n"
                 + "<p>A struct is converted to a message. Fields are emitted in name order.\n"
+                + "Each struct field whose value is None is ignored.\n"
                 + "<p>A sequence (such as a list or tuple) is converted to a repeated field.\n"
                 + "Its elements must not be sequences or dicts.\n"
                 + "<p>A dict is converted to a repeated field of messages with fields named 'key'"
@@ -108,9 +109,10 @@ public final class StarlarkLibrary {
                 + "# field: 1\n"
                 + "# field: 2\n"
                 + "# field: 3\n\n"
-                + "proto.encode_text(struct(field='text'))\n"
+                + "proto.encode_text(struct(field='text', ignored_field=None))\n"
                 + "# field: \"text\"\n\n"
-                + "proto.encode_text(struct(field=struct(inner_field='text')))\n"
+                + "proto.encode_text(struct(field=struct(inner_field='text',"
+                + " ignored_field=None)))\n"
                 + "# field {\n"
                 + "#   inner_field: \"text\"\n"
                 + "# }\n\n"
@@ -206,6 +208,9 @@ public final class StarlarkLibrary {
         }
 
         // non-repeated field
+        if (v == Starlark.NONE) {
+          return;
+        }
         fieldElement(name, v);
       }
 

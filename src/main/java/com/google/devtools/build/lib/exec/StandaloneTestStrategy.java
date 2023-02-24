@@ -59,12 +59,12 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
+import com.google.protobuf.Duration;
 import com.google.protobuf.util.Durations;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -375,54 +375,54 @@ public class StandaloneTestStrategy extends TestStrategy {
     executionInfo.setTimingBreakdown(
         BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
             .setName("totalTime")
-            .setTime(toProtoDuration(sm.totalTime()))
+            .setTime(toProtoDuration(sm.totalTimeInMs()))
             .addChild(
                 BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
                     .setName("parseTime")
-                    .setTime(toProtoDuration(sm.parseTime()))
+                    .setTime(toProtoDuration(sm.parseTimeInMs()))
                     .build())
             .addChild(
                 BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
                     .setName("fetchTime")
-                    .setTime(toProtoDuration(sm.fetchTime()))
+                    .setTime(toProtoDuration(sm.fetchTimeInMs()))
                     .build())
             .addChild(
                 BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
                     .setName("queueTime")
-                    .setTime(toProtoDuration(sm.queueTime()))
+                    .setTime(toProtoDuration(sm.queueTimeInMs()))
                     .build())
             .addChild(
                 BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
                     .setName("uploadTime")
-                    .setTime(toProtoDuration(sm.uploadTime()))
+                    .setTime(toProtoDuration(sm.uploadTimeInMs()))
                     .build())
             .addChild(
                 BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
                     .setName("setupTime")
-                    .setTime(toProtoDuration(sm.setupTime()))
+                    .setTime(toProtoDuration(sm.setupTimeInMs()))
                     .build())
             .addChild(
                 BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
                     .setName("executionWallTime")
-                    .setTime(toProtoDuration(sm.executionWallTime()))
+                    .setTime(toProtoDuration(sm.executionWallTimeInMs()))
                     .build())
             .addChild(
                 BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
                     .setName("processOutputsTime")
-                    .setTime(toProtoDuration(sm.processOutputsTime()))
+                    .setTime(toProtoDuration(sm.processOutputsTimeInMs()))
                     .build())
             .addChild(
                 BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
                     .setName("networkTime")
-                    .setTime(toProtoDuration(sm.networkTime()))
+                    .setTime(toProtoDuration(sm.networkTimeInMs()))
                     .build())
             .build());
 
     return executionInfo.build();
   }
 
-  private static com.google.protobuf.Duration toProtoDuration(Duration d) {
-    return Durations.fromNanos(d.toNanos());
+  private static Duration toProtoDuration(int timeInMs) {
+    return Durations.fromMillis(timeInMs);
   }
 
   /**
@@ -436,8 +436,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             action.getTestXmlGeneratorScript().getExecPath().getCallablePathString(),
             action.getTestLog().getExecPathString(),
             action.getXmlOutputPath().getPathString(),
-            Long.toString(
-                (result.getWallTime() == null ? Duration.ZERO : result.getWallTime()).getSeconds()),
+            Integer.toString(result.getWallTimeInMs() / 1000),
             Integer.toString(result.exitCode()));
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
     // "PATH" and "TEST_BINARY" are also required, they should always be set in testEnv.
@@ -693,10 +692,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     // set. We fall back to the time measured here for backwards compatibility.
     long durationMillis = endTimeMillis - startTimeMillis;
     durationMillis =
-        (primaryResult.getWallTime() != null
-                ? primaryResult.getWallTime()
-                : Duration.ofMillis(durationMillis))
-            .toMillis();
+        (primaryResult.getWallTimeInMs() != 0 ? primaryResult.getWallTimeInMs() : durationMillis);
 
     testResultDataBuilder
         .setStartTimeMillisEpoch(startTimeMillis)

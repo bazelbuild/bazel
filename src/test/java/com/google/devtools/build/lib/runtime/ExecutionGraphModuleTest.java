@@ -64,7 +64,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.Before;
@@ -122,9 +121,9 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             .setExitCode(0)
             .setSpawnMetrics(
                 SpawnMetrics.Builder.forLocalExec()
-                    .setTotalTime(Duration.ofMillis(1234L))
-                    .setExecutionWallTime(Duration.ofMillis(2345L))
-                    .setProcessOutputsTime(Duration.ofMillis(3456L))
+                    .setTotalTimeInMs(1234)
+                    .setExecutionWallTimeInMs(2345)
+                    .setProcessOutputsTimeInMs(3456)
                     .build())
             .build();
     startLogging(eventBus, uuid, buffer, DependencyInfo.NONE);
@@ -167,20 +166,17 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             .setExitCode(0)
             .setSpawnMetrics(
                 SpawnMetrics.Builder.forLocalExec()
-                    .setTotalTime(Duration.ofMillis(1234L))
-                    .setExecutionWallTime(Duration.ofMillis(2345L))
-                    .setProcessOutputsTime(Duration.ofMillis(3456L))
-                    .setParseTime(Duration.ofMillis(2000))
+                    .setTotalTimeInMs(1234)
+                    .setExecutionWallTimeInMs(2345)
+                    .setProcessOutputsTimeInMs(3456)
+                    .setParseTimeInMs(2000)
                     .build())
             .build();
     startLogging(eventBus, uuid, buffer, DependencyInfo.NONE);
     Instant startTimeInstant = Instant.ofEpochMilli(999888777L);
     module.discoverInputs(
         new DiscoveredInputsEvent(
-            SpawnMetrics.Builder.forOtherExec()
-                .setParseTime(Duration.ofMillis(987))
-                .setTotalTime(Duration.ofMillis(987))
-                .build(),
+            SpawnMetrics.Builder.forOtherExec().setParseTimeInMs(987).setTotalTimeInMs(987).build(),
             new ActionsTestUtil.NullAction(createOutputArtifact("output/foo/out")),
             0));
     module.spawnExecuted(new SpawnExecutedEvent(spawn, result, startTimeInstant));
@@ -243,9 +239,9 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             .setExitCode(0)
             .setSpawnMetrics(
                 SpawnMetrics.Builder.forLocalExec()
-                    .setTotalTime(Duration.ofMillis(1234L))
-                    .setExecutionWallTime(Duration.ofMillis(2345L))
-                    .setProcessOutputsTime(Duration.ofMillis(3456L))
+                    .setTotalTimeInMs(1234)
+                    .setExecutionWallTimeInMs(2345)
+                    .setProcessOutputsTimeInMs(3456)
                     .build())
             .build();
     startLogging(eventBus, uuid, buffer, DependencyInfo.ALL);
@@ -386,9 +382,9 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             .setExitCode(0)
             .setSpawnMetrics(
                 SpawnMetrics.Builder.forLocalExec()
-                    .setTotalTime(Duration.ofMillis(1234L))
-                    .setExecutionWallTime(Duration.ofMillis(2345L))
-                    .setProcessOutputsTime(Duration.ofMillis(3456L))
+                    .setTotalTimeInMs(1234)
+                    .setExecutionWallTimeInMs(2345)
+                    .setProcessOutputsTimeInMs(3456)
                     .build())
             .build();
     startLogging(eventBus, uuid, buffer, DependencyInfo.NONE);
@@ -413,7 +409,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     module.spawnExecuted(
         new SpawnExecutedEvent(
             new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build(),
-            createRemoteSpawnResult(Duration.ofMillis(200)),
+            createRemoteSpawnResult(200),
             Instant.ofEpochMilli(100)));
     module.actionComplete(
         new ActionCompletionEvent(
@@ -446,7 +442,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     module.spawnExecuted(
         new SpawnExecutedEvent(
             new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build(),
-            createRemoteSpawnResult(Duration.ofMillis(200)),
+            createRemoteSpawnResult(200),
             Instant.ofEpochMilli(100)));
     var action = new ActionsTestUtil.NullAction(createOutputArtifact("bar/out"));
     module.actionComplete(new ActionCompletionEvent(0, action, null));
@@ -475,8 +471,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
   public void multipleSpawnsWithSameOutput_recordsBothSpawnsWithRetry() throws Exception {
     var buffer = new ByteArrayOutputStream();
     startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
-    SpawnResult localResult = createLocalSpawnResult(Duration.ofMillis(100));
-    SpawnResult remoteResult = createRemoteSpawnResult(Duration.ofMillis(200));
+    SpawnResult localResult = createLocalSpawnResult(100);
+    SpawnResult remoteResult = createRemoteSpawnResult(200);
     Spawn spawn =
         new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build();
 
@@ -548,8 +544,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         UUID.randomUUID(),
         buffer,
         DependencyInfo.ALL);
-    SpawnResult localResult = createLocalSpawnResult(Duration.ofMillis(100));
-    SpawnResult remoteResult = createRemoteSpawnResult(Duration.ofMillis(200));
+    SpawnResult localResult = createLocalSpawnResult(100);
+    SpawnResult remoteResult = createRemoteSpawnResult(200);
     Spawn spawn =
         new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build();
 
@@ -593,8 +589,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         UUID.randomUUID(),
         buffer,
         DependencyInfo.ALL);
-    SpawnResult localResult = createLocalSpawnResult(Duration.ofMillis(100));
-    SpawnResult remoteResult = createRemoteSpawnResult(Duration.ofMillis(200));
+    SpawnResult localResult = createLocalSpawnResult(100);
+    SpawnResult remoteResult = createRemoteSpawnResult(200);
     Artifact input = createOutputArtifact("foo/input");
     Spawn spawn = new SpawnBuilder().withOwnerPrimaryOutput(input).build();
     Spawn dependentSpawn =
@@ -602,7 +598,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             .withOwnerPrimaryOutput(createOutputArtifact("foo/output"))
             .withInput(input)
             .build();
-    SpawnResult dependentResult = createRemoteSpawnResult(Duration.ofMillis(300));
+    SpawnResult dependentResult = createRemoteSpawnResult(300);
 
     module.spawnExecuted(new SpawnExecutedEvent(spawn, localResult, Instant.EPOCH));
     module.spawnExecuted(new SpawnExecutedEvent(spawn, remoteResult, Instant.ofEpochMilli(10)));
@@ -666,21 +662,23 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         artifactRoot, artifactRoot.getExecPath().getRelative(rootRelativePath));
   }
 
-  private SpawnResult createLocalSpawnResult(Duration totalTime) {
+  private SpawnResult createLocalSpawnResult(int totalTimeInMs) {
     return new SpawnResult.Builder()
         .setRunnerName("local")
         .setStatus(Status.SUCCESS)
         .setExitCode(0)
-        .setSpawnMetrics(SpawnMetrics.Builder.forLocalExec().setTotalTime(totalTime).build())
+        .setSpawnMetrics(
+            SpawnMetrics.Builder.forLocalExec().setTotalTimeInMs(totalTimeInMs).build())
         .build();
   }
 
-  private SpawnResult createRemoteSpawnResult(Duration totalTime) {
+  private SpawnResult createRemoteSpawnResult(int totalTimeInMs) {
     return new SpawnResult.Builder()
         .setRunnerName("remote")
         .setStatus(Status.SUCCESS)
         .setExitCode(0)
-        .setSpawnMetrics(SpawnMetrics.Builder.forRemoteExec().setTotalTime(totalTime).build())
+        .setSpawnMetrics(
+            SpawnMetrics.Builder.forRemoteExec().setTotalTimeInMs(totalTimeInMs).build())
         .build();
   }
 

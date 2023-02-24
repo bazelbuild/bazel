@@ -14,9 +14,13 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Verify.verify;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
@@ -27,6 +31,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -61,9 +66,17 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
   private final Location location;
 
+  @Nullable private final String documentation;
+
   // For schemaful providers, the sorted list of allowed field names.
   // The requirement for sortedness comes from StarlarkInfoWithSchema and lets us bisect the fields.
   @Nullable private final ImmutableList<String> schema;
+
+  // For schemaful providers, an optional list of field documentation strings, of the same size and
+  // sorted in the same order as the schema. Null for schemaless providers and for providers whose
+  // schema is undocumented. In accordance with the provider() Starlark API, either all schema
+  // fields have documentation strings (possibly empty strings), or none do.
+  @Nullable private final ImmutableList<String> schemaDocumentation;
 
   // Optional custom initializer callback. If present, it is invoked with the same positional and
   // keyword arguments as were passed to the provider constructor. The return value must be a
@@ -119,7 +132,11 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
   public static final class Builder {
     private final Location location;
 
+    @Nullable private String documentation;
+
     @Nullable private ImmutableList<String> schema;
+
+    @Nullable private ImmutableList<String> schemaDocumentation;
 
     @Nullable private StarlarkCallable init;
 
@@ -129,10 +146,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
       this.location = location;
     }
 
-    /**
-     * Sets the schema (the list of allowed field names) for instances of the provider built by this
-     * builder.
-     */
+    /** Sets the schema (the list of allowed field names) for the provider built by this builder. */
     @CanIgnoreReturnValue
     public Builder setSchema(Collection<String> schema) {
       this.schema = ImmutableList.sortedCopyOf(schema);
@@ -140,7 +154,27 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     }
 
     /**
-     * Sets the custom initializer callback for instances of the provider built by this builder.
+     * Sets the schema and its documentation (meaning, the list of allowed field names and their
+     * corresponding documentation strings) for the provider built by this builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setSchema(Map<String, String> schemaWithDocumentation) {
+      ImmutableSortedMap<String, String> sortedSchemaWithDocumentation =
+          ImmutableSortedMap.copyOf(schemaWithDocumentation);
+      this.schema = sortedSchemaWithDocumentation.keySet().asList();
+      this.schemaDocumentation = sortedSchemaWithDocumentation.values().asList();
+      return this;
+    }
+
+    /** Sets the documentation string for the provider built by this builder. */
+    @CanIgnoreReturnValue
+    public Builder setDocumentation(String documentation) {
+      this.documentation = documentation;
+      return this;
+    }
+
+    /**
+     * Sets the custom initializer callback for the provider built by this builder.
      *
      * <p>The initializer callback will be automatically invoked when the provider is called. To
      * bypass the custom initializer callback, use the callable returned by {@link
@@ -167,7 +201,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
     /** Builds a StarlarkProvider. */
     public StarlarkProvider build() {
-      return new StarlarkProvider(location, schema, init, key);
+      return new StarlarkProvider(location, documentation, schema, schemaDocumentation, init, key);
     }
   }
 
@@ -180,11 +214,15 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
    */
   private StarlarkProvider(
       Location location,
+      @Nullable String documentation,
       @Nullable ImmutableList<String> schema,
+      @Nullable ImmutableList<String> schemaDocumentation,
       @Nullable StarlarkCallable init,
       @Nullable Key key) {
     this.location = location;
+    this.documentation = documentation;
     this.schema = schema;
+    this.schemaDocumentation = schemaDocumentation;
     this.init = init;
     this.key = key;
     if (schema != null) {
@@ -277,6 +315,14 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     return location;
   }
 
+  /**
+   * Returns the value of the doc parameter passed to {@code provider()} in Starlark, or an empty
+   * Optional if a doc parameter was not provided.
+   */
+  public Optional<String> getDocumentation() {
+    return Optional.ofNullable(documentation);
+  }
+
   @Override
   public boolean isExported() {
     return key != null;
@@ -298,11 +344,37 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     return getName();
   }
 
-  /** Returns the list of fields allowed by this provider, or null if the provider is schemaless. */
+  /**
+   * Returns the sorted list of fields allowed by this provider, or null if the provider is
+   * schemaless.
+   */
   @Nullable
   // TODO(adonovan): rename getSchema.
   public ImmutableList<String> getFields() {
     return schema;
+  }
+
+  /**
+   * Returns the map of fields allowed by this provider mapping to their corresponding documentation
+   * strings (if any), or null if this provider is schemaless.
+   *
+   * <p>The returned map is guaranteed to have a stable iteration order.
+   */
+  @Nullable
+  public ImmutableMap<String, Optional<String>> getSchemaWithDocumentation() {
+    if (schema == null) {
+      verify(schemaDocumentation == null);
+      return null;
+    }
+    verify(schemaDocumentation == null || schemaDocumentation.size() == schema.size());
+    ImmutableMap.Builder<String, Optional<String>> builder =
+        ImmutableMap.builderWithExpectedSize(schema.size());
+    for (int i = 0; i < schema.size(); i++) {
+      builder.put(
+          schema.get(i),
+          schemaDocumentation == null ? Optional.empty() : Optional.of(schemaDocumentation.get(i)));
+    }
+    return builder.buildOrThrow();
   }
 
   @Override

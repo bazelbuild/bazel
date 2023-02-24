@@ -41,7 +41,7 @@ public class SpawnStats {
   public void countActionResult(ActionResult actionResult) {
     for (SpawnResult r : actionResult.spawnResults()) {
       countRunnerName(r.getRunnerName());
-      totalWallTimeMillis.addAndGet(r.getMetrics().executionWallTime().toMillis());
+      totalWallTimeMillis.addAndGet(r.getMetrics().executionWallTimeInMs());
     }
   }
 
