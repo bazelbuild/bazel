@@ -1,3 +1,29 @@
+## Release 7.0.0-pre.20230215.2 (2023-02-24)
+
+```
+Baseline: e8a69f5d5acaeb6af760631490ecbf73e8a04eeb
+
+Cherry picks:
+
+   + 4ef636552b86ddea01f36c9346b78016bdad7798:
+     Check for ctx.configuration.coverage_enabled instead of
+     ctx.coverage_instrumented() in cc_helper.
+```
+
+Incompatible changes:
+
+  - When remote cache evicts blobs, Bazel will exit with code 39.
+
+Important changes:
+
+  - Update Android manifest merger to v30.1.3, and also drop support
+    for legacy (pre-D8) desugaring.
+  - Adds coverage metric support to android_local_test
+  - Correctly encode double value positive infinity as "inf" instead
+    of "+inf" for textprotos.
+
+This release contains contributions from many people at Google, as well as Andreas Herrmann, Benjamin Lee, Daniel Grunwald, Emil Kattainen, Fabian Meumertzheim, hvd, keertk, Keith Smiley, kshyanashree, Kun-Lu.
+
 ## Release 7.0.0-pre.20230209.2 (2023-02-16)
 
 ```
