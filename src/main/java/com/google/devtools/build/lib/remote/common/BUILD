@@ -12,13 +12,24 @@ filegroup(
 )
 
 java_library(
-    name = "common",
-    srcs = glob(["*.java"]),
+    name = "cache_not_found_exception",
+    srcs = ["CacheNotFoundException.java"],
     deps = [
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_library(
+    name = "common",
+    srcs = glob(
+        ["*.java"],
+        exclude = ["CacheNotFoundException.java"],
+    ),
+    deps = [
+        ":cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_input_expander",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
