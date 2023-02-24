@@ -36,7 +36,7 @@ you don't have it installed already.
 2.  Set the JAVA\_HOME environment variable to point to the JDK.
     *   On Linux/macOS:
 
-            export JAVA_HOME="$(realpath $(which javac))"
+            export JAVA_HOME="$(dirname $(dirname $(realpath $(which javac))))"
     *   On Windows:
         1.  Open Control Panel.
         2.  Go to "System&nbsp;and&nbsp;Security" &gt; "System" &gt; "Advanced&nbsp;System&nbsp;Settings" &gt; "Advanced"&nbsp;tab &gt; "Environment&nbsp;Variables..." .
