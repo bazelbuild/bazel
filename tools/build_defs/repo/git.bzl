@@ -192,6 +192,17 @@ is).
 Bazel will first try to perform a shallow fetch of only the specified commit.
 If that fails (usually due to missing server support), it will fall back to a
 full fetch of the repository.
+
+Prefer [`http_archive`](/rules/lib/repo/http#http_archive) to `git_repository`.
+The reasons are:
+
+* Git repository rules depend on system `git(1)` whereas the HTTP downloader is built
+  into Bazel and has no system dependencies.
+* `http_archive` supports a list of `urls` as mirrors, and `git_repository` supports only
+  a single `remote`.
+* `http_archive` works with the [repository cache](/run/build#repository-cache), but not
+  `git_repository`. See
+   [#5116](https://github.com/bazelbuild/bazel/issues/5116){: .external} for more information.
 """,
 )
 
