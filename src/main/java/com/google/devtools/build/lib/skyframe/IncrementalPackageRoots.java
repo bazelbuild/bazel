@@ -23,6 +23,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.buildtool.SymlinkForest;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -49,7 +50,7 @@ public class IncrementalPackageRoots implements PackageRoots {
   // packages belong to the main repository all share the same root, which is singleSourceRoot.
   private final Map<PackageIdentifier, Root> threadSafeExternalRepoPackageRootsMap;
   // Top level events originate from within Skyframe, so duplications are expected.
-  private final Set<Object> handledTopLevelEvents = Sets.newConcurrentHashSet();
+  private final Set<NestedSet.Node> handledPackageNestedSets = Sets.newConcurrentHashSet();
   private final Set<Path> plantedExternalRepoLinks = Sets.newConcurrentHashSet();
   private final Path execroot;
   private final Root singleSourceRoot;
@@ -113,24 +114,21 @@ public class IncrementalPackageRoots implements PackageRoots {
   @Subscribe
   public void addTargetPackage(TopLevelTargetReadyForSymlinkPlanting event)
       throws AbruptExitException {
-    if (handledTopLevelEvents.add(event)) {
-      registerAndPlantSymlinksForExternalPackages(
-          event.transitivePackagesForSymlinkPlanting().toList());
-    }
+    registerAndPlantSymlinksForExternalPackages(event.transitivePackagesForSymlinkPlanting());
   }
 
   @AllowConcurrentEvents
   @Subscribe
   public void addAspectPackage(AspectAnalyzedEvent event) throws AbruptExitException {
-    if (handledTopLevelEvents.add(event)) {
-      registerAndPlantSymlinksForExternalPackages(
-          event.transitivePackagesForSymlinkPlanting().toList());
-    }
+    registerAndPlantSymlinksForExternalPackages(event.transitivePackagesForSymlinkPlanting());
   }
 
-  private void registerAndPlantSymlinksForExternalPackages(Iterable<Package> packages)
+  private void registerAndPlantSymlinksForExternalPackages(NestedSet<Package> packages)
       throws AbruptExitException {
-    for (Package pkg : packages) {
+    if (!handledPackageNestedSets.add(packages.toNode())) {
+      return;
+    }
+    for (Package pkg : packages.getLeaves()) {
       PackageIdentifier pkgId = pkg.getPackageIdentifier();
       if (isExternalRepository(pkgId) && pkg.getSourceRoot().isPresent()) {
         threadSafeExternalRepoPackageRootsMap.put(
@@ -146,6 +144,9 @@ public class IncrementalPackageRoots implements PackageRoots {
           throwAbruptExitException(e);
         }
       }
+    }
+    for (NestedSet<Package> transitive : packages.getNonLeaves()) {
+      registerAndPlantSymlinksForExternalPackages(transitive);
     }
   }
 
