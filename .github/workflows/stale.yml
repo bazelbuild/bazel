@@ -51,3 +51,4 @@ jobs:
         operations-per-run: 500
         ascending: true
         start-date: 2023-01-01
+        debug-only: true
