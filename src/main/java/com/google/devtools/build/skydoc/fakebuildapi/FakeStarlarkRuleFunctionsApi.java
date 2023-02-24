@@ -138,7 +138,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
       Boolean starlarkTestable,
       Sequence<?> toolchains,
       boolean useToolchainTransition,
-      String doc,
+      Object doc,
       Sequence<?> providesArg,
       Sequence<?> execCompatibleWith,
       Object analysisTest,
@@ -165,10 +165,9 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
     RuleDefinitionIdentifier functionIdentifier = new RuleDefinitionIdentifier();
 
     // Only the Builder is passed to RuleInfoWrapper as the rule name may not be available yet.
-    RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos);
-    if (name != Starlark.NONE) {
-      ruleInfo.setRuleName((String) name);
-    }
+    RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().addAllAttribute(attrInfos);
+    Starlark.toJavaOptional(doc, String.class).ifPresent(ruleInfo::setDocString);
+    Starlark.toJavaOptional(name, String.class).ifPresent(ruleInfo::setRuleName);
     Location loc = thread.getCallerLocation();
     ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, loc, ruleInfo));
 

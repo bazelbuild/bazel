@@ -362,7 +362,11 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "doc",
             named = true,
-            defaultValue = "''",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
             doc =
                 "A description of the rule that can be extracted by documentation generating "
                     + "tools."),
@@ -487,7 +491,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       Boolean starlarkTestable,
       Sequence<?> toolchains,
       boolean useToolchainTransition,
-      String doc,
+      Object doc,
       Sequence<?> providesArg,
       Sequence<?> execCompatibleWith,
       Object analysisTest,

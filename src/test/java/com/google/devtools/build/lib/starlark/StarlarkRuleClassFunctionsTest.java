@@ -860,7 +860,16 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testRuleDoc() throws Exception {
-    evalAndExport(ev, "def impl(ctx): return None", "rule1 = rule(impl, doc='foo')");
+    evalAndExport(
+        ev,
+        "def impl(ctx):",
+        "    return None",
+        "documented_rule = rule(impl, doc='My doc string')",
+        "undocumented_rule = rule(impl)");
+    StarlarkRuleFunction documentedRule = (StarlarkRuleFunction) ev.lookup("documented_rule");
+    StarlarkRuleFunction undocumentedRule = (StarlarkRuleFunction) ev.lookup("undocumented_rule");
+    assertThat(documentedRule.getDocumentation()).hasValue("My doc string");
+    assertThat(undocumentedRule.getDocumentation()).isEmpty();
   }
 
   @Test
@@ -1111,7 +1120,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testRuleBadTypeForDoc() throws Exception {
     registerDummyStarlarkFunction();
-    ev.checkEvalErrorContains("got value of type 'int', want 'string'", "rule(impl, doc = 1)");
+    ev.checkEvalErrorContains(
+        "got value of type 'int', want 'string or NoneType'", "rule(impl, doc = 1)");
   }
 
   @Test

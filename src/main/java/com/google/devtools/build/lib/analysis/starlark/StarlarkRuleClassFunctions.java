@@ -98,6 +98,7 @@ import com.google.errorprone.annotations.FormatMethod;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.Dict;
@@ -287,7 +288,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Boolean starlarkTestable,
       Sequence<?> toolchains,
       boolean useToolchainTransition,
-      String doc,
+      Object doc,
       Sequence<?> providesArg,
       Sequence<?> execCompatibleWith,
       Object analysisTest,
@@ -309,6 +310,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         hostFragments,
         starlarkTestable,
         toolchains,
+        doc,
         providesArg,
         execCompatibleWith,
         analysisTest,
@@ -331,6 +333,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Sequence<?> hostFragments,
       boolean starlarkTestable,
       Sequence<?> toolchains,
+      Object doc,
       Sequence<?> providesArg,
       Sequence<?> execCompatibleWith,
       Object analysisTest,
@@ -502,7 +505,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     }
 
     StarlarkRuleFunction starlarkRuleFunction =
-        new StarlarkRuleFunction(builder, type, attributes, thread.getCallerLocation());
+        new StarlarkRuleFunction(
+            builder,
+            type,
+            attributes,
+            thread.getCallerLocation(),
+            Starlark.toJavaOptional(doc, String.class));
     // If a name= parameter is supplied (and we're currently initializing a .bzl module), export the
     // rule immediately under that name; otherwise the rule will be exported by the postAssignHook
     // set up in BzlLoadFunction.
@@ -750,6 +758,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     private final RuleClassType type;
     private ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes;
     private final Location definitionLocation;
+    @Nullable private final String documentation;
     private Label starlarkLabel;
 
     // TODO(adonovan): merge {Starlark,Builtin}RuleFunction and RuleClass,
@@ -760,16 +769,26 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         RuleClass.Builder builder,
         RuleClassType type,
         ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes,
-        Location definitionLocation) {
+        Location definitionLocation,
+        Optional<String> documentation) {
       this.builder = builder;
       this.type = type;
       this.attributes = attributes;
       this.definitionLocation = definitionLocation;
+      this.documentation = documentation.orElse(null);
     }
 
     @Override
     public String getName() {
       return ruleClass != null ? ruleClass.getName() : "unexported rule";
+    }
+
+    /**
+     * Returns the value of the doc parameter passed to {@code rule()} in Starlark, or an empty
+     * Optional if a doc string was not provided.
+     */
+    public Optional<String> getDocumentation() {
+      return Optional.ofNullable(documentation);
     }
 
     @Override
