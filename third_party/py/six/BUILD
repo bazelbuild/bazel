@@ -1,6 +1,3 @@
-# Needed for #9006. We can't easily replace this label with a @rules_python
-# label (#9029) because this file is used in both @io_bazel and @bazel_tools,
-# the latter of which can't reference other repos.
 load("@rules_python//python:defs.bzl", "py_library")
 
 licenses(["notice"])
