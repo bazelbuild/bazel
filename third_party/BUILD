@@ -216,7 +216,6 @@ java_plugin(
     deps = [
         ":apache_commons_collections",
         ":apache_velocity",
-        ":asm",
         ":auto_common",
         ":auto_service_lib",
         ":auto_value_value",
@@ -275,7 +274,6 @@ java_plugin(
     deps = [
         ":apache_commons_collections",
         ":apache_velocity",
-        ":asm",
         ":auto_common",
         ":auto_service_lib",
         ":auto_value_value",
@@ -290,7 +288,6 @@ java_plugin(
     deps = [
         ":apache_commons_collections",
         ":apache_velocity",
-        ":asm",
         ":auto_common",
         ":auto_service_lib",
         ":auto_value_value",
