@@ -82,14 +82,10 @@ public final class SymlinkTreeHelperTest {
             PathFragment.create("foo"), PathFragment.create("/bar"), execRoot);
     FilesetOutputSymlink link3 =
         FilesetOutputSymlink.createAlreadyRelativized(
-            PathFragment.create("rel"), PathFragment.create("path"), HasDigest.EMPTY, true, true);
+            PathFragment.create("rel"), PathFragment.create("path"), HasDigest.EMPTY, true);
     FilesetOutputSymlink link4 =
         FilesetOutputSymlink.createAlreadyRelativized(
-            PathFragment.create("rel2"),
-            PathFragment.create("/path"),
-            HasDigest.EMPTY,
-            false,
-            false);
+            PathFragment.create("rel2"), PathFragment.create("/path"), HasDigest.EMPTY, false);
 
     Map<PathFragment, PathFragment> symlinks =
         SymlinkTreeHelper.processFilesetLinks(

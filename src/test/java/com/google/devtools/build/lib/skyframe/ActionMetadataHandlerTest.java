@@ -472,7 +472,6 @@ public final class ActionMetadataHandlerTest {
         PathFragment.create(identifier + "_symlink"),
         PathFragment.create(identifier),
         digest,
-        /* isGeneratedTarget= */ true,
         outputRoot.getExecPath());
   }
 
