@@ -67,10 +67,10 @@ public class BuildSummaryStatsModuleTest {
     buildSummaryStatsModule.beforeCommand(env);
   }
 
-  private ActionResultReceivedEvent createActionEvent(Duration userTime, Duration systemTime) {
+  private ActionResultReceivedEvent createActionEvent(int userTime, int systemTime) {
     ActionResult result = mock(ActionResult.class);
-    when(result.cumulativeCommandExecutionUserTime()).thenReturn(userTime);
-    when(result.cumulativeCommandExecutionSystemTime()).thenReturn(systemTime);
+    when(result.cumulativeCommandExecutionUserTimeInMs()).thenReturn(userTime);
+    when(result.cumulativeCommandExecutionSystemTimeInMs()).thenReturn(systemTime);
     when(result.spawnResults()).thenReturn(ImmutableList.of());
     return new ActionResultReceivedEvent(null, result);
   }
@@ -84,8 +84,8 @@ public class BuildSummaryStatsModuleTest {
   @Test
   public void allCpuTimesAreSummarized() throws Exception {
     buildSummaryStatsModule.executorInit(env, null, null);
-    ActionResultReceivedEvent action1 = createActionEvent(Duration.ofSeconds(50), Duration.ofSeconds(20));
-    ActionResultReceivedEvent action2 = createActionEvent(Duration.ofSeconds(5), Duration.ofSeconds(2));
+    ActionResultReceivedEvent action1 = createActionEvent(50000, 20000);
+    ActionResultReceivedEvent action2 = createActionEvent(5000, 2000);
     buildSummaryStatsModule.actionResultReceived(action1);
     buildSummaryStatsModule.actionResultReceived(action2);
     buildSummaryStatsModule.setCpuTimeForBazelJvm(Duration.ofMillis(11000));
@@ -97,9 +97,9 @@ public class BuildSummaryStatsModuleTest {
   public void mixOfActionsWithKnownAndUnknownCpuTimesResultInUnknownTimes() throws Exception {
     buildSummaryStatsModule.executorInit(env, null, null);
     // First action with unknown values
-    ActionResultReceivedEvent action1 = createActionEvent(null, null);
+    ActionResultReceivedEvent action1 = createActionEvent(0, 0);
     // Followed by action with known values
-    ActionResultReceivedEvent action2 = createActionEvent(Duration.ofSeconds(50), Duration.ofSeconds(20));
+    ActionResultReceivedEvent action2 = createActionEvent(50000, 20000);
     buildSummaryStatsModule.actionResultReceived(action1);
     buildSummaryStatsModule.actionResultReceived(action2);
     buildSummaryStatsModule.buildComplete(createBuildEvent());
@@ -109,7 +109,7 @@ public class BuildSummaryStatsModuleTest {
   @Test
   public void knownAndUnknownCpuTimesForAnActionIsReportedAndSumBecomeUnknown() throws Exception {
     buildSummaryStatsModule.executorInit(env, null, null);
-    ActionResultReceivedEvent action1 = createActionEvent(Duration.ofSeconds(50), null);
+    ActionResultReceivedEvent action1 = createActionEvent(50000, 0);
     buildSummaryStatsModule.actionResultReceived(action1);
     buildSummaryStatsModule.buildComplete(createBuildEvent());
     MoreAsserts.assertContainsEvent(eventCollector, String.format("CPU time ???s (user %.2fs, system ???s, bazel jvm ???s)", 50.00));
@@ -118,8 +118,7 @@ public class BuildSummaryStatsModuleTest {
   @Test
   public void reusedBuildSummaryStatsModuleIsClearedBetweenBuilds() throws Exception {
     buildSummaryStatsModule.executorInit(env, null, null);
-    ActionResultReceivedEvent action1 = createActionEvent(Duration.ofSeconds(50),
-                                                          Duration.ofSeconds(20));
+    ActionResultReceivedEvent action1 = createActionEvent(50000, 20000);
     buildSummaryStatsModule.actionResultReceived(action1);
     buildSummaryStatsModule.setCpuTimeForBazelJvm(Duration.ofMillis(10000));
     buildSummaryStatsModule.buildComplete(createBuildEvent());
