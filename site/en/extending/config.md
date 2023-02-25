@@ -126,7 +126,7 @@ allow_multiple_flag = rule(
 ```
 
 ```python
-# example/buildsettings/BUILD
+# example/BUILD
 load("//example/buildsettings:build_settings.bzl", "allow_multiple_flag")
 allow_multiple_flag(
     name = "roasts",
