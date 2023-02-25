@@ -164,7 +164,7 @@ flavor = rule(
 ```
 
 ```python
-# example/buildsettings/BUILD
+# example/BUILD
 load("//example/buildsettings:build_settings.bzl", "flavor")
 flavor(
     name = "favorite_flavor",
