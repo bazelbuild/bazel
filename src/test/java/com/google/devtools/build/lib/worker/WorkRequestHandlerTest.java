@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
@@ -34,6 +35,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,9 +46,16 @@ import org.mockito.MockitoAnnotations;
 @RunWith(JUnit4.class)
 public class WorkRequestHandlerTest {
 
+  private final WorkRequestHandler.WorkerIO testWorkerIO = createTestWorkerIO();
+
   @Before
   public void init() {
     MockitoAnnotations.initMocks(this);
+  }
+
+  @After
+  public void after() throws Exception {
+    testWorkerIO.close();
   }
 
   @Test
@@ -60,7 +69,7 @@ public class WorkRequestHandlerTest {
 
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
-    handler.respondToRequest(request, new RequestInfo(null));
+    handler.respondToRequest(testWorkerIO, request, new RequestInfo(null));
 
     WorkResponse response =
         WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
@@ -80,7 +89,7 @@ public class WorkRequestHandlerTest {
 
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).setRequestId(42).build();
-    handler.respondToRequest(request, new RequestInfo(null));
+    handler.respondToRequest(testWorkerIO, request, new RequestInfo(null));
 
     WorkResponse response =
         WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
@@ -236,7 +245,7 @@ public class WorkRequestHandlerTest {
 
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
-    handler.respondToRequest(request, new RequestInfo(null));
+    handler.respondToRequest(testWorkerIO, request, new RequestInfo(null));
 
     WorkResponse response =
         WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
@@ -258,7 +267,7 @@ public class WorkRequestHandlerTest {
 
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
-    handler.respondToRequest(request, new RequestInfo(null));
+    handler.respondToRequest(testWorkerIO, request, new RequestInfo(null));
 
     WorkResponse response =
         WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
@@ -518,7 +527,7 @@ public class WorkRequestHandlerTest {
 
     List<String> args = Arrays.asList("--sources", "B.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
-    handler.respondToRequest(request, new RequestInfo(null));
+    handler.respondToRequest(testWorkerIO, request, new RequestInfo(null));
 
     WorkResponse response =
         WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
@@ -551,6 +560,70 @@ public class WorkRequestHandlerTest {
               }
             })
         .start();
+  }
+
+  @Test
+  public void testWorkerIO_doesWrapSystemStreams() throws Exception {
+    // Save the original streams
+    InputStream originalInputStream = System.in;
+    PrintStream originalOutputStream = System.out;
+    PrintStream originalErrorStream = System.err;
+
+    // Swap in the test streams to assert against
+    ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(new byte[0]);
+    System.setIn(byteArrayInputStream);
+    PrintStream outputBuffer = new PrintStream(new ByteArrayOutputStream(), true);
+    System.setOut(outputBuffer);
+    System.setErr(outputBuffer);
+
+    try (outputBuffer;
+        byteArrayInputStream;
+        WorkRequestHandler.WorkerIO io = WorkRequestHandler.WorkerIO.capture()) {
+      // Assert that the WorkerIO returns the correct wrapped streams and the new System instance
+      // has been swapped out with the wrapped one
+      assertThat(io.getOriginalInputStream()).isSameInstanceAs(byteArrayInputStream);
+      assertThat(System.in).isNotSameInstanceAs(byteArrayInputStream);
+
+      assertThat(io.getOriginalOutputStream()).isSameInstanceAs(outputBuffer);
+      assertThat(System.out).isNotSameInstanceAs(outputBuffer);
+
+      assertThat(io.getOriginalErrorStream()).isSameInstanceAs(outputBuffer);
+      assertThat(System.err).isNotSameInstanceAs(outputBuffer);
+    } finally {
+      // Swap back in the original streams
+      System.setIn(originalInputStream);
+      System.setOut(originalOutputStream);
+      System.setErr(originalErrorStream);
+    }
+  }
+
+  @Test
+  public void testWorkerIO_doesCaptureStandardOutAndErrorStreams() throws Exception {
+    try (WorkRequestHandler.WorkerIO io = WorkRequestHandler.WorkerIO.capture()) {
+      // Assert that nothing has been captured in the new instance
+      assertThat(io.readCapturedAsUtf8String()).isEmpty();
+
+      // Assert that the standard out/error stream redirect to our own streams
+      System.out.print("This is a standard out message!");
+      System.err.print("This is a standard error message!");
+      assertThat(io.readCapturedAsUtf8String())
+          .isEqualTo("This is a standard out message!This is a standard error message!");
+
+      // Assert that readCapturedAsUtf8String calls reset on the captured stream after a read
+      assertThat(io.readCapturedAsUtf8String()).isEmpty();
+
+      System.out.print("out 1");
+      System.err.print("err 1");
+      System.out.print("out 2");
+      System.err.print("err 2");
+      assertThat(io.readCapturedAsUtf8String()).isEqualTo("out 1err 1out 2err 2");
+      assertThat(io.readCapturedAsUtf8String()).isEmpty();
+    }
+  }
+
+  private WorkRequestHandler.WorkerIO createTestWorkerIO() {
+    ByteArrayOutputStream captured = new ByteArrayOutputStream();
+    return new WorkRequestHandler.WorkerIO(System.in, System.out, System.err, captured, captured);
   }
 
   /** A wrapper around a WorkerMessageProcessor that can be stopped by calling {@code #stop()}. */
