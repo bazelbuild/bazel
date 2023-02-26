@@ -1023,9 +1023,13 @@ public final class RemoteModule extends BlazeModule {
               });
       env.getEventBus().register(toplevelArtifactsDownloader);
 
+      var leaseService =
+          new LeaseService(
+              env.getSkyframeExecutor().getEvaluator(),
+              env.getBlazeWorkspace().getPersistentActionCache());
+
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
-      remoteOutputService.setMemoizingEvaluator(env.getSkyframeExecutor().getEvaluator());
-      remoteOutputService.setActionCache(env.getBlazeWorkspace().getPersistentActionCache());
+      remoteOutputService.setLeaseService(leaseService);
       env.getEventBus().register(remoteOutputService);
     }
   }

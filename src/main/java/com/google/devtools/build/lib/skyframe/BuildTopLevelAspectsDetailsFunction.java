@@ -19,10 +19,8 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
@@ -244,8 +242,8 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
   /** {@link SkyKey} for building top-level aspects details. */
   @AutoCodec
   static final class BuildTopLevelAspectsDetailsKey implements SkyKey {
-    private static final Interner<BuildTopLevelAspectsDetailsKey> interner =
-        BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<BuildTopLevelAspectsDetailsKey> interner =
+        SkyKey.newInterner();
 
     private final ImmutableList<AspectClass> topLevelAspectsClasses;
     private final ImmutableMap<String, String> topLevelAspectsParameters;
@@ -310,6 +308,11 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
           .add("topLevelAspectsClasses", topLevelAspectsClasses)
           .add("topLevelAspectsParameters", topLevelAspectsParameters)
           .toString();
+    }
+
+    @Override
+    public SkyKeyInterner<BuildTopLevelAspectsDetailsKey> getSkyKeyInterner() {
+      return interner;
     }
   }
 

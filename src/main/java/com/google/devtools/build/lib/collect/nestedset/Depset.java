@@ -334,6 +334,11 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     return ElementType.of(elemClass);
   }
 
+  @Nullable
+  public Class<?> getElementClass() {
+    return elemClass;
+  }
+
   @Override
   public String toString() {
     return Starlark.repr(this);

@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
@@ -532,7 +533,7 @@ public class JavaCommon {
     }
   }
 
-  public JavaTargetAttributes.Builder initCommon() {
+  public JavaTargetAttributes.Builder initCommon() throws RuleErrorException {
     return initCommon(ImmutableList.of(), getCompatibleJavacOptions());
   }
 
@@ -545,7 +546,7 @@ public class JavaCommon {
    * @return the processed attributes
    */
   public JavaTargetAttributes.Builder initCommon(
-      Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts) {
+      Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts) throws RuleErrorException {
     Preconditions.checkState(javacOpts == null);
     activePlugins = collectPlugins();
     javacOpts = computeJavacOpts(ImmutableList.copyOf(extraJavacOpts));

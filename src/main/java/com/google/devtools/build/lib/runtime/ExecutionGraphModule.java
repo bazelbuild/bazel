@@ -423,7 +423,7 @@ public class ExecutionGraphModule extends BlazeModule {
 
       SpawnMetrics metrics = spawnResult.getMetrics();
       spawnResult = null;
-      long totalMillis = metrics.totalTime().toMillis();
+      long totalMillis = metrics.totalTimeInMs();
 
       long discoverInputsMillis = 0;
       ActionInput firstOutput = getFirstOutput(spawn.getResourceOwner(), spawn.getOutputFiles());
@@ -439,20 +439,20 @@ public class ExecutionGraphModule extends BlazeModule {
           ExecutionGraph.Metrics.newBuilder()
               .setStartTimestampMillis(startMillis)
               .setDurationMillis((int) totalMillis)
-              .setFetchMillis((int) metrics.fetchTime().toMillis())
+              .setFetchMillis(metrics.fetchTimeInMs())
               .setDiscoverInputsMillis((int) discoverInputsMillis)
-              .setParseMillis((int) metrics.parseTime().toMillis())
-              .setProcessMillis((int) metrics.executionWallTime().toMillis())
-              .setQueueMillis((int) metrics.queueTime().toMillis())
-              .setRetryMillis((int) metrics.retryTime().toMillis())
-              .setSetupMillis((int) metrics.setupTime().toMillis())
-              .setUploadMillis((int) metrics.uploadTime().toMillis())
-              .setNetworkMillis((int) metrics.networkTime().toMillis())
-              .setOtherMillis((int) metrics.otherTime().toMillis())
-              .setProcessOutputsMillis((int) metrics.processOutputsTime().toMillis());
+              .setParseMillis(metrics.parseTimeInMs())
+              .setProcessMillis(metrics.executionWallTimeInMs())
+              .setQueueMillis(metrics.queueTimeInMs())
+              .setRetryMillis(metrics.retryTimeInMs())
+              .setSetupMillis(metrics.setupTimeInMs())
+              .setUploadMillis(metrics.uploadTimeInMs())
+              .setNetworkMillis(metrics.networkTimeInMs())
+              .setOtherMillis(metrics.otherTimeInMs())
+              .setProcessOutputsMillis(metrics.processOutputsTimeInMs());
 
-      for (Map.Entry<Integer, Duration> entry : metrics.retryTimeByError().entrySet()) {
-        metricsBuilder.putRetryMillisByError(entry.getKey(), (int) entry.getValue().toMillis());
+      for (Map.Entry<Integer, Integer> entry : metrics.retryTimeByError().entrySet()) {
+        metricsBuilder.putRetryMillisByError(entry.getKey(), entry.getValue());
       }
       metrics = null;
       // maybeAddEdges can take a while, so do it last and try to give up references to any objects
@@ -646,7 +646,7 @@ public class ExecutionGraphModule extends BlazeModule {
     void enqueue(DiscoveredInputsEvent event) {
       // The other times from SpawnMetrics are not needed. The only instance of
       // DiscoveredInputsEvent sets only total and parse time, and to the same value.
-      var totalTime = event.getMetrics().totalTime();
+      var totalTime = Duration.ofMillis(event.getMetrics().totalTimeInMs());
       var firstOutput = getFirstOutput(event.getAction(), event.getAction().getOutputs());
       var sum = outputToDiscoverInputsTime.get(firstOutput);
       if (sum != null) {

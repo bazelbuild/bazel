@@ -157,10 +157,12 @@ public final class Utils {
             .setRunnerName(cacheHit ? runnerName + " cache hit" : runnerName)
             .setCacheHit(cacheHit)
             .setStartTime(timestampToInstant(executionStartTimestamp))
-            .setWallTime(
-                java.time.Duration.between(
-                    timestampToInstant(executionStartTimestamp),
-                    timestampToInstant(executionCompletedTimestamp)))
+            .setWallTimeInMs(
+                (int)
+                    java.time.Duration.between(
+                            timestampToInstant(executionStartTimestamp),
+                            timestampToInstant(executionCompletedTimestamp))
+                        .toMillis())
             .setSpawnMetrics(spawnMetrics)
             .setRemote(true)
             .setDigest(

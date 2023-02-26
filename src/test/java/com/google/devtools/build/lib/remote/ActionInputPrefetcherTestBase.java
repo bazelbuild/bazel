@@ -490,6 +490,20 @@ public abstract class ActionInputPrefetcherTestBase {
     assertThat(tempPathGenerator.getTempDir().getDirectoryEntries()).isEmpty();
   }
 
+  @Test
+  public void missingInputs_addedToList() {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact a = createRemoteArtifact("file", "hello world", metadata, /* cas= */ null);
+    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+
+    assertThrows(
+        Exception.class, () -> wait(prefetcher.prefetchFiles(metadata.keySet(), metadataProvider)));
+
+    assertThat(prefetcher.getMissingActionInputs()).contains(a);
+  }
+
   protected static void wait(ListenableFuture<Void> future)
       throws IOException, ExecException, InterruptedException {
     try {
@@ -504,7 +518,7 @@ public abstract class ActionInputPrefetcherTestBase {
       }
       throw new IOException(e);
     } catch (InterruptedException e) {
-      future.cancel(/*mayInterruptIfRunning=*/ true);
+      future.cancel(/* mayInterruptIfRunning= */ true);
       throw e;
     }
   }

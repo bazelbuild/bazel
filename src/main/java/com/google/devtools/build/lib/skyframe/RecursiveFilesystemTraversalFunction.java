@@ -381,21 +381,27 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-      return toFileInfo(fileValue, env, traversal.root().asPath(), syscallCache);
+      return toFileInfo(fileValue, env, traversal.root().asPath(), traversal, syscallCache);
     }
   }
 
   @Nullable
   private static FileInfo toFileInfo(
-      FileValue fileValue, Environment env, Path path, SyscallCache syscallCache)
+      FileValue fileValue,
+      Environment env,
+      Path path,
+      TraversalRequest traversal,
+      SyscallCache syscallCache)
       throws IOException, InterruptedException {
     if (fileValue.unboundedAncestorSymlinkExpansionChain() != null) {
-      SkyKey uniquenessKey =
-          FileSymlinkInfiniteExpansionUniquenessFunction.key(
-              fileValue.unboundedAncestorSymlinkExpansionChain());
-      env.getValue(uniquenessKey);
-      if (env.valuesMissing()) {
-        return null;
+      if (traversal.reportInfiniteSymlinkExpansionErrors()) {
+        SkyKey uniquenessKey =
+            FileSymlinkInfiniteExpansionUniquenessFunction.key(
+                fileValue.unboundedAncestorSymlinkExpansionChain());
+        env.getValue(uniquenessKey);
+        if (env.valuesMissing()) {
+          return null;
+        }
       }
 
       throw new FileSymlinkInfiniteExpansionException(
@@ -717,7 +723,8 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       if (key instanceof FileValue.Key) {
         FileValue.Key fileKey = (FileValue.Key) key;
         FileInfo fileInfo =
-            toFileInfo((FileValue) value, env, fileKey.argument().asPath(), syscallCache);
+            toFileInfo(
+                (FileValue) value, env, fileKey.argument().asPath(), traversal, syscallCache);
         if (fileInfo != null) {
           childValues.add(resultForFileRoot(fileKey.argument(), fileInfo));
         }

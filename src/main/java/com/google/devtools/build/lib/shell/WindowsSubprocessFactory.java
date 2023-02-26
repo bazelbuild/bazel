@@ -12,14 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.windows;
+package com.google.devtools.build.lib.shell;
 
-import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.shell.Subprocess;
-import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
-import com.google.devtools.build.lib.shell.SubprocessFactory;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.windows.WindowsProcesses;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -44,6 +41,10 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
             : "";
     byte[] env = convertEnvToNative(builder.getEnv());
 
+    String cwd = null;
+    if (builder.getWorkingDirectory() != null) {
+      cwd = builder.getWorkingDirectory().getPath();
+    }
     String stdoutPath = getRedirectPath(builder.getStdout(), builder.getStdoutFile());
     String stderrPath = getRedirectPath(builder.getStderr(), builder.getStderrFile());
 
@@ -52,7 +53,7 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
             argv0,
             argvRest,
             env,
-            builder.getWorkingDirectory().getPath(),
+            cwd,
             stdoutPath,
             stderrPath,
             builder.redirectErrorStream());

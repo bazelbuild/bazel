@@ -112,9 +112,7 @@ public class Callcounts {
     }
 
     StackTraceElement[] entries = new StackTraceElement[len];
-    for (int i = 0; i < len; ++i) {
-      entries[i] = stackTrace[i + skip];
-    }
+    System.arraycopy(stackTrace, skip, entries, 0, len);
     Callstack callstack = new Callstack(entries);
     callstack = callstacks.intern(callstack);
     callstackCounts.put(callstack, callstackCounts.getOrDefault(callstack, 0L) + count);

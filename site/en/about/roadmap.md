@@ -63,7 +63,7 @@ Bazel provides trusted binaries for Windows and Mac signed with Google keys. Thi
 Complete migration of Java, C++, and Python rulesets to Starlark. This effort allows Bazel users to fork only rulesets and not Bazel binary codebase, allowing users to
 
 -   Update and customize rules as needed
--   Update rules independently of Baze
+-   Update rules independently of Bazel
 
 ### Bazel-JetBrains* IntelliJ IDEA support
 Incremental IntelliJ plugin updates to support the latest JetBrains plugin release.

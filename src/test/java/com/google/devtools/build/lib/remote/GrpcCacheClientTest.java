@@ -507,7 +507,7 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
             outErr,
             /* exitCode= */ 0,
             /* startTime= */ null,
-            /* wallTime= */ null);
+            /* wallTimeInMs= */ 0);
     return uploadManifest.upload(context, remoteCache, NullEventHandler.INSTANCE);
   }
 

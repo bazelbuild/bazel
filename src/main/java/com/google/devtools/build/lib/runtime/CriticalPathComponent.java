@@ -52,7 +52,7 @@ public class CriticalPathComponent {
   private SpawnMetrics phaseMaxMetrics = EMPTY_PLACEHOLDER_METRICS;
 
   private AggregatedSpawnMetrics totalSpawnMetrics = AggregatedSpawnMetrics.EMPTY;
-  private Duration longestRunningTotalDuration = Duration.ZERO;
+  private int longestRunningTotalDurationInMs = 0;
   private boolean phaseChange;
 
   /** Name of the runner used for the spawn. */
@@ -188,14 +188,14 @@ public class CriticalPathComponent {
       }
       this.phaseMaxMetrics = metrics;
       this.phaseChange = false;
-    } else if (metrics.totalTime().compareTo(this.phaseMaxMetrics.totalTime()) > 0) {
+    } else if (metrics.totalTimeInMs() > phaseMaxMetrics.totalTimeInMs()) {
       this.phaseMaxMetrics = metrics;
     }
 
-    if (runnerName != null && metrics.totalTime().compareTo(this.longestRunningTotalDuration) > 0) {
+    if (runnerName != null && metrics.totalTimeInMs() > this.longestRunningTotalDurationInMs) {
       this.longestPhaseSpawnRunnerName = runnerName;
       this.longestPhaseSpawnRunnerSubtype = runnerSubtype;
-      this.longestRunningTotalDuration = metrics.totalTime();
+      this.longestRunningTotalDurationInMs = metrics.totalTimeInMs();
     }
   }
 

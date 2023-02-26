@@ -240,7 +240,7 @@ public interface JavaSemantics {
    * Returns the resources contributed by a Java rule (usually the contents of the {@code resources}
    * attribute)
    */
-  ImmutableList<Artifact> collectResources(RuleContext ruleContext);
+  ImmutableList<Artifact> collectResources(RuleContext ruleContext) throws RuleErrorException;
 
   String getTestRunnerMainClass();
 
@@ -251,6 +251,7 @@ public interface JavaSemantics {
   CustomCommandLine buildSingleJarCommandLine(
       String toolchainIdentifier,
       Artifact output,
+      Label label,
       String mainClass,
       ImmutableList<String> manifestLines,
       Iterable<Artifact> buildInfoFiles,

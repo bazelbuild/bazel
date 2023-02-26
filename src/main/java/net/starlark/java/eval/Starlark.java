@@ -28,6 +28,7 @@ import java.math.BigInteger;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
@@ -214,6 +215,23 @@ public final class Starlark {
   }
 
   /**
+   * Converts a Starlark method's bound, non-None parameter value to a Java Optional wrapping that
+   * value, and an unbound or None value to an empty Optional.
+   *
+   * <p>This is typically used in {@link StarlarkMethod} implementations, with a parameter whose
+   * {@link Param#allowedTypes} is set to be {@code {T}} or {@code {NoneType, T}}.
+   *
+   * @throws ClassCastException if value is bound and non-None but is not of the expected class
+   */
+  public static <T> Optional<T> toJavaOptional(Object x, Class<T> expectedClass) {
+    if (x == Starlark.UNBOUND || x == Starlark.NONE) {
+      return Optional.empty();
+    } else {
+      return Optional.of(expectedClass.cast(x));
+    }
+  }
+
+  /**
    * Returns the truth value of a valid Starlark value, as if by the Starlark expression {@code
    * bool(x)}.
    */
@@ -391,6 +409,42 @@ public final class Starlark {
       String simpleName = c.getSimpleName();
       return simpleName.isEmpty() ? c.getName() : simpleName;
     }
+  }
+
+  /**
+   * Returns the name of the type of instances of {@code c} after being converted to Starlark values
+   * by {@link #fromJava}, or "unknown" for {@code Object.class}, since that is used as a wildcard
+   * type by evaluation machinery.
+   *
+   * <p>Note that {@code void.class} is treated as "NoneType" since void methods will return None to
+   * Starlark.
+   *
+   * @throws InvalidStarlarkValueException if {@code c} is not {@code Object.class} and {@link
+   *     #fromJava} would throw for instances of {@code c}.
+   */
+  public static String classTypeFromJava(Class<?> c) {
+    if (c.equals(
+            void.class) // Method.invoke on void-returning methods returns null; we treat it as None
+        || c.equals(String.class)
+        || c.equals(boolean.class)
+        || c.equals(Boolean.class)
+        || StarlarkValue.class.isAssignableFrom(c)
+        || c.equals(Object.class)) {
+      return classType(c);
+    } else if (c.equals(int.class)
+        || c.equals(Integer.class)
+        || c.equals(long.class)
+        || c.equals(Long.class)
+        || BigInteger.class.isAssignableFrom(c)) {
+      return classType(StarlarkInt.class);
+    } else if (c.equals(double.class) || c.equals(Double.class)) {
+      return classType(StarlarkFloat.class);
+    } else if (List.class.isAssignableFrom(c)) {
+      return classType(StarlarkList.class);
+    } else if (Map.class.isAssignableFrom(c)) {
+      return classType(Dict.class);
+    }
+    throw new InvalidStarlarkValueException(c);
   }
 
   /**

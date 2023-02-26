@@ -242,7 +242,10 @@ public class CollectLocalResourceUsage extends Thread {
         }
         if (pressureStallMemory >= 0) {
           addRange(
-              ProfilerTask.PRESSURE_STALL_IO, previousElapsed, nextElapsed, pressureStallMemory);
+              ProfilerTask.PRESSURE_STALL_MEMORY,
+              previousElapsed,
+              nextElapsed,
+              pressureStallMemory);
         }
         if (systemNetworkUsages != null) {
           addRange(

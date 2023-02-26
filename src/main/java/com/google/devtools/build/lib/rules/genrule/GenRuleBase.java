@@ -73,7 +73,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
   /** Collects sources from src attribute. */
   protected ImmutableMap<Label, NestedSet<Artifact>> collectSources(
-      List<? extends TransitiveInfoCollection> srcs) {
+      List<? extends TransitiveInfoCollection> srcs) throws RuleErrorException {
     ImmutableMap.Builder<Label, NestedSet<Artifact>> labelMap = ImmutableMap.builder();
 
     for (TransitiveInfoCollection dep : srcs) {

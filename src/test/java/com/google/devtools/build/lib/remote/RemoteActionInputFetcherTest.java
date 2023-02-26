@@ -156,21 +156,6 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
         .contains(String.format("%s/%s", digest.getHash(), digest.getSizeBytes()));
   }
 
-  @Test
-  public void missingInputs_addedToList() {
-    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
-    Map<HashCode, byte[]> cas = new HashMap<>();
-    Artifact a = createRemoteArtifact("file", "hello world", metadata, /* cas= */ null);
-    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
-    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
-
-    assertThrows(
-        ExecException.class,
-        () -> wait(prefetcher.prefetchFiles(metadata.keySet(), metadataProvider)));
-
-    assertThat(prefetcher.getMissingActionInputs()).contains(a);
-  }
-
   private RemoteCache newCache(
       RemoteOptions options, DigestUtil digestUtil, Map<HashCode, byte[]> cas) {
     Map<Digest, byte[]> cacheEntries = Maps.newHashMapWithExpectedSize(cas.size());
