@@ -708,6 +708,7 @@ DIST_DEPS = {
             "remotejdk19_linux_s390x_for_testing",
             "openjdk19_linux_s390x_archive",
         ],
+        "archive": "OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
         "sha256": "f2512f9a8e9847dd5d3557c39b485a8e7a1ef37b601dcbcb748d22e49f44815c",
         "strip_prefix": "jdk-19.0.2+7",
         "urls": [
