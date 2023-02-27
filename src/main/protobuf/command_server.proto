@@ -83,7 +83,7 @@ message StartupOption {
 // Description of an environment variable
 message EnvironmentVariable {
   bytes name = 1;
-  bytes value = 2;
+  optional bytes value = 2;
 }
 
 // Description of a request by the server to the client to execute a binary
