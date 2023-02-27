@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createTreeArtifactWithGeneratingAction;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -48,10 +50,12 @@ import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.util.HashMap;
@@ -119,43 +123,61 @@ public abstract class ActionInputPrefetcherTestBase {
 
   protected Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> createRemoteTreeArtifact(
       String pathFragment,
-      Map<String, String> contentMap,
+      Map<String, String> localContentMap,
+      Map<String, String> remoteContentMap,
       @Nullable PathFragment materializationExecPath,
       Map<ActionInput, FileArtifactValue> metadata,
       Map<HashCode, byte[]> cas)
       throws IOException {
     SpecialArtifact parent = createTreeArtifactWithGeneratingAction(artifactRoot, pathFragment);
+
     parent.getPath().createDirectoryAndParents();
     parent.getPath().chmod(0555);
+
     TreeArtifactValue.Builder treeBuilder = TreeArtifactValue.newBuilder(parent);
-    for (Map.Entry<String, String> entry : contentMap.entrySet()) {
-      byte[] contentsBytes = entry.getValue().getBytes(UTF_8);
-      HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contentsBytes);
+    for (Map.Entry<String, String> entry : localContentMap.entrySet()) {
       TreeFileArtifact child =
           TreeFileArtifact.createTreeOutput(parent, PathFragment.create(entry.getKey()));
-      RemoteFileArtifactValue childValue =
-          RemoteFileArtifactValue.create(
-              hashCode.asBytes(), contentsBytes.length, /* locationIndex= */ 1);
+      byte[] contents = entry.getValue().getBytes(UTF_8);
+      HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contents);
+      FileArtifactValue childValue = FileArtifactValue.createForNormalFile(
+          hashCode.asBytes(), /* proxy= */ null, contents.length);
       treeBuilder.putChild(child, childValue);
       metadata.put(child, childValue);
-      cas.put(hashCode, contentsBytes);
+      cas.put(hashCode, contents);
+    }
+    for (Map.Entry<String, String> entry : remoteContentMap.entrySet()) {
+      TreeFileArtifact child =
+          TreeFileArtifact.createTreeOutput(parent, PathFragment.create(entry.getKey()));
+      byte[] contents = entry.getValue().getBytes(UTF_8);
+      HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contents);
+      RemoteFileArtifactValue childValue =
+          RemoteFileArtifactValue.create(
+              hashCode.asBytes(), contents.length, /* locationIndex= */ 1);
+      treeBuilder.putChild(child, childValue);
+      metadata.put(child, childValue);
+      cas.put(hashCode, contents);
     }
     if (materializationExecPath != null) {
       treeBuilder.setMaterializationExecPath(materializationExecPath);
     }
     TreeArtifactValue treeValue = treeBuilder.build();
+
     metadata.put(parent, treeValue.getMetadata());
+
     return Pair.of(parent, treeValue.getChildren().asList());
   }
 
   protected Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> createRemoteTreeArtifact(
       String pathFragment,
-      Map<String, String> contentMap,
+      Map<String, String> localContentMap,
+      Map<String, String> remoteContentMap,
       Map<ActionInput, FileArtifactValue> metadata,
       Map<HashCode, byte[]> cas)
       throws IOException {
     return createRemoteTreeArtifact(
-        pathFragment, contentMap, /* materializationExecPath= */ null, metadata, cas);
+        pathFragment, localContentMap, remoteContentMap, /* materializationExecPath= */ null,
+        metadata, cas);
   }
 
   protected abstract AbstractActionInputPrefetcher createPrefetcher(Map<HashCode, byte[]> cas);
@@ -215,7 +237,7 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   @Test
-  public void prefetchFiles_downloadRemoteFiles_withmaterializationExecPath() throws Exception {
+  public void prefetchFiles_downloadRemoteFiles_withMaterializationExecPath() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
     PathFragment targetExecPath = artifactRoot.getExecPath().getChild("target");
@@ -238,64 +260,98 @@ public abstract class ActionInputPrefetcherTestBase {
   public void prefetchFiles_downloadRemoteTrees() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
-    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> tree =
+    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
         createRemoteTreeArtifact(
             "dir",
+            /* localContents= */ ImmutableMap.of(),
+            /* remoteContents= */
             ImmutableMap.of("file1", "content1", "nested_dir/file2", "content2"),
             metadata,
             cas);
-    SpecialArtifact parent = tree.getFirst();
-    Artifact firstChild = tree.getSecond().get(0);
-    Artifact secondChild = tree.getSecond().get(1);
+    SpecialArtifact tree = treeAndChildren.getFirst();
+    ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
+    Artifact firstChild = children.get(0);
+    Artifact secondChild = children.get(1);
 
     MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
-    wait(prefetcher.prefetchFiles(tree.getSecond(), metadataProvider));
+    wait(prefetcher.prefetchFiles(children, metadataProvider));
 
-    assertReadableNonWritableAndExecutable(parent.getPath());
     assertThat(FileSystemUtils.readContent(firstChild.getPath(), UTF_8)).isEqualTo("content1");
-    assertReadableNonWritableAndExecutable(firstChild.getPath());
     assertThat(FileSystemUtils.readContent(secondChild.getPath(), UTF_8)).isEqualTo("content2");
-    assertReadableNonWritableAndExecutable(secondChild.getPath());
-    assertThat(prefetcher.downloadedFiles()).containsExactly(parent.getPath());
+
+    assertTreeReadableNonWritableAndExecutable(tree.getPath());
+
+    assertThat(prefetcher.downloadedFiles()).containsExactly(firstChild.getPath(),
+        secondChild.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
-    assertReadableNonWritableAndExecutable(parent.getPath().getRelative("nested_dir"));
   }
 
   @Test
-  public void prefetchFiles_downloadRemoteTrees_withmaterializationExecPath() throws Exception {
+  public void prefetchFiles_downloadRemoteTrees_partial() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+        createRemoteTreeArtifact(
+            "dir",
+            /* localContents= */  ImmutableMap.of("file1", "content1"),
+            /* remoteContents= */ ImmutableMap.of("file2", "content2"),
+            metadata,
+            cas);
+    SpecialArtifact tree = treeAndChildren.getFirst();
+    ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
+    Artifact firstChild = children.get(0);
+    Artifact secondChild = children.get(1);
+
+    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+
+    wait(prefetcher.prefetchFiles(ImmutableList.of(firstChild, secondChild), metadataProvider));
+
+    assertThat(firstChild.getPath().exists()).isFalse();
+    assertThat(FileSystemUtils.readContent(secondChild.getPath(), UTF_8)).isEqualTo("content2");
+    assertTreeReadableNonWritableAndExecutable(tree.getPath());
+    assertThat(prefetcher.downloadedFiles()).containsExactly(secondChild.getPath());
+  }
+
+  @Test
+  public void prefetchFiles_downloadRemoteTrees_withMaterializationExecPath() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
     PathFragment targetExecPath = artifactRoot.getExecPath().getChild("target");
-    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> tree =
+    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
         createRemoteTreeArtifact(
             "dir",
+            /* localContents= */ ImmutableMap.of(),
+            /* remoteContents= */
             ImmutableMap.of("file1", "content1", "nested_dir/file2", "content2"),
             targetExecPath,
             metadata,
             cas);
-    SpecialArtifact parent = tree.getFirst();
-    Artifact firstChild = tree.getSecond().get(0);
-    Artifact secondChild = tree.getSecond().get(1);
+    SpecialArtifact tree = treeAndChildren.getFirst();
+    ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
+    Artifact firstChild = children.get(0);
+    Artifact secondChild = children.get(1);
 
     MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
-    wait(prefetcher.prefetchFiles(tree.getSecond(), metadataProvider));
+    wait(prefetcher.prefetchFiles(children, metadataProvider));
 
-    assertThat(parent.getPath().isSymbolicLink()).isTrue();
-    assertThat(parent.getPath().readSymbolicLink())
+    assertThat(tree.getPath().isSymbolicLink()).isTrue();
+    assertThat(tree.getPath().readSymbolicLink())
         .isEqualTo(execRoot.getRelative(targetExecPath).asFragment());
-    assertReadableNonWritableAndExecutable(parent.getPath());
     assertThat(FileSystemUtils.readContent(firstChild.getPath(), UTF_8)).isEqualTo("content1");
-    assertReadableNonWritableAndExecutable(firstChild.getPath());
     assertThat(FileSystemUtils.readContent(secondChild.getPath(), UTF_8)).isEqualTo("content2");
-    assertReadableNonWritableAndExecutable(secondChild.getPath());
-    assertThat(prefetcher.downloadedFiles())
-        .containsExactly(parent.getPath(), execRoot.getRelative(targetExecPath));
+
+    assertTreeReadableNonWritableAndExecutable(execRoot.getRelative(targetExecPath));
+
+    assertThat(prefetcher.downloadedFiles()).containsExactly(
+        tree.getPath(),
+        execRoot.getRelative(targetExecPath.getRelative(firstChild.getParentRelativePath())),
+        execRoot.getRelative(targetExecPath.getRelative(secondChild.getParentRelativePath())));
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
-    assertReadableNonWritableAndExecutable(parent.getPath().getRelative("nested_dir"));
   }
 
   @Test
@@ -315,7 +371,7 @@ public abstract class ActionInputPrefetcherTestBase {
 
   @Test
   public void prefetchFiles_ignoreNonRemoteFiles() throws Exception {
-    // Test that files that are not remote are not downloaded
+    // Test that non-remote files are not downloaded.
 
     Path p = execRoot.getRelative(artifactRoot.getExecPath()).getRelative("file1");
     FileSystemUtils.writeContent(p, UTF_8, "hello world");
@@ -328,6 +384,35 @@ public abstract class ActionInputPrefetcherTestBase {
 
     assertThat(prefetcher.downloadedFiles()).isEmpty();
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
+  }
+
+  @Test
+  public void prefetchFiles_ignoreNonRemoteFiles_tree() throws Exception {
+    // Test that non-remote tree files are not downloaded, but other files in the tree are.
+
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+        createRemoteTreeArtifact(
+            "dir",
+            ImmutableMap.of("file1", "content1"),
+            ImmutableMap.of("file2", "content2"),
+            metadata,
+            cas);
+    SpecialArtifact tree = treeAndChildren.getFirst();
+    ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
+    Artifact firstChild = children.get(0);
+    Artifact secondChild = children.get(1);
+
+    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+
+    wait(prefetcher.prefetchFiles(children, metadataProvider));
+
+    assertThat(firstChild.getPath().exists()).isFalse();
+    assertThat(FileSystemUtils.readContent(secondChild.getPath(), UTF_8)).isEqualTo("content2");
+    assertTreeReadableNonWritableAndExecutable(tree.getPath());
+    assertThat(prefetcher.downloadedFiles()).containsExactly(secondChild.getPath());
   }
 
   @Test
@@ -544,8 +629,18 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   private void assertReadableNonWritableAndExecutable(Path path) throws IOException {
-    assertThat(path.isReadable()).isTrue();
-    assertThat(path.isWritable()).isFalse();
-    assertThat(path.isExecutable()).isTrue();
+    assertWithMessage(path + " should be readable").that(path.isReadable()).isTrue();
+    assertWithMessage(path + " should not be writable").that(path.isWritable()).isFalse();
+    assertWithMessage(path + " should be executable").that(path.isExecutable()).isTrue();
+  }
+
+  private void assertTreeReadableNonWritableAndExecutable(Path path) throws IOException {
+    checkState(path.isDirectory());
+    assertReadableNonWritableAndExecutable(path);
+    for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
+      if (dirent.getType().equals(Dirent.Type.DIRECTORY)) {
+        assertTreeReadableNonWritableAndExecutable(path.getChild(dirent.getName()));
+      }
+    }
   }
 }
