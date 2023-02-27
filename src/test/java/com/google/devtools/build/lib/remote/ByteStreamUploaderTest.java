@@ -79,7 +79,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -1637,7 +1636,7 @@ public class ByteStreamUploaderTest {
   /* Custom Chunker used to track number of open files */
   private static class TestChunker extends Chunker {
 
-    TestChunker(Supplier<InputStream> dataSupplier, long size, int chunkSize, boolean compressed) {
+    TestChunker(ChunkDataSupplier dataSupplier, long size, int chunkSize, boolean compressed) {
       super(dataSupplier, size, chunkSize, compressed);
     }
 

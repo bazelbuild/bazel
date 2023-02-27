@@ -1818,14 +1818,14 @@ public class RemoteExecutionServiceTest {
 
     // assert first time
     // Called for: manifests, runfiles, nodeRoot1, nodeFoo1 and nodeBar.
-    verify(service, times(5)).uncachedBuildMerkleTreeVisitor(any(), any());
+    verify(service, times(5)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
 
     // act second time
     service.buildRemoteAction(spawn2, context2);
 
     // assert second time
     // Called again for: manifests, runfiles, nodeRoot2 and nodeFoo2 but not nodeBar (cached).
-    verify(service, times(5 + 4)).uncachedBuildMerkleTreeVisitor(any(), any());
+    verify(service, times(5 + 4)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
   }
 
   @Test

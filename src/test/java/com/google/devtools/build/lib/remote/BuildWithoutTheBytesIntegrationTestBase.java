@@ -847,7 +847,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void remoteCacheEvictBlobs_incrementalBuildCanContinue() throws Exception {
+  public void remoteCacheEvictBlobs_whenPrefetchingInputFile_incrementalBuildCanContinue()
+      throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
@@ -894,7 +895,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void remoteCacheEvictBlobs_treeArtifact_incrementalBuildCanContinue() throws Exception {
+  public void remoteCacheEvictBlobs_whenPrefetchingInputTree_incrementalBuildCanContinue()
+      throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write("BUILD");
     writeOutputDirRule();
