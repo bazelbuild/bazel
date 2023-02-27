@@ -113,7 +113,7 @@ public class StarlarkInfoTest {
     StarlarkProvider provider = makeProvider();
     StarlarkInfo info1 = makeInfoWithF1F2Values(provider, StarlarkInt.of(4), null);
     StarlarkInfo info2 = makeInfoWithF1F2Values(provider, null, StarlarkInt.of(5));
-    StarlarkInfo result = info1.binaryOp(TokenKind.PLUS, info2, true);
+    StarlarkInfo result = (StarlarkInfo) info1.binaryOp(TokenKind.PLUS, info2, true);
     assertThat(result.getFieldNames()).containsExactly("f1", "f2");
     assertThat(result.getValue("f1")).isEqualTo(StarlarkInt.of(4));
     assertThat(result.getValue("f2")).isEqualTo(StarlarkInt.of(5));
@@ -124,7 +124,7 @@ public class StarlarkInfoTest {
     StarlarkProvider provider = makeProvider();
     StarlarkInfo info1 = makeInfoWithF1F2Values(provider, StarlarkInt.of(4), null);
     StarlarkInfo info2 = makeInfoWithF1F2Values(provider, null, StarlarkInt.of(5));
-    StarlarkInfo result = info1.binaryOp(TokenKind.PLUS, info2, true);
+    StarlarkInfo result = (StarlarkInfo) info1.binaryOp(TokenKind.PLUS, info2, true);
     assertThat(result.getFieldNames()).containsExactly("f1", "f2");
     assertThat(result.getValue("f1")).isEqualTo(StarlarkInt.of(4));
     assertThat(result.getValue("f2")).isEqualTo(StarlarkInt.of(5));
@@ -138,7 +138,7 @@ public class StarlarkInfoTest {
   /** Creates an exported schemaless provider type with builtin location. */
   private static StarlarkProvider makeExportedProvider() {
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//package:target"), "provider");
+        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//package:target"), "provider");
     return StarlarkProvider.builder(Location.BUILTIN).setExported(key).build();
   }
 
@@ -170,7 +170,7 @@ public class StarlarkInfoTest {
         array[2 * i] = i + 1; // keys are positive
         array[2 * i + 1] = -i - 1; // value is negation of corresponding key
       }
-      StarlarkInfo.permute(array);
+      StarlarkInfoNoSchema.permute(array);
 
       // Assert that keys (positive) appear before values (negative).
       for (int i = 0; i < 2 * a; i++) {
@@ -246,7 +246,7 @@ public class StarlarkInfoTest {
 
       // Sort using sortPairs.
       if (a > 0) {
-        StarlarkInfo.sortPairs(array, 0, a - 1);
+        StarlarkInfoNoSchema.sortPairs(array, 0, a - 1);
       }
 
       // Assert sorted keys match reference implementation.

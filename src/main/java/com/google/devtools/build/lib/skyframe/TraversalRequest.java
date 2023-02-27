@@ -68,6 +68,15 @@ public abstract class TraversalRequest implements SkyKey {
   protected abstract String errorInfo();
 
   /**
+   * Determines whether events for {@linkplain
+   * com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException infinite symlink
+   * expansion errors} encountered during the traversal should be emitted.
+   */
+  protected boolean reportInfiniteSymlinkExpansionErrors() {
+    return true;
+  }
+
+  /**
    * Creates a new traversal request identical to this one except with the given new values for
    * {@link #root} and {@link #skipTestingForSubpackage}.
    */
@@ -109,6 +118,7 @@ public abstract class TraversalRequest implements SkyKey {
         .add("strictOutputFiles", strictOutputFiles())
         .add("skipTestingForSubpackage", skipTestingForSubpackage())
         .add("errorInfo", errorInfo())
+        .add("reportInfiniteSymlinkExpansionErrors", reportInfiniteSymlinkExpansionErrors())
         .toString();
   }
 }

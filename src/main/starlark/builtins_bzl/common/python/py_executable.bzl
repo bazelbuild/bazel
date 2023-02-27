@@ -24,7 +24,6 @@ load(
     "create_py_info",
     "csv",
     "filter_to_py_srcs",
-    "is_bool",
     "union_attrs",
 )
 load(
@@ -43,9 +42,8 @@ load(
 load(
     ":common/python/semantics.bzl",
     "BUILD_DATA_SYMLINK_PATH",
+    "IS_BAZEL",
     "PY_RUNTIME_ATTR_NAME",
-    "PY_RUNTIME_FRAGMENT_ATTR_NAME",
-    "PY_RUNTIME_FRAGMENT_NAME",
 )
 
 _cc_common = _builtins.toplevel.cc_common
@@ -211,44 +209,51 @@ def _get_runtime_details(ctx, semantics):
     Returns:
         A struct; see inline-field comments of the return value for details.
     """
-    # TODO: Google and Bazel have approximately the same logic, but Google gives
-    # preferences to the flag value, while Bazel gives preference to the
-    # toolchain value.
 
+    # NOTE: Both Bazel and Google have similar legacy "path to a python
+    # interpreter" flags with similar functions, but with subtle differences.
+    #
+    # Bazel has --python_path. This flag has a computed default of "python" when
+    # its actual default is null (see
+    # BazelPythonConfiguration.java#getPythonPath). This flag is only used if
+    # toolchains are not enabled and `--python_top` isn't set.
+    #
+    # Google has --python_binary. This flag defaults to null; no special
+    # computed behavior. If set, it is used instead of any runtime or toolchain.
+    # This is a legacy behavior, but not fully cleaned up yet.
+    #
     # TODO(b/230428071): Remove this once Google's --python_binary flag is removed.
     # TOOD(bazelbuild/bazel#7901): Remove this once --python_path flag is removed.
-    fragment = getattr(ctx.fragments, PY_RUNTIME_FRAGMENT_NAME)
-    flag_interpreter_path = getattr(fragment, PY_RUNTIME_FRAGMENT_ATTR_NAME)
 
-    if flag_interpreter_path:
-        toolchain_runtime = None
-        effective_runtime = None
-        executable_interpreter_path = flag_interpreter_path
-        runtime_files = depset()
-    else:
-        if ctx.fragments.py.use_toolchains:
-            toolchain = ctx.toolchains[TOOLCHAIN_TYPE]
-            if not toolchain.py3_runtime:
-                fail("Python toolchain missing py3_runtime")
-            toolchain_runtime = toolchain.py3_runtime
-            effective_runtime = toolchain_runtime
-        else:
+    if IS_BAZEL:
+        flag_interpreter_path = ctx.fragments.bazel_py.python_path
+        toolchain_runtime, effective_runtime = _maybe_get_runtime_from_ctx(ctx)
+        if not effective_runtime:
+            # Clear these just in case
             toolchain_runtime = None
-            attr_target = getattr(ctx.attr, PY_RUNTIME_ATTR_NAME)
-            if PyRuntimeInfo in attr_target:
-                effective_runtime = attr_target[PyRuntimeInfo]
-            else:
-                fail("Unable to get Python runtime from {}".format(attr_target))
+            effective_runtime = None
 
-        if effective_runtime.interpreter_path:
-            runtime_files = depset()
-        elif effective_runtime.interpreter:
-            runtime_files = depset(
-                direct = [effective_runtime.interpreter],
-                transitive = [effective_runtime.files],
-            )
-        else:
-            fail("Unable to determine runtime info from {}".format(attr_target.label))
+    else:  # Google code path
+        flag_interpreter_path = None
+        toolchain_runtime, effective_runtime = _maybe_get_runtime_from_ctx(ctx)
+        if not effective_runtime:
+            fail("Unable to find Python runtime")
+
+    if effective_runtime:
+        direct = []  # List of files
+        transitive = []  # List of depsets
+        if effective_runtime.interpreter:
+            direct.append(effective_runtime.interpreter)
+            transitive.append(effective_runtime.files)
+
+        if ctx.configuration.coverage_enabled:
+            if effective_runtime.coverage_tool:
+                direct.append(effective_runtime.coverage_tool)
+            if effective_runtime.coverage_files:
+                transitive.append(effective_runtime.coverage_files)
+        runtime_files = depset(direct = direct, transitive = transitive)
+    else:
+        runtime_files = depset()
 
     executable_interpreter_path = semantics.get_interpreter_path(
         ctx,
@@ -265,6 +270,8 @@ def _get_runtime_details(ctx, semantics):
         # toolchain resolution is enabled, this is the same as
         # `toolchain_resolution`. Otherwise, this probably came from the
         # `_python_top` attribute that the Google implementation still uses.
+        # This is separate from `toolchain_runtime` because toolchain_runtime
+        # is propagated as a provider, while non-toolchain runtimes are not.
         effective_runtime = effective_runtime,
         # str; Path to the Python interpreter to use for running the executable
         # itself (not the bootstrap script). Either an absolute path (which
@@ -276,6 +283,52 @@ def _get_runtime_details(ctx, semantics):
         # and any supporting files.
         runfiles = ctx.runfiles(transitive_files = runtime_files),
     )
+
+def _maybe_get_runtime_from_ctx(ctx):
+    """Finds the PyRuntimeInfo from the toolchain or attribute, if available.
+
+    Returns:
+        2-tuple of toolchain_runtime, effective_runtime
+    """
+    if ctx.fragments.py.use_toolchains:
+        toolchain = ctx.toolchains[TOOLCHAIN_TYPE]
+
+        # Hack around the fact that the autodetecting Python toolchain, which is
+        # automatically registered, does not yet support Windows. In this case,
+        # we want to return null so that _get_interpreter_path falls back on
+        # --python_path. See tools/python/toolchain.bzl.
+        # TODO(#7844): Remove this hack when the autodetecting toolchain has a
+        # Windows implementation.
+        if (
+            # BazelPyBinaryConfiguredTargetTest.toolchainInfoFieldHasBadVersion purposefully
+            # omits the py2_runtime attribute to test for other error messages.
+            hasattr(toolchain, "py2_runtime") and toolchain.py2_runtime and
+            toolchain.py2_runtime.interpreter_path == "/_magic_pyruntime_sentinel_do_not_use"
+        ):
+            return None, None
+
+        if not hasattr(toolchain, "py3_runtime"):
+            fail("Python toolchain field 'py3_runtime' is missing")
+        if not toolchain.py3_runtime:
+            fail("Python toolchain missing py3_runtime")
+        py3_runtime = toolchain.py3_runtime
+        if py3_runtime.python_version != "PY3":
+            fail("Python toolchain py3_runtime must be python_version=PY3, got {}".format(
+                py3_runtime.python_version,
+            ))
+        toolchain_runtime = toolchain.py3_runtime
+        effective_runtime = toolchain_runtime
+    else:
+        toolchain_runtime = None
+        attr_target = getattr(ctx.attr, PY_RUNTIME_ATTR_NAME)
+
+        # In Bazel, --python_top is null by default.
+        if attr_target and PyRuntimeInfo in attr_target:
+            effective_runtime = attr_target[PyRuntimeInfo]
+        else:
+            return None, None
+
+    return toolchain_runtime, effective_runtime
 
 def _get_base_runfiles_for_binary(
         ctx,
@@ -680,8 +733,14 @@ def _create_providers(
         DefaultInfo(
             executable = executable,
             files = files_to_build,
-            default_runfiles = runfiles_details.default_runfiles,
-            data_runfiles = runfiles_details.data_runfiles,
+            default_runfiles = _py_builtins.make_runfiles_respect_legacy_external_runfiles(
+                ctx,
+                runfiles_details.default_runfiles,
+            ),
+            data_runfiles = _py_builtins.make_runfiles_respect_legacy_external_runfiles(
+                ctx,
+                runfiles_details.data_runfiles,
+            ),
         ),
         create_instrumented_files_info(ctx),
         _create_run_environment_info(ctx, inherited_environment),
@@ -757,29 +816,6 @@ def create_base_executable_rule(*, attrs, fragments = [], **kwargs):
         attrs = EXECUTABLE_ATTRS | attrs,
         toolchains = [TOOLCHAIN_TYPE] + cc_helper.use_cpp_toolchain(),
         fragments = fragments,
-        **kwargs
-    )
-
-def py_executable_macro(*, exec_rule, rule_is_test, name, paropts = [], **kwargs):
-    """Wrapper macro for common executable logic.
-
-    Args:
-      exec_rule: rule object; the underlying rule to call. It will be passed `kwargs` among
-          other attributes.
-      name: str, the target name
-      rule_is_test: bool, True if `exec_rule` has test=True, False if not.
-      paropts: list of str; additional flags that affect par building.
-      **kwargs: Additional args passed to `exec_rule`.
-    """
-
-    # The Java version of tristate attributes also accept boolean.
-    if is_bool(kwargs.get("stamp")):
-        kwargs["stamp"] = 1 if kwargs["stamp"] else 0
-    exec_rule(
-        name = name,
-        # Even though the binary rule doesn't generate the par, it still needs
-        # paropts so it can add them to the build_data.txt file.
-        paropts = paropts,  # Google-specific
         **kwargs
     )
 

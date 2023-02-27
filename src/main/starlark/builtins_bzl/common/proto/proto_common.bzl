@@ -35,7 +35,12 @@ def _proto_path_flag(path):
     return "--proto_path=%s" % path
 
 def _Iimport_path_equals_fullpath(proto_source):
-    return "-I%s=%s" % (proto_source.import_path(), proto_source.source_file().path)
+    return "-I%s=%s" % (_get_import_path(proto_source), proto_source._source_file.path)
+
+def _get_import_path(proto_source):
+    if proto_source._proto_path == "":
+        return proto_source._source_file.path
+    return proto_source._source_file.path[len(proto_source._proto_path) + 1:]
 
 def _compile(
         actions,
@@ -94,7 +99,7 @@ def _compile(
     # For each import, include both the import as well as the import relativized against its
     # protoSourceRoot. This ensures that protos can reference either the full path or the short
     # path when including other protos.
-    args.add_all(proto_info.transitive_proto_sources(), map_each = _Iimport_path_equals_fullpath)
+    args.add_all(proto_info._transitive_proto_sources, map_each = _Iimport_path_equals_fullpath)
     # Example: `-Ia.proto=bazel-bin/target/third_party/pkg/_virtual_imports/subpkg/a.proto`
 
     args.add_all(proto_info.direct_sources)
@@ -126,7 +131,7 @@ def _experimental_filter_sources(proto_info, proto_lang_toolchain_info):
     provided_proto_sources = proto_lang_toolchain_info.provided_proto_sources
     provided_paths = {}
     for src in provided_proto_sources:
-        path = src.original_source_file().path
+        path = src._original_source_file.path
 
         # For listed protos bundled with the Bazel tools repository, their exec paths start
         # with external/bazel_tools/. This prefix needs to be removed first, because the protos in
@@ -137,7 +142,7 @@ def _experimental_filter_sources(proto_info, proto_lang_toolchain_info):
             provided_paths[path] = None
 
     # Filter proto files
-    proto_files = [src.original_source_file() for src in proto_info.direct_proto_sources()]
+    proto_files = [src._original_source_file for src in proto_info._direct_proto_sources]
     excluded = []
     included = []
     for proto_file in proto_files:

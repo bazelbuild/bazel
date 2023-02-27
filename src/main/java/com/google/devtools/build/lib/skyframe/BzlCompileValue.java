@@ -15,9 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.Root;
@@ -132,8 +130,6 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     return new Success(prog, digest);
   }
 
-  private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
-
   /** Types of bzl files we may encounter. */
   enum Kind {
     /** A regular .bzl file loaded on behalf of a BUILD or WORKSPACE file. */
@@ -159,6 +155,8 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
   /** SkyKey for retrieving a compiled .bzl program. */
   @AutoCodec
   public static class Key implements SkyKey {
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
+
     /** The root in which the .bzl file is to be found. Null for EMPTY_PRELUDE. */
     @Nullable final Root root;
 
@@ -180,7 +178,7 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(Root root, Label label, Kind kind) {
-      return keyInterner.intern(new Key(root, label, kind));
+      return interner.intern(new Key(root, label, kind));
     }
 
     /** Returns whether this key is for a {@code @_builtins} .bzl file. */
@@ -224,6 +222,11 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
     @Override
     public String toString() {
       return String.format("%s:[%s]%s", functionName(), root, label);
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 

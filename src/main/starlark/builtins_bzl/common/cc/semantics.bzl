@@ -132,9 +132,15 @@ def _get_coverage_env(ctx):
 def _get_cc_runtimes(ctx, is_library):
     if is_library:
         return []
+
+    runtimes = [ctx.attr._link_extra_lib]
+
     if ctx.fragments.cpp.custom_malloc != None:
-        return [ctx.attr._default_malloc]
-    return [ctx.attr.malloc]
+        runtimes.append(ctx.attr._default_malloc)
+    else:
+        runtimes.append(ctx.attr.malloc)
+
+    return runtimes
 
 def _should_use_legacy_cc_test(_):
     return True
@@ -164,6 +170,9 @@ def _get_linkstatic_default(ctx):
 
 def _get_nocopts_attr():
     return {}
+
+def _get_experimental_link_static_libraries_once(ctx):
+    return ctx.fragments.cpp.experimental_link_static_libraries_once()
 
 semantics = struct(
     ALLOWED_RULES_IN_DEPS = [
@@ -205,4 +214,5 @@ semantics = struct(
     get_coverage_env = _get_coverage_env,
     get_proto_aspects = _get_proto_aspects,
     get_nocopts_attr = _get_nocopts_attr,
+    get_experimental_link_static_libraries_once = _get_experimental_link_static_libraries_once,
 )

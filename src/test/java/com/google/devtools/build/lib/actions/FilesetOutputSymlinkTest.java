@@ -28,11 +28,7 @@ public final class FilesetOutputSymlinkTest {
 
   private static final FilesetOutputSymlink createSymlinkTo(String path) {
     return FilesetOutputSymlink.create(
-        PathFragment.create("any/path"),
-        PathFragment.create(path),
-        () -> new byte[] {},
-        false,
-        EXEC_ROOT);
+        PathFragment.create("any/path"), PathFragment.create(path), () -> new byte[] {}, EXEC_ROOT);
   }
 
   @Test

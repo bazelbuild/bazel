@@ -14,8 +14,11 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -168,9 +171,6 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   }
 
   private static boolean isTargetConfig(ConfigurationForOutput config) {
-    if (config.mnemonic.endsWith("-noconfig")) {
-      return false;
-    }
     return !Boolean.parseBoolean(getOptionValue(config, "CoreOptions", "is exec configuration"));
   }
 
@@ -192,26 +192,57 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     // Should be: target configuration, target configuration without test.
     assertThat(fullJson).isNotNull();
     assertThat(fullJson.has("configuration-IDs")).isTrue();
-    assertThat(fullJson.get("configuration-IDs").getAsJsonArray().size()).isEqualTo(3);
+    assertThat(fullJson.get("configuration-IDs").getAsJsonArray().size()).isEqualTo(2);
+  }
+
+  private boolean skipNoConfig(JsonElement configHash) {
+    try {
+      return !new Gson()
+          .fromJson(
+              callConfigCommand(configHash.getAsString()).outAsLatin1(),
+              ConfigurationForOutput.class)
+          .mnemonic
+          .contains("-noconfig");
+    } catch (Exception e) {
+      assertWithMessage("Failed to retrieve %s: %s", configHash.getAsString(), e.getMessage())
+          .fail();
+      return false;
+    }
+  }
+
+  /**
+   * Calls the config command to return all config hashes currently available.
+   *
+   * @param includeNoConfig if true, include the "noconfig" configuration (see {@link
+   *     com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition}. Else filter
+   *     it out.
+   */
+  private ImmutableList<String> getConfigHashes(boolean includeNoConfig) throws Exception {
+    return JsonParser.parseString(callConfigCommand().outAsLatin1())
+        .getAsJsonObject()
+        .get("configuration-IDs")
+        .getAsJsonArray()
+        .asList()
+        .stream()
+        .filter(includeNoConfig ? Predicates.alwaysTrue() : this::skipNoConfig)
+        .map(c -> c.getAsString())
+        .collect(toImmutableList());
   }
 
   @Test
   public void showSingleConfig() throws Exception {
     analyzeTarget();
-    String configHash1 =
-        JsonParser.parseString(callConfigCommand().outAsLatin1())
-            .getAsJsonObject()
-            .get("configuration-IDs")
-            .getAsJsonArray()
-            .get(0)
-            .getAsString();
+    // Find the first non-noconfig configuration (see NoConfigTransition). noconfig is a special
+    // configuration that strips away most of its structure, so not a good candidate for this test.
+    String configHash = getConfigHashes(/* includeNoConfig= */ false).get(0);
     ConfigurationForOutput config =
         new Gson()
-            .fromJson(callConfigCommand(configHash1).outAsLatin1(), ConfigurationForOutput.class);
+            .fromJson(callConfigCommand(configHash).outAsLatin1(), ConfigurationForOutput.class);
+
     assertThat(config).isNotNull();
     // Verify config metadata:
-    assertThat(config.configHash).isEqualTo(configHash1);
-    assertThat(config.skyKey).isEqualTo(String.format("BuildConfigurationKey[%s]", configHash1));
+    assertThat(config.configHash).isEqualTo(configHash);
+    assertThat(config.skyKey).isEqualTo(String.format("BuildConfigurationKey[%s]", configHash));
     // Verify the existence of a couple of expected fragments:
     assertThat(
             config.fragments.stream()
@@ -282,7 +313,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
       assertThat(config).isNotNull();
       numConfigs++;
     }
-    assertThat(numConfigs).isEqualTo(3); // Target + target w/o test + nonConfig.
+    assertThat(numConfigs).isEqualTo(2); // Target + target w/o test.
   }
 
   @Test

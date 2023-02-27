@@ -3422,7 +3422,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         (StructImpl)
             target.get(
                 new StarlarkProvider.Key(
-                    Label.parseAbsoluteUnchecked("//something:defs.bzl"), "result"));
+                    Label.parseCanonicalUnchecked("//something:defs.bzl"), "result"));
     assertThat(info).isNotNull();
     assertThat(info.getValue("toolchain_value")).isEqualTo("foo");
     assertThat(info.getValue("exec_groups")).isInstanceOf(StarlarkExecGroupCollection.class);
@@ -3432,7 +3432,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(toolchainContexts.keySet()).containsExactly(DEFAULT_EXEC_GROUP_NAME, "dragonfruit");
     assertThat(toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME).toolchainTypes()).isEmpty();
     assertThat(toolchainContexts.get("dragonfruit").resolvedToolchainLabels())
-        .containsExactly(Label.parseAbsoluteUnchecked("//toolchain:foo"));
+        .containsExactly(Label.parseCanonicalUnchecked("//toolchain:foo"));
   }
 
   // Tests for an error that occurs when two exec groups have different requirements (toolchain
@@ -3478,7 +3478,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         (StructImpl)
             target.get(
                 new StarlarkProvider.Key(
-                    Label.parseAbsoluteUnchecked("//something:defs.bzl"), "result"));
+                    Label.parseCanonicalUnchecked("//something:defs.bzl"), "result"));
     assertThat(info).isNotNull();
     assertThat(info.getValue("toolchain_value")).isEqualTo("foo");
     assertThat(info.getValue("exec_groups")).isInstanceOf(StarlarkExecGroupCollection.class);
@@ -3489,9 +3489,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         .containsExactly(DEFAULT_EXEC_GROUP_NAME, "dragonfruit", "passionfruit");
     assertThat(toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME).toolchainTypes()).isEmpty();
     assertThat(toolchainContexts.get("dragonfruit").resolvedToolchainLabels())
-        .containsExactly(Label.parseAbsoluteUnchecked("//toolchain:foo"));
+        .containsExactly(Label.parseCanonicalUnchecked("//toolchain:foo"));
     assertThat(toolchainContexts.get("passionfruit").resolvedToolchainLabels())
-        .containsExactly(Label.parseAbsoluteUnchecked("//toolchain:foo"));
+        .containsExactly(Label.parseCanonicalUnchecked("//toolchain:foo"));
   }
 
   @Test

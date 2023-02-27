@@ -385,6 +385,8 @@ public class BazelRepositoryModule extends BlazeModule {
             .handle(Event.warn("Ignoring request to scale http timeouts by a non-positive factor"));
         httpDownloader.setTimeoutScaling(1.0f);
       }
+      httpDownloader.setMaxAttempts(repoOptions.httpConnectorAttempts);
+      httpDownloader.setMaxRetryTimeout(repoOptions.httpConnectorRetryMaxTimeout);
 
       if (repoOptions.repositoryOverrides != null) {
         // To get the usual latest-wins semantics, we need a mutable map, as the builder

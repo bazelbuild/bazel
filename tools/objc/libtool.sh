@@ -107,7 +107,7 @@ function parse_option() {
         done < "$path" || exit 1
         ;;
       # Flags with no args
-      -static|-s|-a|-c|-L|-T|-D|-no_warning_for_no_symbols)
+      -static|-s|-a|-c|-L|-T|-D|-v|-no_warning_for_no_symbols)
         ARGS+=("${ARG}")
         ;;
       # Single-arg flags

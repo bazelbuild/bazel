@@ -51,6 +51,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -75,7 +76,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -109,6 +109,7 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
             ImmutableSortedMap.of(execPath, virtualActionInput),
             fakeFileCache,
             execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
             DIGEST_UTIL);
     Digest digest = DIGEST_UTIL.compute(virtualActionInput.getBytes().toByteArray());
 
@@ -507,8 +508,8 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
             outputs,
             outErr,
             /* exitCode= */ 0,
-            /* startTime= */ Optional.empty(),
-            /* wallTime= */ Optional.empty());
+            /* startTime= */ null,
+            /* wallTimeInMs= */ 0);
     return uploadManifest.upload(context, remoteCache, NullEventHandler.INSTANCE);
   }
 

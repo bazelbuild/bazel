@@ -92,6 +92,8 @@ public enum ProfilerTask {
   WORKER_WORKING("waiting for response from worker"),
   WORKER_COPYING_OUTPUTS("copying outputs from worker"),
   CREDENTIAL_HELPER("calling credential helper"),
+  PRESSURE_STALL_IO("I/O pressure stall level"),
+  PRESSURE_STALL_MEMORY("Memory pressure stall level"),
   UNKNOWN("Unknown event");
 
   private static class Threshold {

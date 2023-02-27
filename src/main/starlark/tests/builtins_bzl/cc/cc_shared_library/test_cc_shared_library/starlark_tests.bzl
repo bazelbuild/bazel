@@ -150,7 +150,16 @@ def _debug_files_test_impl(ctx):
     actual_files = []
     for debug_file in target_under_test[OutputGroupInfo].rule_impl_debug_files.to_list():
         actual_files.append(debug_file.basename)
-    expected_files = ["bar_so_exports.txt", "bar_so_link_once_static_libs.txt", "foo_so_exports.txt", "foo_so_link_once_static_libs.txt", "binary_link_once_static_libs.txt"]
+
+    expected_files = [
+        "bar_so_exports.txt",
+        "bar_so_link_once_static_libs.txt",
+        "diff_pkg_so_exports.txt",
+        "diff_pkg_so_link_once_static_libs.txt",
+        "foo_so_exports.txt",
+        "foo_so_link_once_static_libs.txt",
+        "binary_link_once_static_libs.txt",
+    ]
     asserts.equals(env, expected_files, actual_files)
 
     return analysistest.end(env)
@@ -166,8 +175,10 @@ def _runfiles_test_impl(ctx):
     expected_suffixes = [
         "libfoo_so.so",
         "libbar_so.so",
+        "libdiff_pkg_so.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibfoo_Uso.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibbar_Uso.so",
+        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary3_Slibdiff_Upkg_Uso.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/renamed_so_file_copy.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libdirect_so_file.so",
     ]

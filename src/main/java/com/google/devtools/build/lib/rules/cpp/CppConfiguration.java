@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.cpp.CcModule.isBuiltIn;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -206,7 +205,7 @@ public final class CppConfiguration extends Fragment
     if (cppOptions.getFdoOptimize() != null) {
       if (cppOptions.getFdoOptimize().startsWith("//")) {
         try {
-          fdoProfileLabel = Label.parseAbsolute(cppOptions.getFdoOptimize(), ImmutableMap.of());
+          fdoProfileLabel = Label.parseCanonical(cppOptions.getFdoOptimize());
         } catch (LabelSyntaxException e) {
           throw new InvalidConfigurationException(e);
         }
@@ -482,10 +481,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.experimentalLinkStaticLibrariesOnce;
   }
 
-  public boolean experimentalEnableTargetExportCheck() {
-    return cppOptions.experimentalEnableTargetExportCheck;
-  }
-
   public boolean experimentalCcSharedLibraryDebug() {
     return cppOptions.experimentalCcSharedLibraryDebug;
   }
@@ -745,16 +740,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.targetLibcTopLabel;
   }
 
-  @StarlarkMethod(name = "enable_legacy_cc_provider", documented = false, useStarlarkThread = true)
-  public boolean enableLegacyCcProviderForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return enableLegacyCcProvider();
-  }
-
-  public boolean enableLegacyCcProvider() {
-    return !cppOptions.disableLegacyCcProvider;
-  }
-
   public boolean dontEnableHostNonhost() {
     return cppOptions.dontEnableHostNonhost;
   }
@@ -785,6 +770,12 @@ public final class CppConfiguration extends Fragment
 
   public boolean disableNoCopts() {
     return cppOptions.disableNoCopts;
+  }
+
+  @Override
+  public boolean disableNocoptsStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return disableNoCopts();
   }
 
   public boolean loadCcRulesFromBzl() {
@@ -915,13 +906,6 @@ public final class CppConfiguration extends Fragment
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return experimentalLinkStaticLibrariesOnce();
-  }
-
-  @Override
-  public boolean getExperimentalEnableTargetExportCheck(StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return experimentalEnableTargetExportCheck();
   }
 
   @Override

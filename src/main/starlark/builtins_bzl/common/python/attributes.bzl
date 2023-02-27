@@ -22,8 +22,8 @@ load(
     "SRCS_ATTR_ALLOW_FILES",
     "TOOLS_REPO",
 )
+load(":common/cc/cc_info.bzl", _CcInfo = "CcInfo")
 
-_CcInfo = _builtins.toplevel.CcInfo
 _STAMP_VALUES = [-1, 0, 1]
 
 def create_stamp_attr(**kwargs):

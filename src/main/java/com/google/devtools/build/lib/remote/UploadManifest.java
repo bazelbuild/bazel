@@ -62,7 +62,6 @@ import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -71,7 +70,6 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -102,8 +100,8 @@ public class UploadManifest {
       Collection<Path> outputFiles,
       FileOutErr outErr,
       int exitCode,
-      Optional<Instant> startTime,
-      Optional<Duration> wallTime)
+      Instant startTime,
+      int wallTimeInMs)
       throws ExecException, IOException {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.setExitCode(exitCode);
@@ -128,9 +126,10 @@ public class UploadManifest {
       result.setStdoutDigest(manifest.getStdoutDigest());
     }
 
-    if (startTime.isPresent() && wallTime.isPresent()) {
-      Timestamp startTimestamp = instantToTimestamp(startTime.get());
-      Timestamp completedTimestamp = instantToTimestamp(startTime.get().plus(wallTime.get()));
+    // if wallTime is zero, than it's not set
+    if (startTime != null && wallTimeInMs != 0) {
+      Timestamp startTimestamp = instantToTimestamp(startTime);
+      Timestamp completedTimestamp = instantToTimestamp(startTime.plusMillis(wallTimeInMs));
       result
           .getExecutionMetadataBuilder()
           .setWorkerStartTimestamp(startTimestamp)

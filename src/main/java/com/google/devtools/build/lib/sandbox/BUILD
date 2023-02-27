@@ -1,6 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -19,6 +22,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
@@ -31,6 +35,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:ram_resource_converter",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -59,11 +64,13 @@ java_library(
         "AbstractContainerizingSandboxedSpawn.java",
         "CopyingSandboxedSpawn.java",
         "HardlinkedSandboxedSpawn.java",
+        "SandboxStash.java",
         "SandboxedSpawn.java",
         "SymlinkedSandboxedSpawn.java",
     ],
     deps = [
         ":sandbox_helpers",
+        ":sandbox_options",
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/util:describable_execution_unit",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -103,6 +110,7 @@ java_library(
         ":process_wrapper_sandbox",
         ":sandbox_helpers",
         ":sandbox_options",
+        ":sandboxed_spawns",
         ":sandboxfs_process",
         ":tree_deleter",
         ":windows_sandbox",
@@ -150,6 +158,7 @@ java_library(
     name = "abstract_sandbox_spawn_runner",
     srcs = ["AbstractSandboxSpawnRunner.java"],
     deps = [
+        ":sandbox_helpers",
         ":sandbox_options",
         ":sandboxed_spawns",
         "//src/main/java/com/google/devtools/build/lib:runtime",
@@ -251,7 +260,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -263,9 +271,12 @@ java_library(
     srcs = ["LinuxSandboxUtil.java"],
     data = ["//src/main/tools:linux-sandbox"],
     deps = [
+        ":sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions:exec_exception",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/protobuf:failure_details_java_proto",
     ],
 )
 

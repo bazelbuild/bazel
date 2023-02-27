@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -120,6 +121,11 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   @Override
   public SpawnInputExpander getSpawnInputExpander() {
     return new SpawnInputExpander(execRoot, /* strict= */ false);
+  }
+
+  @Override
+  public ArtifactPathResolver getPathResolver() {
+    return ArtifactPathResolver.forExecRoot(execRoot);
   }
 
   @Override

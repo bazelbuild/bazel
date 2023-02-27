@@ -1,0 +1,22 @@
+name: bazel.build doc issue
+description: File a documentation issue through bazel.build's "Report an Issue" button
+body:
+  - type: input
+    id: link
+    attributes:
+      label: >
+        Page link:
+  - type: textarea
+    id: desc
+    attributes:
+      label: >
+        Problem description (include actual vs expected text, if applicable):
+  - type: textarea
+    id: location
+    attributes:
+      label: >
+        Where do you see this issue? (include link to specific section of the page, if applicable)
+  - type: textarea
+    id: extras
+    attributes:
+      label: Any other information you'd like to share?

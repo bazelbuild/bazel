@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
+import com.sun.management.GarbageCollectionNotificationInfo;
+
 /** Utility methods for garbage collection metrics. */
 public final class GarbageCollectionMetricsUtils {
   private GarbageCollectionMetricsUtils() {}
@@ -24,5 +26,9 @@ public final class GarbageCollectionMetricsUtils {
         || "Tenured Gen".equals(name)
         || "Shenandoah".equals(name)
         || "ZHeap".equals(name);
+  }
+
+  public static boolean isFullGc(GarbageCollectionNotificationInfo info) {
+    return info.getGcAction().equals("end of major GC");
   }
 }

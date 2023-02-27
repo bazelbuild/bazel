@@ -141,7 +141,7 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         getConfiguration((ConfiguredTarget) ((StructImpl) target.get(key)).getValue("dep"));
 
     assertThat(dep.getFragment(PlatformConfiguration.class).getTargetPlatform())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platform:platform_2"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//platform:platform_2"));
   }
 
   @Test
@@ -244,9 +244,9 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
             (ConfiguredTarget) ((StructImpl) target.get(key)).getValue("exec_group_dep"));
 
     assertThat(dep.getFragment(PlatformConfiguration.class).getTargetPlatform())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platform:platform_1"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//platform:platform_1"));
     assertThat(execGroupDep.getFragment(PlatformConfiguration.class).getTargetPlatform())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platform:platform_2"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//platform:platform_2"));
   }
 
   @Test
@@ -298,10 +298,10 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
                 .getOwner()
                 .getExecutionPlatform()
                 .label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platform:platform_2"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//platform:platform_2"));
     assertThat(
             getGeneratingAction(target, "test/out.txt").getOwner().getExecutionPlatform().label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platform:platform_1"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//platform:platform_1"));
   }
 
   @Test

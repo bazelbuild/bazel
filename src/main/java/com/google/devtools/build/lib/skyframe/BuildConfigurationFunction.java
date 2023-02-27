@@ -246,7 +246,7 @@ public final class BuildConfigurationFunction implements SkyFunction {
     }
     for (String starlarkOptionName : chosenStarlark) {
       Object value =
-          toOptions.getStarlarkOptions().get(Label.parseAbsoluteUnchecked(starlarkOptionName));
+          toOptions.getStarlarkOptions().get(Label.parseCanonicalUnchecked(starlarkOptionName));
       toHash.put(starlarkOptionName, value);
     }
 

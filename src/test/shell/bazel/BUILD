@@ -188,6 +188,21 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_java_test_defaults_prebuilt",
+    srcs = ["bazel_java_test_defaults_prebuilt.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    target_compatible_with = select({
+        "@platforms//os:linux": ["@platforms//cpu:x86_64"],
+        "@platforms//os:macos": [],
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+)
+
+sh_test(
     name = "bazel_java17_test",
     srcs = ["bazel_java17_test.sh"],
     args = [
@@ -955,6 +970,20 @@ sh_test(
     name = "bazel_sandboxing_test",
     size = "large",
     srcs = ["bazel_sandboxing_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/test/shell:sandboxing_test_utils.sh",
+    ],
+    tags = [
+        "no-sandbox",
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_sandboxing_networking_test",
+    size = "large",
+    srcs = ["bazel_sandboxing_networking_test.sh"],
     data = [
         ":test-deps",
         "//src/test/shell:sandboxing_test_utils.sh",

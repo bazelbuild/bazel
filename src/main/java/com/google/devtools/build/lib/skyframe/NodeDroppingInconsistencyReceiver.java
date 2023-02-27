@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
 
 /**
  * {@link GraphInconsistencyReceiver} for evaluations operating on graphs when {@code
- * --experimental_heuristically_drop_nodes} flag is applied.
+ * --heuristically_drop_nodes} flag is applied.
  *
  * <p>The expected inconsistency caused by heuristically dropping state nodes should be tolerated
  * while all other inconsistencies should result in throwing an exception.
@@ -61,7 +61,8 @@ public class NodeDroppingInconsistencyReceiver implements GraphInconsistencyRece
     if (inconsistency == Inconsistency.RESET_REQUESTED) {
       return otherKeys == null;
     }
-    if (inconsistency == Inconsistency.ALREADY_DECLARED_CHILD_MISSING) {
+    if (inconsistency == Inconsistency.ALREADY_DECLARED_CHILD_MISSING
+        || inconsistency == Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD) {
       // For already declared child missing inconsistency, key is the parent while `otherKeys`
       // are the children (dependency nodes).
       SkyFunctionName expectedStateKeyType =

@@ -15,8 +15,9 @@
 """Utility functions for C++ rules."""
 
 load(":common/objc/semantics.bzl", objc_semantics = "semantics")
+load(":common/paths.bzl", "paths")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
-CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
 CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
@@ -48,6 +49,21 @@ artifact_category = struct(
 linker_mode = struct(
     LINKING_DYNAMIC = "dynamic_linking_mode",
     LINKING_STATIC = "static_linking_mode",
+)
+
+ios_cpus = struct(
+    IOS_SIMULATOR_TARGET_CPUS = ["ios_x86_64", "ios_i386", "ios_sim_arm64"],
+    IOS_DEVICE_TARGET_CPUS = ["ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s", "ios_arm64e"],
+    WATCHOS_SIMULATOR_TARGET_CPUS = ["watchos_i386", "watchos_x86_64", "watchos_arm64"],
+    WATCHOS_DEVICE_TARGET_CPUS = ["watchos_armv7k", "watchos_arm64_32", "watchos_device_arm64", "watchos_device_arm64e"],
+    TVOS_SIMULATOR_TARGET_CPUS = ["tvos_x86_64", "tvos_sim_arm64"],
+    TVOS_DEVICE_TARGET_CPUS = ["tvos_arm64"],
+    CATALYST_TARGET_CPUS = ["catalyst_x86_64"],
+    MACOS_TARGET_CPUS = ["darwin_x86_64", "darwin_arm64", "darwin_arm64e", "darwin"],
+)
+
+cpp_file_types = struct(
+    LINKER_SCRIPT = ["ld", "lds", "ldscript"],
 )
 
 SYSROOT_FLAG = "--sysroot="
@@ -185,18 +201,22 @@ def _get_dynamic_library_for_runtime_or_none(library, linking_statically):
 
 _CPP_TOOLCHAIN_TYPE = "@" + objc_semantics.get_repo() + "//tools/cpp:toolchain_type"
 
-def _find_cpp_toolchain(ctx):
+def _find_cpp_toolchain(ctx, *, mandatory = True):
     """
     Finds the c++ toolchain.
 
     If the c++ toolchain is in use, returns it.  Otherwise, returns a c++
-    toolchain derived from legacy toolchain selection.
+    toolchain derived from legacy toolchain selection, constructed from
+    the CppConfiguration.
 
     Args:
       ctx: The rule context for which to find a toolchain.
+      mandatory: If this is set to False, this function will return None rather
+        than fail if no toolchain is found.
 
     Returns:
-      A CcToolchainProvider.
+      A CcToolchainProvider, or None if the c++ toolchain is declared as
+      optional, mandatory is False and no toolchain has been found.
     """
 
     # Check the incompatible flag for toolchain resolution.
@@ -205,6 +225,9 @@ def _find_cpp_toolchain(ctx):
             fail("In order to use find_cpp_toolchain, you must include the '//tools/cpp:toolchain_type' in the toolchains argument to your rule.")
         toolchain_info = ctx.toolchains[_CPP_TOOLCHAIN_TYPE]
         if toolchain_info == None:
+            if not mandatory:
+                return None
+
             # No cpp toolchain was found, so report an error.
             fail("Unable to find a CC toolchain using toolchain resolution. Target: %s, Platform: %s, Exec platform: %s" %
                  (ctx.label, ctx.fragments.platform.platform, ctx.fragments.platform.host_platform))
@@ -404,25 +427,6 @@ extensions = struct(
     CC_AND_OBJC = CC_AND_OBJC,
     DISALLOWED_HDRS_FILES = DISALLOWED_HDRS_FILES,  # Also includes VERSIONED_SHARED_LIBRARY files.
 )
-
-def _collect_header_tokens(
-        ctx,
-        cpp_configuration,
-        compilation_outputs,
-        process_hdrs,
-        add_self_tokens):
-    header_tokens_transitive = []
-    for dep in ctx.attr.deps:
-        if "_hidden_header_tokens_INTERNAL_" in dep[OutputGroupInfo]:
-            header_tokens_transitive.append(dep[OutputGroupInfo]["_hidden_header_tokens_INTERNAL_"])
-        else:
-            header_tokens_transitive.append(depset([]))
-
-    header_tokens_direct = []
-    if add_self_tokens and process_hdrs:
-        header_tokens_direct.extend(compilation_outputs.header_tokens())
-
-    return depset(direct = header_tokens_direct, transitive = header_tokens_transitive)
 
 def _collect_library_hidden_top_level_artifacts(
         ctx,
@@ -725,12 +729,13 @@ def _lookup_var(ctx, additional_vars, var):
         return expanded_make_var_ctx
     fail("{}: {} not defined".format(ctx.label, "$(" + var + ")"))
 
-def _get_cc_flags_make_variable(ctx, common, cc_toolchain):
+def _get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain):
     original_cc_flags = cc_toolchain.legacy_cc_flags_make_variable()
     sysroot_cc_flag = ""
     if cc_toolchain.sysroot != None:
         sysroot_cc_flag = SYSROOT_FLAG + cc_toolchain.sysroot
-    feature_config_cc_flags = common.compute_cc_flags_from_feature_config(ctx = ctx, cc_toolchain = cc_toolchain)
+    build_vars = cc_toolchain.get_build_variables(ctx = ctx, cpp_configuration = ctx.fragments.cpp)
+    feature_config_cc_flags = cc_common.get_memory_inefficient_command_line(feature_configuration = feature_configuration, action_name = "cc-flags-make-variable", variables = build_vars)
     cc_flags = [original_cc_flags]
 
     # Only add sysroots flag if nothing else adds sysroot, BUT it must appear
@@ -740,17 +745,24 @@ def _get_cc_flags_make_variable(ctx, common, cc_toolchain):
     cc_flags.extend(feature_config_cc_flags)
     return {"CC_FLAGS": " ".join(cc_flags)}
 
-def _expand_nested_variable(ctx, additional_vars, exp, execpath = True):
+def _expand_nested_variable(ctx, additional_vars, exp, execpath = True, targets = []):
     # If make variable is predefined path variable(like $(location ...))
     # we will expand it first.
     if exp.find(" ") != -1:
         if not execpath:
             if exp.startswith("location"):
                 exp = exp.replace("location", "rootpath", 1)
-        targets = []
+        data_targets = []
         if ctx.attr.data != None:
-            targets = ctx.attr.data
-        return ctx.expand_location("$({})".format(exp), targets = targets)
+            data_targets = ctx.attr.data
+
+        # Make sure we do not duplicate targets.
+        unified_targets_set = {}
+        for data_target in data_targets:
+            unified_targets_set[data_target] = True
+        for target in targets:
+            unified_targets_set[target] = True
+        return ctx.expand_location("$({})".format(exp), targets = unified_targets_set.keys())
 
     # Recursively expand nested make variables, but since there is no recursion
     # in Starlark we will do it via for loop.
@@ -773,7 +785,7 @@ def _expand_nested_variable(ctx, additional_vars, exp, execpath = True):
         fail("potentially unbounded recursion during expansion of {}".format(exp))
     return exp
 
-def _expand(ctx, expression, additional_make_variable_substitutions, execpath = True):
+def _expand(ctx, expression, additional_make_variable_substitutions, execpath = True, targets = []):
     idx = 0
     last_make_var_end = 0
     result = []
@@ -815,7 +827,7 @@ def _expand(ctx, expression, additional_make_variable_substitutions, execpath = 
                 #   last_make_var_end  make_var_start make_var_end
                 result.append(expression[last_make_var_end:make_var_start - 1])
                 make_var = expression[make_var_start + 1:make_var_end]
-                exp = _expand_nested_variable(ctx, additional_make_variable_substitutions, make_var, execpath)
+                exp = _expand_nested_variable(ctx, additional_make_variable_substitutions, make_var, execpath, targets)
                 result.append(exp)
 
                 # Update indexes.
@@ -1030,107 +1042,6 @@ def _report_invalid_options(cc_toolchain, cpp_config):
 def _is_repository_main(repository):
     return repository == ""
 
-def _get_drive_str_length(path):
-    if len(path) == 0:
-        return 0
-    if path[0] == "/":
-        return 1
-    return 0
-
-def _needs_to_normalize(path):
-    dot_count = 0
-    prev_char = ""
-    for i in range(len(path)):
-        c = path[i]
-        if c == "\\":
-            return True
-        if c == "/":
-            if prev_char == "/":
-                return True
-            if dot_count == 1 or dot_count == 2:
-                return True
-        if c == ".":
-            dot_count += 1
-        else:
-            dot_count = 0
-        prev_char = c
-    if prev_char == "/" or dot_count == 1 or dot_count == 2:
-        return True
-    return False
-
-# Normalizes any '.' and '..' in-place in the segment list by shifting other segments to the
-# front. Returns the remaining number of items.
-def _remove_relative_paths(segments, is_absolute, start_index = 0):
-    segment_count = 0
-    shift = start_index
-    for i in range(start_index, len(segments)):
-        segment = segments[i]
-        if segment == ".":
-            shift += 1
-            continue
-        if segment == "..":
-            if segment_count > 0 and segments[segment_count - 1] != "..":
-                # Remove the last segment, if there is one and it is not "..". This
-                # means that the resulting path can still contain ".."
-                # segments at the beginning.
-                segment_count -= 1
-                shift += 2
-                continue
-            elif is_absolute:
-                # If this is absolute, then just pop it the ".." off and remain at root
-                shift += 1
-                continue
-        segment_count += 1
-        if shift > 0:
-            segments[i - shift] = segments[i]
-    return segment_count
-
-def _normalize(path):
-    if len(path) == 0:
-        return path
-    is_absolute = path[0] == "/"
-    result = []
-    if is_absolute:
-        result.append("/")
-    segments = path.split("/")
-    segment_count = _remove_relative_paths(segments, is_absolute)
-
-    # segment_count might not be the same as len(segments)
-    for i in range(segment_count):
-        result.append(segments[i])
-        result.append("/")
-
-    # Remove trailing "/".
-    if segment_count > 0:
-        result = result[:-1]
-    return "".join(result)
-
-def _get_relative(original, other):
-    if len(original) == 0:
-        return other
-    if len(other) == 0:
-        return original
-
-    other_drive_str_length = _get_drive_str_length(other)
-    needs_to_normalize = _needs_to_normalize(other)
-
-    # This is an absolute path, simply return it.
-    if other_drive_str_length > 0:
-        normalized_path = other
-        if needs_to_normalize:
-            normalized_path = _normalize(other)
-        return normalized_path
-    new_path = ""
-    if original.endswith("/"):
-        original = original[:-1]
-    if other.endswith("/"):
-        other = other[:-1]
-
-    new_path = original + "/" + other
-    if needs_to_normalize:
-        return _normalize(new_path)
-    return new_path
-
 def _repository_exec_path(ctx, sibling_repository_layout):
     repository = ctx.label.workspace_name
     if _is_repository_main(repository):
@@ -1140,10 +1051,10 @@ def _repository_exec_path(ctx, sibling_repository_layout):
         prefix = ".."
     if repository.startswith("@"):
         repository = repository[1:]
-    return _get_relative(prefix, repository)
+    return paths.get_relative(prefix, repository)
 
 def _package_exec_path(ctx, package, sibling_repository_layout):
-    return _get_relative(_repository_exec_path(ctx, sibling_repository_layout), package)
+    return paths.get_relative(_repository_exec_path(ctx, sibling_repository_layout), package)
 
 def _package_source_root(ctx, package, sibling_repository_layout):
     repository = ctx.label.workspace_name
@@ -1151,7 +1062,7 @@ def _package_source_root(ctx, package, sibling_repository_layout):
         return package
     if repository.startswith("@"):
         repository = repository[1:]
-    return _get_relative(_get_relative("external", repository), package)
+    return paths.get_relative(paths.get_relative("external", repository), package)
 
 def _contains_up_level_references(path):
     return path.startswith("..") and (len(path) == 2 or path[2] == "/")
@@ -1166,11 +1077,11 @@ def _system_include_dirs(ctx, additional_make_variable_substitutions):
         includes_attr = _expand(ctx, include, additional_make_variable_substitutions)
         if includes_attr.startswith("/"):
             continue
-        includes_path = _get_relative(package_exec_path, includes_attr)
+        includes_path = paths.get_relative(package_exec_path, includes_attr)
         if not sibling_repository_layout and _contains_up_level_references(includes_path):
             fail("Path references a path above the execution root.", attr = "includes")
 
-        if len(includes_path) == 0:
+        if includes_path == ".":
             fail("'" + includes_attr + "' resolves to the workspace root, which would allow this rule and all of its " +
                  "transitive dependents to include any file in your workspace. Please include only" +
                  " what you need", attr = "includes")
@@ -1178,10 +1089,10 @@ def _system_include_dirs(ctx, additional_make_variable_substitutions):
 
         # We don't need to perform the above checks against out_includes_path again since any errors
         # must have manifested in includesPath already.
-        out_includes_path = _get_relative(package_source_root, includes_attr)
+        out_includes_path = paths.get_relative(package_source_root, includes_attr)
         if (ctx.configuration.has_separate_genfiles_directory()):
-            result.append(_get_relative(ctx.genfiles_dir.path, out_includes_path))
-        result.append(_get_relative(ctx.bin_dir.path, out_includes_path))
+            result.append(paths.get_relative(ctx.genfiles_dir.path, out_includes_path))
+        result.append(paths.get_relative(ctx.bin_dir.path, out_includes_path))
     return result
 
 def _get_coverage_environment(ctx, cc_config, cc_toolchain):
@@ -1200,16 +1111,16 @@ def _get_coverage_environment(ctx, cc_config, cc_toolchain):
         env["FDO_DIR"] = cc_config.fdo_instrument()
     return env
 
-def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_files):
+def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_files, virtual_to_original_headers = None):
     extensions = CC_SOURCE + \
                  C_SOURCE + \
                  CC_HEADER + \
                  ASSESMBLER_WITH_C_PREPROCESSOR + \
                  ASSEMBLER
     coverage_environment = {}
-    if ctx.coverage_instrumented():
+    if ctx.configuration.coverage_enabled:
         coverage_environment = _get_coverage_environment(ctx, cc_config, cc_toolchain)
-    coverage_support_files = cc_toolchain.coverage_files() if ctx.coverage_instrumented() else depset([])
+    coverage_support_files = cc_toolchain.coverage_files() if ctx.configuration.coverage_enabled else depset([])
     info = coverage_common.instrumented_files_info(
         ctx = ctx,
         source_attributes = ["srcs", "hdrs"],
@@ -1218,8 +1129,82 @@ def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_fi
         metadata_files = metadata_files,
         coverage_support_files = coverage_support_files,
         coverage_environment = coverage_environment,
+        reported_to_actual_sources = virtual_to_original_headers,
     )
     return info
+
+def _is_apple_platform(cpu):
+    return cpu in ios_cpus.IOS_SIMULATOR_TARGET_CPUS or \
+           cpu in ios_cpus.IOS_DEVICE_TARGET_CPUS or \
+           cpu in ios_cpus.WATCHOS_SIMULATOR_TARGET_CPUS or \
+           cpu in ios_cpus.WATCHOS_DEVICE_TARGET_CPUS or \
+           cpu in ios_cpus.TVOS_SIMULATOR_TARGET_CPUS or \
+           cpu in ios_cpus.TVOS_DEVICE_TARGET_CPUS or \
+           cpu in ios_cpus.CATALYST_TARGET_CPUS or \
+           cpu in ios_cpus.MACOS_TARGET_CPUS
+
+def _linkopts(ctx, additional_make_variable_substitutions, cc_toolchain):
+    linkopts = getattr(ctx.attr, "linkopts", [])
+    if len(linkopts) == 0:
+        return []
+    targets = []
+    for additional_linker_input in getattr(ctx.attr, "additional_linker_inputs", []):
+        targets.append(additional_linker_input)
+    tokens = []
+    for linkopt in linkopts:
+        expanded_linkopt = _expand(ctx, linkopt, additional_make_variable_substitutions, targets = targets)
+        _tokenize(tokens, expanded_linkopt)
+    if _is_apple_platform(cc_toolchain.cpu) and "-static" in tokens:
+        fail("in linkopts attribute of cc_library rule {}: Apple builds do not support statically linked binaries".format(ctx.label))
+    return tokens
+
+def _defines_attribute(ctx, additional_make_variable_substitutions, attr_name):
+    defines = getattr(ctx.attr, attr_name, [])
+    if len(defines) == 0:
+        return []
+    targets = []
+    for dep in ctx.attr.deps:
+        targets.append(dep)
+    result = []
+    for define in defines:
+        expanded_define = _expand(ctx, define, additional_make_variable_substitutions, targets = targets)
+        tokens = []
+        _tokenize(tokens, expanded_define)
+        if len(tokens) == 1:
+            result.append(tokens[0])
+        elif len(tokens) == 0:
+            fail("empty definition not allowed", attr = attr_name)
+        else:
+            fail("definition contains too many tokens (found {}, expecting exactly one)".format(len(tokens)), attr = attr_name)
+
+    return result
+
+def _defines(ctx, additional_make_variable_substitutions):
+    return _defines_attribute(ctx, additional_make_variable_substitutions, "defines")
+
+def _local_defines(ctx, additional_make_variable_substitutions):
+    return _defines_attribute(ctx, additional_make_variable_substitutions, "local_defines")
+
+def _linker_scripts(ctx):
+    result = []
+    for dep in ctx.attr.deps:
+        for f in dep.files.to_list():
+            if f.extension in cpp_file_types.LINKER_SCRIPT:
+                result.append(f)
+    return result
+
+def _copts_filter(ctx, additional_make_variable_substitutions):
+    nocopts = getattr(ctx.attr, "nocopts", None)
+
+    if nocopts == None or len(nocopts) == 0:
+        return nocopts
+
+    # Check if nocopts is disabled.
+    if ctx.fragments.cpp.disable_nocopts():
+        fail("This attribute was removed. See https://github.com/bazelbuild/bazel/issues/8706 for details.", attr = "nocopts")
+
+    # Expand nocopts and create CoptsFilter.
+    return _expand(ctx, nocopts, additional_make_variable_substitutions)
 
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
@@ -1276,4 +1261,9 @@ cc_helper = struct(
     system_include_dirs = _system_include_dirs,
     get_coverage_environment = _get_coverage_environment,
     create_cc_instrumented_files_info = _create_cc_instrumented_files_info,
+    linkopts = _linkopts,
+    defines = _defines,
+    local_defines = _local_defines,
+    linker_scripts = _linker_scripts,
+    copts_filter = _copts_filter,
 )

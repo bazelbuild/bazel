@@ -200,25 +200,6 @@ EOF
       //java/com/example/hello:hello || fail "build failed"
 }
 
-function test_legacy_desugar_hello_android() {
-  write_hello_android_files
-  setup_android_sdk_support
-  cat > java/com/example/hello/BUILD <<'EOF'
-android_binary(
-    name = 'hello',
-    manifest = "AndroidManifest.xml",
-    srcs = ['MainActivity.java'],
-    resource_files = glob(["res/**"]),
-)
-EOF
-
-  bazel clean
-  # Check that the legacy desugarer still works.
-  bazel build --define=android_standalone_dexing_tool=d8_compat_dx \
-      --define=android_desugaring_tool=legacy \
-      //java/com/example/hello:hello || fail "build failed"
-}
-
 function test_hello_android_bzlmod() {
   write_hello_android_files
   setup_android_sdk_support
@@ -232,7 +213,7 @@ android_binary(
 EOF
   cat > MODULE.bazel << 'EOF'
 # Required for android_integration_test_with_platforms
-bazel_dep(name = "platforms", version = "0.0.5")
+bazel_dep(name = "platforms", version = "0.0.6")
 EOF
 
   bazel clean

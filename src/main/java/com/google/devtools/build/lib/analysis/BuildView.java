@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver.TopLevelTargetsAndConfigsResult;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.constraints.PlatformRestrictionsResult;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
@@ -91,6 +92,7 @@ import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryM
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisAndExecutionResult;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
+import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -220,7 +222,8 @@ public class BuildView {
       @Nullable ResourceManager resourceManager,
       @Nullable BuildResultListener buildResultListener,
       @Nullable ExecutionSetup executionSetupCallback,
-      @Nullable BuildConfigurationsCreated buildConfigurationsCreatedCallback)
+      @Nullable BuildConfigurationsCreated buildConfigurationsCreatedCallback,
+      @Nullable BuildDriverKeyTestContext buildDriverKeyTestContext)
       throws ViewCreationFailedException,
           InvalidConfigurationException,
           InterruptedException,
@@ -422,11 +425,12 @@ public class BuildView {
                     getCoverageArtifactsHelper(
                         configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult),
                 keepGoing,
-                viewOptions.strictConflictChecks,
+                targetOptions.get(CoreOptions.class).strictConflictChecks,
                 checkForActionConflicts,
                 executors,
                 /* shouldDiscardAnalysisCache= */ viewOptions.discardAnalysisCache
-                    || !skyframeExecutor.tracksStateForIncrementality());
+                    || !skyframeExecutor.tracksStateForIncrementality(),
+                buildDriverKeyTestContext);
       } else {
         skyframeAnalysisResult =
             skyframeBuildView.configureTargets(
@@ -439,7 +443,7 @@ public class BuildView {
                 bugReporter,
                 keepGoing,
                 executors,
-                viewOptions.strictConflictChecks,
+                targetOptions.get(CoreOptions.class).strictConflictChecks,
                 checkForActionConflicts);
         setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
       }

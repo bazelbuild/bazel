@@ -50,14 +50,14 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       "@bazel_tools//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:"
           + ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST;
   public static final Label ALLOWED_LAYERING_CHECK_FEATURES_LABEL =
-      Label.parseAbsoluteUnchecked(ALLOWED_LAYERING_CHECK_FEATURES_TARGET);
+      Label.parseCanonicalUnchecked(ALLOWED_LAYERING_CHECK_FEATURES_TARGET);
 
   public static final String LOOSE_HEADER_CHECK_ALLOWLIST =
       "loose_header_check_allowed_in_toolchain";
   public static final String LOOSE_HEADER_CHECK_TARGET =
       "@bazel_tools//tools/build_defs/cc/whitelists/starlark_hdrs_check:" + LOOSE_HEADER_CHECK_ALLOWLIST;
   public static final Label LOOSE_HEADER_CHECK_LABEL =
-      Label.parseAbsoluteUnchecked(LOOSE_HEADER_CHECK_TARGET);
+      Label.parseCanonicalUnchecked(LOOSE_HEADER_CHECK_TARGET);
 
   @Override
   @Nullable

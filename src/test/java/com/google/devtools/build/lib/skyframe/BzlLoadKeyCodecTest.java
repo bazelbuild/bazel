@@ -28,12 +28,12 @@ public final class BzlLoadKeyCodecTest {
   public void testCodec() throws Exception {
     SerializationTester serializationTester =
         new SerializationTester(
-            BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//foo/bar:baz")),
+            BzlLoadValue.keyForBuild(Label.parseCanonicalUnchecked("//foo/bar:baz")),
             BzlLoadValue.keyForWorkspace(
-                Label.parseAbsoluteUnchecked("//foo/bar:baz"),
-                /*workspaceChunk=*/ 4,
-                /*workspacePath=*/ FsUtils.TEST_ROOTED_PATH),
-            BzlLoadValue.keyForBuiltins(Label.parseAbsoluteUnchecked("@_builtins//:foo/bar")));
+                Label.parseCanonicalUnchecked("//foo/bar:baz"),
+                /* workspaceChunk= */ 4,
+                /* workspacePath= */ FsUtils.TEST_ROOTED_PATH),
+            BzlLoadValue.keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:foo/bar")));
     FsUtils.addDependencies(serializationTester);
     serializationTester.runTests();
   }

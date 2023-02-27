@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
  * An {@link ActionLookupKey} with a non-hermetic {@link SkyFunctionName} so that its value can be
  * directly injected during tests.
  */
-public final class InjectedActionLookupKey implements ActionLookupKey {
+public final class InjectedActionLookupKey extends ActionLookupKey {
   public static final SkyFunctionName INJECTED_ACTION_LOOKUP =
       SkyFunctionName.createNonHermetic("INJECTED_ACTION_LOOKUP");
 
@@ -41,7 +41,8 @@ public final class InjectedActionLookupKey implements ActionLookupKey {
 
   @Override
   public Label getLabel() {
-    return Label.parseAbsoluteUnchecked("//foo:" + name); // Makes actions shareable.
+    // Makes actions shareable.
+    return Label.parseCanonicalUnchecked("//foo:" + name);
   }
 
   @Nullable

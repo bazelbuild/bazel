@@ -103,6 +103,16 @@ public interface CoverageCommonApi<
             defaultValue = "[]",
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = FileApi.class),
+            }),
+        @Param(
+            name = "reported_to_actual_sources",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = Depset.class),
+              @ParamType(type = NoneType.class),
             })
       },
       useStarlarkThread = true)
@@ -114,6 +124,7 @@ public interface CoverageCommonApi<
       Dict<?, ?> environment, // <String, String>
       Object extensions,
       Sequence<?> metadataFiles,
+      Object reportedToActualSourcesObject,
       StarlarkThread thread)
       throws EvalException, TypeException;
 }

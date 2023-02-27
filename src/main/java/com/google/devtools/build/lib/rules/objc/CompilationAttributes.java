@@ -228,6 +228,12 @@ final class CompilationAttributes implements StarlarkValue {
         for (String explicit : ruleContext.attributes().get("sdk_frameworks", Type.STRING_LIST)) {
           frameworks.add(explicit);
         }
+        if (ruleContext.getFragment(ObjcConfiguration.class).disallowSdkFrameworksAttributes()
+            && !frameworks.isEmpty()) {
+          ruleContext.attributeError(
+              "sdk_frameworks",
+              "sdk_frameworks attribute is disallowed. Use explicit dependencies instead.");
+        }
         builder.addSdkFrameworks(frameworks.build());
       }
 
@@ -236,6 +242,12 @@ final class CompilationAttributes implements StarlarkValue {
         for (String frameworkName :
             ruleContext.attributes().get("weak_sdk_frameworks", Type.STRING_LIST)) {
           weakFrameworks.add(frameworkName);
+        }
+        if (ruleContext.getFragment(ObjcConfiguration.class).disallowSdkFrameworksAttributes()
+            && !weakFrameworks.isEmpty()) {
+          ruleContext.attributeError(
+              "weak_sdk_frameworks",
+              "weak_sdk_frameworks attribute is disallowed.  Use explicit dependencies instead.");
         }
         builder.addWeakSdkFrameworks(weakFrameworks.build());
       }

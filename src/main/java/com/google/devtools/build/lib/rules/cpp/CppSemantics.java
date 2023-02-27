@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -66,7 +67,7 @@ public interface CppSemantics extends StarlarkValue {
 
   void validateAttributes(RuleContext ruleContext);
 
-  default void validateDeps(RuleContext ruleContext) {}
+  default void validateDeps(RuleContext ruleContext) throws RuleErrorException {}
 
   /** Returns true iff this build requires include validation. */
   boolean needsIncludeValidation();

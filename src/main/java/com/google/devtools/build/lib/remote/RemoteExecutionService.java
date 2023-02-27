@@ -64,6 +64,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -76,6 +77,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.Protos.CacheSalt;
 import com.google.devtools.build.lib.exec.SpawnInputExpander.InputWalker;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -371,10 +373,14 @@ public class RemoteExecutionService {
           spawn,
           context,
           (Object nodeKey, InputWalker walker) -> {
-            subMerkleTrees.add(buildMerkleTreeVisitor(nodeKey, walker, metadataProvider));
+            subMerkleTrees.add(
+                buildMerkleTreeVisitor(
+                    nodeKey, walker, metadataProvider, context.getPathResolver()));
           });
       if (!outputDirMap.isEmpty()) {
-        subMerkleTrees.add(MerkleTree.build(outputDirMap, metadataProvider, execRoot, digestUtil));
+        subMerkleTrees.add(
+            MerkleTree.build(
+                outputDirMap, metadataProvider, execRoot, context.getPathResolver(), digestUtil));
       }
       return MerkleTree.merge(subMerkleTrees, digestUtil);
     } else {
@@ -394,16 +400,20 @@ public class RemoteExecutionService {
           toolSignature == null ? ImmutableSet.of() : toolSignature.toolInputs,
           context.getMetadataProvider(),
           execRoot,
+          context.getPathResolver(),
           digestUtil);
     }
   }
 
   private MerkleTree buildMerkleTreeVisitor(
-      Object nodeKey, InputWalker walker, MetadataProvider metadataProvider)
+      Object nodeKey,
+      InputWalker walker,
+      MetadataProvider metadataProvider,
+      ArtifactPathResolver artifactPathResolver)
       throws IOException, ForbiddenActionInputException {
     MerkleTree result = merkleTreeCache.getIfPresent(nodeKey);
     if (result == null) {
-      result = uncachedBuildMerkleTreeVisitor(walker, metadataProvider);
+      result = uncachedBuildMerkleTreeVisitor(walker, metadataProvider, artifactPathResolver);
       merkleTreeCache.put(nodeKey, result);
     }
     return result;
@@ -411,32 +421,39 @@ public class RemoteExecutionService {
 
   @VisibleForTesting
   public MerkleTree uncachedBuildMerkleTreeVisitor(
-      InputWalker walker, MetadataProvider metadataProvider)
+      InputWalker walker,
+      MetadataProvider metadataProvider,
+      ArtifactPathResolver artifactPathResolver)
       throws IOException, ForbiddenActionInputException {
     ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
     subMerkleTrees.add(
-        MerkleTree.build(walker.getLeavesInputMapping(), metadataProvider, execRoot, digestUtil));
+        MerkleTree.build(
+            walker.getLeavesInputMapping(),
+            metadataProvider,
+            execRoot,
+            artifactPathResolver,
+            digestUtil));
     walker.visitNonLeaves(
         (Object subNodeKey, InputWalker subWalker) -> {
-          subMerkleTrees.add(buildMerkleTreeVisitor(subNodeKey, subWalker, metadataProvider));
+          subMerkleTrees.add(
+              buildMerkleTreeVisitor(
+                  subNodeKey, subWalker, metadataProvider, artifactPathResolver));
         });
     return MerkleTree.merge(subMerkleTrees, digestUtil);
   }
 
   @Nullable
   private static ByteString buildSalt(Spawn spawn) {
+    CacheSalt.Builder saltBuilder =
+        CacheSalt.newBuilder().setMayBeExecutedRemotely(Spawns.mayBeExecutedRemotely(spawn));
+
     String workspace =
         spawn.getExecutionInfo().get(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE);
     if (workspace != null) {
-      Platform platform =
-          Platform.newBuilder()
-              .addProperties(
-                  Platform.Property.newBuilder().setName("workspace").setValue(workspace).build())
-              .build();
-      return platform.toByteString();
+      saltBuilder.setWorkspace(workspace);
     }
 
-    return null;
+    return saltBuilder.build().toByteString();
   }
 
   /**
@@ -794,7 +811,6 @@ public class RemoteExecutionService {
     FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
     checkState(actionFileSystem instanceof RemoteActionFileSystem);
 
-    RemoteActionExecutionContext context = action.getRemoteActionExecutionContext();
     RemoteActionFileSystem remoteActionFileSystem = (RemoteActionFileSystem) actionFileSystem;
 
     for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
@@ -809,8 +825,7 @@ public class RemoteExecutionService {
         remoteActionFileSystem.injectRemoteFile(
             file.path().asFragment(),
             DigestUtil.toBinaryDigest(file.digest()),
-            file.digest().getSizeBytes(),
-            context.getRequestMetadata().getActionId());
+            file.digest().getSizeBytes());
       }
     }
 
@@ -818,8 +833,7 @@ public class RemoteExecutionService {
       remoteActionFileSystem.injectRemoteFile(
           file.path().asFragment(),
           DigestUtil.toBinaryDigest(file.digest()),
-          file.digest().getSizeBytes(),
-          context.getRequestMetadata().getActionId());
+          file.digest().getSizeBytes());
     }
   }
 
@@ -1280,7 +1294,7 @@ public class RemoteExecutionService {
               action.getSpawnExecutionContext().getFileOutErr(),
               spawnResult.exitCode(),
               spawnResult.getStartTime(),
-              spawnResult.getWallTime());
+              spawnResult.getWallTimeInMs());
         });
   }
 

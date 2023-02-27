@@ -145,9 +145,19 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
   }
 
   enum TestType {
-    NOT_TEST,
-    PARALLEL,
-    EXCLUSIVE,
-    EXCLUSIVE_IF_LOCAL
+    NOT_TEST("not-test"),
+    PARALLEL("parallel"),
+    EXCLUSIVE("exclusive"),
+    EXCLUSIVE_IF_LOCAL("exclusive-if-local");
+
+    private final String msg;
+
+    TestType(String msg) {
+      this.msg = msg;
+    }
+
+    public String getMsg() {
+      return msg;
+    }
   }
 }

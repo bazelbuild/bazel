@@ -31,12 +31,14 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -325,7 +327,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     ConfiguredAspect aspectValue =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//:aspect.bzl"), "StructImpl");
+        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
         .containsExactly("@//:suite", "@//:test_a", "@//:test_b");
@@ -358,7 +360,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     ConfiguredAspect aspectValue =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//:aspect.bzl"), "StructImpl");
+        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
         .containsExactly("@//:suite", "@//:test_b");
@@ -387,7 +389,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
             /* doAnalysis= */ true,
             new EventBus());
     final StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//:aspect.bzl"), "StructImpl");
+        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
 
     List<String> labels = new ArrayList<>();
     for (ConfiguredAspect a : analysisResult.getAspectsMap().values()) {
@@ -471,6 +473,156 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
     ImmutableMap<String, String> executionInfo = testAction.getExecutionInfo();
     assertThat(executionInfo).containsExactly("key", "good");
+  }
+
+  /**
+   * Overriding the exec group from within the test with --use_target_platform_for_tests.
+   *
+   * <p>This is the same test as testOverrideExecGroup with --use_target_platform_for_tests and a
+   * target platform.
+   */
+  @Test
+  public void testOverrideTestExecGroup() throws Exception {
+    useConfiguration("--use_target_platform_for_tests=true", "--platforms=//:linux_aarch64");
+    scratch.file(
+        "some_test.bzl",
+        "def _some_test_impl(ctx):",
+        "    script = ctx.actions.declare_file(ctx.attr.name + '.sh')",
+        "    ctx.actions.write(script, 'shell script goes here', is_executable = True)",
+        "    return [",
+        "        DefaultInfo(executable = script),",
+        "        testing.ExecutionInfo({}, exec_group = 'custom_group'),",
+        "    ]",
+        "",
+        "some_test = rule(",
+        "    implementation = _some_test_impl,",
+        "    exec_groups = {'custom_group': exec_group()},",
+        "    test = True,",
+        ")");
+    scratch.file(
+        "BUILD",
+        "load(':some_test.bzl', 'some_test')",
+        "platform(",
+        "    name = 'linux_aarch64',",
+        "    constraint_values = [",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:aarch64',",
+        "    ],",
+        ")",
+        "some_test(",
+        "    name = 'custom_exec_group_test',",
+        "    exec_properties = {'test.key': 'bad', 'custom_group.key': 'good'},",
+        ")");
+    ImmutableList<Artifact.DerivedArtifact> testStatusList =
+        getTestStatusArtifacts("//:custom_exec_group_test");
+    TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
+    ImmutableMap<String, String> executionInfo = testAction.getExecutionInfo();
+    assertThat(executionInfo).containsExactly("key", "good");
+  }
+
+  /** Adding exec_properties from the platform with --use_target_platform_for_tests. */
+  @Test
+  public void testTargetTestExecGroup() throws Exception {
+    useConfiguration(
+        "--use_target_platform_for_tests=true",
+        "--platforms=//:linux_aarch64",
+        "--host_platform=//:linux_x86");
+    scratch.file(
+        "some_test.bzl",
+        "def _some_test_impl(ctx):",
+        "    script = ctx.actions.declare_file(ctx.attr.name + '.sh')",
+        "    ctx.actions.write(script, 'shell script goes here', is_executable = True)",
+        "    return [",
+        "        DefaultInfo(executable = script),",
+        "    ]",
+        "",
+        "some_test = rule(",
+        "    implementation = _some_test_impl,",
+        "    test = True,",
+        ")");
+    scratch.file(
+        "BUILD",
+        "load(':some_test.bzl', 'some_test')",
+        "platform(",
+        "    name = 'linux_x86',",
+        "    constraint_values = [",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "    ],",
+        "    exec_properties = {'keyhost': 'bad'},",
+        ")",
+        "platform(",
+        "    name = 'linux_aarch64',",
+        "    constraint_values = [",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:aarch64',",
+        "    ],",
+        "    exec_properties = {'key2': 'good'},",
+        ")",
+        "some_test(",
+        "    name = 'exec_group_test',",
+        "    exec_properties = {'key': 'bad'},",
+        ")");
+    ImmutableList<Artifact.DerivedArtifact> testStatusList =
+        getTestStatusArtifacts("//:exec_group_test");
+    TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
+    assertThat(testAction.getExecutionPlatform().label().getName()).isEqualTo("linux_aarch64");
+
+    ImmutableMap<String, String> executionInfo = testAction.getExecutionInfo();
+    assertThat(executionInfo).containsExactly("key2", "good");
+  }
+
+  /** Adding test specific exec_properties with --use_target_platform_for_tests. */
+  @Test
+  @Ignore("https://github.com/bazelbuild/bazel/issues/17466")
+  public void testTargetTestExecGroupInheritance() throws Exception {
+    useConfiguration(
+        "--use_target_platform_for_tests=true",
+        "--platforms=//:linux_aarch64",
+        "--host_platform=//:linux_x86");
+    scratch.file(
+        "some_test.bzl",
+        "def _some_test_impl(ctx):",
+        "    script = ctx.actions.declare_file(ctx.attr.name + '.sh')",
+        "    ctx.actions.write(script, 'shell script goes here', is_executable = True)",
+        "    return [",
+        "        DefaultInfo(executable = script),",
+        "    ]",
+        "",
+        "some_test = rule(",
+        "    implementation = _some_test_impl,",
+        "    test = True,",
+        ")");
+    scratch.file(
+        "BUILD",
+        "load(':some_test.bzl', 'some_test')",
+        "platform(",
+        "    name = 'linux_x86',",
+        "    constraint_values = [",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux',",
+        "       '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "    ],",
+        "    exec_properties = {'keyhost': 'bad'},",
+        ")",
+        "platform(",
+        "    name = 'linux_aarch64',",
+        "    constraint_values = [",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:aarch64',",
+        "    ],",
+        "    exec_properties = {'key2': 'good'},",
+        ")",
+        "some_test(",
+        "    name = 'exec_group_test',",
+        "    exec_properties = {'test.key': 'good', 'key': 'bad'},",
+        ")");
+    ImmutableList<Artifact.DerivedArtifact> testStatusList =
+        getTestStatusArtifacts("//:exec_group_test");
+    TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
+    assertThat(testAction.getExecutionPlatform().label().getName()).isEqualTo("linux_aarch64");
+
+    ImmutableMap<String, String> executionInfo = testAction.getExecutionInfo();
+    assertThat(executionInfo).containsExactly("key2", "good", "key", "good");
   }
 
   @Test

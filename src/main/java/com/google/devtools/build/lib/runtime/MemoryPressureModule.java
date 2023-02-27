@@ -14,50 +14,52 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.skyframe.HighWaterMarkLimiter;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import javax.annotation.Nullable;
+import com.google.devtools.common.options.OptionsBase;
 
 /**
  * A {@link BlazeModule} that installs a {@link MemoryPressureListener} that reacts to memory
  * pressure events.
  */
-public class MemoryPressureModule extends BlazeModule {
+public final class MemoryPressureModule extends BlazeModule {
   private RetainedHeapLimiter retainedHeapLimiter;
-  @Nullable private MemoryPressureListener memoryPressureListener;
+  private MemoryPressureListener memoryPressureListener;
 
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-
     retainedHeapLimiter = RetainedHeapLimiter.create(runtime.getBugReporter());
     memoryPressureListener = MemoryPressureListener.create(retainedHeapLimiter);
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
-    if (memoryPressureListener != null) {
-      memoryPressureListener.setEventBus(env.getEventBus());
-    }
+    memoryPressureListener.setEventBus(env.getEventBus());
 
-    CommonCommandOptions commonOptions = env.getOptions().getOptions(CommonCommandOptions.class);
+    MemoryPressureOptions options = env.getOptions().getOptions(MemoryPressureOptions.class);
     HighWaterMarkLimiter highWaterMarkLimiter =
         new HighWaterMarkLimiter(
             env.getSkyframeExecutor(),
             env.getSyscallCache(),
-            commonOptions.skyframeHighWaterMarkMemoryThreshold);
+            options.skyframeHighWaterMarkMemoryThreshold,
+            options.skyframeHighWaterMarkMinorGcDropsPerInvocation,
+            options.skyframeHighWaterMarkFullGcDropsPerInvocation);
 
-    retainedHeapLimiter.setThreshold(
-        /*listening=*/ memoryPressureListener != null, commonOptions.oomMoreEagerlyThreshold);
+    retainedHeapLimiter.setOptions(options);
 
     env.getEventBus().register(highWaterMarkLimiter);
   }
 
   @Override
   public void afterCommand() {
-    if (memoryPressureListener != null) {
-      memoryPressureListener.setEventBus(null);
-    }
+    memoryPressureListener.setEventBus(null);
+  }
+
+  @Override
+  public ImmutableList<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+    return ImmutableList.of(MemoryPressureOptions.class);
   }
 }

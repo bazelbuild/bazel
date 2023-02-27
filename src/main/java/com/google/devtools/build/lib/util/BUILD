@@ -237,7 +237,10 @@ java_library(
     srcs = [
         "ResourceUsage.java",
     ],
-    deps = ["//third_party:guava"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
+        "//third_party:guava",
+    ],
 )
 
 java_library(
@@ -323,8 +326,9 @@ java_library(
     name = "crash_failure_details",
     srcs = ["CrashFailureDetails.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        ":detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:flogger",
         "//third_party:guava",
     ],
 )
@@ -336,5 +340,15 @@ java_library(
         ":abrupt_exit_exception",
         ":detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
+    ],
+)
+
+java_library(
+    name = "ps_info_collector",
+    srcs = ["PsInfoCollector.java"],
+    deps = [
+        "//third_party:auto_value",
+        "//third_party:flogger",
+        "//third_party:guava",
     ],
 )

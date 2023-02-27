@@ -202,8 +202,7 @@ public class SandboxHelpersTest {
             ParameterFileType.UNQUOTED,
             UTF_8);
 
-    SandboxHelpers.atomicallyWriteVirtualInput(
-        paramFile, scratch.resolve("/outputs/paramFile"), "-1234");
+    paramFile.atomicallyWriteRelativeTo(scratch.resolve("/outputs"), "-1234");
 
     assertThat(scratch.resolve("/outputs").readdir(Symlinks.NOFOLLOW))
         .containsExactly(new Dirent("paramFile", Dirent.Type.FILE));
@@ -218,11 +217,11 @@ public class SandboxHelpersTest {
         new BinTools.PathActionInput(
             scratch.file("tool", "tool_code"), PathFragment.create("tools/tool"));
 
-    SandboxHelpers.atomicallyWriteVirtualInput(tool, scratch.resolve("/outputs/tool"), "-1234");
+    tool.atomicallyWriteRelativeTo(scratch.resolve("/outputs"), "-1234");
 
     assertThat(scratch.resolve("/outputs").readdir(Symlinks.NOFOLLOW))
-        .containsExactly(new Dirent("tool", Dirent.Type.FILE));
-    Path outputFile = scratch.resolve("/outputs/tool");
+        .containsExactly(new Dirent("tools", Dirent.Type.DIRECTORY));
+    Path outputFile = scratch.resolve("/outputs/tools/tool");
     assertThat(FileSystemUtils.readLines(outputFile, UTF_8)).containsExactly("tool_code");
     assertThat(outputFile.isExecutable()).isTrue();
   }
@@ -231,7 +230,7 @@ public class SandboxHelpersTest {
   public void atomicallyWriteVirtualInput_writesArbitraryVirtualInput() throws Exception {
     VirtualActionInput input = ActionsTestUtil.createVirtualActionInput("file", "hello");
 
-    SandboxHelpers.atomicallyWriteVirtualInput(input, scratch.resolve("/outputs/file"), "-1234");
+    input.atomicallyWriteRelativeTo(scratch.resolve("/outputs"), "-1234");
 
     assertThat(scratch.resolve("/outputs").readdir(Symlinks.NOFOLLOW))
         .containsExactly(new Dirent("file", Dirent.Type.FILE));

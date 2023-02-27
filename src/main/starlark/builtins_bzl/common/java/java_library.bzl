@@ -19,10 +19,10 @@ Definition of java_library rule.
 load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "construct_defaultinfo")
 load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/java_semantics.bzl", "semantics")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
 JavaInfo = _builtins.toplevel.JavaInfo
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
-CcInfo = _builtins.toplevel.CcInfo
 
 def bazel_java_library_rule(
         ctx,

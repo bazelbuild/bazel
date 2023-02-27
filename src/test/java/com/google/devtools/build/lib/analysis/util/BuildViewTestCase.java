@@ -1109,7 +1109,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /** Returns the configurations in which the given label has already been configured. */
   protected Set<BuildConfigurationKey> getKnownConfigurations(String label) throws Exception {
-    Label parsed = Label.parseAbsoluteUnchecked(label);
+    Label parsed = Label.parseCanonicalUnchecked(label);
     Set<BuildConfigurationKey> cts = new HashSet<>();
     for (Map.Entry<SkyKey, SkyValue> e :
         skyframeExecutor.getEvaluator().getDoneValues().entrySet()) {
@@ -1583,7 +1583,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getGenfilesArtifact(
         packageRelativePath,
         ConfiguredTargetKey.builder()
-            .setLabel(Label.parseAbsoluteUnchecked(owner))
+            .setLabel(Label.parseCanonicalUnchecked(owner))
             .setConfiguration(config)
             .build(),
         config);
@@ -1790,7 +1790,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   private ConfiguredTargetKey makeConfiguredTargetKey(String label) {
     return ConfiguredTargetKey.builder()
-        .setLabel(Label.parseAbsoluteUnchecked(label))
+        .setLabel(Label.parseCanonicalUnchecked(label))
         .setConfiguration(getConfiguration(label))
         .build();
   }
@@ -1884,6 +1884,19 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       }
     }
     return ImmutableList.copyOf(result);
+  }
+
+  protected ImmutableList<Action> getActions(String label, Class<?> actionClass) throws Exception {
+    return ((RuleConfiguredTarget) getConfiguredTarget(label))
+        .getActions().stream()
+            .map(Action.class::cast)
+            .filter(action -> action.getClass().equals(actionClass))
+            .collect(toImmutableList());
+  }
+
+  protected ImmutableList<Action> getActions(String label) throws Exception {
+    return ((RuleConfiguredTarget) getConfiguredTarget(label))
+        .getActions().stream().map(Action.class::cast).collect(toImmutableList());
   }
 
   protected static NestedSet<Artifact> getOutputGroup(

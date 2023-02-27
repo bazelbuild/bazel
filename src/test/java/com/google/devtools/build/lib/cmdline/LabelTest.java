@@ -363,13 +363,13 @@ public class LabelTest {
 
   @Test
   public void testGetContainingDirectory() {
-    assertThat(Label.getContainingDirectory(Label.parseAbsoluteUnchecked("//a:b")))
+    assertThat(Label.getContainingDirectory(Label.parseCanonicalUnchecked("//a:b")))
         .isEqualTo(PathFragment.create("a"));
-    assertThat(Label.getContainingDirectory(Label.parseAbsoluteUnchecked("//a/b:c")))
+    assertThat(Label.getContainingDirectory(Label.parseCanonicalUnchecked("//a/b:c")))
         .isEqualTo(PathFragment.create("a/b"));
-    assertThat(Label.getContainingDirectory(Label.parseAbsoluteUnchecked("//a:b/c")))
+    assertThat(Label.getContainingDirectory(Label.parseCanonicalUnchecked("//a:b/c")))
         .isEqualTo(PathFragment.create("a/b"));
-    assertThat(Label.getContainingDirectory(Label.parseAbsoluteUnchecked("//a/b/c")))
+    assertThat(Label.getContainingDirectory(Label.parseCanonicalUnchecked("//a/b/c")))
         .isEqualTo(PathFragment.create("a/b/c"));
   }
 

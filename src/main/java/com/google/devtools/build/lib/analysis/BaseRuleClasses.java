@@ -285,7 +285,7 @@ public class BaseRuleClasses {
     if (testRuntimeLabelList == null) {
       testRuntimeLabelList =
           ImmutableList.of(
-              Label.parseAbsoluteUnchecked(
+              Label.parseCanonicalUnchecked(
                   env.getToolsRepository() + TOOLS_TEST_RUNTIME_TARGET_PATTERN));
     }
     return testRuntimeLabelList;
@@ -530,6 +530,7 @@ public class BaseRuleClasses {
     @Override
     @Nullable
     public ConfiguredTarget create(RuleContext ruleContext) {
+      ruleContext.ruleError("Rule is unimplemented.");
       return null;
     }
   }

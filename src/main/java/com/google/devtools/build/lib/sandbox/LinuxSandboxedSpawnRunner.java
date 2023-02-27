@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.BindMount;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OS;
@@ -331,13 +330,13 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .setUseDebugMode(sandboxOptions.sandboxDebug)
             .setKillDelay(timeoutKillDelay);
 
-    if (sandboxOptions.memoryLimit > 0) {
+    if (sandboxOptions.memoryLimitMb > 0) {
       CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
       // We put the sandbox inside a unique subdirectory using the context's ID. This ID is
       // unique per spawn run by this spawn runner.
       cgroupsDir =
           cgroupsInfo.createMemoryLimitCgroupDir(
-              "sandbox_" + context.getId(), sandboxOptions.memoryLimit);
+              "sandbox_" + context.getId(), sandboxOptions.memoryLimitMb);
       commandLineBuilder.setCgroupsDir(cgroupsDir);
     }
 
@@ -395,8 +394,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           writableDirs,
           treeDeleter,
           statisticsPath,
-          sandboxOptions.reuseSandboxDirectories,
-          sandboxBase,
           spawn.getMnemonic());
     }
   }
@@ -412,7 +409,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       throws IOException {
     ImmutableSet.Builder<Path> writableDirs = ImmutableSet.builder();
     writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, withinSandboxExecRoot, env));
-    if (getSandboxOptions().memoryLimit > 0) {
+    if (getSandboxOptions().memoryLimitMb > 0) {
       CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
       writableDirs.add(fileSystem.getPath(cgroupsInfo.getMountPoint().getAbsolutePath()));
     }
@@ -431,22 +428,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       throws UserExecException {
     Path tmpPath = fileSystem.getPath("/tmp");
     final SortedMap<Path, Path> bindMounts = Maps.newTreeMap();
-
-    for (ImmutableMap.Entry<String, String> additionalMountPath :
-        getSandboxOptions().sandboxAdditionalMounts) {
-      try {
-        final Path mountTarget = fileSystem.getPath(additionalMountPath.getValue());
-        // If source path is relative, treat it as a relative path inside the execution root
-        final Path mountSource = sandboxExecRootBase.getRelative(additionalMountPath.getKey());
-        // If a target has more than one source path, the latter one will take effect.
-        bindMounts.put(mountTarget, mountSource);
-      } catch (IllegalArgumentException e) {
-        throw new UserExecException(
-            createFailureDetail(
-                String.format("Error occurred when analyzing bind mount pairs. %s", e.getMessage()),
-                Code.BIND_MOUNT_ANALYSIS_FAILURE));
-      }
-    }
+    SandboxHelpers.mountAdditionalPaths(
+        getSandboxOptions().sandboxAdditionalMounts, sandboxExecRootBase, bindMounts);
 
     for (Path inaccessiblePath : getInaccessiblePaths()) {
       if (inaccessiblePath.isDirectory(Symlinks.NOFOLLOW)) {
@@ -456,7 +439,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       }
     }
 
-    validateBindMounts(bindMounts);
+    LinuxSandboxUtil.validateBindMounts(bindMounts);
     ImmutableList.Builder<BindMount> result = ImmutableList.builder();
 
     if (sandboxTmp != null) {
@@ -484,62 +467,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
 
     return result.build();
-  }
-
-  /**
-   * This method does the following things:
-   *
-   * <ul>
-   *   <li>If mount source does not exist on the host system, throw an error message
-   *   <li>If mount target exists, check whether the source and target are of the same type
-   *   <li>If mount target does not exist on the host system, throw an error message
-   * </ul>
-   *
-   * @param bindMounts the bind mounts map with target as key and source as value
-   * @throws UserExecException if any of the mount points are not valid
-   */
-  private void validateBindMounts(SortedMap<Path, Path> bindMounts) throws UserExecException {
-    for (Map.Entry<Path, Path> bindMount : bindMounts.entrySet()) {
-      final Path source = bindMount.getValue();
-      final Path target = bindMount.getKey();
-      // Mount source should exist in the file system
-      if (!source.exists()) {
-        throw new UserExecException(
-            createFailureDetail(
-                String.format("Mount source '%s' does not exist.", source),
-                Code.MOUNT_SOURCE_DOES_NOT_EXIST));
-      }
-      // If target exists, but is not of the same type as the source, then we cannot mount it.
-      if (target.exists()) {
-        boolean areBothDirectories = source.isDirectory() && target.isDirectory();
-        boolean isSourceFile = source.isFile() || source.isSymbolicLink();
-        boolean isTargetFile = target.isFile() || target.isSymbolicLink();
-        boolean areBothFiles = isSourceFile && isTargetFile;
-        if (!(areBothDirectories || areBothFiles)) {
-          // Source and target are not of the same type; we cannot mount it.
-          throw new UserExecException(
-              createFailureDetail(
-                  String.format(
-                      "Mount target '%s' is a %s but mount source '%s' is a %s, they must be the"
-                          + " same type.",
-                      target,
-                      (isTargetFile ? "file" : "directory"),
-                      source,
-                      (isSourceFile ? "file" : "directory")),
-                  Code.MOUNT_SOURCE_TARGET_TYPE_MISMATCH));
-        }
-      } else {
-        // Mount target should exist in the file system
-        throw new UserExecException(
-            createFailureDetail(
-                String.format(
-                    "Mount target '%s' does not exist. Bazel only supports bind mounting on top of "
-                        + "existing files/directories. Please create an empty file or directory at "
-                        + "the mount target path according to the type of mount source.",
-                    target),
-                Code.MOUNT_TARGET_DOES_NOT_EXIST));
-      }
-    }
   }
 
   @Override

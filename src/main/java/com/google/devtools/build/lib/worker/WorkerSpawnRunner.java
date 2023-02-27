@@ -221,8 +221,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
             .setExitCode(exitCode)
             .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
             .setStartTime(startTime)
-            .setWallTime(wallTime)
-            .setSpawnMetrics(spawnMetrics.setTotalTime(wallTime).build());
+            .setWallTimeInMs((int) wallTime.toMillis())
+            .setSpawnMetrics(spawnMetrics.setTotalTimeInMs((int) wallTime.toMillis()).build());
     if (exitCode != 0) {
       builder.setFailureDetail(
           FailureDetail.newBuilder()
@@ -386,7 +386,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
     }
     Duration setupInputsTime = setupInputsStopwatch.elapsed();
-    spawnMetrics.setSetupTime(setupInputsTime);
+    spawnMetrics.setSetupTimeInMs((int) setupInputsTime.toMillis());
 
     Stopwatch queueStopwatch = Stopwatch.createStarted();
     ResourceSet resourceSet =
@@ -411,7 +411,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           createWorkRequest(spawn, context, flagFiles, virtualInputDigests, inputFileCache, key);
 
       // We acquired a worker and resources -- mark that as queuing time.
-      spawnMetrics.setQueueTime(queueStopwatch.elapsed());
+      spawnMetrics.setQueueTimeInMs((int) queueStopwatch.elapsed().toMillis());
       response =
           executeRequest(
               spawn, context, inputFiles, outputs, workerOwner, key, request, spawnMetrics, handle);
@@ -437,7 +437,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
           context.lockOutputFiles(response.getExitCode(), response.getOutput(), null);
           hasOutputFileLock = true;
           workerOwner.getWorker().finishExecution(execRoot, outputs);
-          spawnMetrics.setProcessOutputsTime(processOutputsStopwatch.elapsed());
+          spawnMetrics.setProcessOutputsTimeInMs(
+              (int) processOutputsStopwatch.elapsed().toMillis());
         } else {
           throw createUserExecException(
               "The response finished successfully, but worker is taken by finishAsync",
@@ -519,7 +520,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Stopwatch prepareExecutionStopwatch = Stopwatch.createStarted();
       worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithDigests().keySet());
       initializeMetrics(key, worker);
-      spawnMetrics.addSetupTime(prepareExecutionStopwatch.elapsed());
+      spawnMetrics.addSetupTimeInMs((int) prepareExecutionStopwatch.elapsed().toMillis());
     } catch (IOException e) {
       restoreInterrupt(e);
       String message =
@@ -580,7 +581,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
     }
 
-    spawnMetrics.setExecutionWallTime(executionStopwatch.elapsed());
+    spawnMetrics.setExecutionWallTimeInMs((int) executionStopwatch.elapsed().toMillis());
 
     return response;
   }

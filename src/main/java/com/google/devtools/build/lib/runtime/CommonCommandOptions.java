@@ -328,6 +328,14 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean collectResourceEstimation;
 
   @Option(
+      name = "experimental_collect_pressure_stall_indicators",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help = "If enabled, the profiler collects the Linux PSI data.")
+  public boolean collectPressureStallIndicators;
+
+  @Option(
       name = "memory_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -352,29 +360,6 @@ public class CommonCommandOptions extends OptionsBase {
               + " by 4 GCs with zero second pause")
   public MemoryProfileStableHeapParameters memoryProfileStableHeapParameters;
 
-  @Option(
-      name = "experimental_oom_more_eagerly_threshold",
-      defaultValue = "100",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help =
-          "If this flag is set to a value less than 100, Bazel will OOM if, after two full GC's, "
-              + "more than this percentage of the (old gen) heap is still occupied.")
-  public int oomMoreEagerlyThreshold;
-
-  @Option(
-      name = "skyframe_high_water_mark_threshold",
-      defaultValue = "85",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help =
-          "Flag for advanced configuration of Bazel's internal Skyframe engine. If Bazel detects"
-              + " its retained heap percentage usage is at least this threshold, it will drop"
-              + " unnecessary temporary Skyframe state. Tweaking this may let you mitigate wall"
-              + " time impact of GC thrashing, when the GC thrashing is (i) caused by the memory"
-              + " usage of this temporary state and (ii) more costly than reconstituting the state"
-              + " when it is needed.")
-  public int skyframeHighWaterMarkMemoryThreshold;
 
   @Option(
       name = "heap_dump_on_oom",
@@ -536,7 +521,9 @@ public class CommonCommandOptions extends OptionsBase {
   public List<Map.Entry<String, String>> repositoryEnvironment;
 
   @Option(
-      name = "experimental_heuristically_drop_nodes",
+      name = "heuristically_drop_nodes",
+      oldName = "experimental_heuristically_drop_nodes",
+      oldNameWarning = false,
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
@@ -545,7 +532,7 @@ public class CommonCommandOptions extends OptionsBase {
               + " and DirectoryListing node is done to save memory. We expect that it is less"
               + " likely that these nodes will be needed again. If so, the program will re-evaluate"
               + " them.")
-  public boolean experimentalHeuristicallyDropNodes;
+  public boolean heuristicallyDropNodes;
 
   /** The option converter to check that the user can only specify legal profiler tasks. */
   public static class ProfilerTaskConverter extends EnumConverter<ProfilerTask> {

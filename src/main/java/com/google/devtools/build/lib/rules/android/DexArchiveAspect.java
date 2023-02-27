@@ -147,7 +147,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
 
   @Override
   public AspectDefinition getDefinition(AspectParameters params) {
-    Label toolchainType = Label.parseAbsoluteUnchecked(toolsRepository + sdkToolchainLabel);
+    Label toolchainType = Label.parseCanonicalUnchecked(toolsRepository + sdkToolchainLabel);
     AspectDefinition.Builder result =
         new AspectDefinition.Builder(this)
             .requireStarlarkProviders(forKey(JavaInfo.PROVIDER.getKey()))
@@ -169,7 +169,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
                     .cfg(ExecutionTransitionFactory.create())
                     .exec()
                     .value(
-                        Label.parseAbsoluteUnchecked(
+                        Label.parseCanonicalUnchecked(
                             toolsRepository + "//tools/android:desugar_java8")))
             // Access to --android_sdk so we can stub in a bootclasspath for desugaring if missing
             // Remove this entirely when we remove --android_sdk support.
@@ -178,7 +178,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
                     .allowedRuleClasses("android_sdk", "filegroup")
                     .value(
                         AndroidRuleClasses.getAndroidSdkLabel(
-                            Label.parseAbsoluteUnchecked(
+                            Label.parseCanonicalUnchecked(
                                 toolsRepository + AndroidRuleClasses.DEFAULT_SDK))))
             .requiresConfigurationFragments(AndroidConfiguration.class)
             .requireAspectsWithProviders(
@@ -189,7 +189,8 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
           attr(ASPECT_DEXBUILDER_PREREQ, LABEL)
               .cfg(ExecutionTransitionFactory.create())
               .exec()
-              .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:dexbuilder")));
+              .value(
+                  Label.parseCanonicalUnchecked(toolsRepository + "//tools/android:dexbuilder")));
     }
     for (String attr : TRANSITIVE_ATTRIBUTES) {
       result.propagateAlongAttribute(attr);
@@ -483,7 +484,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
 
   @Nullable
   private Artifact getAndroidJar(RuleContext ruleContext) {
-    Label toolchainType = Label.parseAbsoluteUnchecked(toolsRepository + sdkToolchainLabel);
+    Label toolchainType = Label.parseCanonicalUnchecked(toolsRepository + sdkToolchainLabel);
     AndroidSdkProvider androidSdk =
         AndroidSdkProvider.fromRuleContext(ruleContext, ":dex_archive_android_sdk", toolchainType);
     if (androidSdk == null) {

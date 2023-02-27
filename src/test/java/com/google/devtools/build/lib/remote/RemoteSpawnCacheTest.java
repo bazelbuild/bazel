@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -89,7 +90,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
 import org.junit.Before;
@@ -149,6 +149,11 @@ public class RemoteSpawnCacheTest {
         @Override
         public MetadataProvider getMetadataProvider() {
           return fakeFileCache;
+        }
+
+        @Override
+        public ArtifactPathResolver getPathResolver() {
+          return ArtifactPathResolver.forExecRoot(execRoot);
         }
 
         @Override
@@ -320,10 +325,9 @@ public class RemoteSpawnCacheTest {
     verify(service, never()).uploadOutputs(any(), any());
     assertThat(result.getDigest())
         .isEqualTo(
-            Optional.of(
-                SpawnResult.Digest.of(
-                    actionKeyCaptor.getValue().getDigest().getHash(),
-                    actionKeyCaptor.getValue().getDigest().getSizeBytes())));
+            SpawnResult.Digest.of(
+                actionKeyCaptor.getValue().getDigest().getHash(),
+                actionKeyCaptor.getValue().getDigest().getSizeBytes()));
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isTrue();

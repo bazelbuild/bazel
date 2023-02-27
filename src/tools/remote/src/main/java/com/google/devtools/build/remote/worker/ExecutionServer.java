@@ -70,7 +70,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -365,8 +364,8 @@ final class ExecutionServer extends ExecutionImplBase {
                 outputs,
                 outErr,
                 exitCode,
-                Optional.of(startTime),
-                Optional.of(wallTime));
+                startTime,
+                (int) wallTime.toMillis());
         result = manifest.upload(context, cache, NullEventHandler.INSTANCE);
       } catch (ExecException e) {
         if (errStatus == null) {

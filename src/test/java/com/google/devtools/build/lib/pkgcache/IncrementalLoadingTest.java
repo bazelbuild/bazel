@@ -577,7 +577,7 @@ public class IncrementalLoadingTest {
 
     Target getTarget(String targetName)
         throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
-      Label label = Label.parseAbsoluteUnchecked(targetName);
+      Label label = Label.parseCanonicalUnchecked(targetName);
       return skyframeExecutor.getPackageManager().getTarget(reporter, label);
     }
   }

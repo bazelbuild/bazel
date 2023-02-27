@@ -7,7 +7,7 @@ Book: /_book.yaml
 
 Note: Using Bazel? You can add your company on
 [StackShare](https://stackshare.io/bazel). To add yourself to this page,
-contact [product@bazel.build](mailto:produc@bazel.build).
+contact [product@bazel.build](mailto:product@bazel.build).
 
 This page lists companies and OSS projects that are known to use Bazel.
 This does not constitute an endorsement.
@@ -649,6 +649,10 @@ networks.
 
 Sorbet is a fast, powerful type checker for a subset of Ruby. It scales to
 codebases with millions of lines of code and can be adopted incrementally.
+
+### [Spotify](https://spotify.com){: .external}
+
+Spotify is using Bazel to build their iOS and Android Apps ([source](https://twitter.com/BalestraPatrick/status/1573355078995566594)).
 
 ### [Tink](https://github.com/google/tink){: .external}
 

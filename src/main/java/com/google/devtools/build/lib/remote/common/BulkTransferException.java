@@ -23,8 +23,9 @@ import java.io.IOException;
  * with all constituent exceptions available for observation.
  */
 public class BulkTransferException extends IOException {
-  // true since no empty BulkTransferException is ever thrown
+  // No empty BulkTransferException is ever thrown.
   private boolean allCacheNotFoundException = true;
+  private boolean anyCacheNotFoundException = false;
 
   public BulkTransferException() {}
 
@@ -40,16 +41,26 @@ public class BulkTransferException extends IOException {
    */
   public void add(IOException e) {
     allCacheNotFoundException &= e instanceof CacheNotFoundException;
+    anyCacheNotFoundException |= e instanceof CacheNotFoundException;
     super.addSuppressed(e);
   }
 
-  public boolean onlyCausedByCacheNotFoundException() {
+  public boolean anyCausedByCacheNotFoundException() {
+    return anyCacheNotFoundException;
+  }
+
+  public static boolean anyCausedByCacheNotFoundException(Throwable e) {
+    return e instanceof BulkTransferException
+        && ((BulkTransferException) e).anyCausedByCacheNotFoundException();
+  }
+
+  public boolean allCausedByCacheNotFoundException() {
     return allCacheNotFoundException;
   }
 
-  public static boolean isOnlyCausedByCacheNotFoundException(Exception e) {
+  public static boolean allCausedByCacheNotFoundException(Throwable e) {
     return e instanceof BulkTransferException
-        && ((BulkTransferException) e).onlyCausedByCacheNotFoundException();
+        && ((BulkTransferException) e).allCausedByCacheNotFoundException();
   }
 
   @Override

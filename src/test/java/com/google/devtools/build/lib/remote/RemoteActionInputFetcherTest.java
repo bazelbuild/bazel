@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
@@ -21,6 +22,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -70,7 +75,8 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
         execRoot,
         tempPathGenerator,
         ImmutableList.of(),
-        OutputPermissions.READONLY);
+        OutputPermissions.READONLY,
+        /* useNewExitCodeForLostInputs= */ false);
   }
 
   @Test
@@ -87,7 +93,8 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             execRoot,
             tempPathGenerator,
             ImmutableList.of(),
-            OutputPermissions.READONLY);
+            OutputPermissions.READONLY,
+            /* useNewExitCodeForLostInputs= */ false);
     VirtualActionInput a = ActionsTestUtil.createVirtualActionInput("file1", "hello world");
 
     // act
@@ -115,7 +122,8 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             execRoot,
             tempPathGenerator,
             ImmutableList.of(),
-            OutputPermissions.READONLY);
+            OutputPermissions.READONLY,
+            /* useNewExitCodeForLostInputs= */ false);
 
     // act
     wait(
@@ -125,6 +133,27 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     // assert that nothing happened
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
     assertThat(actionInputFetcher.downloadsInProgress()).isEmpty();
+  }
+
+  @Test
+  public void prefetchFiles_missingFiles_failsWithSpecificMessage() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Artifact a = createRemoteArtifact("file1", "hello world", metadata, /* cas= */ new HashMap<>());
+    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(new HashMap<>());
+
+    var error =
+        assertThrows(
+            ExecException.class,
+            () -> wait(prefetcher.prefetchFiles(ImmutableList.of(a), metadataProvider)));
+
+    assertThat(prefetcher.downloadedFiles()).isEmpty();
+    assertThat(prefetcher.downloadsInProgress()).isEmpty();
+    var m = metadataProvider.getMetadata(a);
+    var digest = DigestUtil.buildDigest(m.getDigest(), m.getSize());
+    assertThat(error)
+        .hasMessageThat()
+        .contains(String.format("%s/%s", digest.getHash(), digest.getSizeBytes()));
   }
 
   private RemoteCache newCache(

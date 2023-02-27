@@ -87,7 +87,11 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "doc",
             named = true,
-            defaultValue = "''",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
             doc =
                 "A description of the provider that can be extracted by documentation generating"
                     + " tools."),
@@ -185,7 +189,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "None"),
       },
       useStarlarkThread = true)
-  Object provider(String doc, Object fields, Object init, StarlarkThread thread)
+  Object provider(Object doc, Object fields, Object init, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -358,7 +362,11 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "doc",
             named = true,
-            defaultValue = "''",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
             doc =
                 "A description of the rule that can be extracted by documentation generating "
                     + "tools."),
@@ -483,7 +491,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       Boolean starlarkTestable,
       Sequence<?> toolchains,
       boolean useToolchainTransition,
-      String doc,
+      Object doc,
       Sequence<?> providesArg,
       Sequence<?> execCompatibleWith,
       Object analysisTest,
@@ -634,7 +642,11 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "doc",
             named = true,
-            defaultValue = "''",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
             doc =
                 "A description of the aspect that can be extracted by documentation generating "
                     + "tools."),
@@ -691,7 +703,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
       boolean useToolchainTransition,
-      String doc,
+      Object doc,
       Boolean applyToGeneratingRules,
       Sequence<?> execCompatibleWith,
       Object execGroups,
@@ -701,18 +713,26 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
   @StarlarkMethod(
       name = "Label",
       doc =
-          "Creates a Label referring to a BUILD target. Use this function when you want to give a"
-              + " default value for the label attributes of a rule or when referring to a target"
-              + " via an absolute label from a macro. The argument must refer to an absolute label."
-              + " The repo part of the label (or its absence) is interpreted in the context of the"
-              + " repo where this Label() call appears. Example: <br><pre"
-              + " class=language-python>Label(\"//tools:default\")</pre>",
+          "Converts a label string into a <code>Label</code> object, in the context of the package"
+              + " where the calling <code>.bzl</code> source file lives. If the given value is"
+              + " already a <code>Label</code>, it is returned unchanged."
+              + "<p>For macros, a related function,"
+              + " <code><a"
+              + " href='native#package_relative_label'>native.package_relative_label()</a></code>,"
+              + " converts the input into a <code>Label</code> in the context of the package"
+              + " currently being constructed. Use that function to mimic the string-to-label"
+              + " conversion that is automatically done by label-valued rule attributes.",
       parameters = {
-        @Param(name = "label_string", doc = "the label string."),
+        @Param(
+            name = "input",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = Label.class)},
+            doc =
+                "The input label string or Label object. If a Label object is passed, it's"
+                    + " returned as is.")
       },
       useStarlarkThread = true)
   @StarlarkConstructor
-  Label label(String labelString, StarlarkThread thread) throws EvalException;
+  Label label(Object input, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "exec_group",

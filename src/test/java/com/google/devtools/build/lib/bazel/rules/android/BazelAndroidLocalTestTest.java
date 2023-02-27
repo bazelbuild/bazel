@@ -70,16 +70,6 @@ public abstract class BazelAndroidLocalTestTest extends AndroidLocalTestTest {
   }
 
   @Test
-  public void testCoverageThrowsError() throws Exception {
-    useConfiguration("--collect_code_coverage");
-    checkError("java/test",
-        "test",
-        "android_local_test does not yet support coverage",
-        "android_local_test(name = 'test',",
-        "    srcs = ['test.java'])");
-  }
-
-  @Test
   public void testNoAndroidAllJarsPropertiesFileThrowsError() throws Exception {
     checkError("java/test",
         "test",

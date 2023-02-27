@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import java.util.Objects;
+import java.util.Optional;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
@@ -35,6 +37,8 @@ import net.starlark.java.eval.StarlarkInt;
 /** A Starlark value that is a result of an 'aspect(..)' function call. */
 public final class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect {
   private final StarlarkCallable implementation;
+  // @Nullable rather than Optional for the sake of serialization.
+  @Nullable private final String documentation;
   private final ImmutableList<String> attributeAspects;
   private final ImmutableList<Attribute> attributes;
   private final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders;
@@ -61,6 +65,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
 
   public StarlarkDefinedAspect(
       StarlarkCallable implementation,
+      Optional<String> documentation,
       ImmutableList<String> attributeAspects,
       ImmutableList<Attribute> attributes,
       ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders,
@@ -74,6 +79,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       ImmutableSet<Label> execCompatibleWith,
       ImmutableMap<String, ExecGroup> execGroups) {
     this.implementation = implementation;
+    this.documentation = documentation.orElse(null);
     this.attributeAspects = attributeAspects;
     this.attributes = attributes;
     this.requiredProviders = requiredProviders;
@@ -90,6 +96,14 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
 
   public StarlarkCallable getImplementation() {
     return implementation;
+  }
+
+  /**
+   * Returns the value of the doc parameter passed to aspect() Starlark builtin, or an empty
+   * Optional if a doc string was not provided.
+   */
+  public Optional<String> getDocumentation() {
+    return Optional.ofNullable(documentation);
   }
 
   public ImmutableList<String> getAttributeAspects() {

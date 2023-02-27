@@ -15,9 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.J2OBJC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
@@ -367,15 +365,6 @@ public final class ObjcCommon implements StarlarkValue {
         if (artifacts.getArchive().isPresent()
             && J2ObjcLibrary.J2OBJC_SUPPORTED_RULES.contains(context.getRule().getRuleClass())) {
           objcProvider.addAll(J2OBJC_LIBRARY, artifacts.getArchive().asSet());
-        }
-
-        boolean usesCpp = false;
-        for (Artifact sourceFile :
-            Iterables.concat(artifacts.getSrcs(), artifacts.getNonArcSrcs())) {
-          usesCpp = usesCpp || ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath());
-        }
-        if (usesCpp) {
-          objcProvider.add(FLAG, USES_CPP);
         }
       }
 

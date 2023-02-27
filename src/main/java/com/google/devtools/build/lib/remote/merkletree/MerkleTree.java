@@ -30,6 +30,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -222,11 +223,13 @@ public class MerkleTree {
       SortedMap<PathFragment, ActionInput> inputs,
       MetadataProvider metadataProvider,
       Path execRoot,
+      ArtifactPathResolver artifactPathResolver,
       DigestUtil digestUtil)
       throws IOException {
     try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build(ActionInput)")) {
       DirectoryTree tree =
-          DirectoryTreeBuilder.fromActionInputs(inputs, metadataProvider, execRoot, digestUtil);
+          DirectoryTreeBuilder.fromActionInputs(
+              inputs, metadataProvider, execRoot, artifactPathResolver, digestUtil);
       return build(tree, digestUtil);
     }
   }
@@ -247,12 +250,13 @@ public class MerkleTree {
       Set<PathFragment> toolInputs,
       MetadataProvider metadataProvider,
       Path execRoot,
+      ArtifactPathResolver artifactPathResolver,
       DigestUtil digestUtil)
       throws IOException {
     try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build(ActionInput)")) {
       DirectoryTree tree =
           DirectoryTreeBuilder.fromActionInputs(
-              inputs, toolInputs, metadataProvider, execRoot, digestUtil);
+              inputs, toolInputs, metadataProvider, execRoot, artifactPathResolver, digestUtil);
       return build(tree, digestUtil);
     }
   }

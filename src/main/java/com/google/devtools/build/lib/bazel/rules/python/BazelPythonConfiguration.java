@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
@@ -144,6 +145,9 @@ public class BazelPythonConfiguration extends Fragment {
     }
   }
 
+  @StarlarkConfigurationField(
+      name = "python_top",
+      doc = "The value of the --python_top flag; may be None if not specified")
   public Label getPythonTop() {
     return options.pythonTop;
   }

@@ -621,6 +621,20 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     return packageId.getRepository().getNameWithAt();
   }
 
+  @Override
+  public Label packageRelativeLabel(Object input, StarlarkThread thread) throws EvalException {
+    BazelStarlarkContext.from(thread).checkLoadingPhase("native.package_relative_label");
+    if (input instanceof Label) {
+      return (Label) input;
+    }
+    try {
+      String s = (String) input;
+      return PackageFactory.getContext(thread).getBuilder().getLabelConverter().convert(s);
+    } catch (LabelSyntaxException e) {
+      throw Starlark.errorf("invalid label in native.package_relative_label: %s", e.getMessage());
+    }
+  }
+
   private static Dict<String, Object> getRuleDict(Rule rule, Mutability mu) throws EvalException {
     Dict.Builder<String, Object> values = Dict.builder();
 

@@ -116,6 +116,8 @@ public class BlazeRuntimeWrapper {
 
   private final List<Object> eventBusSubscribers = new ArrayList<>();
 
+  private final List<String> workspaceSetupWarnings = new ArrayList<>();
+
   public BlazeRuntimeWrapper(
       EventCollectionApparatus events,
       ServerDirectories serverDirectories,
@@ -208,7 +210,7 @@ public class BlazeRuntimeWrapper {
             .initCommand(
                 commandAnnotation,
                 optionsParser,
-                new ArrayList<>(),
+                workspaceSetupWarnings,
                 0L,
                 0L,
                 extensions.stream().map(Any::pack).collect(toImmutableList()),
@@ -242,7 +244,7 @@ public class BlazeRuntimeWrapper {
   }
 
   public void addStarlarkOption(String label, Object value) {
-    starlarkOptions.put(Label.parseAbsoluteUnchecked(label).getCanonicalForm(), value);
+    starlarkOptions.put(Label.parseCanonicalUnchecked(label).getCanonicalForm(), value);
   }
 
   public ImmutableList<String> getOptions() {
@@ -255,6 +257,15 @@ public class BlazeRuntimeWrapper {
 
   public void addOptionsClass(Class<? extends OptionsBase> optionsClass) {
     additionalOptionsClasses.add(optionsClass);
+  }
+
+  public boolean workspaceSetupWarningsContains(String message) {
+    for (String warning : workspaceSetupWarnings) {
+      if (warning.contains(message)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   void finalizeBuildResult(@SuppressWarnings("unused") BuildResult request) {}
@@ -333,6 +344,7 @@ public class BlazeRuntimeWrapper {
               /* collectWorkerDataInProfiler= */ false,
               /* collectLoadAverage= */ false,
               /* collectSystemNetworkUsage= */ false,
+              /* collectPressureStallIndicators= */ false,
               /* collectResourceEstimation= */ false,
               ResourceManager.instance(),
               WorkerMetricsCollector.instance(),
@@ -406,7 +418,7 @@ public class BlazeRuntimeWrapper {
                 .create(
                     AttributeTransitionData.builder()
                         .attributes(FakeAttributeMapper.empty())
-                        .executionPlatform(Label.parseAbsoluteUnchecked("//platform:exec"))
+                        .executionPlatform(Label.parseCanonicalUnchecked("//platform:exec"))
                         .build())
                 .apply(
                     new BuildOptionsView(targetOptions, targetOptions.getFragmentClasses()),

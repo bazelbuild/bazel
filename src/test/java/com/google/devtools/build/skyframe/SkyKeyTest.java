@@ -20,6 +20,10 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializationConte
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
+import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
+import com.google.devtools.build.skyframe.SkyKey.SkyKeyPool;
+import javax.annotation.Nullable;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -36,7 +40,7 @@ public final class SkyKeyTest {
     assertThat(hashCodeSpy.numberOfTimesHashCodeCalled).isEqualTo(0);
 
     // When a SkyKey is constructed with that HashCodeSpy as its argument,
-    SkyKey originalKey = new Key(hashCodeSpy);
+    SkyKey originalKey = new HashCodeSpyKey(hashCodeSpy);
 
     // Then the HashCodeSpy reports that its hashcode method was called once.
     assertThat(hashCodeSpy.numberOfTimesHashCodeCalled).isEqualTo(1);
@@ -85,9 +89,87 @@ public final class SkyKeyTest {
   }
 
   @AutoCodec
-  static final class Key extends AbstractSkyKey<HashCodeSpy> {
+  static final class HashCodeSpyKey extends AbstractSkyKey.WithCachedHashCode<HashCodeSpy> {
 
-    Key(HashCodeSpy arg) {
+    HashCodeSpyKey(HashCodeSpy arg) {
+      super(arg);
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctionName.FOR_TESTING;
+    }
+  }
+
+  @Test
+  public void skyKeyInterner_noGlobalPoolTestIntern() {
+    SkyKeyInterner<SkyKey> interner = SkyKey.newInterner();
+    SkyKey keyToIntern1 = new SkyKeyForInternerTests("HelloWorld");
+
+    assertThat(interner.intern(keyToIntern1)).isSameInstanceAs(keyToIntern1);
+
+    // Interning a duplicate instance will result the same instance to be returned.
+    assertThat(interner.intern(new SkyKeyForInternerTests("HelloWorld")))
+        .isSameInstanceAs(keyToIntern1);
+  }
+
+  @Test
+  public void skyKeyInterner_noGlobalPoolTestRemoval() {
+    SkyKeyInterner<SkyKey> interner = SkyKey.newInterner();
+    SkyKey keyToIntern1 = new SkyKeyForInternerTests("HelloWorld");
+
+    assertThat(interner.intern(keyToIntern1)).isSameInstanceAs(keyToIntern1);
+
+    // Remove one instance from the interner and re-intern a duplicate one. The newly interned
+    // instance is different from the previous one, which confirms that the previous interned
+    // instance has already been successfully removed from the interner.
+    interner.removeWeak(new SkyKeyForInternerTests("HelloWorld"));
+    assertThat(interner.intern(new SkyKeyForInternerTests("HelloWorld")))
+        .isNotSameInstanceAs(keyToIntern1);
+  }
+
+  @Test
+  public void skyKeyInterner_withGlobalPool() {
+    SkyKey keyToIntern1 = new SkyKeyForInternerTests("HelloWorld");
+    SkyKey keyToIntern2 = new SkyKeyForInternerTests("FooBar");
+    SkyKey keyInPool = new SkyKeyForInternerTests("FooBar");
+
+    SkyKeyPool globalPool =
+        new SkyKeyPool() {
+          @Nullable
+          @Override
+          public SkyKey canonicalize(SkyKey key) {
+            if (key.argument() == "FooBar") {
+              return keyInPool;
+            } else {
+              return null;
+            }
+          }
+
+          @Override
+          public void cleanupPool() {
+            SkyKeyInterner.setGlobalPool(null);
+          }
+        };
+
+    SkyKeyInterner.setGlobalPool(globalPool);
+    SkyKeyInterner<SkyKey> interner = SkyKey.newInterner();
+
+    assertThat(interner.intern(keyToIntern1)).isSameInstanceAs(keyToIntern1);
+    assertThat(interner.intern(keyToIntern2)).isSameInstanceAs(keyInPool);
+
+    globalPool.cleanupPool();
+  }
+
+  @After
+  public void cleanUpGlobalPool() {
+    SkyKeyInterner.setGlobalPool(null);
+  }
+
+  @AutoCodec
+  static final class SkyKeyForInternerTests extends AbstractSkyKey<String> {
+
+    SkyKeyForInternerTests(String arg) {
       super(arg);
     }
 

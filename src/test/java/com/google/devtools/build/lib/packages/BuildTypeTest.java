@@ -403,17 +403,17 @@ public final class BuildTypeTest {
     assertThat(selectorList.getOriginalType()).isEqualTo(BuildType.LABEL_KEYED_STRING_DICT);
     assertThat(selectorList.getKeyLabels())
         .containsExactly(
-            Label.parseAbsolute("//conditions:a", ImmutableMap.of()),
-            Label.parseAbsolute("//conditions:b", ImmutableMap.of()),
-            Label.parseAbsolute("//conditions:c", ImmutableMap.of()),
-            Label.parseAbsolute("//conditions:d", ImmutableMap.of()));
+            Label.parseCanonical("//conditions:a"),
+            Label.parseCanonical("//conditions:b"),
+            Label.parseCanonical("//conditions:c"),
+            Label.parseCanonical("//conditions:d"));
 
     List<Selector<Map<Label, String>>> selectors = selectorList.getSelectors();
     assertThat(selectors.get(0).mapCopy())
         .containsExactly(
-            Label.parseAbsolute("//conditions:a", ImmutableMap.of()),
+            Label.parseCanonical("//conditions:a"),
             ImmutableMap.of(Label.create("@//a", "a"), "a"),
-            Label.parseAbsolute("//conditions:b", ImmutableMap.of()),
+            Label.parseCanonical("//conditions:b"),
             ImmutableMap.of(Label.create("@//b", "b"), "b"));
   }
 

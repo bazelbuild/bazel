@@ -61,7 +61,8 @@ public final class StarlarkInfoCodecTest {
   /** Returns an exported, schemaless provider. */
   private static StarlarkProvider makeProvider() {
     return StarlarkProvider.builder(Location.BUILTIN)
-        .setExported(new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//foo:bar.bzl"), "foo"))
+        .setExported(
+            new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//foo:bar.bzl"), "foo"))
         .build();
   }
 }

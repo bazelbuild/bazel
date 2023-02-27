@@ -34,9 +34,12 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 
 /**
  * Core options affecting a {@link BuildConfigurationValue} that don't belong in domain-specific
@@ -169,6 +172,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "as errors. It does not work when check_fileset_dependencies_recursively is "
               + "disabled.")
   public boolean strictFilesets;
+
+  @Option(
+      name = "incompatible_strict_conflict_checks",
+      oldName = "experimental_strict_conflict_checks",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "Check for action prefix file path conflicts, regardless of action-specific overrides.")
+  public boolean strictConflictChecks;
 
   // This option is only used during execution. However, it is a required input to the analysis
   // phase, as otherwise flipping this flag would not invalidate already-executed actions.
@@ -643,12 +657,36 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "The given features will be enabled or disabled by default for all packages. "
-              + "Specifying -<feature> will disable the feature globally. "
+          "The given features will be enabled or disabled by default for targets "
+              + "built in the target configuration. "
+              + "Specifying -<feature> will disable the feature. "
               + "Negative features always override positive ones. "
-              + "This flag is used to enable rolling out default feature changes without a "
-              + "Bazel release.")
+              + "See also --host_features")
   public List<String> defaultFeatures;
+
+  @Option(
+      name = "host_features",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "The given features will be enabled or disabled by default for targets "
+              + "built in the exec configuration. "
+              + "Specifying -<feature> will disable the feature. "
+              + "Negative features always override positive ones.")
+  public List<String> hostFeatures;
+
+  @Option(
+      name = "incompatible_use_host_features",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, use --features only for the target configuration and --host_features for the"
+              + " exec configuration.")
+  public boolean incompatibleUseHostFeatures;
 
   @Option(
       name = "target_environment",
@@ -910,7 +948,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "experimental_throttle_action_cache_check",
-      defaultValue = "false",
+      defaultValue = "true",
       converter = BooleanConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
@@ -961,6 +999,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     exec.checkTestonlyForOutputFiles = checkTestonlyForOutputFiles;
     exec.useAutoExecGroups = useAutoExecGroups;
     exec.experimentalWritableOutputs = experimentalWritableOutputs;
+    exec.strictConflictChecks = strictConflictChecks;
 
     // === Runfiles ===
     exec.buildRunfilesManifests = buildRunfilesManifests;
@@ -986,7 +1025,12 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     exec.checkLicenses = checkLicenses;
 
     // === Pass on C++ compiler features.
-    exec.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
+    exec.incompatibleUseHostFeatures = incompatibleUseHostFeatures;
+    if (incompatibleUseHostFeatures) {
+      exec.defaultFeatures = ImmutableList.copyOf(hostFeatures);
+    } else {
+      exec.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
+    }
 
     // Save host options in case of a further exec->host transition.
     exec.hostCpu = hostCpu;
@@ -1016,6 +1060,40 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     return flagValueByName;
   }
 
+  /// Normalizes --features flags by sorting the values and having disables win over enables.
+  private static List<String> getNormalizedFeatures(List<String> features) {
+    // Parse out the features into a Map<String, boolean>, where the boolean represents whether
+    // the feature is enabled or disabled.
+    Map<String, Boolean> featureToState = new HashMap<>();
+    for (String feature : features) {
+      if (feature.startsWith("-")) {
+        // disable always wins.
+        featureToState.put(feature.substring(1), false);
+      } else if (!featureToState.containsKey(feature)) {
+        // enable feature only if it does not already have a state.
+        // If existing state is enabled, no need to do extra work.
+        // If existing state is disabled, it wins.
+        featureToState.put(feature, true);
+      }
+    }
+    // Partition into enabled/disabled features.
+    TreeSet<String> enabled = new TreeSet<>();
+    TreeSet<String> disabled = new TreeSet<>();
+    for (Map.Entry<String, Boolean> entry : featureToState.entrySet()) {
+      if (entry.getValue()) {
+        enabled.add(entry.getKey());
+      } else {
+        disabled.add(entry.getKey());
+      }
+    }
+    // Rebuild the set of features.
+    // Since we used TreeSet the features come out in a deterministic order.
+    List<String> result = new ArrayList<>(enabled);
+    disabled.stream().map(x -> "-" + x).forEach(result::add);
+    // If we made no changes, return the same instance we got to reduce churn.
+    return result.equals(features) ? features : result;
+  }
+
   @Override
   public CoreOptions getNormalized() {
     CoreOptions result = (CoreOptions) clone();
@@ -1033,6 +1111,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
                 .collect(toImmutableList());
       }
     }
+    // Normalize features.
+    result.defaultFeatures = getNormalizedFeatures(defaultFeatures);
 
     return result;
   }

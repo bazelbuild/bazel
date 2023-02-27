@@ -42,7 +42,16 @@ public interface CcModuleApi<
         StarlarkActionFactoryT extends StarlarkActionFactoryApi,
         FileT extends FileApi,
         FdoContextT extends FdoContextApi<?>,
-        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT, ?, FdoContextT>,
+        CcToolchainProviderT extends
+            CcToolchainProviderApi<
+                    FeatureConfigurationT,
+                    ?,
+                    FdoContextT,
+                    ConstraintValueT,
+                    StarlarkRuleContextT,
+                    ?,
+                    ? extends CppConfigurationApi<?>,
+                    CcToolchainVariablesT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT>,
         LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
@@ -762,20 +771,6 @@ public interface CcModuleApi<
       useStarlarkThread = true,
       documented = false)
   boolean checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "check_experimental_starlark_cc_import",
-      doc = "DO NOT USE. This is to guard use of cc_import.bzl",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "actions",
-            positional = false,
-            named = true,
-            doc = "<code>actions</code> object."),
-      })
-  void checkExperimentalStarlarkCcImport(StarlarkActionFactoryT starlarkActionFactoryApi)
-      throws EvalException;
 
   @StarlarkMethod(
       name = "create_linking_context",

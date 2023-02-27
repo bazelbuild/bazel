@@ -171,7 +171,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_objc_linking_info_migration",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -180,6 +180,17 @@ public class ObjcCommandLineOptions extends FragmentOptions {
               + "ObjcProvider.  See https://github.com/bazelbuild/bazel/issues/16939 for "
               + "details and migration information")
   public boolean incompatibleObjcLinkingInfoMigration;
+
+  @Option(
+      name = "incompatible_disallow_sdk_frameworks_attributes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, disallow sdk_frameworks and weak_sdk_frameworks attributes in objc_library and"
+              + "objc_import.")
+  public boolean incompatibleDisallowSdkFrameworksAttributes;
 
   /** @deprecated delete when we are sure it's not used anywhere. */
   @Deprecated
@@ -201,6 +212,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     exec.incompatibleAvoidHardcodedObjcCompilationFlags =
         incompatibleAvoidHardcodedObjcCompilationFlags;
     exec.incompatibleObjcLinkingInfoMigration = incompatibleObjcLinkingInfoMigration;
+    exec.incompatibleDisallowSdkFrameworksAttributes = incompatibleDisallowSdkFrameworksAttributes;
     return exec;
   }
 }

@@ -339,6 +339,6 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
   }
 
   private static Label label(String labelString) {
-    return Label.parseAbsoluteUnchecked(labelString);
+    return Label.parseCanonicalUnchecked(labelString);
   }
 }

@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -410,7 +411,8 @@ public final class BugReport {
   static void logException(
       Throwable exception, boolean isCrash, List<String> args, String... values) {
     logger.atSevere().withCause(exception).log("Exception");
-    String preamble = getProductName();
+    String preamble =
+        CrashFailureDetails.oomDetected() ? "While OOMing, " + getProductName() : getProductName();
     Level level = isCrash ? Level.SEVERE : Level.WARNING;
     if (!isCrash) {
       preamble += " had a non fatal error with args: ";
@@ -433,7 +435,7 @@ public final class BugReport {
     }
 
     @Override
-    public void sendNonFatalBugReport(Exception exception) {
+    public void sendNonFatalBugReport(Throwable exception) {
       BugReport.sendNonFatalBugReport(exception);
     }
 

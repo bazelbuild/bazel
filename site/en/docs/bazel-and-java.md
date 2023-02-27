@@ -183,7 +183,8 @@ remote_java_repository(
   name = "openjdk_canary_linux_arm",
   prefix = "openjdk_canary", # Can be used with --java_runtime_version=openjdk_canary_11
   version = "11",            # or --java_runtime_version=11
-  target_compatible_with = [   # Specifies constraints this JVM is compatible with "@platforms//cpu:arm",
+  target_compatible_with = [ # Specifies constraints this JVM is compatible with
+    "@platforms//cpu:arm",
     "@platforms//os:linux",
   ],
   urls = ...,               # Other parameters are from http_repository rule.
@@ -335,7 +336,7 @@ version may be grouped with `.bazelrc` configs":
 
 ```python
 build:java8 --java_language_version=8
-build:java8 --java_runtime_version=localjdk_8
+build:java8 --java_runtime_version=local_jdk_8
 build:java11 --java_language_version=11
 build:java11 --java_runtime_version=remotejdk_11
 ```
