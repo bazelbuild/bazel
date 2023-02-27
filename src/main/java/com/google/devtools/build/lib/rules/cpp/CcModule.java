@@ -1808,7 +1808,7 @@ public abstract class CcModule
       Sequence<?> userLinkFlags, // <String> expected
       Sequence<?> linkingContextsObjects, // <CcLinkingContext> expected
       String name,
-      String languageString,
+      String language,
       boolean alwayslink,
       Sequence<?> additionalInputs, // <Artifact> expected
       boolean disallowStaticLibraries,
@@ -1824,7 +1824,6 @@ public abstract class CcModule
     if (checkObjectsBound(stamp, linkedDllNameSuffix, winDefFileObject, testOnlyTargetObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
-    Language language = parseLanguage(languageString);
     StarlarkActionFactory actions = starlarkActionFactoryApi;
     int stampInt = 0;
     if (stamp != Starlark.UNBOUND) {
@@ -1854,7 +1853,7 @@ public abstract class CcModule
                 label,
                 actions.asActionRegistry(actions),
                 actions.getActionConstructionContext(),
-                getSemantics(language),
+                getSemantics(Language.CPP),
                 featureConfiguration.getFeatureConfiguration(),
                 ccToolchainProvider,
                 fdoContext,
