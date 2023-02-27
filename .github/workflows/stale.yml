@@ -31,7 +31,8 @@ jobs:
           Thank you for contributing to the Bazel repository!
           This issue has been marked as stale since it has not had any activity in the last 3 years. It will be closed in the next 14
           days unless any other activity occurs or one of the following labels is added: "not stale", "awaiting-bazeler". Please reach out 
-          to the triage team (`@bazelbuild/triage`) if you think this issue is still relevant and will be worked on.
+          to the triage team (`@bazelbuild/triage`) if you think this issue is still relevant or you are interested in getting the 
+          issue resolved.
         close-issue-message: >
           This issue has been automatically closed due to inactivity. If you're still interested in pursuing this, please reach out
           to the triage team (`@bazelbuild/triage`). Thanks!
@@ -39,7 +40,8 @@ jobs:
           Thank you for contributing to the Bazel repository!
           This pull request has been marked as stale since it has not had any activity in the last 3 years. It will be closed in the next
           14 days unless any other activity occurs or one of the following labels is added: "not stale", "awaiting-review", "awaiting-PR-merge".
-          Please reach out to the triage team (`@bazelbuild/triage`) if you think this PR is still relevant and will be worked on.
+          Please reach out to the triage team (`@bazelbuild/triage`) if you think this PR is still relevant or you are interested in getting the 
+          PR merged.
         close-pr-message: >
           This pull request has been automatically closed due to inactivity. If you're still interested in pursuing this, please reach out
           to the triage team (`@bazelbuild/triage`). Thanks!
