@@ -172,7 +172,7 @@ public abstract class ActionInputPrefetcherTestBase {
 
     wait(prefetcher.prefetchFiles(metadata.keySet(), metadataProvider));
 
-    verify(prefetcher, never()).doDownloadFile(any(), any(), any(), any());
+    verify(prefetcher, never()).doDownloadFile(any(), any(), any(), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
   }
@@ -189,7 +189,7 @@ public abstract class ActionInputPrefetcherTestBase {
 
     wait(prefetcher.prefetchFiles(metadata.keySet(), metadataProvider));
 
-    verify(prefetcher).doDownloadFile(any(), eq(a.getExecPath()), any(), any());
+    verify(prefetcher).doDownloadFile(any(), any(), eq(a.getExecPath()), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
     assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world remote");
@@ -540,7 +540,7 @@ public abstract class ActionInputPrefetcherTestBase {
               return resultSupplier.get();
             })
         .when(prefetcher)
-        .doDownloadFile(any(), any(), any(), any());
+        .doDownloadFile(any(), any(), any(), any(), any());
   }
 
   private void assertReadableNonWritableAndExecutable(Path path) throws IOException {

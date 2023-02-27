@@ -672,7 +672,11 @@ public final class UiEventHandler implements EventHandler {
   public void downloadProgress(FetchProgress event) {
     maybeAddDate();
     stateTracker.downloadProgress(event);
-    refresh();
+    if (event.isFinished()) {
+      checkActivities();
+    } else {
+      refreshSoon();
+    }
   }
 
   @Subscribe
