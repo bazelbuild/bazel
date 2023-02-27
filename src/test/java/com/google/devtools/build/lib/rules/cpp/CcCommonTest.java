@@ -1154,6 +1154,7 @@ public class CcCommonTest extends BuildViewTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPILER_PARAM_FILE));
+    useConfiguration("--noexperimental_cpp_compile_argv_ignore_param_file");
     scratch.file("a/BUILD", "cc_library(name='foo', srcs=['foo.cc'])");
     CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
     ImmutableList<String> argv =
@@ -1171,7 +1172,6 @@ public class CcCommonTest extends BuildViewTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPILER_PARAM_FILE));
-    useConfiguration("--experimental_cpp_compile_argv_ignore_param_file");
     scratch.file("a/BUILD", "cc_library(name='foo', srcs=['foo.cc'])");
     CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
     ImmutableList<String> argv =

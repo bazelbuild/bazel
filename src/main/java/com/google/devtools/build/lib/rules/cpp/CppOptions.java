@@ -1060,7 +1060,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_cpp_compile_argv_ignore_param_file",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       metadataTags = {
