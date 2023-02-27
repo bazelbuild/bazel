@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.util.GroupedList;
+import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -137,7 +137,7 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
 
   @Nullable
   @Override
-  public GroupedList<SkyKey> getTemporaryDirectDeps() {
+  public GroupedDeps getTemporaryDirectDeps() {
     return delegate.getTemporaryDirectDeps();
   }
 

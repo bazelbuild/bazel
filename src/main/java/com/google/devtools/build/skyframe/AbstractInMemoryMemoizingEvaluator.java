@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.io.PrintStream;
 import java.util.Collection;
@@ -113,7 +112,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
       }
       out.println(canonicalizedKey);
       if (entry.keepsEdges()) {
-        GroupedList<SkyKey> deps = GroupedList.create(entry.getCompressedDirectDepsForDoneEntry());
+        GroupedDeps deps = GroupedDeps.create(entry.getCompressedDirectDepsForDoneEntry());
         for (int i = 0; i < deps.listSize(); i++) {
           out.format("  Group %d:\n", i + 1);
           for (SkyKey dep : deps.get(i)) {

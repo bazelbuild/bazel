@@ -25,7 +25,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
 import java.time.Duration;
@@ -147,7 +146,7 @@ public class SimpleCycleDetector implements CycleDetector {
           continue;
         }
         maybeMarkRebuilding(entry);
-        GroupedList<SkyKey> directDeps = entry.getTemporaryDirectDeps();
+        GroupedDeps directDeps = entry.getTemporaryDirectDeps();
         // Find out which children have errors. Similar logic to that in Evaluate#run().
         List<ErrorInfo> errorDeps =
             getChildrenErrorsForCycle(
@@ -271,7 +270,7 @@ public class SimpleCycleDetector implements CycleDetector {
       }
 
       // This node is not yet known to be in a cycle. So process its children.
-      GroupedList<SkyKey> temporaryDirectDeps = entry.getTemporaryDirectDeps();
+      GroupedDeps temporaryDirectDeps = entry.getTemporaryDirectDeps();
       if (temporaryDirectDeps.isEmpty()) {
         continue;
       }
@@ -452,7 +451,7 @@ public class SimpleCycleDetector implements CycleDetector {
       int cycleLength,
       ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException {
-    GroupedList<SkyKey> directDeps = entry.getTemporaryDirectDeps();
+    GroupedDeps directDeps = entry.getTemporaryDirectDeps();
     Set<SkyKey> unvisitedDeps = Sets.newHashSet(directDeps.getAllElementsAsIterable());
     unvisitedDeps.remove(cycleChild);
     // Remove any children from this node that are not part of the cycle we just found. They are

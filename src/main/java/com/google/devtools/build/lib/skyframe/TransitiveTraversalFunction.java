@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.skyframe.TargetLoadingUtil.TargetAndErrorIfAny;
-import com.google.devtools.build.lib.util.GroupedList;
+import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -140,7 +140,7 @@ public class TransitiveTraversalFunction
   @Nullable
   private static Collection<SkyKey> getDepsAfterLastPackageDep(
       SkyFunction.Environment env, int offset) {
-    GroupedList<SkyKey> temporaryDirectDeps = env.getTemporaryDirectDeps();
+    GroupedDeps temporaryDirectDeps = env.getTemporaryDirectDeps();
     if (temporaryDirectDeps == null) {
       return null;
     }
@@ -152,7 +152,7 @@ public class TransitiveTraversalFunction
     return temporaryDirectDeps.get(lastPackageDepIndex + offset);
   }
 
-  private static int getLastPackageValueIndex(GroupedList<SkyKey> directDeps) {
+  private static int getLastPackageValueIndex(GroupedDeps directDeps) {
     int directDepsNumGroups = directDeps.listSize();
     for (int i = directDepsNumGroups - 1; i >= 0; i--) {
       List<SkyKey> depGroup = directDeps.get(i);

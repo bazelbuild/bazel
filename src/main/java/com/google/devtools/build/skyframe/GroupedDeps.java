@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.util;
+package com.google.devtools.build.skyframe;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -41,20 +41,19 @@ import org.checkerframework.framework.qual.QualifierForLiterals;
 import org.checkerframework.framework.qual.SubtypeOf;
 
 /**
- * Encapsulates a list of groups.
+ * Encapsulates Skyframe dependencies, preserving the groups in which they were requested.
  *
- * <p>Despite the "list" name, it is an error for the same element to appear multiple times in the
- * list. Users are responsible for not trying to add the same element to a GroupedList twice.
+ * <p>This class itself does no duplicate checking, although it is expected that a {@code
+ * GroupedDeps} instance contains no duplicates - Skyframe is responsible for only adding keys which
+ * are not already present.
  *
  * <p>Groups are implemented as lists to minimize memory use. However, {@link #equals} is defined to
  * treat groups as unordered.
- *
- * <p>The generic type {@code T} <em>must not</em> be a {@link List}.
  */
-public class GroupedList<T> implements Iterable<List<T>> {
+public class GroupedDeps implements Iterable<List<SkyKey>> {
 
   /**
-   * Indicates that the annotated element is a compressed {@link GroupedList}, so that it can be
+   * Indicates that the annotated element is a compressed {@link GroupedDeps}, so that it can be
    * safely passed to {@link #create} and friends.
    */
   @SubtypeOf(DefaultObject.class)
@@ -68,20 +67,20 @@ public class GroupedList<T> implements Iterable<List<T>> {
   @Target({ElementType.TYPE_USE, ElementType.TYPE_PARAMETER})
   private @interface DefaultObject {}
 
-  // Total number of items in the list. At least elements.size(), but might be larger if there are
-  // any nested lists.
+  // Total number of deps. At least elements.size(), but might be larger if there are any nested
+  // lists.
   private int size = 0;
-  // Items in this GroupedList. Each element is either of type T or List<T>.
+  // Dep groups. Each element is either a SkyKey (a singleton group) or ImmutableList<SkyKey>.
   private final ArrayList<Object> elements;
 
   private final CollectionView collectionView = new CollectionView();
 
-  public GroupedList() {
+  public GroupedDeps() {
     // We optimize for small lists.
     this.elements = new ArrayList<>(1);
   }
 
-  private GroupedList(int size, Object[] elements) {
+  private GroupedDeps(int size, Object[] elements) {
     this.size = size;
     this.elements = Lists.newArrayList(elements);
   }
@@ -90,7 +89,7 @@ public class GroupedList<T> implements Iterable<List<T>> {
    * Increases the capacity of the backing list to accommodate the given number of additional
    * groups.
    */
-  public void ensureCapacityForAdditionalGroups(int additionalGroups) {
+  void ensureCapacityForAdditionalGroups(int additionalGroups) {
     elements.ensureCapacity(elements.size() + additionalGroups);
   }
 
@@ -99,9 +98,8 @@ public class GroupedList<T> implements Iterable<List<T>> {
    *
    * <p>The caller must ensure that the given element is not already present.
    */
-  public void appendSingleton(T t) {
-    checkArgument(!(t instanceof List), "Cannot created GroupedList of lists: %s", t);
-    elements.add(t);
+  public void appendSingleton(SkyKey key) {
+    elements.add(key);
     size++;
   }
 
@@ -111,7 +109,7 @@ public class GroupedList<T> implements Iterable<List<T>> {
    * <p>The caller must ensure that the new group is duplicate-free and does not contain any
    * elements which are already present.
    */
-  public void appendGroup(ImmutableList<T> group) {
+  public void appendGroup(ImmutableList<SkyKey> group) {
     addGroup(group, elements);
     size += group.size();
   }
@@ -120,7 +118,7 @@ public class GroupedList<T> implements Iterable<List<T>> {
    * Removes the elements in toRemove from this list. Takes time proportional to the size of the
    * list, so should not be called often.
    */
-  public void remove(Set<T> toRemove) {
+  public void remove(Set<SkyKey> toRemove) {
     if (!toRemove.isEmpty()) {
       size = removeAndGetNewSize(elements, toRemove);
     }
@@ -168,13 +166,13 @@ public class GroupedList<T> implements Iterable<List<T>> {
   }
 
   /** Returns the group at position {@code i}. {@code i} must be less than {@link #listSize()}. */
-  @SuppressWarnings("unchecked") // Cast of Object to List<T> or T.
-  public ImmutableList<T> get(int i) {
+  @SuppressWarnings("unchecked") // Cast of Object to List<SkyKey>.
+  public ImmutableList<SkyKey> get(int i) {
     Object obj = elements.get(i);
     if (obj instanceof List) {
-      return (ImmutableList<T>) obj;
+      return (ImmutableList<SkyKey>) obj;
     }
-    return ImmutableList.of((T) obj);
+    return ImmutableList.of((SkyKey) obj);
   }
 
   /** Returns the number of groups in this list. */
@@ -205,7 +203,7 @@ public class GroupedList<T> implements Iterable<List<T>> {
     return 1;
   }
 
-  /** Returns the number of groups in a compressed {@code GroupedList}. */
+  /** Returns the number of groups in the given compressed {@code GroupedDeps}. */
   public static int numGroups(@Compressed Object compressed) {
     if (compressed == EMPTY_LIST) {
       return 0;
@@ -217,19 +215,17 @@ public class GroupedList<T> implements Iterable<List<T>> {
   }
 
   /**
-   * Expands a compressed {@code GroupedList} into an {@link Iterable}. Equivalent to {@link
-   * #getAllElementsAsIterable()} but potentially more efficient.
+   * Expands a compressed {@code GroupedDeps} into an {@link Iterable}. Equivalent to {@link
+   * #getAllElementsAsIterable} but potentially more efficient.
    */
-  @SuppressWarnings("unchecked")
-  public static <T> Iterable<T> compressedToIterable(@Compressed Object compressed) {
+  public static Iterable<SkyKey> compressedToIterable(@Compressed Object compressed) {
     if (compressed == EMPTY_LIST) {
       return ImmutableList.of();
     }
     if (compressed.getClass().isArray()) {
-      return GroupedList.<T>create(compressed).getAllElementsAsIterable();
+      return GroupedDeps.create(compressed).getAllElementsAsIterable();
     }
-    checkState(!(compressed instanceof List), compressed);
-    return ImmutableList.of((T) compressed);
+    return ImmutableList.of((SkyKey) compressed);
   }
 
   /**
@@ -238,7 +234,7 @@ public class GroupedList<T> implements Iterable<List<T>> {
    * <p>This method should only be used when it is not possible to enforce the type via annotations.
    */
   public static @Compressed Object castAsCompressed(Object obj) {
-    checkArgument(!(obj instanceof GroupedList), obj);
+    checkArgument(!(obj instanceof GroupedDeps), obj);
     return (@Compressed Object) obj;
   }
 
@@ -252,7 +248,7 @@ public class GroupedList<T> implements Iterable<List<T>> {
    * Call {@link #toSet} instead and use the result if doing multiple contains checks and this is
    * not a {@link WithHashSet}.
    */
-  public boolean contains(T needle) {
+  public boolean contains(SkyKey needle) {
     return contains(elements, needle);
   }
 
@@ -284,13 +280,13 @@ public class GroupedList<T> implements Iterable<List<T>> {
   }
 
   @SuppressWarnings("unchecked")
-  public ImmutableSet<T> toSet() {
-    ImmutableSet.Builder<T> builder = ImmutableSet.builderWithExpectedSize(size);
+  public ImmutableSet<SkyKey> toSet() {
+    ImmutableSet.Builder<SkyKey> builder = ImmutableSet.builderWithExpectedSize(size);
     for (Object obj : elements) {
       if (obj instanceof List) {
-        builder.addAll((List<T>) obj);
+        builder.addAll((List<SkyKey>) obj);
       } else {
-        builder.add((T) obj);
+        builder.add((SkyKey) obj);
       }
     }
     return builder.build();
@@ -300,9 +296,9 @@ public class GroupedList<T> implements Iterable<List<T>> {
     return obj instanceof List ? ((List<?>) obj).size() : 1;
   }
 
-  public static <E> GroupedList<E> create(@Compressed Object compressed) {
+  public static GroupedDeps create(@Compressed Object compressed) {
     if (compressed == EMPTY_LIST) {
-      return new GroupedList<>();
+      return new GroupedDeps();
     }
     if (compressed.getClass().isArray()) {
       int size = 0;
@@ -310,10 +306,10 @@ public class GroupedList<T> implements Iterable<List<T>> {
       for (Object item : compressedArray) {
         size += sizeOf(item);
       }
-      return new GroupedList<>(size, compressedArray);
+      return new GroupedDeps(size, compressedArray);
     }
     // Just a single element.
-    return new GroupedList<>(1, new Object[] {compressed});
+    return new GroupedDeps(1, new Object[] {compressed});
   }
 
   @Override
@@ -337,16 +333,16 @@ public class GroupedList<T> implements Iterable<List<T>> {
   }
 
   /**
-   * A grouping-unaware view of a {@code GroupedList} which does not support modifications.
+   * A grouping-unaware view which does not support modifications.
    *
    * <p>This is implemented as a {@code Collection} so that calling {@link Iterables#size} on the
    * return value of {@link #getAllElementsAsIterable} will take constant time.
    */
-  private final class CollectionView extends AbstractCollection<T> {
+  private final class CollectionView extends AbstractCollection<SkyKey> {
 
     @Override
-    public Iterator<T> iterator() {
-      return new UngroupedIterator<>(elements);
+    public Iterator<SkyKey> iterator() {
+      return new UngroupedIterator(elements);
     }
 
     @Override
@@ -356,10 +352,10 @@ public class GroupedList<T> implements Iterable<List<T>> {
   }
 
   /** An iterator that loops through every element in each group. */
-  private static final class UngroupedIterator<T> implements Iterator<T> {
+  private static final class UngroupedIterator implements Iterator<SkyKey> {
     private final List<Object> elements;
     private int outerIndex = 0;
-    @Nullable private List<T> currentGroup;
+    @Nullable private List<SkyKey> currentGroup;
     private int innerIndex = 0;
 
     private UngroupedIterator(List<Object> elements) {
@@ -371,23 +367,23 @@ public class GroupedList<T> implements Iterable<List<T>> {
       return outerIndex < elements.size();
     }
 
-    @SuppressWarnings("unchecked") // Cast of Object to List<T> or T.
+    @SuppressWarnings("unchecked") // Cast of Object to List<SkyKey>.
     @Override
-    public T next() {
+    public SkyKey next() {
       if (currentGroup != null) {
         return nextFromCurrentGroup();
       }
       Object next = elements.get(outerIndex);
       if (next instanceof List) {
-        currentGroup = (List<T>) next;
+        currentGroup = (List<SkyKey>) next;
         innerIndex = 0;
         return nextFromCurrentGroup();
       }
-      return (T) elements.get(outerIndex++);
+      return (SkyKey) elements.get(outerIndex++);
     }
 
-    private T nextFromCurrentGroup() {
-      T next = currentGroup.get(innerIndex++);
+    private SkyKey nextFromCurrentGroup() {
+      SkyKey next = currentGroup.get(innerIndex++);
       if (innerIndex == currentGroup.size()) {
         outerIndex++;
         currentGroup = null;
@@ -397,7 +393,7 @@ public class GroupedList<T> implements Iterable<List<T>> {
   }
 
   @ThreadHostile
-  public Collection<T> getAllElementsAsIterable() {
+  public Collection<SkyKey> getAllElementsAsIterable() {
     return collectionView;
   }
 
@@ -406,10 +402,10 @@ public class GroupedList<T> implements Iterable<List<T>> {
     if (this == other) {
       return true;
     }
-    if (!(other instanceof GroupedList)) {
+    if (!(other instanceof GroupedDeps)) {
       return false;
     }
-    GroupedList<?> that = (GroupedList<?>) other;
+    GroupedDeps that = (GroupedDeps) other;
     // We must check the deps, ignoring the ordering of deps in the same group.
     if (this.size != that.size || this.elements.size() != that.elements.size()) {
       return false;
@@ -445,7 +441,7 @@ public class GroupedList<T> implements Iterable<List<T>> {
    * iterator is needed here because, to optimize memory, we store single-element lists as elements
    * internally, and so they must be wrapped before they're returned.
    */
-  private class GroupedIterator implements Iterator<List<T>> {
+  private class GroupedIterator implements Iterator<List<SkyKey>> {
     private final Iterator<Object> iter = elements.iterator();
 
     @Override
@@ -453,19 +449,19 @@ public class GroupedList<T> implements Iterable<List<T>> {
       return iter.hasNext();
     }
 
-    @SuppressWarnings("unchecked") // Cast of Object to List<T> or T.
+    @SuppressWarnings("unchecked") // Cast of Object to List<SkyKey> or T.
     @Override
-    public List<T> next() {
+    public List<SkyKey> next() {
       Object obj = iter.next();
       if (obj instanceof List) {
-        return (List<T>) obj;
+        return (List<SkyKey>) obj;
       }
-      return ImmutableList.of((T) obj);
+      return ImmutableList.of((SkyKey) obj);
     }
   }
 
   @Override
-  public Iterator<List<T>> iterator() {
+  public Iterator<List<SkyKey>> iterator() {
     return new GroupedIterator();
   }
 
@@ -494,37 +490,37 @@ public class GroupedList<T> implements Iterable<List<T>> {
   }
 
   /**
-   * A {@link GroupedList} which keeps a {@link HashSet} of its elements up to date, resulting in a
+   * A {@link GroupedDeps} which keeps a {@link HashSet} of its elements up to date, resulting in a
    * higher memory cost and faster {@link #contains} operations.
    */
-  public static class WithHashSet<T> extends GroupedList<T> {
-    private final HashSet<T> set = new HashSet<>();
+  public static class WithHashSet extends GroupedDeps {
+    private final HashSet<SkyKey> set = new HashSet<>();
 
     @Override
-    public void appendSingleton(T t) {
-      super.appendSingleton(t);
-      set.add(t);
+    public void appendSingleton(SkyKey key) {
+      super.appendSingleton(key);
+      set.add(key);
     }
 
     @Override
-    public void appendGroup(ImmutableList<T> group) {
+    public void appendGroup(ImmutableList<SkyKey> group) {
       super.appendGroup(group);
       set.addAll(group);
     }
 
     @Override
-    public void remove(Set<T> toRemove) {
+    public void remove(Set<SkyKey> toRemove) {
       super.remove(toRemove);
       set.removeAll(toRemove);
     }
 
     @Override
-    public boolean contains(T needle) {
+    public boolean contains(SkyKey needle) {
       return set.contains(needle);
     }
 
     @Override
-    public ImmutableSet<T> toSet() {
+    public ImmutableSet<SkyKey> toSet() {
       return ImmutableSet.copyOf(set);
     }
   }

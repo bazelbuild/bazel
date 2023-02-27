@@ -21,7 +21,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
 import com.google.errorprone.annotations.ForOverride;
 import java.util.ArrayList;
@@ -80,10 +79,10 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   /**
    * This object represents the direct deps of the node, in groups if the {@code SkyFunction}
-   * requested them that way. It contains either the in-progress direct deps, stored as a {@code
-   * GroupedList<SkyKey>} (constructed via {@link GroupedList.WithHashSet} if {@code
+   * requested them that way. It contains either the in-progress direct deps, stored as a {@link
+   * GroupedDeps} (constructed via {@link GroupedDeps.WithHashSet} if {@code
    * key.supportsPartialReevaluation()}) before the node is finished building, or the full direct
-   * deps, compressed in a memory-efficient way (via {@link GroupedList#compress}, after the node is
+   * deps, compressed in a memory-efficient way (via {@link GroupedDeps#compress}, after the node is
    * done.
    *
    * <p>It is initialized lazily in getTemporaryDirectDeps() to save a little memory.
@@ -210,24 +209,24 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public Iterable<SkyKey> getDirectDeps() {
-    return GroupedList.compressedToIterable(getCompressedDirectDepsForDoneEntry());
+    return GroupedDeps.compressedToIterable(getCompressedDirectDepsForDoneEntry());
   }
 
   @Override
   public boolean hasAtLeastOneDep() {
-    return GroupedList.numGroups(getCompressedDirectDepsForDoneEntry()) > 0;
+    return GroupedDeps.numGroups(getCompressedDirectDepsForDoneEntry()) > 0;
   }
 
-  /** Returns the compressed {@link GroupedList} of direct deps. Can only be called when done. */
-  public final synchronized @GroupedList.Compressed Object getCompressedDirectDepsForDoneEntry() {
+  /** Returns the compressed {@link GroupedDeps} of direct deps. Can only be called when done. */
+  public final synchronized @GroupedDeps.Compressed Object getCompressedDirectDepsForDoneEntry() {
     assertKeepEdges();
     checkState(isDone(), "no deps until done. NodeEntry: %s", this);
     checkNotNull(directDeps, "deps can't be null: %s", this);
-    return GroupedList.castAsCompressed(directDeps);
+    return GroupedDeps.castAsCompressed(directDeps);
   }
 
   public int getNumDirectDeps() {
-    return GroupedList.numElements(getCompressedDirectDepsForDoneEntry());
+    return GroupedDeps.numElements(getCompressedDirectDepsForDoneEntry());
   }
 
   @Override
@@ -438,11 +437,11 @@ public class InMemoryNodeEntry implements NodeEntry {
    */
   @ForOverride
   protected DirtyBuildingState createDirtyBuildingStateForDoneNode(
-      DirtyType dirtyType, GroupedList<SkyKey> directDeps, SkyValue value) {
+      DirtyType dirtyType, GroupedDeps directDeps, SkyValue value) {
     return DirtyBuildingState.create(dirtyType, directDeps, value, key.hasLowFanout());
   }
 
-  private static final GroupedList<SkyKey> EMPTY_LIST = new GroupedList<>();
+  private static final GroupedDeps EMPTY_LIST = new GroupedDeps();
 
   @Nullable
   @Override
@@ -452,14 +451,14 @@ public class InMemoryNodeEntry implements NodeEntry {
       assertKeepEdges();
     }
     if (isDone()) {
-      GroupedList<SkyKey> directDeps =
-          keepsEdges() ? GroupedList.create(getCompressedDirectDepsForDoneEntry()) : EMPTY_LIST;
+      GroupedDeps directDeps =
+          keepsEdges() ? GroupedDeps.create(getCompressedDirectDepsForDoneEntry()) : EMPTY_LIST;
       dirtyBuildingState = createDirtyBuildingStateForDoneNode(dirtyType, directDeps, value);
       value = null;
       this.directDeps = null;
       return new MarkedDirtyResult(
           keepsEdges()
-              ? ReverseDepsUtility.getReverseDeps(this, /*checkConsistency=*/ true)
+              ? ReverseDepsUtility.getReverseDeps(this, /* checkConsistency= */ true)
               : ImmutableList.of());
     }
     if (dirtyType.equals(DirtyType.FORCE_REBUILD)) {
@@ -539,7 +538,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     } else {
       // There may be duplicates here. Make sure everything is unique.
       ImmutableSet.Builder<SkyKey> result = ImmutableSet.builder();
-      for (Iterable<SkyKey> group : getTemporaryDirectDeps()) {
+      for (List<SkyKey> group : getTemporaryDirectDeps()) {
         result.addAll(group);
       }
       result.addAll(dirtyBuildingState.getAllRemainingDirtyDirectDeps(/*preservePosition=*/ false));
@@ -567,9 +566,8 @@ public class InMemoryNodeEntry implements NodeEntry {
     checkNotNull(dirtyBuildingState, this).markRebuilding();
   }
 
-  @SuppressWarnings("unchecked")
   @Override
-  public synchronized GroupedList<SkyKey> getTemporaryDirectDeps() {
+  public synchronized GroupedDeps getTemporaryDirectDeps() {
     checkState(!isDone(), "temporary shouldn't be done: %s", this);
     if (directDeps == null) {
       // Initialize lazily, to save a little memory.
@@ -577,9 +575,9 @@ public class InMemoryNodeEntry implements NodeEntry {
       // If the key opts into partial reevaluation, tracking deps with a HashSet is worth the extra
       // memory cost -- see SkyFunctionEnvironment.PartialReevaluation.
       directDeps =
-          key.supportsPartialReevaluation() ? new GroupedList.WithHashSet<>() : new GroupedList<>();
+          key.supportsPartialReevaluation() ? new GroupedDeps.WithHashSet() : new GroupedDeps();
     }
-    return (GroupedList<SkyKey>) directDeps;
+    return (GroupedDeps) directDeps;
   }
 
   final synchronized int getNumTemporaryDirectDeps() {
@@ -637,7 +635,7 @@ public class InMemoryNodeEntry implements NodeEntry {
       }
       return;
     }
-    GroupedList<SkyKey> temporaryDirectDeps = getTemporaryDirectDeps();
+    GroupedDeps temporaryDirectDeps = getTemporaryDirectDeps();
     Iterator<SkyKey> it = deps.iterator();
     synchronized (this) {
       temporaryDirectDeps.ensureCapacityForAdditionalGroups(groupSizes.size());
@@ -710,7 +708,7 @@ public class InMemoryNodeEntry implements NodeEntry {
         .add(
             "directDeps",
             isDone() && keepsEdges()
-                ? GroupedList.create(getCompressedDirectDepsForDoneEntry())
+                ? GroupedDeps.create(getCompressedDirectDepsForDoneEntry())
                 : directDeps)
         .add("reverseDeps", ReverseDepsUtility.toString(this))
         .add("dirtyBuildingState", dirtyBuildingState);

@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.GroupedList;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -494,11 +493,11 @@ public interface NodeEntry extends PriorityTracker {
   void markRebuilding();
 
   /**
-   * Returns the {@link GroupedList} of direct dependencies. This may only be called while the node
+   * Returns the {@link GroupedDeps} of direct dependencies. This may only be called while the node
    * is being evaluated (i.e. before {@link #setValue} and after {@link #markDirty}.
    */
   @ThreadSafe
-  GroupedList<SkyKey> getTemporaryDirectDeps();
+  GroupedDeps getTemporaryDirectDeps();
 
   @ThreadSafe
   boolean noDepsLastBuild();

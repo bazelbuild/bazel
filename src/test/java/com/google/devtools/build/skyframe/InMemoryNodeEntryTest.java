@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reportable;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
@@ -84,7 +83,7 @@ public final class InMemoryNodeEntryTest {
     assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isTrue();
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
-    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedList.WithHashSet)
+    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
         .isEqualTo(isPartialReevaluation);
   }
 
@@ -243,7 +242,7 @@ public final class InMemoryNodeEntryTest {
     assertThat(entry.isReadyToEvaluate()).isTrue();
     assertThat(entry.hasUnsignaledDeps()).isFalse();
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
-    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedList.WithHashSet)
+    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
         .isEqualTo(isPartialReevaluation);
     SkyKey parent = key("parent");
     entry.addReverseDepAndCheckIfDone(parent);
@@ -307,7 +306,7 @@ public final class InMemoryNodeEntryTest {
     assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isTrue();
     assertThat(entry.isDone()).isFalse();
-    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedList.WithHashSet)
+    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
         .isEqualTo(isPartialReevaluation);
 
     assertThatNodeEntry(entry)
@@ -856,7 +855,7 @@ public final class InMemoryNodeEntryTest {
       }
     }
     entry.setValue(new IntegerValue(42), IntVersion.of(42L), null);
-    assertThat(GroupedList.create(entry.getCompressedDirectDepsForDoneEntry()))
+    assertThat(GroupedDeps.create(entry.getCompressedDirectDepsForDoneEntry()))
         .containsExactlyElementsIn(groupedDirectDeps)
         .inOrder();
   }

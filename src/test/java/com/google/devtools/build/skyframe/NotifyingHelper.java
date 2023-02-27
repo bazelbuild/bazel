@@ -19,7 +19,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.errorprone.annotations.ForOverride;
 import java.util.Collection;
@@ -236,7 +235,7 @@ public class NotifyingHelper {
     }
 
     @Override
-    public GroupedList<SkyKey> getTemporaryDirectDeps() {
+    public GroupedDeps getTemporaryDirectDeps() {
       graphListener.accept(myKey, EventType.GET_TEMPORARY_DIRECT_DEPS, Order.BEFORE, null);
       return super.getTemporaryDirectDeps();
     }

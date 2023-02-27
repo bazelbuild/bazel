@@ -15,7 +15,6 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.util.GroupedList;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -125,7 +124,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public GroupedList<SkyKey> getTemporaryDirectDeps() {
+  public GroupedDeps getTemporaryDirectDeps() {
     return getDelegate().getTemporaryDirectDeps();
   }
 

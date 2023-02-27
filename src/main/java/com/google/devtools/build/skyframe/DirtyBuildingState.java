@@ -21,7 +21,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import javax.annotation.Nullable;
@@ -39,7 +38,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
 
   static DirtyBuildingState create(
       DirtyType dirtyType,
-      GroupedList<SkyKey> lastBuildDirectDeps,
+      GroupedDeps lastBuildDirectDeps,
       SkyValue lastBuildValue,
       boolean hasLowFanout) {
     return new FullDirtyBuildingState(dirtyType, lastBuildDirectDeps, lastBuildValue, hasLowFanout);
@@ -120,7 +119,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    * <p>Public only for the use of alternative graph implementations.
    */
   @Nullable
-  public abstract GroupedList<SkyKey> getLastBuildDirectDeps() throws InterruptedException;
+  public abstract GroupedDeps getLastBuildDirectDeps() throws InterruptedException;
 
   /**
    * The number of groups of the dependencies requested last time when the node was built.
@@ -271,8 +270,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    * Returns true if the deps requested during this evaluation ({@code directDeps}) are exactly
    * those requested the last time this node was built, in the same order.
    */
-  final boolean depsUnchangedFromLastBuild(GroupedList<SkyKey> directDeps)
-      throws InterruptedException {
+  final boolean depsUnchangedFromLastBuild(GroupedDeps directDeps) throws InterruptedException {
     checkFinishedBuildingWhenAboutToSetValue();
     return getLastBuildDirectDeps().equals(directDeps);
   }
@@ -438,12 +436,12 @@ public abstract class DirtyBuildingState implements PriorityTracker {
   }
 
   private static class FullDirtyBuildingState extends DirtyBuildingState {
-    private final GroupedList<SkyKey> lastBuildDirectDeps;
+    private final GroupedDeps lastBuildDirectDeps;
     private final SkyValue lastBuildValue;
 
     private FullDirtyBuildingState(
         DirtyType dirtyType,
-        GroupedList<SkyKey> lastBuildDirectDeps,
+        GroupedDeps lastBuildDirectDeps,
         SkyValue lastBuildValue,
         boolean hasLowFanout) {
       super(dirtyType, hasLowFanout);
@@ -466,7 +464,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
     }
 
     @Override
-    public GroupedList<SkyKey> getLastBuildDirectDeps() throws InterruptedException {
+    public GroupedDeps getLastBuildDirectDeps() throws InterruptedException {
       return lastBuildDirectDeps;
     }
 
