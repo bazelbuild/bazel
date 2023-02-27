@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.Map;
@@ -87,11 +88,14 @@ public interface SkyKey extends Serializable {
   interface SkyKeyPool {
 
     /**
-     * Returns the canonical instance of the {@link SkyKey} if found in the pool, otherwise returns
-     * {@code null}.
+     * Returns the canonical instance for the given key in the pool if it is present, otherwise
+     * interns the key using its {@linkplain SkyKeyInterner#weakIntern weak interner}.
+     *
+     * <p>To ensure a single canonical instance, if the key is not present in the pool, it should be
+     * weakly interned using synchronization so that it is not concurrently {@linkplain
+     * SkyKeyInterner#removeWeak removed from the weak interner}.
      */
-    @Nullable
-    SkyKey canonicalize(SkyKey key);
+    SkyKey getOrWeakIntern(SkyKey key);
 
     /**
      * Cleans up {@link SkyKey}s stored in the {@link SkyKeyPool} if necessary and uninstalls the in
@@ -161,13 +165,7 @@ public interface SkyKey extends Serializable {
     @SuppressWarnings("unchecked")
     public T intern(T sample) {
       SkyKeyPool pool = globalPool;
-      if (pool != null) {
-        SkyKey result = pool.canonicalize(sample);
-        if (result != null) {
-          return (T) result;
-        }
-      }
-      return weakInterner.intern(sample);
+      return pool != null ? (T) pool.getOrWeakIntern(sample) : weakInterner.intern(sample);
     }
 
     /**
@@ -175,8 +173,9 @@ public interface SkyKey extends Serializable {
      * #globalPool} and returns the canonical instance of {@code sample}.
      */
     @SuppressWarnings("unchecked")
-    public void weakIntern(SkyKey sample) {
-      var unused = weakInterner.intern((T) sample);
+    @CanIgnoreReturnValue
+    public T weakIntern(SkyKey sample) {
+      return weakInterner.intern((T) sample);
     }
 
     /**

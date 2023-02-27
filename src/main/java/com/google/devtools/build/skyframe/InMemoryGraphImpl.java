@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -125,13 +124,6 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     return new InMemoryNodeEntry(key);
   }
 
-  /**
-   * This is used to call newNodeEntry() from within computeIfAbsent. Instantiated here to avoid
-   * lambda instantiation overhead.
-   */
-  @SuppressWarnings("UnnecessaryLambda")
-  private final Function<SkyKey, InMemoryNodeEntry> newNodeEntryFunction = this::newNodeEntry;
-
   @Override
   @CanIgnoreReturnValue
   public NodeBatch createIfAbsentBatch(
@@ -144,14 +136,25 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   @CanIgnoreReturnValue
   private InMemoryNodeEntry createIfAbsent(SkyKey skyKey) {
-    InMemoryNodeEntry inMemoryNodeEntry = nodeMap.computeIfAbsent(skyKey, newNodeEntryFunction);
-    if (usePooledSkyKeyInterning) {
-      SkyKeyInterner<?> interner = skyKey.getSkyKeyInterner();
-      if (interner != null) {
-        interner.removeWeak(skyKey);
-      }
+    SkyKeyInterner<?> interner = skyKey.getSkyKeyInterner();
+    if (!usePooledSkyKeyInterning || interner == null) {
+      return nodeMap.computeIfAbsent(skyKey, this::newNodeEntry);
     }
-    return inMemoryNodeEntry;
+
+    // The key is typically already present. Record whether this thread newly created a node so that
+    // we can skip calling removeWeak if it was already present.
+    boolean[] newlyCreated = new boolean[1];
+    InMemoryNodeEntry nodeEntry =
+        nodeMap.computeIfAbsent(
+            skyKey,
+            k -> {
+              newlyCreated[0] = true;
+              return newNodeEntry(k);
+            });
+    if (newlyCreated[0]) {
+      interner.removeWeak(skyKey);
+    }
+    return nodeEntry;
   }
 
   @Override
@@ -187,11 +190,21 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     nodeMap.forEachValue(PARALLELISM_THRESHOLD, consumer);
   }
 
-  @Nullable
   @Override
-  public SkyKey canonicalize(SkyKey key) {
-    InMemoryNodeEntry node = nodeMap.get(key);
-    return node != null ? node.getKey() : null;
+  public SkyKey getOrWeakIntern(SkyKey key) {
+    // Use computeIfAbsent not to mutate the map, but to call weakIntern under synchronization. This
+    // ensures that the canonical instance isn't being transferred to the node map concurrently in
+    // createIfAbsent. In the common case that the key is already present in the node map, this is a
+    // lock-free lookup.
+    SkyKey[] weakInterned = new SkyKey[1];
+    InMemoryNodeEntry nodeEntry =
+        nodeMap.computeIfAbsent(
+            key,
+            k -> {
+              weakInterned[0] = k.getSkyKeyInterner().weakIntern(k);
+              return null; // Don't actually store a mapping.
+            });
+    return nodeEntry != null ? nodeEntry.getKey() : weakInterned[0];
   }
 
   /**

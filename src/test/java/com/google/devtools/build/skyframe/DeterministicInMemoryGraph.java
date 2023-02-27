@@ -80,8 +80,8 @@ class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProces
   }
 
   @Override
-  public SkyKey canonicalize(SkyKey key) {
-    return ((InMemoryGraph) delegate).canonicalize(key);
+  public SkyKey getOrWeakIntern(SkyKey key) {
+    return ((InMemoryGraph) delegate).getOrWeakIntern(key);
   }
 
   @Override
