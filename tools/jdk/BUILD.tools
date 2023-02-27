@@ -369,13 +369,13 @@ default_java_toolchain(
     target_version = "17",
 )
 
-# A toolchain that targets java 18.
+# A toolchain that targets java 19.
 default_java_toolchain(
-    name = "toolchain_jdk_18",
+    name = "toolchain_jdk_19",
     configuration = dict(),
-    java_runtime = "@bazel_tools//tools/jdk:remotejdk_18",
-    source_version = "18",
-    target_version = "18",
+    java_runtime = "@bazel_tools//tools/jdk:remotejdk_19",
+    source_version = "19",
+    target_version = "19",
 )
 
 default_java_toolchain(
@@ -418,8 +418,8 @@ _JDKS = [
     "remotejdk11_linux_s390x",
 ] + [
     "remotejdk%s_%s" % (version, os)
-    for os in ("linux", "linux_aarch64", "macos", "macos_aarch64", "win", "win_arm64")
-    for version in ("17", "18")
+    for version in ("17", "19")
+    for os in ("linux", "linux_aarch64", "macos", "macos_aarch64", "win") + (("win_arm64",) if version != "19" else ())
 ]
 
 [
@@ -457,8 +457,8 @@ java_runtime_version_alias(
 )
 
 java_runtime_version_alias(
-    name = "remotejdk_18",
-    runtime_version = "remotejdk_18",
+    name = "remotejdk_19",
+    runtime_version = "remotejdk_19",
     visibility = ["//visibility:public"],
 )
 
