@@ -958,23 +958,6 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * For a given attribute, returns all {@link TransitiveInfoCollection}s provided by targets of
-   * that attribute. Each {@link TransitiveInfoCollection} is keyed by the {@link
-   * BuildConfigurationValue} under which the collection was created.
-   */
-  public ImmutableListMultimap<BuildConfigurationValue, TransitiveInfoCollection>
-      getPrerequisitesByConfiguration(String attributeName) {
-    checkAttributeIsDependency(attributeName);
-    List<ConfiguredTargetAndData> ctatCollection = getPrerequisiteConfiguredTargets(attributeName);
-    ImmutableListMultimap.Builder<BuildConfigurationValue, TransitiveInfoCollection> result =
-        ImmutableListMultimap.builder();
-    for (ConfiguredTargetAndData prerequisite : ctatCollection) {
-      result.put(prerequisite.getConfiguration(), prerequisite.getConfiguredTarget());
-    }
-    return result.build();
-  }
-
-  /**
    * Returns the list of transitive info collections that feed into this target through the
    * specified attribute.
    */
