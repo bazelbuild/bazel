@@ -610,6 +610,7 @@ java_library(
         ":blaze_directories",
         ":config/build_configuration",
         ":config/build_options",
+        ":config/core_options",
         ":config/invalid_configuration_exception",
         ":configured_target",
         ":constraints/platform_restrictions_result",

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -61,9 +62,11 @@ class DirectoryTreeBuilder {
       SortedMap<PathFragment, ActionInput> inputs,
       MetadataProvider metadataProvider,
       Path execRoot,
+      ArtifactPathResolver artifactPathResolver,
       DigestUtil digestUtil)
       throws IOException {
-    return fromActionInputs(inputs, ImmutableSet.of(), metadataProvider, execRoot, digestUtil);
+    return fromActionInputs(
+        inputs, ImmutableSet.of(), metadataProvider, execRoot, artifactPathResolver, digestUtil);
   }
 
   static DirectoryTree fromActionInputs(
@@ -71,11 +74,13 @@ class DirectoryTreeBuilder {
       Set<PathFragment> toolInputs,
       MetadataProvider metadataProvider,
       Path execRoot,
+      ArtifactPathResolver artifactPathResolver,
       DigestUtil digestUtil)
       throws IOException {
     Map<PathFragment, DirectoryNode> tree = new HashMap<>();
     int numFiles =
-        buildFromActionInputs(inputs, toolInputs, metadataProvider, execRoot, digestUtil, tree);
+        buildFromActionInputs(
+            inputs, toolInputs, metadataProvider, execRoot, artifactPathResolver, digestUtil, tree);
     return new DirectoryTree(tree, numFiles);
   }
 
@@ -135,6 +140,7 @@ class DirectoryTreeBuilder {
       Set<PathFragment> toolInputs,
       MetadataProvider metadataProvider,
       Path execRoot,
+      ArtifactPathResolver artifactPathResolver,
       DigestUtil digestUtil,
       Map<PathFragment, DirectoryNode> tree)
       throws IOException {
@@ -164,7 +170,7 @@ class DirectoryTreeBuilder {
             case REGULAR_FILE:
               {
                 Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-                Path inputPath = ActionInputHelper.toInputPath(input, execRoot);
+                Path inputPath = artifactPathResolver.toPath(input);
                 boolean childAdded =
                     currDir.addChild(
                         FileNode.createExecutable(
@@ -176,7 +182,13 @@ class DirectoryTreeBuilder {
               SortedMap<PathFragment, ActionInput> directoryInputs =
                   explodeDirectory(input.getExecPath(), execRoot);
               return buildFromActionInputs(
-                  directoryInputs, toolInputs, metadataProvider, execRoot, digestUtil, tree);
+                  directoryInputs,
+                  toolInputs,
+                  metadataProvider,
+                  execRoot,
+                  artifactPathResolver,
+                  digestUtil,
+                  tree);
 
             case SYMLINK:
               {
@@ -185,7 +197,7 @@ class DirectoryTreeBuilder {
                     "Encountered symlink input '%s', but all source symlinks should have been"
                         + " resolved by SkyFrame. This is a bug.",
                     path);
-                Path inputPath = ActionInputHelper.toInputPath(input, execRoot);
+                Path inputPath = artifactPathResolver.toPath(input);
                 boolean childAdded =
                     currDir.addChild(
                         new SymlinkNode(

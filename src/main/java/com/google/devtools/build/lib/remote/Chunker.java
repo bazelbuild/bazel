@@ -34,7 +34,6 @@ import java.io.InputStream;
 import java.io.PushbackInputStream;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.function.Supplier;
 
 /**
  * Splits a data source into one or more {@link Chunk}s of at most {@code chunkSize} bytes.
@@ -92,8 +91,7 @@ public class Chunker {
         return false;
       }
       Chunk other = (Chunk) o;
-      return other.offset == offset
-          && other.data.equals(data);
+      return other.offset == offset && other.data.equals(data);
     }
 
     @Override
@@ -102,7 +100,12 @@ public class Chunker {
     }
   }
 
-  private final Supplier<InputStream> dataSupplier;
+  /** A supplier that provide data as {@link InputStream}. */
+  public interface ChunkDataSupplier {
+    InputStream get() throws IOException;
+  }
+
+  private final ChunkDataSupplier dataSupplier;
   private final long size;
   private final int chunkSize;
   private final Chunk emptyChunk;
@@ -117,7 +120,7 @@ public class Chunker {
   // lazily on the first call to next(), as opposed to opening it in the constructor or on reset().
   private boolean initialized;
 
-  Chunker(Supplier<InputStream> dataSupplier, long size, int chunkSize, boolean compressed) {
+  Chunker(ChunkDataSupplier dataSupplier, long size, int chunkSize, boolean compressed) {
     this.dataSupplier = checkNotNull(dataSupplier);
     this.size = size;
     this.chunkSize = chunkSize;
@@ -287,7 +290,7 @@ public class Chunker {
     private int chunkSize = getDefaultChunkSize();
     protected long size;
     private boolean compressed;
-    protected Supplier<InputStream> inputStream;
+    protected ChunkDataSupplier inputStream;
 
     @CanIgnoreReturnValue
     public Builder setInput(byte[] data) {
@@ -310,14 +313,7 @@ public class Chunker {
     public Builder setInput(long size, Path file) {
       checkState(inputStream == null);
       this.size = size;
-      inputStream =
-          () -> {
-            try {
-              return file.getInputStream();
-            } catch (IOException e) {
-              throw new RuntimeException(e);
-            }
-          };
+      inputStream = file::getInputStream;
       return this;
     }
 
@@ -326,30 +322,16 @@ public class Chunker {
       checkState(inputStream == null);
       this.size = size;
       if (actionInput instanceof VirtualActionInput) {
-        inputStream =
-            () -> {
-              try {
-                return ((VirtualActionInput) actionInput).getBytes().newInput();
-              } catch (IOException e) {
-                throw new RuntimeException(e);
-              }
-            };
+        inputStream = () -> ((VirtualActionInput) actionInput).getBytes().newInput();
       } else {
-        inputStream =
-            () -> {
-              try {
-                return ActionInputHelper.toInputPath(actionInput, execRoot).getInputStream();
-              } catch (IOException e) {
-                throw new RuntimeException(e);
-              }
-            };
+        inputStream = () -> ActionInputHelper.toInputPath(actionInput, execRoot).getInputStream();
       }
       return this;
     }
 
     @CanIgnoreReturnValue
     @VisibleForTesting
-    protected final Builder setInputSupplier(Supplier<InputStream> inputStream) {
+    protected final Builder setInputSupplier(ChunkDataSupplier inputStream) {
       this.inputStream = inputStream;
       return this;
     }

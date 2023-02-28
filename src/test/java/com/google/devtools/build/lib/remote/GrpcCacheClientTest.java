@@ -51,6 +51,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -109,6 +110,7 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
             ImmutableSortedMap.of(execPath, virtualActionInput),
             fakeFileCache,
             execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
             DIGEST_UTIL);
     Digest digest = DIGEST_UTIL.compute(virtualActionInput.getBytes().toByteArray());
 

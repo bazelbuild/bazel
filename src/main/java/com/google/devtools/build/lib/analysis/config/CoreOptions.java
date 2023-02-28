@@ -182,6 +182,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean experimentalWritableOutputs;
 
   @Option(
+      name = "incompatible_strict_conflict_checks",
+      oldName = "experimental_strict_conflict_checks",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "Check for action prefix file path conflicts, regardless of action-specific overrides.")
+  public boolean strictConflictChecks;
+
+  @Option(
       name = "experimental_strict_fileset_output",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -971,6 +982,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
     host.checkTestonlyForOutputFiles = checkTestonlyForOutputFiles;
     host.experimentalWritableOutputs = experimentalWritableOutputs;
+    host.strictConflictChecks = strictConflictChecks;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;
