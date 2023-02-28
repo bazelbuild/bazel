@@ -598,6 +598,15 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_permissions_test",
+    size = "small",
+    srcs = ["bazel_permissions_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
     name = "bazel_execute_testlog",
     srcs = ["bazel_execute_testlog.sh"],
     data = [":test-deps"],
@@ -714,17 +723,6 @@ sh_test(
     ],
     shard_count = 6,
     tags = ["no_windows"],
-)
-
-sh_test(
-    name = "git_repository_test",
-    size = "large",
-    srcs = ["git_repository_test.sh"],
-    data = [
-        ":test-deps",
-        "//src/test/shell/bazel/testdata:git-repos",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
 )
 
 sh_test(

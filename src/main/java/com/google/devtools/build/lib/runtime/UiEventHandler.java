@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedE
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.MainRepoMappingComputationStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
@@ -517,10 +518,20 @@ public final class UiEventHandler implements EventHandler {
   }
 
   @Subscribe
-  public void buildStarted(BuildStartingEvent event) {
+  public void mainRepoMappingComputationStarted(MainRepoMappingComputationStartingEvent event) {
     synchronized (this) {
       buildRunning = true;
     }
+    maybeAddDate();
+    stateTracker.buildStarted();
+    // As a new phase started, inform immediately.
+    ignoreRefreshLimitOnce();
+    refresh();
+    startUpdateThread();
+  }
+
+  @Subscribe
+  public void buildStarted(BuildStartingEvent event) {
     maybeAddDate();
     stateTracker.buildStarted();
     // As a new phase started, inform immediately.

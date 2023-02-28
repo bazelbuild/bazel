@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.TestUtils.tmpDirFile;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
+import com.google.devtools.build.lib.remote.util.IntegrationTestUtils.WorkerInstance;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
@@ -32,6 +35,25 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
+  private WorkerInstance worker;
+
+  private void startWorker() throws Exception {
+    if (worker == null) {
+      worker = IntegrationTestUtils.startWorker();
+    }
+  }
+
+  private void enableRemoteExec(String... additionalOptions) {
+    assertThat(worker).isNotNull();
+    addOptions("--remote_executor=grpc://localhost:" + worker.getPort());
+    addOptions(additionalOptions);
+  }
+
+  private void enableRemoteCache(String... additionalOptions) {
+    assertThat(worker).isNotNull();
+    addOptions("--remote_cache=grpc://localhost:" + worker.getPort());
+    addOptions(additionalOptions);
+  }
 
   private static PathFragment getDiskCacheDir() {
     PathFragment testTmpDir = PathFragment.create(tmpDirFile().getAbsolutePath());
@@ -48,6 +70,10 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
   @After
   public void tearDown() throws IOException {
     getWorkspace().getFileSystem().getPath(getDiskCacheDir()).deleteTree();
+
+    if (worker != null) {
+      worker.stop();
+    }
   }
 
   @Override
@@ -93,7 +119,7 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
     events.assertContainsInfo("2 disk cache hit");
   }
 
-  private void blobsReferencedInAAreMissingCasIgnoresAc(String... additionalOptions)
+  private void doBlobsReferencedInAcAreMissingFromCasIgnoresAc(String... additionalOptions)
       throws Exception {
     // Arrange: Prepare the workspace and populate disk cache
     write(
@@ -126,13 +152,72 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void blobsReferencedInAcAreMissingCas_ignoresAc() throws Exception {
-    blobsReferencedInAAreMissingCasIgnoresAc();
+  public void blobsReferencedInAcAreMissingFromCas_ignoresAc() throws Exception {
+    doBlobsReferencedInAcAreMissingFromCasIgnoresAc();
   }
 
   @Test
-  public void bwob_blobsReferencedInAcAreMissingCas_ignoresAc() throws Exception {
-    blobsReferencedInAAreMissingCasIgnoresAc("--remote_download_minimal");
+  public void bwob_blobsReferencedInAcAreMissingFromCas_ignoresAc() throws Exception {
+    doBlobsReferencedInAcAreMissingFromCasIgnoresAc("--remote_download_minimal");
+  }
+
+  @Test
+  public void bwobAndRemoteExec_blobsReferencedInAcAreMissingFromCas_ignoresAc() throws Exception {
+    startWorker();
+    enableRemoteExec("--remote_download_minimal");
+    doBlobsReferencedInAcAreMissingFromCasIgnoresAc();
+  }
+
+  @Test
+  public void bwobAndRemoteCache_blobsReferencedInAcAreMissingFromCas_ignoresAc() throws Exception {
+    startWorker();
+    enableRemoteCache("--remote_download_minimal");
+    doBlobsReferencedInAcAreMissingFromCasIgnoresAc();
+  }
+
+  private void doRemoteExecWithDiskCache(String... additionalOptions) throws Exception {
+    // Arrange: Prepare the workspace and populate disk cache
+    startWorker();
+    enableRemoteExec(additionalOptions);
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['foo.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo.out', 'bar.in'],",
+        "  outs = ['foobar.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")");
+    write("foo.in", "foo");
+    write("bar.in", "bar");
+    buildTarget("//:foobar");
+    cleanAndRestartServer();
+
+    // Act: Do a clean build
+    enableRemoteExec("--remote_download_minimal");
+    buildTarget("//:foobar");
+  }
+
+  @Test
+  public void remoteExecWithDiskCache_hitDiskCache() throws Exception {
+    doRemoteExecWithDiskCache();
+
+    // Assert: Should hit the disk cache
+    events.assertContainsInfo("2 disk cache hit");
+  }
+
+  @Test
+  public void bwob_remoteExecWithDiskCache_hitRemoteCache() throws Exception {
+    doRemoteExecWithDiskCache("--remote_download_minimal");
+
+    // Assert: Should hit the remote cache because blobs referenced by the AC are missing from disk
+    // cache due to BwoB.
+    events.assertContainsInfo("2 remote cache hit");
   }
 
   private void cleanAndRestartServer() throws Exception {

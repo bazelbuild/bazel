@@ -79,8 +79,8 @@ def git_repo(ctx, directory):
         recursive_init_submodules = ctx.attr.recursive_init_submodules,
     )
 
-    ctx.report_progress("Cloning %s of %s" % (reset_ref, ctx.attr.remote))
-    if (ctx.attr.verbose):
+    _report_progress(ctx, git_repo)
+    if ctx.attr.verbose:
         print("git.bzl: Cloning or updating %s repository %s using strip_prefix of [%s]" %
               (
                   " (%s)" % shallow if shallow else "",
@@ -94,6 +94,12 @@ def git_repo(ctx, directory):
     shallow_date = _get_head_date(ctx, git_repo)
 
     return struct(commit = actual_commit, shallow_since = shallow_date)
+
+def _report_progress(ctx, git_repo, *, shallow_failed = False):
+    warning = ""
+    if shallow_failed:
+        warning = " (shallow fetch failed, fetching full history)"
+    ctx.report_progress("Cloning %s of %s%s" % (git_repo.reset_ref, git_repo.remote, warning))
 
 def _update(ctx, git_repo):
     ctx.delete(git_repo.directory)
@@ -133,6 +139,7 @@ def fetch(ctx, git_repo):
         # "ignore what is specified and fetch all tags".
         # The arguments below work correctly for both before 1.9 and after 1.9,
         # as we directly specify the list of references to fetch.
+        _report_progress(ctx, git_repo, shallow_failed = True)
         _git(
             ctx,
             git_repo,
@@ -152,9 +159,12 @@ def clean(ctx, git_repo):
 
 def update_submodules(ctx, git_repo, recursive = False):
     if recursive:
-        _git(ctx, git_repo, "submodule", "update", "--init", "--recursive", "--checkout", "--force")
+        # "protocol.file.allow=always" allows the submodule command clone from a local directory.
+        # It's necessary for Git 2.38.1 and assoicated backport versions.
+        # See https://github.com/bazelbuild/bazel/issues/17040
+        _git(ctx, git_repo, "-c", "protocol.file.allow=always", "submodule", "update", "--init", "--recursive", "--checkout", "--force")
     else:
-        _git(ctx, git_repo, "submodule", "update", "--init", "--checkout", "--force")
+        _git(ctx, git_repo, "-c", "protocol.file.allow=always", "submodule", "update", "--init", "--checkout", "--force")
 
 def _get_head_commit(ctx, git_repo):
     return _git(ctx, git_repo, "log", "-n", "1", "--pretty=format:%H")

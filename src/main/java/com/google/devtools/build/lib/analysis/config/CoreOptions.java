@@ -170,6 +170,28 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "disabled.")
   public boolean strictFilesets;
 
+  // This option is only used during execution. However, it is a required input to the analysis
+  // phase, as otherwise flipping this flag would not invalidate already-executed actions.
+  @Option(
+      name = "experimental_writable_outputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, the file permissions of action outputs are set to 0755 instead of 0555")
+  public boolean experimentalWritableOutputs;
+
+  @Option(
+      name = "incompatible_strict_conflict_checks",
+      oldName = "experimental_strict_conflict_checks",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "Check for action prefix file path conflicts, regardless of action-specific overrides.")
+  public boolean strictConflictChecks;
+
   @Option(
       name = "experimental_strict_fileset_output",
       defaultValue = "false",
@@ -629,12 +651,36 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "The given features will be enabled or disabled by default for all packages. "
-              + "Specifying -<feature> will disable the feature globally. "
+          "The given features will be enabled or disabled by default for targets "
+              + "built in the target configuration. "
+              + "Specifying -<feature> will disable the feature. "
               + "Negative features always override positive ones. "
-              + "This flag is used to enable rolling out default feature changes without a "
-              + "Bazel release.")
+              + "See also --host_features")
   public List<String> defaultFeatures;
+
+  @Option(
+      name = "host_features",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "The given features will be enabled or disabled by default for targets "
+              + "built in the exec configuration. "
+              + "Specifying -<feature> will disable the feature. "
+              + "Negative features always override positive ones.")
+  public List<String> hostFeatures;
+
+  @Option(
+      name = "incompatible_use_host_features",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, use --features only for the target configuration and --host_features for the"
+              + " exec configuration.")
+  public boolean incompatibleUseHostFeatures;
 
   @Option(
       name = "target_environment",
@@ -935,6 +981,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
     host.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
     host.checkTestonlyForOutputFiles = checkTestonlyForOutputFiles;
+    host.experimentalWritableOutputs = experimentalWritableOutputs;
+    host.strictConflictChecks = strictConflictChecks;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;
@@ -960,7 +1008,12 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.checkLicenses = checkLicenses;
 
     // === Pass on C++ compiler features.
-    host.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
+    host.incompatibleUseHostFeatures = incompatibleUseHostFeatures;
+    if (incompatibleUseHostFeatures) {
+      host.defaultFeatures = ImmutableList.copyOf(hostFeatures);
+    } else {
+      host.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
+    }
 
     // Save host options in case of a further exec->host transition.
     host.hostCpu = hostCpu;

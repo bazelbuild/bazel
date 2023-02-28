@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.pkgcache;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 
 /**
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 public final class LoadingPhaseCompleteEvent implements ExtendedEventHandler.Postable {
   private final ImmutableSet<Label> labels;
   private final ImmutableSet<Label> filteredLabels;
+  private final RepositoryMapping mainRepositoryMapping;
 
   /**
    * Construct the event.
@@ -33,9 +35,11 @@ public final class LoadingPhaseCompleteEvent implements ExtendedEventHandler.Pos
    */
   public LoadingPhaseCompleteEvent(
       ImmutableSet<Label> labels,
-      ImmutableSet<Label> filteredLabels) {
+      ImmutableSet<Label> filteredLabels,
+      RepositoryMapping mainRepositoryMapping) {
     this.labels = Preconditions.checkNotNull(labels);
     this.filteredLabels = Preconditions.checkNotNull(filteredLabels);
+    this.mainRepositoryMapping = Preconditions.checkNotNull(mainRepositoryMapping);
   }
 
   /**
@@ -51,6 +55,13 @@ public final class LoadingPhaseCompleteEvent implements ExtendedEventHandler.Pos
    */
   public ImmutableSet<Label> getFilteredLabels() {
     return filteredLabels;
+  }
+
+  /**
+   * @return The repository mapping of the main repository.
+   */
+  public RepositoryMapping getMainRepositoryMapping() {
+    return mainRepositoryMapping;
   }
 
   @Override

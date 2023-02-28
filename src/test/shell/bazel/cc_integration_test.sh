@@ -1772,8 +1772,9 @@ EOF
   fi
 }
 
-function test_cc_test_no_lcov_merger_dep_without_coverage() {
-  # Regression test for https://github.com/bazelbuild/bazel/issues/16961
+function test_cc_test_no_coverage_tools_dep_without_coverage() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/16961 and
+  # https://github.com/bazelbuild/bazel/issues/15088.
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
 
@@ -1785,13 +1786,115 @@ cc_test(
 EOF
   touch "${package}"/test.cc
 
-  # FIXME: cc_test still unconditionally depends on the LCOV merger binary through
-  #  @remote_coverage_tools//:coverage_output_generator, which is also unnecessary:
-  #  https://github.com/bazelbuild/bazel/issues/15088
-  out=$(bazel cquery "somepath(//${package}:test,@remote_coverage_tools//:lcov_merger)")
+  out=$(bazel cquery "somepath(//${package}:test,@remote_coverage_tools//:all)")
   if [[ -n "$out" ]]; then
-    fail "Expected no dependency on lcov_merger, but got: $out"
+    fail "Expected no dependency on remote coverage tools, but got: $out"
   fi
+}
+
+# sanitizer features are opt-in so we check if the sanitizer library is
+# installed and skip the test if it isn't (e.g. centos-7-openjdk-11-gcc-10)
+function __is_installed() {
+  local lib="$1"
+
+  if [[ "$(uname -s | tr 'A-Z' 'a-z')" == "linux" ]]; then
+    return $(ldconfig -p | grep -q "$lib")
+  fi
+
+  # assume installed for darwin
+}
+
+function test_cc_toolchain_asan_feature() {
+  local feature=asan
+  __is_installed "lib$feature" || return 0
+
+  mkdir pkg
+  cat > pkg/BUILD <<EOF
+cc_binary(
+  name = 'example',
+  srcs = ['example.cc'],
+  features = ['$feature'],
+)
+EOF
+
+  # some versions of clang will optimize away the pointer assignment and
+  # dereference without volatile
+  # https://godbolt.org/z/of8cr3P8q
+  cat > pkg/example.cc <<EOF
+int main() {
+  volatile int* p;
+
+  {
+    volatile int x = 0;
+    p = &x;
+  }
+
+  return *p;
+}
+EOF
+
+  bazel run //pkg:example &> "$TEST_log" && fail "Should have failed due to $feature" || true
+  expect_log "ERROR: AddressSanitizer: stack-use-after-scope"
+}
+
+function test_cc_toolchain_tsan_feature() {
+  local feature=tsan
+  __is_installed "lib$feature" || return 0
+
+  mkdir pkg
+  cat > pkg/BUILD <<EOF
+cc_binary(
+  name = 'example',
+  srcs = ['example.cc'],
+  features = ['$feature'],
+)
+EOF
+
+  cat > pkg/example.cc <<EOF
+#include <thread>
+
+int value = 0;
+
+void increment() {
+  ++value;
+}
+
+int main() {
+  std::thread t1(increment);
+  std::thread t2(increment);
+  t1.join();
+  t2.join();
+
+  return value;
+}
+EOF
+
+  bazel run //pkg:example &> "$TEST_log" && fail "Should have failed due to $feature" || true
+  expect_log "WARNING: ThreadSanitizer: data race"
+}
+
+function test_cc_toolchain_ubsan_feature() {
+  local feature=ubsan
+  __is_installed "lib$feature" || return 0
+
+  mkdir pkg
+  cat > pkg/BUILD <<EOF
+cc_binary(
+  name = 'example',
+  srcs = ['example.cc'],
+  features = ['$feature'],
+)
+EOF
+
+  cat > pkg/example.cc <<EOF
+int main() {
+  int array[10];
+  return array[10];
+}
+EOF
+
+  bazel run //pkg:example &> "$TEST_log" && fail "Should have failed due to $feature" || true
+  expect_log "runtime error: index 10 out of bounds"
 }
 
 run_suite "cc_integration_test"

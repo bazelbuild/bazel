@@ -138,7 +138,7 @@ final class RemoteSpawnCache implements SpawnCache {
       } catch (CacheNotFoundException e) {
         // Intentionally left blank
       } catch (IOException e) {
-        if (BulkTransferException.isOnlyCausedByCacheNotFoundException(e)) {
+        if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
           // Intentionally left blank
         } else {
           String errorMessage;
@@ -189,7 +189,9 @@ final class RemoteSpawnCache implements SpawnCache {
             try (SilentCloseable c = prof.profile("RemoteCache.checkForConcurrentModifications")) {
               checkForConcurrentModifications();
             } catch (IOException | ForbiddenActionInputException e) {
-              remoteExecutionService.report(Event.warn(e.getMessage()));
+              String msg = "Skipping uploading outputs because of concurrent modifications " +
+                  "with --experimental_guard_against_concurrent_changes enabled: " + e.getMessage();
+              remoteExecutionService.report(Event.warn(msg));
               return;
             }
           }
@@ -202,7 +204,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
         private void checkForConcurrentModifications()
             throws IOException, ForbiddenActionInputException {
-          for (ActionInput input : action.getInputMap().values()) {
+          for (ActionInput input : action.getInputMap(true).values()) {
             if (input instanceof VirtualActionInput) {
               continue;
             }

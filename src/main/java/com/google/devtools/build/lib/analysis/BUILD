@@ -252,7 +252,6 @@ java_library(
         "test/AnalysisTestActionBuilder.java",
         "test/BaselineCoverageAction.java",
         "test/CoverageCommon.java",
-        "test/CoverageConfiguration.java",
         "test/InstrumentedFileManifestAction.java",
         "test/InstrumentedFilesCollector.java",
         "test/TestActionBuilder.java",
@@ -360,6 +359,7 @@ java_library(
         ":test/analysis_failure_propagation_exception",
         ":test/analysis_test_result_info",
         ":test/baseline_coverage_result",
+        ":test/coverage_configuration",
         ":test/execution_info",
         ":test/instrumented_files_info",
         ":test/test_configuration",
@@ -610,6 +610,7 @@ java_library(
         ":blaze_directories",
         ":config/build_configuration",
         ":config/build_options",
+        ":config/core_options",
         ":config/invalid_configuration_exception",
         ":configured_target",
         ":constraints/platform_restrictions_result",
@@ -2252,6 +2253,8 @@ java_library(
     srcs = ["constraints/IncompatibleTargetChecker.java"],
     deps = [
         ":analysis_cluster",
+        ":constraints/environment_collection",
+        ":constraints/supported_environments",
         ":file_provider",
         ":incompatible_platform_provider",
         ":test/test_configuration",
@@ -2528,6 +2531,34 @@ java_library(
 )
 
 java_library(
+    name = "test/coverage_configuration",
+    srcs = ["test/CoverageConfiguration.java"],
+    deps = [
+        ":config/build_options",
+        ":config/core_option_converters",
+        ":config/core_options",
+        ":config/fragment",
+        ":config/fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "test/coverage_report",
+    srcs = ["test/CoverageReport.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "test/coverage_report_action_factory",
     srcs = ["test/CoverageReportActionFactory.java"],
     deps = [
@@ -2578,6 +2609,7 @@ java_library(
         ":config/fragment_options",
         ":config/per_label_options",
         ":options_diff_predicate",
+        ":test/coverage_configuration",
         ":test/test_sharding_strategy",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",

@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Structure;
+import net.starlark.java.spelling.SpellChecker;
 
 /**
  * A {@link Tag} whose attribute values have been type-checked against the attribute schema define
@@ -48,9 +49,10 @@ public class TypeCheckedTag implements Structure {
       if (attrIndex == null) {
         throw ExternalDepsException.withMessage(
             Code.BAD_MODULE,
-            "in tag at %s, unknown attribute %s provided",
+            "in tag at %s, unknown attribute %s provided%s",
             tag.getLocation(),
-            attrValue.getKey());
+            attrValue.getKey(),
+            SpellChecker.didYouMean(attrValue.getKey(), tagClass.getAttributeIndices().keySet()));
       }
       Attribute attr = tagClass.getAttributes().get(attrIndex);
       Object nativeValue;

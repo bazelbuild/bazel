@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -50,7 +51,7 @@ public class RemotePathResolverTest {
 
     input = ActionInputHelper.fromPath("foo");
     spawnExecutionContext = mock(SpawnExecutionContext.class);
-    when(spawnExecutionContext.getInputMapping(any()))
+    when(spawnExecutionContext.getInputMapping(any(), anyBoolean()))
         .thenAnswer(
             invocationOnMock -> {
               PathFragment baseDirectory = invocationOnMock.getArgument(0);
@@ -83,7 +84,7 @@ public class RemotePathResolverTest {
     RemotePathResolver remotePathResolver = RemotePathResolver.createDefault(execRoot);
 
     SortedMap<PathFragment, ActionInput> inputs =
-        remotePathResolver.getInputMapping(spawnExecutionContext);
+        remotePathResolver.getInputMapping(spawnExecutionContext, false);
 
     assertThat(inputs).containsExactly(PathFragment.create("foo"), input);
   }
@@ -93,7 +94,7 @@ public class RemotePathResolverTest {
     RemotePathResolver remotePathResolver = new SiblingRepositoryLayoutResolver(execRoot);
 
     SortedMap<PathFragment, ActionInput> inputs =
-        remotePathResolver.getInputMapping(spawnExecutionContext);
+        remotePathResolver.getInputMapping(spawnExecutionContext, false);
 
     assertThat(inputs).containsExactly(PathFragment.create("main/foo"), input);
   }

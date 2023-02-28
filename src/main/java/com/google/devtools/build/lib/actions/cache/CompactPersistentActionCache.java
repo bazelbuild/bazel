@@ -571,7 +571,7 @@ public class CompactPersistentActionCache implements ActionCache {
       VarInt.putVarInt(indexer.getOrCreateIndex(file), sink);
     }
 
-    MetadataDigestUtils.write(entry.getUsedClientEnvDigest(), sink);
+    MetadataDigestUtils.write(entry.getActionPropertiesDigest(), sink);
 
     VarInt.putVarInt(entry.getOutputFiles().size(), sink);
     for (Map.Entry<String, RemoteFileArtifactValue> file : entry.getOutputFiles().entrySet()) {

@@ -542,9 +542,9 @@ public final class Utils {
   }
 
   private static final ImmutableList<String> UNITS = ImmutableList.of("KiB", "MiB", "GiB", "TiB");
-  // Format as single digit decimal number, but skipping the trailing .0.
+  // Format as single digit decimal number.
   private static final DecimalFormat BYTE_COUNT_FORMAT =
-      new DecimalFormat("0.#", new DecimalFormatSymbols(Locale.US));
+      new DecimalFormat("0.0", new DecimalFormatSymbols(Locale.US));
 
   /**
    * Converts the number of bytes to a human readable string, e.g. 1024 -> 1 KiB.

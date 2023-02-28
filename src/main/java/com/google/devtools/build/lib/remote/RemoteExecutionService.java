@@ -64,6 +64,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -142,6 +143,7 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -370,14 +372,20 @@ public class RemoteExecutionService {
           spawn,
           context,
           (Object nodeKey, InputWalker walker) -> {
-            subMerkleTrees.add(buildMerkleTreeVisitor(nodeKey, walker, metadataProvider));
+            subMerkleTrees.add(
+                buildMerkleTreeVisitor(
+                    nodeKey, walker, metadataProvider, context.getPathResolver()));
           });
       if (!outputDirMap.isEmpty()) {
-        subMerkleTrees.add(MerkleTree.build(outputDirMap, metadataProvider, execRoot, digestUtil));
+        subMerkleTrees.add(
+            MerkleTree.build(
+                outputDirMap, metadataProvider, execRoot, context.getPathResolver(), digestUtil));
       }
       return MerkleTree.merge(subMerkleTrees, digestUtil);
     } else {
-      SortedMap<PathFragment, ActionInput> inputMap = remotePathResolver.getInputMapping(context);
+      SortedMap<PathFragment, ActionInput> inputMap =
+          remotePathResolver.getInputMapping(
+              context, /* willAccessRepeatedly= */ !remoteOptions.remoteDiscardMerkleTrees);
       if (!outputDirMap.isEmpty()) {
         // The map returned by getInputMapping is mutable, but must not be mutated here as it is
         // shared with all other strategies.
@@ -391,16 +399,20 @@ public class RemoteExecutionService {
           toolSignature == null ? ImmutableSet.of() : toolSignature.toolInputs,
           context.getMetadataProvider(),
           execRoot,
+          context.getPathResolver(),
           digestUtil);
     }
   }
 
   private MerkleTree buildMerkleTreeVisitor(
-      Object nodeKey, InputWalker walker, MetadataProvider metadataProvider)
+      Object nodeKey,
+      InputWalker walker,
+      MetadataProvider metadataProvider,
+      ArtifactPathResolver artifactPathResolver)
       throws IOException, ForbiddenActionInputException {
     MerkleTree result = merkleTreeCache.getIfPresent(nodeKey);
     if (result == null) {
-      result = uncachedBuildMerkleTreeVisitor(walker, metadataProvider);
+      result = uncachedBuildMerkleTreeVisitor(walker, metadataProvider, artifactPathResolver);
       merkleTreeCache.put(nodeKey, result);
     }
     return result;
@@ -408,14 +420,23 @@ public class RemoteExecutionService {
 
   @VisibleForTesting
   public MerkleTree uncachedBuildMerkleTreeVisitor(
-      InputWalker walker, MetadataProvider metadataProvider)
+      InputWalker walker,
+      MetadataProvider metadataProvider,
+      ArtifactPathResolver artifactPathResolver)
       throws IOException, ForbiddenActionInputException {
     ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
     subMerkleTrees.add(
-        MerkleTree.build(walker.getLeavesInputMapping(), metadataProvider, execRoot, digestUtil));
+        MerkleTree.build(
+            walker.getLeavesInputMapping(),
+            metadataProvider,
+            execRoot,
+            artifactPathResolver,
+            digestUtil));
     walker.visitNonLeaves(
         (Object subNodeKey, InputWalker subWalker) -> {
-          subMerkleTrees.add(buildMerkleTreeVisitor(subNodeKey, subWalker, metadataProvider));
+          subMerkleTrees.add(
+              buildMerkleTreeVisitor(
+                  subNodeKey, subWalker, metadataProvider, artifactPathResolver));
         });
     return MerkleTree.merge(subMerkleTrees, digestUtil);
   }
@@ -436,63 +457,90 @@ public class RemoteExecutionService {
     return null;
   }
 
+  /**
+   * Semaphore for limiting the concurrent number of Merkle tree input roots we compute and keep in
+   * memory.
+   *
+   * <p>When --jobs is set to a high value to let the remote execution service runs many actions in
+   * parallel, there is no point in letting the local system compute Merkle trees of input roots
+   * with the same amount of parallelism. Not only does this make Bazel feel sluggish and slow to
+   * respond to being interrupted, it causes it to exhaust memory.
+   *
+   * <p>As there is no point in letting Merkle tree input root computation use a higher concurrency
+   * than the number of CPUs in the system, use a semaphore to limit the concurrency of
+   * buildRemoteAction().
+   */
+  private final Semaphore remoteActionBuildingSemaphore =
+      new Semaphore(Runtime.getRuntime().availableProcessors(), true);
+
+  @Nullable
+  private ToolSignature getToolSignature(Spawn spawn, SpawnExecutionContext context)
+      throws IOException, ExecException, InterruptedException {
+    return remoteOptions.markToolInputs
+            && Spawns.supportsWorkers(spawn)
+            && !spawn.getToolFiles().isEmpty()
+        ? computePersistentWorkerSignature(spawn, context)
+        : null;
+  }
+
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, ForbiddenActionInputException, InterruptedException {
-    ToolSignature toolSignature =
-        remoteOptions.markToolInputs
-                && Spawns.supportsWorkers(spawn)
-                && !spawn.getToolFiles().isEmpty()
-            ? computePersistentWorkerSignature(spawn, context)
-            : null;
-    final MerkleTree merkleTree = buildInputMerkleTree(spawn, context, toolSignature);
+    remoteActionBuildingSemaphore.acquire();
+    try {
+      ToolSignature toolSignature = getToolSignature(spawn, context);
+      final MerkleTree merkleTree = buildInputMerkleTree(spawn, context, toolSignature);
 
-    // Get the remote platform properties.
-    Platform platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
-    if (toolSignature != null) {
-      platform =
-          PlatformUtils.getPlatformProto(
-              spawn, remoteOptions, ImmutableMap.of("persistentWorkerKey", toolSignature.key));
-    } else {
-      platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+      // Get the remote platform properties.
+      Platform platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+      if (toolSignature != null) {
+        platform =
+            PlatformUtils.getPlatformProto(
+                spawn, remoteOptions, ImmutableMap.of("persistentWorkerKey", toolSignature.key));
+      } else {
+        platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+      }
+
+      Command command =
+          buildCommand(
+              spawn.getOutputFiles(),
+              spawn.getArguments(),
+              spawn.getEnvironment(),
+              platform,
+              remotePathResolver);
+      Digest commandHash = digestUtil.compute(command);
+      Action action =
+          Utils.buildAction(
+              commandHash,
+              merkleTree.getRootDigest(),
+              platform,
+              context.getTimeout(),
+              Spawns.mayBeCachedRemotely(spawn),
+              buildSalt(spawn));
+
+      ActionKey actionKey = digestUtil.computeActionKey(action);
+
+      RequestMetadata metadata =
+          TracingMetadataUtils.buildMetadata(
+              buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
+      RemoteActionExecutionContext remoteActionExecutionContext =
+          RemoteActionExecutionContext.create(
+              spawn, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
+
+      return new RemoteAction(
+          spawn,
+          context,
+          remoteActionExecutionContext,
+          remotePathResolver,
+          merkleTree,
+          commandHash,
+          command,
+          action,
+          actionKey,
+          remoteOptions.remoteDiscardMerkleTrees);
+    } finally {
+      remoteActionBuildingSemaphore.release();
     }
-
-    Command command =
-        buildCommand(
-            spawn.getOutputFiles(),
-            spawn.getArguments(),
-            spawn.getEnvironment(),
-            platform,
-            remotePathResolver);
-    Digest commandHash = digestUtil.compute(command);
-    Action action =
-        Utils.buildAction(
-            commandHash,
-            merkleTree.getRootDigest(),
-            platform,
-            context.getTimeout(),
-            Spawns.mayBeCachedRemotely(spawn),
-            buildSalt(spawn));
-
-    ActionKey actionKey = digestUtil.computeActionKey(action);
-
-    RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata(
-            buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
-    RemoteActionExecutionContext remoteActionExecutionContext =
-        RemoteActionExecutionContext.create(
-            spawn, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
-
-    return new RemoteAction(
-        spawn,
-        context,
-        remoteActionExecutionContext,
-        remotePathResolver,
-        merkleTree,
-        commandHash,
-        command,
-        action,
-        actionKey);
   }
 
   @Nullable
@@ -1338,7 +1386,7 @@ public class RemoteExecutionService {
    * <p>Must be called before calling {@link #executeRemotely}.
    */
   public void uploadInputsIfNotPresent(RemoteAction action, boolean force)
-      throws IOException, InterruptedException {
+      throws IOException, ExecException, ForbiddenActionInputException, InterruptedException {
     checkState(!shutdown.get(), "shutdown");
     checkState(mayBeExecutedRemotely(action.getSpawn()), "spawn can't be executed remotely");
 
@@ -1347,13 +1395,33 @@ public class RemoteExecutionService {
     Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
     additionalInputs.put(action.getActionKey().getDigest(), action.getAction());
     additionalInputs.put(action.getCommandHash(), action.getCommand());
-    remoteExecutionCache.ensureInputsPresent(
-        action
-            .getRemoteActionExecutionContext()
-            .withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY), // Only upload to remote cache
-        action.getMerkleTree(),
-        additionalInputs,
-        force);
+
+    // As uploading depends on having the full input root in memory, limit
+    // concurrency. This prevents memory exhaustion. We assume that
+    // ensureInputsPresent() provides enough parallelism to saturate the
+    // network connection.
+    remoteActionBuildingSemaphore.acquire();
+    try {
+      MerkleTree merkleTree = action.getMerkleTree();
+      if (merkleTree == null) {
+        // --experimental_remote_discard_merkle_trees was provided.
+        // Recompute the input root.
+        Spawn spawn = action.getSpawn();
+        SpawnExecutionContext context = action.getSpawnExecutionContext();
+        ToolSignature toolSignature = getToolSignature(spawn, context);
+        merkleTree = buildInputMerkleTree(spawn, context, toolSignature);
+      }
+
+      remoteExecutionCache.ensureInputsPresent(
+          action
+              .getRemoteActionExecutionContext()
+              .withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY), // Only upload to remote cache
+          merkleTree,
+          additionalInputs,
+          force);
+    } finally {
+      remoteActionBuildingSemaphore.release();
+    }
   }
 
   /**

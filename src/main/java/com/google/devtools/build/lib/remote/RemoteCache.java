@@ -151,15 +151,21 @@ public class RemoteCache extends AbstractReferenceCounted {
    */
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
+    return uploadFile(context, digest, file, /* force= */ false);
+  }
+
+  protected ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
 
     Completable upload =
-        casUploadCache.executeIfNot(
+        casUploadCache.execute(
             digest,
             RxFutures.toCompletable(
-                () -> cacheProtocol.uploadFile(context, digest, file), directExecutor()));
+                () -> cacheProtocol.uploadFile(context, digest, file), directExecutor()),
+            force);
 
     return RxFutures.toListenableFuture(upload);
   }
@@ -176,15 +182,21 @@ public class RemoteCache extends AbstractReferenceCounted {
    */
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
+    return uploadBlob(context, digest, data, /* force= */ false);
+  }
+
+  protected ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
 
     Completable upload =
-        casUploadCache.executeIfNot(
+        casUploadCache.execute(
             digest,
             RxFutures.toCompletable(
-                () -> cacheProtocol.uploadBlob(context, digest, data), directExecutor()));
+                () -> cacheProtocol.uploadBlob(context, digest, data), directExecutor()),
+            force);
 
     return RxFutures.toListenableFuture(upload);
   }
@@ -236,6 +248,7 @@ public class RemoteCache extends AbstractReferenceCounted {
   /** A reporter that reports download progresses. */
   public static class DownloadProgressReporter {
     private static final Pattern PATTERN = Pattern.compile("^bazel-out/[^/]+/[^/]+/");
+    private final boolean includeFile;
     private final ProgressStatusListener listener;
     private final String id;
     private final String file;
@@ -243,6 +256,12 @@ public class RemoteCache extends AbstractReferenceCounted {
     private final AtomicLong downloadedBytes = new AtomicLong(0);
 
     public DownloadProgressReporter(ProgressStatusListener listener, String file, long totalSize) {
+      this(/* includeFile= */ true, listener, file, totalSize);
+    }
+
+    public DownloadProgressReporter(
+        boolean includeFile, ProgressStatusListener listener, String file, long totalSize) {
+      this.includeFile = includeFile;
       this.listener = listener;
       this.id = file;
       this.totalSize = bytesCountToDisplayString(totalSize);
@@ -267,12 +286,21 @@ public class RemoteCache extends AbstractReferenceCounted {
     private void reportProgress(boolean includeBytes, boolean finished) {
       String progress;
       if (includeBytes) {
-        progress =
-            String.format(
-                "Downloading %s, %s / %s",
-                file, bytesCountToDisplayString(downloadedBytes.get()), totalSize);
+        if (includeFile) {
+          progress =
+              String.format(
+                  "Downloading %s, %s / %s",
+                  file, bytesCountToDisplayString(downloadedBytes.get()), totalSize);
+        } else {
+          progress =
+              String.format("%s / %s", bytesCountToDisplayString(downloadedBytes.get()), totalSize);
+        }
       } else {
-        progress = String.format("Downloading %s", file);
+        if (includeFile) {
+          progress = String.format("Downloading %s", file);
+        } else {
+          progress = "";
+        }
       }
       listener.onProgressStatus(SpawnProgressEvent.create(id, progress, finished));
     }

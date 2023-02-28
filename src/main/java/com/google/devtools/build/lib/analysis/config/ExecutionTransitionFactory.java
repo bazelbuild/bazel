@@ -129,7 +129,7 @@ public class ExecutionTransitionFactory
       coreOptions.isHost = false;
       coreOptions.isExec = true;
       // Disable extra actions
-      coreOptions.actionListeners = null;
+      coreOptions.actionListeners = ImmutableList.of();
 
       // Then set the target to the saved execution platform if there is one.
       PlatformOptions platformOptions = execOptions.get(PlatformOptions.class);

@@ -18,7 +18,10 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -54,6 +57,8 @@ import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressRecei
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.runtime.SkymeldUiStateTracker.BuildStatus;
@@ -83,12 +88,15 @@ import java.util.concurrent.TimeUnit;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.AdditionalMatchers;
 
 /** Tests {@link UiStateTracker}. */
 @RunWith(TestParameterInjector.class)
 public class UiStateTrackerTest extends FoundationTestCase {
 
   @TestParameter boolean isSkymeld;
+  static final RepositoryMapping MOCK_REPO_MAPPING =
+      RepositoryMapping.createAllowingFallback(ImmutableMap.of("main", RepositoryName.MAIN));
 
   private UiStateTracker getUiStateTracker(ManualClock clock) {
     if (isSkymeld) {
@@ -186,8 +194,11 @@ public class UiStateTrackerTest extends FoundationTestCase {
         ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path);
 
     Action action = mock(Action.class);
-    when(action.getProgressMessage()).thenReturn(progressMessage);
+    when(action.getProgressMessage(eq(MOCK_REPO_MAPPING))).thenReturn(progressMessage);
     when(action.getPrimaryOutput()).thenReturn(artifact);
+
+    verify(action, never()).getProgressMessage(AdditionalMatchers.not(eq(MOCK_REPO_MAPPING)));
+    verify(action, never()).getProgressMessage();
     return action;
   }
 
@@ -208,9 +219,13 @@ public class UiStateTrackerTest extends FoundationTestCase {
   }
 
   private void simulateExecutionPhase(UiStateTracker uiStateTracker) {
+    uiStateTracker.loadingComplete(
+        new LoadingPhaseCompleteEvent(ImmutableSet.of(), ImmutableSet.of(), MOCK_REPO_MAPPING));
     if (this.isSkymeld) {
       // SkymeldUiStateTracker needs to be in the configuration phase before the execution phase.
       ((SkymeldUiStateTracker) uiStateTracker).buildStatus = BuildStatus.ANALYSIS_COMPLETE;
+    } else {
+      String unused = uiStateTracker.analysisComplete();
     }
     uiStateTracker.progressReceiverAvailable(
         new ExecutionProgressReceiverAvailableEvent(dummyExecutionProgressReceiver()));
@@ -254,7 +269,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     // When it is configuring targets.
     stateTracker.loadingComplete(
-        new LoadingPhaseCompleteEvent(ImmutableSet.of(), ImmutableSet.of()));
+        new LoadingPhaseCompleteEvent(ImmutableSet.of(), ImmutableSet.of(), MOCK_REPO_MAPPING));
     String additionalMessage = "5 targets";
     stateTracker.additionalMessage = additionalMessage;
     String configuredTargetProgressString = "5 targets configured";
@@ -1159,6 +1174,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
     UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 80);
+    stateTracker.setProgressSampleSize(4);
     // Mimic being at the execution phase.
     simulateExecutionPhase(stateTracker);
 
@@ -1170,7 +1186,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             labelFooTest,
             ImmutableList.of(),
             new Location("dummy-file", 0, 0),
-            "dummy-mnemonic",
+            "TestRunner",
             "dummy-target-kind",
             "abcdef",
             new BuildConfigurationEvent(
@@ -1183,15 +1199,12 @@ public class UiStateTrackerTest extends FoundationTestCase {
     Label labelBarTest = Label.parseCanonical("//baz:bartest");
     ConfiguredTarget targetBarTest = mock(ConfiguredTarget.class);
     when(targetBarTest.getLabel()).thenReturn(labelBarTest);
-    TestFilteringCompleteEvent filteringComplete = mock(TestFilteringCompleteEvent.class);
-    when(filteringComplete.getTestTargets())
-        .thenReturn(ImmutableSet.of(targetFooTest, targetBarTest));
     ActionOwner barOwner =
         ActionOwner.create(
             labelBarTest,
             ImmutableList.of(),
             new Location("dummy-file", 0, 0),
-            "dummy-mnemonic",
+            "TestRunner",
             "dummy-target-kind",
             "fedcba",
             new BuildConfigurationEvent(
@@ -1201,6 +1214,27 @@ public class UiStateTrackerTest extends FoundationTestCase {
             ImmutableMap.of(),
             null);
 
+    Label labelBazTest = Label.parseCanonical("//baz:baztest");
+    ConfiguredTarget targetBazTest = mock(ConfiguredTarget.class);
+    when(targetBazTest.getLabel()).thenReturn(labelBazTest);
+    ActionOwner bazOwner =
+        ActionOwner.create(
+            labelBazTest,
+            ImmutableList.of(),
+            new Location("dummy-file", 0, 0),
+            "NonTestAction",
+            "dummy-target-kind",
+            "fedcba",
+            new BuildConfigurationEvent(
+                BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+                BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
+            null,
+            ImmutableMap.of(),
+            null);
+
+    TestFilteringCompleteEvent filteringComplete = mock(TestFilteringCompleteEvent.class);
+    when(filteringComplete.getTestTargets())
+        .thenReturn(ImmutableSet.of(targetFooTest, targetBarTest, targetBazTest));
     stateTracker.testFilteringComplete(filteringComplete);
 
     // First produce 10 actions for footest...
@@ -1217,10 +1251,17 @@ public class UiStateTrackerTest extends FoundationTestCase {
       when(action.getOwner()).thenReturn(barOwner);
       stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     }
-    // ...and finally a completely unrelated action
+    // ...run a completely unrelated action..
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     stateTracker.actionStarted(
         new ActionStartedEvent(mockAction("Other action", "other/action"), clock.nanoTime()));
+    // ...and finally, run actions that are associated with baztest but are not a test.
+    for (int i = 0; i < 10; i++) {
+      clock.advanceMillis(1_000);
+      Action action = mockAction("Doing something " + i, "someartifact_" + i);
+      when(action.getOwner()).thenReturn(bazOwner);
+      stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
+    }
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
@@ -1236,6 +1277,8 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertWithMessage("Progress bar should contain 'Other action', but was:\n" + output)
         .that(output.contains("Other action"))
         .isTrue();
+    assertThat(output).doesNotContain("Testing //baz:baztest");
+    assertThat(output).contains("Doing something");
   }
 
   @Test
@@ -1246,59 +1289,89 @@ public class UiStateTrackerTest extends FoundationTestCase {
   }
 
   @Test
-  public void testDownloadShown() throws Exception {
-    // Verify that, whenever a single download is running in loading face, it is shown in the status
-    // bar.
+  public void testDownloadShown_duringLoading() throws Exception {
+    // Verify that, whenever a single download is running in loading phase, it is shown in the
+    // status bar.
     ManualClock clock = new ManualClock();
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
-    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 80);
+    clock.advance(Duration.ofSeconds(1234));
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 80);
 
     URL url = new URL("http://example.org/first/dep");
 
     stateTracker.buildStarted();
     stateTracker.downloadProgress(new DownloadProgressEvent(url));
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(6));
+    clock.advance(Duration.ofSeconds(6));
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
 
-    assertWithMessage("Progress bar should contain '" + url.toString() + "', but was:\n" + output)
-        .that(output.contains(url.toString()))
-        .isTrue();
-    assertWithMessage("Progress bar should contain '6s', but was:\n" + output)
-        .that(output.contains("6s"))
-        .isTrue();
+    assertThat(output).contains(url.toString());
+    assertThat(output).contains("6s");
 
     // Progress on the pending download should be reported appropriately
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
+    clock.advance(Duration.ofSeconds(1));
     stateTracker.downloadProgress(new DownloadProgressEvent(url, 256));
 
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
 
-    assertWithMessage("Progress bar should contain '" + url.toString() + "', but was:\n" + output)
-        .that(output.contains(url.toString()))
-        .isTrue();
-    assertWithMessage("Progress bar should contain '7s', but was:\n" + output)
-        .that(output.contains("7s"))
-        .isTrue();
-    assertWithMessage("Progress bar should contain '256', but was:\n" + output)
-        .that(output.contains("256"))
-        .isTrue();
+    assertThat(output).contains(url.toString());
+    assertThat(output).contains("7s");
+    assertThat(output).contains("256");
 
     // After finishing the download, it should no longer be reported.
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
+    clock.advance(Duration.ofSeconds(1));
     stateTracker.downloadProgress(new DownloadProgressEvent(url, 256, true));
 
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
 
-    assertWithMessage("Progress bar should not contain url, but was:\n" + output)
-        .that(output.contains("example.org"))
-        .isFalse();
+    assertThat(output).doesNotContain("example.org");
+  }
+
+  @Test
+  public void testDownloadShown_duringMainRepoMappingComputation() throws Exception {
+    ManualClock clock = new ManualClock();
+    clock.advance(Duration.ofSeconds(1234));
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 80);
+
+    URL url = new URL("http://example.org/first/dep");
+
+    stateTracker.mainRepoMappingComputationStarted();
+    stateTracker.downloadProgress(new DownloadProgressEvent(url));
+    clock.advance(Duration.ofSeconds(6));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+
+    assertThat(output).contains(url.toString());
+    assertThat(output).contains("6s");
+
+    // Progress on the pending download should be reported appropriately
+    clock.advance(Duration.ofSeconds(1));
+    stateTracker.downloadProgress(new DownloadProgressEvent(url, 256));
+
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    output = terminalWriter.getTranscript();
+
+    assertThat(output).contains(url.toString());
+    assertThat(output).contains("7s");
+    assertThat(output).contains("256");
+
+    // After finishing the download, it should no longer be reported.
+    clock.advance(Duration.ofSeconds(1));
+    stateTracker.downloadProgress(new DownloadProgressEvent(url, 256, true));
+
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    output = terminalWriter.getTranscript();
+
+    assertThat(output).doesNotContain("example.org");
   }
 
   @Test
@@ -1307,7 +1380,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // Also verify that the length is respected, even if only a download sample is shown.
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
-    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 60);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 60);
     URL url = new URL("http://example.org/some/really/very/very/long/path/filename.tar.gz");
 
     stateTracker.buildStarted();

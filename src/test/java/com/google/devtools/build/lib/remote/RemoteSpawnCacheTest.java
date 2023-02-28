@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -152,6 +153,11 @@ public class RemoteSpawnCacheTest {
         }
 
         @Override
+        public ArtifactPathResolver getPathResolver() {
+          return ArtifactPathResolver.forExecRoot(execRoot);
+        }
+
+        @Override
         public ArtifactExpander getArtifactExpander() {
           throw new UnsupportedOperationException();
         }
@@ -172,7 +178,8 @@ public class RemoteSpawnCacheTest {
         }
 
         @Override
-        public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory)
+        public SortedMap<PathFragment, ActionInput> getInputMapping(
+            PathFragment baseDirectory, boolean willAccessRepeatedly)
             throws IOException, ForbiddenActionInputException {
           return getSpawnInputExpander()
               .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, baseDirectory, fakeFileCache);

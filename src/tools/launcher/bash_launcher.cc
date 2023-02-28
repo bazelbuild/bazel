@@ -52,11 +52,7 @@ ExitCode BashBinaryLauncher::Launch() {
 
   vector<wstring> origin_args = this->GetCommandlineArguments();
   wostringstream bash_command;
-  // In case the given binary path is a shortened Windows 8dot3 path, we need to
-  // convert it back to its long path form before using it to find the bash main
-  // file.
-  wstring full_binary_path = GetWindowsLongPath(origin_args[0]);
-  wstring bash_main_file = GetBinaryPathWithoutExtension(full_binary_path);
+  wstring bash_main_file = GetBinaryPathWithoutExtension(GetLauncherPath());
   bash_command << BashEscapeArg(bash_main_file);
   for (int i = 1; i < origin_args.size(); i++) {
     bash_command << L' ';
