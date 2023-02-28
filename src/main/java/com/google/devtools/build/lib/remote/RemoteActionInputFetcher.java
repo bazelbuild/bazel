@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.devtools.build.lib.remote.common.ProgressStatusListener.NO_ACTION;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
@@ -24,7 +25,10 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.SpawnProgressEvent;
+import com.google.devtools.build.lib.remote.RemoteCache.DownloadProgressReporter;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -90,7 +94,11 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   @Override
   protected ListenableFuture<Void> doDownloadFile(
-      Path tempPath, PathFragment execPath, FileArtifactValue metadata, Priority priority)
+      Reporter reporter,
+      Path tempPath,
+      PathFragment execPath,
+      FileArtifactValue metadata,
+      Priority priority)
       throws IOException {
     checkArgument(metadata.isRemote(), "Cannot download file that is not a remote file.");
     RequestMetadata requestMetadata =
@@ -98,7 +106,44 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
 
     Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-    return remoteCache.downloadFile(context, tempPath, digest);
+
+    DownloadProgressReporter downloadProgressReporter;
+    if (priority == Priority.LOW) {
+      // Only report download progress for toplevel outputs
+      downloadProgressReporter =
+          new DownloadProgressReporter(
+              /* includeFile= */ false,
+              progress -> reporter.post(new DownloadProgress(progress)),
+              execPath.toString(),
+              metadata.getSize());
+    } else {
+      downloadProgressReporter = new DownloadProgressReporter(NO_ACTION, "", 0);
+    }
+
+    return remoteCache.downloadFile(context, tempPath, digest, downloadProgressReporter);
+  }
+
+  public static class DownloadProgress implements FetchProgress {
+    private final SpawnProgressEvent progress;
+
+    public DownloadProgress(SpawnProgressEvent progress) {
+      this.progress = progress;
+    }
+
+    @Override
+    public String getResourceIdentifier() {
+      return progress.progressId();
+    }
+
+    @Override
+    public String getProgress() {
+      return progress.progress();
+    }
+
+    @Override
+    public boolean isFinished() {
+      return progress.finished();
+    }
   }
 
   @Override

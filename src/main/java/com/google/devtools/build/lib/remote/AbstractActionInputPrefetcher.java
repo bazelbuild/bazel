@@ -157,7 +157,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * @param tempPath the temporary path which the input should be written to.
    */
   protected abstract ListenableFuture<Void> doDownloadFile(
-      Path tempPath, PathFragment execPath, FileArtifactValue metadata, Priority priority)
+      Reporter reporter,
+      Path tempPath,
+      PathFragment execPath,
+      FileArtifactValue metadata,
+      Priority priority)
       throws IOException;
 
   protected void prefetchVirtualActionInput(VirtualActionInput input) throws IOException {}
@@ -309,7 +313,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                   return toTransferResult(
                       toCompletable(
                           () ->
-                              doDownloadFile(tempPath, treeFile.getExecPath(), metadata, priority),
+                              doDownloadFile(
+                                  reporter, tempPath, treeFile.getExecPath(), metadata, priority),
                           directExecutor()));
                 });
 
@@ -455,7 +460,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                     toCompletable(
                             () ->
                                 doDownloadFile(
-                                    tempPath, finalPath.relativeTo(execRoot), metadata, priority),
+                                    reporter,
+                                    tempPath,
+                                    finalPath.relativeTo(execRoot),
+                                    metadata,
+                                    priority),
                             directExecutor())
                         .doOnComplete(
                             () -> {
