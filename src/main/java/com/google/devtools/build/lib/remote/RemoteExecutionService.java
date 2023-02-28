@@ -64,6 +64,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -371,10 +372,14 @@ public class RemoteExecutionService {
           spawn,
           context,
           (Object nodeKey, InputWalker walker) -> {
-            subMerkleTrees.add(buildMerkleTreeVisitor(nodeKey, walker, metadataProvider));
+            subMerkleTrees.add(
+                buildMerkleTreeVisitor(
+                    nodeKey, walker, metadataProvider, context.getPathResolver()));
           });
       if (!outputDirMap.isEmpty()) {
-        subMerkleTrees.add(MerkleTree.build(outputDirMap, metadataProvider, execRoot, digestUtil));
+        subMerkleTrees.add(
+            MerkleTree.build(
+                outputDirMap, metadataProvider, execRoot, context.getPathResolver(), digestUtil));
       }
       return MerkleTree.merge(subMerkleTrees, digestUtil);
     } else {
@@ -394,16 +399,20 @@ public class RemoteExecutionService {
           toolSignature == null ? ImmutableSet.of() : toolSignature.toolInputs,
           context.getMetadataProvider(),
           execRoot,
+          context.getPathResolver(),
           digestUtil);
     }
   }
 
   private MerkleTree buildMerkleTreeVisitor(
-      Object nodeKey, InputWalker walker, MetadataProvider metadataProvider)
+      Object nodeKey,
+      InputWalker walker,
+      MetadataProvider metadataProvider,
+      ArtifactPathResolver artifactPathResolver)
       throws IOException, ForbiddenActionInputException {
     MerkleTree result = merkleTreeCache.getIfPresent(nodeKey);
     if (result == null) {
-      result = uncachedBuildMerkleTreeVisitor(walker, metadataProvider);
+      result = uncachedBuildMerkleTreeVisitor(walker, metadataProvider, artifactPathResolver);
       merkleTreeCache.put(nodeKey, result);
     }
     return result;
@@ -411,14 +420,23 @@ public class RemoteExecutionService {
 
   @VisibleForTesting
   public MerkleTree uncachedBuildMerkleTreeVisitor(
-      InputWalker walker, MetadataProvider metadataProvider)
+      InputWalker walker,
+      MetadataProvider metadataProvider,
+      ArtifactPathResolver artifactPathResolver)
       throws IOException, ForbiddenActionInputException {
     ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
     subMerkleTrees.add(
-        MerkleTree.build(walker.getLeavesInputMapping(), metadataProvider, execRoot, digestUtil));
+        MerkleTree.build(
+            walker.getLeavesInputMapping(),
+            metadataProvider,
+            execRoot,
+            artifactPathResolver,
+            digestUtil));
     walker.visitNonLeaves(
         (Object subNodeKey, InputWalker subWalker) -> {
-          subMerkleTrees.add(buildMerkleTreeVisitor(subNodeKey, subWalker, metadataProvider));
+          subMerkleTrees.add(
+              buildMerkleTreeVisitor(
+                  subNodeKey, subWalker, metadataProvider, artifactPathResolver));
         });
     return MerkleTree.merge(subMerkleTrees, digestUtil);
   }

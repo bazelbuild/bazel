@@ -21,6 +21,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.Extrema;
@@ -1088,6 +1089,7 @@ public final class Profiler {
           writer.beginObject();
           writer.name("otherData");
           writer.beginObject();
+          writer.name("bazel_version").value(BlazeVersionInfo.instance().getReleaseName());
           writer.name("build_id").value(buildID.toString());
           writer.name("output_base").value(outputBase);
           writer.name("date").value(new Date().toString());

@@ -99,6 +99,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
@@ -328,11 +329,19 @@ public final class SkyframeActionExecutor {
     return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
   }
 
+  OutputPermissions getOutputPermissions() {
+    return options.getOptions(CoreOptions.class).experimentalWritableOutputs
+        ? OutputPermissions.WRITABLE
+        : OutputPermissions.READONLY;
+  }
+
   XattrProvider getXattrProvider() {
     return syscallCache;
   }
 
-  /** REQUIRES: {@link #actionFileSystemType()} to be not {@code DISABLED}. */
+  /**
+   * REQUIRES: {@link #actionFileSystemType()} to be not {@code DISABLED}.
+   */
   FileSystem createActionFileSystem(
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
@@ -624,6 +633,7 @@ public final class SkyframeActionExecutor {
               action,
               resolvedCacheArtifacts,
               clientEnv,
+              getOutputPermissions(),
               handler,
               metadataHandler,
               artifactExpander,
@@ -682,6 +692,7 @@ public final class SkyframeActionExecutor {
                   action,
                   resolvedCacheArtifacts,
                   clientEnv,
+                  getOutputPermissions(),
                   handler,
                   metadataHandler,
                   artifactExpander,
@@ -727,7 +738,13 @@ public final class SkyframeActionExecutor {
 
     try {
       actionCacheChecker.updateActionCache(
-          action, token, metadataHandler, artifactExpander, clientEnv, remoteDefaultProperties);
+          action,
+          token,
+          metadataHandler,
+          artifactExpander,
+          clientEnv,
+          getOutputPermissions(),
+          remoteDefaultProperties);
     } catch (IOException e) {
       // Skyframe has already done all the filesystem access needed for outputs and swallows
       // IOExceptions for inputs. So an IOException is impossible here.

@@ -598,6 +598,15 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_permissions_test",
+    size = "small",
+    srcs = ["bazel_permissions_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
     name = "bazel_execute_testlog",
     srcs = ["bazel_execute_testlog.sh"],
     data = [":test-deps"],

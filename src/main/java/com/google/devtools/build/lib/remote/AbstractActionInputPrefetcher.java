@@ -42,10 +42,13 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.reactivex.rxjava3.core.Completable;
@@ -60,6 +63,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * Abstract implementation of {@link ActionInputPrefetcher} which implements the orchestration of
@@ -71,10 +75,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private final Reporter reporter;
   private final AsyncTaskCache.NoResult<Path> downloadCache = AsyncTaskCache.NoResult.create();
   private final TempPathGenerator tempPathGenerator;
+  private final OutputPermissions outputPermissions;
   protected final Set<Artifact> outputsAreInputs = Sets.newConcurrentHashSet();
 
   protected final Path execRoot;
   protected final ImmutableList<Pattern> patternsToDownload;
+
+  private final Set<ActionInput> missingActionInputs = Sets.newConcurrentHashSet();
 
   private static class Context {
     private final Set<Path> nonWritableDirs = Sets.newConcurrentHashSet();
@@ -118,11 +125,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Reporter reporter,
       Path execRoot,
       TempPathGenerator tempPathGenerator,
-      ImmutableList<Pattern> patternsToDownload) {
+      ImmutableList<Pattern> patternsToDownload,
+      OutputPermissions outputPermissions) {
     this.reporter = reporter;
     this.execRoot = execRoot;
     this.tempPathGenerator = tempPathGenerator;
     this.patternsToDownload = patternsToDownload;
+    this.outputPermissions = outputPermissions;
   }
 
   private boolean shouldDownloadFile(Path path, FileArtifactValue metadata) {
@@ -152,7 +161,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * @param tempPath the temporary path which the input should be written to.
    */
   protected abstract ListenableFuture<Void> doDownloadFile(
-      Path tempPath, PathFragment execPath, FileArtifactValue metadata, Priority priority)
+      Reporter reporter,
+      Path tempPath,
+      PathFragment execPath,
+      FileArtifactValue metadata,
+      Priority priority)
       throws IOException;
 
   protected void prefetchVirtualActionInput(VirtualActionInput input) throws IOException {}
@@ -248,7 +261,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     PathFragment prefetchExecPath = treeMetadata.getMaterializationExecPath().orElse(execPath);
 
     Completable prefetch =
-        prefetchInputTree(context, provider, prefetchExecPath, treeFiles, treeMetadata, priority);
+        prefetchInputTree(
+            context, provider, prefetchExecPath, tree, treeFiles, treeMetadata, priority);
 
     // If prefetching to a different path, plant a symlink into it.
     if (!prefetchExecPath.equals(execPath)) {
@@ -284,6 +298,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Context context,
       MetadataProvider provider,
       PathFragment execPath,
+      SpecialArtifact tree,
       List<TreeFileArtifact> treeFiles,
       FileArtifactValue treeMetadata,
       Priority priority) {
@@ -302,7 +317,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                   return toTransferResult(
                       toCompletable(
                           () ->
-                              doDownloadFile(tempPath, treeFile.getExecPath(), metadata, priority),
+                              doDownloadFile(
+                                  reporter, tempPath, treeFile.getExecPath(), metadata, priority),
                           directExecutor()));
                 });
 
@@ -340,15 +356,21 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                   }
 
                   for (Path dir : dirs) {
-                    // Change permission of all directories of a tree artifact to 0555 (files are
+                    // Change permission of all directories of a tree artifact (files are
                     // changed inside {@code finalizeDownload}) in order to match the behaviour when
                     // the tree artifact is generated locally. In that case, permission of all files
-                    // and directories inside a tree artifact is changed to 0555 within {@code
+                    // and directories inside a tree artifact is changed within {@code
                     // checkOutputs()}.
-                    dir.chmod(0555);
+                    dir.chmod(outputPermissions.getPermissionsMode());
                   }
 
                   completed.set(true);
+                })
+            .doOnError(
+                error -> {
+                  if (BulkTransferException.anyCausedByCacheNotFoundException(error)) {
+                    missingActionInputs.add(tree);
+                  }
                 })
             .doFinally(
                 () -> {
@@ -387,7 +409,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     PathFragment prefetchExecPath = metadata.getMaterializationExecPath().orElse(execPath);
 
     Completable prefetch =
-        downloadFileNoCheckRx(context, execRoot.getRelative(prefetchExecPath), metadata, priority);
+        downloadFileNoCheckRx(
+            context, execRoot.getRelative(prefetchExecPath), input, metadata, priority);
 
     // If prefetching to a different path, plant a symlink into it.
     if (!prefetchExecPath.equals(execPath)) {
@@ -406,15 +429,23 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * download finished.
    */
   private Completable downloadFileRx(
-      Context context, Path path, FileArtifactValue metadata, Priority priority) {
+      Context context,
+      Path path,
+      @Nullable ActionInput actionInput,
+      FileArtifactValue metadata,
+      Priority priority) {
     if (!canDownloadFile(path, metadata)) {
       return Completable.complete();
     }
-    return downloadFileNoCheckRx(context, path, metadata, priority);
+    return downloadFileNoCheckRx(context, path, actionInput, metadata, priority);
   }
 
   private Completable downloadFileNoCheckRx(
-      Context context, Path path, FileArtifactValue metadata, Priority priority) {
+      Context context,
+      Path path,
+      @Nullable ActionInput actionInput,
+      FileArtifactValue metadata,
+      Priority priority) {
     if (path.isSymbolicLink()) {
       try {
         path = path.getRelative(path.readSymbolicLink());
@@ -428,26 +459,36 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     AtomicBoolean completed = new AtomicBoolean(false);
     Completable download =
         Completable.using(
-            tempPathGenerator::generateTempPath,
-            tempPath ->
-                toCompletable(
-                        () ->
-                            doDownloadFile(
-                                tempPath, finalPath.relativeTo(execRoot), metadata, priority),
-                        directExecutor())
-                    .doOnComplete(
-                        () -> {
-                          finalizeDownload(context, tempPath, finalPath);
-                          completed.set(true);
-                        }),
-            tempPath -> {
-              if (!completed.get()) {
-                deletePartialDownload(tempPath);
-              }
-            },
-            // Set eager=false here because we want cleanup the download *after* upstream is
-            // disposed.
-            /* eager= */ false);
+                tempPathGenerator::generateTempPath,
+                tempPath ->
+                    toCompletable(
+                            () ->
+                                doDownloadFile(
+                                    reporter,
+                                    tempPath,
+                                    finalPath.relativeTo(execRoot),
+                                    metadata,
+                                    priority),
+                            directExecutor())
+                        .doOnComplete(
+                            () -> {
+                              finalizeDownload(context, tempPath, finalPath);
+                              completed.set(true);
+                            }),
+                tempPath -> {
+                  if (!completed.get()) {
+                    deletePartialDownload(tempPath);
+                  }
+                },
+                // Set eager=false here because we want cleanup the download *after* upstream is
+                // disposed.
+                /* eager= */ false)
+            .doOnError(
+                error -> {
+                  if (error instanceof CacheNotFoundException && actionInput != null) {
+                    missingActionInputs.add(actionInput);
+                  }
+                });
 
     return downloadCache.executeIfNot(
         finalPath,
@@ -467,19 +508,27 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * <p>The file will be written into a temporary file and moved to the final destination after the
    * download finished.
    */
-  public void downloadFile(Path path, FileArtifactValue metadata)
+  public void downloadFile(Path path, @Nullable ActionInput actionInput, FileArtifactValue metadata)
       throws IOException, InterruptedException {
-    getFromFuture(downloadFileAsync(path.asFragment(), metadata, Priority.CRITICAL));
+    getFromFuture(downloadFileAsync(path.asFragment(), actionInput, metadata, Priority.CRITICAL));
   }
 
   protected ListenableFuture<Void> downloadFileAsync(
-      PathFragment path, FileArtifactValue metadata, Priority priority) {
+      PathFragment path,
+      @Nullable ActionInput actionInput,
+      FileArtifactValue metadata,
+      Priority priority) {
     Context context = new Context();
     return toListenableFuture(
         Completable.using(
             () -> context,
             ctx ->
-                downloadFileRx(context, execRoot.getFileSystem().getPath(path), metadata, priority),
+                downloadFileRx(
+                    context,
+                    execRoot.getFileSystem().getPath(path),
+                    actionInput,
+                    metadata,
+                    priority),
             Context::finalizeContext));
   }
 
@@ -492,9 +541,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       parentDir.setWritable(true);
     }
 
-    // The permission of output file is changed to 0555 after action execution. We manually change
+    // The permission of output file is changed after action execution. We manually change
     // the permission here for the downloaded file to keep this behaviour consistent.
-    tmpPath.chmod(0555);
+    tmpPath.chmod(outputPermissions.getPermissionsMode());
     FileSystemUtils.moveFile(tmpPath, path);
   }
 
@@ -635,5 +684,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   public void flushOutputTree() throws InterruptedException {
     downloadCache.awaitInProgressTasks();
+  }
+
+  public ImmutableSet<ActionInput> getMissingActionInputs() {
+    return ImmutableSet.copyOf(missingActionInputs);
   }
 }
