@@ -530,8 +530,8 @@ public abstract class ActionInputPrefetcherTestBase {
       throws IOException {
     doAnswer(
             invocation -> {
-              Path path = invocation.getArgument(0);
-              FileArtifactValue metadata = invocation.getArgument(2);
+              Path path = invocation.getArgument(1);
+              FileArtifactValue metadata = invocation.getArgument(3);
               byte[] content = cas.get(HashCode.fromBytes(metadata.getDigest()));
               if (content == null) {
                 return Futures.immediateFailedFuture(new IOException("Not found"));
