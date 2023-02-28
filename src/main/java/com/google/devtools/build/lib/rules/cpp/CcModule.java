@@ -212,7 +212,7 @@ public abstract class CcModule
       // flipped.
       buildOptions = ruleContext.getConfiguration().getOptions();
       if (!ruleContext.instrumentCoverage(Starlark.NONE) && cppConfiguration.collectCodeCoverage()) {
-        // When --collect-code-coverage is passed, CcCommon.configureFeaturesOrThrowEvalException() would
+        // When --collect_code_coverage is passed, CcCommon.configureFeaturesOrThrowEvalException() would
         // try to add "coverage" to the requested list of features. Adding "coverage" to the unsupported
         // feature here to avoid that.
         unsupportedFeaturesSetBuilder.add("coverage");
