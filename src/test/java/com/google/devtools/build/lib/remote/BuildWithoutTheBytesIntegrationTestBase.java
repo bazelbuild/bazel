@@ -142,15 +142,14 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "load(':output_dir.bzl', 'output_dir')",
         "output_dir(",
         "  name = 'foo',",
-        "  manifest = ':manifest',",
+        "  content_map = {'file-1': '1', 'file-2': '2', 'file-3': '3'},",
         ")");
-    write("manifest", "file-1", "file-2", "file-3");
     addOptions("--experimental_remote_download_regex=.*foo/file-2$");
 
     buildTarget("//:foo");
     waitDownloads();
 
-    assertValidOutputFile("foo/file-2", "file-2\n");
+    assertValidOutputFile("foo/file-2", "2");
     assertOutputDoesNotExist("foo/file-1");
     assertOutputDoesNotExist("foo/file-3");
   }
@@ -163,9 +162,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "load(':output_dir.bzl', 'output_dir')",
         "output_dir(",
         "  name = 'foo',",
-        "  manifest = ':manifest',",
+        "  content_map = {'file-1': '1', 'file-2': '2', 'file-3': '3'},",
         ")");
-    write("manifest", "file-1", "file-2", "file-3");
     addOptions("--experimental_remote_download_regex=.*foo$");
 
     buildTarget("//:foo");
@@ -534,16 +532,15 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "load(':output_dir.bzl', 'output_dir')",
         "output_dir(",
         "  name = 'foo',",
-        "  manifest = ':manifest',",
+        "  content_map = {'file-1': '1', 'file-2': '2', 'file-3': '3'},",
         ")");
-    write("manifest", "file-1", "file-2", "file-3");
 
     buildTarget("//:foo");
     waitDownloads();
 
-    assertValidOutputFile("foo/file-1", "file-1\n");
-    assertValidOutputFile("foo/file-2", "file-2\n");
-    assertValidOutputFile("foo/file-3", "file-3\n");
+    assertValidOutputFile("foo/file-1", "1");
+    assertValidOutputFile("foo/file-2", "2");
+    assertValidOutputFile("foo/file-3", "3");
   }
 
   @Test
@@ -565,7 +562,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "load(':output_dir.bzl', 'output_dir')",
         "output_dir(",
         "  name = 'foo',",
-        "  manifest = ':manifest',",
+        "  content_map = {'file-1': '1'},",
         ")",
         "genrule(",
         "  name = 'foobar',",
@@ -573,18 +570,18 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "  outs = ['out/foobar.txt'],",
         "  cmd = 'cat $(location :foo)/file-1 > $@ && echo bar >> $@',",
         ")");
-    write("manifest", "file-1");
 
     buildTarget("//:foobar");
     waitDownloads();
 
-    assertValidOutputFile("out/foobar.txt", "file-1\nbar\n");
+    assertValidOutputFile("out/foobar.txt", "1bar\n");
   }
 
   @Test
   public void emptyTreeConsumedByLocalAction() throws Exception {
     // Disable remote execution so that the empty tree artifact is prefetched.
     addOptions("--modify_execution_info=Genrule=+no-remote-exec");
+    addOptions("--verbose_failures");
     setDownloadToplevel();
     writeOutputDirRule();
     write(
@@ -592,7 +589,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "load(':output_dir.bzl', 'output_dir')",
         "output_dir(",
         "  name = 'foo',",
-        "  manifest = ':manifest',",
+        "  content_map = {},", // no files
         ")",
         "genrule(",
         "  name = 'foobar',",
@@ -600,7 +597,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "  outs = ['foobar.txt'],",
         "  cmd = 'touch $@',",
         ")");
-    write("manifest"); // no files
 
     buildTarget("//:foobar");
     waitDownloads();
@@ -665,21 +661,26 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "load(':output_dir.bzl', 'output_dir')",
         "output_dir(",
         "  name = 'foo',",
-        "  manifest = ':manifest',",
+        "  content_map = {'file-1': '1', 'file-2': '2', 'file-3': '3'},",
         ")");
-    write("manifest", "file-1", "file-2", "file-3");
     setDownloadToplevel();
     buildTarget("//:foo");
     waitDownloads();
 
-    write("manifest", "file-1", "file-4");
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  content_map = {'file-1': '1', 'file-4': '4'},",
+        ")");
     restartServer();
     setDownloadToplevel();
     buildTarget("//:foo");
     waitDownloads();
 
-    assertValidOutputFile("foo/file-1", "file-1\n");
-    assertValidOutputFile("foo/file-4", "file-4\n");
+    assertValidOutputFile("foo/file-1", "1");
+    assertValidOutputFile("foo/file-4", "4");
     assertOutputDoesNotExist("foo/file-2");
     assertOutputDoesNotExist("foo/file-3");
   }
@@ -905,7 +906,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "load('//:output_dir.bzl', 'output_dir')",
         "output_dir(",
         "  name = 'foo.out',",
-        "  manifest = ':manifest',",
+        "  content_map = {'file-inside': 'hello world'},",
         ")",
         "genrule(",
         "  name = 'bar',",
@@ -913,7 +914,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "  outs = ['bar.out'],",
         "  cmd = '( ls $(location :foo.out); cat $(location :bar.in) ) > $@',",
         ")");
-    write("a/manifest", "file-inside");
     write("a/bar.in", "bar");
 
     // Populate remote cache
@@ -941,9 +941,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     // Assert: target was successfully built
     assertValidOutputFile(
-        "a/bar.out",
-        "file-inside" + lineSeparator() + "updated bar" + lineSeparator(),
-        /* isLocal= */ true);
+        "a/bar.out", "file-inside\nupdated bar" + lineSeparator(), /* isLocal= */ true);
   }
 
   protected void assertOutputsDoNotExist(String target) throws Exception {
@@ -992,21 +990,24 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     write(
         "output_dir.bzl",
         "def _output_dir_impl(ctx):",
-        "  output_dir = ctx.actions.declare_directory(ctx.attr.name)",
+        "  out = ctx.actions.declare_directory(ctx.attr.name)",
+        "  args = []",
+        "  for name, content in ctx.attr.content_map.items():",
+        "    args.append(out.path + '/' + name)",
+        "    args.append(content)",
         "  ctx.actions.run_shell(",
         "    mnemonic = 'OutputDir',",
-        "    inputs = [ctx.file.manifest],",
-        "    outputs = [output_dir],",
-        "    arguments = [ctx.file.manifest.path, output_dir.path],",
-        "    command = 'while read -r line; do echo $line > $2/$line; done < $1',",
+        "    outputs = [out],",
+        "    arguments = args,",
+        "    command = 'while (($#)); do echo -n \"$2\" > $1; shift 2; done',",
         "  )",
-        "  return [DefaultInfo(files = depset([output_dir]))]",
+        "  return DefaultInfo(files = depset([out]))",
         "",
         "output_dir = rule(",
         "  implementation = _output_dir_impl,",
         "  attrs = {",
-        "    'manifest': attr.label(mandatory = True, allow_single_file = True),",
-        "  }",
+        "    'content_map': attr.string_dict(mandatory = True),",
+        "  },",
         ")");
   }
 

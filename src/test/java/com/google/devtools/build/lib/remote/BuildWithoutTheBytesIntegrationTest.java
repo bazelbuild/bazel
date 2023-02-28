@@ -577,7 +577,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "load('//:output_dir.bzl', 'output_dir')",
         "output_dir(",
         "  name = 'foo.out',",
-        "  manifest = ':manifest',",
+        "  content_map = {'file-inside': 'hello world'},",
         ")",
         "genrule(",
         "  name = 'bar',",
@@ -585,7 +585,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "  outs = ['bar.out'],",
         "  cmd = '( ls $(location :foo.out); cat $(location :bar.in) ) > $@',",
         ")");
-    write("a/manifest", "file-inside");
     write("a/bar.in", "bar");
 
     // Populate remote cache
@@ -614,8 +613,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     // Assert: target was successfully built
     assertValidOutputFile(
-        "a/bar.out",
-        "file-inside" + lineSeparator() + "updated bar" + lineSeparator(),
-        /* isLocal= */ true);
+        "a/bar.out", "file-inside\nupdated bar" + lineSeparator(), /* isLocal= */ true);
   }
 }
