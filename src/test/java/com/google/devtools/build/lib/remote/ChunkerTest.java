@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.github.luben.zstd.Zstd;
 import com.google.devtools.build.lib.remote.Chunker.Chunk;
+import com.google.devtools.build.lib.remote.Chunker.ChunkDataSupplier;
 import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -26,7 +27,6 @@ import java.io.InputStream;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -126,7 +126,7 @@ public class ChunkerTest {
 
     byte[] data = new byte[] {1, 2};
     final AtomicReference<InputStream> in = new AtomicReference<>();
-    Supplier<InputStream> supplier =
+    ChunkDataSupplier supplier =
         () -> {
           in.set(Mockito.spy(new ByteArrayInputStream(data)));
           return in.get();

@@ -86,13 +86,19 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Override
-  protected void assertOutputEquals(String realContent, String expectedContent) throws Exception {
+  protected void assertOutputEquals(String realContent, String expectedContent, boolean isLocal)
+      throws Exception {
     assertThat(realContent).isEqualTo(expectedContent);
   }
 
   @Override
   protected void assertOutputContains(String content, String contains) throws Exception {
     assertThat(content).contains(contains);
+  }
+
+  @Override
+  protected void evictAllBlobs() throws Exception {
+    worker.restart();
   }
 
   @After
@@ -418,7 +424,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void remoteCacheEvictBlobs_exitWithCode39() throws Exception {
+  public void remoteCacheEvictBlobs_whenPrefetchingInput_exitWithCode39() throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
@@ -453,7 +459,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     assertOutputDoesNotExist("a/foo.out");
 
     // Act: Evict blobs from remote cache and do an incremental build
-    worker.restart();
+    evictAllBlobs();
     write("a/bar.in", "updated bar");
     var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
 
@@ -468,7 +474,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void remoteCacheEvictBlobs_incrementalBuildCanContinue() throws Exception {
+  public void remoteCacheEvictBlobs_whenUploadingInput_exitWithCode39() throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
@@ -483,7 +489,53 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "  srcs = ['foo.out', 'bar.in'],",
         "  outs = ['bar.out'],",
         "  cmd = 'cat $(SRCS) > $@',",
-        "  tags = ['no-remote-exec'],",
+        ")");
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    setDownloadAll();
+    buildTarget("//a:bar");
+    waitDownloads();
+    var bytes = FileSystemUtils.readContent(getOutputPath("a/foo.out"));
+    var hashCode = getDigestHashFunction().getHashFunction().hashBytes(bytes);
+    getOutputPath("a/foo.out").delete();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+    addOptions("--incompatible_remote_use_new_exit_code_for_lost_inputs");
+
+    // Clean build, foo.out isn't downloaded
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+
+    // Act: Evict blobs from remote cache and do an incremental build
+    evictAllBlobs();
+    write("a/bar.in", "updated bar");
+    var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+
+    // Assert: Exit code is 39
+    assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
+    assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenUploadingInputFile_incrementalBuildCanContinue()
+      throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write(
+        "a/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['foo.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  srcs = ['foo.out', 'bar.in'],",
+        "  outs = ['bar.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
         ")");
     write("a/foo.in", "foo");
     write("a/bar.in", "bar");
@@ -496,11 +548,12 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     restartServer();
 
     // Clean build, foo.out isn't downloaded
+    setDownloadToplevel();
     buildTarget("//a:bar");
     assertOutputDoesNotExist("a/foo.out");
 
     // Evict blobs from remote cache
-    worker.restart();
+    evictAllBlobs();
 
     // trigger build error
     write("a/bar.in", "updated bar");
@@ -509,13 +562,15 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     // Act: Do an incremental build without "clean" or "shutdown"
     buildTarget("//a:bar");
+    waitDownloads();
 
     // Assert: target was successfully built
     assertValidOutputFile("a/bar.out", "foo" + lineSeparator() + "updated bar" + lineSeparator());
   }
 
   @Test
-  public void remoteCacheEvictBlobs_treeArtifact_incrementalBuildCanContinue() throws Exception {
+  public void remoteCacheEvictBlobs_whenUploadingInputTree_incrementalBuildCanContinue()
+      throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write("BUILD");
     writeOutputDirRule();
@@ -531,7 +586,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "  srcs = ['foo.out', 'bar.in'],",
         "  outs = ['bar.out'],",
         "  cmd = '( ls $(location :foo.out); cat $(location :bar.in) ) > $@',",
-        "  tags = ['no-remote-exec'],",
         ")");
     write("a/manifest", "file-inside");
     write("a/bar.in", "bar");
@@ -548,18 +602,22 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     assertOutputDoesNotExist("a/foo.out/file-inside");
 
     // Evict blobs from remote cache
-    worker.restart();
+    evictAllBlobs();
 
     // trigger build error
+    setDownloadToplevel();
     write("a/bar.in", "updated bar");
     // Build failed because of remote cache eviction
     assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
 
     // Act: Do an incremental build without "clean" or "shutdown"
     buildTarget("//a:bar");
+    waitDownloads();
 
     // Assert: target was successfully built
     assertValidOutputFile(
-        "a/bar.out", "file-inside" + lineSeparator() + "updated bar" + lineSeparator());
+        "a/bar.out",
+        "file-inside" + lineSeparator() + "updated bar" + lineSeparator(),
+        /* isLocal= */ true);
   }
 }
