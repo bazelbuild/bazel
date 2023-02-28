@@ -951,6 +951,97 @@ EOF
   expect_log "-r-xr-xr-x"
 }
 
+function test_prefetcher_change_permission_writable_outputs() {
+  # test that prefetcher change permission for downloaded files and directories to 0755 if
+  # --experimental_writable_outputs is set.
+  touch WORKSPACE
+
+  cat > rules.bzl <<'EOF'
+def _gen_output_dir_impl(ctx):
+    output_dir = ctx.actions.declare_directory(ctx.attr.outdir)
+    ctx.actions.run_shell(
+        outputs = [output_dir],
+        inputs = [],
+        command = """
+          mkdir -p $1/sub
+          echo "Shuffle, duffle, muzzle, muff" > $1/sub/bar
+        """,
+        arguments = [output_dir.path],
+    )
+    return DefaultInfo(files = depset(direct = [output_dir]))
+
+gen_output_dir = rule(
+    implementation = _gen_output_dir_impl,
+    attrs = {
+        "outdir": attr.string(mandatory = True),
+    },
+)
+EOF
+
+  cat > BUILD <<'EOF'
+load("rules.bzl", "gen_output_dir")
+
+genrule(
+  name = "input-file",
+  srcs = [],
+  outs = ["file"],
+  cmd = "echo 'input' > $@",
+)
+
+gen_output_dir(
+  name = "input-tree",
+  outdir = "tree",
+)
+
+genrule(
+  name = "test",
+  srcs = [":input-file", ":input-tree"],
+  outs = ["out"],
+  cmd = "touch $@",
+  tags = ["no-remote"],
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_writable_outputs \
+      //:test >& $TEST_log \
+      || fail "Failed to build"
+
+  ls -l bazel-bin/file >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  ls -ld bazel-bin/tree >& $TEST_log
+  expect_log "drwxr-xr-x"
+
+  ls -ld bazel-bin/tree/sub >& $TEST_log
+  expect_log "drwxr-xr-x"
+
+  ls -l bazel-bin/tree/sub/bar >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  # Rebuild without the flag and verify that permissions in the
+  # outputs have changed. (Verifies that outputs aren't cached)
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    //:test >& $TEST_log \
+    || fail "Failed to build"
+
+  ls -l bazel-bin/file >& $TEST_log
+  expect_log "-r-xr-xr-x"
+
+  ls -ld bazel-bin/tree >& $TEST_log
+  expect_log "dr-xr-xr-x"
+
+  ls -ld bazel-bin/tree/sub >& $TEST_log
+  expect_log "dr-xr-xr-x"
+
+  ls -l bazel-bin/tree/sub/bar >& $TEST_log
+  expect_log "-r-xr-xr-x"
+}
+
 function test_remote_cache_intermediate_outputs_toplevel() {
   # test that remote cache is hit when intermediate output is not executable in remote download toplevel mode
   touch WORKSPACE
@@ -1190,6 +1281,77 @@ EOF
 
   cat bazel-bin/a/bar >& $TEST_log
   expect_log "-r-xr-xr-x"
+}
+
+function test_output_file_permission() {
+  # Test that permission of output files are always 0755 if --experimental_writable_outputs is set.
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo"],
+  cmd = "echo 'foo' > \$@",
+)
+
+genrule(
+  name = "bar",
+  srcs = [":foo"],
+  outs = ["bar"],
+  cmd = "ls -lL \$(SRCS) > \$@",
+  tags = ["no-remote"],
+)
+EOF
+
+  # no remote execution
+  bazel build \
+      --experimental_writable_outputs \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  ls -l bazel-bin/a/bar >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  ls -l bazel-bin/a/foo >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  cat bazel-bin/a/bar >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  bazel clean >& $TEST_log || fail "Failed to clean"
+
+  # normal remote execution
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --experimental_writable_outputs \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  ls -l bazel-bin/a/bar >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  ls -l bazel-bin/a/foo >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  cat bazel-bin/a/bar >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  bazel clean >& $TEST_log || fail "Failed to clean"
+
+  # build without bytes
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_writable_outputs \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  ls -l bazel-bin/a/bar >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  ls -l bazel-bin/a/foo >& $TEST_log
+  expect_log "-rwxr-xr-x"
+
+  cat bazel-bin/a/bar >& $TEST_log
+  expect_log "-rwxr-xr-x"
 }
 
 function test_download_toplevel_when_turn_remote_cache_off() {

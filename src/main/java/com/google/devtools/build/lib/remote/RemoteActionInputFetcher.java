@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.reactivex.rxjava3.core.Completable;
@@ -65,8 +66,9 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       Path execRoot,
       TempPathGenerator tempPathGenerator,
       ImmutableList<Pattern> patternsToDownload,
+      OutputPermissions outputPermissions,
       boolean useNewExitCodeForLostInputs) {
-    super(reporter, execRoot, tempPathGenerator, patternsToDownload);
+    super(reporter, execRoot, tempPathGenerator, patternsToDownload, outputPermissions);
     this.buildRequestId = Preconditions.checkNotNull(buildRequestId);
     this.commandId = Preconditions.checkNotNull(commandId);
     this.remoteCache = Preconditions.checkNotNull(remoteCache);

@@ -20,7 +20,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -49,7 +50,7 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.Set;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -59,18 +60,19 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ActionMetadataHandlerTest {
 
-  private final Set<Path> chmodCalls = Sets.newConcurrentHashSet();
+  private final Map<Path, Integer> chmodCalls = Maps.newConcurrentMap();
 
   private final Scratch scratch =
       new Scratch(
           new InMemoryFileSystem(DigestHashFunction.SHA256) {
             @Override
-            public void chmod(PathFragment path, int mode) throws IOException {
-              assertThat(mode).isEqualTo(0555); // Read only and executable.
-              if (!chmodCalls.add(getPath(path))) {
+            public void chmod(PathFragment pathFragment, int mode) throws IOException {
+              Path path = getPath(pathFragment);
+              if (chmodCalls.containsKey(path)) {
                 fail("chmod called on " + path + " twice");
               }
-              super.chmod(path, mode);
+              chmodCalls.put(path, mode);
+              super.chmod(pathFragment, mode);
             }
           });
 
@@ -95,14 +97,15 @@ public final class ActionMetadataHandlerTest {
     return ActionMetadataHandler.create(
         inputMap,
         forInputDiscovery,
-        /*archivedTreeArtifactsEnabled=*/ false,
+        /* archivedTreeArtifactsEnabled= */ false,
+        OutputPermissions.READONLY,
         outputs,
         SyscallCache.NO_CACHE,
         tsgm,
         ArtifactPathResolver.IDENTITY,
         execRoot.asFragment(),
         derivedPathPrefix,
-        /*expandedFilesets=*/ ImmutableMap.of());
+        /* expandedFilesets= */ ImmutableMap.of());
   }
 
   @Test
@@ -293,7 +296,7 @@ public final class ActionMetadataHandlerTest {
 
     // The handler doesn't have any info. It'll stat the file and discover that it's 10 bytes long.
     assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(10);
-    assertThat(chmodCalls).containsExactly(outputPath);
+    assertThat(chmodCalls).containsExactly(outputPath, 0555);
 
     // Inject a remote file of size 42.
     handler.injectFile(
@@ -304,7 +307,7 @@ public final class ActionMetadataHandlerTest {
     handler.resetOutputs(ImmutableList.of(artifact));
     chmodCalls.clear(); // Permit a second chmod call for the artifact.
     assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(10);
-    assertThat(chmodCalls).containsExactly(outputPath);
+    assertThat(chmodCalls).containsExactly(outputPath, 0555);
   }
 
   @Test
@@ -438,9 +441,10 @@ public final class ActionMetadataHandlerTest {
     ActionMetadataHandler handler =
         ActionMetadataHandler.create(
             new ActionInputMap(0),
-            /*forInputDiscovery=*/ false,
-            /*archivedTreeArtifactsEnabled=*/ false,
-            /*outputs=*/ ImmutableSet.of(),
+            /* forInputDiscovery= */ false,
+            /* archivedTreeArtifactsEnabled= */ false,
+            OutputPermissions.READONLY,
+            /* outputs= */ ImmutableSet.of(),
             SyscallCache.NO_CACHE,
             tsgm,
             ArtifactPathResolver.IDENTITY,
@@ -538,7 +542,38 @@ public final class ActionMetadataHandlerTest {
     assertThat(metadata.getDigest()).isEqualTo(outputPath.getDigest());
     assertThat(handler.getOutputStore().getAllArtifactData()).containsExactly(output, metadata);
     assertThat(handler.getOutputStore().getAllTreeArtifactData()).isEmpty();
-    assertThat(chmodCalls).containsExactly(outputPath);
+    assertThat(chmodCalls).containsExactly(outputPath, 0555);
+  }
+
+  @Test
+  public void outputArtifactNotPreviouslyInjectedInExecutionMode_writablePermissions()
+      throws Exception {
+    Artifact output =
+        ActionsTestUtil.createArtifactWithRootRelativePath(
+            outputRoot, PathFragment.create("dir/file.out"));
+    Path outputPath = scratch.file(output.getPath().getPathString(), "contents");
+    ActionMetadataHandler handler =
+        ActionMetadataHandler.create(
+            new ActionInputMap(0),
+            /* forInputDiscovery= */ false,
+            /* archivedTreeArtifactsEnabled= */ false,
+            OutputPermissions.WRITABLE,
+            /* outputs= */ ImmutableSet.of(output),
+            SyscallCache.NO_CACHE,
+            tsgm,
+            ArtifactPathResolver.IDENTITY,
+            execRoot.asFragment(),
+            derivedPathPrefix,
+            /* expandedFilesets= */ ImmutableMap.of());
+    handler.prepareForActionExecution();
+
+    FileArtifactValue metadata = handler.getMetadata(output);
+
+    assertThat(metadata.getDigest()).isEqualTo(outputPath.getDigest());
+    assertThat(handler.getOutputStore().getAllArtifactData()).containsExactly(output, metadata);
+    assertThat(handler.getOutputStore().getAllTreeArtifactData()).isEmpty();
+    // Permissions preserved in handler, so chmod calls should be empty.
+    assertThat(chmodCalls).containsExactly(outputPath, 0755);
   }
 
   @Test
@@ -569,7 +604,14 @@ public final class ActionMetadataHandlerTest {
     assertThat(handler.getOutputStore().getAllArtifactData()).isEmpty();
     assertThat(chmodCalls)
         .containsExactly(
-            treeArtifact.getPath(), child1Path, child2Path, child2Path.getParentDirectory());
+            treeArtifact.getPath(),
+            0555,
+            child1Path,
+            0555,
+            child2Path,
+            0555,
+            child2Path.getParentDirectory(),
+            0555);
   }
 
   @Test
