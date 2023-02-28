@@ -503,6 +503,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     getOutputPath("a/bar.out").delete();
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
     restartServer();
+    addOptions("--incompatible_remote_use_new_exit_code_for_lost_inputs");
 
     // Clean build, foo.out isn't downloaded
     buildTarget("//a:bar");
