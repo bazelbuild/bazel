@@ -2245,6 +2245,8 @@ java_library(
     srcs = ["constraints/IncompatibleTargetChecker.java"],
     deps = [
         ":analysis_cluster",
+        ":constraints/environment_collection",
+        ":constraints/supported_environments",
         ":file_provider",
         ":incompatible_platform_provider",
         ":test/test_configuration",
