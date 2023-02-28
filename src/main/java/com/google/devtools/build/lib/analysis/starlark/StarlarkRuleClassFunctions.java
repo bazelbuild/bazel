@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TIMEOUT_DEFAULT;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.getTestRuntimeLabelList;
@@ -29,7 +31,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -772,6 +773,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         Location definitionLocation,
         Optional<String> documentation) {
       this.builder = builder;
+      // For documentation generation, we need to distinguish Starlark-defined attributes passed via
+      // `rule(attrs=...) from implicitly added attributes such as "tags" or "testonly".
+      checkArgument(
+          builder.getAttributes().stream().noneMatch(Attribute::starlarkDefined),
+          "Implicitly added attributes are expected to be built-in, not Starlark-defined");
       this.type = type;
       this.attributes = attributes;
       this.definitionLocation = definitionLocation;
@@ -864,7 +870,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     // details.
     @Override
     public void export(EventHandler handler, Label starlarkLabel, String ruleClassName) {
-      Preconditions.checkState(ruleClass == null && builder != null);
+      checkState(ruleClass == null && builder != null);
       this.starlarkLabel = starlarkLabel;
       if (type == RuleClassType.TEST != TargetUtils.isTestRuleName(ruleClassName)) {
         errorf(
@@ -984,7 +990,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
     @Override
     public RuleClass getRuleClass() {
-      Preconditions.checkState(ruleClass != null && builder == null);
+      checkState(ruleClass != null && builder == null);
       return ruleClass;
     }
 

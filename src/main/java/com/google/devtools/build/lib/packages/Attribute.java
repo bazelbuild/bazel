@@ -177,6 +177,9 @@ public final class Attribute implements Comparable<Attribute> {
      * or transition). Cannot be used for non-dependency attributes.
      */
     IS_TOOL_DEPENDENCY,
+
+    /** Whether this attribute was defined using Starlark's {@code attrs} module. */
+    STARLARK_DEFINED,
   }
 
   // TODO(bazel-team): modify this interface to extend Predicate and have an extra error
@@ -1007,6 +1010,12 @@ public final class Attribute implements Comparable<Attribute> {
           type.getLabelClass() == LabelClass.DEPENDENCY, "must be a label-valued type");
       Preconditions.checkState(!reason.isEmpty());
       return setPropertyFlag(PropertyFlag.IS_TOOL_DEPENDENCY, "is_tool_dependency");
+    }
+
+    /** Marks the built attribute as defined in Starlark. */
+    @CanIgnoreReturnValue
+    public Builder<TYPE> starlarkDefined() {
+      return setPropertyFlag(PropertyFlag.STARLARK_DEFINED, "starlark_defined");
     }
 
     /** Returns an {@link ImmutableAttributeFactory} that can be invoked to create attributes. */
@@ -1986,6 +1995,19 @@ public final class Attribute implements Comparable<Attribute> {
     }
     return transitionFactory.isTool();
   }
+
+  /**
+   * Returns true if this attribute was defined using Starlark's {@code attrs} module.
+   *
+   * <p>This may be used as a hint by documentation generators; for example, in the documentation
+   * for a Starlark rule, we may want to fully document the Starlark-defined attributes set via
+   * {@code rule(attrs=...)}), but skip or abbreviate documentation for implicitly added
+   * non-Starlark attributes like "tags" and "testonly".
+   */
+  public boolean starlarkDefined() {
+    return getPropertyFlag(PropertyFlag.STARLARK_DEFINED);
+  }
+
   /**
    * Returns a predicate that evaluates to true for rule classes that are allowed labels in this
    * attribute. If this is not a label or label-list attribute, the returned predicate always

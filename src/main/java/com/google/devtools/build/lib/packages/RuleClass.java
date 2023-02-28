@@ -1274,6 +1274,11 @@ public class RuleClass {
       return attributes.containsKey(name);
     }
 
+    /** Returns a list of all attributes added to this Builder so far. */
+    public ImmutableList<Attribute> getAttributes() {
+      return ImmutableList.copyOf(attributes.values());
+    }
+
     /** Sets the rule implementation function. Meant for Starlark usage. */
     @CanIgnoreReturnValue
     public Builder setConfiguredTargetFunction(StarlarkCallable func) {
