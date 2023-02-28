@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver.TopLevelTargetsAndConfigsResult;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.constraints.PlatformRestrictionsResult;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
@@ -400,7 +401,7 @@ public class BuildView {
                 bugReporter,
                 keepGoing,
                 loadingPhaseThreads,
-                viewOptions.strictConflictChecks,
+                targetOptions.get(CoreOptions.class).strictConflictChecks,
                 checkForActionConflicts,
                 viewOptions.cpuHeavySkyKeysThreadPoolSize);
         setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
@@ -426,7 +427,7 @@ public class BuildView {
                 Preconditions.checkNotNull(resourceManager), // non-null for skymeld.
                 Preconditions.checkNotNull(buildResultListener), // non-null for skymeld.
                 keepGoing,
-                viewOptions.strictConflictChecks,
+                targetOptions.get(CoreOptions.class).strictConflictChecks,
                 checkForActionConflicts,
                 loadingPhaseThreads,
                 viewOptions.cpuHeavySkyKeysThreadPoolSize,
