@@ -1383,7 +1383,6 @@ def _impl(ctx):
             user_link_flags_feature,
             default_link_libs_feature,
             fdo_optimize_feature,
-            supports_dynamic_linker_feature,
             dbg_feature,
             opt_feature,
             user_compile_flags_feature,
