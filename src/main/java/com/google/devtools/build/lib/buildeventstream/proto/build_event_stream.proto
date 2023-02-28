@@ -18,6 +18,7 @@ package build_event_stream;
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
+import "src/main/protobuf/action_cache.proto";
 import "src/main/protobuf/command_line.proto";
 import "src/main/protobuf/failure_details.proto";
 import "src/main/protobuf/invocation_policy.proto";
@@ -874,6 +875,8 @@ message BuildMetrics {
       int32 count = 2;
     }
     repeated RunnerCount runner_count = 6;
+
+    blaze.ActionCacheStatistics action_cache_statistics = 7;
   }
   ActionSummary action_summary = 1;
 
