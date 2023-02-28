@@ -18,6 +18,7 @@ import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -234,7 +235,10 @@ public class IncompatibleTargetChecker {
             .put(incompatiblePlatformProvider)
             .add(RunfilesProvider.simple(Runfiles.EMPTY))
             .add(fileProvider)
-            .add(filesToRunProvider);
+            .add(filesToRunProvider)
+            .add(
+                new SupportedEnvironments(
+                    EnvironmentCollection.EMPTY, EnvironmentCollection.EMPTY, ImmutableMap.of()));
     if (configuration.hasFragment(TestConfiguration.class)) {
       // Create a dummy TestProvider instance so that other parts of the code base stay happy. Even
       // though this test will never execute, some code still expects the provider.
