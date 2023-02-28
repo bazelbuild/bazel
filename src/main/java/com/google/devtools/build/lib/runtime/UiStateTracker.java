@@ -993,7 +993,8 @@ class UiStateTracker {
     return !(buildCompleted()
         && bepOpenTransports.isEmpty()
         && activeActionUploads.get() == 0
-        && activeActionDownloads.get() == 0);
+        && activeActionDownloads.get() == 0
+        && runningDownloads.isEmpty());
   }
 
   /**
@@ -1106,7 +1107,8 @@ class UiStateTracker {
     terminalWriter.append(url + postfix);
   }
 
-  protected void reportOnDownloads(AnsiTerminalWriter terminalWriter) throws IOException {
+  protected void reportOnDownloads(PositionAwareAnsiTerminalWriter terminalWriter)
+      throws IOException {
     int count = 0;
     long nanoTime = clock.nanoTime();
     int downloadCount = runningDownloads.size();
@@ -1116,7 +1118,10 @@ class UiStateTracker {
         break;
       }
       count++;
-      terminalWriter.newline().append(FETCH_PREFIX);
+      if (terminalWriter.getPosition() != 0) {
+        terminalWriter.newline();
+      }
+      terminalWriter.append(FETCH_PREFIX);
       reportOnOneDownload(
           url,
           nanoTime,
