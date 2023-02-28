@@ -182,9 +182,10 @@ public abstract class CcModule
 
     ImmutableSet<String> requestedFeaturesSet =
         ImmutableSet.copyOf(Sequence.cast(requestedFeatures, String.class, "requested_features"));
-    ImmutableSet<String> unsupportedFeaturesSet =
-        ImmutableSet.copyOf(
-            Sequence.cast(unsupportedFeatures, String.class, "unsupported_features"));
+
+    ImmutableSet.Builder<String> unsupportedFeaturesSetBuilder = new ImmutableSet.Builder<String>().addAll(
+                Sequence.cast(unsupportedFeatures, String.class, "unsupported_features"));
+    ImmutableSet<String> unsupportedFeaturesSet;
     final CppConfiguration cppConfiguration;
     final BuildOptions buildOptions;
     if (ruleContext == null) {
@@ -197,6 +198,7 @@ public abstract class CcModule
       }
       cppConfiguration = toolchain.getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas();
       buildOptions = null;
+      unsupportedFeaturesSet = unsupportedFeaturesSetBuilder.build();
     } else {
       if (!ruleContext.getRuleContext().isLegalFragment(CppConfiguration.class)) {
         throw Starlark.errorf(
@@ -209,6 +211,13 @@ public abstract class CcModule
       // and that will only be flipped when --incompatible_require_ctx_in_configure_features is
       // flipped.
       buildOptions = ruleContext.getConfiguration().getOptions();
+      if (!ruleContext.instrumentCoverage(Starlark.NONE) && cppConfiguration.collectCodeCoverage()) {
+        // When --collect-code-coverage is passed, CcCommon.configureFeaturesOrThrowEvalException() would
+        // try to add "coverage" to the requested list of features. Adding "coverage" to the unsupported
+        // feature here to avoid that.
+        unsupportedFeaturesSetBuilder.add("coverage");
+      }
+      unsupportedFeaturesSet = unsupportedFeaturesSetBuilder.build();
       getSemantics(language)
           .validateLayeringCheckFeatures(
               ruleContext.getRuleContext(),
