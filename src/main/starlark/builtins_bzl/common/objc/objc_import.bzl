@@ -18,9 +18,9 @@ load("@_builtins//:common/objc/attrs.bzl", "common_attrs")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_common.bzl", "cc_common")
 
 objc_internal = _builtins.internal.objc_internal
-cc_common = _builtins.toplevel.cc_common
 
 def _objc_import_impl(ctx):
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)

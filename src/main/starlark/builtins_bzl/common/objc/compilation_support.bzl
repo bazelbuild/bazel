@@ -16,9 +16,9 @@
 
 load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
 load("@_builtins//:common/objc/objc_common.bzl", "objc_common")
+load(":common/cc/cc_common.bzl", "cc_common")
 
 objc_internal = _builtins.internal.objc_internal
-cc_common = _builtins.toplevel.cc_common
 
 def _build_variable_extensions(ctx, arc_enabled):
     extensions = {}

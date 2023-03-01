@@ -32,6 +32,7 @@ load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyIn
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 load("@_builtins//:common/cc/cc_library.bzl", "cc_library")
 load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
+load("@_builtins//:common/cc/cc_common.bzl", "cc_common")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
@@ -45,6 +46,7 @@ exported_toplevels = {
     "PyCcLinkParamsProvider": PyCcLinkParamsProvider,
     "py_internal": py_internal,
     "ProtoInfo": ProtoInfo,
+    "cc_common": cc_common,
 }
 
 # A list of Starlarkified native rules.

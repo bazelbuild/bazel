@@ -22,7 +22,6 @@ load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
 
 objc_internal = _builtins.internal.objc_internal
-cc_common = _builtins.toplevel.cc_common
 coverage_common = _builtins.toplevel.coverage_common
 apple_common = _builtins.toplevel.apple_common
 

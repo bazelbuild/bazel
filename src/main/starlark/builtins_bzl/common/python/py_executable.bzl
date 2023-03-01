@@ -45,8 +45,8 @@ load(
     "IS_BAZEL",
     "PY_RUNTIME_ATTR_NAME",
 )
+load(":common/cc/cc_common.bzl", _cc_common = "cc_common")
 
-_cc_common = _builtins.toplevel.cc_common
 _py_builtins = _builtins.internal.py_builtins
 
 # Non-Google-specific attributes for executables

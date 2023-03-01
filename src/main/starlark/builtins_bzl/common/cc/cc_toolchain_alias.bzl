@@ -16,8 +16,9 @@
 
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_common.bzl", "cc_common")
 
-CcToolchainInfo = _builtins.toplevel.cc_common.CcToolchainInfo
+CcToolchainInfo = cc_common.CcToolchainInfo
 TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
 ToolchainInfo = _builtins.toplevel.platform_common.ToolchainInfo
 

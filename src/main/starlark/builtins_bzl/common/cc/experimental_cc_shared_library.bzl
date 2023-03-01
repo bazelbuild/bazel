@@ -23,8 +23,7 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/cc/cc_info.bzl", "CcInfo")
-
-cc_common = _builtins.toplevel.cc_common
+load(":common/cc/cc_common.bzl", "cc_common")
 
 # TODO(#5200): Add export_define to library_to_link and cc_library
 

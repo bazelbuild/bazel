@@ -17,8 +17,7 @@
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/paths.bzl", "paths")
-
-cc_common = _builtins.toplevel.cc_common
+load(":common/cc/cc_common.bzl", "cc_common")
 
 def _collect_all_targets_as_runtime_deps(ctx):
     return _collect_all_targets_as_deps(ctx)

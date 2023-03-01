@@ -17,8 +17,8 @@
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_common.bzl", "cc_common")
 
-cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
 
 def _cc_library_impl(ctx):
