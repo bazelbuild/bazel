@@ -398,11 +398,7 @@ public final class Json implements StarlarkValue {
               }
               i++; // ':'
               Object value = parse();
-              int sz = dict.size();
               dict.putEntry((String) key, value); // can't fail
-              if (dict.size() == sz) {
-                throw Starlark.errorf("object has duplicate key: %s", Starlark.repr(key));
-              }
               c = next();
               if (c != ',') {
                 if (c != '}') {
