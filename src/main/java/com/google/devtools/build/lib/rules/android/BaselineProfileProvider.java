@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fromNoneable;
+
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -32,9 +34,12 @@ public final class BaselineProfileProvider extends NativeInfo
   public static final Provider PROVIDER = new Provider();
 
   private final NestedSet<Artifact> transitiveBaselineProfiles;
+  private final Artifact artProfileZip;
 
-  public BaselineProfileProvider(NestedSet<Artifact> transitiveBaselineProfiles) {
+  public BaselineProfileProvider(
+      NestedSet<Artifact> transitiveBaselineProfiles, Artifact artProfileZip) {
     this.transitiveBaselineProfiles = transitiveBaselineProfiles;
+    this.artProfileZip = artProfileZip;
   }
 
   @Override
@@ -51,12 +56,16 @@ public final class BaselineProfileProvider extends NativeInfo
     return transitiveBaselineProfiles;
   }
 
+  public Artifact getArtProfileZip() {
+    return artProfileZip;
+  }
+
   public static BaselineProfileProvider merge(Iterable<BaselineProfileProvider> providers) {
     NestedSetBuilder<Artifact> files = NestedSetBuilder.stableOrder();
     for (BaselineProfileProvider wrapper : providers) {
       files.addTransitive(wrapper.getTransitiveBaselineProfiles());
     }
-    return new BaselineProfileProvider(files.build());
+    return new BaselineProfileProvider(files.build(), null);
   }
 
   /** Provider class for {@link BaselineProfileProvider} objects. */
@@ -71,8 +80,9 @@ public final class BaselineProfileProvider extends NativeInfo
     }
 
     @Override
-    public BaselineProfileProvider create(Depset files) throws EvalException {
-      return new BaselineProfileProvider(Depset.cast(files, Artifact.class, "files"));
+    public BaselineProfileProvider create(Depset files, Object artProfileZip) throws EvalException {
+      return new BaselineProfileProvider(
+          Depset.cast(files, Artifact.class, "files"), fromNoneable(artProfileZip, Artifact.class));
     }
   }
 }
