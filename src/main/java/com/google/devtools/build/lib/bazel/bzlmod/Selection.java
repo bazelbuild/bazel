@@ -512,19 +512,25 @@ final class Selection {
             ArrayDeque<UnresolvedModuleKeyAndDependent> subToVisit = toVisit.clone();
             subToVisit.addFirst(
                 UnresolvedModuleKeyAndDependent.create(subUnresolvedKey, dependent));
-
             ImmutableMap.Builder<UnresolvedModuleKey, ModuleKey> subResolvedModuleKeys =
                 new ImmutableMap.Builder<>();
             subResolvedModuleKeys.putAll(resolvedModuleKeys.build());
             subResolvedModuleKeys.put(unresolvedKey, subKey);
 
+            // Perform a sub-walk. This will tries resolution with one of modules that this key can
+            // resolve to (the one in this loop, starting with the lowest version first).
             WalkResult subResult =
                 new DepGraphResolver(
                         unresolvedDepGraph, overrides, selectionGroups, new HashMap(moduleByName))
                     .walk(subResolvedModuleKeys, subKnown, subToVisit);
+
+            // If the sub-walk succeeded, we can return the result. Otherwise we will try the next
+            // one in the next loop iteration.
             if (subResult.getResolvedModuleKeys() != null) {
               return subResult;
             }
+
+            // Keep only the first error, so we report based on the base module of the key.
             if (subGraphError == null) {
               subGraphError = subResult;
             }
