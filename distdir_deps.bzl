@@ -388,7 +388,6 @@ DIST_DEPS = {
         "sha256": "af20366f926b1dadf8c084a51936116ef2f0db90e73e94b406c4ad8180f0788d",
         "urls": [
             "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.12/java_tools-v11.12-rc1.zip",
-            # "https://github.com/bazelbuild/java_tools/releases/download/java_v11.11/java_tools-v11.12-rc1.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
@@ -404,7 +403,6 @@ DIST_DEPS = {
         "sha256": "37f79597f5b8c1501b9c66ded8ac68c61205ad39ef3ceda0e24fbd0afa3cd97f",
         "urls": [
             "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.12/java_tools_linux-v11.12-rc1.zip",
-            # "https://github.com/bazelbuild/java_tools/releases/download/java_v11.11/java_tools_linux-v11.12-rc1.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
@@ -420,7 +418,6 @@ DIST_DEPS = {
         "sha256": "43432ce4814513d6497661b4fede691982b3bdef7a1907808b096291f56a8001",
         "urls": [
             "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.12/java_tools_windows-v11.12-rc1.zip",
-            # "https://github.com/bazelbuild/java_tools/releases/download/java_v11.11/java_tools_windows-v11.12-rc1.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
@@ -436,7 +433,6 @@ DIST_DEPS = {
         "sha256": "aed319892b638efabd08405b8f835770e13e2465d20459876c5f457f2b6426f3",
         "urls": [
             "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.12/java_tools_darwin-v11.12-rc1.zip",
-            # "https://github.com/bazelbuild/java_tools/releases/download/java_v11.11/java_tools_darwin-v11.12-rc1.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
