@@ -45,8 +45,13 @@ def _find_java_toolchain(ctx):
 def _find_java_runtime_toolchain(ctx):
     return ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"].java_runtime
 
-def _get_build_info(ctx, _):
-    return java_common.get_build_info(ctx)
+def _stamping_enabled(ctx, stamp):
+    if ctx.configuration.is_tool_configuration():
+        stamp = 0
+    return (stamp == 1) or (stamp == -1 and ctx.configuration.stamp_binaries())
+
+def _get_build_info(ctx, stamp):
+    return java_common.get_build_info(ctx, _stamping_enabled(ctx, stamp))
 
 semantics = struct(
     JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
@@ -78,4 +83,5 @@ semantics = struct(
     get_coverage_runner = _get_coverage_runner,
     add_constraints = _add_constraints,
     JAVA_STUB_TEMPLATE_LABEL = "@bazel_tools//tools/jdk:java_stub_template.txt",
+    BUILD_INFO_TRANSLATOR_LABEL = None,
 )
