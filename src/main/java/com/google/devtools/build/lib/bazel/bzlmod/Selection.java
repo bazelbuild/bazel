@@ -170,12 +170,21 @@ final class Selection {
         allowedVersionSet.ceiling(module.getVersion()));
   }
 
+  /**
+   * Computes a mapping from {@link UnresolvedModuleKey} to a list of {@link UnresolvedModule}s, for
+   * any {@link UnresolvedModuleKey} that has multiple potential {@link Module}s it can resolve to.
+   * {@link UnresolvedModule}s that can only resolve to a single {@link Module} will not be included
+   * in the map.
+   */
   private static ImmutableMap<UnresolvedModuleKey, ImmutableList<UnresolvedModule>>
       computeCompatibilityLevelRangeDeps(
           ImmutableMap<UnresolvedModuleKey, UnresolvedModule> depGraph,
           ImmutableMap<ModuleKey, UnresolvedModule> unresolvedModules,
           ImmutableMap<ModuleKey, SelectionGroup> selectionGroups,
           Map<SelectionGroup, Version> selectedVersions) {
+    // Compute the minimum version available for each (module name, compatibility level). We will
+    // need these to determine initial versions for higher compatibility levels. They will get
+    // upgraded per `selectedVersions` next.
     Map<ModuleNameAndCompatibilityLevel, Version> minimumVersions = new HashMap<>();
     for (UnresolvedModule module : unresolvedModules.values()) {
       Version keyVersion = module.getKey().getVersion();
@@ -188,6 +197,10 @@ final class Selection {
           Comparators::min);
     }
 
+    // Create a mapping of module name to sorted map of compatibility level to `UnresolvedModule`.
+    // These modules are upgraded to the selected version per `selectedVersions`. The sorted map
+    // will allow us to select the list of modules that a given `UnresolvedModuleKey` can possibly
+    // resolve to.
     Map<String, ImmutableSortedMap.Builder<Integer, UnresolvedModule>>
         unbuiltSelectedModulesPerCompatibilityLevel = new HashMap<>();
     for (Map.Entry<ModuleNameAndCompatibilityLevel, Version> entry : minimumVersions.entrySet()) {
@@ -200,6 +213,7 @@ final class Selection {
               moduleName, k -> ImmutableSortedMap.<Integer, UnresolvedModule>naturalOrder());
       selectedModulePerCompatibilityLevel.put(
           moduleNameAndCompatibilityLevel.getCompatibilityLevel(),
+          // Upgrade the minimum version to the selected version.
           unresolvedModules.get(ModuleKey.create(moduleName, selectedVersion)));
     }
     Map<String, ImmutableSortedMap<Integer, UnresolvedModule>>
@@ -207,40 +221,49 @@ final class Selection {
             Maps.transformValues(
                 unbuiltSelectedModulesPerCompatibilityLevel, ImmutableSortedMap.Builder::build);
 
+    // Finally compute the mapping from `UnresolvedModuleKey` to a list of `UnresolvedModule`s, but
+    // only for
+    // `UnresolvedModuleKey`s that have multiple potential `UnresolvedModule`s.
     ImmutableMap.Builder<UnresolvedModuleKey, ImmutableList<UnresolvedModule>>
         compatibilityLevelRangeModules = ImmutableMap.builder();
     for (Map.Entry<UnresolvedModuleKey, UnresolvedModule> entry : depGraph.entrySet()) {
       UnresolvedModuleKey key = entry.getKey();
+      UnresolvedModule module = entry.getValue();
+      int minCompatibilityLevel = module.getCompatibilityLevel();
       int maxCompatibilityLevel = key.getMaxCompatibilityLevel();
-      if (maxCompatibilityLevel > 0) {
-        UnresolvedModule module = entry.getValue();
-        int minCompatibilityLevel = module.getCompatibilityLevel();
-        if (maxCompatibilityLevel > minCompatibilityLevel) {
-          String moduleName = module.getName();
-          ImmutableCollection<UnresolvedModule> extraModules =
-              selectedModulesPerCompatibilityLevel
-                  .get(moduleName)
-                  .subMap(
-                      minCompatibilityLevel,
-                      /* fromInclusive= */ false,
-                      maxCompatibilityLevel,
-                      /* toInclusive= */ true)
-                  .values();
 
-          if (extraModules.isEmpty()) {
-            // This key is only a compatibility range key if there are multiple modules resolved.
-            continue;
-          }
-
-          ImmutableList.Builder<UnresolvedModule> modules = ImmutableList.builder();
-          modules.add(
-              unresolvedModules.get(
-                  ModuleKey.create(
-                      moduleName, selectedVersions.get(selectionGroups.get(module.getKey())))));
-          modules.addAll(extraModules);
-          compatibilityLevelRangeModules.put(key, modules.build());
-        }
+      // If the maximum compatibility level is less than or equal to the minimum compatibility
+      // level, this key can only resolve to the base module it refers to.
+      if (maxCompatibilityLevel <= minCompatibilityLevel) {
+        continue;
       }
+
+      // Select all modules that are > minCompatibilityLevel, but <= maxCompatibilityLevel.
+      String moduleName = module.getName();
+      ImmutableCollection<UnresolvedModule> extraModules =
+          selectedModulesPerCompatibilityLevel
+              .get(moduleName)
+              .subMap(
+                  minCompatibilityLevel,
+                  /* fromInclusive= */ false,
+                  maxCompatibilityLevel,
+                  /* toInclusive= */ true)
+              .values();
+
+      // This key is only a compatibility level range key if there are multiple modules resolved.
+      if (extraModules.isEmpty()) {
+        continue;
+      }
+
+      ImmutableList.Builder<UnresolvedModule> modules = ImmutableList.builder();
+      modules.add(
+          unresolvedModules.get(
+              ModuleKey.create(
+                  moduleName,
+                  // Upgrade the base module to the selected version.
+                  selectedVersions.get(selectionGroups.get(module.getKey())))));
+      modules.addAll(extraModules);
+      compatibilityLevelRangeModules.put(key, modules.build());
     }
 
     return compatibilityLevelRangeModules.buildOrThrow();
@@ -253,12 +276,12 @@ final class Selection {
       ImmutableMap<UnresolvedModuleKey, UnresolvedModule> unresolvedDepGraph,
       ImmutableMap<String, ModuleOverride> overrides)
       throws ExternalDepsException {
-    Map<ModuleKey, UnresolvedModule> rawUnresolvedModules =
-        new HashMap<>();
+    Map<ModuleKey, UnresolvedModule> rawUnresolvedModules = new HashMap<>();
     for (UnresolvedModule module : unresolvedDepGraph.values()) {
       rawUnresolvedModules.put(module.getKey(), module);
     }
-    ImmutableMap<ModuleKey, UnresolvedModule> unresolvedModules = ImmutableMap.copyOf(rawUnresolvedModules);
+    ImmutableMap<ModuleKey, UnresolvedModule> unresolvedModules =
+        ImmutableMap.copyOf(rawUnresolvedModules);
 
     // For any multiple-version overrides, build a mapping from (moduleName, compatibilityLevel) to
     // the set of allowed versions.
