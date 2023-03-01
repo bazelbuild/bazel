@@ -393,7 +393,7 @@ DIST_DEPS = {
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "11.11",
+        "package_version": "11.12",
     },
     "remote_java_tools_linux": {
         "aliases": [
@@ -409,7 +409,7 @@ DIST_DEPS = {
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "11.11",
+        "package_version": "11.12",
     },
     "remote_java_tools_windows": {
         "aliases": [
@@ -425,7 +425,7 @@ DIST_DEPS = {
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "11.11",
+        "package_version": "11.12",
     },
     "remote_java_tools_darwin": {
         "aliases": [
@@ -441,7 +441,7 @@ DIST_DEPS = {
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "11.11",
+        "package_version": "11.12",
     },
     "remotejdk11_linux": {
         "aliases": [
