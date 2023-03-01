@@ -1077,6 +1077,11 @@ public class CppLinkActionBuilder {
       // is not needed).
       return false;
     }
+    if (featureConfiguration
+        .getRequestedFeatures()
+        .contains(CppRuleClasses.FORCE_NO_WHOLE_ARCHIVE)) {
+      return false;
+    }
     if (cppConfig.removeLegacyWholeArchive()) {
       // --incompatible_remove_legacy_whole_archive has been flipped, no --whole-archive for the
       // entire build.

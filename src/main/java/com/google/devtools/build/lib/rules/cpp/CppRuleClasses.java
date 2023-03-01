@@ -461,6 +461,9 @@ public class CppRuleClasses {
   /** A feature marking that the target needs to link its deps in --whole-archive block. */
   public static final String LEGACY_WHOLE_ARCHIVE = "legacy_whole_archive";
 
+  /** A feature for force disabling whole-archive on a per target and per rule type basis. */
+  public static final String FORCE_NO_WHOLE_ARCHIVE = "force_no_whole_archive";
+
   /**
    * A feature marking that the target generates libraries that should not be put in a
    * --whole-archive block.
