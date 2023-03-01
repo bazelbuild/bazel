@@ -36,6 +36,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Options affecting the execution phase of a build.
@@ -532,16 +533,13 @@ public class ExecutionOptions extends OptionsBase {
     private static final int MAX_VALUE = 10;
 
     private void validateInput(String input) throws OptionsParsingException {
-      if ("default".equals(input)) {
-        return;
-      } else {
-        Integer value = Integer.parseInt(input);
+      if (!Objects.equals(input, "default")) {
+        int value = Integer.parseInt(input);
         if (value < MIN_VALUE) {
           throw new OptionsParsingException("'" + input + "' should be >= " + MIN_VALUE);
-        } else if (value < MIN_VALUE || value > MAX_VALUE) {
+        } else if (value > MAX_VALUE) {
           throw new OptionsParsingException("'" + input + "' should be <= " + MAX_VALUE);
         }
-        return;
       }
     }
 
