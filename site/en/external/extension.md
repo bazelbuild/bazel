@@ -115,10 +115,10 @@ def _maven_impl(ctx):
 
 ### Extension identity
 
-Module extensions are identified by the name and the `.bzl` file that they are
-imported from. In the following example, the extension `maven` is identified by
-the `.bzl` file `@rules_jvm_external//:extension.bzl` and the name `maven`
-under which it is defined in that name:
+Module extensions are identified by the name and the `.bzl` file that appears
+in the call to `use_extension`. In the following example, the extension `maven`
+is identified by the `.bzl` file `@rules_jvm_external//:extension.bzl` and the
+name `maven`:
 
 ```python
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
@@ -129,7 +129,7 @@ and if both versions of the extension are used in the transitive module graph,
 then they will be evaluated separately and will only see the tags associated
 with that particular identity.
 
-As an extension author you should make sure that users will only import your
+As an extension author you should make sure that users will only use your
 module extension from one single `.bzl` file.
 
 ## Repository names and visibility
