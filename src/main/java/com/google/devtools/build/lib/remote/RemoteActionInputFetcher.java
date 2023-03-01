@@ -74,9 +74,8 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   }
 
   @Override
-  public boolean supportsPartialTreeArtifactInputs() {
-    // This prefetcher is unable to fetch only individual files inside a tree artifact.
-    return false;
+  public boolean requiresTreeMetadataWhenTreeFileIsInput() {
+    return true;
   }
 
   @Override

@@ -30,8 +30,8 @@ public interface ActionInputPrefetcher {
         }
 
         @Override
-        public boolean supportsPartialTreeArtifactInputs() {
-          return true;
+        public boolean requiresTreeMetadataWhenTreeFileIsInput() {
+          return false;
         }
       };
 
@@ -46,8 +46,8 @@ public interface ActionInputPrefetcher {
       Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider);
 
   /**
-   * Whether the prefetcher is able to fetch individual files in a tree artifact without fetching
-   * the entire tree artifact.
+   * Whether the prefetcher requires the metadata for a tree artifact to be available whenever one
+   * of the files in the tree artifact is an action input.
    */
-  boolean supportsPartialTreeArtifactInputs();
+  boolean requiresTreeMetadataWhenTreeFileIsInput();
 }

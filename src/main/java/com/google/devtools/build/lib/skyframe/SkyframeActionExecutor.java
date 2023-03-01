@@ -324,8 +324,8 @@ public final class SkyframeActionExecutor {
         .test(action.getMnemonic());
   }
 
-  boolean supportsPartialTreeArtifactInputs() {
-    return actionInputPrefetcher.supportsPartialTreeArtifactInputs();
+  boolean requiresTreeMetadataWhenTreeFileIsInput() {
+    return actionInputPrefetcher.requiresTreeMetadataWhenTreeFileIsInput();
   }
 
   boolean publishTargetSummaries() {

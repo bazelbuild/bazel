@@ -1255,7 +1255,7 @@ public final class ActionExecutionFunction implements SkyFunction {
           input,
           value,
           env,
-          skyframeActionExecutor.supportsPartialTreeArtifactInputs());
+          skyframeActionExecutor.requiresTreeMetadataWhenTreeFileIsInput());
     }
 
     if (actionExecutionFunctionExceptionHandler != null) {
