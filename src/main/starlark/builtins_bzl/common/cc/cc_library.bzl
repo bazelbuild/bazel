@@ -24,6 +24,8 @@ cc_internal = _builtins.internal.cc_internal
 def _cc_library_impl(ctx):
     cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library", True)
 
+    semantics.check_cc_shared_library_tags(ctx)
+
     common = cc_internal.create_common(ctx = ctx)
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
     cc_helper.report_invalid_options(cc_toolchain, ctx.fragments.cpp)

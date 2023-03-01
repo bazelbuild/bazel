@@ -12,6 +12,11 @@ load(
 
 LINKABLE_MORE_THAN_ONCE = "LINKABLE_MORE_THAN_ONCE"
 
+NO_BUILD_TAGS = [
+    "manual",
+    "nobuilder",
+]
+
 licenses(["notice"])
 
 package(
@@ -79,7 +84,7 @@ cc_shared_library(
     name = "diamond2_so",
     dynamic_deps = [":a_so"],
     features = ["windows_export_all_symbols"],
-    deps = [":qux2"],
+    deps = [":bar"],
 )
 
 cc_binary(
@@ -143,10 +148,12 @@ cc_library(
         "baz",
         # Not exported.
         "qux",
-        "qux2",
         "prebuilt",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg"
-    ],
+    ] + select({
+        ":is_bazel": ["qux2"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_library(
@@ -173,7 +180,7 @@ cc_library(
     name = "qux2",
     srcs = ["qux2.cc"],
     hdrs = ["qux2.h"],
-    tags = [LINKABLE_MORE_THAN_ONCE],
+    tags = [LINKABLE_MORE_THAN_ONCE] + NO_BUILD_TAGS,
 )
 
 config_setting(
@@ -225,8 +232,10 @@ cc_library(
     hdrs = ["bar.h"],
     deps = [
         "barX",
-        "qux2",
-    ],
+    ] + select({
+        ":is_bazel": ["qux2"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_library(

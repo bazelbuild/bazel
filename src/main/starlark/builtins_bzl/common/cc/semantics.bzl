@@ -174,6 +174,9 @@ def _get_nocopts_attr():
 def _get_experimental_link_static_libraries_once(ctx):
     return ctx.fragments.cpp.experimental_link_static_libraries_once()
 
+def _check_cc_shared_library_tags(ctx):
+    pass
+
 semantics = struct(
     ALLOWED_RULES_IN_DEPS = [
         "cc_library",
@@ -215,4 +218,5 @@ semantics = struct(
     get_proto_aspects = _get_proto_aspects,
     get_nocopts_attr = _get_nocopts_attr,
     get_experimental_link_static_libraries_once = _get_experimental_link_static_libraries_once,
+    check_cc_shared_library_tags = _check_cc_shared_library_tags,
 )
