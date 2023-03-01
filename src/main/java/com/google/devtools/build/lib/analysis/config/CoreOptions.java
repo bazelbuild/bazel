@@ -1008,8 +1008,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.checkLicenses = checkLicenses;
 
     // === Pass on C++ compiler features.
-    exec.incompatibleUseHostFeatures = incompatibleUseHostFeatures;
-    exec.hostFeatures = ImmutableList.copyOf(hostFeatures);
+    host.incompatibleUseHostFeatures = incompatibleUseHostFeatures;
+    host.hostFeatures = ImmutableList.copyOf(hostFeatures);
     if (incompatibleUseHostFeatures) {
       host.defaultFeatures = ImmutableList.copyOf(hostFeatures);
     } else {
