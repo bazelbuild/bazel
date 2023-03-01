@@ -1,8 +1,11 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = [
-    "//src/java_tools/junitrunner:junitrunner_package_group",
-])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = [
+        "//src/java_tools/junitrunner:junitrunner_package_group",
+    ],
+)
 
 # JUnit4 test runner core code.
 java_library(
