@@ -944,6 +944,97 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "a/bar.out", "file-inside\nupdated bar" + lineSeparator(), /* isLocal= */ true);
   }
 
+  @Test
+  public void remoteFilesExpiredBetweenBuilds_rerunGeneratingActions() throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write(
+        "a/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['foo.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  srcs = ['foo.out', 'bar.in'],",
+        "  outs = ['bar.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")");
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    getOutputPath("a/foo.out").delete();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    setDownloadToplevel();
+    addOptions("--experimental_remote_cache_ttl=1s");
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    // Act: Do an incremental build
+    write("a/bar.in", "updated bar");
+    buildTarget("//a:bar");
+    waitDownloads();
+
+    // Assert: target was successfully built
+    assertValidOutputFile("a/bar.out", "foo" + lineSeparator() + "updated bar" + lineSeparator());
+  }
+
+  @Test
+  public void remoteTreeFilesExpiredBetweenBuilds_rerunGeneratingActions() throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write("BUILD");
+    writeOutputDirRule();
+    write(
+        "a/BUILD",
+        "load('//:output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo.out',",
+        "  content_map = {'file-inside': 'hello world'},",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  srcs = ['foo.out', 'bar.in'],",
+        "  outs = ['bar.out'],",
+        "  cmd = '( ls $(location :foo.out); cat $(location :bar.in) ) > $@',",
+        ")");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    getOutputPath("a/foo.out").deleteTreesBelow();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    setDownloadToplevel();
+    addOptions("--experimental_remote_cache_ttl=1s");
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out/file-inside");
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    // Act: Do an incremental build
+    write("a/bar.in", "updated bar");
+    buildTarget("//a:bar");
+    waitDownloads();
+
+    // Assert: target was successfully built
+    assertValidOutputFile(
+        "a/bar.out", "file-inside\nupdated bar" + lineSeparator(), /* isLocal= */ true);
+  }
+
   protected void assertOutputsDoNotExist(String target) throws Exception {
     for (Artifact output : getArtifacts(target)) {
       assertWithMessage(

@@ -203,7 +203,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "60s",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = RemoteTimeoutConverter.class,
+      converter = RemoteDurationConverter.class,
       help =
           "The maximum amount of time to wait for remote execution and cache calls. For the REST"
               + " cache, this is both the connect and the read timeout. Following units can be"
@@ -223,24 +223,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "to no longer correspond to the canonical name of the remote execution service. "
               + "When not set, it will default to \"${hostname}/${instance_name}\".")
   public String remoteBytestreamUriPrefix;
-
-  /** Returns the specified duration. Assumes seconds if unitless. */
-  public static class RemoteTimeoutConverter extends Converter.Contextless<Duration> {
-    private static final Pattern UNITLESS_REGEX = Pattern.compile("^[0-9]+$");
-
-    @Override
-    public Duration convert(String input) throws OptionsParsingException {
-      if (UNITLESS_REGEX.matcher(input).matches()) {
-        input += "s";
-      }
-      return new Converters.DurationConverter().convert(input, /*conversionContext=*/ null);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "An immutable length of time.";
-    }
-  }
 
   @Option(
       name = "remote_accept_cached",

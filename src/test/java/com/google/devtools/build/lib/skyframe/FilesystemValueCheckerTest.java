@@ -1324,10 +1324,15 @@ public final class FilesystemValueCheckerTest {
   }
 
   private RemoteFileArtifactValue createRemoteFileArtifactValue(String contents) {
+    return createRemoteFileArtifactValue(contents, /* expireAtEpochMilli= */ -1);
+  }
+
+  private RemoteFileArtifactValue createRemoteFileArtifactValue(String contents, long expireAtEpochMilli) {
     byte[] data = contents.getBytes();
     DigestHashFunction hashFn = fs.getDigestFunction();
     HashCode hash = hashFn.getHashFunction().hashBytes(data);
-    return RemoteFileArtifactValue.create(hash.asBytes(), data.length, -1);
+    return RemoteFileArtifactValue.create(
+        hash.asBytes(), data.length, -1, expireAtEpochMilli);
   }
 
   @Test
@@ -1385,6 +1390,45 @@ public final class FilesystemValueCheckerTest {
   }
 
   @Test
+  public void testRemoteArtifactsExpired() throws Exception {
+    // Test that if injected remote artifacts expired, they are considered as dirty.
+    SkyKey actionKey1 = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+    SkyKey actionKey2 = ActionLookupData.create(ACTION_LOOKUP_KEY, 1);
+
+    Artifact out1 = createDerivedArtifact("foo");
+    Artifact out2 = createDerivedArtifact("bar");
+    Map<SkyKey, SkyValue> metadataToInject = new HashMap<>();
+    metadataToInject.put(
+        actionKey1,
+        actionValueWithRemoteArtifact(out1, createRemoteFileArtifactValue("foo-content")));
+    metadataToInject.put(
+        actionKey2,
+        actionValueWithRemoteArtifact(out2, createRemoteFileArtifactValue("bar-content", /* expireAtEpochMilli= */ 0)));
+    differencer.inject(metadataToInject);
+
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setParallelism(1)
+            .setEventHandler(NullEventHandler.INSTANCE)
+            .build();
+    assertThat(
+        evaluator
+            .evaluate(ImmutableList.of(actionKey1, actionKey2), evaluationContext)
+            .hasError())
+        .isFalse();
+    assertThat(
+        new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                /* batchStatter= */ null,
+                ModifiedFileSet.EVERYTHING_MODIFIED,
+                /* trustRemoteArtifacts= */ true,
+                (ignored, ignored2) -> {}))
+        .containsExactly(actionKey2);
+  }
+
+  @Test
   public void testRemoteAndLocalTreeArtifacts() throws Exception {
     // Test that injected remote tree artifacts are trusted by the FileSystemValueChecker
     // and that local files always takes preference over remote files.
@@ -1418,7 +1462,7 @@ public final class FilesystemValueCheckerTest {
                     evaluator.getValues(),
                     /* batchStatter= */ null,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
-                    /* trustRemoteArtifacts= */ false,
+                    /* trustRemoteArtifacts= */ true,
                     (ignored, ignored2) -> {}))
         .isEmpty();
 
@@ -1431,8 +1475,46 @@ public final class FilesystemValueCheckerTest {
                     evaluator.getValues(),
                     /* batchStatter= */ null,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
-                    /* trustRemoteArtifacts= */ false,
+                    /* trustRemoteArtifacts= */ true,
                     (ignored, ignored2) -> {}))
+        .containsExactly(actionKey);
+  }
+
+  @Test
+  public void testRemoteTreeArtifactsExpired() throws Exception {
+    // Test that if injected remote tree artifacts are expired, they are considered as dirty.
+    SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+
+    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    treeArtifact.getPath().createDirectoryAndParents();
+    TreeArtifactValue tree =
+        TreeArtifactValue.newBuilder(treeArtifact)
+            .putChild(
+                TreeFileArtifact.createTreeOutput(treeArtifact, "foo"),
+                createRemoteFileArtifactValue("foo-content"))
+            .putChild(
+                TreeFileArtifact.createTreeOutput(treeArtifact, "bar"),
+                createRemoteFileArtifactValue("bar-content", /* expireAtEpochMilli= */ 0))
+            .build();
+
+    differencer.inject(ImmutableMap.of(actionKey, actionValueWithTreeArtifact(treeArtifact, tree)));
+
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setParallelism(1)
+            .setEventHandler(NullEventHandler.INSTANCE)
+            .build();
+    assertThat(evaluator.evaluate(ImmutableList.of(actionKey), evaluationContext).hasError())
+        .isFalse();
+    assertThat(
+        new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+            .getDirtyActionValues(
+                evaluator.getValues(),
+                /* batchStatter= */ null,
+                ModifiedFileSet.EVERYTHING_MODIFIED,
+                /* trustRemoteArtifacts= */ true,
+                (ignored, ignored2) -> {}))
         .containsExactly(actionKey);
   }
 

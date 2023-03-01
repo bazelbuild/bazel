@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -317,6 +318,7 @@ public class ActionCacheChecker {
 
   private static CachedOutputMetadata loadCachedOutputMetadata(
       Action action, ActionCache.Entry entry, MetadataHandler metadataHandler) {
+    Instant now = Instant.now();
     ImmutableMap.Builder<Artifact, RemoteFileArtifactValue> remoteFileMetadata =
         ImmutableMap.builder();
     ImmutableMap.Builder<SpecialArtifact, TreeArtifactValue> mergedTreeMetadata =
@@ -327,6 +329,17 @@ public class ActionCacheChecker {
         SpecialArtifact parent = (SpecialArtifact) artifact;
         SerializableTreeArtifactValue cachedTreeMetadata = entry.getOutputTree(parent);
         if (cachedTreeMetadata == null) {
+          continue;
+        }
+
+        // If any child is not alive, discard the entire tree
+        if (cachedTreeMetadata.childValues().values().stream()
+            .anyMatch(metadata -> !metadata.isAlive(now))) {
+          continue;
+        }
+
+        if (cachedTreeMetadata.archivedFileValue().isPresent()
+            && !cachedTreeMetadata.archivedFileValue().get().isAlive(now)) {
           continue;
         }
 
@@ -377,7 +390,7 @@ public class ActionCacheChecker {
         mergedTreeMetadata.put(parent, merged.build());
       } else {
         RemoteFileArtifactValue cachedMetadata = entry.getOutputFile(artifact);
-        if (cachedMetadata == null) {
+        if (cachedMetadata == null || !cachedMetadata.isAlive(now)) {
           continue;
         }
 

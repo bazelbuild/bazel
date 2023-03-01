@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.io.BaseEncoding;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -78,6 +79,10 @@ public final class FileArtifactValueTest {
         .addEqualityGroup(
             FileArtifactValue.createForDirectoryWithMtime(2),
             FileArtifactValue.createForDirectoryWithMtime(2))
+        .addEqualityGroup(
+            // expireAtEpochMilli doesn't contribute to the equality
+            RemoteFileArtifactValue.create(toBytes("00112233445566778899AABBCCDDEEFF"), 1, 1, 1),
+            RemoteFileArtifactValue.create(toBytes("00112233445566778899AABBCCDDEEFF"), 1, 1, 2))
         .addEqualityGroup(FileArtifactValue.OMITTED_FILE_MARKER)
         .addEqualityGroup(FileArtifactValue.MISSING_FILE_MARKER)
         .addEqualityGroup(FileArtifactValue.DEFAULT_MIDDLEMAN)

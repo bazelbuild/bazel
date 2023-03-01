@@ -128,6 +128,7 @@ import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -806,7 +807,7 @@ public class RemoteExecutionService {
     }
   }
 
-  private void injectRemoteArtifacts(RemoteAction action, ActionResultMetadata metadata)
+  private void injectRemoteArtifacts(RemoteAction action, ActionResultMetadata metadata, long expireAtEpochMilli)
       throws IOException {
     FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
     checkState(actionFileSystem instanceof RemoteActionFileSystem);
@@ -825,7 +826,8 @@ public class RemoteExecutionService {
         remoteActionFileSystem.injectRemoteFile(
             file.path().asFragment(),
             DigestUtil.toBinaryDigest(file.digest()),
-            file.digest().getSizeBytes());
+            file.digest().getSizeBytes(),
+            expireAtEpochMilli);
       }
     }
 
@@ -833,7 +835,8 @@ public class RemoteExecutionService {
       remoteActionFileSystem.injectRemoteFile(
           file.path().asFragment(),
           DigestUtil.toBinaryDigest(file.digest()),
-          file.digest().getSizeBytes());
+          file.digest().getSizeBytes(),
+          expireAtEpochMilli);
     }
   }
 
@@ -1162,7 +1165,8 @@ public class RemoteExecutionService {
         }
       }
 
-      injectRemoteArtifacts(action, metadata);
+      var expireAtEpochMilli = Instant.now().plus(remoteOptions.remoteCacheTtl).toEpochMilli();
+      injectRemoteArtifacts(action, metadata, expireAtEpochMilli);
 
       try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {
         if (inMemoryOutput != null) {
