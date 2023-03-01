@@ -140,7 +140,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
     // Check that the .bzl file actually exports a module extension by our name.
     Object exported = bzlLoadValue.getModule().getGlobal(extensionId.getExtensionName());
-    if (!(exported instanceof ModuleExtension.InStarlark)) {
+    if (!(exported instanceof ModuleExtension)) {
       ImmutableSet<String> exportedExtensions =
           bzlLoadValue.getModule().getGlobals().entrySet().stream()
               .filter(e -> e.getValue() instanceof ModuleExtension)
@@ -157,7 +157,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           Transience.PERSISTENT);
     }
 
-    ModuleExtension extension = ((ModuleExtension.InStarlark) exported).get();
+    ModuleExtension extension = ((ModuleExtension) exported);
     ImmutableMap<String, String> extensionEnvVars =
         RepositoryFunction.getEnvVarValues(env, extension.getEnvVariables());
     if (extensionEnvVars == null) {
