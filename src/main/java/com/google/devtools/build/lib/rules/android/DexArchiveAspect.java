@@ -531,13 +531,15 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(desugarPrereqName))
-            .setExecutionInfo(createDexingDesugaringExecRequirements(ruleContext).build())
             .addInput(jar)
             .addTransitiveInputs(bootclasspath)
             .addTransitiveInputs(classpath)
             .addOutput(result)
             .setMnemonic("Desugar")
-            .setProgressMessage("Desugaring %s for Android", jar.prettyPrint());
+            .setProgressMessage("Desugaring %s for Android", jar.prettyPrint())
+            .setExecutionInfo(createDexingDesugaringExecRequirements(ruleContext)
+                .putAll(ExecutionRequirements.WORKER_MODE_ENABLED)
+                .build());
 
     // SpawnAction.Builder.build() is documented as being safe for re-use. So we can call build here
     // to get the action's inputs for vetting path stripping safety, then call it again later to
