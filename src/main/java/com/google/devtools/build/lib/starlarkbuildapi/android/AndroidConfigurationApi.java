@@ -232,6 +232,20 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   boolean persistentMultiplexBusyboxTools();
 
   @StarlarkMethod(
+      name = "persistent_android_dex_desugar",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean persistentDexDesugar();
+
+  @StarlarkMethod(
+      name = "persistent_multiplex_android_dex_desugar",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean persistentMultiplexDexDesugar();
+
+  @StarlarkMethod(
       name = "get_output_directory_name",
       structField = true,
       doc = "",

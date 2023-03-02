@@ -27,6 +27,7 @@ import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -530,13 +531,13 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(desugarPrereqName))
+            .setExecutionInfo(createDexingDesugaringExecRequirements(ruleContext).build())
             .addInput(jar)
             .addTransitiveInputs(bootclasspath)
             .addTransitiveInputs(classpath)
             .addOutput(result)
             .setMnemonic("Desugar")
-            .setProgressMessage("Desugaring %s for Android", jar.prettyPrint())
-            .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
+            .setProgressMessage("Desugaring %s for Android", jar.prettyPrint());
 
     // SpawnAction.Builder.build() is documented as being safe for re-use. So we can call build here
     // to get the action's inputs for vetting path stripping safety, then call it again later to
@@ -627,9 +628,9 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq))
-            .setExecutionInfo(
-                TargetUtils.getExecutionInfo(
-                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
+            .setExecutionInfo(createDexingDesugaringExecRequirements(ruleContext)
+                .putAll(TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
+                .build())
             // WorkerSpawnStrategy expects the last argument to be @paramfile
             .addInput(jar)
             .addOutput(dexArchive)
@@ -665,6 +666,22 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
   private static Set<Set<String>> aspectDexopts(RuleContext ruleContext) {
     return Sets.powerSet(
         normalizeDexopts(getAndroidConfig(ruleContext).getDexoptsSupportedInIncrementalDexing()));
+  }
+
+  /**
+   * Creates the execution requires for the DexBuilder and Desugar actions
+   */
+  private static ImmutableMap.Builder<String, String> createDexingDesugaringExecRequirements(RuleContext ruleContext) {
+    final ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
+    AndroidConfiguration androidConfiguration = getAndroidConfig(ruleContext);
+    if (androidConfiguration.persistentDexDesugar()) {
+      executionInfo.putAll(ExecutionRequirements.WORKER_MODE_ENABLED);
+      if (androidConfiguration.persistentMultiplexDexDesugar()) {
+        executionInfo.putAll(ExecutionRequirements.WORKER_MULTIPLEX_MODE_ENABLED);
+      }
+    }
+
+    return executionInfo;
   }
 
   /**
