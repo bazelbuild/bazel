@@ -534,14 +534,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public List<String> dexoptsSupportedInDexSharder;
 
     @Option(
-        name = "use_workers_with_dexbuilder",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.EXECUTION},
-        help = "Whether dexbuilder supports being run in local worker mode.")
-    public boolean useWorkersWithDexbuilder;
-
-    @Option(
         name = "experimental_android_rewrite_dexes_with_rex",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -1100,7 +1092,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       exec.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
       exec.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
       exec.dexoptsSupportedInDexSharder = dexoptsSupportedInDexSharder;
-      exec.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
       exec.manifestMerger = manifestMerger;
       exec.manifestMergerOrder = manifestMergerOrder;
       exec.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
@@ -1128,7 +1119,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
   private final ImmutableList<String> dexoptsSupportedInDexMerger;
   private final ImmutableList<String> dexoptsSupportedInDexSharder;
-  private final boolean useWorkersWithDexbuilder;
   private final boolean desugarJava8;
   private final boolean desugarJava8Libs;
   private final boolean checkDesugarDeps;
@@ -1184,7 +1174,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         ImmutableList.copyOf(options.nonIncrementalPerTargetDexopts);
     this.dexoptsSupportedInDexMerger = ImmutableList.copyOf(options.dexoptsSupportedInDexMerger);
     this.dexoptsSupportedInDexSharder = ImmutableList.copyOf(options.dexoptsSupportedInDexSharder);
-    this.useWorkersWithDexbuilder = options.useWorkersWithDexbuilder;
     this.desugarJava8 = options.desugarJava8;
     this.desugarJava8Libs = options.desugarJava8Libs;
     this.checkDesugarDeps = options.checkDesugarDeps;
@@ -1317,12 +1306,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public ImmutableList<String> getTargetDexoptsThatPreventIncrementalDexing() {
     return targetDexoptsThatPreventIncrementalDexing;
-  }
-
-  /** Whether to assume the dexbuilder tool supports local worker mode. */
-  @Override
-  public boolean useWorkersWithDexbuilder() {
-    return useWorkersWithDexbuilder;
   }
 
   @Override
