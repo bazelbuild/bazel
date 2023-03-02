@@ -133,7 +133,8 @@ public abstract class CcModule
         CcToolchainConfigInfo,
         CcCompilationOutputs,
         CcDebugInfoContext,
-        CppModuleMap> {
+        CppModuleMap,
+        CcLinkingOutputs> {
 
   private static final ImmutableList<String> SUPPORTED_OUTPUT_TYPES =
       ImmutableList.of("executable", "dynamic_library", "archive");
@@ -831,6 +832,18 @@ public abstract class CcModule
     }
 
     return ccCompilationContext.build();
+  }
+
+  @Override
+  public CcCompilationOutputs mergeCcCompilationOutputsFromStarlark(
+      Sequence<?> compilationOutputs) // <CcCompilationOutputs>
+      throws EvalException {
+    CcCompilationOutputs.Builder ccCompilationOutputsBuilder = CcCompilationOutputs.builder();
+    for (CcCompilationOutputs ccCompilationOutputs :
+        Sequence.cast(compilationOutputs, CcCompilationOutputs.class, "compilation_outputs")) {
+      ccCompilationOutputsBuilder.merge(ccCompilationOutputs);
+    }
+    return ccCompilationOutputsBuilder.build();
   }
 
   @Override
@@ -2597,11 +2610,12 @@ public abstract class CcModule
     return tuple;
   }
 
-  protected CcLinkingOutputs link(
+  @Override
+  public CcLinkingOutputs link(
       StarlarkActionFactory actions,
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
       CcToolchainProvider starlarkCcToolchainProvider,
-      CcCompilationOutputs compilationOutputs,
+      Object compilationOutputsObject,
       Sequence<?> userLinkFlags,
       Sequence<?> linkingContexts,
       String name,
@@ -2756,6 +2770,8 @@ public abstract class CcModule
     if (convertFromNoneable(useShareableArtifactFactory, false)) {
       helper.setLinkArtifactFactory(CppLinkActionBuilder.SHAREABLE_LINK_ARTIFACT_FACTORY);
     }
+    CcCompilationOutputs compilationOutputs =
+        convertFromNoneable(compilationOutputsObject, /* defaultValue= */ null);
     try {
       return helper.link(
           compilationOutputs != null ? compilationOutputs : CcCompilationOutputs.EMPTY);
@@ -2764,7 +2780,8 @@ public abstract class CcModule
     }
   }
 
-  protected CcCompilationOutputs createCompilationOutputsFromStarlark(
+  @Override
+  public CcCompilationOutputs createCompilationOutputsFromStarlark(
       Object objectsObject,
       Object picObjectsObject,
       Object ltoCompilationContextObject,
