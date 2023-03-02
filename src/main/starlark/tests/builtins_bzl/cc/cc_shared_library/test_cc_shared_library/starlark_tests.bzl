@@ -223,6 +223,30 @@ interface_library_output_group_test = analysistest.make(
     },
 )
 
+def _check_already_linked_inputs_are_not_passed_to_linking_action_test_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    actions = analysistest.target_actions(env)
+
+    target_action = None
+    for action in actions:
+        if action.mnemonic == "FileWrite":
+            target_action = action
+            break
+    args = target_action.content.split("\n")
+    for arg in args:
+        for bad_lib_entry in ctx.attr.libs_that_shouldnt_be_present:
+            asserts.true(env, arg.find("{}.".format(bad_lib_entry)) == -1, "Should not have seen library `{}` in command line".format(arg))
+
+    return analysistest.end(env)
+
+check_already_linked_inputs_are_not_passed_to_linking_action_test = analysistest.make(
+    _check_already_linked_inputs_are_not_passed_to_linking_action_test_impl,
+    attrs = {
+        "libs_that_shouldnt_be_present": attr.string_list(),
+    },
+)
+
 def _no_exporting_static_lib_test_impl(ctx):
     env = analysistest.begin(ctx)
 

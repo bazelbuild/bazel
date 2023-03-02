@@ -8,6 +8,7 @@ load(
     "paths_test",
     "runfiles_test",
     "no_exporting_static_lib_test",
+    "check_already_linked_inputs_are_not_passed_to_linking_action_test",
 )
 
 LINKABLE_MORE_THAN_ONCE = "LINKABLE_MORE_THAN_ONCE"
@@ -468,6 +469,18 @@ runfiles_test(
 no_exporting_static_lib_test(
     name = "no_exporting_static_lib_test",
     target_under_test = ":lib_with_no_exporting_roots",
+)
+
+check_already_linked_inputs_are_not_passed_to_linking_action_test(
+    name = "check_binary_doesnt_take_already_linked_in_libs",
+    target_under_test = ":binary",
+    libs_that_shouldnt_be_present = ["foo", "bar"],
+)
+
+check_already_linked_inputs_are_not_passed_to_linking_action_test(
+    name = "check_shared_lib_doesnt_take_already_linked_in_libs",
+    target_under_test = ":foo_so",
+    libs_that_shouldnt_be_present = ["bar"],
 )
 
 build_failure_test(
