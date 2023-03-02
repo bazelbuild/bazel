@@ -539,7 +539,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
             .setProgressMessage("Desugaring %s for Android", jar.prettyPrint())
             .setExecutionInfo(createDexingDesugaringExecRequirements(ruleContext)
                 .putAll(ExecutionRequirements.WORKER_MODE_ENABLED)
-                .build());
+                .buildKeepingLast());
 
     // SpawnAction.Builder.build() is documented as being safe for re-use. So we can call build here
     // to get the action's inputs for vetting path stripping safety, then call it again later to
@@ -632,7 +632,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
             .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq))
             .setExecutionInfo(createDexingDesugaringExecRequirements(ruleContext)
                 .putAll(TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
-                .build())
+                .buildKeepingLast())
             // WorkerSpawnStrategy expects the last argument to be @paramfile
             .addInput(jar)
             .addOutput(dexArchive)
