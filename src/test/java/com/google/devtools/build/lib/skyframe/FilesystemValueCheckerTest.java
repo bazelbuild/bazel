@@ -1519,6 +1519,48 @@ public final class FilesystemValueCheckerTest {
   }
 
   @Test
+  public void testRemoteTreeArtifacts_archivedRepresentationExpired() throws Exception {
+    // Test that if archived representation of injected remote tree artifacts are expired, they are
+    // considered as dirty.
+    SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+
+    SpecialArtifact treeArtifact = createTreeArtifact("dir");
+    treeArtifact.getPath().createDirectoryAndParents();
+    TreeArtifactValue tree =
+        TreeArtifactValue.newBuilder(treeArtifact)
+            .putChild(
+                TreeFileArtifact.createTreeOutput(treeArtifact, "foo"),
+                createRemoteFileArtifactValue("foo-content"))
+            .putChild(
+                TreeFileArtifact.createTreeOutput(treeArtifact, "bar"),
+                createRemoteFileArtifactValue("bar-content"))
+            .setArchivedRepresentation(
+                createArchivedTreeArtifactWithContent(treeArtifact),
+                createRemoteFileArtifactValue("archived", /* expireAtEpochMilli= */ 0))
+            .build();
+
+    differencer.inject(ImmutableMap.of(actionKey, actionValueWithTreeArtifact(treeArtifact, tree)));
+
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setParallelism(1)
+            .setEventHandler(NullEventHandler.INSTANCE)
+            .build();
+    assertThat(evaluator.evaluate(ImmutableList.of(actionKey), evaluationContext).hasError())
+        .isFalse();
+    assertThat(
+            new FilesystemValueChecker(/*tsgm=*/ null, SyscallCache.NO_CACHE, FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    /* batchStatter= */ null,
+                    ModifiedFileSet.EVERYTHING_MODIFIED,
+                    /* trustRemoteArtifacts= */ true,
+                    (ignored, ignored2) -> {}))
+        .containsExactly(actionKey);
+  }
+
+  @Test
   public void testPropagatesRuntimeExceptions() throws Exception {
     Collection<SkyKey> values =
         ImmutableList.of(

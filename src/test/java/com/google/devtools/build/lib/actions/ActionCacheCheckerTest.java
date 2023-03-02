@@ -1070,6 +1070,49 @@ public class ActionCacheCheckerTest {
     assertThat(entry).isNull();
   }
 
+  @Test
+  public void saveOutputMetadata_archivedRepresentationExpired_treeMetadataNotLoaded()
+      throws Exception {
+    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    SpecialArtifact output =
+        createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
+    ImmutableMap<String, RemoteFileArtifactValue> children =
+        ImmutableMap.of(
+            "file1", createRemoteFileMetadata("content1"),
+            "file2", createRemoteFileMetadata("content2"));
+    Action action =
+        new InjectOutputTreeMetadataAction(
+            output,
+            createTreeMetadata(
+                output,
+                children,
+                /* archivedArtifactValue= */ Optional.of(
+                    createRemoteFileMetadata(
+                        "archived",
+                        /* expireAtEpochMilli= */ 0,
+                        /* materializationExecPath= */ null)),
+                /* materializationExecPath= */ Optional.empty()));
+    MetadataHandler metadataHandler = new FakeMetadataHandler();
+
+    runAction(action);
+    Token token =
+        cacheChecker.getTokenIfNeedToExecute(
+            action,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
+            metadataHandler,
+            /* artifactExpander= */ null,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* loadCachedOutputMetadata= */ true);
+
+    assertThat(output.getPath().exists()).isFalse();
+    assertThat(token).isNotNull();
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNull();
+  }
+
   private static void writeContentAsLatin1(Path path, String content) throws IOException {
     Path parent = path.getParentDirectory();
     if (parent != null) {
