@@ -102,40 +102,6 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     this.set = set;
   }
 
-  // Implementation of deprecated depset(items) constructor, where items is
-  // supplied positionally. See https://github.com/bazelbuild/bazel/issues/9017.
-  static Depset legacyOf(Order order, Object items) throws EvalException {
-    Class<?> elemClass = null; // special value for empty depset
-    NestedSetBuilder<Object> builder = new NestedSetBuilder<>(order);
-
-    if (items instanceof Depset) {
-      Depset nestedSet = (Depset) items;
-      if (!nestedSet.isEmpty()) {
-        elemClass = nestedSet.elemClass;
-        try {
-          builder.addTransitive(nestedSet.set);
-        } catch (IllegalArgumentException e) {
-          // Order mismatch between items and builder.
-          throw Starlark.errorf("%s", e.getMessage());
-        }
-      }
-
-    } else if (items instanceof Sequence) {
-      for (Object x : (Sequence) items) {
-        checkElement(x, /* strict= */ true);
-        Class<?> xt = ElementType.getTypeClass(x.getClass());
-        elemClass = checkType(elemClass, xt);
-        builder.add(x);
-      }
-
-    } else {
-      throw Starlark.errorf(
-          "depset: got value of type '%s', want depset or sequence", Starlark.type(items));
-    }
-
-    return new Depset(elemClass, builder.build());
-  }
-
   private static void checkElement(Object x, boolean strict) throws EvalException {
     // Historically the requirement for a depset element was isImmutable(x).
     // However, this check is neither necessary not sufficient.
