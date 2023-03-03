@@ -43,10 +43,16 @@ import org.junit.runners.JUnit4;
 public class ActionExecutionValueTest {
   private static final FileArtifactValue VALUE_1 =
       RemoteFileArtifactValue.create(
-          /* digest= */ new byte[0], /* size= */ 0, /* locationIndex= */ 1);
+          /* digest= */ new byte[0],
+          /* size= */ 0,
+          /* locationIndex= */ 1,
+          /* expireAtEpochMilli= */ -1);
   private static final FileArtifactValue VALUE_2 =
       RemoteFileArtifactValue.create(
-          /* digest= */ new byte[0], /* size= */ 0, /* locationIndex= */ 2);
+          /* digest= */ new byte[0],
+          /* size= */ 0,
+          /* locationIndex= */ 2,
+          /* expireAtEpochMilli= */ -1);
 
   private static final ActionLookupKey KEY = mock(ActionLookupKey.class);
   private static final ActionLookupData ACTION_LOOKUP_DATA_1 = ActionLookupData.create(KEY, 1);

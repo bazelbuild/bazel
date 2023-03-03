@@ -104,6 +104,7 @@ public abstract class ActionInputPrefetcherTestBase {
             hashCode.asBytes(),
             contentsBytes.length,
             /* locationIndex= */ 1,
+            /* expireAtEpochMilli= */ -1,
             materializationExecPath);
     metadata.put(a, f);
     if (cas != null) {
@@ -154,7 +155,10 @@ public abstract class ActionInputPrefetcherTestBase {
       HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contents);
       RemoteFileArtifactValue childValue =
           RemoteFileArtifactValue.create(
-              hashCode.asBytes(), contents.length, /* locationIndex= */ 1);
+              hashCode.asBytes(),
+              contents.length,
+              /* locationIndex= */ 1,
+              /* expireAtEpochMilli= */ -1);
       treeBuilder.putChild(child, childValue);
       metadata.put(child, childValue);
       cas.put(hashCode, contents);

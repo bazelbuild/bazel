@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -965,7 +966,8 @@ public class RemoteExecutionServiceTest {
         .injectRemoteFile(
             eq(execRoot.asFragment().getRelative(a1.getExecPath())),
             eq(toBinaryDigest(d1)),
-            eq(d1.getSizeBytes()));
+            eq(d1.getSizeBytes()),
+            anyLong());
     Path outputBase = checkNotNull(artifactRoot.getRoot().asPath());
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
     assertThat(context.isLockOutputFilesCalled()).isTrue();
@@ -1005,12 +1007,14 @@ public class RemoteExecutionServiceTest {
         .injectRemoteFile(
             eq(execRoot.asFragment().getRelative(a1.getExecPath())),
             eq(toBinaryDigest(d1)),
-            eq(d1.getSizeBytes()));
+            eq(d1.getSizeBytes()),
+            anyLong());
     verify(actionFileSystem)
         .injectRemoteFile(
             eq(execRoot.asFragment().getRelative(a2.getExecPath())),
             eq(toBinaryDigest(d2)),
-            eq(d2.getSizeBytes()));
+            eq(d2.getSizeBytes()),
+            anyLong());
     Path outputBase = checkNotNull(artifactRoot.getRoot().asPath());
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
     assertThat(context.isLockOutputFilesCalled()).isTrue();
@@ -1063,12 +1067,14 @@ public class RemoteExecutionServiceTest {
         .injectRemoteFile(
             eq(execRoot.asFragment().getRelative("outputs/dir/file1")),
             eq(toBinaryDigest(d1)),
-            eq(d1.getSizeBytes()));
+            eq(d1.getSizeBytes()),
+            anyLong());
     verify(actionFileSystem)
         .injectRemoteFile(
             eq(execRoot.asFragment().getRelative("outputs/dir/a/file2")),
             eq(toBinaryDigest(d2)),
-            eq(d2.getSizeBytes()));
+            eq(d2.getSizeBytes()),
+            anyLong());
     Path outputBase = checkNotNull(artifactRoot.getRoot().asPath());
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
     assertThat(context.isLockOutputFilesCalled()).isTrue();
@@ -1201,12 +1207,14 @@ public class RemoteExecutionServiceTest {
         .injectRemoteFile(
             eq(execRoot.asFragment().getRelative(a1.getExecPath())),
             eq(toBinaryDigest(d1)),
-            eq(d1.getSizeBytes()));
+            eq(d1.getSizeBytes()),
+            anyLong());
     verify(actionFileSystem)
         .injectRemoteFile(
             eq(execRoot.asFragment().getRelative(a2.getExecPath())),
             eq(toBinaryDigest(d2)),
-            eq(d2.getSizeBytes()));
+            eq(d2.getSizeBytes()),
+            anyLong());
     Path outputBase = checkNotNull(artifactRoot.getRoot().asPath());
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
     assertThat(context.isLockOutputFilesCalled()).isTrue();
@@ -1254,7 +1262,8 @@ public class RemoteExecutionServiceTest {
         .injectRemoteFile(
             eq(execRoot.asFragment().getRelative(a1.getExecPath())),
             eq(toBinaryDigest(d1)),
-            eq(d1.getSizeBytes()));
+            eq(d1.getSizeBytes()),
+            anyLong());
   }
 
   @Test
