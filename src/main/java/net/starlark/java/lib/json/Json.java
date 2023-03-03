@@ -287,7 +287,8 @@ public final class Json implements StarlarkValue {
               + " a decimal point or an exponent. Although JSON has no syntax "
               + " for non-finite values, very large values may be decoded as infinity.\n"
               + "<li>a JSON object is parsed as a new unfrozen Starlark dict."
-              + " Keys must be unique strings.\n"
+              + " If the same key string occurs more than once in the object, the last"
+              + " value for the key is kept.\n"
               + "<li>a JSON array is parsed as new unfrozen Starlark list.\n"
               + "</ul>\n"
               + "Decoding fails if x is not a valid JSON encoding.\n",
