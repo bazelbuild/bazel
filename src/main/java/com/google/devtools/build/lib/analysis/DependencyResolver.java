@@ -202,6 +202,59 @@ public abstract class DependencyResolver {
       NestedSetBuilder<Cause> rootCauses,
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory)
       throws Failure, InterruptedException, InconsistentAspectOrderException {
+    var dependencyLabels =
+        computeDependencyLabels(node, aspects, configConditions, toolchainContexts);
+    var outgoingLabels = dependencyLabels.labels();
+
+    Map<Label, Target> targetMap = getTargets(outgoingLabels, node, rootCauses);
+    if (targetMap == null) {
+      // Dependencies could not be resolved. Try again when they are loaded by Skyframe.
+      return OrderedSetMultimap.create();
+    }
+
+    Target target = node.getTarget();
+    Rule fromRule = target instanceof Rule ? (Rule) target : null;
+
+    // This check makes sure that visibility labels actually refer to package groups.
+    if (fromRule != null) {
+      checkPackageGroupVisibility(fromRule, targetMap);
+    }
+
+    OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
+        partiallyResolveDependencies(
+            outgoingLabels, fromRule, dependencyLabels.attributeMap(), toolchainContexts, aspects);
+
+    return fullyResolveDependencies(
+        partiallyResolvedDeps, targetMap, node.getConfiguration(), trimmingTransitionFactory);
+  }
+
+  private static final class DependencyLabels {
+    private final OrderedSetMultimap<DependencyKind, Label> labels;
+    @Nullable private final ConfiguredAttributeMapper attributeMap;
+
+    private DependencyLabels(
+        OrderedSetMultimap<DependencyKind, Label> labels,
+        @Nullable ConfiguredAttributeMapper attributeMap) {
+      this.labels = labels;
+      this.attributeMap = attributeMap;
+    }
+
+    public OrderedSetMultimap<DependencyKind, Label> labels() {
+      return labels;
+    }
+
+    @Nullable // Non-null for rules and output files when there are aspects that apply to files.
+    public ConfiguredAttributeMapper attributeMap() {
+      return attributeMap;
+    }
+  }
+
+  private final DependencyLabels computeDependencyLabels(
+      TargetAndConfiguration node,
+      Iterable<Aspect> aspects,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ToolchainCollection<ToolchainContext> toolchainContexts)
+      throws Failure {
     Target target = node.getTarget();
     BuildConfigurationValue config = node.getConfiguration();
     OrderedSetMultimap<DependencyKind, Label> outgoingLabels = OrderedSetMultimap.create();
@@ -233,24 +286,7 @@ public abstract class DependencyResolver {
     } else {
       throw new IllegalStateException(target.getLabel().toString());
     }
-
-    Map<Label, Target> targetMap = getTargets(outgoingLabels, node, rootCauses);
-    if (targetMap == null) {
-      // Dependencies could not be resolved. Try again when they are loaded by Skyframe.
-      return OrderedSetMultimap.create();
-    }
-
-    // This check makes sure that visibility labels actually refer to package groups.
-    if (fromRule != null) {
-      checkPackageGroupVisibility(fromRule, targetMap);
-    }
-
-    OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
-        partiallyResolveDependencies(
-            outgoingLabels, fromRule, attributeMap, toolchainContexts, aspects);
-
-    return fullyResolveDependencies(
-        partiallyResolvedDeps, targetMap, config, trimmingTransitionFactory);
+    return new DependencyLabels(outgoingLabels, attributeMap);
   }
 
   /**
