@@ -45,7 +45,6 @@ filegroup(
         "//third_party/py/frozendict:srcs",
         "//third_party/py/mock:srcs",
         "//third_party/py/six:srcs",
-        "//third_party/rules_python:srcs",
         "//third_party/zlib:srcs",
         "//third_party/upb:srcs",
         "@googleapis//:srcs",
