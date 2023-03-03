@@ -34,6 +34,7 @@ import com.google.devtools.build.skyframe.state.ValueOrExceptionProducer;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -404,15 +405,12 @@ public final class StateMachineTest {
         .setBuilder(
             (k, env) -> {
               var producer = env.getState(StringOrExceptionProducer::new);
-              if (!producer.drive(env, env.getListener())) {
-                return null;
-              }
-              assertThat(producer.hasResult()).isTrue();
-              assertThat(producer.hasValue()).isTrue();
-              assertThat(producer.getValue()).isEqualTo(VALUE_A1);
-              assertThat(producer.hasException()).isFalse();
+
+              SkyValue value;
               try {
-                assertThat(producer.getValueOrThrow()).isEqualTo(VALUE_A1);
+                if ((value = producer.tryProduceValue(env, env.getListener())) == null) {
+                  return null;
+                }
               } catch (SomeErrorException e) {
                 fail("Unexpecteded exception: " + e);
               }
@@ -424,20 +422,25 @@ public final class StateMachineTest {
   @Test
   public void valueOrExceptionProducer_propagatesExceptions(@TestParameter boolean keepGoing)
       throws InterruptedException {
+    var hasRestarted = new AtomicBoolean(false);
     tester.getOrCreate(KEY_A1).unsetConstantValue().setHasError(true);
     tester
         .getOrCreate(ROOT_KEY)
         .setBuilder(
             (k, env) -> {
               var producer = env.getState(StringOrExceptionProducer::new);
-              if (!producer.drive(env, env.getListener())) {
+              if (!hasRestarted.getAndSet(true)) {
+                try {
+                  // The first call returns null because a restart is needed to compute the
+                  // requested key.
+                  assertThat(producer.tryProduceValue(env, env.getListener())).isNull();
+                } catch (SomeErrorException e) {
+                  fail("Unexpecteded exception: " + e);
+                }
                 return null;
               }
-              assertThat(producer.hasResult()).isTrue();
-              assertThat(producer.hasValue()).isFalse();
-              assertThat(producer.hasException()).isTrue();
-              assertThrows(SomeErrorException.class, producer::getValueOrThrow);
-              assertThat(producer.getException()).isNotNull();
+              assertThrows(
+                  SomeErrorException.class, () -> producer.tryProduceValue(env, env.getListener()));
               return DONE_VALUE;
             });
     var result = eval(ROOT_KEY, keepGoing);
@@ -448,6 +451,68 @@ public final class StateMachineTest {
       assertThat(result.get(ROOT_KEY)).isNull();
       assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A1);
     }
+  }
+
+  /**
+   * This producer performs two concurrent lookups.
+   *
+   * <p>It is used to test the case where one of the two lookups succeeds with exception but the
+   * other value is not available. The expected result is the exception propagates.
+   *
+   * <p>This scenario may occur during error bubbling.
+   */
+  private static class TwoLookupProducer
+      extends ValueOrExceptionProducer<StringValue, SomeErrorException>
+      implements SkyKeyComputeState {
+    @Override
+    @Nullable
+    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+      tasks.lookUp(KEY_A1, unusedValue -> fail("should not be reachable"));
+      tasks.lookUp(
+          KEY_A2,
+          SomeErrorException.class,
+          (v, e) -> {
+            if (v != null) {
+              setValue((StringValue) v);
+              return;
+            }
+            setException(e);
+          });
+      return null;
+    }
+  }
+
+  @Test
+  public void valueOrExceptionProducer_throwsExceptionsEvenWithIncompleteDeps()
+      throws InterruptedException {
+    var hasRestarted = new AtomicBoolean(false);
+    var gotError = new AtomicBoolean(false);
+    tester.getOrCreate(KEY_A2).unsetConstantValue().setHasError(true);
+    tester
+        .getOrCreate(ROOT_KEY)
+        .setBuilder(
+            (unusedKey, env) -> {
+              // Primes KEY_A2, making the error available.
+              if (!hasRestarted.getAndSet(true)) {
+                assertThat(env.getValue(KEY_A2)).isNull();
+                return null;
+              }
+              var producer = env.getState(TwoLookupProducer::new);
+              // At this point, KEY_A2 is available but KEY_A1 is not. The state machine is in an
+              // incomplete state, but throws the exception anyway.
+              var error =
+                  assertThrows(
+                      SomeErrorException.class,
+                      () -> producer.tryProduceValue(env, env.getListener()));
+              gotError.set(true);
+              throw new GenericFunctionException(error);
+            });
+    // keepGoing must be false below, otherwise the state machine will be run a second time when
+    // KEY_A1 becomes available.
+    var result = eval(ROOT_KEY, /* keepGoing= */ false);
+    assertThat(gotError.get()).isTrue();
+    assertThat(result.get(ROOT_KEY)).isNull();
+    assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A2);
   }
 
   private static class StringOrException2Producer
@@ -472,7 +537,7 @@ public final class StateMachineTest {
             }
           });
       return (t, l) -> {
-        if (!hasResult()) {
+        if (getException1() == null && getException2() == null) {
           setValue(SUCCESS_VALUE);
         }
         return null;
@@ -487,16 +552,12 @@ public final class StateMachineTest {
         .setBuilder(
             (k, env) -> {
               var producer = env.getState(StringOrException2Producer::new);
-              if (!producer.drive(env, env.getListener())) {
-                return null;
-              }
-              assertThat(producer.hasResult()).isTrue();
-              assertThat(producer.hasValue()).isTrue();
-              assertThat(producer.getValue()).isEqualTo(SUCCESS_VALUE);
-              assertThat(producer.hasException1()).isFalse();
-              assertThat(producer.hasException2()).isFalse();
+              SkyValue value;
               try {
-                assertThat(producer.getValueOrThrow()).isEqualTo(SUCCESS_VALUE);
+                if ((value = producer.tryProduceValue(env, env.getListener())) == null) {
+                  return null;
+                }
+                assertThat(value).isEqualTo(SUCCESS_VALUE);
               } catch (SomeErrorException | ExecutionException e) {
                 fail("Unexpecteded exception: " + e);
               }
@@ -509,6 +570,7 @@ public final class StateMachineTest {
   public void valueOrException2Producer_propagatesExceptions(
       @TestParameter boolean trueForException1, @TestParameter boolean keepGoing)
       throws InterruptedException {
+    var hasRestarted = new AtomicBoolean(false);
     SkyKey errorKey = trueForException1 ? KEY_A1 : KEY_B1;
     tester.getOrCreate(errorKey).unsetConstantValue().setHasError(true);
     tester
@@ -516,21 +578,22 @@ public final class StateMachineTest {
         .setBuilder(
             (k, env) -> {
               var producer = env.getState(StringOrException2Producer::new);
-              if (!producer.drive(env, env.getListener())) {
+              if (!hasRestarted.getAndSet(true)) {
+                try {
+                  assertThat(producer.tryProduceValue(env, env.getListener())).isNull();
+                } catch (SomeErrorException | ExecutionException e) {
+                  fail("Unexpecteded exception: " + e);
+                }
                 return null;
               }
-              assertThat(producer.hasResult()).isTrue();
-              assertThat(producer.hasValue()).isFalse();
               if (trueForException1) {
-                assertThat(producer.hasException1()).isTrue();
-                assertThrows(SomeErrorException.class, producer::getValueOrThrow);
-                assertThat(producer.getException1()).isNotNull();
-                assertThat(producer.hasException2()).isFalse();
+                assertThrows(
+                    SomeErrorException.class,
+                    () -> producer.tryProduceValue(env, env.getListener()));
               } else {
-                assertThat(producer.hasException1()).isFalse();
-                assertThat(producer.hasException2()).isTrue();
-                assertThrows(ExecutionException.class, producer::getValueOrThrow);
-                assertThat(producer.getException2()).isNotNull();
+                assertThrows(
+                    ExecutionException.class,
+                    () -> producer.tryProduceValue(env, env.getListener()));
               }
               return DONE_VALUE;
             });
