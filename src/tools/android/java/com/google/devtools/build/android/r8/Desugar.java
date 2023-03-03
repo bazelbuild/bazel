@@ -520,7 +520,7 @@ public class Desugar {
     }
   }
 
-  private void desugar() throws CompilationFailedException, IOException {
+  public void desugar() throws CompilationFailedException, IOException {
     // Prepare bootclasspath and classpath. Some jars on the classpath are considered to be
     // bootclasspath, and are moved there.
     ImmutableList.Builder<ClassFileResourceProvider> bootclasspathProvidersBuilder =
@@ -668,18 +668,18 @@ public class Desugar {
         options.outputJars.size());
   }
 
-  private static int processRequest(List<String> args) throws Exception {
+  private static int processRequest(List<String> args, PrintStream diagnosticsHandlerPrintStream) throws Exception {
     DesugarOptions options = parseCommandLineOptions(args.toArray(new String[0]));
     validateOptions(options);
-    new Desugar(options, System.err).desugar();
+    new Desugar(options, diagnosticsHandlerPrintStream).desugar();
     return 0;
   }
 
-  private static int processRequest(List<String> args, PrintWriter pw) {
+  private static int processRequest(List<String> args, PrintWriter pw, PrintStream diagnosticsHandlerPrintStream) {
     int exitCode;
     try {
       // Process the actual request and grab the exit code
-      exitCode = processRequest(args);
+      exitCode = processRequest(args, diagnosticsHandlerPrintStream);
     } catch (Exception e) {
       e.printStackTrace(pw);
       exitCode = 1;
@@ -694,7 +694,7 @@ public class Desugar {
       WorkRequestHandler workerHandler =
           new WorkRequestHandler.WorkRequestHandlerBuilder(
                   new WorkRequestHandler.WorkRequestCallback(
-                      (request, pw) -> processRequest(request.getArgumentsList(), pw)),
+                      (request, pw) -> processRequest(request.getArgumentsList(), pw, realStdErr)),
                   realStdErr,
                   new ProtoWorkerMessageProcessor(System.in, System.out))
               .setCpuUsageBeforeGc(Duration.ofSeconds(10))
@@ -712,7 +712,7 @@ public class Desugar {
     if (args.length > 0 && args[0].equals("--persistent_worker")) {
       System.exit(runPersistentWorker());
     } else {
-      System.exit(processRequest(Arrays.asList(args)));
+      System.exit(processRequest(Arrays.asList(args), System.err));
     }
   }
 }
