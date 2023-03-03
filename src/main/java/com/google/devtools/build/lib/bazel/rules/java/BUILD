@@ -96,6 +96,7 @@ gen_workspace_stanza(
         "rules_cc",
         "rules_java",
         "rules_proto",
+        "rules_python",
         "remotejdk11_linux",
         "remotejdk11_linux_aarch64",
         "remotejdk11_linux_ppc64le",

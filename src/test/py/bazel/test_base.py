@@ -58,6 +58,7 @@ class TestBase(unittest.TestCase):
       'rules_cc',
       'rules_java',
       'rules_proto',
+      'rules_python',
       'remotejdk11_linux_for_testing',
       'remotejdk11_linux_aarch64_for_testing',
       'remotejdk11_linux_ppc64le_for_testing',

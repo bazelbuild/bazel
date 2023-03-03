@@ -1,5 +1,5 @@
 load("//:distdir_deps.bzl", "gen_workspace_stanza")
-load("//tools/python:private/defs.bzl", "py_library", "py_test")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -43,6 +43,7 @@ gen_workspace_stanza(
     repos = [
         "rules_license",
         "rules_cc",
+        "rules_python",
     ],
 )
 

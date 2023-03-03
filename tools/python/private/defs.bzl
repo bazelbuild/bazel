@@ -31,6 +31,8 @@ WORKSPACE, and rely on those repos using the proper @rules_python-qualified
 label. (#9029 tracks possibly replacing the mock with the real thing.)
 """
 
+# TODO(#9029): the file can be deleted after the uses in bazel/third_party are removed
+
 _MIGRATION_TAG = "__PYTHON_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__"
 
 def _add_tags(attrs):

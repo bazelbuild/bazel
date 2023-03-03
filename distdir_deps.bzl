@@ -355,6 +355,13 @@ DIST_DEPS = {
         ],
         "package_version": "4.5",
     },
+    "rules_python": {
+        "sha256": "ffc7b877c95413c82bfd5482c017edcf759a6250d8b24e82f41f3c8b8d9e287e",
+        "strip_prefix": "rules_python-0.19.0",
+        "urls": ["https://github.com/bazelbuild/rules_python/releases/download/0.19.0/rules_python-0.19.0.tar.gz"],
+        "archive": "rules_python-0.19.0.tar.gz",
+        "used_in": ["additional_distfiles", "test_WORKSPACE_files"],
+    },
     "desugar_jdk_libs": {
         # Commit 5847d6a06302136d95a14b4cbd4b55a9c9f1436e of 2021-03-10
         "archive": "5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",

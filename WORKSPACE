@@ -96,16 +96,6 @@ dist_http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
-# This is a mock version of bazelbuild/rules_python that contains only
-# @rules_python//python:defs.bzl. It is used by protobuf.
-# TODO(#9029): We could potentially replace this with the real @rules_python.
-new_local_repository(
-    name = "rules_python",
-    build_file = "//third_party/rules_python:BUILD",
-    path = "./third_party/rules_python",
-    workspace_file = "//third_party/rules_python:rules_python.WORKSPACE",
-)
-
 local_repository(
     name = "googleapis",
     path = "./third_party/googleapis/",
@@ -213,6 +203,16 @@ dist_http_archive(
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
+
+dist_http_archive(
+    name = "rules_python",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+)
+
+load("@rules_python//python:repositories.bzl", "py_repositories")
+
+py_repositories()
 
 dist_http_archive(
     name = "zstd-jni",
@@ -722,11 +722,11 @@ maven_install(
         "com.google.protobuf:protobuf-java",
         "com.google.protobuf:protobuf-javalite",
     ],
+    fail_if_repin_required = True,
+    maven_install_json = "//:maven_install.json",
     repositories = [
         "https://repo1.maven.org/maven2",
     ],
-    maven_install_json = "//:maven_install.json",
-    fail_if_repin_required = True,
     strict_visibility = True,
 )
 

@@ -14,7 +14,7 @@ load(
     "java_runtime_version_alias",
     "java_toolchain_alias",
 )
-load("//tools/python:private/defs.bzl", "py_binary", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
 package(default_visibility = ["//visibility:public"])
 

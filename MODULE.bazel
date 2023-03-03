@@ -19,6 +19,8 @@ bazel_dep(name = "rules_cc", version = "0.0.6")
 bazel_dep(name = "rules_java", version = "5.4.1")
 bazel_dep(name = "rules_proto", version = "5.3.0-21.7")
 bazel_dep(name = "rules_jvm_external", version = "4.5")
+bazel_dep(name = "rules_python", version = "0.19.0")
+
 single_version_override(
     module_name = "rules_jvm_external",
     patch_strip = 1,
@@ -50,3 +52,5 @@ local_path_override(
     module_name = "googleapis",
     path = "./third_party/googleapis",
 )
+
+register_toolchains("@bazel_tools//tools/python:autodetecting_toolchain")
