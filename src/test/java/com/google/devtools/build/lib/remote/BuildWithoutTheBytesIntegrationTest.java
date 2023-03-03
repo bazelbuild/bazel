@@ -101,6 +101,11 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     worker.restart();
   }
 
+  @Override
+  protected boolean hasAccessToRemoteOutputs() {
+    return true;
+  }
+
   @After
   public void tearDown() throws IOException {
     if (worker != null) {

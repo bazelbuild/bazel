@@ -20,12 +20,16 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -48,6 +52,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   protected abstract void assertOutputContains(String content, String contains) throws Exception;
 
   protected abstract void evictAllBlobs() throws Exception;
+
+  protected abstract boolean hasAccessToRemoteOutputs();
 
   protected void waitDownloads() throws Exception {
     // Trigger afterCommand of modules so that downloads are waited.
@@ -800,6 +806,62 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertOutputDoesNotExist("out/foo.txt");
     assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
     assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(0);
+  }
+
+  @Test
+  public void incrementalBuild_remoteFileMetadataIsReplacedWithLocalFileMetadata()
+      throws Exception {
+    // We need to download the intermediate output
+    if (!hasAccessToRemoteOutputs()) {
+      return;
+    }
+
+    // Arrange: Prepare workspace and run a clean build
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        "  tags = ['no-remote'],",
+        ")");
+
+    buildTarget("//:foobar");
+    assertValidOutputFile("out/foo.txt", "foo\n");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+    assertThat(getOnlyElement(getFileMetadata("//:foo").values()).isRemote()).isTrue();
+
+    // Act: Do an incremental build without any modifications
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+
+    // Assert: remote file metadata is replaced with local file metadata
+    assertValidOutputFile("out/foo.txt", "foo\n");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+    assertThat(actionEventCollector.getActionExecutedEvents()).isEmpty();
+    // Two actions are invalidated but were able to hit the action cache
+    assertThat(actionEventCollector.getCachedActionEvents()).hasSize(2);
+    assertThat(getOnlyElement(getFileMetadata("//:foo").values()).isRemote()).isFalse();
+  }
+
+  private ImmutableMap<Artifact, FileArtifactValue> getFileMetadata(String target)
+      throws Exception {
+    var result = ImmutableMap.<Artifact, FileArtifactValue>builder();
+    var evaluator = getRuntimeWrapper().getSkyframeExecutor().getEvaluator();
+    for (var artifact : getArtifacts(target)) {
+      var value = evaluator.getExistingValue(Artifact.key(artifact));
+      Preconditions.checkState(value instanceof ActionExecutionValue);
+      result.putAll(((ActionExecutionValue) value).getAllFileValues());
+    }
+    return result.buildOrThrow();
   }
 
   @Test
