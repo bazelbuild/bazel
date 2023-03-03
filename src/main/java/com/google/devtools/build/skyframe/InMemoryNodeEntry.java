@@ -214,7 +214,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public boolean hasAtLeastOneDep() {
-    return GroupedDeps.numGroups(getCompressedDirectDepsForDoneEntry()) > 0;
+    return !GroupedDeps.isEmpty(getCompressedDirectDepsForDoneEntry());
   }
 
   /** Returns the compressed {@link GroupedDeps} of direct deps. Can only be called when done. */
@@ -452,7 +452,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     }
     if (isDone()) {
       GroupedDeps directDeps =
-          keepsEdges() ? GroupedDeps.create(getCompressedDirectDepsForDoneEntry()) : EMPTY_LIST;
+          keepsEdges() ? GroupedDeps.decompress(getCompressedDirectDepsForDoneEntry()) : EMPTY_LIST;
       dirtyBuildingState = createDirtyBuildingStateForDoneNode(dirtyType, directDeps, value);
       value = null;
       this.directDeps = null;
@@ -708,7 +708,7 @@ public class InMemoryNodeEntry implements NodeEntry {
         .add(
             "directDeps",
             isDone() && keepsEdges()
-                ? GroupedDeps.create(getCompressedDirectDepsForDoneEntry())
+                ? GroupedDeps.decompress(getCompressedDirectDepsForDoneEntry())
                 : directDeps)
         .add("reverseDeps", ReverseDepsUtility.toString(this))
         .add("dirtyBuildingState", dirtyBuildingState);

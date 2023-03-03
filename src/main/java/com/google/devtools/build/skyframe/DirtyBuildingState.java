@@ -283,7 +283,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
   final ImmutableList<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
     checkState(dirtyDirectDepIndex < getNumOfGroupsInLastBuildDirectDeps(), this);
-    return getLastBuildDirectDeps().get(dirtyDirectDepIndex++);
+    return getLastBuildDirectDeps().getDepGroup(dirtyDirectDepIndex++);
   }
 
   /**
@@ -298,7 +298,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
     }
     ImmutableSet.Builder<SkyKey> result = ImmutableSet.builder();
     for (int ind = dirtyDirectDepIndex; ind < getNumOfGroupsInLastBuildDirectDeps(); ind++) {
-      result.addAll(getLastBuildDirectDeps().get(ind));
+      result.addAll(getLastBuildDirectDeps().getDepGroup(ind));
     }
     if (!preservePosition) {
       dirtyDirectDepIndex = getNumOfGroupsInLastBuildDirectDeps();
@@ -453,7 +453,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
 
     @Override
     protected int getNumOfGroupsInLastBuildDirectDeps() {
-      return lastBuildDirectDeps == null ? 0 : lastBuildDirectDeps.listSize();
+      return lastBuildDirectDeps == null ? 0 : lastBuildDirectDeps.numGroups();
     }
 
     @Override
