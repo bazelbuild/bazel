@@ -107,7 +107,7 @@ gen_workspace_stanza(
     ] + [
         "remotejdk%s_%s" % (version, os)
         for version in ("17", "19")
-        for os in ("macos", "macos_aarch64", "linux", "linux_aarch64", "win") + (("win_arm64",) if version != "19" else ())
+        for os in ("macos", "macos_aarch64", "linux", "linux_aarch64", "linux_s390x", "win") + (("win_arm64",) if version != "19" else ())
     ],
     template = "jdk.WORKSPACE.tmpl",
     visibility = ["//:__pkg__"],

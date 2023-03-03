@@ -485,6 +485,7 @@ DIST_DEPS = {
     "remotejdk11_linux_s390x": {
         "aliases": [
             "remotejdk11_linux_s390x_for_testing",
+            "openjdk11_linux_s390x_archive",
         ],
         "sha256": "a58fc0361966af0a5d5a31a2d8a208e3c9bb0f54f345596fd80b99ea9a39788b",
         "strip_prefix": "jdk-11.0.15+10",
@@ -606,6 +607,7 @@ DIST_DEPS = {
     "remotejdk17_linux_s390x": {
         "aliases": [
             "remotejdk17_linux_s390x_for_testing",
+            "openjdk17_linux_s390x_archive",
             "openjdk_linux_s390x_vanilla",
         ],
         "archive": "OpenJDK17U-jdk_s390x_linux_hotspot_17.0.4.1_1.tar.gz",
@@ -698,6 +700,19 @@ DIST_DEPS = {
         "urls": [
             "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-linux_aarch64.tar.gz",
             "https://cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-linux_aarch64.tar.gz",
+        ],
+        "used_in": ["test_WORKSPACE_files"],
+    },
+    "remotejdk19_linux_s390x": {
+        "aliases": [
+            "remotejdk19_linux_s390x_for_testing",
+            "openjdk19_linux_s390x_archive",
+        ],
+        "archive": "OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
+        "sha256": "f2512f9a8e9847dd5d3557c39b485a8e7a1ef37b601dcbcb748d22e49f44815c",
+        "strip_prefix": "jdk-19.0.2+7",
+        "urls": [
+            "https://github.com/adoptium/temurin19-binaries/releases/download/jdk-19.0.2%2B7/OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
         ],
         "used_in": ["test_WORKSPACE_files"],
     },

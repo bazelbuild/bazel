@@ -419,7 +419,7 @@ _JDKS = [
 ] + [
     "remotejdk%s_%s" % (version, os)
     for version in ("17", "19")
-    for os in ("linux", "linux_aarch64", "macos", "macos_aarch64", "win") + (("win_arm64",) if version != "19" else ())
+    for os in ("linux", "linux_aarch64", "linux_s390x", "macos", "macos_aarch64", "win") + (("win_arm64",) if version != "19" else ())
 ]
 
 [
