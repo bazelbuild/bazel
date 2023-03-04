@@ -684,12 +684,12 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public Depset getStarlarkInputs() {
-    return Depset.of(Artifact.TYPE, getInputs());
+    return Depset.of(Artifact.class, getInputs());
   }
 
   @Override
   public Depset getStarlarkOutputs() {
-    return Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, getOutputs()));
+    return Depset.of(Artifact.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getOutputs()));
   }
 
   @Override

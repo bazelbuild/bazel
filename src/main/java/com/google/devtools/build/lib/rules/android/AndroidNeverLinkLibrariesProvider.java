@@ -61,7 +61,7 @@ public final class AndroidNeverLinkLibrariesProvider extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getTransitiveNeverLinkLibrariesForStarlark() {
-    return Depset.of(Artifact.TYPE, transitiveNeverLinkLibraries);
+    return Depset.of(Artifact.class, transitiveNeverLinkLibraries);
   }
 
   /** Provider class for {@link AndroidNeverLinkLibrariesProvider} objects. */

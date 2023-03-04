@@ -165,7 +165,7 @@ public final class JavaGenJarsProvider
 
   @Override
   public Depset /*<Artifact>*/ getTransitiveGenClassJarsForStarlark() {
-    return Depset.of(Artifact.TYPE, transitiveGenClassJars);
+    return Depset.of(Artifact.class, transitiveGenClassJars);
   }
 
   NestedSet<Artifact> getTransitiveGenClassJars() {
@@ -174,7 +174,7 @@ public final class JavaGenJarsProvider
 
   @Override
   public Depset /*<Artifact>*/ getTransitiveGenSourceJarsForStarlark() {
-    return Depset.of(Artifact.TYPE, transitiveGenSourceJars);
+    return Depset.of(Artifact.class, transitiveGenSourceJars);
   }
 
   NestedSet<Artifact> getTransitiveGenSourceJars() {
@@ -183,7 +183,7 @@ public final class JavaGenJarsProvider
 
   @Override
   public Depset /*<Artifact>*/ getProcessorClasspathForStarlark() {
-    return Depset.of(Artifact.TYPE, processorClasspath);
+    return Depset.of(Artifact.class, processorClasspath);
   }
 
   NestedSet<Artifact> getProcessorClasspath() {

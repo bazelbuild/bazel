@@ -116,9 +116,9 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
         /* location= */ null,
         /* interpreterPath= */ null,
         interpreter,
-        Depset.of(Artifact.TYPE, files),
+        Depset.of(Artifact.class, files),
         coverageTool,
-        coverageFiles == null ? null : Depset.of(Artifact.TYPE, coverageFiles),
+        coverageFiles == null ? null : Depset.of(Artifact.class, coverageFiles),
         pythonVersion,
         stubShebang,
         bootstrapTemplate);
@@ -138,7 +138,7 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
         /* interpreter= */ null,
         /* files= */ null,
         coverageTool,
-        coverageFiles == null ? null : Depset.of(Artifact.TYPE, coverageFiles),
+        coverageFiles == null ? null : Depset.of(Artifact.class, coverageFiles),
         pythonVersion,
         stubShebang,
         bootstrapTemplate);
@@ -320,7 +320,7 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
       Location loc = thread.getCallerLocation();
       if (isInBuildRuntime) {
         if (filesDepset == null) {
-          filesDepset = Depset.of(Artifact.TYPE, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+          filesDepset = Depset.of(Artifact.class, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
         }
         return new PyRuntimeInfo(
             loc,

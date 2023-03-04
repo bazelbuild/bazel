@@ -61,7 +61,7 @@ public class ObjcProviderStarlarkConverters {
     for (PathFragment path : pathFragments.toList()) {
       result.add(path.getSafePathString());
     }
-    return Depset.of(Depset.ElementType.STRING, result.build());
+    return Depset.of(String.class, result.build());
   }
 
   /** A converter for ObjcProvider values. */

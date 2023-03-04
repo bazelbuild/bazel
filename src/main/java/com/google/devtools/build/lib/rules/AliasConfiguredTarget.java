@@ -168,7 +168,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
       // A shortcut for files to build in Starlark. FileConfiguredTarget and RuleConfiguredTarget
       // always has FileProvider and Error- and PackageGroupConfiguredTarget-s shouldn't be
       // accessible in Starlark.
-      return Depset.of(Artifact.TYPE, getProvider(FileProvider.class).getFilesToBuild());
+      return Depset.of(Artifact.class, getProvider(FileProvider.class).getFilesToBuild());
     }
     return actual.getValue(name);
   }

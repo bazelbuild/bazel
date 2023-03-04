@@ -78,12 +78,12 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
 
   @Override
   public Depset /*<String>*/ getDynamicFrameworkDirs() {
-    return Depset.of(Depset.ElementType.STRING, dynamicFrameworkDirs);
+    return Depset.of(String.class, dynamicFrameworkDirs);
   }
 
   @Override
   public Depset /*<Artifact>*/ getDynamicFrameworkFiles() {
-    return Depset.of(Artifact.TYPE, dynamicFrameworkFiles);
+    return Depset.of(Artifact.class, dynamicFrameworkFiles);
   }
 
   @Override

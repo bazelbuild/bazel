@@ -505,11 +505,11 @@ public class JavaStarlarkCommon
       return runtimeClasspath;
     } else {
       return Depset.of(
-          Artifact.TYPE,
+          Artifact.class,
           NestedSetBuilder.wrap(
               Order.STABLE_ORDER,
               Iterables.filter(
-                  runtimeClasspath.toList(),
+                  runtimeClasspath.toList(Artifact.class),
                   Predicates.not(Predicates.in(excludedArtifacts.getSet().toSet())))));
     }
   }

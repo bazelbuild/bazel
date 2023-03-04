@@ -114,7 +114,7 @@ public final class AndroidAssetsInfo extends NativeInfo
 
   @Override
   public Depset /*<ParsedAndroidAssets>*/ getDirectParsedAssetsForStarlark() {
-    return Depset.of(ParsedAndroidAssets.TYPE, directParsedAssets);
+    return Depset.of(ParsedAndroidAssets.class, directParsedAssets);
   }
 
   public NestedSet<ParsedAndroidAssets> getDirectParsedAssets() {
@@ -135,7 +135,7 @@ public final class AndroidAssetsInfo extends NativeInfo
 
   @Override
   public Depset /*<ParsedAndroidAssets>*/ getTransitiveParsedAssetsForStarlark() {
-    return Depset.of(ParsedAndroidAssets.TYPE, transitiveParsedAssets);
+    return Depset.of(ParsedAndroidAssets.class, transitiveParsedAssets);
   }
 
   public NestedSet<ParsedAndroidAssets> getTransitiveParsedAssets() {
@@ -144,7 +144,7 @@ public final class AndroidAssetsInfo extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getAssetsForStarlark() {
-    return Depset.of(Artifact.TYPE, transitiveAssets);
+    return Depset.of(Artifact.class, transitiveAssets);
   }
 
   public NestedSet<Artifact> getAssets() {
@@ -153,7 +153,7 @@ public final class AndroidAssetsInfo extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getSymbolsForStarlark() {
-    return Depset.of(Artifact.TYPE, transitiveSymbols);
+    return Depset.of(Artifact.class, transitiveSymbols);
   }
 
   public NestedSet<Artifact> getSymbols() {
@@ -168,7 +168,7 @@ public final class AndroidAssetsInfo extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getCompiledSymbolsForStarlark() {
-    return Depset.of(Artifact.TYPE, transitiveCompiledSymbols);
+    return Depset.of(Artifact.class, transitiveCompiledSymbols);
   }
 
   NestedSet<Artifact> getCompiledSymbols() {

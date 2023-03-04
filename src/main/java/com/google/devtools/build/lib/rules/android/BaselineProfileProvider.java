@@ -49,7 +49,7 @@ public final class BaselineProfileProvider extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getTransitiveBaselineProfilesForStarlark() {
-    return Depset.of(Artifact.TYPE, transitiveBaselineProfiles);
+    return Depset.of(Artifact.class, transitiveBaselineProfiles);
   }
 
   public NestedSet<Artifact> getTransitiveBaselineProfiles() {

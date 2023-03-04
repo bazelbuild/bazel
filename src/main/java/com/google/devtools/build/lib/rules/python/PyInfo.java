@@ -196,7 +196,7 @@ public final class PyInfo implements Info, PyInfoApi<Artifact> {
         throws EvalException {
       Depset imports =
           importsUncast.equals(Starlark.UNBOUND)
-              ? Depset.of(Depset.ElementType.STRING, NestedSetBuilder.emptySet(Order.COMPILE_ORDER))
+              ? Depset.of(String.class, NestedSetBuilder.emptySet(Order.COMPILE_ORDER))
               : (Depset) importsUncast;
 
       if (!depsetHasTypeAndCompatibleOrder(transitiveSources, Artifact.TYPE, Order.COMPILE_ORDER)) {
@@ -280,9 +280,9 @@ public final class PyInfo implements Info, PyInfoApi<Artifact> {
       Preconditions.checkNotNull(transitiveSources);
       return new PyInfo(
           location,
-          Depset.of(Artifact.TYPE, transitiveSources),
+          Depset.of(Artifact.class, transitiveSources),
           usesSharedLibraries,
-          Depset.of(Depset.ElementType.STRING, imports),
+          Depset.of(String.class, imports),
           hasPy2OnlySources,
           hasPy3OnlySources);
     }

@@ -1120,7 +1120,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
             .addToolDependencies(Sequence.cast(tools, TransitiveInfoCollection.class, "tools"))
             .build();
     return Tuple.pair(
-        Depset.of(Artifact.TYPE, helper.getResolvedTools()), helper.getToolsRunfilesSuppliers());
+        Depset.of(Artifact.class, helper.getResolvedTools()), helper.getToolsRunfilesSuppliers());
   }
 
   public StarlarkSemantics getStarlarkSemantics() {

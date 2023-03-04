@@ -431,14 +431,14 @@ public final class CcToolchainProvider extends NativeInfo
 
   @Override
   public Depset getAllFilesForStarlark() {
-    return Depset.of(Artifact.TYPE, getAllFiles());
+    return Depset.of(Artifact.class, getAllFiles());
   }
 
   @Override
   public Depset getStaticRuntimeLibForStarlark(
       FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
     return Depset.of(
-        Artifact.TYPE,
+        Artifact.class,
         getStaticRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
@@ -446,7 +446,7 @@ public final class CcToolchainProvider extends NativeInfo
   public Depset getDynamicRuntimeLibForStarlark(
       FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
     return Depset.of(
-        Artifact.TYPE,
+        Artifact.class,
         getDynamicRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
@@ -473,7 +473,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getAllFilesIncludingLibcForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getAllFilesIncludingLibc());
+    return Depset.of(Artifact.class, getAllFilesIncludingLibc());
   }
 
   /** Returns the files necessary for compilation. */
@@ -484,7 +484,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getCompilerFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getCompilerFiles());
+    return Depset.of(Artifact.class, getCompilerFiles());
   }
 
   /**
@@ -507,7 +507,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getStripFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getStripFiles());
+    return Depset.of(Artifact.class, getStripFiles());
   }
 
   /** Returns the files necessary for an 'objcopy' invocation. */
@@ -518,7 +518,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getObjcopyFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getObjcopyFiles());
+    return Depset.of(Artifact.class, getObjcopyFiles());
   }
 
   /**
@@ -532,7 +532,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getAsFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getAsFiles());
+    return Depset.of(Artifact.class, getAsFiles());
   }
 
   /**
@@ -546,7 +546,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getArFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getArFiles());
+    return Depset.of(Artifact.class, getArFiles());
   }
 
   /** Returns the files necessary for linking, including the files needed for libc. */
@@ -557,7 +557,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getLinkerFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getLinkerFiles());
+    return Depset.of(Artifact.class, getLinkerFiles());
   }
 
   public NestedSet<Artifact> getDwpFiles() {
@@ -567,7 +567,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getDwpFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getDwpFiles());
+    return Depset.of(Artifact.class, getDwpFiles());
   }
 
   /** Returns the files necessary for capturing code coverage. */
@@ -578,7 +578,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getCoverageFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getCoverageFiles());
+    return Depset.of(Artifact.class, getCoverageFiles());
   }
 
   public NestedSet<Artifact> getLibcLink(CppConfiguration cppConfiguration) {
