@@ -716,7 +716,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<LibraryToLink>*/ ccLibrariesForStarlark() {
-    return Depset.of(Artifact.TYPE, get(ObjcProvider.CC_LIBRARY));
+    return Depset.of(LibraryToLink.class, get(ObjcProvider.CC_LIBRARY));
   }
 
   @Override
