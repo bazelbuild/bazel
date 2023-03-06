@@ -352,13 +352,15 @@ cleanupPid=$!
 
 set +m
 
+# Wait until $childPid fully exits.
+# We need to wait in a loop because wait is interrupted by any incoming trapped
+# signal (https://www.gnu.org/software/bash/manual/bash.html#Signals).
+while kill -0 $childPid 2>/dev/null; do
+  wait $childPid
+done
+# Wait one more time to retrieve the exit code.
 wait $childPid
-# If interrupted by a signal, use the signal as the exit code. But allow
-# the child to actually finish from the signal we sent _it_ via signal_child.
-# (Waiting on a stopped process is a no-op).
-# Only once - if we receive multiple signals (of any sort), give up.
 exitCode=$?
-wait $childPid
 
 # By this point, we have everything we're willing to wait for. Tidy up our own
 # processes and move on.
