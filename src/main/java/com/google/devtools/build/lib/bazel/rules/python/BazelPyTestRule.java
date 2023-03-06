@@ -77,7 +77,7 @@ public final class BazelPyTestRule implements RuleDefinition {
         .name("py_test")
         .type(RuleClassType.TEST)
         .ancestors(PyBinaryBaseRule.class, BaseRuleClasses.TestBaseRule.class)
-        .factoryClass(BazelPyTest.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

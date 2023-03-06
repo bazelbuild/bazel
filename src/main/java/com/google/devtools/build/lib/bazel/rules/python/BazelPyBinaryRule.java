@@ -58,7 +58,7 @@ public final class BazelPyBinaryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("py_binary")
         .ancestors(PyBinaryBaseRule.class, BaseRuleClasses.BinaryBaseRule.class)
-        .factoryClass(BazelPyBinary.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }
