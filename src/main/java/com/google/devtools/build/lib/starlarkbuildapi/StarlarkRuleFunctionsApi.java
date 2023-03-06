@@ -516,8 +516,8 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             doc =
                 "A Starlark function that implements this aspect, with exactly two parameters: "
                     + "<a href=\"Target.html\">Target</a> (the target to which the aspect is "
-                    + "applied) and <a href=\"ctx.html\">ctx</a> (the rule context which the target"
-                    + "is created from). Attributes of the target are available via the "
+                    + "applied) and <a href=\"ctx.html\">ctx</a> (the rule context which the "
+                    + "target is created from). Attributes of the target are available via the "
                     + "<code>ctx.rule</code> field. This function is evaluated during the "
                     + "analysis phase for each application of an aspect to a target."),
         @Param(
@@ -527,7 +527,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "[]",
             doc =
                 "List of attribute names. The aspect propagates along dependencies specified in "
-                    + " the attributes of a target with these names. Common values here include "
+                    + "the attributes of a target with these names. Common values here include "
                     + "<code>deps</code> and <code>exports</code>. The list can also contain a "
                     + "single string <code>\"*\"</code> to propagate along all dependencies of a "
                     + "target."),
