@@ -33,6 +33,7 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.SHARED_LIBRAR
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHARED_LIBRARY;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.In
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolver;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -554,7 +556,12 @@ public class CppRuleClasses {
   public static final class CcLinkingRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder.addExecGroup(CPP_LINK_EXEC_GROUP).build();
+      return builder
+          .addExecGroups(
+              ImmutableMap.of(
+                  CPP_LINK_EXEC_GROUP,
+                  ExecGroup.builder().addToolchainType(ccToolchainTypeRequirement(env)).build()))
+          .build();
     }
 
     @Override
