@@ -440,6 +440,17 @@ public final class StarlarkThread {
     return ImmutableList.copyOf(callstack);
   }
 
+  @Nullable
+  StarlarkFunction getInnermostEnclosingStarlarkFunction() {
+    for (int i = callstack.size() - 1; i >= 0; i--) {
+      Debug.Frame fr = callstack.get(i);
+      if (fr.getFunction() instanceof StarlarkFunction) {
+        return (StarlarkFunction) fr.getFunction();
+      }
+    }
+    return null;
+  }
+
   /** Returns the size of the callstack. This is needed for the debugger. */
   int getCallStackSize() {
     return callstack.size();

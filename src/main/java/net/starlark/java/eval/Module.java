@@ -104,10 +104,9 @@ public final class Module implements Resolver.Module {
    */
   @Nullable
   public static Module ofInnermostEnclosingStarlarkFunction(StarlarkThread thread) {
-    for (Debug.Frame fr : thread.getDebugCallStack().reverse()) {
-      if (fr.getFunction() instanceof StarlarkFunction) {
-        return ((StarlarkFunction) fr.getFunction()).getModule();
-      }
+    StarlarkFunction fn = thread.getInnermostEnclosingStarlarkFunction();
+    if (fn != null) {
+      return fn.getModule();
     }
     return null;
   }
