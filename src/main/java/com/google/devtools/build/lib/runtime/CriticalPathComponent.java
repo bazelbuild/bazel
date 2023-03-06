@@ -97,7 +97,8 @@ public class CriticalPathComponent {
    * with the total spawn metrics. To make sure not to add the last phase's duration multiple times,
    * only add if there is duration and reset the phase metrics once it has been aggregated.
    */
-  public synchronized void finishActionExecution(long startNanos, long finishNanos) {
+  public synchronized void finishActionExecution(
+      long startNanos, long finishNanos, String finalizeReason) {
     if (isRunning || finishNanos - startNanos > getElapsedTimeNanos()) {
       this.startNanos = startNanos;
       this.finishNanos = finishNanos;
@@ -106,6 +107,13 @@ public class CriticalPathComponent {
       // this component.
       aggregatedElapsedTime = Math.max(aggregatedElapsedTime, this.finishNanos - this.startNanos);
       isRunning = false;
+      if (longestPhaseSpawnRunnerName == null && !finalizeReason.isEmpty()) {
+        // This is probably not the best way to do it in face of getting called multiple times.
+        longestPhaseSpawnRunnerName = finalizeReason;
+        longestPhaseSpawnRunnerSubtype = "";
+        longestRunningTotalDurationInMs =
+            (int) Duration.ofNanos(this.finishNanos - this.startNanos).toMillis();
+      }
     }
 
     // If the phaseMaxMetrics has Duration, then we want to aggregate it to the total.
