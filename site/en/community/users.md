@@ -251,6 +251,22 @@ for our go, java and python projects.
 LinkedIn, a subsidiary of Microsoft, is the world’s largest professional social
 network. LinkedIn uses Bazel for building its iOS Apps.
 
+### [Lucid Software](https://lucid.co/){: .external}
+
+<img src="/community/images/Lucid_Software-logo.svg" width="150" align="right">
+
+Lucid Software is a leader in visual collaboration, helping teams see and build the 
+future from idea to reality. With its products—[Lucidchart](https://www.lucidchart.com/), 
+[Lucidspark](https://lucidspark.com/), and [Lucidscale](https://lucidscale.com/)—teams 
+can align around a shared vision, clarify complexity, and collaborate visually, no 
+matter where they’re located.
+
+Lucid uses Bazel to build millions of lines of Scala and TypeScript.
+Migrating to Bazel has tremendously sped up its builds, reduced external
+dependencies on the build environment, and simplified developers' experience
+with the build system. Bazel has improved developer productivity at Lucid and
+unlocked further growth.
+
 ### [Lyft](https://www.lyft.com/){: .external}
 
 Lyft is using Bazel for their iOS ([source](https://twitter.com/SmileyKeith/status/1116486751806033920)) and Android Apps.
