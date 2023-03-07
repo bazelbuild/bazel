@@ -26,8 +26,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -689,24 +687,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   public CppConfiguration.HeadersCheckingMode getHeadersCheckingMode() {
     return headersCheckingMode;
-  }
-
-  public static ImmutableList<CcCompilationContext> getCcCompilationContexts(
-      Iterable<? extends TransitiveInfoCollection> deps) {
-    ImmutableList.Builder<CcCompilationContext> ccCompilationContextsBuilder =
-        ImmutableList.builder();
-    for (CcInfo ccInfo : AnalysisUtils.getProviders(deps, CcInfo.PROVIDER)) {
-      ccCompilationContextsBuilder.add(ccInfo.getCcCompilationContext());
-    }
-    return ccCompilationContextsBuilder.build();
-  }
-
-  public static CcCompilationContext merge(Collection<CcCompilationContext> ccCompilationContexts) {
-    CcCompilationContext.Builder builder =
-        CcCompilationContext.builder(
-            /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
-    builder.addDependentCcCompilationContexts(ccCompilationContexts);
-    return builder.build();
   }
 
   public NestedSet<Tuple> getVirtualToOriginalHeaders() {
