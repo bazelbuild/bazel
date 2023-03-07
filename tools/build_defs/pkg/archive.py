@@ -47,7 +47,7 @@ class TarFileWriter(object):
     self.preserve_mtime = preserve_tar_mtimes
 
     self.fileobj = None
-    self.tar = tarfile.open(name=name, mode=mode, fileobj=self.fileobj)
+    self.tar = tarfile.open(name=name, mode=mode, fileobj=self.fileobj, format=tarfile.GNU_FORMAT)
     self.members = set([])
     self.directories = set([])
 
