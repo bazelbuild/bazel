@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
@@ -44,19 +45,17 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -68,18 +67,21 @@ import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 
-/** Base test class for {@link AbstractActionInputPrefetcher} implementations. */
+/**
+ * Base test class for {@link AbstractActionInputPrefetcher} implementations.
+ */
 public abstract class ActionInputPrefetcherTestBase {
+
   protected static final DigestHashFunction HASH_FUNCTION = DigestHashFunction.SHA256;
 
-  protected FileSystem fs;
+  protected SpiedFileSystem fs;
   protected Path execRoot;
   protected ArtifactRoot artifactRoot;
   protected TempPathGenerator tempPathGenerator;
 
   @Before
   public void setUp() throws IOException {
-    fs = new InMemoryFileSystem(new JavaClock(), HASH_FUNCTION);
+    fs = SpiedFileSystem.createInMemorySpy();
     execRoot = fs.getPath("/exec");
     execRoot.createDirectoryAndParents();
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "root");
@@ -419,6 +421,31 @@ public abstract class ActionInputPrefetcherTestBase {
     assertThat(FileSystemUtils.readContent(secondChild.getPath(), UTF_8)).isEqualTo("content2");
     assertTreeReadableNonWritableAndExecutable(tree.getPath());
     assertThat(prefetcher.downloadedFiles()).containsExactly(secondChild.getPath());
+  }
+
+  @Test
+  public void prefetchFiles_treeFiles_minimizeFilesystemOperations() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+        createRemoteTreeArtifact(
+            "dir",
+            /* localContentMap= */ ImmutableMap.of("subdir/file1", "content1"),
+            /* remoteContentMap= */ ImmutableMap.of("subdir/file2", "content2"),
+            metadata,
+            cas);
+    SpecialArtifact tree = treeAndChildren.getFirst();
+    ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
+    Artifact firstChild = children.get(0);
+    Artifact secondChild = children.get(1);
+
+    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+
+    wait(prefetcher.prefetchFiles(ImmutableList.of(firstChild, secondChild), metadataProvider));
+
+    verify(fs, times(1)).createWritableDirectory(tree.getPath().asFragment());
+    verify(fs, times(1)).createWritableDirectory(tree.getPath().getChild("subdir").asFragment());
   }
 
   @Test
