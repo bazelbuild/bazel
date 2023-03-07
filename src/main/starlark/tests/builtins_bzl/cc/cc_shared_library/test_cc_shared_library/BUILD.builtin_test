@@ -7,7 +7,6 @@ load(
     "linking_suffix_test",
     "paths_test",
     "runfiles_test",
-    "no_exporting_static_lib_test",
     "check_already_linked_inputs_are_not_passed_to_linking_action_test",
 )
 
@@ -386,51 +385,6 @@ cc_library(
     ],
 )
 
-cc_library(
-    name = "static_lib_no_exporting",
-    srcs = [
-        "bar.cc",
-        "bar.h",
-    ],
-    tags = ["NO_EXPORTING"],
-)
-
-cc_library(
-    name = "static_lib_exporting",
-    srcs = [
-        "bar2.cc",
-        "bar2.h",
-    ],
-)
-
-cc_shared_library(
-    name = "lib_with_no_exporting_roots_1",
-    deps = [":static_lib_no_exporting"],
-)
-
-cc_shared_library(
-    name = "lib_with_no_exporting_roots_2",
-    deps = [":static_lib_no_exporting"],
-    dynamic_deps = [":lib_with_no_exporting_roots_3"],
-)
-
-cc_shared_library(
-    name = "lib_with_no_exporting_roots_3",
-    deps = [":static_lib_no_exporting"],
-)
-
-cc_shared_library(
-    name = "lib_with_no_exporting_roots",
-    deps = [
-        ":static_lib_no_exporting",
-        ":static_lib_exporting",
-    ],
-    dynamic_deps = [
-        ":lib_with_no_exporting_roots_1",
-        ":lib_with_no_exporting_roots_2",
-    ],
-)
-
 build_failure_test(
     name = "two_dynamic_deps_same_export_in_so_test",
     message = "Two shared libraries in dependencies export the same symbols",
@@ -464,11 +418,6 @@ runfiles_test(
         "//conditions:default": False,
     }),
     target_under_test = ":python_test",
-)
-
-no_exporting_static_lib_test(
-    name = "no_exporting_static_lib_test",
-    target_under_test = ":lib_with_no_exporting_roots",
 )
 
 check_already_linked_inputs_are_not_passed_to_linking_action_test(
