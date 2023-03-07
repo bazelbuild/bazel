@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -28,6 +27,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Collection;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -155,7 +155,7 @@ public class TransitiveTraversalFunction
   private static int getLastPackageValueIndex(GroupedDeps directDeps) {
     int directDepsNumGroups = directDeps.numGroups();
     for (int i = directDepsNumGroups - 1; i >= 0; i--) {
-      ImmutableList<SkyKey> depGroup = directDeps.getDepGroup(i);
+      List<SkyKey> depGroup = directDeps.getDepGroup(i);
       if (depGroup.size() == 1 && depGroup.get(0).functionName().equals(SkyFunctions.PACKAGE)) {
         return i;
       }

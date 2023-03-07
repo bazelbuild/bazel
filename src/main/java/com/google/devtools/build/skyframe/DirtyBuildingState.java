@@ -18,11 +18,11 @@ import static java.lang.Math.min;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
+import java.util.List;
 import javax.annotation.Nullable;
 import sun.misc.Unsafe;
 
@@ -280,7 +280,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    *
    * <p>See {@link NodeEntry#getNextDirtyDirectDeps}.
    */
-  final ImmutableList<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
+  final List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
     checkState(dirtyDirectDepIndex < getNumOfGroupsInLastBuildDirectDeps(), this);
     return getLastBuildDirectDeps().getDepGroup(dirtyDirectDepIndex++);

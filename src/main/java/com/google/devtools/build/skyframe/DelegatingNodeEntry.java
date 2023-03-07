@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import java.util.Set;
@@ -99,7 +98,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public ImmutableList<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
+  public List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     return getDelegate().getNextDirtyDirectDeps();
   }
 
@@ -149,7 +148,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public void addTemporaryDirectDepGroup(ImmutableList<SkyKey> group) {
+  public void addTemporaryDirectDepGroup(List<SkyKey> group) {
     getDelegate().addTemporaryDirectDepGroup(group);
   }
 
