@@ -1548,6 +1548,7 @@ java_library(
         ":top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib:buildtool/symlink_forest",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",

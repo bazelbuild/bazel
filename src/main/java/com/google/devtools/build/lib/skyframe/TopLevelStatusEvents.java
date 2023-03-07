@@ -53,6 +53,9 @@ public final class TopLevelStatusEvents {
   /**
    * An event that signals that we can start planting the symlinks for the transitive packages under
    * a top level target.
+   *
+   * <p>Should always be sent out before {@link TopLevelEntityAnalysisConcludedEvent} to ensure
+   * consistency.
    */
   @AutoValue
   public abstract static class TopLevelTargetReadyForSymlinkPlanting implements Postable {

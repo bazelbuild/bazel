@@ -2304,7 +2304,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     setExecutionProgressReceiver(null);
 
     if (incrementalPackageRoots.isPresent()) {
-      incrementalPackageRoots.get().shutdown();
       incrementalPackageRoots = Optional.empty();
     }
     skyframeActionExecutor.executionOver();
