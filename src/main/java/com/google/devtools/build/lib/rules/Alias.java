@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -42,13 +41,8 @@ public class Alias implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException, ActionConflictException {
     ConfiguredTarget actual = (ConfiguredTarget) ruleContext.getPrerequisite("actual");
 
-    // TODO(b/129045294): Remove once the flag is flipped.
-    if (ruleContext.getLabel().getCanonicalForm().startsWith("@bazel_tools//platforms")
-        && ruleContext
-            .getConfiguration()
-            .getOptions()
-            .get(CoreOptions.class)
-            .usePlatformsRepoForConstraints) {
+    // TODO(b/129045294): Remove the logic below completely when repo is deleted.
+    if (ruleContext.getLabel().getCanonicalForm().startsWith("@bazel_tools//platforms")) {
       throw ruleContext.throwWithRuleError(
           "Constraints from @bazel_tools//platforms have been "
               + "removed. Please use constraints from @platforms repository embedded in "
