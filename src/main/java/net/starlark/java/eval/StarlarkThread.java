@@ -441,14 +441,23 @@ public final class StarlarkThread {
   }
 
   @Nullable
-  StarlarkFunction getInnermostEnclosingStarlarkFunction() {
+  StarlarkFunction getInnermostEnclosingStarlarkFunction(int depth) {
+    Preconditions.checkArgument(depth >= 0);
     for (int i = callstack.size() - 1; i >= 0; i--) {
       Debug.Frame fr = callstack.get(i);
       if (fr.getFunction() instanceof StarlarkFunction) {
-        return (StarlarkFunction) fr.getFunction();
+        if (depth == 0) {
+          return (StarlarkFunction) fr.getFunction();
+        }
+        depth--;
       }
     }
     return null;
+  }
+
+  @Nullable
+  StarlarkFunction getInnermostEnclosingStarlarkFunction() {
+    return getInnermostEnclosingStarlarkFunction(0);
   }
 
   /** Returns the size of the callstack. This is needed for the debugger. */

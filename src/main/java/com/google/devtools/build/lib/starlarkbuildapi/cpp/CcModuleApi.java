@@ -38,7 +38,7 @@ import net.starlark.java.eval.Tuple;
 
 /** Utilites related to C++ support. */
 @StarlarkBuiltin(
-    name = "cc_common",
+    name = "cc_common_internal_do_not_use",
     doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface CcModuleApi<
         StarlarkActionFactoryT extends StarlarkActionFactoryApi,
@@ -303,7 +303,10 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "unbound",
-            allowedTypes = {@ParamType(type = BuildConfigurationApi.class)})
+            allowedTypes = {
+              @ParamType(type = BuildConfigurationApi.class),
+              @ParamType(type = NoneType.class)
+            })
       })
   LinkingOutputsT link(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -379,13 +382,15 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]"),
-      })
+      },
+      useStarlarkThread = true)
   FeatureConfigurationT configureFeatures(
       Object ruleContextOrNone,
       CcToolchainProviderT toolchain,
       Object languageObject,
       Sequence<?> requestedFeatures, // <String> expected
-      Sequence<?> unsupportedFeatures) // <String> expected
+      Sequence<?> unsupportedFeatures, // <String> expected
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -432,9 +437,11 @@ public interface CcModuleApi<
       doc = "Merge compilation outputs.",
       parameters = {
         @Param(name = "compilation_outputs", positional = false, named = true, defaultValue = "[]"),
-      })
+      },
+      useStarlarkThread = true)
   CompilationOutputsT mergeCcCompilationOutputsFromStarlark(
-      Sequence<?> compilationOutputs) // <CompilationOutputsT> expected
+      Sequence<?> compilationOutputs, // <CompilationOutputsT> expected
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -455,8 +462,10 @@ public interface CcModuleApi<
                     + "action_names.bzl)",
             named = true,
             positional = false),
-      })
-  String getToolForAction(FeatureConfigurationT featureConfiguration, String actionName)
+      },
+      useStarlarkThread = true)
+  String getToolForAction(
+      FeatureConfigurationT featureConfiguration, String actionName, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -477,9 +486,11 @@ public interface CcModuleApi<
                     + "action_names.bzl)",
             named = true,
             positional = false),
-      })
+      },
+      useStarlarkThread = true)
   Sequence<String> getExecutionRequirements(
-      FeatureConfigurationT featureConfiguration, String actionName);
+      FeatureConfigurationT featureConfiguration, String actionName, StarlarkThread thread)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "is_enabled",
@@ -495,8 +506,11 @@ public interface CcModuleApi<
             doc = "Name of the feature.",
             named = true,
             positional = false),
-      })
-  boolean isEnabled(FeatureConfigurationT featureConfiguration, String featureName);
+      },
+      useStarlarkThread = true)
+  boolean isEnabled(
+      FeatureConfigurationT featureConfiguration, String featureName, StarlarkThread thread)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "action_is_enabled",
@@ -512,8 +526,11 @@ public interface CcModuleApi<
             doc = "Name of the action_config.",
             named = true,
             positional = false),
-      })
-  boolean actionIsEnabled(FeatureConfigurationT featureConfiguration, String actionName);
+      },
+      useStarlarkThread = true)
+  boolean actionIsEnabled(
+      FeatureConfigurationT featureConfiguration, String actionName, StarlarkThread thread)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "get_memory_inefficient_command_line",
@@ -542,11 +559,13 @@ public interface CcModuleApi<
             doc = "Build variables to be used for template expansions.",
             named = true,
             positional = false),
-      })
+      },
+      useStarlarkThread = true)
   Sequence<String> getCommandLine(
       FeatureConfigurationT featureConfiguration,
       String actionName,
-      CcToolchainVariablesT variables)
+      CcToolchainVariablesT variables,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -572,11 +591,13 @@ public interface CcModuleApi<
             doc = "Build variables to be used for template expansion.",
             positional = false,
             named = true),
-      })
+      },
+      useStarlarkThread = true)
   Dict<String, String> getEnvironmentVariable(
       FeatureConfigurationT featureConfiguration,
       String actionName,
-      CcToolchainVariablesT variables)
+      CcToolchainVariablesT variables,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -863,7 +884,8 @@ public interface CcModuleApi<
             named = true,
             positional = false,
             defaultValue = "True"),
-      })
+      },
+      useStarlarkThread = true)
   CcToolchainVariablesT getLinkBuildVariables(
       CcToolchainProviderT ccToolchainProvider,
       FeatureConfigurationT featureConfiguration,
@@ -877,11 +899,12 @@ public interface CcModuleApi<
       boolean isCreatingSharedLibrary,
       boolean mustKeepDebug,
       boolean useTestOnlyFlags,
-      boolean isStaticLinkingMode)
+      boolean isStaticLinkingMode,
+      StarlarkThread thread)
       throws EvalException;
 
-  @StarlarkMethod(name = "empty_variables", documented = false)
-  CcToolchainVariablesT getVariables();
+  @StarlarkMethod(name = "empty_variables", documented = false, useStarlarkThread = true)
+  CcToolchainVariablesT getVariables(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "create_library_to_link",
@@ -1153,10 +1176,12 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]")
-      })
+      },
+      useStarlarkThread = true)
   CcInfoApi<FileT> mergeCcInfos(
       Sequence<?> directCcInfos, // <CcInfoApi> expected
-      Sequence<?> ccInfos) // <CcInfoApi> expected
+      Sequence<?> ccInfos, // <CcInfoApi> expected
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -1287,8 +1312,10 @@ public interface CcModuleApi<
             doc = "C++ toolchain provider to be used.",
             positional = false,
             named = true)
-      })
-  String legacyCcFlagsMakeVariable(CcToolchainProviderT ccToolchain);
+      },
+      useStarlarkThread = true)
+  String legacyCcFlagsMakeVariable(CcToolchainProviderT ccToolchain, StarlarkThread thread)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "is_cc_toolchain_resolution_enabled_do_not_use",
@@ -1296,12 +1323,15 @@ public interface CcModuleApi<
       parameters = {
         @Param(name = "ctx", positional = false, named = true, doc = "The rule context."),
       },
-      doc = "Returns true if the --incompatible_enable_cc_toolchain_resolution flag is enabled.")
-  boolean isCcToolchainResolutionEnabled(StarlarkRuleContextT ruleContext);
+      doc = "Returns true if the --incompatible_enable_cc_toolchain_resolution flag is enabled.",
+      useStarlarkThread = true)
+  boolean isCcToolchainResolutionEnabled(StarlarkRuleContextT ruleContext, StarlarkThread thread)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "create_cc_toolchain_config_info",
       doc = "Creates a <code>CcToolchainConfigInfo</code> provider",
+      useStarlarkThread = true,
       parameters = {
         @Param(name = "ctx", positional = false, named = true, doc = "The rule context."),
         @Param(
@@ -1491,7 +1521,8 @@ public interface CcModuleApi<
       Sequence<?> toolPaths, // <StructApi> expected
       Sequence<?> makeVariables, // <StructApi> expected
       Object builtinSysroot,
-      Object ccTargetOs)
+      Object ccTargetOs,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -1702,6 +1733,7 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "merge_compilation_contexts",
       doc = "Merges multiple <code>CompilationContexts</code>s into one.",
+      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "compilation_contexts",
@@ -1713,7 +1745,8 @@ public interface CcModuleApi<
             defaultValue = "[]"),
       })
   CompilationContextT mergeCompilationContexts(
-      Sequence<?> compilationContexts) // <CcCompilationContextApi> expected
+      Sequence<?> compilationContexts, // <CcCompilationContextApi> expected
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(

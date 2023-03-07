@@ -22,7 +22,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 
 /** Utilites related to C++ support. */
 @StarlarkBuiltin(
-    name = "cc_common",
+    name = "cc_common_internal_do_not_use",
     doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface BazelCcModuleApi<
         StarlarkActionFactoryT extends StarlarkActionFactoryApi,

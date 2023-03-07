@@ -62,6 +62,7 @@ public class CcRules implements RuleSet {
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     GraphNodeAspect graphNodeAspect = new GraphNodeAspect();
+    BazelCcModule bazelCcModule = new BazelCcModule();
     builder.addConfigurationFragment(CppConfiguration.class);
     builder.addStarlarkAccessibleTopLevels("CcSharedLibraryInfo", Starlark.NONE);
     builder.addBuildInfoFactory(new CppBuildInfo());
@@ -91,9 +92,10 @@ public class CcRules implements RuleSet {
     builder.addStarlarkBuiltinsInternal(
         "StaticallyLinkedMarkerProvider", StaticallyLinkedMarkerProvider.PROVIDER);
     builder.addStarlarkBuiltinsInternal("CcNativeLibraryInfo", CcNativeLibraryInfo.PROVIDER);
+    builder.addStarlarkBuiltinsInternal("cc_common_internal_do_not_use", bazelCcModule);
     builder.addStarlarkBootstrap(
         new CcBootstrap(
-            new BazelCcModule(),
+            bazelCcModule,
             CcInfo.PROVIDER,
             DebugPackageProvider.PROVIDER,
             CcToolchainConfigInfo.PROVIDER));

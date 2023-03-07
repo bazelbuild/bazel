@@ -15,8 +15,7 @@
 """Semantics for Bazel cc rules"""
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
-
-cc_common = _builtins.toplevel.cc_common
+load(":common/cc/cc_common.bzl", "cc_common")
 
 def _get_proto_aspects():
     return []

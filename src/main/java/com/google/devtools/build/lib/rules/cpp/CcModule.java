@@ -169,8 +169,10 @@ public abstract class CcModule
       CcToolchainProvider toolchain,
       Object languageObject,
       Sequence<?> requestedFeatures, // <String> expected
-      Sequence<?> unsupportedFeatures) // <String> expected
+      Sequence<?> unsupportedFeatures, // <String> expected
+      StarlarkThread thread)
       throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     StarlarkRuleContext ruleContext = nullIfNone(ruleContextOrNone, StarlarkRuleContext.class);
 
     String languageString = convertFromNoneable(languageObject, Language.CPP.getRepresentation());
@@ -226,8 +228,11 @@ public abstract class CcModule
 
   @Override
   public String getToolForAction(
-      FeatureConfigurationForStarlark featureConfiguration, String actionName)
+      FeatureConfigurationForStarlark featureConfiguration,
+      String actionName,
+      StarlarkThread thread)
       throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     try {
       return featureConfiguration.getFeatureConfiguration().getToolPathForAction(actionName);
     } catch (IllegalArgumentException illegalArgumentException) {
@@ -241,27 +246,39 @@ public abstract class CcModule
       String actionName,
       StarlarkThread thread)
       throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    isCalledFromStarlarkCcCommon(thread);
     return StarlarkList.immutableCopyOf(
         featureConfiguration.getFeatureConfiguration().getToolRequirementsForAction(actionName));
   }
 
   @Override
   public Sequence<String> getExecutionRequirements(
-      FeatureConfigurationForStarlark featureConfiguration, String actionName) {
+      FeatureConfigurationForStarlark featureConfiguration,
+      String actionName,
+      StarlarkThread thread)
+      throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     return StarlarkList.immutableCopyOf(
         featureConfiguration.getFeatureConfiguration().getToolRequirementsForAction(actionName));
   }
 
   @Override
   public boolean isEnabled(
-      FeatureConfigurationForStarlark featureConfiguration, String featureName) {
+      FeatureConfigurationForStarlark featureConfiguration,
+      String featureName,
+      StarlarkThread thread)
+      throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     return featureConfiguration.getFeatureConfiguration().isEnabled(featureName);
   }
 
   @Override
   public boolean actionIsEnabled(
-      FeatureConfigurationForStarlark featureConfiguration, String actionName) {
+      FeatureConfigurationForStarlark featureConfiguration,
+      String actionName,
+      StarlarkThread thread)
+      throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     return featureConfiguration.getFeatureConfiguration().actionIsConfigured(actionName);
   }
 
@@ -269,8 +286,10 @@ public abstract class CcModule
   public Sequence<String> getCommandLine(
       FeatureConfigurationForStarlark featureConfiguration,
       String actionName,
-      CcToolchainVariables variables)
+      CcToolchainVariables variables,
+      StarlarkThread thread)
       throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     return StarlarkList.immutableCopyOf(
         featureConfiguration.getFeatureConfiguration().getCommandLine(actionName, variables));
   }
@@ -279,8 +298,10 @@ public abstract class CcModule
   public Dict<String, String> getEnvironmentVariable(
       FeatureConfigurationForStarlark featureConfiguration,
       String actionName,
-      CcToolchainVariables variables)
+      CcToolchainVariables variables,
+      StarlarkThread thread)
       throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     return Dict.immutableCopyOf(
         featureConfiguration
             .getFeatureConfiguration()
@@ -309,9 +330,7 @@ public abstract class CcModule
       Object inputFile,
       StarlarkThread thread)
       throws EvalException {
-    if (checkObjectsBound(stripOpts, inputFile)) {
-      CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    }
+    isCalledFromStarlarkCcCommon(thread);
     ImmutableList<VariablesExtension> variablesExtensions =
         asDict(variablesExtension).isEmpty()
             ? ImmutableList.of()
@@ -376,8 +395,10 @@ public abstract class CcModule
       boolean isCreatingSharedLibrary,
       boolean mustKeepDebug,
       boolean useTestOnlyFlags,
-      boolean isStaticLinkingMode)
+      boolean isStaticLinkingMode,
+      StarlarkThread thread)
       throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     if (featureConfiguration.getFeatureConfiguration().isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       throw Starlark.errorf("FDO instrumentation not supported");
     }
@@ -413,7 +434,8 @@ public abstract class CcModule
   }
 
   @Override
-  public CcToolchainVariables getVariables() {
+  public CcToolchainVariables getVariables(StarlarkThread thread) throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     return CcToolchainVariables.EMPTY;
   }
 
@@ -543,9 +565,7 @@ public abstract class CcModule
       Object mustKeepDebugForStarlark,
       StarlarkThread thread)
       throws EvalException {
-    if (checkObjectsBound(mustKeepDebugForStarlark)) {
-      CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    }
+    isCalledFromStarlarkCcCommon(thread);
     StarlarkActionFactory starlarkActionFactory =
         nullIfNone(actionsObject, StarlarkActionFactory.class);
     FeatureConfigurationForStarlark featureConfiguration =
@@ -559,7 +579,8 @@ public abstract class CcModule
     boolean mustKeepDebug =
         convertFromNoneable(mustKeepDebugForStarlark, /* defaultValue= */ false);
 
-    if (checkObjectsBound(picObjectFiles, objectFiles) && !isBuiltIn(thread)) {
+    if (checkObjectsBound(picObjectFiles, objectFiles)
+        && !isStarlarkCcCommonCalledFromBuiltins(thread)) {
       if (!starlarkActionFactory
           .getActionConstructionContext()
           .getConfiguration()
@@ -767,7 +788,9 @@ public abstract class CcModule
   }
 
   @Override
-  public CcInfo mergeCcInfos(Sequence<?> directCcInfos, Sequence<?> ccInfos) throws EvalException {
+  public CcInfo mergeCcInfos(Sequence<?> directCcInfos, Sequence<?> ccInfos, StarlarkThread thread)
+      throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     return CcInfo.merge(
         Sequence.cast(directCcInfos, CcInfo.class, "directs"),
         Sequence.cast(ccInfos, CcInfo.class, "cc_infos"));
@@ -788,9 +811,7 @@ public abstract class CcModule
       Object purposeNoneable,
       StarlarkThread thread)
       throws EvalException {
-    if (checkObjectsBound(purposeNoneable)) {
-      checkPrivateStarlarkificationAllowlist(thread);
-    }
+    isCalledFromStarlarkCcCommon(thread);
     CcCompilationContext.Builder ccCompilationContext =
         CcCompilationContext.builder(
             /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
@@ -827,7 +848,9 @@ public abstract class CcModule
     ccCompilationContext.addTextualHdrs(textualHdrsList);
     ccCompilationContext.addModularPublicHdrs(modularPublicHdrsList);
     ccCompilationContext.addModularPrivateHdrs(modularPrivateHdrsList);
-    if (purposeNoneable != null && purposeNoneable != Starlark.UNBOUND) {
+    if (purposeNoneable != null
+        && purposeNoneable != Starlark.UNBOUND
+        && purposeNoneable != Starlark.NONE) {
       ccCompilationContext.setPurpose((String) purposeNoneable);
     }
 
@@ -836,8 +859,10 @@ public abstract class CcModule
 
   @Override
   public CcCompilationOutputs mergeCcCompilationOutputsFromStarlark(
-      Sequence<?> compilationOutputs) // <CcCompilationOutputs>
+      Sequence<?> compilationOutputs, // <CcCompilationOutputs>
+      StarlarkThread thread)
       throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     CcCompilationOutputs.Builder ccCompilationOutputsBuilder = CcCompilationOutputs.builder();
     for (CcCompilationOutputs ccCompilationOutputs :
         Sequence.cast(compilationOutputs, CcCompilationOutputs.class, "compilation_outputs")) {
@@ -847,8 +872,9 @@ public abstract class CcModule
   }
 
   @Override
-  public CcCompilationContext mergeCompilationContexts(Sequence<?> compilationContexts)
-      throws EvalException {
+  public CcCompilationContext mergeCompilationContexts(
+      Sequence<?> compilationContexts, StarlarkThread thread) throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     return CcCompilationContext.builder(
             /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null)
         .addDependentCcCompilationContexts(
@@ -860,6 +886,7 @@ public abstract class CcModule
   @StarlarkMethod(
       name = "merge_linking_contexts",
       documented = false,
+      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "linking_contexts",
@@ -869,8 +896,10 @@ public abstract class CcModule
             defaultValue = "[]"),
       })
   public CcLinkingContext mergeLinkingContexts(
-      Sequence<?> linkingContexts) // <CcLinkingContext> expected
+      Sequence<?> linkingContexts, // <CcLinkingContext> expected
+      StarlarkThread thread)
       throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     return CcLinkingContext.merge(
         Sequence.cast(linkingContexts, CcLinkingContext.class, "linking_contexts"));
   }
@@ -897,7 +926,7 @@ public abstract class CcModule
   public CppModuleMap createCppModuleMap(
       Artifact file, Object umbrellaHeaderNoneable, String name, StarlarkThread thread)
       throws EvalException {
-    checkPrivateStarlarkificationAllowlist(thread);
+    isCalledFromStarlarkCcCommon(thread);
     Artifact umbrellaHeader = convertFromNoneable(umbrellaHeaderNoneable, /* defaultValue= */ null);
     if (umbrellaHeader == null) {
       return new CppModuleMap(file, name);
@@ -919,8 +948,7 @@ public abstract class CcModule
       Sequence<?> argv,
       StarlarkThread thread)
       throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    checkPrivateStarlarkificationAllowlist(thread);
+    isCalledFromStarlarkCcCommon(thread);
     RuleContext ruleContext = starlarkRuleContext.getRuleContext();
     PathFragment ltoOutputRootPrefix = PathFragment.create(ltoOutputRootPrefixString);
     LtoBackendArtifacts ltoBackendArtifacts;
@@ -957,6 +985,7 @@ public abstract class CcModule
       Object linkstampsObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
+    isCalledFromStarlarkCcCommon(thread);
     ImmutableList.Builder<LinkOptions> optionsBuilder = ImmutableList.builder();
     if (userLinkFlagsObject instanceof Depset || userLinkFlagsObject instanceof NoneType) {
       // Depsets are allowed in user_link_flags for compatibility purposes but they do not really
@@ -1008,6 +1037,7 @@ public abstract class CcModule
 
   @Override
   public boolean checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     return thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_CC_SHARED_LIBRARY);
   }
 
@@ -1020,6 +1050,7 @@ public abstract class CcModule
       Object goLinkCArchiveObject,
       StarlarkThread thread)
       throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     if (Starlark.isNullOrNone(linkerInputs)) {
       if (thread
           .getSemantics()
@@ -1059,9 +1090,6 @@ public abstract class CcModule
       CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
       ccLinkingContextBuilder.addTransitiveLinkerInputs(
           Depset.noneableCast(linkerInputs, CcLinkingContext.LinkerInput.class, "linker_inputs"));
-      if (checkObjectsBound(goLinkCArchiveObject)) {
-        checkPrivateStarlarkificationAllowlist(thread);
-      }
       ExtraLinkTimeLibrary goLinkCArchive =
           convertFromNoneable(goLinkCArchiveObject, /* defaultValue= */ null);
       if (goLinkCArchive != null) {
@@ -1088,7 +1116,9 @@ public abstract class CcModule
 
   // TODO(b/65151735): Remove when cc_flags is entirely from features.
   @Override
-  public String legacyCcFlagsMakeVariable(CcToolchainProvider ccToolchain) {
+  public String legacyCcFlagsMakeVariable(CcToolchainProvider ccToolchain, StarlarkThread thread)
+      throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     return ccToolchain.getLegacyCcFlagsMakeVariable();
   }
 
@@ -1121,9 +1151,10 @@ public abstract class CcModule
       Sequence<?> toolPaths, // <StarlarkInfo> expected
       Sequence<?> makeVariables, // <StarlarkInfo> expected
       Object builtinSysroot,
-      Object ccTargetOs)
+      Object ccTargetOs,
+      StarlarkThread thread)
       throws EvalException {
-
+    isCalledFromStarlarkCcCommon(thread);
     List<String> cxxBuiltInIncludeDirectories =
         Sequence.cast(
             cxxBuiltInIncludeDirectoriesUnchecked, String.class, "cxx_builtin_include_directories");
@@ -1808,7 +1839,9 @@ public abstract class CcModule
   }
 
   @Override
-  public boolean isCcToolchainResolutionEnabled(StarlarkRuleContext starlarkRuleContext) {
+  public boolean isCcToolchainResolutionEnabled(
+      StarlarkRuleContext starlarkRuleContext, StarlarkThread thread) throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
     return CppHelper.useToolchainResolution(starlarkRuleContext.getRuleContext());
   }
 
@@ -1834,9 +1867,7 @@ public abstract class CcModule
       Object testOnlyTargetObject,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
-    if (checkObjectsBound(stamp, linkedDllNameSuffix, winDefFileObject, testOnlyTargetObject)) {
-      CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    }
+    isCalledFromStarlarkCcCommon(thread);
     StarlarkActionFactory actions = starlarkActionFactoryApi;
     int stampInt = 0;
     if (stamp != Starlark.UNBOUND) {
@@ -1923,24 +1954,22 @@ public abstract class CcModule
   @Override
   public CcDebugInfoContext createCcDebugInfoFromStarlark(
       CcCompilationOutputs ccCompilationOutputs, StarlarkThread thread) throws EvalException {
-    checkPrivateStarlarkificationAllowlist(thread);
+    isCalledFromStarlarkCcCommon(thread);
     return CcDebugInfoContext.from(ccCompilationOutputs);
   }
 
   @Override
   public CcDebugInfoContext mergeCcDebugInfoFromStarlark(
       Sequence<?> debugInfos, StarlarkThread thread) throws EvalException {
-    checkPrivateStarlarkificationAllowlist(thread);
+    isCalledFromStarlarkCcCommon(thread);
     return CcDebugInfoContext.merge(
         Sequence.cast(debugInfos, CcDebugInfoContext.class, "debug_infos"));
   }
 
-  public static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)
+  private static void checkPrivateStarlarkificationAllowlistByLabel(
+      Label label, ImmutableList<PackageIdentifier> privateStarlarkificationAllowlist)
       throws EvalException {
-    Label label =
-        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-            .label();
-    if (PRIVATE_STARLARKIFICATION_ALLOWLIST.stream()
+    if (privateStarlarkificationAllowlist.stream()
         .noneMatch(
             allowedPrefix ->
                 label.getRepository().equals(allowedPrefix.getRepository())
@@ -1949,11 +1978,66 @@ public abstract class CcModule
     }
   }
 
+  public static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)
+      throws EvalException {
+    Label label =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label();
+    checkPrivateStarlarkificationAllowlistByLabel(label, PRIVATE_STARLARKIFICATION_ALLOWLIST);
+  }
+
   public static boolean isBuiltIn(StarlarkThread thread) {
     Label label =
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();
     return label.getPackageIdentifier().getRepository().getName().equals("_builtins");
+  }
+
+  public static boolean isStarlarkCcCommonCalledFromBuiltins(StarlarkThread thread) {
+    Label label =
+        ((BazelModuleContext)
+                Module.ofInnermostEnclosingStarlarkFunction(thread, 1).getClientData())
+            .label();
+    return label.getPackageIdentifier().getRepository().getName().equals("_builtins");
+  }
+
+  protected static void isCalledFromStarlarkCcCommon(StarlarkThread thread) throws EvalException {
+    Label label =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label();
+    if (!label.getCanonicalForm().endsWith("_builtins//:common/cc/cc_common.bzl")) {
+      throw Starlark.errorf(
+          "cc_common_internal can only be used by cc_common.bzl in builtins, "
+              + "please use cc_common instead.");
+    }
+  }
+
+  @StarlarkMethod(
+      name = "check_private_api",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "allowlist",
+            documented = false,
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = Tuple.class),
+            }),
+      })
+  public void checkPrivateApi(Object allowlistObject, StarlarkThread thread) throws EvalException {
+    // Make sure that check_private_api is called either from builtins or allowlisted packages.
+    isCalledFromStarlarkCcCommon(thread);
+    Label label =
+        ((BazelModuleContext)
+                Module.ofInnermostEnclosingStarlarkFunction(thread, 1).getClientData())
+            .label();
+    ImmutableList<PackageIdentifier> allowlist =
+        Sequence.cast(allowlistObject, Tuple.class, "allowlist").stream()
+            .map(p -> PackageIdentifier.createUnchecked((String) p.get(0), (String) p.get(1)))
+            .collect(ImmutableList.toImmutableList());
+    checkPrivateStarlarkificationAllowlistByLabel(label, allowlist);
   }
 
   protected Language parseLanguage(String string) throws EvalException {
@@ -2240,7 +2324,7 @@ public abstract class CcModule
             positional = false,
             named = true,
             documented = false,
-            allowedTypes = {@ParamType(type = String.class)},
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "unbound"),
         @Param(
             name = "variables_extension",
@@ -2254,13 +2338,14 @@ public abstract class CcModule
             positional = false,
             named = true,
             documented = false,
-            allowedTypes = {@ParamType(type = String.class)},
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "unbound"),
         @Param(
             name = "purpose",
             documented = false,
             positional = false,
             named = true,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "unbound"),
         @Param(
             name = "grep_includes",
@@ -2336,23 +2421,7 @@ public abstract class CcModule
       Object nonCompilationAdditionalInputsObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    if (checkObjectsBound(
-        moduleMapNoneable,
-        additionalModuleMapsNoneable,
-        additionalExportedHeadersObject,
-        propagateModuleMapToCompileActionObject,
-        doNotGenerateModuleMapObject,
-        codeCoverageEnabledObject,
-        purposeObject,
-        hdrsCheckingModeObject,
-        implementationCcCompilationContextsObject,
-        coptsFilterObject,
-        starlarkLooseIncludes,
-        separateModuleHeadersObject,
-        nonCompilationAdditionalInputsObject)) {
-      CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    }
-
+    isCalledFromStarlarkCcCommon(thread);
     Artifact grepIncludes = convertFromNoneable(grepIncludesObject, /* defaultValue= */ null);
     getSemantics()
         .validateStarlarkCompileApiCall(
@@ -2420,13 +2489,6 @@ public abstract class CcModule
     ImmutableList<CcCompilationContext> implementationContexts =
         asClassImmutableList(implementationCcCompilationContextsObject);
 
-    boolean tuple =
-        checkAllSourcesContainTuplesOrNoneOfThem(
-            ImmutableList.of(sourcesUnchecked, privateHeadersUnchecked, publicHeadersUnchecked));
-    if (tuple) {
-      CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    }
-
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(starlarkFeatureConfiguration, null);
     Label label = getCallerLabel(actions, name);
@@ -2459,6 +2521,11 @@ public abstract class CcModule
             /* shouldProcessHeaders= */ ccToolchainProvider.shouldProcessHeaders(
                 featureConfiguration.getFeatureConfiguration(),
                 configuration.getFragment(CppConfiguration.class)));
+    boolean tuple =
+        (!sourcesUnchecked.isEmpty() && sourcesUnchecked.get(0) instanceof Tuple)
+            || (!publicHeadersUnchecked.isEmpty() && publicHeadersUnchecked.get(0) instanceof Tuple)
+            || (!privateHeadersUnchecked.isEmpty()
+                && privateHeadersUnchecked.get(0) instanceof Tuple);
     if (tuple) {
       ImmutableList<Pair<Artifact, Label>> sources = convertSequenceTupleToPair(sourcesUnchecked);
       ImmutableList<Pair<Artifact, Label>> publicHeaders =
@@ -2575,7 +2642,7 @@ public abstract class CcModule
   private List<Artifact> getAdditionalIncludeScanningRoots(
       Sequence<?> additionalIncludeScanningRoots, StarlarkThread thread) throws EvalException {
     PackageIdentifier packageIdentifier =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread, 1))
             .label()
             .getPackageIdentifier();
     if (!additionalIncludeScanningRoots.isEmpty()
@@ -2585,29 +2652,6 @@ public abstract class CcModule
     }
     return Sequence.cast(
         additionalIncludeScanningRoots, Artifact.class, "additional_include_scanning_roots");
-  }
-
-  private boolean checkAllSourcesContainTuplesOrNoneOfThem(ImmutableList<Sequence<?>> files)
-      throws EvalException {
-    boolean nonTuple = false;
-    boolean tuple = false;
-    for (Sequence<?> sequence : files) {
-      if (!sequence.isEmpty()) {
-        if (sequence.get(0) instanceof Tuple) {
-          tuple = true;
-        } else if (sequence.get(0) instanceof Artifact) {
-          nonTuple = true;
-        } else {
-          throw new EvalException(
-              "srcs, private_hdrs and public_hdrs must all be Tuples<File, Label> or File");
-        }
-        if (tuple && nonTuple) {
-          throw new EvalException(
-              "srcs, private_hdrs and public_hdrs must all be Tuples<File, Label> or File");
-        }
-      }
-    }
-    return tuple;
   }
 
   @Override
@@ -2645,31 +2689,9 @@ public abstract class CcModule
       throws InterruptedException, EvalException {
     // TODO(bazel-team): Rename always_link to alwayslink before delisting. Also it looks like the
     //  suffix parameter can be removed since we can use `name` for the same thing.
-    if (checkObjectsBound(
-        // TODO(b/205690414): Keep linkedArtifactNameSuffixObject protected. Use cases that are
-        //  passing the suffix should be migrated to using mainOutput instead where the suffix is
-        //  taken into account. Then this parameter should be removed.
-        linkedArtifactNameSuffixObject,
-        neverLinkObject,
-        alwaysLinkObject,
-        testOnlyTargetObject,
-        nativeDepsObject,
-        wholeArchiveObject,
-        additionalLinkstampDefines,
-        mainOutputObject,
-        onlyForDynamicLibsObject,
-        useTestOnlyFlags,
-        pdbFile,
-        winDefFile,
-        useShareableArtifactFactory,
-        buildConfig)) {
-      checkPrivateStarlarkificationAllowlist(thread);
-    }
+    isCalledFromStarlarkCcCommon(thread);
     Language language = parseLanguage(languageString);
     validateOutputType(outputType);
-    if (outputType.equals("archive")) {
-      checkPrivateStarlarkificationAllowlist(thread);
-    }
     boolean isStampingEnabled =
         isStampingEnabled(stamp.toInt("stamp"), actions.getRuleContext().getConfiguration());
     CcToolchainProvider ccToolchainProvider =
@@ -2787,9 +2809,7 @@ public abstract class CcModule
       Object ltoCompilationContextObject,
       StarlarkThread thread)
       throws EvalException {
-    if (checkObjectsBound(ltoCompilationContextObject)) {
-      CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    }
+    isCalledFromStarlarkCcCommon(thread);
     CcCompilationOutputs.Builder ccCompilationOutputsBuilder = CcCompilationOutputs.builder();
     NestedSet<Artifact> objects = convertToNestedSet(objectsObject, Artifact.class, "objects");
     validateExtensions(
@@ -2882,7 +2902,7 @@ public abstract class CcModule
       String outputReplacement,
       StarlarkThread thread)
       throws EvalException, InterruptedException, TypeException {
-    checkPrivateStarlarkificationAllowlist(thread);
+    isCalledFromStarlarkCcCommon(thread);
     RuleContext ruleContext = starlarkActionFactoryApi.getRuleContext();
     CppConfiguration cppConfiguration =
         ruleContext.getConfiguration().getFragment(CppConfiguration.class);
@@ -2922,7 +2942,7 @@ public abstract class CcModule
       useStarlarkThread = true)
   public Sequence<Artifact> getBuildInfo(StarlarkRuleContext ruleContext, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    checkPrivateStarlarkificationAllowlist(thread);
+    isCalledFromStarlarkCcCommon(thread);
     return StarlarkList.immutableCopyOf(
         ruleContext.getRuleContext().getBuildInfo(CppBuildInfo.KEY));
   }
@@ -2944,7 +2964,8 @@ public abstract class CcModule
   public ExtraLinkTimeLibraryApi createExtraLinkTimeLibrary(
       StarlarkCallable buildLibraryFunc, Dict<String, Object> dataSetsMap, StarlarkThread thread)
       throws EvalException {
-    if (!isBuiltIn(thread)) {
+    isCalledFromStarlarkCcCommon(thread);
+    if (!isStarlarkCcCommonCalledFromBuiltins(thread)) {
       throw Starlark.errorf(
           "Cannot use experimental ExtraLinkTimeLibrary creation API outside of builtins");
     }
