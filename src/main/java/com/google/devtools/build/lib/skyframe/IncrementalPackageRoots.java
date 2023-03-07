@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetReadyForSymlinkPlanting;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -112,14 +111,8 @@ public class IncrementalPackageRoots implements PackageRoots {
 
   @AllowConcurrentEvents
   @Subscribe
-  public void addTargetPackage(TopLevelTargetReadyForSymlinkPlanting event)
+  public void topLevelTargetReadyForSymlinkPlanting(TopLevelTargetReadyForSymlinkPlanting event)
       throws AbruptExitException {
-    registerAndPlantSymlinksForExternalPackages(event.transitivePackagesForSymlinkPlanting());
-  }
-
-  @AllowConcurrentEvents
-  @Subscribe
-  public void addAspectPackage(AspectAnalyzedEvent event) throws AbruptExitException {
     registerAndPlantSymlinksForExternalPackages(event.transitivePackagesForSymlinkPlanting());
   }
 

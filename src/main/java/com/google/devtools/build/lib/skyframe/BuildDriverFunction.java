@@ -396,7 +396,17 @@ public class BuildDriverFunction implements SkyFunction {
       ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
       addExtraActionsIfRequested(
           configuredAspect.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
-      postAspectAnalyzedEvent(env, aspectValue, aspectKey, configuredAspect);
+
+      // It's possible that this code path is triggered AFTER the analysis cache clean up and the
+      // transitive packages for package root resolution is already cleared. In such a case, the
+      // symlinks should have already been planted.
+      if (aspectValue.getTransitivePackages() != null) {
+        env.getListener()
+            .post(
+                TopLevelTargetReadyForSymlinkPlanting.create(aspectValue.getTransitivePackages()));
+      }
+      env.getListener().post(AspectAnalyzedEvent.create(aspectKey, configuredAspect));
+
       aspectCompletionKeys.add(AspectCompletionKey.create(aspectKey, topLevelArtifactContext));
     }
     // Send the AspectAnalyzedEvents first to make sure the BuildResultListener is up-to-date before
@@ -405,23 +415,6 @@ public class BuildDriverFunction implements SkyFunction {
 
     declareDependenciesAndCheckValues(
         env, Iterables.concat(Artifact.keys(artifactsToBuild.build()), aspectCompletionKeys));
-  }
-
-  private static void postAspectAnalyzedEvent(
-      Environment env,
-      AspectValue aspectValue,
-      AspectKey aspectKey,
-      ConfiguredAspect configuredAspect) {
-    // It's possible that this code path is triggered AFTER the analysis cache clean up and the
-    // transitive packages for package root resolution is already cleared. In such a case, the
-    // symlinks should have already been planted.
-    AspectAnalyzedEvent aspectAnalyzedEvent =
-        aspectValue.getTransitivePackages() == null
-            ? AspectAnalyzedEvent.createWithoutFurtherSymlinkPlanting(aspectKey, configuredAspect)
-            : AspectAnalyzedEvent.create(
-                aspectKey, configuredAspect, aspectValue.getTransitivePackages());
-
-    env.getListener().post(aspectAnalyzedEvent);
   }
 
   /**
