@@ -94,11 +94,18 @@ public final class Driver {
       }
 
       // Performs lookups for any newly added keys.
-      SkyframeLookupResult result =
-          env.getValuesAndExceptions(Lists.transform(newlyAdded, Lookup::key));
-      for (var lookup : newlyAdded) {
-        if (!result.queryDep(lookup.key(), lookup)) {
-          pending.add(lookup); // Unhandled exceptions also end up here.
+      if (newlyAdded.size() == 1) { // Uses a lower overhead lookup for the unary case.
+        var onlyLookup = newlyAdded.get(0);
+        if (!onlyLookup.doLookup(env)) {
+          pending.add(onlyLookup);
+        }
+      } else {
+        SkyframeLookupResult result =
+            env.getValuesAndExceptions(Lists.transform(newlyAdded, Lookup::key));
+        for (var lookup : newlyAdded) {
+          if (!result.queryDep(lookup.key(), lookup)) {
+            pending.add(lookup); // Unhandled exceptions also end up here.
+          }
         }
       }
       newlyAdded.clear(); // Every entry is either done or has moved to pending.
