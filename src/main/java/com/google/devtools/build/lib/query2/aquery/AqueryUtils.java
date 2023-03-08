@@ -70,4 +70,13 @@ public class AqueryUtils {
 
     return true;
   }
+
+  public static String getTemplateContent(TemplateExpansionAction action) throws IOException {
+    // If the template artifact is a DerivedArtifact, it is only available during the execution
+    // phase. It's therefore not possible to read its content from the FileSystem at this moment.
+    if (action.getTemplate().getTemplateArtifact() instanceof DerivedArtifact) {
+      return action.getTemplate().toString();
+    }
+    return action.getTemplate().getContent(ArtifactPathResolver.IDENTITY);
+  }
 }

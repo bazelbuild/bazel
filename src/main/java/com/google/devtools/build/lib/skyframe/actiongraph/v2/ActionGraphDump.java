@@ -268,11 +268,10 @@ public class ActionGraphDump {
     }
 
     if (action instanceof TemplateExpansionAction) {
-      actionBuilder.setTemplateContent(
-          ((TemplateExpansionAction) action)
-              .getTemplate()
-              .getContent(ArtifactPathResolver.IDENTITY));
-      for (Substitution substitution : ((TemplateExpansionAction) action).getSubstitutions()) {
+      TemplateExpansionAction templateExpansionAction = (TemplateExpansionAction) action;
+      actionBuilder.setTemplateContent(AqueryUtils.getTemplateContent(templateExpansionAction));
+
+      for (Substitution substitution : templateExpansionAction.getSubstitutions()) {
         try {
           actionBuilder.addSubstitutions(
               AnalysisProtosV2.KeyValuePair.newBuilder()

@@ -322,15 +322,14 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     }
 
     if (action instanceof TemplateExpansionAction) {
+      TemplateExpansionAction templateExpansionAction = (TemplateExpansionAction) action;
       stringBuilder
           .append("  Template: ")
-          .append(
-              ((TemplateExpansionAction) action)
-                  .getTemplate()
-                  .getContent(ArtifactPathResolver.IDENTITY))
+          .append(AqueryUtils.getTemplateContent(templateExpansionAction))
           .append("\n");
+
       stringBuilder.append("  Substitutions: [\n");
-      for (Substitution substitution : ((TemplateExpansionAction) action).getSubstitutions()) {
+      for (Substitution substitution : templateExpansionAction.getSubstitutions()) {
         stringBuilder
             .append("    {")
             .append(substitution.getKey())
