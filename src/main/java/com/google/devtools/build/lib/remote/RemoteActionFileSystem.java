@@ -231,7 +231,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   protected boolean delete(PathFragment path) throws IOException {
     boolean deleted = super.delete(path);
-    if (path.startsWith(outputBase)) {
+    if (isOutput(path)) {
       deleted = remoteOutputTree.getPath(path).delete() || deleted;
     }
     return deleted;
@@ -391,7 +391,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException {
     super.createSymbolicLink(linkPath, targetFragment);
-    if (linkPath.startsWith(outputBase)) {
+    if (isOutput(linkPath)) {
       remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment);
     }
   }
@@ -567,7 +567,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Nullable
   private TreeArtifactValue getRemoteTreeMetadata(PathFragment path) {
-    if (!path.startsWith(outputBase)) {
+    if (!isOutput(path)) {
       return null;
     }
     PathFragment execPath = path.relativeTo(execRoot);
@@ -627,7 +627,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   public void createDirectoryAndParents(PathFragment path) throws IOException {
     super.createDirectoryAndParents(path);
-    if (path.startsWith(outputBase)) {
+    if (isOutput(path)) {
       remoteOutputTree.createDirectoryAndParents(path);
     }
   }
@@ -636,7 +636,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   public boolean createDirectory(PathFragment path) throws IOException {
     boolean created = delegateFs.createDirectory(path);
-    if (path.startsWith(outputBase)) {
+    if (isOutput(path)) {
       created = remoteOutputTree.createDirectory(path) || created;
     }
     return created;
