@@ -7,7 +7,9 @@ load(
     "linking_suffix_test",
     "paths_test",
     "runfiles_test",
-    "check_already_linked_inputs_are_not_passed_to_linking_action_test",
+    "check_linking_action_lib_parameters_test",
+    "forwarding_cc_lib",
+    "nocode_cc_lib",
 )
 
 LINKABLE_MORE_THAN_ONCE = "LINKABLE_MORE_THAN_ONCE"
@@ -117,6 +119,8 @@ cc_shared_library(
     deps = [
         "baz",
         "foo",
+        "cc_lib_with_no_srcs",
+        "nocode_cc_lib",
         "a_suffix",
     ],
     user_link_flags = select({
@@ -154,6 +158,33 @@ cc_library(
         ":is_bazel": ["qux2"],
         "//conditions:default": [],
     }),
+)
+
+forwarding_cc_lib(
+    name = "cc_lib_with_no_srcs",
+    deps = [
+        "indirect_dep",
+    ],
+)
+
+nocode_cc_lib(
+    name = "nocode_cc_lib",
+    additional_inputs = [
+        ":additional_script.txt",
+    ],
+    deps = [
+        "indirect_dep2",
+    ],
+)
+
+cc_library(
+    name = "indirect_dep",
+    srcs = ["indirect_dep.cc"],
+)
+
+cc_library(
+    name = "indirect_dep2",
+    srcs = ["indirect_dep2.cc"],
 )
 
 cc_library(
@@ -420,13 +451,13 @@ runfiles_test(
     target_under_test = ":python_test",
 )
 
-check_already_linked_inputs_are_not_passed_to_linking_action_test(
+check_linking_action_lib_parameters_test(
     name = "check_binary_doesnt_take_already_linked_in_libs",
     target_under_test = ":binary",
     libs_that_shouldnt_be_present = ["foo", "bar"],
 )
 
-check_already_linked_inputs_are_not_passed_to_linking_action_test(
+check_linking_action_lib_parameters_test(
     name = "check_shared_lib_doesnt_take_already_linked_in_libs",
     target_under_test = ":foo_so",
     libs_that_shouldnt_be_present = ["bar"],
@@ -436,4 +467,10 @@ build_failure_test(
     name = "shared_library_without_deps",
     message = "'cc_shared_library' must have at least one dependency in 'deps' (or 'roots')",
     target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:failing_with_no_deps_so",
+)
+
+build_failure_test(
+    name = "direct_dep_with_only_shared_lib_file",
+    message = "Do not place libraries which only contain a precompiled dynamic library",
+    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:failing_only_dynamic_lib",
 )

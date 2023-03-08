@@ -193,6 +193,47 @@ def _check_if_target_should_be_exported_with_filter(target, current_label, expor
 
     return False
 
+# Checks if the linker_input has code to link statically, i.e. either
+# archives or object files, ignores library.dynamic_library.
+def _contains_code_to_link(linker_input):
+    for library in linker_input.libraries:
+        if (library.static_library != None or
+            library.pic_static_library != None or
+            len(library.objects) or len(library.pic_objects)):
+            return True
+
+    return False
+
+def _find_top_level_linker_input_labels(
+        nodes,
+        linker_inputs_to_be_linked_statically_map,
+        targets_to_be_linked_dynamically_set):
+    top_level_linker_input_labels_set = {}
+    nodes_to_check = list(nodes)
+
+    for i in range(2147483647):
+        if i == len(nodes_to_check):
+            break
+
+        node = nodes_to_check[i]
+        node_label = str(node.label)
+        if node_label in linker_inputs_to_be_linked_statically_map:
+            has_code_to_link = False
+            for linker_input in linker_inputs_to_be_linked_statically_map[node_label]:
+                if _contains_code_to_link(linker_input):
+                    top_level_linker_input_labels_set[node_label] = True
+                    has_code_to_link = True
+                    break
+
+            if not has_code_to_link:
+                nodes_to_check.extend(node.children)
+        elif node_label not in targets_to_be_linked_dynamically_set:
+            # This can happen when there was a target in the graph that exported other libraries'
+            # linker_inputs but didn't contribute any linker_input of its own.
+            nodes_to_check.extend(node.children)
+
+    return top_level_linker_input_labels_set
+
 def _filter_inputs(
         ctx,
         feature_configuration,
@@ -205,11 +246,11 @@ def _filter_inputs(
 
     graph_structure_aspect_nodes = []
     dependency_linker_inputs = []
-    direct_exports = {}
-    for export in deps:
-        direct_exports[str(export.label)] = True
-        dependency_linker_inputs.extend(export[CcInfo].linking_context.linker_inputs.to_list())
-        graph_structure_aspect_nodes.append(export[GraphNodeInfo])
+    direct_deps_set = {}
+    for dep in deps:
+        direct_deps_set[str(dep.label)] = True
+        dependency_linker_inputs.extend(dep[CcInfo].linking_context.linker_inputs.to_list())
+        graph_structure_aspect_nodes.append(dep[GraphNodeInfo])
 
     can_be_linked_dynamically = {}
     for linker_input in dependency_linker_inputs:
@@ -222,6 +263,18 @@ def _filter_inputs(
     (targets_to_be_linked_statically_map, targets_to_be_linked_dynamically_set) = _separate_static_and_dynamic_link_libraries(
         graph_structure_aspect_nodes,
         can_be_linked_dynamically,
+    )
+
+    linker_inputs_to_be_linked_statically_map = {}
+    for linker_input in dependency_linker_inputs:
+        owner = str(linker_input.owner)
+        if owner in targets_to_be_linked_statically_map:
+            linker_inputs_to_be_linked_statically_map.setdefault(owner, []).append(linker_input)
+
+    top_level_linker_input_labels_set = _find_top_level_linker_input_labels(
+        graph_structure_aspect_nodes,
+        linker_inputs_to_be_linked_statically_map,
+        targets_to_be_linked_dynamically_set,
     )
 
     # We keep track of precompiled_only_dynamic_libraries, so that we can add
@@ -260,7 +313,6 @@ def _filter_inputs(
                 # link_once_static_libs_map[owner] but is not being exported
                 linked_statically_but_not_exported.setdefault(link_once_static_libs_map[owner], []).append(owner)
 
-            is_direct_export = owner in direct_exports
             dynamic_only_libraries = []
             static_libraries = []
             for library in linker_input.libraries:
@@ -272,7 +324,7 @@ def _filter_inputs(
             if len(dynamic_only_libraries):
                 precompiled_only_dynamic_libraries.extend(dynamic_only_libraries)
                 if not len(static_libraries):
-                    if is_direct_export:
+                    if owner in direct_deps_set:
                         dynamic_only_roots[owner] = True
                     linker_inputs.append(linker_input)
                     continue
@@ -280,7 +332,7 @@ def _filter_inputs(
                 dynamic_only_roots.pop(owner)
 
             linker_input_to_be_linked_statically = linker_input
-            if is_direct_export:
+            if owner in top_level_linker_input_labels_set:
                 linker_input_to_be_linked_statically = _wrap_static_library_with_alwayslink(
                     ctx,
                     feature_configuration,

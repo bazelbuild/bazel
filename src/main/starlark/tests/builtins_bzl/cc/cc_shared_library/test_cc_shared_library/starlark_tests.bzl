@@ -223,7 +223,7 @@ interface_library_output_group_test = analysistest.make(
     },
 )
 
-def _check_already_linked_inputs_are_not_passed_to_linking_action_test_impl(ctx):
+def _check_linking_action_lib_parameters_test_impl(ctx):
     env = analysistest.begin(ctx)
 
     actions = analysistest.target_actions(env)
@@ -240,9 +240,37 @@ def _check_already_linked_inputs_are_not_passed_to_linking_action_test_impl(ctx)
 
     return analysistest.end(env)
 
-check_already_linked_inputs_are_not_passed_to_linking_action_test = analysistest.make(
-    _check_already_linked_inputs_are_not_passed_to_linking_action_test_impl,
+check_linking_action_lib_parameters_test = analysistest.make(
+    _check_linking_action_lib_parameters_test_impl,
     attrs = {
         "libs_that_shouldnt_be_present": attr.string_list(),
     },
+)
+
+def _forwarding_cc_lib_impl(ctx):
+    return [ctx.attr.deps[0][CcInfo]]
+
+forwarding_cc_lib = rule(
+    implementation = _forwarding_cc_lib_impl,
+    attrs = {
+        "deps": attr.label_list(),
+    },
+    provides = [CcInfo],
+)
+
+def _nocode_cc_lib_impl(ctx):
+    linker_input = cc_common.create_linker_input(
+        owner = ctx.label,
+        additional_inputs = depset([ctx.files.additional_inputs[0]]),
+    )
+    cc_info = CcInfo(linking_context = cc_common.create_linking_context(linker_inputs = depset([linker_input])))
+    return [cc_common.merge_cc_infos(cc_infos = [cc_info, ctx.attr.deps[0][CcInfo]])]
+
+nocode_cc_lib = rule(
+    implementation = _nocode_cc_lib_impl,
+    attrs = {
+        "additional_inputs": attr.label_list(allow_files = True),
+        "deps": attr.label_list(),
+    },
+    provides = [CcInfo],
 )
