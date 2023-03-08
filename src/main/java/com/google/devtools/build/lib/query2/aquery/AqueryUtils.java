@@ -20,7 +20,11 @@ import static com.google.devtools.build.lib.query2.engine.OutputsFunction.OUTPUT
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import java.io.IOException;
 
 /** Utility class for Aquery */
 public class AqueryUtils {
