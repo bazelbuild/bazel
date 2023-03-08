@@ -131,7 +131,7 @@ def _build_link_once_static_libs_map(merged_shared_library_infos):
                 fail("Two shared libraries in dependencies link the same " +
                      " library statically. Both " + link_once_static_libs_map[static_lib] +
                      " and " + str(linker_input.owner) +
-                     " link statically" + static_lib)
+                     " link statically " + static_lib)
             link_once_static_libs_map[static_lib] = str(linker_input.owner)
     return link_once_static_libs_map
 
@@ -178,18 +178,11 @@ def _check_if_target_under_path(value, pattern):
 
     return pattern.package == value.package and pattern.name == value.name
 
-def _check_if_target_should_be_exported_without_filter(target, current_label):
-    return _check_if_target_should_be_exported_with_filter(target, current_label, None)
-
 def _check_if_target_should_be_exported_with_filter(target, current_label, exports_filter):
-    should_be_exported = False
-    if exports_filter == None:
-        should_be_exported = True
-    else:
-        for export_filter in exports_filter:
-            export_filter_label = current_label.relative(export_filter)
-            if _check_if_target_under_path(target, export_filter_label):
-                return True
+    for export_filter in exports_filter:
+        export_filter_label = current_label.relative(export_filter)
+        if _check_if_target_under_path(target, export_filter_label):
+            return True
 
     return False
 
@@ -459,8 +452,6 @@ def _cc_shared_library_impl(ctx):
         if str(export.label) in exports_map:
             fail("Trying to export a library already exported by a different shared library: " +
                  str(export.label))
-
-        _check_if_target_should_be_exported_without_filter(export.label, ctx.label)
 
     link_once_static_libs_map = _build_link_once_static_libs_map(merged_cc_shared_library_info)
 
