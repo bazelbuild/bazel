@@ -1556,17 +1556,16 @@ EOF
     || fail "Expected success"
   cat output >> "$TEST_log"
 
-  # TODO: The ideal behavior includes this  too
-  # assert_contains "Template: The token: {TOKEN1}" output
-  assert_contains "Template: ARTIFACT: $pkg/template.txt" output
+  assert_contains "Template: The token: {TOKEN1}" output
   assert_contains "{{TOKEN1}: {TOKEN2}}" output
+  assert_contains "Template: ARTIFACT:.*$pkg/first.txt" output
   assert_contains "{{TOKEN2}: 123456}" output
 
   bazel aquery --output=jsonproto ${QUERY} > output 2> "$TEST_log" \
     || fail "Expected success"
 
-  # TODO: The ideal behavior includes this  too
-  # assert_contains "\"templateContent\": \"The token" output
+  assert_contains "\"templateContent\": \"The token" output
+  assert_contains "\"templateContent\": \"ARTIFACT" output
   assert_contains "\"key\": \"{TOKEN1}\"" output
   assert_contains "\"value\": \"{TOKEN2}\"" output
   assert_contains "\"key\": \"{TOKEN2}\"" output
