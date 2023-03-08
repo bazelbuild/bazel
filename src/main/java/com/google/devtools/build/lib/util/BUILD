@@ -332,6 +332,12 @@ java_library(
 )
 
 java_library(
+    name = "hash_codes",
+    srcs = ["HashCodes.java"],
+    deps = ["//third_party:jsr305"],
+)
+
+java_library(
     name = "interrupted_failure_details",
     srcs = ["InterruptedFailureDetails.java"],
     deps = [
