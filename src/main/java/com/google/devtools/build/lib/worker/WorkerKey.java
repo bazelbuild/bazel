@@ -214,6 +214,7 @@ public final class WorkerKey {
         /*prettyPrintArgs=*/ false,
         args,
         env,
+        /*environmentVariablesToClear=*/ null,
         execRoot.getPathString(),
         /*configurationChecksum=*/ null,
         /*executionPlatformAsLabelString=*/ null);

@@ -15,10 +15,12 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -210,6 +212,8 @@ public class CommandFailureUtilsTest {
     env.put("FOO", "foo");
     env.put("PATH", "/usr/bin:/bin:/sbin");
 
+    List<String> envToClear = ImmutableList.of("CLEAR", "THIS");
+
     String cwd = "/my/working/directory";
     PlatformInfo executionPlatform =
         PlatformInfo.builder().setLabel(Label.parseCanonicalUnchecked("//platform:exec")).build();
@@ -219,6 +223,7 @@ public class CommandFailureUtilsTest {
             true,
             Arrays.asList(args),
             env,
+            envToClear,
             cwd,
             "cfg12345",
             executionPlatform.label().toString());
@@ -227,6 +232,8 @@ public class CommandFailureUtilsTest {
         .isEqualTo(
             "(cd /my/working/directory && \\\n"
                 + "  exec env - \\\n"
+                + "    -u CLEAR \\\n"
+                + "    -u THIS \\\n"
                 + "    FOO=foo \\\n"
                 + "    PATH=/usr/bin:/bin:/sbin \\\n"
                 + "  some_command \\\n"

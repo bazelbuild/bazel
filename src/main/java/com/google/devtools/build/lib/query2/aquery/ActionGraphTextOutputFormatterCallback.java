@@ -281,6 +281,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                           .map(a -> escapeBytestringUtf8(a))
                           .collect(toImmutableList()),
                   /* environment= */ null,
+                  /* environmentVariablesToClear=*/ null,
                   /* cwd= */ null,
                   action.getOwner().getConfigurationChecksum(),
                   action.getExecutionPlatform() == null
