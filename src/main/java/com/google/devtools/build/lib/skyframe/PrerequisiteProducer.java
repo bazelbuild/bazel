@@ -680,11 +680,7 @@ public final class PrerequisiteProducer {
       ImmutableMap<String, ExecGroup> execGroups,
       @Nullable Label parentExecutionPlatformLabel)
       throws InterruptedException, ToolchainException {
-
-    // Create a merged version of the exec groups that handles exec group inheritance properly.
-    ExecGroup.Builder defaultExecGroupBuilder =
-        ExecGroup.builder().execCompatibleWith(defaultExecConstraintLabels).copyFrom(null);
-
+        
     Map<String, ExecGroup> allExecGroups = new HashMap<>();
 
     // Add exec groups that the rule itself has defined (custom exec groups).
@@ -697,14 +693,13 @@ public final class PrerequisiteProducer {
             toolchainType.toolchainType().toString(),
             ExecGroup.builder().addToolchainType(toolchainType).copyFrom(null).build());
       }
-    } else {
-      // Add toolchain types iff toolchains are not asociated with automatic exec groups.
-      defaultExecGroupBuilder.toolchainTypes(toolchainTypes);
     }
 
     ExecGroupCollection.Builder execGroupCollectionBuilder =
         ExecGroupCollection.builder(
-            defaultExecGroupBuilder.build(), ImmutableMap.copyOf(allExecGroups));
+            /* execGroups= */ ImmutableMap.copyOf(allExecGroups),
+            /* defaultExecWith= */ defaultExecConstraintLabels,
+            /* defaultToolchainTypes= */ toolchainTypes);
 
     // Short circuit and end now if this target doesn't require toolchain resolution.
     if (!useToolchainResolution) {

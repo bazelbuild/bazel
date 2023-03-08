@@ -771,9 +771,11 @@ java_library(
     name = "exec_group_collection",
     srcs = ["ExecGroupCollection.java"],
     deps = [
+        ":config/toolchain_type_requirement",
         ":resolved_toolchain_context",
         ":toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
