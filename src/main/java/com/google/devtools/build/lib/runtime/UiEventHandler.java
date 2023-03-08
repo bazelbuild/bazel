@@ -206,7 +206,7 @@ public final class UiEventHandler implements EventHandler {
     this.dateShown = false;
     this.updateThread = new AtomicReference<>();
     this.updateLock = new ReentrantLock();
-    this.filteredEvents = options.getEventFilters();
+    this.filteredEvents = options.getFilteredEvents();
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
   }
