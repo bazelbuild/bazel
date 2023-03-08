@@ -33,6 +33,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import javax.annotation.Nullable;
 
 /**
@@ -153,7 +154,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
           ps.printf("--verbosity=%s\n", incrementalInstallVerbosity);
         }
 
-        ps.printf("--start=%s\n", start.name().toLowerCase());
+        ps.printf("--start=%s\n", start.name().toLowerCase(Locale.ROOT));
 
         if (userHomeDirectory != null) {
           ps.printf("--user_home_dir=%s\n", userHomeDirectory);

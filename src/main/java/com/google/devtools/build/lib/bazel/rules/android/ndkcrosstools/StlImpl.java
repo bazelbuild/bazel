@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -36,9 +37,9 @@ public abstract class StlImpl {
     private final String fileExtension;
 
     RuntimeType(String fileExtension) {
-      this.name = name().toLowerCase();
+      this.name = name().toLowerCase(Locale.ROOT);
       this.fileExtension = fileExtension;
-    }    
+    }
   }
 
   private final Map<String, String> fileGroupNameToFileGlobs = new LinkedHashMap<>();

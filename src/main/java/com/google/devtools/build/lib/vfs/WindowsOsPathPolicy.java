@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.windows.WindowsFileOperations;
 import com.google.devtools.build.lib.windows.WindowsShortPath;
 import java.io.IOException;
+import java.util.Locale;
 
 @VisibleForTesting
 class WindowsOsPathPolicy implements OsPathPolicy {
@@ -191,7 +192,7 @@ class WindowsOsPathPolicy implements OsPathPolicy {
     if (s == null) {
       return 0;
     }
-    return s.toLowerCase().hashCode();
+    return s.toLowerCase(Locale.ROOT).hashCode();
   }
 
   @Override

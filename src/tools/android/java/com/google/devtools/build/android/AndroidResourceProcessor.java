@@ -50,6 +50,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -239,7 +240,7 @@ public class AndroidResourceProcessor {
       @Nullable Path publicResourcesOut)
       throws IOException {
     try (JunctionCreator junctions =
-        System.getProperty("os.name").toLowerCase().startsWith("windows")
+        System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows")
             ? new WindowsJunctionCreator(Files.createDirectories(tempRoot.resolve("juncts")))
             : new NoopJunctionCreator()) {
       sourceOut = junctions.create(sourceOut);

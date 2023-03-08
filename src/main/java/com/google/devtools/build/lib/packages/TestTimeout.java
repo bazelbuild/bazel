@@ -121,7 +121,7 @@ public enum TestTimeout {
    */
   @Nullable
   public static TestTimeout getTestTimeout(String attr) {
-    if (!attr.equals(attr.toLowerCase())) {
+    if (!attr.equals(attr.toLowerCase(Locale.ROOT))) {
       return null;
     }
     try {
@@ -138,7 +138,7 @@ public enum TestTimeout {
   @Nullable
   public static TestTimeout getTestTimeout(Rule testTarget) {
     String attr = NonconfigurableAttributeMapper.of(testTarget).get("timeout", Type.STRING);
-    if (!attr.equals(attr.toLowerCase())) {
+    if (!attr.equals(attr.toLowerCase(Locale.ROOT))) {
       return null; // attribute values must be lowercase
     }
     try {
@@ -150,14 +150,14 @@ public enum TestTimeout {
 
   @Override
   public String toString() {
-    return super.toString().toLowerCase();
+    return super.toString().toLowerCase(Locale.ROOT);
   }
 
   /**
    * We print to upper case to make the test timeout warnings more readable.
    */
   public String prettyPrint() {
-    return super.toString().toUpperCase();
+    return super.toString().toUpperCase(Locale.ROOT);
   }
 
   @Deprecated // use getTimeout instead

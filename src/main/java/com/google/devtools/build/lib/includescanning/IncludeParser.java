@@ -64,6 +64,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -120,7 +121,7 @@ class IncludeParser {
     final String findFilter;
 
     private Rule(String type, String pattern, String findRoot, String findFilter) {
-      this.type = Type.valueOf(type.trim().toUpperCase());
+      this.type = Type.valueOf(type.trim().toUpperCase(Locale.ROOT));
       this.pattern = Pattern.compile("^" + pattern + "$");
       this.findRoot = findRoot.replace('\\', '$');
       this.findFilter = findFilter;

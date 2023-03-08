@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.vfs.WindowsOsPathPolicy.ShortPathResolver;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,7 +39,7 @@ public class WindowsPathTest extends PathAbstractTest {
       String result = "";
       for (int i = 0; i < segments.length; ) {
         String segment = segments[i];
-        String queryString = (result + segment).toLowerCase();
+        String queryString = (result + segment).toLowerCase(Locale.ROOT);
         segment = resolutions.getOrDefault(queryString, segment);
         result = result + segment;
         ++i;

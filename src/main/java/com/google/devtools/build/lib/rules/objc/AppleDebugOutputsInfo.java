@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleDebugOutputsApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 
@@ -57,7 +58,7 @@ public final class AppleDebugOutputsInfo extends NativeInfo
 
     @Override
     public String toString() {
-      return name().toLowerCase();
+      return name().toLowerCase(Locale.ROOT);
     }
   }
 

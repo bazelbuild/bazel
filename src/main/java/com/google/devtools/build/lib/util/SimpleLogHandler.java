@@ -40,6 +40,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Date;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.TimeZone;
@@ -552,7 +553,7 @@ public final class SimpleLogHandler extends Handler {
             builderValue,
             configuredName,
             val -> {
-              val = val.trim().toLowerCase();
+              val = val.trim().toLowerCase(Locale.ROOT);
               if ("true".equals(val) || "1".equals(val)) {
                 return true;
               } else if ("false".equals(val) || "0".equals(val)) {
@@ -644,7 +645,7 @@ public final class SimpleLogHandler extends Handler {
         name = name.substring(0, firstDot);
       }
     }
-    return name.toLowerCase();
+    return name.toLowerCase(Locale.ROOT);
   }
 
   /**

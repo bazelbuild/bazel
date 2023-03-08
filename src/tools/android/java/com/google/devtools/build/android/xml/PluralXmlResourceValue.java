@@ -35,6 +35,7 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
@@ -157,7 +158,7 @@ public class PluralXmlResourceValue implements XmlResourceValue {
     Map<String, String> items = new LinkedHashMap<>();
 
     for (Plural.Entry entry : plural.getEntryList()) {
-      String name = entry.getArity().toString().toLowerCase();
+      String name = entry.getArity().toString().toLowerCase(Locale.ROOT);
       String value =
           XmlEscapers.xmlContentEscaper().escape(
               entry.getItem()

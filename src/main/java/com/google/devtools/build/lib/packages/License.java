@@ -210,9 +210,9 @@ public final class License implements LicenseApi {
   @Override
   public String toString() {
     if (exceptions.isEmpty()) {
-      return licenseTypes.toString().toLowerCase();
+      return licenseTypes.toString().toLowerCase(Locale.ROOT);
     } else {
-      return licenseTypes.toString().toLowerCase() + " with exceptions " + exceptions;
+      return licenseTypes.toString().toLowerCase(Locale.ROOT) + " with exceptions " + exceptions;
     }
   }
 

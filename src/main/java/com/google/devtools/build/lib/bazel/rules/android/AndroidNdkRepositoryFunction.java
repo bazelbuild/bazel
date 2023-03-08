@@ -58,6 +58,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -514,7 +515,8 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
                 tp ->
                     String.format(
                         "  %s_path = '%s'",
-                        tp.getName().toLowerCase().replaceAll("-", "_"), tp.getPath()))
+                        tp.getName().toLowerCase(Locale.ROOT).replaceAll("-", "_"),
+                        tp.getPath()))
             .collect(ImmutableList.toImmutableList()));
     return bigConditional.add("").build();
   }

@@ -19,6 +19,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -65,7 +66,7 @@ class EnumFilterConverter<E extends Enum<E>> extends Converter.Contextless<Set<E
     EnumSet<E> excludedSet = EnumSet.noneOf(typeClass);
     for (String value : input.split(",", -1)) {
       boolean excludeFlag = value.startsWith("-");
-      String s = (excludeFlag ? value.substring(1) : value).toUpperCase();
+      String s = (excludeFlag ? value.substring(1) : value).toUpperCase(Locale.ROOT);
       if (!allowedValues.contains(s)) {
         throw new OptionsParsingException("Invalid " + prettyEnumName + " filter '" + value +
             "' in the input '" + input + "'");
@@ -91,6 +92,6 @@ class EnumFilterConverter<E extends Enum<E>> extends Converter.Contextless<Set<E
   @Override
   public final String getTypeDescription() {
     return "comma-separated list of values: "
-        + StringUtil.joinEnglishList(allowedValues).toLowerCase();
+        + StringUtil.joinEnglishList(allowedValues).toLowerCase(Locale.ROOT);
   }
 }

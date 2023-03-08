@@ -467,7 +467,7 @@ public final class HelpCommand implements BlazeCommand {
           result.append(
               String.format(
                   "<td id=\"effect_tag_%s\"><code>%s</code></td>\n",
-                  tag, tag.name().toLowerCase()));
+                  tag, tag.name().toLowerCase(Locale.ROOT)));
           result.append(String.format("<td>%s</td>\n", HTML_ESCAPER.escape(tagDescription)));
           result.append("</tr>\n");
         }
@@ -486,7 +486,7 @@ public final class HelpCommand implements BlazeCommand {
             result.append(
                 String.format(
                     "<td id=\"metadata_tag_%s\"><code>%s</code></td>\n",
-                    tag, tag.name().toLowerCase()));
+                    tag, tag.name().toLowerCase(Locale.ROOT)));
             result.append(String.format("<td>%s</td>\n", HTML_ESCAPER.escape(tagDescription)));
             result.append("</tr>\n");
           }

@@ -16,6 +16,7 @@ package com.google.testing.junit.runner.util;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.EnumMap;
+import java.util.Locale;
 import java.util.Map;
 
 /** TestIntegration represents an external link that is integrated with the test results. */
@@ -66,7 +67,7 @@ public class TestIntegration {
 
     /** Gets the string representation of the current enum. */
     public String getXmlAttributeName() {
-      return name().toLowerCase();
+      return name().toLowerCase(Locale.ROOT);
     }
   }
 

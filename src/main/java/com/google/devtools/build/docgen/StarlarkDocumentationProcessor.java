@@ -307,7 +307,7 @@ public final class StarlarkDocumentationProcessor {
     }
 
     public String getTemplateIdentifier() {
-      return name().toLowerCase().replace("_", "-");
+      return name().toLowerCase(Locale.ROOT).replace("_", "-");
     }
   }
 }

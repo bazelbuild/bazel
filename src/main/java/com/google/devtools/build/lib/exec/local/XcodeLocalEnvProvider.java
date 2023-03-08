@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -130,7 +131,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
       String developerDir, String sdkVersion, String appleSdkPlatform)
       throws IOException, InterruptedException {
     try {
-      String sdkString = appleSdkPlatform.toLowerCase() + sdkVersion;
+      String sdkString = appleSdkPlatform.toLowerCase(Locale.ROOT) + sdkVersion;
       Map<String, String> env =
           Strings.isNullOrEmpty(developerDir)
               ? ImmutableMap.<String, String>of()
@@ -193,7 +194,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
       throws IOException, InterruptedException {
     try {
       return sdkRootCache.computeIfAbsent(
-          developerDir + ":" + appleSdkPlatform.toLowerCase() + ":" + sdkVersion,
+          developerDir + ":" + appleSdkPlatform.toLowerCase(Locale.ROOT) + ":" + sdkVersion,
           (key) -> {
             try {
               String sdkRoot = querySdkRoot(developerDir, sdkVersion, appleSdkPlatform);

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.Locale;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -41,7 +42,7 @@ public enum TestSize {
   static {
     ImmutableMap.Builder<String, TestSize> builder = ImmutableMap.builder();
     for (TestSize size : TestSize.values()) {
-      builder.put(size.name().toLowerCase(), size);
+      builder.put(size.name().toLowerCase(Locale.ROOT), size);
     }
     CANONICAL_LOWER_CASE_NAME_TABLE = builder.buildOrThrow();
   }
@@ -94,7 +95,7 @@ public enum TestSize {
    */
   @Nullable
   public static TestSize getTestSize(String attr) {
-    if (!attr.equals(attr.toLowerCase())) {
+    if (!attr.equals(attr.toLowerCase(Locale.ROOT))) {
       return null;
     }
     try {
@@ -107,7 +108,7 @@ public enum TestSize {
   /** Normal practice is to always use size tags as lower case strings. */
   @Override
   public String toString() {
-    return super.toString().toLowerCase();
+    return super.toString().toLowerCase(Locale.ROOT);
   }
 
   /**

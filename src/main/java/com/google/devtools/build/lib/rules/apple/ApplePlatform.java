@@ -267,7 +267,7 @@ public enum ApplePlatform implements ApplePlatformApi {
 
     @Override
     public String toString() {
-      return name().toLowerCase();
+      return name().toLowerCase(Locale.ROOT);
     }
 
     /**

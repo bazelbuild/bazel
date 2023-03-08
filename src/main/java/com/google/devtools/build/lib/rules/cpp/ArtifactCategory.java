@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
+import java.util.Locale;
 
 /**
  * A category of artifacts that are candidate input/output to an action, for which the toolchain can
@@ -60,7 +61,7 @@ public enum ArtifactCategory {
             .add(extraAllowedExtensions)
             .build();
 
-    this.starlarkName = toString().toLowerCase();
+    this.starlarkName = toString().toLowerCase(Locale.ROOT);
   }
 
   public String getStarlarkName() {
@@ -69,7 +70,7 @@ public enum ArtifactCategory {
 
   /** Returns the name of the category. */
   public String getCategoryName() {
-    return this.toString().toLowerCase();
+    return this.toString().toLowerCase(Locale.ROOT);
   }
 
   public String getDefaultPrefix() {

@@ -46,6 +46,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -289,7 +290,7 @@ public final class AttrXmlResourceValue implements XmlResourceValue {
       if (TAG_FLAG.equals(tagName)) {
         formatNames.add(FLAGS);
       } else {
-        formatNames.add(tagName.getLocalPart().toLowerCase());
+        formatNames.add(tagName.getLocalPart().toLowerCase(Locale.ROOT));
       }
     }
 

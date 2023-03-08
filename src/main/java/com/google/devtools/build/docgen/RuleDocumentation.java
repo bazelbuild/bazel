@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.DocgenConsts.RuleType;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -157,7 +158,7 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
    */
   @VisibleForTesting
   static String normalize(String s) {
-    return s.toLowerCase()
+    return s.toLowerCase(Locale.ROOT)
         .replace("+", "p")
         .replaceAll("[()]", "")
         .replaceAll("[\\s/]", "-")
@@ -298,12 +299,12 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
       if (attributeDoc.isCommonType()) {
         sb.append(String.format("<a href=\"%s#%s.%s\">%s</a>",
             COMMON_DEFINITIONS_PAGE,
-            attributeDoc.getGeneratedInRule(ruleName).toLowerCase(),
+            attributeDoc.getGeneratedInRule(ruleName).toLowerCase(Locale.ROOT),
             attrName,
             attrName));
       } else {
         sb.append(String.format("<a href=\"#%s.%s\">%s</a>",
-            attributeDoc.getGeneratedInRule(ruleName).toLowerCase(),
+            attributeDoc.getGeneratedInRule(ruleName).toLowerCase(Locale.ROOT),
             attrName,
             attrName));
       }
@@ -322,7 +323,7 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
     switch (key) {
       case DocgenConsts.VAR_IMPLICIT_OUTPUTS:
         return String.format("<h4 id=\"%s_implicit_outputs\">Implicit output targets</h4>\n%s",
-            ruleName.toLowerCase(), value);
+            ruleName.toLowerCase(Locale.ROOT), value);
       default:
         return value;
     }

@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -154,7 +155,7 @@ public final class CommandBuilder {
 
       // Automatically enable CMD.EXE use if we are executing something else besides "*.exe" file.
       // When use CMD.EXE to invoke a bat/cmd file, the file path must have '\' instead of '/'
-      if (!command.toLowerCase().endsWith(".exe")) {
+      if (!command.toLowerCase(Locale.ROOT).endsWith(".exe")) {
         useShell = true;
         modifiedArgv.set(0, argv0.replace('/', '\\'));
       }

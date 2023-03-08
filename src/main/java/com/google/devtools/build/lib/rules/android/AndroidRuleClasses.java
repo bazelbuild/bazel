@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
+import java.util.Locale;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkInt;
 
@@ -920,7 +921,7 @@ public final class AndroidRuleClasses {
 
     /** Returns the attribute value that specifies this mode. */
     public String getAttributeValue() {
-      return toString().toLowerCase();
+      return toString().toLowerCase(Locale.ROOT);
     }
 
     /**

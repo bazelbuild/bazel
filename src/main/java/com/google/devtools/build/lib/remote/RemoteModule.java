@@ -112,6 +112,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.channels.ClosedChannelException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -236,7 +237,7 @@ public final class RemoteModule extends BlazeModule {
                   || status == HttpResponseStatus.SERVICE_UNAVAILABLE.code()
                   || status == HttpResponseStatus.GATEWAY_TIMEOUT.code();
         } else if (e instanceof IOException) {
-          String msg = e.getMessage().toLowerCase();
+          String msg = e.getMessage().toLowerCase(Locale.ROOT);
           if (msg.contains("connection reset by peer")) {
             retry = true;
           } else if (msg.contains("operation timed out")) {

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
+import java.util.Locale;
 import java.util.Objects;
 
 /** Directory entry representation returned by {@link Path#readdir}. */
@@ -66,7 +67,7 @@ public final class Dirent implements Comparable<Dirent> {
 
   @Override
   public String toString() {
-    return name + "[" + type.toString().toLowerCase() + "]";
+    return name + "[" + type.toString().toLowerCase(Locale.ROOT) + "]";
   }
 
   @Override

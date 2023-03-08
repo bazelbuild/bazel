@@ -14,6 +14,7 @@
 
 package net.starlark.java.spelling;
 
+import java.util.Locale;
 import javax.annotation.Nullable;
 
 /**
@@ -84,9 +85,9 @@ public final class SpellChecker {
     String best = null;
     // Heuristic: the expected number of typos depends on the length of the word.
     int bestDistance = Math.min(5, (input.length() + 1) / 2);
-    input = input.toLowerCase();
+    input = input.toLowerCase(Locale.ROOT);
     for (String candidate : words) {
-      int d = editDistance(input, candidate.toLowerCase(), bestDistance);
+      int d = editDistance(input, candidate.toLowerCase(Locale.ROOT), bestDistance);
       if (d >= 0 && d < bestDistance) {
         bestDistance = d;
         best = candidate;

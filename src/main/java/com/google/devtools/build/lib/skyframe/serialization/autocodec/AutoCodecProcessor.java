@@ -35,6 +35,7 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -281,9 +282,9 @@ public class AutoCodecProcessor extends AbstractProcessor {
   private static String getNameFromGetter(ExecutableElement method) {
     String name = method.getSimpleName().toString();
     if (name.startsWith("get")) {
-      return name.substring(3, 4).toLowerCase() + name.substring(4);
+      return name.substring(3, 4).toLowerCase(Locale.ROOT) + name.substring(4);
     } else if (name.startsWith("is")) {
-      return name.substring(2, 3).toLowerCase() + name.substring(3);
+      return name.substring(2, 3).toLowerCase(Locale.ROOT) + name.substring(3);
     } else {
       return name;
     }
@@ -515,7 +516,8 @@ public class AutoCodecProcessor extends AbstractProcessor {
             parameter.getSimpleName(),
             sanitizeTypeParameter(parameter.asType(), env),
             UnsafeProvider.class,
-            typeKind.isPrimitive() ? firstLetterUpper(typeKind.toString().toLowerCase()) : "Object",
+            typeKind.isPrimitive() ? firstLetterUpper(
+                typeKind.toString().toLowerCase(Locale.ROOT)) : "Object",
             parameter.getSimpleName());
         marshallers.writeSerializationCode(
             new SerializationCodeGenerator.Context(

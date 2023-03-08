@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -412,7 +413,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   public String getOutputDirectoryName() {
     List<String> components = new ArrayList<>();
     if (!appleCpus.appleSplitCpu().isEmpty()) {
-      components.add(applePlatformType.toString().toLowerCase());
+      components.add(applePlatformType.toString().toLowerCase(Locale.ROOT));
       components.add(appleCpus.appleSplitCpu());
 
       if (options.getMinimumOsVersion() != null) {

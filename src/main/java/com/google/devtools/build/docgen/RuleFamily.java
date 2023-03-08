@@ -21,6 +21,7 @@ import com.google.common.escape.Escaper;
 import com.google.devtools.build.docgen.DocgenConsts.RuleType;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Helper class for representing a rule family in the rule summary table template.
@@ -71,7 +72,7 @@ public class RuleFamily {
    * "c-cpp".
    */
   static String normalize(String s) {
-    return FAMILY_NAME_ESCAPER.escape(s.toLowerCase()).replaceAll("[-]+", "-");
+    return FAMILY_NAME_ESCAPER.escape(s.toLowerCase(Locale.ROOT)).replaceAll("[-]+", "-");
   }
 
   public int size() {

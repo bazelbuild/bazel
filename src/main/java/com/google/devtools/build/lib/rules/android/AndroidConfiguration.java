@@ -39,6 +39,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
+import java.util.Locale;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -165,9 +166,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     public static List<String> getAttributeValues() {
       return ImmutableList.of(
-          LEGACY.name().toLowerCase(),
-          ANDROID.name().toLowerCase(),
-          FORCE_ANDROID.name().toLowerCase(),
+          LEGACY.name().toLowerCase(Locale.ROOT),
+          ANDROID.name().toLowerCase(Locale.ROOT),
+          FORCE_ANDROID.name().toLowerCase(Locale.ROOT),
           getRuleAttributeDefault());
     }
 

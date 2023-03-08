@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -399,7 +400,8 @@ public final class DocstringUtils {
     }
 
     private String checkForNonStandardDeprecation(String line) {
-      if (line.toLowerCase().startsWith("deprecated:") || line.contains("DEPRECATED")) {
+      if (line.toLowerCase(Locale.ROOT).startsWith("deprecated:") || line.contains(
+          "DEPRECATED")) {
         error(
             "use a 'Deprecated:' section for deprecations, similar to a 'Returns:' section:\n\n"
                 + "Deprecated:\n"
