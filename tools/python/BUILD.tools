@@ -37,7 +37,6 @@ exports_files([
 filegroup(
     name = "bzl_srcs",
     srcs = glob(["*.bzl"]) + [
-        "private/defs.bzl", # TODO(#9029): remove after the uses in bazel/third_party are removed
         "private/py_test_alias.bzl",
     ],
     visibility = ["//tools:__pkg__"],
