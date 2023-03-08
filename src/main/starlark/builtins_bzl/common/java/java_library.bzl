@@ -59,7 +59,7 @@ def bazel_java_library_rule(
       add_exports: (list[str]) Allow this library to access the given <module>/<package>.
       add_opens: (list[str]) Allow this library to reflectively access the given <module>/<package>.
     Returns:
-      (list[provider]) A list containing DefaultInfo, JavaInfo,
+      (dict[str, provider]) A list containing DefaultInfo, JavaInfo,
         InstrumentedFilesInfo, OutputGroupsInfo, ProguardSpecProvider providers.
     """
     if not srcs and deps:
