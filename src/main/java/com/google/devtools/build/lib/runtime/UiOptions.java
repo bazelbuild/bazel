@@ -74,26 +74,26 @@ public class UiOptions extends OptionsBase {
       }
       List<String> filters = commaSeparatedListConverter.convert(input, /*conversionContext=*/ null);
 
-      HashSet<EventKind> filteredEvents = new HashSet<>();
+      HashSet<EventKind> removedEvents = new HashSet<>();
       HashSet<EventKind> addedEvents = new HashSet<>();
 
       for (String filter : filters) {
         if (!filter.startsWith("+") && !filter.startsWith("-")) {
-          filteredEvents.addAll(EventKind.ALL_EVENTS);
+          removedEvents.addAll(EventKind.ALL_EVENTS);
           addedEvents.clear();
         }
         if (!filter.isEmpty()) {
           EventKind kind = eventKindConverter.convert(filter.replaceFirst("^[+-]", ""), /*conversionContext=*/ null);
           if (filter.startsWith("-")) {
-            filteredEvents.add(kind);
+            removedEvents.add(kind);
             addedEvents.remove(kind);
           } else {
             addedEvents.add(kind);
-            filteredEvents.remove(kind);
+            removedEvents.remove(kind);
           }
         }
       }
-      return EventKindFilters.from(ImmutableSet.copyOf(filteredEvents), ImmutableSet.copyOf(addedEvents));
+      return EventKindFilters.from(ImmutableSet.copyOf(removedEvents), ImmutableSet.copyOf(addedEvents));
     }
 
     @Override
