@@ -219,5 +219,11 @@ class TarFileWriterTest(unittest.TestCase):
     ]
     self.assertTarFileContent(self.tempfile, content)
 
+  def testTarFileFormat(self):
+    for format_ in (tarfile.USTAR_FORMAT, tarfile.PAX_FORMAT, tarfile.GNU_FORMAT):
+      with archive.TarFileWriter(self.tempfile, tar_format=format_) as f:
+        pass
+      self.assertEqual(f.tar.format, format_)
+
 if __name__ == "__main__":
   unittest.main()

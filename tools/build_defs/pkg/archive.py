@@ -32,13 +32,15 @@ class TarFileWriter(object):
   def __init__(self,
                name,
                root_directory='./',
-               preserve_tar_mtimes=False):
+               preserve_tar_mtimes=False,
+               tar_format=tarfile.DEFAULT_FORMAT):
     """TarFileWriter wraps tarfile.open().
 
     Args:
       name: the tar file name.
       root_directory: virtual root to prepend to elements in the archive.
       preserve_tar_mtimes: if true, keep file mtimes from input tar file.
+      tar_format: format of tarfile.
     """
     mode = 'w:'
     self.name = name
@@ -47,7 +49,7 @@ class TarFileWriter(object):
     self.preserve_mtime = preserve_tar_mtimes
 
     self.fileobj = None
-    self.tar = tarfile.open(name=name, mode=mode, fileobj=self.fileobj, format=tarfile.GNU_FORMAT)
+    self.tar = tarfile.open(name=name, mode=mode, fileobj=self.fileobj, format=tar_format)
     self.members = set([])
     self.directories = set([])
 

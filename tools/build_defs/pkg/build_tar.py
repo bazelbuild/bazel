@@ -16,6 +16,7 @@
 import argparse
 import os
 import sys
+import tarfile
 
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 
@@ -28,13 +29,15 @@ class TarFile(object):
   class DebError(Exception):
     pass
 
-  def __init__(self, output, directory, root_directory):
+  def __init__(self, output, directory, root_directory, tar_format=tarfile.DEFAULT_FORMAT):
     self.directory = directory
     self.output = output
     self.root_directory = root_directory
+    self.format = tar_format
 
   def __enter__(self):
-    self.tarfile = archive.TarFileWriter(self.output, self.root_directory)
+    self.tarfile = archive.TarFileWriter(self.output, self.root_directory,
+                                         tar_format=self.format)
     return self
 
   def __exit__(self, t, v, traceback):
@@ -93,6 +96,7 @@ def unquote_and_split(arg, c):
 def main():
   parser = argparse.ArgumentParser(
       description='Helper for building tar packages',
+      formatter_class=argparse.RawTextHelpFormatter,
       fromfile_prefix_chars='@')
   parser.add_argument(
       '--output',
@@ -109,10 +113,22 @@ def main():
       '--root_directory',
       default='./',
       help='Default root directory is named "."')
+  parser.add_argument(
+      '--format',
+      default=tarfile.DEFAULT_FORMAT,
+      help='''Format of tar file. (DEFAULT: %(default)s).
+{} - POSIX.1-1988 (ustar) format
+{} - GNU tar format
+{} - POSIX.1-2001 (pax) format'''.format(tarfile.USTAR_FORMAT,
+                                         tarfile.GNU_FORMAT,
+                                         tarfile.PAX_FORMAT),
+      type=int,
+      choices=[tarfile.USTAR_FORMAT, tarfile.GNU_FORMAT, tarfile.PAX_FORMAT],
+  )
   opts = parser.parse_args()
 
   # Add objects to the tar file
-  with TarFile(opts.output, opts.directory, opts.root_directory) as output:
+  with TarFile(opts.output, opts.directory, opts.root_directory, opts.format) as output:
     for f in opts.file:
       (inf, tof) = unquote_and_split(f, '=')
       output.add_file(inf, tof)
