@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.util.Pair;
@@ -48,7 +49,15 @@ public class UiOptions extends OptionsBase {
   }
 
   /** Converter for {@link EventKind} filters * */
-  public static class EventFiltersConverter extends Converter.Contextless<Pair<Set<EventKind>, Set<EventKind>>> {
+  public static class EventFiltersConverter extends Converter.Contextless<EventFiltersConverter.EventKindFilters> {
+    @AutoValue
+    public static abstract class EventKindFilters {
+      public abstract ImmutableSet<EventKind> getAddedEventKinds();
+      public abstract ImmutableSet<EventKind> getRemovedEventKinds();
+      public static EventKindFilters from(ImmutableSet<EventKind> added, ImmutableSet<EventKind> removed) {
+        return new AutoValue_UiOptions_EventFiltersConverter_EventKindFilters(added, removed);
+      }
+    }
     private final CommaSeparatedOptionListConverter commaSeparatedListConverter;
     private final EnumConverter<EventKind> eventKindConverter;
     public EventFiltersConverter() {
@@ -57,11 +66,11 @@ public class UiOptions extends OptionsBase {
     }
 
     @Override
-    public Pair<Set<EventKind>, Set<EventKind>> convert(String input) throws OptionsParsingException {
+    public EventKindFilters convert(String input) throws OptionsParsingException {
       if (input.isEmpty()) {
         // This method is not called to convert the default value
         // Empty list means that the user wants to filter all events
-        return new Pair<>(EventKind.ALL_EVENTS, ImmutableSet.of());
+        return EventKindFilters.from(EventKind.ALL_EVENTS, ImmutableSet.of());
       }
       List<String> filters = commaSeparatedListConverter.convert(input, /*conversionContext=*/ null);
 
@@ -84,7 +93,7 @@ public class UiOptions extends OptionsBase {
           }
         }
       }
-      return new Pair<>(ImmutableSet.copyOf(filteredEvents), ImmutableSet.copyOf(addedEvents));
+      return EventKindFilters.from(ImmutableSet.copyOf(filteredEvents), ImmutableSet.copyOf(addedEvents));
     }
 
     @Override
@@ -227,7 +236,7 @@ public class UiOptions extends OptionsBase {
               + "set completely with direct assignment. The set of supported event kinds "
               + "include INFO, DEBUG, ERROR and more.",
       allowMultiple = true)
-  public List<Pair<Set<EventKind>, Set<EventKind>>> eventFilters;
+  public List<EventFiltersConverter.EventKindFilters> eventFilters;
 
   @Option(
       name = "ui_actions_shown",
@@ -271,9 +280,9 @@ public class UiOptions extends OptionsBase {
 
   public ImmutableSet<EventKind> getFilteredEvents() {
     HashSet<EventKind> filtered = new HashSet<>();
-    for (Pair<Set<EventKind>, Set<EventKind>> filters: eventFilters) {
-      filtered.addAll(filters.getFirst());
-      filtered.removeAll(filters.getSecond());
+    for (EventFiltersConverter.EventKindFilters filters: eventFilters) {
+      filtered.addAll(filters.getAddedEventKinds());
+      filtered.removeAll(filters.getRemovedEventKinds());
     }
     return ImmutableSet.copyOf(filtered);
   }
