@@ -1062,13 +1062,11 @@ public class CppOptions extends FragmentOptions {
       name = "experimental_cpp_compile_argv_ignore_param_file",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {
         OptionMetadataTag.EXPERIMENTAL,
       },
-      help =
-          "If enabled, CppCompileAction action.argv returns the complete list of argv even if"
-              + " compiler_param_file is enabled.")
+      help = "This flag is a noop and scheduled for removal.")
   public boolean ignoreParamFile;
 
   @Option(

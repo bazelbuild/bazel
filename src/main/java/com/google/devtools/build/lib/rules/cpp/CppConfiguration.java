@@ -367,10 +367,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.isCSFdo();
   }
 
-  public boolean ignoreParamFile() {
-    return cppOptions.ignoreParamFile;
-  }
-
   public boolean useArgsParamsFile() {
     return cppOptions.useArgsParamsFile;
   }
