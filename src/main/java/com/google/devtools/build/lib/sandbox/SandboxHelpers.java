@@ -468,6 +468,7 @@ public final class SandboxHelpers {
       PathFragment pathFragment = e.getKey();
       ActionInput actionInput = e.getValue();
       if (actionInput instanceof VirtualActionInput) {
+        // TODO(larsrc): Figure out which VAIs actually require atomicity, maybe avoid it.
         VirtualActionInput input = (VirtualActionInput) actionInput;
         byte[] digest =
             input.atomicallyWriteRelativeTo(
@@ -475,7 +476,9 @@ public final class SandboxHelpers {
                 // When 2 actions try to atomically create the same virtual input, they need to have
                 // a different suffix for the temporary file in order to avoid racy write to the
                 // same one.
-                ".sandbox" + tempFileUniquifierForVirtualInputWrites.incrementAndGet());
+                "_sandbox"
+                    + tempFileUniquifierForVirtualInputWrites.incrementAndGet()
+                    + ".virtualinputlock");
         virtualInputs.put(input, digest);
       }
 
