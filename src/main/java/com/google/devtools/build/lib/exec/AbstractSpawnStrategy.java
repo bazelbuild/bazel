@@ -261,16 +261,14 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
             (BulkTransferException e) -> {
               if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
                 var code =
-                    executionOptions.useNewExitCodeForLostInputs
+                    (executionOptions.useNewExitCodeForLostInputs
+                        || executionOptions.remoteRetryOnCacheEviction > 0)
                         ? Code.REMOTE_CACHE_EVICTED
                         : Code.REMOTE_CACHE_FAILED;
                 throw new EnvironmentalExecException(
                     e,
                     FailureDetail.newBuilder()
-                        .setMessage(
-                            "Failed to fetch blobs because they do not exist remotely."
-                                + " Build without the Bytes does not work if your remote"
-                                + " cache evicts blobs during builds.")
+                        .setMessage("Failed to fetch blobs because they do not exist remotely.")
                         .setSpawn(FailureDetails.Spawn.newBuilder().setCode(code))
                         .build());
               } else {

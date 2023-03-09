@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -139,6 +140,55 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
   @Override
   public BlazeCommandResult exec(
+      InvocationPolicy invocationPolicy,
+      List<String> args,
+      OutErr outErr,
+      LockingMode lockingMode,
+      String clientDescription,
+      long firstContactTimeMillis,
+      Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+      List<Any> commandExtensions)
+      throws InterruptedException {
+    var remoteCacheEvictionRetries = getRemoteCacheEvictionRetries(args, outErr);
+    while (true) {
+      var result =
+          execOnce(
+              invocationPolicy,
+              args,
+              outErr,
+              lockingMode,
+              clientDescription,
+              firstContactTimeMillis,
+              startupOptionsTaggedWithBazelRc,
+              commandExtensions);
+      if (result.getExitCode() == ExitCode.REMOTE_CACHE_EVICTED && remoteCacheEvictionRetries > 0) {
+        --remoteCacheEvictionRetries;
+        outErr.printErrLn("Found remote cache eviction error, retrying the build...");
+        continue;
+      }
+      return result;
+    }
+  }
+
+  private int getRemoteCacheEvictionRetries(List<String> args, OutErr outErr) {
+    // Since flags are not parsed yet at this point, we manually extract value of the retry flag.
+    var retryFlagPrefix = "--experimental_remote_cache_eviction_retries=";
+    for (var arg : args) {
+      if (arg.startsWith(retryFlagPrefix)) {
+        try {
+          return Integer.parseInt(arg.substring(retryFlagPrefix.length()));
+        } catch (NumberFormatException e) {
+          outErr.printErrLn(
+              String.format(
+                  "Failed to parse retry times: %s, remote cache eviction retry is disabled", e));
+          return 0;
+        }
+      }
+    }
+    return 0;
+  }
+
+  public BlazeCommandResult execOnce(
       InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
