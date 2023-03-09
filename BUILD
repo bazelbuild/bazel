@@ -260,3 +260,28 @@ REMOTE_PLATFORMS = ("rbe_ubuntu1804_java11",)
     )
     for platform_name in REMOTE_PLATFORMS
 ]
+
+load("@upb//bazel:upb_proto_library.bzl", "upb_proto_library")
+
+proto_library(
+    name = "foo_proto",
+    srcs = [
+        "foo.proto",
+    ],
+)
+
+upb_proto_library(
+    name = "foo_cc_proto",
+    deps = [
+        "foo_proto",
+    ], 
+)
+
+cc_shared_library(
+    name = "foo_shared",
+    deps = [
+        "foo_cc_proto",
+    ]
+)
+
+

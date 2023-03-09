@@ -214,15 +214,18 @@ def _find_top_level_linker_input_labels(
             has_code_to_link = False
             for linker_input in linker_inputs_to_be_linked_statically_map[node_label]:
                 if _contains_code_to_link(linker_input):
+                    print(node_label)
                     top_level_linker_input_labels_set[node_label] = True
                     has_code_to_link = True
                     break
 
             if not has_code_to_link:
+                print(node_label)
                 nodes_to_check.extend(node.children)
         elif node_label not in targets_to_be_linked_dynamically_set:
             # This can happen when there was a target in the graph that exported other libraries'
             # linker_inputs but didn't contribute any linker_input of its own.
+            print(node_label)
             nodes_to_check.extend(node.children)
 
     return top_level_linker_input_labels_set
@@ -250,6 +253,8 @@ def _filter_inputs(
         owner = str(linker_input.owner)
         if owner in transitive_exports:
             can_be_linked_dynamically[owner] = True
+        if "foo" in owner:
+            print("Has c++ : "+ owner)
 
     # The targets_to_be_linked_statically_map points to whether the target to
     # be linked statically can be linked more than once.
@@ -589,6 +594,10 @@ def _cc_shared_library_impl(ctx):
 
 def _graph_structure_aspect_impl(target, ctx):
     children = []
+
+    if "foo" in str(ctx.label):
+        print("aaa"+ str(ctx.label))
+
 
     # Collect graph structure info from any possible deplike attribute. The aspect
     # itself applies across every deplike attribute (attr_aspects is *), so enumerate
