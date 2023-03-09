@@ -62,25 +62,29 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
             ModifiedFileSet.builder().modify(PathFragment.create("WORKSPACE")).build(),
             Root.fromPath(rootDirectory));
     return SkyframeExecutorTestUtils.evaluate(
-        getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
+        getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
   }
 
   @Before
   public void setUpForBzlmod() throws Exception {
     setBuildLanguageOptions("--enable_bzlmod");
     scratch.file("MODULE.bazel");
+  }
+
+  @Override
+  protected ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues() throws Exception {
     registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(scratch.dir("modules").getPathString());
-    ModuleFileFunction.REGISTRIES.set(
-        getSkyframeExecutor().getDifferencerForTesting(), ImmutableList.of(registry.getUrl()));
-    ModuleFileFunction.IGNORE_DEV_DEPS.set(getSkyframeExecutor().getDifferencerForTesting(), false);
-    ModuleFileFunction.MODULE_OVERRIDES.set(
-        getSkyframeExecutor().getDifferencerForTesting(), ImmutableMap.of());
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(
-        getSkyframeExecutor().getDifferencerForTesting(), ImmutableList.of());
-    BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
-        getSkyframeExecutor().getDifferencerForTesting(), CheckDirectDepsMode.WARNING);
-    BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
-        getSkyframeExecutor().getDifferencerForTesting(), BazelCompatibilityMode.ERROR);
+    return ImmutableList.of(
+        PrecomputedValue.injected(
+            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR));
   }
 
   @Override
