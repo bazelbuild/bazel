@@ -120,14 +120,14 @@ public class WorkspaceFileFunction implements SkyFunction {
             RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.get(env));
     boolean useWorkspaceResolvedFile = resolvedFile.isPresent();
 
+    final boolean bzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
     boolean useWorkspaceBzlmodFile = false;
     RootedPath workspaceBzlmodFile =
         RootedPath.toRootedPath(
             workspaceFile.getRoot(),
             workspaceFile.getRootRelativePath().replaceName("WORKSPACE.bzlmod"));
     // We only need to check WORKSPACE.bzlmod when the resolved file isn't used.
-    if (!useWorkspaceResolvedFile
-        && starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
+    if (!useWorkspaceResolvedFile && bzlmod) {
       FileValue workspaceBzlmodFileValue =
           (FileValue) env.getValue(FileValue.key(workspaceBzlmodFile));
       if (workspaceBzlmodFileValue == null) {
@@ -266,6 +266,15 @@ public class WorkspaceFileFunction implements SkyFunction {
                   .getRepositoryMapping()
                   .getOrDefault(RepositoryName.MAIN, ImmutableMap.of()));
     }
+    if (bzlmod) {
+      RepositoryMappingValue rootModuleMapping =
+          (RepositoryMappingValue)
+              env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS);
+      if (rootModuleMapping == null) {
+        return null;
+      }
+      repoMapping = repoMapping.composeWith(rootModuleMapping.getRepositoryMapping());
+    }
 
     Package.Builder builder =
         packageFactory.newExternalPackageBuilder(
@@ -274,12 +283,12 @@ public class WorkspaceFileFunction implements SkyFunction {
     if (chunks.isEmpty()) {
       return new WorkspaceFileValue(
           buildAndReportEvents(builder, env),
-          /* loadedModules = */ ImmutableMap.<String, Module>of(),
-          /* loadToChunkMap = */ ImmutableMap.<String, Integer>of(),
-          /* bindings = */ ImmutableMap.<String, Object>of(),
+          /* loadedModules= */ ImmutableMap.<String, Module>of(),
+          /* loadToChunkMap= */ ImmutableMap.<String, Integer>of(),
+          /* bindings= */ ImmutableMap.<String, Object>of(),
           workspaceFile,
-          /* idx = */ 0, // first fragment
-          /* hasNext = */ false);
+          /* idx= */ 0, // first fragment
+          /* hasNext= */ false);
     }
 
     List<StarlarkFile> chunk = chunks.get(key.getIndex());
