@@ -147,8 +147,8 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
                         .build())
                 .build();
         OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depMap =
-            ConfiguredTargetFunction.computeDependencies(
-                new ConfiguredTargetFunction.ComputeDependenciesState(),
+            PrerequisiteProducer.computeDependencies(
+                new PrerequisiteProducer.State(),
                 /* transitivePackages= */ null,
                 /* transitiveRootCauses= */ NestedSetBuilder.stableOrder(),
                 env,

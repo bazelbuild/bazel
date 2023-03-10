@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.starlarkbuildapi.android.ValidatedAndroidDataApi;
 import java.util.Objects;
@@ -27,10 +26,6 @@ import net.starlark.java.eval.StarlarkList;
 /** Wraps validated and packaged Android resource information */
 public class ValidatedAndroidResources extends MergedAndroidResources
     implements ValidatedAndroidDataApi<Artifact, AndroidResourcesInfo> {
-
-  public static final Depset.ElementType TYPE =
-      Depset.ElementType.of(ValidatedAndroidResources.class);
-
   private final Artifact rTxt;
   private final Artifact sourceJar;
   private final Artifact apk;

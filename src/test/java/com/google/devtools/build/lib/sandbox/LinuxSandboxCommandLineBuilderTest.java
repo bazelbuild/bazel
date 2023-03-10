@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS_WITH_LOOPBACK;
+import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NO_NETNS;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -170,7 +172,7 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .setTmpfsDirectories(tmpfsDirectories)
             .setBindMounts(bindMounts)
             .setUseFakeHostname(useFakeHostname)
-            .setCreateNetworkNamespace(createNetworkNamespace)
+            .setCreateNetworkNamespace(createNetworkNamespace ? NETNS_WITH_LOOPBACK : NO_NETNS)
             .setUseFakeRoot(useFakeRoot)
             .setStatisticsPath(statisticsPath)
             .setUseFakeUsername(useFakeUsername)

@@ -17,6 +17,7 @@ package com.google.devtools.build.skydoc.rendering;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import java.util.Collection;
+import java.util.Optional;
 import net.starlark.java.eval.StarlarkCallable;
 
 /**
@@ -37,10 +38,12 @@ public class ProviderInfoWrapper {
   private final ProviderInfo.Builder providerInfo;
 
   public ProviderInfoWrapper(
-      StarlarkCallable identifier, String docString, Collection<ProviderFieldInfo> fieldInfos) {
+      StarlarkCallable identifier,
+      Optional<String> docString,
+      Collection<ProviderFieldInfo> fieldInfos) {
     this.identifier = identifier;
-    this.providerInfo =
-        ProviderInfo.newBuilder().setDocString(docString).addAllFieldInfo(fieldInfos);
+    this.providerInfo = ProviderInfo.newBuilder().addAllFieldInfo(fieldInfos);
+    docString.ifPresent(this.providerInfo::setDocString);
   }
 
   public StarlarkCallable getIdentifier() {

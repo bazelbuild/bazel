@@ -121,7 +121,7 @@ public class PythonOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_python_disable_py2",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},

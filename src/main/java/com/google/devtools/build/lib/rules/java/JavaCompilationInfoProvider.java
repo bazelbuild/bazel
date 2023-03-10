@@ -86,13 +86,13 @@ public final class JavaCompilationInfoProvider
   @Override
   @Nullable
   public Depset /*<Artifact>*/ getRuntimeClasspath() {
-    return runtimeClasspath == null ? null : Depset.of(Artifact.TYPE, runtimeClasspath);
+    return runtimeClasspath == null ? null : Depset.of(Artifact.class, runtimeClasspath);
   }
 
   @Override
   @Nullable
   public Depset /*<Artifact>*/ getCompilationClasspath() {
-    return compilationClasspath == null ? null : Depset.of(Artifact.TYPE, compilationClasspath);
+    return compilationClasspath == null ? null : Depset.of(Artifact.class, compilationClasspath);
   }
 
   @Override

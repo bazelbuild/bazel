@@ -30,6 +30,7 @@ import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.Futures;
@@ -42,8 +43,6 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import io.grpc.Channel;
-import io.grpc.Context;
-import io.grpc.Context.CancellableContext;
 import io.grpc.Status;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
@@ -231,7 +230,6 @@ class ByteStreamUploader {
     ListenableFuture<Void> currUpload = newUpload.start();
     currUpload.addListener(
         () -> {
-          newUpload.cancel();
           if (openedFilePermits != null) {
             openedFilePermits.release();
           }
@@ -249,7 +247,6 @@ class ByteStreamUploader {
     private final String resourceName;
     private final Chunker chunker;
     private final ProgressiveBackoff progressiveBackoff;
-    private final CancellableContext grpcContext;
 
     private long lastCommittedOffset = -1;
 
@@ -269,7 +266,6 @@ class ByteStreamUploader {
       this.progressiveBackoff = new ProgressiveBackoff(retrier::newBackoff);
       this.resourceName = resourceName;
       this.chunker = chunker;
-      this.grpcContext = Context.current().withCancellation();
     }
 
     ListenableFuture<Void> start() {
@@ -369,13 +365,11 @@ class ByteStreamUploader {
           Futures.transform(
               channel.withChannelFuture(
                   channel ->
-                      grpcContext.call(
-                          () ->
-                              bsFutureStub(channel)
-                                  .queryWriteStatus(
-                                      QueryWriteStatusRequest.newBuilder()
-                                          .setResourceName(resourceName)
-                                          .build()))),
+                      bsFutureStub(channel)
+                          .queryWriteStatus(
+                              QueryWriteStatusRequest.newBuilder()
+                                  .setResourceName(resourceName)
+                                  .build())),
               QueryWriteStatusResponse::getCommittedSize,
               MoreExecutors.directExecutor());
       return Futures.catchingAsync(
@@ -397,17 +391,26 @@ class ByteStreamUploader {
       return channel.withChannelFuture(
           channel -> {
             SettableFuture<Long> uploadResult = SettableFuture.create();
-            grpcContext.run(
-                () ->
-                    bsAsyncStub(channel)
-                        .write(new Writer(resourceName, chunker, pos, uploadResult)));
-            return uploadResult;
-          });
-    }
+            bsAsyncStub(channel).write(new Writer(resourceName, chunker, pos, uploadResult));
+            return Futures.catchingAsync(
+                uploadResult,
+                Throwable.class,
+                throwable -> {
+                  Preconditions.checkNotNull(throwable);
 
-    void cancel() {
-      grpcContext.cancel(
-          Status.CANCELLED.withDescription("Cancelled by user").asRuntimeException());
+                  Status status = Status.fromThrowable(throwable);
+                  switch (status.getCode()) {
+                    case ALREADY_EXISTS:
+                      // Server indicated the blob already exists, so we translate the error to a
+                      // successful upload.
+                      return Futures.immediateFuture(chunker.getSize());
+
+                    default:
+                      return Futures.immediateFailedFuture(throwable);
+                  }
+                },
+                MoreExecutors.directExecutor());
+          });
     }
   }
 
@@ -432,6 +435,13 @@ class ByteStreamUploader {
     @Override
     public void beforeStart(ClientCallStreamObserver<WriteRequest> requestObserver) {
       this.requestObserver = requestObserver;
+      uploadResult.addListener(
+          () -> {
+            if (uploadResult.isCancelled()) {
+              requestObserver.cancel("cancelled by user", null);
+            }
+          },
+          MoreExecutors.directExecutor());
       requestObserver.setOnReadyHandler(this);
     }
 

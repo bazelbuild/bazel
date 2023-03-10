@@ -72,7 +72,7 @@ public final class BazelCcLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("cc_library")
         .ancestors(CcLibraryBaseRule.class, BaseRuleClasses.MakeVariableExpandingRule.class)
-        .factoryClass(BazelCcLibrary.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

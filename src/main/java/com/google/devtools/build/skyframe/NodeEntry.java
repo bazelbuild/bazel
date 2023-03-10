@@ -14,10 +14,8 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.GroupedList;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -31,7 +29,7 @@ import javax.annotation.Nullable;
  * <p>Certain graph implementations' node entries can throw {@link InterruptedException} on various
  * accesses. Such exceptions should not be caught locally -- they should be allowed to propagate up.
  */
-public interface NodeEntry {
+public interface NodeEntry extends PriorityTracker {
 
   /**
    * Return code for {@link #addReverseDepAndCheckIfDone} and {@link
@@ -446,7 +444,7 @@ public interface NodeEntry {
    * @see DirtyBuildingState#getNextDirtyDirectDeps()
    */
   @ThreadSafe
-  ImmutableList<SkyKey> getNextDirtyDirectDeps() throws InterruptedException;
+  List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException;
 
   /**
    * Returns all deps of a node that has not yet finished evaluating. In other words, if a node has
@@ -494,11 +492,11 @@ public interface NodeEntry {
   void markRebuilding();
 
   /**
-   * Returns the {@link GroupedList} of direct dependencies. This may only be called while the node
+   * Returns the {@link GroupedDeps} of direct dependencies. This may only be called while the node
    * is being evaluated (i.e. before {@link #setValue} and after {@link #markDirty}.
    */
   @ThreadSafe
-  GroupedList<SkyKey> getTemporaryDirectDeps();
+  GroupedDeps getTemporaryDirectDeps();
 
   @ThreadSafe
   boolean noDepsLastBuild();
@@ -537,7 +535,7 @@ public interface NodeEntry {
    * existing temporary direct deps.
    */
   @ThreadSafe
-  void addTemporaryDirectDepGroup(ImmutableList<SkyKey> group);
+  void addTemporaryDirectDepGroup(List<SkyKey> group);
 
   /**
    * Adds temporary direct deps in groups.

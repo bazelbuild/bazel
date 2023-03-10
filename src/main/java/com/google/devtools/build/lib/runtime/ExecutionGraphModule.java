@@ -13,14 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.ExecutionGraph;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.SharedActionEvent;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
@@ -201,7 +203,7 @@ public class ExecutionGraphModule extends BlazeModule {
 
     if (env.getCommand().builds()) {
       ExecutionGraphOptions options =
-          Preconditions.checkNotNull(
+          checkNotNull(
               env.getOptions().getOptions(ExecutionGraphOptions.class),
               "ExecutionGraphOptions must be present for ExecutionGraphModule");
       if (!options.executionGraphLogFile.isBlank()) {
@@ -320,6 +322,15 @@ public class ExecutionGraphModule extends BlazeModule {
 
   @Subscribe
   @AllowConcurrentEvents
+  public void actionShared(SharedActionEvent event) {
+    ActionDumpWriter localWriter = writer;
+    if (localWriter != null) {
+      localWriter.actionShared(event);
+    }
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
   public void spawnExecuted(SpawnExecutedEvent event) {
     // Writer might be modified by a concurrent call to shutdown. See b/184943744.
     // It may be possible to get a BuildCompleteEvent before a duplicate Spawn that runs with a
@@ -412,7 +423,7 @@ public class ExecutionGraphModule extends BlazeModule {
 
       SpawnMetrics metrics = spawnResult.getMetrics();
       spawnResult = null;
-      long totalMillis = metrics.totalTime().toMillis();
+      long totalMillis = metrics.totalTimeInMs();
 
       long discoverInputsMillis = 0;
       ActionInput firstOutput = getFirstOutput(spawn.getResourceOwner(), spawn.getOutputFiles());
@@ -428,20 +439,20 @@ public class ExecutionGraphModule extends BlazeModule {
           ExecutionGraph.Metrics.newBuilder()
               .setStartTimestampMillis(startMillis)
               .setDurationMillis((int) totalMillis)
-              .setFetchMillis((int) metrics.fetchTime().toMillis())
+              .setFetchMillis(metrics.fetchTimeInMs())
               .setDiscoverInputsMillis((int) discoverInputsMillis)
-              .setParseMillis((int) metrics.parseTime().toMillis())
-              .setProcessMillis((int) metrics.executionWallTime().toMillis())
-              .setQueueMillis((int) metrics.queueTime().toMillis())
-              .setRetryMillis((int) metrics.retryTime().toMillis())
-              .setSetupMillis((int) metrics.setupTime().toMillis())
-              .setUploadMillis((int) metrics.uploadTime().toMillis())
-              .setNetworkMillis((int) metrics.networkTime().toMillis())
-              .setOtherMillis((int) metrics.otherTime().toMillis())
-              .setProcessOutputsMillis((int) metrics.processOutputsTime().toMillis());
+              .setParseMillis(metrics.parseTimeInMs())
+              .setProcessMillis(metrics.executionWallTimeInMs())
+              .setQueueMillis(metrics.queueTimeInMs())
+              .setRetryMillis(metrics.retryTimeInMs())
+              .setSetupMillis(metrics.setupTimeInMs())
+              .setUploadMillis(metrics.uploadTimeInMs())
+              .setNetworkMillis(metrics.networkTimeInMs())
+              .setOtherMillis(metrics.otherTimeInMs())
+              .setProcessOutputsMillis(metrics.processOutputsTimeInMs());
 
-      for (Map.Entry<Integer, Duration> entry : metrics.retryTimeByError().entrySet()) {
-        metricsBuilder.putRetryMillisByError(entry.getKey(), (int) entry.getValue().toMillis());
+      for (Map.Entry<Integer, Integer> entry : metrics.retryTimeByError().entrySet()) {
+        metricsBuilder.putRetryMillisByError(entry.getKey(), entry.getValue());
       }
       metrics = null;
       // maybeAddEdges can take a while, so do it last and try to give up references to any objects
@@ -635,7 +646,7 @@ public class ExecutionGraphModule extends BlazeModule {
     void enqueue(DiscoveredInputsEvent event) {
       // The other times from SpawnMetrics are not needed. The only instance of
       // DiscoveredInputsEvent sets only total and parse time, and to the same value.
-      var totalTime = event.getMetrics().totalTime();
+      var totalTime = Duration.ofMillis(event.getMetrics().totalTimeInMs());
       var firstOutput = getFirstOutput(event.getAction(), event.getAction().getOutputs());
       var sum = outputToDiscoverInputsTime.get(firstOutput);
       if (sum != null) {
@@ -669,6 +680,28 @@ public class ExecutionGraphModule extends BlazeModule {
       if (logs != null) {
         updateLogs(logs);
       }
+    }
+
+    void actionShared(SharedActionEvent event) {
+      copySharedArtifacts(
+          event.getExecuted().getAllFileValues(), event.getTransformed().getAllFileValues());
+      copySharedArtifacts(
+          event.getExecuted().getAllTreeArtifactValues(),
+          event.getTransformed().getAllTreeArtifactValues());
+    }
+
+    private void copySharedArtifacts(Map<Artifact, ?> executed, Map<Artifact, ?> transformed) {
+      Streams.forEachPair(
+          executed.keySet().stream(),
+          transformed.keySet().stream(),
+          (existing, shared) -> {
+            NodeInfo node = outputToNode.get(existing);
+            if (node != null) {
+              outputToNode.put(shared, node);
+            } else {
+              bugReporter.logUnexpected("No node for %s (%s)", existing, existing.getOwner());
+            }
+          });
     }
 
     protected abstract void updateLogs(BuildToolLogCollection logs);
@@ -732,9 +765,9 @@ public class ExecutionGraphModule extends BlazeModule {
       throws InvalidPackagePathSymlinkException, ActionDumpFileCreationException {
     OptionsParsingResult parsingResult = env.getOptions();
     BuildEventProtocolOptions bepOptions =
-        Preconditions.checkNotNull(parsingResult.getOptions(BuildEventProtocolOptions.class));
+        checkNotNull(parsingResult.getOptions(BuildEventProtocolOptions.class));
     ExecutionGraphOptions executionGraphOptions =
-        Preconditions.checkNotNull(parsingResult.getOptions(ExecutionGraphOptions.class));
+        checkNotNull(parsingResult.getOptions(ExecutionGraphOptions.class));
     if (bepOptions.streamingLogFileUploads) {
       return new StreamingActionDumpWriter(
           env.getRuntime().getBugReporter(),

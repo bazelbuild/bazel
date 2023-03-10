@@ -530,6 +530,7 @@ public class BaseRuleClasses {
     @Override
     @Nullable
     public ConfiguredTarget create(RuleContext ruleContext) {
+      ruleContext.ruleError("Rule is unimplemented.");
       return null;
     }
   }

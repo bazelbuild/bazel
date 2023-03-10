@@ -71,8 +71,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       QuiescingExecutor executor,
       CycleDetector cycleDetector,
       boolean mergingSkyframeAnalysisExecutionPhases,
-      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver,
-      boolean heuristicallyDropNodes) {
+      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
     super(
         graph,
         graphVersion,
@@ -87,44 +86,8 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         graphInconsistencyReceiver,
         executor,
         cycleDetector,
-        mergingSkyframeAnalysisExecutionPhases,
-        heuristicallyDropNodes);
+        mergingSkyframeAnalysisExecutionPhases);
     this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
-  }
-
-  public ParallelEvaluator(
-      ProcessableGraph graph,
-      Version graphVersion,
-      Version minimalVersion,
-      ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
-      ExtendedEventHandler reporter,
-      NestedSetVisitor.VisitedState emittedEventState,
-      EventFilter storedEventFilter,
-      ErrorInfoManager errorInfoManager,
-      boolean keepGoing,
-      DirtyTrackingProgressReceiver progressReceiver,
-      GraphInconsistencyReceiver graphInconsistencyReceiver,
-      QuiescingExecutor executor,
-      CycleDetector cycleDetector,
-      boolean mergingSkyframeAnalysisExecutionPhases,
-      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
-    this(
-        graph,
-        graphVersion,
-        minimalVersion,
-        skyFunctions,
-        reporter,
-        emittedEventState,
-        storedEventFilter,
-        errorInfoManager,
-        keepGoing,
-        progressReceiver,
-        graphInconsistencyReceiver,
-        executor,
-        cycleDetector,
-        mergingSkyframeAnalysisExecutionPhases,
-        unnecessaryTemporaryStateDropperReceiver,
-        /* heuristicallyDropNodes= */ false);
   }
 
   private void informProgressReceiverThatValueIsDone(SkyKey key, NodeEntry entry)
@@ -180,9 +143,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         // in order to be thread-safe.
         switch (entry.addReverseDepAndCheckIfDone(null)) {
           case NEEDS_SCHEDULING:
-            // Low priority because this node is not needed by any other currently evaluating node.
-            // So keep it at the back of the queue as long as there's other useful work to be done.
-            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, Integer.MIN_VALUE, null);
+            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, entry.getPriority(), null);
             break;
           case DONE:
             informProgressReceiverThatValueIsDone(skyKey, entry);

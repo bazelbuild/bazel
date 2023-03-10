@@ -23,7 +23,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Table;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
@@ -48,7 +50,9 @@ public abstract class ExecGroupCollection {
   }
 
   public static Builder builder(
-      ExecGroup defaultExecGroup, ImmutableMap<String, ExecGroup> execGroups) {
+      ImmutableMap<String, ExecGroup> execGroups,
+      ImmutableSet<Label> defaultExecWith,
+      ImmutableSet<ToolchainTypeRequirement> defaultToolchainTypes) {
     // Post-process the groups to handle inheritance.
     Map<String, ExecGroup> processedGroups = new LinkedHashMap<>();
     for (Map.Entry<String, ExecGroup> entry : execGroups.entrySet()) {
@@ -57,7 +61,11 @@ public abstract class ExecGroupCollection {
 
       if (execGroup.copyFrom() != null) {
         if (execGroup.copyFrom().equals(DEFAULT_EXEC_GROUP_NAME)) {
-          execGroup = execGroup.inheritFrom(defaultExecGroup);
+          execGroup =
+              ExecGroup.builder()
+                  .execCompatibleWith(defaultExecWith)
+                  .toolchainTypes(defaultToolchainTypes)
+                  .build();
         } else {
           execGroup = execGroup.inheritFrom(execGroups.get(execGroup.copyFrom()));
         }

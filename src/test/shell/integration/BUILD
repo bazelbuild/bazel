@@ -41,6 +41,7 @@ gen_workspace_stanza(
     out = "rules_proto_stanza.txt",
     repos = [
         "rules_proto",
+        "rules_python",
     ],
 )
 

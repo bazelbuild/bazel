@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
@@ -209,26 +208,17 @@ public class RepositoryMappingFunction implements SkyFunction {
     if (externalPackage.containsErrors()) {
       throw new RepositoryMappingFunctionException();
     }
+    RepositoryMapping workspaceMapping =
+        RepositoryMapping.createAllowingFallback(
+            externalPackage.getRepositoryMapping(repositoryName));
     if (rootModuleRepoMapping == null) {
       // This means Bzlmod is disabled.
-      return RepositoryMappingValue.withMapping(
-          RepositoryMapping.createAllowingFallback(
-              externalPackage.getRepositoryMapping(repositoryName)));
+      return RepositoryMappingValue.withMapping(workspaceMapping);
     }
     // If Bzlmod is in play, we need to make sure that WORKSPACE repos see all repos that root
     // module can see, taking care to compose the existing WORKSPACE mapping with the main repo
     // mapping from Bzlmod.
-    return RepositoryMappingValue.withMapping(
-        RepositoryMapping.createAllowingFallback(
-                Maps.transformValues(
-                    externalPackage.getRepositoryMapping(repositoryName),
-                    toRepo -> {
-                      RepositoryName mappedName = rootModuleRepoMapping.get(toRepo.getName());
-                      // If the Bzlmod-only main repo mapping doesn't contain this repo, don't touch
-                      // it.
-                      return mappedName.isVisible() ? mappedName : toRepo;
-                    }))
-            .withAdditionalMappings(rootModuleRepoMapping));
+    return RepositoryMappingValue.withMapping(workspaceMapping.composeWith(rootModuleRepoMapping));
   }
 
   private static Optional<ModuleExtensionId> maybeGetModuleExtensionForRepo(

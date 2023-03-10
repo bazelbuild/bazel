@@ -69,7 +69,9 @@ static void Usage(char *program_name, const char *fmt, ...) {
           "specifies where to\n"
           "  -S <file>  if set, write stats in protobuf format to a file\n"
           "  -H  if set, make hostname in the sandbox equal to 'localhost'\n"
-          "  -N  if set, a new network namespace will be created\n"
+          "  -n  if set, create a new network namespace\n"
+          "  -N  if set, create a new network namespace with loopback\n"
+          "        Only one of -n and -N may be specified.\n"
           "  -R  if set, make the uid/gid be root\n"
           "  -U  if set, make the uid/gid be nobody\n"
           "  -P  if set, make the gid be tty and make /dev/pts writable\n"
@@ -100,7 +102,7 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   int c;
   bool source_specified = false;
   while ((c = getopt(args->size(), args->data(),
-                     ":W:T:t:il:L:w:e:M:m:S:h:pC:HNRUPD")) != -1) {
+                     ":W:T:t:il:L:w:e:M:m:S:h:pC:HnNRUPD")) != -1) {
     if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
       case 'W':
@@ -202,8 +204,17 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
       case 'H':
         opt.fake_hostname = true;
         break;
+      case 'n':
+        if (opt.create_netns == NETNS_WITH_LOOPBACK) {
+          Usage(args->front(), "Only one of -n and -N may be specified.");
+        }
+        opt.create_netns = NETNS;
+        break;
       case 'N':
-        opt.create_netns = true;
+        if (opt.create_netns == NETNS) {
+          Usage(args->front(), "Only one of -n and -N may be specified.");
+        }
+        opt.create_netns = NETNS_WITH_LOOPBACK;
         break;
       case 'R':
         if (opt.fake_username) {

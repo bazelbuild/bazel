@@ -279,18 +279,20 @@ EOF
         "openjdk11_darwin_archive"
         "openjdk11_darwin_aarch64_archive"
         "openjdk11_linux_archive"
+        "openjdk11_linux_s390x_archive"
         "openjdk11_windows_archive"
         "openjdk11_windows_arm64_archive"
         "openjdk17_darwin_archive"
         "openjdk17_darwin_aarch64_archive"
         "openjdk17_linux_archive"
+        "openjdk17_linux_s390x_archive"
         "openjdk17_windows_archive"
         "openjdk17_windows_arm64_archive"
-        "openjdk18_darwin_archive"
-        "openjdk18_darwin_aarch64_archive"
-        "openjdk18_linux_archive"
-        "openjdk18_windows_archive"
-        "openjdk18_windows_arm64_archive"
+        "openjdk19_darwin_archive"
+        "openjdk19_darwin_aarch64_archive"
+        "openjdk19_linux_archive"
+        "openjdk19_linux_s390x_archive"
+        "openjdk19_windows_archive"
         "remote_coverage_tools"
         "remote_java_tools_for_testing"
         "remote_java_tools_darwin_for_testing"
@@ -309,15 +311,17 @@ EOF
         "remotejdk11_win_for_testing"
         "remotejdk11_win_arm64_for_testing"
         "remotejdk17_linux_for_testing"
+        "remotejdk17_linux_s390x_for_testing"
         "remotejdk17_macos_for_testing"
         "remotejdk17_macos_aarch64_for_testing"
         "remotejdk17_win_for_testing"
         "remotejdk17_win_arm64_for_testing"
-        "remotejdk18_linux_for_testing"
-        "remotejdk18_macos_for_testing"
-        "remotejdk18_macos_aarch64_for_testing"
-        "remotejdk18_win_for_testing"
-        "remotejdk18_win_arm64_for_testing"
+        "remotejdk19_linux_for_testing"
+        "remotejdk19_linux_s390x_for_testing"
+        "remotejdk19_macos_for_testing"
+        "remotejdk19_macos_aarch64_for_testing"
+        "remotejdk19_win_for_testing"
+        "remotejdk19_win_arm64_for_testing"
         "rules_cc"
         "rules_java"
         "rules_license"
@@ -557,6 +561,14 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 EOF
 }
 
+function add_rules_python_to_workspace() {
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+{rules_python}
+EOF
+}
+
 function create_workspace_with_default_repos() {
   write_workspace_file "${1:-WORKSPACE}" "${2:-main}"
   echo "$1"
@@ -572,6 +584,7 @@ EOF
   add_rules_license_to_workspace "WORKSPACE"
   add_rules_pkg_to_workspace "WORKSPACE"
   add_rules_proto_to_workspace "WORKSPACE"
+  add_rules_python_to_workspace "WORKSPACE"
 
   maybe_setup_python_windows_workspace
 }

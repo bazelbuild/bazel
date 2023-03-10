@@ -109,7 +109,7 @@ public final class ActionExecutionStatusReporter {
   public void remove(Action action) {
     Pair<String, Long> status = actionStatus.remove(action);
     if (status == null) {
-      BugReport.sendBugReport(
+      BugReport.sendNonFatalBugReport(
           new IllegalStateException("Action not present: " + action.prettyPrint()));
     }
   }

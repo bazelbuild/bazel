@@ -45,6 +45,13 @@ public final class MockCppSemantics implements CppSemantics {
     return Language.CPP;
   }
 
+  private static final String CPP_TOOLCHAIN_TYPE = "@bazel_tools//tools/cpp:toolchain_type";
+
+  @Override
+  public String getCppToolchainType() {
+    return CPP_TOOLCHAIN_TYPE;
+  }
+
   @Override
   public void finalizeCompileActionBuilder(
       BuildConfigurationValue configuration,

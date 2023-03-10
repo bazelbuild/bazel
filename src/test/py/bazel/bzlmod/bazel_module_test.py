@@ -884,5 +884,129 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
         env_add={'RUNFILES_LIB_DEBUG': '1'})
     self.AssertExitCode(exit_code, 0, stderr, stdout)
 
+  def testNativePackageRelativeLabel(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name="foo")',
+            'bazel_dep(name="bar")',
+            'local_path_override(module_name="bar",path="bar")',
+        ],
+    )
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'defs.bzl',
+        [
+            'def mac(name):',
+            '  native.filegroup(name=name)',
+            '  print("1st: " + str(native.package_relative_label(":bleb")))',
+            '  print("2nd: " + str(native.package_relative_label('
+            + '"//bleb:bleb")))',
+            '  print("3rd: " + str(native.package_relative_label('
+            + '"@bleb//bleb:bleb")))',
+            '  print("4th: " + str(native.package_relative_label("//bleb")))',
+            '  print("5th: " + str(native.package_relative_label('
+            + '"@@bleb//bleb:bleb")))',
+            '  print("6th: " + str(native.package_relative_label(Label('
+            + '"//bleb"))))',
+        ],
+    )
+
+    self.ScratchFile(
+        'bar/MODULE.bazel',
+        [
+            'module(name="bar")',
+            'bazel_dep(name="foo", repo_name="bleb")',
+        ],
+    )
+    self.ScratchFile('bar/WORKSPACE')
+    self.ScratchFile(
+        'bar/quux/BUILD',
+        [
+            'load("@bleb//:defs.bzl", "mac")',
+            'mac(name="book")',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(
+        ['build', '@bar//quux:book'], allow_failure=False
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('1st: @@bar~override//quux:bleb', stderr)
+    self.assertIn('2nd: @@bar~override//bleb:bleb', stderr)
+    self.assertIn('3rd: @@//bleb:bleb', stderr)
+    self.assertIn('4th: @@bar~override//bleb:bleb', stderr)
+    self.assertIn('5th: @@bleb//bleb:bleb', stderr)
+    self.assertIn('6th: @@//bleb:bleb', stderr)
+
+  def testWorkspaceEvaluatedBzlCanSeeRootModuleMappings(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="aaa",version="1.0")',
+            'bazel_dep(name="bbb",version="1.0")',
+        ],
+    )
+    self.ScratchFile(
+        'WORKSPACE.bzlmod',
+        [
+            'local_repository(name="foo", path="foo", repo_mapping={',
+            '  "@bar":"@baz",',
+            '  "@my_aaa":"@aaa",',
+            '})',
+            'load("@foo//:test.bzl", "test")',
+            'test()',
+        ],
+    )
+    self.ScratchFile('foo/WORKSPACE')
+    self.ScratchFile('foo/BUILD', ['filegroup(name="test")'])
+    self.ScratchFile(
+        'foo/test.bzl',
+        [
+            'def test():',
+            '  print("1st: " + str(Label("@bar//:z")))',
+            '  print("2nd: " + str(Label("@my_aaa//:z")))',
+            '  print("3rd: " + str(Label("@bbb//:z")))',
+            '  print("4th: " + str(Label("@blarg//:z")))',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@foo//:test'], allow_failure=False)
+    stderr = '\n'.join(stderr)
+    # @bar is mapped to @@baz, which Bzlmod doesn't recognize, so we leave it be
+    self.assertIn('1st: @@baz//:z', stderr)
+    # @my_aaa is mapped to @@aaa, which Bzlmod remaps to @@aaa~1.0
+    self.assertIn('2nd: @@aaa~1.0//:z', stderr)
+    # @bbb isn't mapped in WORKSPACE, but Bzlmod maps it to @@bbb~1.0
+    self.assertIn('3rd: @@bbb~1.0//:z', stderr)
+    # @blarg isn't mapped by WORKSPACE or Bzlmod
+    self.assertIn('4th: @@blarg//:z', stderr)
+
+  def testWorkspaceItselfCanSeeRootModuleMappings(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="hello")',
+            'local_path_override(module_name="hello",path="hello")',
+        ],
+    )
+    self.ScratchFile(
+        'WORKSPACE.bzlmod',
+        [
+            'load("@hello//:world.bzl", "message")',
+            'print(message)',
+        ],
+    )
+    self.ScratchFile('BUILD', ['filegroup(name="a")'])
+    self.ScratchFile('hello/WORKSPACE')
+    self.ScratchFile('hello/BUILD')
+    self.ScratchFile('hello/MODULE.bazel', ['module(name="hello")'])
+    self.ScratchFile('hello/world.bzl', ['message="I LUV U!"'])
+
+    _, _, stderr = self.RunBazel(['build', ':a'], allow_failure=False)
+    self.assertIn('I LUV U!', '\n'.join(stderr))
+
+
 if __name__ == '__main__':
   unittest.main()

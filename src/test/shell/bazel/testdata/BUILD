@@ -51,14 +51,15 @@ gen_workspace_stanza(
         "remote_java_tools_test_windows",
         "remote_java_tools_test_darwin",
         "openjdk11_linux_archive",
+        "openjdk11_linux_s390x_archive",
         "openjdk11_darwin_archive",
         "openjdk11_darwin_aarch64_archive",
         "openjdk11_windows_archive",
         "openjdk11_windows_arm64_archive",
     ] + [
         "openjdk%s_%s_archive" % (version, os)
-        for os in ("linux", "darwin", "darwin_aarch64", "windows", "windows_arm64")
-        for version in ("17", "18")
+        for version in ("17", "19")
+        for os in ("linux", "linux_s390x", "darwin", "darwin_aarch64", "windows") + (("windows_arm64",) if version != "19" else ())
     ],
     template = "jdk_http_archives.tmpl",
     visibility = ["//:__pkg__"],

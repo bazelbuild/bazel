@@ -84,7 +84,6 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails;
-import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -109,7 +108,6 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -257,19 +255,9 @@ public class ExecutionTool {
     BuildRequestOptions buildRequestOptions = request.getBuildOptions();
 
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
-    List<Root> pkgPathEntries = env.getPackageLocator().getPathEntries();
-
-    // TODO(b/246324830): Support this.
-    if (pkgPathEntries.size() != 1) {
-      throw new InvalidConfigurationException(
-          "--experimental_merged_skyframe_analysis_execution requires a single package path"
-              + " entry. Found instead: "
-              + pkgPathEntries,
-          BuildConfiguration.Code.INVALID_BUILD_OPTIONS);
-    }
 
     try (SilentCloseable c = Profiler.instance().profile("preparingExecroot")) {
-      Root singleSourceRoot = Iterables.getOnlyElement(pkgPathEntries);
+      Root singleSourceRoot = Iterables.getOnlyElement(env.getPackageLocator().getPathEntries());
       IncrementalPackageRoots incrementalPackageRoots =
           IncrementalPackageRoots.createAndRegisterToEventBus(
               getExecRoot(),

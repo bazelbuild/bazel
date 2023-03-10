@@ -450,7 +450,7 @@ static void MountProc() {
 static void SetupNetworking() {
   // When running in a separate network namespace, enable the loopback interface
   // because some application may want to use it.
-  if (opt.create_netns) {
+  if (opt.create_netns == NETNS_WITH_LOOPBACK) {
     int fd;
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) {

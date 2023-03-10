@@ -1,4 +1,7 @@
-package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"],
+)
 
 filegroup(
     name = "srcs",

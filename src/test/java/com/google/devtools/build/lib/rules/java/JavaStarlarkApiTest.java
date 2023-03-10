@@ -3213,7 +3213,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
-        "  artifacts = java_common.get_build_info(ctx)",
+        "  artifacts = java_common.get_build_info(ctx, True)",
         "  return [DefaultInfo(files = depset(artifacts))]",
         "custom_rule = rule(",
         "  implementation = _impl,",
@@ -3466,7 +3466,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test/custom_rule.bzl",
         "def _impl(ctx):",
-        "  artifacts = java_common.get_build_info(ctx)",
+        "  artifacts = java_common.get_build_info(ctx, False)",
         "  return [DefaultInfo(files = depset(artifacts))]",
         "custom_rule = rule(",
         "  implementation = _impl,",

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -125,15 +124,12 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
     try (AutoProfiler ignored =
         GoogleAutoProfilerUtils.logged("deletion marking", MIN_TIME_TO_LOG_DELETION)) {
       Set<SkyKey> toDelete = Sets.newConcurrentHashSet();
-      graph
-          .getAllValuesMutable()
-          .forEachEntry(
-              /*parallelismThreshold=*/ 1024,
-              e -> {
-                if (e.getValue().isDirty() || deletePredicate.test(e.getKey())) {
-                  toDelete.add(e.getKey());
-                }
-              });
+      graph.parallelForEach(
+          e -> {
+            if (e.isDirty() || deletePredicate.test(e.getKey())) {
+              toDelete.add(e.getKey());
+            }
+          });
       valuesToDelete.addAll(toDelete);
     }
   }
@@ -205,8 +201,7 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
                                 ParallelEvaluatorErrorClassifier.instance())),
                 new SimpleCycleDetector(),
                 evaluationContext.mergingSkyframeAnalysisExecutionPhases(),
-                evaluationContext.getUnnecessaryTemporaryStateDropperReceiver(),
-                evaluationContext.getHeuristicallyDropNodes());
+                evaluationContext.getUnnecessaryTemporaryStateDropperReceiver());
         result = evaluator.eval(roots);
       }
       return EvaluationResult.<T>builder()
@@ -305,7 +300,7 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
   }
 
   @Override
-  protected InMemoryGraph inMemoryGraph() {
+  public InMemoryGraph getInMemoryGraph() {
     return graph;
   }
 

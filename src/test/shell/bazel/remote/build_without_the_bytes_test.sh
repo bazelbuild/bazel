@@ -122,6 +122,24 @@ function test_cc_tree_remote_cache() {
       || fail "Failed to build //a:tree_cc with remote cache and minimal downloads"
 }
 
+function test_cc_tree_prefetching() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  setup_cc_tree
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --modify_execution_info=CppCompile=+no-remote-exec \
+      --remote_download_minimal \
+      //a:tree_cc >& "$TEST_log" \
+      || fail "Failed to build //a:tree_cc with prefetching and minimal downloads"
+}
+
 function test_cc_include_scanning_and_minimal_downloads() {
   cat > BUILD <<'EOF'
 cc_binary(

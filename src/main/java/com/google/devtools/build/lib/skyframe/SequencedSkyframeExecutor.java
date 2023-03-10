@@ -103,6 +103,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -375,6 +376,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
           @Override
           public ImmutableMap<String, Object> getStarlarkOptions() {
+            return ImmutableMap.of();
+          }
+
+          @Override
+          public ImmutableMap<String, Object> getExplicitStarlarkOptions(
+              java.util.function.Predicate<? super ParsedOptionDescription> filter) {
             return ImmutableMap.of();
           }
         });
@@ -718,9 +725,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       if (heuristicallyDropNodes) {
         eventHandler.handle(
             Event.warn(
-                "--experimental_heuristically_drop_nodes was specified with track incremental state"
-                    + " also being true. The flag is ignored and no node is heuristically dropped"
-                    + " in the track incremental mode."));
+                "--heuristically_drop_nodes was specified with track incremental state also being"
+                    + " true. The flag is ignored and no node is heuristically dropped in the track"
+                    + " incremental mode."));
       }
       this.heuristicallyDropNodes = false;
     } else {

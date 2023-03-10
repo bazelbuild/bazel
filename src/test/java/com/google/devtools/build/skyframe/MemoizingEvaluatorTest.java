@@ -287,9 +287,9 @@ public abstract class MemoizingEvaluatorTest {
         .setBuilder(
             (skyKey, env) -> {
               if (counter.getAndIncrement() > 0) {
-                deps.addAll(env.getTemporaryDirectDeps().get(0));
+                deps.addAll(env.getTemporaryDirectDeps().getDepGroup(0));
               } else {
-                assertThat(env.getTemporaryDirectDeps().listSize()).isEqualTo(0);
+                assertThat(env.getTemporaryDirectDeps().numGroups()).isEqualTo(0);
               }
               return env.getValue(bottomKey);
             });

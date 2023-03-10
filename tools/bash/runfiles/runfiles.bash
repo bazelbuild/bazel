@@ -67,8 +67,8 @@
 #     up the library's runtime location, thus we have a chicken-and-egg problem.
 #     Insert the following code snippet to the top of your main script:
 #
-#       # --- begin runfiles.bash initialization v2 ---
-#       # Copy-pasted from the Bazel Bash runfiles library v2.
+#       # --- begin runfiles.bash initialization v3 ---
+#       # Copy-pasted from the Bazel Bash runfiles library v3.
 #       set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
 #       source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 #         source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
@@ -76,7 +76,7 @@
 #         source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
 #         source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
 #         { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
-#       # --- end runfiles.bash initialization v2 ---
+#       # --- end runfiles.bash initialization v3 ---
 #
 #
 # 3.  Use rlocation to look up runfile paths.
@@ -142,7 +142,10 @@ function rlocation() {
 
   if [[ -f "$RUNFILES_REPO_MAPPING" ]]; then
     local -r target_repo_apparent_name=$(echo "$1" | cut -d / -f 1)
-    local -r remainder=$(echo "$1" | cut -d / -f 2-)
+     # Use -s to get an empty remainder if the argument does not contain a slash.
+    # The repo mapping should not be applied to single segment paths, which may
+    # be root symlinks.
+    local -r remainder=$(echo "$1" | cut -s -d / -f 2-)
     if [[ -n "$remainder" ]]; then
       if [[ -z "${2+x}" ]]; then
         local -r source_repo=$(runfiles_current_repository 2)

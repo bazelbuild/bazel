@@ -551,7 +551,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
 
     @Override
-    public synchronized void sendNonFatalBugReport(Exception exception) {
+    public synchronized void sendNonFatalBugReport(Throwable exception) {
       exceptions.add(exception);
     }
 

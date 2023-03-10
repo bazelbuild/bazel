@@ -147,7 +147,7 @@ public abstract class DefaultInfo extends NativeInfo implements DefaultInfoApi {
     @Nullable
     @Override
     public Depset getFiles() {
-      return Depset.of(Artifact.TYPE, target.getProvider(FileProvider.class).getFilesToBuild());
+      return Depset.of(Artifact.class, target.getProvider(FileProvider.class).getFilesToBuild());
     }
 
     @Nullable

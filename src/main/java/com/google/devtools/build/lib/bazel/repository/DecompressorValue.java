@@ -75,10 +75,6 @@ public class DecompressorValue implements SkyValue {
     directory = repositoryPath;
   }
 
-  public Path getDirectory() {
-    return directory;
-  }
-
   @Override
   public boolean equals(Object other) {
     return this == other || (other instanceof DecompressorValue

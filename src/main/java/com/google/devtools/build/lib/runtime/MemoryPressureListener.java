@@ -19,7 +19,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.metrics.GarbageCollectionMetricsUtils;
 import com.sun.management.GarbageCollectionNotificationInfo;
@@ -27,6 +26,7 @@ import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -36,8 +36,7 @@ import javax.management.NotificationListener;
 import javax.management.openmbean.CompositeData;
 
 @ThreadSafe
-class MemoryPressureListener implements NotificationListener {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+final class MemoryPressureListener implements NotificationListener {
 
   private final AtomicReference<EventBus> eventBus = new AtomicReference<>();
   private final RetainedHeapLimiter retainedHeapLimiter;
@@ -46,26 +45,23 @@ class MemoryPressureListener implements NotificationListener {
     this.retainedHeapLimiter = retainedHeapLimiter;
   }
 
-  @Nullable
   static MemoryPressureListener create(RetainedHeapLimiter retainedHeapLimiter) {
-    return createFromBeans(
-        ImmutableList.copyOf(ManagementFactory.getGarbageCollectorMXBeans()), retainedHeapLimiter);
+    return createFromBeans(ManagementFactory.getGarbageCollectorMXBeans(), retainedHeapLimiter);
   }
 
   @VisibleForTesting
-  @Nullable
   static MemoryPressureListener createFromBeans(
-      ImmutableList<GarbageCollectorMXBean> gcBeans, RetainedHeapLimiter retainedHeapLimiter) {
+      List<GarbageCollectorMXBean> gcBeans, RetainedHeapLimiter retainedHeapLimiter) {
     ImmutableList<NotificationEmitter> tenuredGcEmitters = findTenuredCollectorBeans(gcBeans);
     if (tenuredGcEmitters.isEmpty()) {
-      logger.atSevere().log(
-          "Unable to find tenured collector from %s: names were %s.",
-          gcBeans,
+      var names =
           gcBeans.stream()
               .map(GarbageCollectorMXBean::getMemoryPoolNames)
               .map(Arrays::asList)
-              .collect(toImmutableList()));
-      return null;
+              .collect(toImmutableList());
+      throw new IllegalStateException(
+          String.format(
+              "Unable to find tenured collector from %s: names were %s.", gcBeans, names));
     }
 
     MemoryPressureListener memoryPressureListener = new MemoryPressureListener(retainedHeapLimiter);
@@ -75,7 +71,7 @@ class MemoryPressureListener implements NotificationListener {
 
   @VisibleForTesting
   static ImmutableList<NotificationEmitter> findTenuredCollectorBeans(
-      Iterable<GarbageCollectorMXBean> gcBeans) {
+      List<GarbageCollectorMXBean> gcBeans) {
     ImmutableList.Builder<NotificationEmitter> builder = ImmutableList.builder();
     // Examine all collectors and register for notifications from those which collect the tenured
     // space. Normally there is one such collector.
@@ -123,6 +119,7 @@ class MemoryPressureListener implements NotificationListener {
     MemoryPressureEvent event =
         MemoryPressureEvent.newBuilder()
             .setWasManualGc(gcInfo.getGcCause().equals("System.gc()"))
+            .setWasFullGc(GarbageCollectionMetricsUtils.isFullGc(gcInfo))
             .setTenuredSpaceUsedBytes(tenuredSpaceUsedBytes)
             .setTenuredSpaceMaxBytes(tenuredSpaceMaxBytes)
             .build();

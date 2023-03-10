@@ -24,6 +24,7 @@ import static com.google.common.collect.Streams.stream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -114,12 +115,12 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     this.metadataInjector = metadataInjector;
   }
 
-  void injectRemoteFile(PathFragment path, byte[] digest, long size, String actionId)
+  void injectRemoteFile(PathFragment path, byte[] digest, long size, long expireAtEpochMilli)
       throws IOException {
     if (!isOutput(path)) {
       return;
     }
-    remoteOutputTree.injectRemoteFile(path, digest, size, actionId);
+    remoteOutputTree.injectRemoteFile(path, digest, size, expireAtEpochMilli);
   }
 
   void flush() throws IOException {
@@ -206,7 +207,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
               metadata.getDigest(),
               metadata.getSize(),
               metadata.getLocationIndex(),
-              metadata.getActionId(),
+              metadata.getExpireAtEpochMilli(),
               // Avoid a double indirection when the target is already materialized as a symlink.
               metadata.getMaterializationExecPath().orElse(targetPath.relativeTo(execRoot)));
 
@@ -219,7 +220,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
         remoteFile.getFastDigest(),
         remoteFile.getSize(),
         /* locationIndex= */ 1,
-        remoteFile.getActionId());
+        remoteFile.getExpireAtEpochMilli());
   }
 
   @Override
@@ -230,7 +231,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   protected boolean delete(PathFragment path) throws IOException {
     boolean deleted = super.delete(path);
-    if (path.startsWith(outputBase)) {
+    if (isOutput(path)) {
       deleted = remoteOutputTree.getPath(path).delete() || deleted;
     }
     return deleted;
@@ -390,7 +391,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException {
     super.createSymbolicLink(linkPath, targetFragment);
-    if (linkPath.startsWith(outputBase)) {
+    if (isOutput(linkPath)) {
       remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment);
     }
   }
@@ -539,6 +540,12 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   @Nullable
+  protected ActionInput getActionInput(PathFragment path) {
+    PathFragment execPath = path.relativeTo(execRoot);
+    return inputArtifactData.getInput(execPath.getPathString());
+  }
+
+  @Nullable
   protected RemoteFileArtifactValue getRemoteMetadata(PathFragment path) {
     if (!isOutput(path)) {
       return null;
@@ -560,7 +567,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Nullable
   private TreeArtifactValue getRemoteTreeMetadata(PathFragment path) {
-    if (!path.startsWith(outputBase)) {
+    if (!isOutput(path)) {
       return null;
     }
     PathFragment execPath = path.relativeTo(execRoot);
@@ -577,7 +584,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     FileArtifactValue m = getRemoteMetadata(path);
     if (m != null) {
       try {
-        inputFetcher.downloadFile(delegateFs.getPath(path), m);
+        inputFetcher.downloadFile(delegateFs.getPath(path), getActionInput(path), m);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new IOException(
@@ -620,7 +627,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   public void createDirectoryAndParents(PathFragment path) throws IOException {
     super.createDirectoryAndParents(path);
-    if (path.startsWith(outputBase)) {
+    if (isOutput(path)) {
       remoteOutputTree.createDirectoryAndParents(path);
     }
   }
@@ -629,7 +636,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   public boolean createDirectory(PathFragment path) throws IOException {
     boolean created = delegateFs.createDirectory(path);
-    if (path.startsWith(outputBase)) {
+    if (isOutput(path)) {
       created = remoteOutputTree.createDirectory(path) || created;
     }
     return created;
@@ -741,7 +748,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       return new RemoteFileInfo(clock);
     }
 
-    void injectRemoteFile(PathFragment path, byte[] digest, long size, String actionId)
+    void injectRemoteFile(PathFragment path, byte[] digest, long size, long expireAtEpochMilli)
         throws IOException {
       createDirectoryAndParents(path.getParentDirectory());
       InMemoryContentInfo node = getOrCreateWritableInode(path);
@@ -752,7 +759,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       }
 
       RemoteFileInfo remoteFileInfo = (RemoteFileInfo) node;
-      remoteFileInfo.set(digest, size, actionId);
+      remoteFileInfo.set(digest, size, expireAtEpochMilli);
     }
 
     @Nullable
@@ -769,16 +776,17 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
     private byte[] digest;
     private long size;
-    private String actionId;
+
+    private long expireAtEpochMilli;
 
     RemoteFileInfo(Clock clock) {
       super(clock);
     }
 
-    private void set(byte[] digest, long size, String actionId) {
+    private void set(byte[] digest, long size, long expireAtEpochMilli) {
       this.digest = digest;
       this.size = size;
-      this.actionId = actionId;
+      this.expireAtEpochMilli = expireAtEpochMilli;
     }
 
     @Override
@@ -806,8 +814,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       return size;
     }
 
-    public String getActionId() {
-      return actionId;
+    public long getExpireAtEpochMilli() {
+      return expireAtEpochMilli;
     }
   }
 }

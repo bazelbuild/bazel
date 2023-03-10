@@ -34,7 +34,9 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -59,9 +61,11 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
+import com.google.devtools.build.lib.remote.ToplevelArtifactsDownloader.PathToMetadataConverter;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
+import com.google.devtools.build.lib.remote.http.HttpException;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -101,10 +105,12 @@ import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
+import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.channels.ClosedChannelException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -112,6 +118,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
@@ -216,6 +223,29 @@ public final class RemoteModule extends BlazeModule {
     return capabilities;
   }
 
+  public static final Predicate<? super Exception> RETRIABLE_HTTP_ERRORS =
+      e -> {
+        boolean retry = false;
+        if (e instanceof ClosedChannelException) {
+          retry = true;
+        } else if (e instanceof HttpException) {
+          int status = ((HttpException) e).response().status().code();
+          retry =
+              status == HttpResponseStatus.INTERNAL_SERVER_ERROR.code()
+                  || status == HttpResponseStatus.BAD_GATEWAY.code()
+                  || status == HttpResponseStatus.SERVICE_UNAVAILABLE.code()
+                  || status == HttpResponseStatus.GATEWAY_TIMEOUT.code();
+        } else if (e instanceof IOException) {
+          String msg = e.getMessage().toLowerCase();
+          if (msg.contains("connection reset by peer")) {
+            retry = true;
+          } else if (msg.contains("operation timed out")) {
+            retry = true;
+          }
+        }
+        return retry;
+      };
+
   private void initHttpAndDiskCache(
       CommandEnvironment env,
       Credentials credentials,
@@ -230,7 +260,9 @@ public final class RemoteModule extends BlazeModule {
               credentials,
               authAndTlsOptions,
               Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
-              digestUtil);
+              digestUtil,
+              new RemoteRetrier(
+                  remoteOptions, RETRIABLE_HTTP_ERRORS, retryScheduler, Retrier.ALLOW_ALL_CALLS));
     } catch (IOException e) {
       handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
       return;
@@ -954,10 +986,10 @@ public final class RemoteModule extends BlazeModule {
               env.getExecRoot(),
               tempPathGenerator,
               patternsToDownload,
-              outputPermissions);
+              outputPermissions,
+              remoteOptions.useNewExitCodeForLostInputs);
       env.getEventBus().register(actionInputFetcher);
       builder.setActionInputPrefetcher(actionInputFetcher);
-      remoteOutputService.setActionInputFetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);
 
       toplevelArtifactsDownloader =
@@ -966,15 +998,39 @@ public final class RemoteModule extends BlazeModule {
               remoteOutputsMode.downloadToplevelOutputsOnly(),
               env.getSkyframeExecutor().getEvaluator(),
               actionInputFetcher,
-              (path) -> {
-                FileSystem fileSystem = path.getFileSystem();
-                if (fileSystem instanceof RemoteActionFileSystem) {
-                  return ((RemoteActionFileSystem) path.getFileSystem())
-                      .getRemoteMetadata(path.asFragment());
+              new PathToMetadataConverter() {
+                @Nullable
+                @Override
+                public FileArtifactValue getMetadata(Path path) {
+                  FileSystem fileSystem = path.getFileSystem();
+                  if (fileSystem instanceof RemoteActionFileSystem) {
+                    return ((RemoteActionFileSystem) path.getFileSystem())
+                        .getRemoteMetadata(path.asFragment());
+                  }
+                  return null;
                 }
-                return null;
+
+                @Nullable
+                @Override
+                public ActionInput getActionInput(Path path) {
+                  FileSystem fileSystem = path.getFileSystem();
+                  if (fileSystem instanceof RemoteActionFileSystem) {
+                    return ((RemoteActionFileSystem) path.getFileSystem())
+                        .getActionInput(path.asFragment());
+                  }
+                  return null;
+                }
               });
       env.getEventBus().register(toplevelArtifactsDownloader);
+
+      var leaseService =
+          new LeaseService(
+              env.getSkyframeExecutor().getEvaluator(),
+              env.getBlazeWorkspace().getPersistentActionCache());
+
+      remoteOutputService.setActionInputFetcher(actionInputFetcher);
+      remoteOutputService.setLeaseService(leaseService);
+      env.getEventBus().register(remoteOutputService);
     }
   }
 

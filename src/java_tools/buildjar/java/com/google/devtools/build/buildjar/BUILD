@@ -4,7 +4,10 @@ load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_binary", "boo
 # Description:
 #   The Java library builders, which are used by Bazel to compile Java
 #   source code.
-package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"],
+)
 
 filegroup(
     name = "srcs",

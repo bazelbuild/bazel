@@ -95,9 +95,9 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + " <code>None</code>. If a label type is not marked as <code>allow_single_file</code>,"
           + " no corresponding struct field is generated. It is a shortcut for:<pre"
           + " class=language-python>list(ctx.attr.&lt;ATTR&gt;.files)[0]</pre>In other words, use"
-          + " <code>file</code> to access the (singular) <a href="
-          + "\"https://bazel.build/extending/rules#requesting_output_files\">default output</a>"
-          + " of a dependency. <a"
+          + " <code>file</code> to access the (singular) <a"
+          + " href=\"https://bazel.build/extending/rules#requesting_output_files\">default"
+          + " output</a> of a dependency. <a"
           + " href=\"https://github.com/bazelbuild/examples/blob/main/rules/expand_template/hello.bzl\">See"
           + " example of use</a>.";
   String ATTR_DOC =
@@ -500,8 +500,9 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
         @Param(
             name = "short_paths",
             named = true,
+            positional = false,
             defaultValue = "False",
-            doc = "Use root relative paths instead of full exec paths"),
+            documented = false),
       },
       allowReturnNones = true,
       useStarlarkThread = true)

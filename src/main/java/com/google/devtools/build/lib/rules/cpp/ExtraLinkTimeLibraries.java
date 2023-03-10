@@ -140,16 +140,16 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
       boolean staticMode,
       boolean forDynamicLibrary,
       StarlarkThread thread)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     try {
       BuildLibraryOutput buildLibraryOutput =
           buildLibraries(starlarkRuleContext.getRuleContext(), staticMode, forDynamicLibrary);
       Depset linkerInputs =
-          Depset.of(CcLinkingContext.LinkerInput.TYPE, buildLibraryOutput.getLinkerInputs());
-      Depset runtimeLibraries = Depset.of(Artifact.TYPE, buildLibraryOutput.getRuntimeLibraries());
+          Depset.of(CcLinkingContext.LinkerInput.class, buildLibraryOutput.getLinkerInputs());
+      Depset runtimeLibraries = Depset.of(Artifact.class, buildLibraryOutput.getRuntimeLibraries());
       return Tuple.pair(linkerInputs, runtimeLibraries);
-    } catch (InterruptedException | RuleErrorException e) {
+    } catch (RuleErrorException e) {
       throw new EvalException(e);
     }
   }

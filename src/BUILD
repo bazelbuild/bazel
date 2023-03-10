@@ -1,6 +1,6 @@
 # Packaging
 
-load("//tools/python:private/defs.bzl", "py_binary", "py_library")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 load("//src:release_archive.bzl", "release_archive")
@@ -588,11 +588,11 @@ filegroup(
         "@rules_python//:WORKSPACE",
     ] + [
         "@openjdk%s_%s_archive//:WORKSPACE" % (version, os)
-        for os in ("darwin", "darwin_aarch64", "linux", "windows", "windows_arm64")
-        for version in ("17", "18")
+        for version in ("17", "19")
+        for os in ("darwin", "darwin_aarch64", "linux", "linux_s390x", "windows") + (("windows_arm64",) if version != "19" else ())
     ] + [
         "@remotejdk%s_%s_for_testing//:WORKSPACE" % (version, os)
-        for os in ("macos", "macos_aarch64", "linux", "win", "win_arm64")
-        for version in ("17", "18")
+        for version in ("17", "19")
+        for os in ("macos", "macos_aarch64", "linux", "linux_s390x", "win") + (("win_arm64",) if version != "19" else ())
     ],
 )

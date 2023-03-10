@@ -16,7 +16,14 @@ package com.google.devtools.build.skyframe.state;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.state.Lookup.ConsumerLookup;
+import com.google.devtools.build.skyframe.state.Lookup.ValueOrException2Lookup;
+import com.google.devtools.build.skyframe.state.Lookup.ValueOrException3Lookup;
+import com.google.devtools.build.skyframe.state.Lookup.ValueOrExceptionLookup;
 import java.util.ArrayList;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -25,48 +32,85 @@ import javax.annotation.Nullable;
  * <p>Concurrency in the {@link StateMachine} is organized as a tree where the root is the only node
  * with a {@code null} parent.
  */
-final class TaskTreeNode {
-  @Nullable private final TaskTreeNode parent;
+final class TaskTreeNode implements StateMachine.Tasks {
+  private final Driver driver;
+  @Nullable // Null for the root state machine.
+  private final TaskTreeNode parent;
   private StateMachine state;
   private int pendingChildCount = 0;
 
-  TaskTreeNode(@Nullable TaskTreeNode parent, StateMachine state) {
+  TaskTreeNode(Driver driver, @Nullable TaskTreeNode parent, StateMachine state) {
+    this.driver = driver;
     this.parent = parent;
     this.state = state;
   }
 
-  /**
-   * Runs the machine.
-   *
-   * @return true if the machine and all its children are done.
-   */
-  boolean run(StateMachine.Tasks tasks, ExtendedEventHandler listener) throws InterruptedException {
+  @Override
+  public void enqueue(StateMachine subtask) {
+    ++pendingChildCount;
+    driver.addReady(new TaskTreeNode(driver, this, subtask));
+  }
+
+  @Override
+  public void lookUp(SkyKey key, Consumer<SkyValue> sink) {
+    ++pendingChildCount;
+    driver.addLookup(new ConsumerLookup(this, key, sink));
+  }
+
+  @Override
+  public <E extends Exception> void lookUp(
+      SkyKey key, Class<E> exceptionClass, StateMachine.ValueOrExceptionSink<E> sink) {
+    ++pendingChildCount;
+    driver.addLookup(new ValueOrExceptionLookup<>(this, key, exceptionClass, sink));
+  }
+
+  @Override
+  public <E1 extends Exception, E2 extends Exception> void lookUp(
+      SkyKey key,
+      Class<E1> exceptionClass1,
+      Class<E2> exceptionClass2,
+      StateMachine.ValueOrException2Sink<E1, E2> sink) {
+    ++pendingChildCount;
+    driver.addLookup(
+        new ValueOrException2Lookup<>(this, key, exceptionClass1, exceptionClass2, sink));
+  }
+
+  @Override
+  public <E1 extends Exception, E2 extends Exception, E3 extends Exception> void lookUp(
+      SkyKey key,
+      Class<E1> exceptionClass1,
+      Class<E2> exceptionClass2,
+      Class<E3> exceptionClass3,
+      StateMachine.ValueOrException3Sink<E1, E2, E3> sink) {
+    ++pendingChildCount;
+    driver.addLookup(
+        new ValueOrException3Lookup<>(
+            this, key, exceptionClass1, exceptionClass2, exceptionClass3, sink));
+  }
+
+  /** Runs the state machine bound to this node. */
+  void run(ExtendedEventHandler listener) throws InterruptedException {
     checkState(pendingChildCount == 0);
     while (state != null) {
-      state = state.step(tasks, listener);
+      state = state.step(this, listener);
       if (pendingChildCount > 0) {
-        return false;
+        return;
       }
     }
-    return true;
-  }
-
-  @Nullable // Null if this is the root.
-  TaskTreeNode parent() {
-    return parent;
-  }
-
-  void incrementChildCount() {
-    ++pendingChildCount;
+    if (parent != null) {
+      parent.signalChildDoneAndEnqueueIfReady();
+    }
   }
 
   /**
-   * Decrements the child count.
+   * Signals that a previously requested child is done.
    *
-   * @return true if the child count becomes 0, meaning this machine is ready for execution.
+   * <p>Enqueues this node if all children are done.
    */
-  boolean decrementChildCount() {
-    return --pendingChildCount <= 0;
+  void signalChildDoneAndEnqueueIfReady() {
+    if (--pendingChildCount == 0) {
+      driver.addReady(this);
+    }
   }
 
   @Override

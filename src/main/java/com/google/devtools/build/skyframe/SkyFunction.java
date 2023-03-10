@@ -14,15 +14,14 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -281,7 +280,7 @@ public interface SkyFunction {
      * you're doing!
      */
     @Nullable
-    default GroupedList<SkyKey> getTemporaryDirectDeps() {
+    default GroupedDeps getTemporaryDirectDeps() {
       return null;
     }
 
@@ -368,9 +367,13 @@ public interface SkyFunction {
      * Canonical type-safe heterogeneous container for use with {@link #getState} in SkyFunction
      * implementations that employ complex or abstract compositional strategies.
      */
+    // Must be threadsafe: used by PartialReevaluationMailbox#from on multiple threads, to save
+    // signals from deps.
+    @ThreadSafe
     class ClassToInstanceMapSkyKeyComputeState implements SkyKeyComputeState {
-      private final MutableClassToInstanceMap<SkyKeyComputeState> map =
-          MutableClassToInstanceMap.create();
+
+      private final ConcurrentHashMap<Class<? extends SkyKeyComputeState>, SkyKeyComputeState> map =
+          new ConcurrentHashMap<>();
 
       public <T extends SkyKeyComputeState> T getInstance(
           Class<T> type, Supplier<T> stateSupplier) {

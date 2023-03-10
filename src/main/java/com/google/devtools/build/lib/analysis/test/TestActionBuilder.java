@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfPairAction;
+import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfTupleAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
@@ -187,6 +187,16 @@ public final class TestActionBuilder {
     return this;
   }
 
+  private ActionOwner getTestActionOwner() {
+    if (this.executionRequirements != null) {
+      ActionOwner owner = ruleContext.getActionOwner(this.executionRequirements.getExecGroup());
+      if (owner != null) {
+        return owner;
+      }
+    }
+    return ruleContext.getTestActionOwner();
+  }
+
   private ActionOwner getOwner() {
     ActionOwner owner =
         ruleContext.getActionOwner(
@@ -282,10 +292,11 @@ public final class TestActionBuilder {
             ruleContext.getUniqueDirectoryArtifact(
                 "_coverage_helpers", "reported_to_actual_sources.txt");
         ruleContext.registerAction(
-            new LazyWriteNestedSetOfPairAction(
+            new LazyWriteNestedSetOfTupleAction(
                 ruleContext.getActionOwner(),
                 reportedToActualSourcesArtifact,
-                instrumentedFiles.getReportedToActualSources()));
+                instrumentedFiles.getReportedToActualSources(),
+                ":"));
         inputsBuilder.add(reportedToActualSourcesArtifact);
         extraTestEnv.put(
             COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE,
@@ -385,6 +396,9 @@ public final class TestActionBuilder {
       testRunfilesSupplier = SingleRunfilesSupplier.create(runfilesSupport);
     }
 
+    ActionOwner actionOwner =
+        testConfiguration.useTargetPlatformForTests() ? getTestActionOwner() : getOwner();
+
     // Use 1-based indices for user friendliness.
     for (int shard = 0; shard < shardRuns; shard++) {
       String shardDir = shardRuns > 1 ? String.format("shard_%d_of_%d", shard + 1, shards) : null;
@@ -428,7 +442,7 @@ public final class TestActionBuilder {
         // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
         TestRunnerAction testRunnerAction =
             new TestRunnerAction(
-                getOwner(),
+                actionOwner,
                 inputs,
                 testRunfilesSupplier,
                 testActionExecutable,

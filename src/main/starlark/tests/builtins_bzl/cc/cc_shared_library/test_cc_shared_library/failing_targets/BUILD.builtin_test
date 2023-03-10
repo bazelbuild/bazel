@@ -19,11 +19,8 @@ cc_binary(
 cc_shared_library(
     name = "should_fail_shared_lib",
     dynamic_deps = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:bar_so"],
-    roots = [
+    deps = [
         ":intermediate",
-    ],
-    static_deps = [
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:barX",
     ],
     tags = TAGS,
 )
@@ -32,22 +29,6 @@ cc_library(
     name = "intermediate",
     deps = [
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:barX",
-    ],
-)
-
-cc_shared_library(
-    name = "permissions_fail_so",
-    roots = [
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:bar",
-    ],
-    tags = TAGS,
-)
-
-cc_shared_library_permissions(
-    name = "permissions_fail",
-    tags = TAGS,
-    targets = [
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:foo",
     ],
 )
 
@@ -72,7 +53,7 @@ cc_shared_library(
         ":b_so",
         ":b2_so",
     ],
-    roots = [
+    deps = [
         ":a",
     ],
     tags = TAGS,
@@ -90,7 +71,7 @@ cc_binary(
 
 cc_shared_library(
     name = "b_so",
-    roots = [
+    deps = [
         ":b",
     ],
     tags = TAGS,
@@ -98,38 +79,37 @@ cc_shared_library(
 
 cc_shared_library(
     name = "b2_so",
-    roots = [
+    deps = [
         ":b",
     ],
     tags = TAGS,
 )
 
 cc_shared_library(
-    name = "unaccounted_for_libs_so",
-    roots = [
-        ":d1",
+    name = "failing_with_no_deps_so",
+    tags = TAGS,
+)
+
+
+cc_shared_library(
+    name = "failing_only_dynamic_lib",
+    deps = [
+        "dynamic_only",
     ],
     tags = TAGS,
 )
 
 cc_library(
-    name = "d1",
-    srcs = ["empty.cc"],
-    deps = ["d2"],
+    name = "dynamic_only",
+    srcs = [
+        "libabc.so",
+    ],
 )
 
-cc_library(
-    name = "d2",
-    srcs = ["empty.cc"],
-    deps = [
-        "d3",
-    ] + select({
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:is_bazel": ["@test_repo//:bar"],
-        "//conditions:default": [],
-    }),
+genrule(
+    name = "abc_lib",
+    srcs = [],
+    outs = ["libabc.so"],
+    cmd = "touch \"$@\"",
 )
 
-cc_library(
-    name = "d3",
-    srcs = ["empty.cc"],
-)

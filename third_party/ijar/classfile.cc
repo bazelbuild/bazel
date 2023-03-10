@@ -1249,10 +1249,22 @@ struct NestMembersAttribute : Attribute {
   }
 
   void Write(u1 *&p) {
-    WriteProlog(p, classes_.size() * 2 + 2);
-    put_u2be(p, classes_.size());
+    std::set<int> kept_entries;
     for (size_t ii = 0; ii < classes_.size(); ++ii) {
-      put_u2be(p, classes_[ii]->slot());
+      Constant *class_ = classes_[ii];
+      if (class_->Kept() || (used_class_names.find(class_->Display()) !=
+                             used_class_names.end())) {
+        kept_entries.insert(ii);
+      }
+    }
+    if (kept_entries.empty()) {
+      return;
+    }
+    WriteProlog(p, kept_entries.size() * 2 + 2);
+    put_u2be(p, kept_entries.size());
+    for (std::set<int>::iterator it = kept_entries.begin();
+         it != kept_entries.end(); ++it) {
+      put_u2be(p, classes_[*it]->slot());
     }
   }
 
@@ -1464,6 +1476,20 @@ struct ClassFile : HasAttrs {
 
     if (inner_classes != NULL) {
       attributes.push_back(inner_classes);
+    }
+
+    Attribute* nest_members = NULL;
+
+    for (size_t ii = 0; ii < attributes.size(); ii++) {
+      if (attributes[ii]->attribute_name_->Display() == "NestMembers") {
+        nest_members = attributes[ii];
+        attributes.erase(attributes.begin() + ii);
+        break;
+      }
+    }
+
+    if (nest_members != NULL) {
+      attributes.push_back(nest_members);
     }
 
     WriteAttrs(p);

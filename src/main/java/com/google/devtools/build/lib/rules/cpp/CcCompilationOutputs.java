@@ -126,14 +126,14 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   @Override
   public Depset getStarlarkTemps(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getTemps());
+    return Depset.of(Artifact.class, getTemps());
   }
 
   @Override
   public Depset getStarlarkFilesToCompile(
       boolean parseHeaders, boolean usePic, StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getFilesToCompile(parseHeaders, usePic));
+    return Depset.of(Artifact.class, getFilesToCompile(parseHeaders, usePic));
   }
 
   @Override

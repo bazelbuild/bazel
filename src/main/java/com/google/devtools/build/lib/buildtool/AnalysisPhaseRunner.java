@@ -324,10 +324,7 @@ public final class AnalysisPhaseRunner {
     }
 
     for (Entry<AspectKey, ConfiguredAspect> entry : analysisResult.getAspectsMap().entrySet()) {
-      env.getEventBus()
-          .post(
-              AspectAnalyzedEvent.createWithoutFurtherSymlinkPlanting(
-                  entry.getKey(), entry.getValue()));
+      env.getEventBus().post(AspectAnalyzedEvent.create(entry.getKey(), entry.getValue()));
     }
   }
 

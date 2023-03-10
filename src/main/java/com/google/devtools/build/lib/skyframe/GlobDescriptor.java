@@ -14,9 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -37,7 +35,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 @ThreadSafe
 public final class GlobDescriptor implements SkyKey {
 
-  private static final Interner<GlobDescriptor> interner = BlazeInterners.newWeakInterner();
+  private static final SkyKeyInterner<GlobDescriptor> interner = SkyKey.newInterner();
 
   /**
    * Returns interned instance based on the parameters.
@@ -154,5 +152,10 @@ public final class GlobDescriptor implements SkyKey {
   @Override
   public SkyFunctionName functionName() {
     return SkyFunctions.GLOB;
+  }
+
+  @Override
+  public SkyKeyInterner<GlobDescriptor> getSkyKeyInterner() {
+    return interner;
   }
 }

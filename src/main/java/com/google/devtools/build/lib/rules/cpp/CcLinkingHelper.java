@@ -22,10 +22,8 @@ import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -174,16 +172,6 @@ public final class CcLinkingHelper {
     this.executionInfo = executionInfo;
   }
 
-  /** Sets fields that overlap for cc_library and cc_binary rules. */
-  @CanIgnoreReturnValue
-  public CcLinkingHelper fromCommon(RuleContext ruleContext, CcCommon common) {
-    addCcLinkingContexts(
-        CppHelper.getLinkingContextsFromDeps(
-            ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))));
-    addNonCodeLinkerInputs(common.getLinkerScripts());
-    return this;
-  }
-
   @CanIgnoreReturnValue
   public CcLinkingHelper setNativeDeps(boolean nativeDeps) {
     this.nativeDeps = nativeDeps;
@@ -243,26 +231,6 @@ public final class CcLinkingHelper {
   @CanIgnoreReturnValue
   public CcLinkingHelper addCcLinkingContexts(Iterable<CcLinkingContext> ccLinkingContexts) {
     Iterables.addAll(this.ccLinkingContexts, ccLinkingContexts);
-    return this;
-  }
-
-  /**
-   * Adds the given linkstamps. Note that linkstamps are usually not compiled at the library level,
-   * but only in the dependent binary rules.
-   */
-  @CanIgnoreReturnValue
-  public CcLinkingHelper addLinkstamps(Iterable<? extends TransitiveInfoCollection> linkstamps) {
-    for (TransitiveInfoCollection linkstamp : linkstamps) {
-      this.linkstamps.addTransitive(linkstamp.getProvider(FileProvider.class).getFilesToBuild());
-    }
-    return this;
-  }
-
-  /** Adds the given artifact to the input of any generated link actions. */
-  @CanIgnoreReturnValue
-  public CcLinkingHelper addLinkActionInput(Artifact input) {
-    Preconditions.checkNotNull(input);
-    this.linkActionInputs.add(input);
     return this;
   }
 
@@ -896,11 +864,7 @@ public final class CcLinkingHelper {
 
   private CppLinkActionBuilder newLinkActionBuilder(
       Artifact outputArtifact, LinkTargetType linkType) {
-    String mnemonic =
-        (linkType.equals(LinkTargetType.OBJCPP_EXECUTABLE)
-                || linkType.equals(LinkTargetType.OBJC_EXECUTABLE))
-            ? "ObjcLink"
-            : null;
+    String mnemonic = linkType.equals(LinkTargetType.OBJC_EXECUTABLE) ? "ObjcLink" : null;
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(
                 ruleErrorConsumer,

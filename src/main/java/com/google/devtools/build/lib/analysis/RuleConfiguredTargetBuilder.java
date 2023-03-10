@@ -209,7 +209,7 @@ public final class RuleConfiguredTargetBuilder {
 
     if (ruleContext.getRule().hasAnalysisTestTransition()) {
       NestedSet<Label> labels = transitiveLabels();
-      int depCount = labels.toList().size();
+      int depCount = labels.memoizedFlattenAndGetSize();
       if (depCount > ruleContext.getConfiguration().analysisTestingDepsLimit()) {
         ruleContext.ruleError(
             String.format(
@@ -312,14 +312,19 @@ public final class RuleConfiguredTargetBuilder {
   /**
    * Adds {@link RequiredConfigFragmentsProvider} if {@link
    * CoreOptions#includeRequiredConfigFragmentsProvider} isn't {@link
-   * CoreOptions.IncludeConfigFragmentsEnum#OFF}.
+   * CoreOptions.IncludeConfigFragmentsEnum#OFF} and if the provider is not already present.
+   *
+   * <p>For Stalark rules the provider is already added in {@link
+   * com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil}.
    *
    * <p>See {@link com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil} for a
    * description of the meaning of this provider's content. That class contains methods that
    * populate the results of {@link RuleContext#getRequiredConfigFragments}.
    */
+  // TODO(blaze-team): Simplify the conditional logic and make it easier to understand.
   private void maybeAddRequiredConfigFragmentsProvider() {
-    if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
+    if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
+        && !providersBuilder.contains(RequiredConfigFragmentsProvider.class)) {
       addProvider(ruleContext.getRequiredConfigFragments());
     }
   }

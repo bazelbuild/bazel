@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TIMEOUT_DEFAULT;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.getTestRuntimeLabelList;
@@ -29,7 +31,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -98,6 +99,7 @@ import com.google.errorprone.annotations.FormatMethod;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.Dict;
@@ -251,13 +253,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
   }
 
   @Override
-  public Object provider(String doc, Object fields, Object init, StarlarkThread thread)
+  public Object provider(Object doc, Object fields, Object init, StarlarkThread thread)
       throws EvalException {
     StarlarkProvider.Builder builder = StarlarkProvider.builder(thread.getCallerLocation());
+    Starlark.toJavaOptional(doc, String.class).ifPresent(builder::setDocumentation);
     if (fields instanceof Sequence) {
       builder.setSchema(Sequence.cast(fields, String.class, "fields"));
     } else if (fields instanceof Dict) {
-      builder.setSchema(Dict.cast(fields, String.class, String.class, "fields").keySet());
+      builder.setSchema(Dict.cast(fields, String.class, String.class, "fields"));
     }
     if (init == Starlark.NONE) {
       return builder.build();
@@ -286,7 +289,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Boolean starlarkTestable,
       Sequence<?> toolchains,
       boolean useToolchainTransition,
-      String doc,
+      Object doc,
       Sequence<?> providesArg,
       Sequence<?> execCompatibleWith,
       Object analysisTest,
@@ -308,6 +311,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         hostFragments,
         starlarkTestable,
         toolchains,
+        doc,
         providesArg,
         execCompatibleWith,
         analysisTest,
@@ -330,6 +334,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Sequence<?> hostFragments,
       boolean starlarkTestable,
       Sequence<?> toolchains,
+      Object doc,
       Sequence<?> providesArg,
       Sequence<?> execCompatibleWith,
       Object analysisTest,
@@ -501,7 +506,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     }
 
     StarlarkRuleFunction starlarkRuleFunction =
-        new StarlarkRuleFunction(builder, type, attributes, thread.getCallerLocation());
+        new StarlarkRuleFunction(
+            builder,
+            type,
+            attributes,
+            thread.getCallerLocation(),
+            Starlark.toJavaOptional(doc, String.class));
     // If a name= parameter is supplied (and we're currently initializing a .bzl module), export the
     // rule immediately under that name; otherwise the rule will be exported by the postAssignHook
     // set up in BzlLoadFunction.
@@ -598,7 +608,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
       boolean useToolchainTransition,
-      String doc,
+      Object doc,
       Boolean applyToGeneratingRules,
       Sequence<?> rawExecCompatibleWith,
       Object rawExecGroups,
@@ -721,6 +731,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
     return new StarlarkDefinedAspect(
         implementation,
+        Starlark.toJavaOptional(doc, String.class),
         attrAspects.build(),
         attributes.build(),
         StarlarkAttrModule.buildProviderPredicate(requiredProvidersArg, "required_providers"),
@@ -748,6 +759,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     private final RuleClassType type;
     private ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes;
     private final Location definitionLocation;
+    @Nullable private final String documentation;
     private Label starlarkLabel;
 
     // TODO(adonovan): merge {Starlark,Builtin}RuleFunction and RuleClass,
@@ -758,16 +770,31 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         RuleClass.Builder builder,
         RuleClassType type,
         ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes,
-        Location definitionLocation) {
+        Location definitionLocation,
+        Optional<String> documentation) {
       this.builder = builder;
+      // For documentation generation, we need to distinguish Starlark-defined attributes passed via
+      // `rule(attrs=...) from implicitly added attributes such as "tags" or "testonly".
+      checkArgument(
+          builder.getAttributes().stream().noneMatch(Attribute::starlarkDefined),
+          "Implicitly added attributes are expected to be built-in, not Starlark-defined");
       this.type = type;
       this.attributes = attributes;
       this.definitionLocation = definitionLocation;
+      this.documentation = documentation.orElse(null);
     }
 
     @Override
     public String getName() {
       return ruleClass != null ? ruleClass.getName() : "unexported rule";
+    }
+
+    /**
+     * Returns the value of the doc parameter passed to {@code rule()} in Starlark, or an empty
+     * Optional if a doc string was not provided.
+     */
+    public Optional<String> getDocumentation() {
+      return Optional.ofNullable(documentation);
     }
 
     @Override
@@ -843,7 +870,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     // details.
     @Override
     public void export(EventHandler handler, Label starlarkLabel, String ruleClassName) {
-      Preconditions.checkState(ruleClass == null && builder != null);
+      checkState(ruleClass == null && builder != null);
       this.starlarkLabel = starlarkLabel;
       if (type == RuleClassType.TEST != TargetUtils.isTestRuleName(ruleClassName)) {
         errorf(
@@ -963,7 +990,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
     @Override
     public RuleClass getRuleClass() {
-      Preconditions.checkState(ruleClass != null && builder == null);
+      checkState(ruleClass != null && builder == null);
       return ruleClass;
     }
 
@@ -997,8 +1024,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           .build();
 
   @Override
-  public Label label(String labelString, StarlarkThread thread) throws EvalException {
-    // The label string is interpeted with respect to the .bzl module containing the call to
+  public Label label(Object input, StarlarkThread thread) throws EvalException {
+    if (input instanceof Label) {
+      return (Label) input;
+    }
+    // The label string is interpreted with respect to the .bzl module containing the call to
     // `Label()`. An alternative to this approach that avoids stack inspection is to have each .bzl
     // module define its own copy of the `Label()` builtin embedding the module's own name. This
     // would lead to peculiarities like foo.bzl being able to call bar.bzl's `Label()` symbol to
@@ -1007,9 +1037,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     BazelModuleContext moduleContext =
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     try {
-      return Label.parseWithRepoContext(labelString, moduleContext.packageContext());
+      return Label.parseWithPackageContext((String) input, moduleContext.packageContext());
     } catch (LabelSyntaxException e) {
-      throw Starlark.errorf("Illegal absolute label syntax: %s", e.getMessage());
+      throw Starlark.errorf("invalid label in Label(): %s", e.getMessage());
     }
   }
 

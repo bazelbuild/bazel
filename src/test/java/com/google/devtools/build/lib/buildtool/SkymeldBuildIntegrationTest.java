@@ -25,7 +25,6 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
 import com.google.devtools.build.lib.vfs.Path;
@@ -142,9 +141,11 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     BuildResult result = buildTarget("//foo:foo");
 
     assertThat(result.getSuccess()).isTrue();
-    events.assertContainsWarning(
-        "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild and will"
-            + " be ignored");
+    assertThat(
+            runtimeWrapper.workspaceSetupWarningsContains(
+                "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild"
+                    + " and will be ignored"))
+        .isTrue();
   }
 
   @Test
@@ -477,19 +478,23 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void multiplePackagePath_gracefulExit() throws Exception {
-    write("foo/BUILD", "sh_binary(name = 'root', srcs = ['root.sh'])");
-    write("foo/root.sh");
-    write("otherroot/bar/BUILD", "cc_library(name = 'bar')");
+  public void multiplePackagePath_ignoreSkymeldWithWarning() throws Exception {
+    write("foo/BUILD", "genrule(name = 'foo', outs = ['foo.out'], cmd = 'touch $@')");
+    // write("foo/root.sh");
+    write("otherroot/bar/BUILD", "genrule(name = 'bar', outs = ['bar.out'], cmd = 'touch $@')");
     addOptions("--package_path=%workspace%:otherroot");
-    InvalidConfigurationException e =
-        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:root", "//bar"));
 
-    assertThat(e.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(2);
-    assertThat(e.getMessage())
-        .contains(
-            "--experimental_merged_skyframe_analysis_execution requires a single package path"
-                + " entry");
+    BuildResult buildResult = buildTarget("//foo", "//bar");
+
+    assertThat(buildResult.getSuccess()).isTrue();
+
+    assertThat(
+            runtimeWrapper.workspaceSetupWarningsContains(
+                "--experimental_merged_skyframe_analysis_execution is incompatible with multiple"
+                    + " --package_path"))
+        .isTrue();
+    assertThat(runtimeWrapper.workspaceSetupWarningsContains("and its value will be ignored."))
+        .isTrue();
   }
 
   // Regression test for b/245919888.

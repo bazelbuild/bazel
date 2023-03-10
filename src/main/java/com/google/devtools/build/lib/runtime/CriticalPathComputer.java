@@ -126,7 +126,9 @@ public class CriticalPathComputer {
     }
 
     return new AggregatedCriticalPath(
-        criticalPath.getAggregatedElapsedTime(), metricsBuilder.build(), components.build());
+        (int) criticalPath.getAggregatedElapsedTime().toMillis(),
+        metricsBuilder.build(),
+        components.build());
   }
 
   public Map<Artifact, CriticalPathComponent> getCriticalPathComponentsMap() {
@@ -249,7 +251,7 @@ public class CriticalPathComputer {
     Action action = event.getAction();
     CriticalPathComponent component =
         tryAddComponent(createComponent(action, event.getNanoTimeStart()));
-    finalizeActionStat(event.getNanoTimeStart(), action, component);
+    finalizeActionStat(event.getNanoTimeStart(), action, component, "middleman action");
   }
 
   /**
@@ -310,7 +312,7 @@ public class CriticalPathComputer {
     Action action = event.getAction();
     CriticalPathComponent component =
         tryAddComponent(createComponent(action, event.getNanoTimeStart()));
-    finalizeActionStat(event.getNanoTimeStart(), action, component);
+    finalizeActionStat(event.getNanoTimeStart(), action, component, "action cache hit");
   }
 
   /**
@@ -324,7 +326,7 @@ public class CriticalPathComputer {
     CriticalPathComponent component =
         Preconditions.checkNotNull(
             outputArtifactToComponent.get(action.getPrimaryOutput()), action);
-    finalizeActionStat(event.getRelativeActionStartTime(), action, component);
+    finalizeActionStat(event.getRelativeActionStartTime(), action, component, "");
   }
 
   /**
@@ -337,7 +339,8 @@ public class CriticalPathComputer {
     Action action = event.getFailedRewoundAction();
     CriticalPathComponent component =
         Preconditions.checkNotNull(outputArtifactToComponent.get(action.getPrimaryOutput()));
-    component.finishActionExecution(event.getRelativeActionStartTime(), clock.nanoTime());
+    component.finishActionExecution(
+        event.getRelativeActionStartTime(), clock.nanoTime(), "action rewound");
   }
 
   /** Maximum critical path component found during the build. */
@@ -346,7 +349,7 @@ public class CriticalPathComputer {
   }
 
   private void finalizeActionStat(
-      long startTimeNanos, Action action, CriticalPathComponent component) {
+      long startTimeNanos, Action action, CriticalPathComponent component, String finalizeReason) {
     long finishTimeNanos = clock.nanoTime();
     for (Artifact input : action.getInputs().toList()) {
       addArtifactDependency(component, input, finishTimeNanos);
@@ -357,7 +360,7 @@ public class CriticalPathComputer {
           "Negative duration time for [%s] %s with start: %s, finish: %s.",
           action.getMnemonic(), action.getPrimaryOutput(), startTimeNanos, finishTimeNanos);
     }
-    component.finishActionExecution(startTimeNanos, finishTimeNanos);
+    component.finishActionExecution(startTimeNanos, finishTimeNanos, finalizeReason);
     maxCriticalPath.accumulateAndGet(component, SELECT_LONGER_COMPONENT);
   }
 

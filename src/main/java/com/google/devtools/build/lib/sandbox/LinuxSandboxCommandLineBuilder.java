@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS;
+import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS_WITH_LOOPBACK;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -61,7 +64,7 @@ public class LinuxSandboxCommandLineBuilder {
   private List<BindMount> bindMounts = ImmutableList.of();
   private Path statisticsPath;
   private boolean useFakeHostname = false;
-  private boolean createNetworkNamespace = false;
+  private NetworkNamespace createNetworkNamespace = NetworkNamespace.NO_NETNS;
   private boolean useFakeRoot = false;
   private boolean useFakeUsername = false;
   private boolean enablePseudoterminal = false;
@@ -183,9 +186,10 @@ public class LinuxSandboxCommandLineBuilder {
     return this;
   }
 
-  /** Sets whether to create a new network namespace. */
+  /** Sets whether and how to create a new network namespace. */
   @CanIgnoreReturnValue
-  public LinuxSandboxCommandLineBuilder setCreateNetworkNamespace(boolean createNetworkNamespace) {
+  public LinuxSandboxCommandLineBuilder setCreateNetworkNamespace(
+      NetworkNamespace createNetworkNamespace) {
     this.createNetworkNamespace = createNetworkNamespace;
     return this;
   }
@@ -288,8 +292,10 @@ public class LinuxSandboxCommandLineBuilder {
     if (useFakeHostname) {
       commandLineBuilder.add("-H");
     }
-    if (createNetworkNamespace) {
+    if (createNetworkNamespace == NETNS_WITH_LOOPBACK) {
       commandLineBuilder.add("-N");
+    } else if (createNetworkNamespace == NETNS) {
+      commandLineBuilder.add("-n");
     }
     if (useFakeRoot) {
       commandLineBuilder.add("-R");
@@ -316,5 +322,15 @@ public class LinuxSandboxCommandLineBuilder {
     commandLineBuilder.addAll(commandArguments);
 
     return commandLineBuilder.build();
+  }
+
+  /** Enum for the possibilities for creating a network namespace in the sandbox. */
+  public enum NetworkNamespace {
+    /** No network namespace will be created, sandboxed processes can access the network freely. */
+    NO_NETNS,
+    /** A fresh network namespace will be created. */
+    NETNS,
+    /** A fresh network namespace will be created, and a loopback device will be set up in it. */
+    NETNS_WITH_LOOPBACK,
   }
 }

@@ -24,7 +24,7 @@ java_library(
         ":actions/deterministic_writer",
         ":actions/file_write_action_context",
         ":actions/launcher_file_write_action",
-        ":actions/lazy_write_nested_set_of_pair_action",
+        ":actions/lazy_write_nested_set_of_tuple_action",
         ":actions/lazy_write_paths_file_action",
         ":actions/parameter_file_write_action",
         ":actions/proto_deterministic_writer",
@@ -268,7 +268,7 @@ java_library(
         ":actions/compression",
         ":actions/custom_command_line",
         ":actions/deterministic_writer",
-        ":actions/lazy_write_nested_set_of_pair_action",
+        ":actions/lazy_write_nested_set_of_tuple_action",
         ":actions/parameter_file_write_action",
         ":actions/substitution",
         ":actions/symlink_action",
@@ -604,6 +604,7 @@ java_library(
         ":blaze_directories",
         ":config/build_configuration",
         ":config/build_options",
+        ":config/core_options",
         ":config/invalid_configuration_exception",
         ":configured_target",
         ":constraints/platform_restrictions_result",
@@ -770,9 +771,11 @@ java_library(
     name = "exec_group_collection",
     srcs = ["ExecGroupCollection.java"],
     deps = [
+        ":config/toolchain_type_requirement",
         ":resolved_toolchain_context",
         ":toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -1394,8 +1397,8 @@ java_library(
 )
 
 java_library(
-    name = "actions/lazy_write_nested_set_of_pair_action",
-    srcs = ["actions/LazyWriteNestedSetOfPairAction.java"],
+    name = "actions/lazy_write_nested_set_of_tuple_action",
+    srcs = ["actions/LazyWriteNestedSetOfTupleAction.java"],
     deps = [
         ":actions/abstract_file_write_action",
         ":actions/deterministic_writer",
@@ -1404,6 +1407,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:jsr305",
     ],
 )
@@ -1492,6 +1496,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -2242,6 +2247,8 @@ java_library(
     srcs = ["constraints/IncompatibleTargetChecker.java"],
     deps = [
         ":analysis_cluster",
+        ":constraints/environment_collection",
+        ":constraints/supported_environments",
         ":file_provider",
         ":incompatible_platform_provider",
         ":test/test_configuration",
@@ -2251,13 +2258,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_conditions",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
-        "//src/main/java/com/google/devtools/build/lib/analysis:dependency",
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
@@ -2265,6 +2272,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -2435,15 +2443,13 @@ java_library(
     name = "starlark/starlark_toolchain_context",
     srcs = ["starlark/StarlarkToolchainContext.java"],
     deps = [
-        ":config/toolchain_type_requirement",
-        ":resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:auto_value",
-        "//third_party:jsr305",
+        "//third_party:guava",
     ],
 )
 
@@ -2584,6 +2590,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/net/starlark/java/eval",
     ],
 )
 

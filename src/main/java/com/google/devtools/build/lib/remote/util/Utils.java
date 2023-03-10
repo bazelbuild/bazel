@@ -73,7 +73,6 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
@@ -158,16 +157,17 @@ public final class Utils {
             .setRunnerName(cacheHit ? runnerName + " cache hit" : runnerName)
             .setCacheHit(cacheHit)
             .setStartTime(timestampToInstant(executionStartTimestamp))
-            .setWallTime(
-                java.time.Duration.between(
-                    timestampToInstant(executionStartTimestamp),
-                    timestampToInstant(executionCompletedTimestamp)))
+            .setWallTimeInMs(
+                (int)
+                    java.time.Duration.between(
+                            timestampToInstant(executionStartTimestamp),
+                            timestampToInstant(executionCompletedTimestamp))
+                        .toMillis())
             .setSpawnMetrics(spawnMetrics)
             .setRemote(true)
             .setDigest(
-                Optional.of(
-                    SpawnResult.Digest.of(
-                        actionKey.getDigest().getHash(), actionKey.getDigest().getSizeBytes())));
+                SpawnResult.Digest.of(
+                    actionKey.getDigest().getHash(), actionKey.getDigest().getSizeBytes()));
     if (exitCode != 0) {
       builder.setFailureDetail(
           FailureDetail.newBuilder()

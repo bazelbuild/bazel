@@ -11,10 +11,12 @@ package(
 SKYFRAME_OBJECT_SRCS = [
     "AbstractSkyKey.java",
     "FunctionHermeticity.java",
+    "GroupedDeps.java",
     "NodeVersion.java",
     "SkyFunctionName.java",
     "SkyKey.java",
     "SkyValue.java",
+    "UsePooledSkyKeyInterningFlag.java",
     "Version.java",
 ]
 
@@ -23,8 +25,12 @@ java_library(
     srcs = SKYFRAME_OBJECT_SRCS,
     visibility = ["//visibility:public"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//third_party:auto_value",
+        "//third_party:checker_framework_annotations",
         "//third_party:guava",
     ],
 )

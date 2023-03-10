@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelOrderedSetConverter;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -299,7 +299,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
     @Option(
         name = "fat_apk_cpu",
-        converter = Converters.CommaSeparatedOptionListConverter.class,
+        converter = Converters.CommaSeparatedOptionSetConverter.class,
         defaultValue = "armeabi-v7a",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {
@@ -316,7 +316,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "android_platforms",
-        converter = LabelListConverter.class,
+        converter = LabelOrderedSetConverter.class,
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         defaultValue = "",
         effectTags = {
@@ -938,6 +938,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
             "Enable persistent and multiplexed Android tools (dexing, desugaring, resource "
                 + "processing).",
         expansion = {
+          "--internal_persistent_multiplex_busybox_tools",
           "--persistent_multiplex_android_resource_processor",
           "--persistent_multiplex_android_dex_desugar",
         })
@@ -961,6 +962,17 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         help = "Tracking flag for when busybox workers are enabled.")
     public boolean persistentBusyboxTools;
+
+    @Option(
+        name = "internal_persistent_multiplex_busybox_tools",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+          OptionEffectTag.EXECUTION,
+        },
+        defaultValue = "false",
+        help = "Tracking flag for when multiplexed busybox workers are enabled.")
+    public boolean persistentMultiplexBusyboxTools;
 
     @Option(
         name = "experimental_remove_r_classes_from_instrumentation_test_jar",
@@ -1095,6 +1107,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       exec.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
       exec.persistentBusyboxTools = persistentBusyboxTools;
+      exec.persistentMultiplexBusyboxTools = persistentMultiplexBusyboxTools;
       exec.disableNativeAndroidRules = disableNativeAndroidRules;
 
       // Unless the build was started from an Android device, exec means MAIN.
@@ -1141,6 +1154,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean dataBindingUpdatedArgs;
   private final boolean dataBindingAndroidX;
   private final boolean persistentBusyboxTools;
+  private final boolean persistentMultiplexBusyboxTools;
   private final boolean filterRJarsFromAndroidTest;
   private final boolean removeRClassesFromInstrumentationTestJar;
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
@@ -1201,6 +1215,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.dataBindingUpdatedArgs = options.dataBindingUpdatedArgs;
     this.dataBindingAndroidX = options.dataBindingAndroidX;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
+    this.persistentMultiplexBusyboxTools = options.persistentMultiplexBusyboxTools;
     this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
     this.removeRClassesFromInstrumentationTestJar =
         options.removeRClassesFromInstrumentationTestJar;
@@ -1451,6 +1466,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean persistentBusyboxTools() {
     return persistentBusyboxTools;
+  }
+
+  @Override
+  public boolean persistentMultiplexBusyboxTools() {
+    return persistentMultiplexBusyboxTools;
   }
 
   @Override

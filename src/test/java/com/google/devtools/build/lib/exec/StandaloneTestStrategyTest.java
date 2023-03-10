@@ -75,7 +75,6 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -286,7 +285,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     SpawnResult expectedSpawnResult =
         new SpawnResult.Builder()
             .setStatus(Status.SUCCESS)
-            .setWallTime(Duration.ofMillis(10))
+            .setWallTimeInMs(10)
             .setRunnerName("test")
             .build();
     when(spawnStrategy.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
@@ -347,13 +346,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setStatus(Status.NON_ZERO_EXIT)
             .setExitCode(1)
             .setFailureDetail(NON_ZERO_EXIT_DETAILS)
-            .setWallTime(Duration.ofMillis(10))
+            .setWallTimeInMs(10)
             .setRunnerName("test")
             .build();
     SpawnResult passSpawnResult =
         new SpawnResult.Builder()
             .setStatus(Status.SUCCESS)
-            .setWallTime(Duration.ofMillis(15))
+            .setWallTimeInMs(15)
             .setRunnerName("test")
             .build();
     when(spawnStrategy.exec(any(), any()))
@@ -420,7 +419,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     SpawnResult expectedSpawnResult =
         new SpawnResult.Builder()
             .setStatus(Status.SUCCESS)
-            .setWallTime(Duration.ofMillis(10))
+            .setWallTimeInMs(10)
             .setRunnerName("remote")
             .setExecutorHostname("a-remote-host")
             .build();
@@ -479,7 +478,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
         new SpawnResult.Builder()
             .setStatus(Status.SUCCESS)
             .setCacheHit(true)
-            .setWallTime(Duration.ofMillis(10))
+            .setWallTimeInMs(10)
             .setRunnerName("remote cache")
             .build();
     when(spawnStrategy.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));

@@ -41,6 +41,7 @@ public class ConstraintValueRule implements RuleDefinition {
         .cfg(NoConfigTransition.createFactory())
         .exemptFromConstraintChecking("this rule helps *define* a constraint")
         .useToolchainResolution(ToolchainResolutionMode.DISABLED)
+        .removeAttribute(":action_listener")
         .override(
             attr("applicable_licenses", BuildType.LABEL_LIST)
                 // This is a constant which is never linked into a target

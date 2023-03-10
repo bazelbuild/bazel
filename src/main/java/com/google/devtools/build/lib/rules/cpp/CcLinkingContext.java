@@ -114,8 +114,6 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     private final NestedSet<Artifact> declaredIncludeSrcs;
     private final int nestedDigest;
 
-    public static final Depset.ElementType TYPE = Depset.ElementType.of(Linkstamp.class);
-
     // TODO(janakr): if action key context is not available, the digest can be computed lazily,
     // only if we are doing an equality comparison and artifacts are equal. That should never
     // happen, so doing an expensive digest should be ok then. If this is ever moved to Starlark
@@ -154,7 +152,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     @Override
     public Depset getDeclaredIncludeSrcsForStarlark(StarlarkThread thread) throws EvalException {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
-      return Depset.of(Artifact.TYPE, getDeclaredIncludeSrcs());
+      return Depset.of(Artifact.class, getDeclaredIncludeSrcs());
     }
 
     @Override
@@ -189,9 +187,6 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Immutable
   public static class LinkerInput
       implements LinkerInputApi<LibraryToLink, LtoBackendArtifacts, Artifact> {
-
-    public static final Depset.ElementType TYPE = Depset.ElementType.of(LinkerInput.class);
-
     // Identifies which target created the LinkerInput. It doesn't have to be unique between
     // LinkerInputs.
     private final Label owner;
@@ -473,7 +468,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   @Override
   public Depset getStarlarkLinkerInputs() {
-    return Depset.of(LinkerInput.TYPE, linkerInputs);
+    return Depset.of(LinkerInput.class, linkerInputs);
   }
 
   @Override
@@ -485,7 +480,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   public Object getStarlarkLibrariesToLink(StarlarkSemantics semantics) {
     // TODO(plf): Flag can be removed already.
     if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER)) {
-      return Depset.of(LibraryToLink.TYPE, getLibraries());
+      return Depset.of(LibraryToLink.class, getLibraries());
     } else {
       return StarlarkList.immutableCopyOf(getLibraries().toList());
     }
@@ -493,7 +488,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   @Override
   public Depset getStarlarkNonCodeInputs() {
-    return Depset.of(Artifact.TYPE, getNonCodeInputs());
+    return Depset.of(Artifact.class, getNonCodeInputs());
   }
 
   public NestedSet<LinkOptions> getUserLinkFlags() {
@@ -522,7 +517,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Override
   public Depset getLinkstampsForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Linkstamp.TYPE, getLinkstamps());
+    return Depset.of(Linkstamp.class, getLinkstamps());
   }
 
   public NestedSet<Artifact> getNonCodeInputs() {

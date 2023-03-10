@@ -85,7 +85,7 @@ public class AndroidLibraryAarInfo extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getTransitiveAarArtifactsForStarlark() {
-    return Depset.of(Artifact.TYPE, transitiveAarArtifacts);
+    return Depset.of(Artifact.class, transitiveAarArtifacts);
   }
 
   public NestedSet<Artifact> getTransitiveAarArtifacts() {

@@ -14,8 +14,9 @@
 
 """Common functionality for Objc rules."""
 
+load(":common/cc/cc_info.bzl", "CcInfo")
+
 objc_internal = _builtins.internal.objc_internal
-CcInfo = _builtins.toplevel.CcInfo
 apple_common = _builtins.toplevel.apple_common
 
 CPP_SOURCES = [".cc", ".cpp", ".mm", ".cxx", ".C"]
@@ -176,16 +177,6 @@ def _create_context_and_provider(
             _filter_by_extension(compilation_artifacts.srcs, HEADERS),
         )
 
-        uses_cpp = False
-        arc_and_non_arc_srcs = []
-        arc_and_non_arc_srcs.extend(compilation_artifacts.srcs)
-        arc_and_non_arc_srcs.extend(compilation_artifacts.non_arc_srcs)
-        for source_file in arc_and_non_arc_srcs:
-            uses_cpp = uses_cpp or _is_cpp_source(source_file)
-
-        if uses_cpp:
-            objc_provider_kwargs["flag"] = ["uses_cpp"]
-
     if alwayslink:
         direct = []
         if compilation_artifacts != None:
@@ -258,9 +249,6 @@ def _create_context_and_provider(
         objc_compilation_context,
         objc_linking_context,
     )
-
-def _is_cpp_source(source_file):
-    return "." + source_file.extension in CPP_SOURCES
 
 def _filter_by_extension(file_list, extensions):
     return [file for file in file_list if "." + file.extension in extensions]

@@ -191,6 +191,32 @@ EOF
   expect_log "I am mockpy!"
 }
 
+# Test that running a zip app without RUN_UNDER_RUNFILES=1 removes the
+# temporary directory it creates
+function test_build_python_zip_cleans_up_temporary_module_space() {
+
+  mkdir test
+  cat > test/BUILD << EOF
+py_binary(
+  name = "pybin",
+  srcs = ["pybin.py"],
+)
+EOF
+  cat > test/pybin.py << EOF
+print(__file__)
+EOF
+
+  bazel build //test:pybin --build_python_zip &> $TEST_log || fail "bazel build failed"
+  pybin_location=$(bazel-bin/test/pybin)
+
+  # The pybin location is "<ms root>/runfiles/<workspace>/test/pybin.py",
+  # so we have to go up 4 directories to get to the module space root
+  module_space_dir=$(dirname $(dirname $(dirname $(dirname "$pybin_location"))))
+  if [[ -d "$module_space_dir" ]]; then
+    fail "expected module space directory to be deleted, but $module_space_dir still exists"
+  fi
+}
+
 function test_get_python_zip_file_via_output_group() {
   touch foo.py
   cat > BUILD <<'EOF'
@@ -342,6 +368,56 @@ EOF
       || fail "bazel build failed"
   cat bazel-bin/test/out.txt &> $TEST_log
   expect_log "Tool output"
+}
+
+function test_external_runfiles() {
+  cat >> WORKSPACE <<EOF
+local_repository(
+  name = "repo2",
+  path = "repo2"
+)
+EOF
+  mkdir repo2
+  touch repo2/WORKSPACE
+  cat > repo2/BUILD <<EOF
+package(default_visibility=["//visibility:public"])
+filegroup(name="r2files", srcs=["r2.txt"])
+EOF
+  touch repo2/r2.txt
+
+  mkdir py
+  cat > py/BUILD <<EOF
+py_binary(
+  name = "foo", srcs=["foo.py"],
+  data = ["@repo2//:r2files"],
+)
+EOF
+  touch py/foo.py
+
+  # We're testing for this flag's behavior, so force it to true.
+  # TODO(https://github.com/bazelbuild/bazel/issues/12821): Remove this test
+  # when this behavior is removed
+  bazel build --legacy_external_runfiles=true //py:foo
+  if "$is_windows"; then
+    exe=".exe"
+  else
+    exe=""
+  fi
+
+  # NOTE: The "main" name isn't special. It's just the name the integration test
+  # setup puts in WORKSPACE.
+  cp bazel-bin/py/foo$exe.runfiles_manifest runfiles_manifest
+  assert_contains main/external/repo2/r2.txt runfiles_manifest \
+    "runfiles manifest didn't have external path mapping"
+
+  # By default, Python binaries are put into zip files on Windows and don't
+  # have a real runfiles tree.
+  if ! "$is_windows"; then
+    find bazel-bin/py/foo.runfiles > runfiles_listing
+    assert_contains bazel-bin/py/foo.runfiles/main/external/repo2/r2.txt \
+      runfiles_listing \
+      "runfiles didn't have external links"
+  fi
 }
 
 run_suite "Tests for how the Python rules handle Python 2 vs Python 3"

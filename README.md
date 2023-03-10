@@ -24,7 +24,7 @@ Build and test software of any size, quickly and reliably.
 ## Getting Started
 
   * [Install Bazel](https://bazel.build/install)
-  * [Get started with Bazel](https://bazel.build/contribute/getting-started)
+  * [Get started with Bazel](https://bazel.build/start)
   * Follow our tutorials:
 
     - [Build C++](https://bazel.build/tutorials/cpp)

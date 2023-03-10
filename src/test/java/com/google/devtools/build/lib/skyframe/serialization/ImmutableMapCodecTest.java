@@ -96,7 +96,7 @@ public class ImmutableMapCodecTest {
                         .buildOrThrow()));
     assertThat(thrown)
         .hasMessageThat()
-        .startsWith("No default codec available for " + comparator.getClass().getCanonicalName());
+        .startsWith("No default codec available for " + comparator.getClass().getName());
   }
 
   @Test

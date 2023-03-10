@@ -901,8 +901,7 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If true, the legacy provider accessible by 'dep.cc.' is removed. See #7036.")
-  // TODO(b/122328491): Document migration steps. See #7036.
+      help = "No-op flag. Will be removed in a future release.")
   public boolean disableLegacyCcProvider;
 
   @Option(
@@ -1061,15 +1060,13 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_cpp_compile_argv_ignore_param_file",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {
         OptionMetadataTag.EXPERIMENTAL,
       },
-      help =
-          "If enabled, CppCompileAction action.argv returns the complete list of argv even if"
-              + " compiler_param_file is enabled.")
+      help = "This flag is a noop and scheduled for removal.")
   public boolean ignoreParamFile;
 
   @Option(
@@ -1126,7 +1123,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_link_static_libraries_once",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
@@ -1139,19 +1136,6 @@ public class CppOptions extends FragmentOptions {
           "If enabled, cc_shared_library will link all libraries statically linked into it, that"
               + " should only be linked once.")
   public boolean experimentalLinkStaticLibrariesOnce;
-
-  @Option(
-      name = "experimental_enable_target_export_check",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If enabled, cc_shared_library will export targets which is allowed by its `permissions`"
-              + " attribute.")
-  public boolean experimentalEnableTargetExportCheck;
 
   @Option(
       name = "experimental_cc_shared_library_debug",
@@ -1240,7 +1224,6 @@ public class CppOptions extends FragmentOptions {
       cxxoptListBuilder.add("-g0");
     }
     exec.experimentalLinkStaticLibrariesOnce = experimentalLinkStaticLibrariesOnce;
-    exec.experimentalEnableTargetExportCheck = experimentalEnableTargetExportCheck;
     exec.experimentalCcSharedLibraryDebug = experimentalCcSharedLibraryDebug;
     exec.experimentalCcImplementationDeps = experimentalCcImplementationDeps;
 

@@ -21,13 +21,13 @@ load(":common/java/android_lint.bzl", "android_lint_action")
 load(":common/java/compile_action.bzl", "compile_action")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
 java_common = _builtins.toplevel.java_common
 coverage_common = _builtins.toplevel.coverage_common
 
 JavaInfo = _builtins.toplevel.JavaInfo
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
-CcInfo = _builtins.toplevel.CcInfo
 
 def _filter_srcs(srcs, ext):
     return [f for f in srcs if f.extension == ext]
@@ -45,7 +45,7 @@ def _filter_javainfo_and_legacy_jars(attr):
     # Native code collected data into a NestedSet, using add for legacy jars and
     # addTransitive for JavaInfo. This resulted in legacy jars being first in the list.
     for dep in attr:
-        kind = java_common.target_kind(dep)
+        kind = java_common.target_kind(dep, dereference_aliases = True)
         if not JavaInfo in dep or kind == "java_binary" or kind == "java_test":
             for file in dep[DefaultInfo].files.to_list():
                 if file.extension == "jar":

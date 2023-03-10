@@ -19,10 +19,9 @@ load("@_builtins//:common/objc/attrs.bzl", "common_attrs")
 load("@_builtins//:common/objc/objc_common.bzl", "extensions")
 load("@_builtins//:common/objc/transitions.bzl", "apple_crosstool_transition")
 load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
 objc_internal = _builtins.internal.objc_internal
-CcInfo = _builtins.toplevel.CcInfo
-cc_common = _builtins.toplevel.cc_common
 coverage_common = _builtins.toplevel.coverage_common
 apple_common = _builtins.toplevel.apple_common
 

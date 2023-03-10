@@ -111,9 +111,6 @@ public final class Runfiles implements RunfilesApi {
   //
   // Goodnight, prince(ss)?, and sweet dreams.
   public static final class SymlinkEntry implements SymlinkEntryApi {
-
-    static final Depset.ElementType TYPE = Depset.ElementType.of(SymlinkEntry.class);
-
     private final PathFragment path;
     private final Artifact artifact;
 
@@ -270,7 +267,7 @@ public final class Runfiles implements RunfilesApi {
   /** Returns the collection of runfiles as artifacts. */
   @Override
   public Depset /*<Artifact>*/ getArtifactsForStarlark() {
-    return Depset.of(Artifact.TYPE, artifacts);
+    return Depset.of(Artifact.class, artifacts);
   }
 
   public NestedSet<Artifact> getArtifacts() {
@@ -280,7 +277,7 @@ public final class Runfiles implements RunfilesApi {
   /** Returns the symlinks. */
   @Override
   public Depset /*<SymlinkEntry>*/ getSymlinksForStarlark() {
-    return Depset.of(SymlinkEntry.TYPE, symlinks);
+    return Depset.of(SymlinkEntry.class, symlinks);
   }
 
   public NestedSet<SymlinkEntry> getSymlinks() {
@@ -289,7 +286,7 @@ public final class Runfiles implements RunfilesApi {
 
   @Override
   public Depset /*<String>*/ getEmptyFilenamesForStarlark() {
-    return Depset.of(Depset.ElementType.STRING, getEmptyFilenames());
+    return Depset.of(String.class, getEmptyFilenames());
   }
 
   public NestedSet<String> getEmptyFilenames() {
@@ -512,7 +509,7 @@ public final class Runfiles implements RunfilesApi {
   /** Returns the root symlinks. */
   @Override
   public Depset /*<SymlinkEntry>*/ getRootSymlinksForStarlark() {
-    return Depset.of(SymlinkEntry.TYPE, rootSymlinks);
+    return Depset.of(SymlinkEntry.class, rootSymlinks);
   }
 
   public NestedSet<SymlinkEntry> getRootSymlinks() {

@@ -101,9 +101,11 @@ int OutputJar::Doit(Options *options) {
   manifest_.AppendLine("Manifest-Version: 1.0");
   manifest_.AppendLine("Created-By: " + options_->output_jar_creator);
 
-  // TODO(b/28294322): do we need to resolve the path to be absolute or
-  // canonical?
-  build_properties_.AddProperty("build.target", options_->output_jar.c_str());
+  // TODO(b/28294322): remove fallback to output_jar
+  build_properties_.AddProperty("build.target",
+                                !options_->build_target.empty()
+                                    ? options_->build_target.c_str()
+                                    : options_->output_jar.c_str());
   if (options_->verbose) {
     fprintf(stderr, "combined_file_name=%s\n", options_->output_jar.c_str());
     if (!options_->main_class.empty()) {

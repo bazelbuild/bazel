@@ -108,12 +108,12 @@ public final class NestedSetSerializationCacheTest {
         new NestedSetSerializationCache(mockBugReporter);
     ByteString fingerprint = ByteString.copyFromUtf8("abc");
     SettableFuture<Object[]> future = SettableFuture.create();
-    Exception e = new MissingNestedSetException(fingerprint);
+    Throwable e = new MissingNestedSetException(fingerprint);
 
     cacheWithCustomBugReporter.putFutureIfAbsent(fingerprint, future, DEFAULT_CONTEXT);
     future.setException(e);
 
-    verify(mockBugReporter).sendBugReport(e);
+    verify(mockBugReporter).sendNonFatalBugReport(e);
   }
 
   @Test

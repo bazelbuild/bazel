@@ -36,4 +36,5 @@ semantics = struct(
         "--direct_dependencies_violation_msg=" +
         "%%s is imported, but %s doesn't directly depend on a proto_library that 'srcs' it."
     ),
+    EXEC_GROUPS = {},
 )

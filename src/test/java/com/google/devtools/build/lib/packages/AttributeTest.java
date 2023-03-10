@@ -67,6 +67,7 @@ public class AttributeTest {
     assertThat(attr.getType()).isEqualTo(Type.INTEGER);
     assertThat(attr.isMandatory()).isTrue();
     assertThat(attr.isDocumented()).isTrue();
+    assertThat(attr.starlarkDefined()).isFalse();
     attr = attr("$foo", Type.INTEGER).build();
     assertThat(attr.isDocumented()).isFalse();
   }

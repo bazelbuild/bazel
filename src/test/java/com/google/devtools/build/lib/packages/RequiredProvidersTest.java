@@ -191,6 +191,22 @@ public class RequiredProvidersTest {
         .isEqualTo("[P1, P2] or ['p_legacy', 'p_starlark'] or 'p_starlark'");
   }
 
+  @Test
+  public void getStarlarkProviders() {
+    assertThat(RequiredProviders.acceptAnyBuilder().build().getStarlarkProviders()).isEmpty();
+    assertThat(RequiredProviders.acceptNoneBuilder().build().getStarlarkProviders()).isEmpty();
+    assertThat(
+            RequiredProviders.acceptAnyBuilder()
+                .addStarlarkSet(ImmutableSet.of(ID_LEGACY, ID_STARLARK))
+                .addStarlarkSet(ImmutableSet.of(ID_STARLARK))
+                .addBuiltinSet(ImmutableSet.of(P1.class, P2.class))
+                .addBuiltinSet(ImmutableSet.of(P3.class))
+                .build()
+                .getStarlarkProviders())
+        .containsExactly(ImmutableSet.of(ID_LEGACY, ID_STARLARK), ImmutableSet.of(ID_STARLARK))
+        .inOrder();
+  }
+
   @SafeVarargs
   private static boolean validateNative(
       AdvertisedProviderSet providerSet,

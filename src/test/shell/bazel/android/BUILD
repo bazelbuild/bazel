@@ -34,9 +34,6 @@ android_sh_test(
     srcs = ["android_integration_test.sh"],
     data = [
         ":android_helper",
-        # TODO(b/226204219): Remove this dep once Bazel properly loads d8
-        # in create_android_sdk_rules()
-        "//external:android/d8_jar_import",
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
@@ -50,14 +47,27 @@ android_sh_test(
 )
 
 android_sh_test(
+    name = "android_local_test_integration_test",
+    size = "large",
+    srcs = ["android_local_test_integration_test.sh"],
+    data = [
+        ":android_helper",
+        "//external:android_sdk_for_testing",
+        "//src/test/shell/bazel:test-deps",
+    ],
+    # See https://github.com/bazelbuild/bazel/issues/8235
+    tags = [
+        "no-remote",
+        "no_windows",
+    ],
+)
+
+android_sh_test(
     name = "aapt_integration_test",
     size = "large",
     srcs = ["aapt_integration_test.sh"],
     data = [
         ":android_helper",
-        # TODO(b/226204219): Remove this dep once Bazel properly loads d8
-        # in create_android_sdk_rules()
-        "//external:android/d8_jar_import",
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
@@ -72,9 +82,6 @@ android_sh_test(
     data = [
         ":android_helper",
         "//external:android_ndk_for_testing",
-        # TODO(b/226204219): Remove this dep once Bazel properly loads d8
-        # in create_android_sdk_rules()
-        "//external:android/d8_jar_import",
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
@@ -91,9 +98,6 @@ android_sh_test(
     srcs = ["proguard_integration_test.sh"],
     data = [
         ":android_helper",
-        # TODO(b/226204219): Remove this dep once Bazel properly loads d8
-        # in create_android_sdk_rules()
-        "//external:android/d8_jar_import",
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
@@ -107,9 +111,6 @@ android_sh_test(
     srcs = ["android_sdk_integration_test.sh"],
     data = [
         ":android_helper",
-        # TODO(b/226204219): Remove this dep once Bazel properly loads d8
-        # in create_android_sdk_rules()
-        "//external:android/d8_jar_import",
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
@@ -129,9 +130,6 @@ android_sh_test(
     data = [
         ":android_helper",
         "//external:android_ndk_for_testing",
-        # TODO(b/226204219): Remove this dep once Bazel properly loads d8
-        # in create_android_sdk_rules()
-        "//external:android/d8_jar_import",
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
@@ -149,9 +147,6 @@ android_sh_test(
     srcs = ["aidl_integration_test.sh"],
     data = [
         ":android_helper",
-        # TODO(b/226204219): Remove this dep once Bazel properly loads d8
-        # in create_android_sdk_rules()
-        "//external:android/d8_jar_import",
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
@@ -165,9 +160,6 @@ android_sh_test(
     srcs = ["desugarer_integration_test.sh"],
     data = [
         ":android_helper",
-        # TODO(b/226204219): Remove this dep once Bazel properly loads d8
-        # in create_android_sdk_rules()
-        "//external:android/d8_jar_import",
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
@@ -184,9 +176,6 @@ android_sh_test(
     srcs = ["android_instrumentation_test_integration_test.sh"],
     data = [
         ":android_helper",
-        # TODO(b/226204219): Remove this dep once Bazel properly loads d8
-        # in create_android_sdk_rules()
-        "//external:android/d8_jar_import",
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
@@ -205,9 +194,6 @@ android_sh_test(
     data = [
         ":android_helper",
         ":testdata/roboto.ttf",
-        # TODO(b/226204219): Remove this dep once Bazel properly loads d8
-        # in create_android_sdk_rules()
-        "//external:android/d8_jar_import",
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],

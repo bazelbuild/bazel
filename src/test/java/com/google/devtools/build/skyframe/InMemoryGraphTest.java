@@ -13,8 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.skyframe.InMemoryGraphImpl.EdgelessInMemoryGraphImpl;
+import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import com.google.devtools.build.skyframe.SkyKey.SkyKeyPool;
+import org.junit.Test;
 
 /** Tests for {@link InMemoryGraphImpl}. */
 public class InMemoryGraphTest extends GraphTest {
@@ -32,7 +38,7 @@ public class InMemoryGraphTest extends GraphTest {
 
   @Override
   protected void makeGraph() {
-    graph = new InMemoryGraphImpl();
+    graph = new InMemoryGraphImpl(/* usePooledSkyKeyInterning= */ true);
   }
 
   @Override
@@ -48,7 +54,7 @@ public class InMemoryGraphTest extends GraphTest {
 
     @Override
     protected ProcessableGraph getGraph(Version version) {
-      return new EdgelessInMemoryGraphImpl();
+      return new EdgelessInMemoryGraphImpl(/* usePooledSkyKeyInterning= */ true);
     }
 
     @Override
@@ -60,5 +66,66 @@ public class InMemoryGraphTest extends GraphTest {
     protected boolean shouldTestIncrementality() {
       return false;
     }
+  }
+
+  public static final class SkyKeyWithSkyKeyInterner extends AbstractSkyKey<String> {
+    private static final SkyKeyInterner<SkyKeyWithSkyKeyInterner> interner = SkyKey.newInterner();
+
+    static SkyKeyWithSkyKeyInterner create(String arg) {
+      return interner.intern(new SkyKeyWithSkyKeyInterner(arg));
+    }
+
+    private SkyKeyWithSkyKeyInterner(String arg) {
+      super(arg);
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctionName.FOR_TESTING;
+    }
+
+    @Override
+    public SkyKeyInterner<SkyKeyWithSkyKeyInterner> getSkyKeyInterner() {
+      return interner;
+    }
+  }
+
+  @Test
+  public void createIfAbsentBatch_skyKeyWithSkyKeyInterner() throws InterruptedException {
+    SkyKey cat = SkyKeyWithSkyKeyInterner.create("cat");
+
+    // Insert cat SkyKey into graph.
+    // (1) result of getting cat node from graph should not be null;
+    // (2) when re-creating cat SkyKeyWithSkyKeyInterner object, it should retrieve the instance
+    // from global pool (graph), which is also the same instance as the original one.
+    graph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(cat));
+    assertThat(graph.get(null, Reason.OTHER, cat)).isNotNull();
+    assertThat(SkyKeyWithSkyKeyInterner.create("cat")).isSameInstanceAs(cat);
+
+    // Remove cat SkyKey from graph.
+    // (1) result of getting cat node from graph should be null, indicating the cat key has been
+    // removed from the global pool (graph);
+    // (2) since when removing key from global pool (graph), the removed key will be re-interned
+    // back to weak interner. So re-creating an equal "cat" object from SkyKeyWithSkyKeyInterner
+    // will result in the same instance to be returned (no new instance will be created).
+    graph.remove(cat);
+    assertThat(graph.get(null, Reason.OTHER, cat)).isNull();
+    assertThat(SkyKeyWithSkyKeyInterner.create("cat")).isSameInstanceAs(cat);
+  }
+
+  @Test
+  public void cleanupPool_weakInternerReintern() throws InterruptedException {
+    SkyKey cat = SkyKeyWithSkyKeyInterner.create("cat");
+
+    graph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(cat));
+    assertThat(graph.get(null, Reason.OTHER, cat)).isNotNull();
+
+    assertThat(graph).isInstanceOf(SkyKeyPool.class);
+    ((SkyKeyPool) graph).cleanupPool();
+
+    // When re-creating a cat SkyKeyWithSkyKeyInterner, we expect to get the original instance. Pool
+    // cleaning up re-interns the cat instance back to the weak interner, and thus, no new instance
+    // is created.
+    assertThat(SkyKeyWithSkyKeyInterner.create("cat")).isSameInstanceAs(cat);
   }
 }

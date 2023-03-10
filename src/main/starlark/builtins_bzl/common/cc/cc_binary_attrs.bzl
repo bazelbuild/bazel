@@ -17,8 +17,8 @@
 
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "graph_structure_aspect")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
-CcInfo = _builtins.toplevel.CcInfo
 cc_internal = _builtins.internal.cc_internal
 
 cc_binary_attrs_with_aspects = {
@@ -70,6 +70,11 @@ cc_binary_attrs_with_aspects = {
         default = configuration_field(fragment = "cpp", name = "custom_malloc"),
         aspects = [graph_structure_aspect],
     ),
+    "_link_extra_lib": attr.label(
+        default = Label("@" + semantics.get_repo() + "//tools/cpp:link_extra_lib"),
+        providers = [CcInfo],
+        aspects = [graph_structure_aspect],
+    ),
     "stamp": attr.int(
         values = [-1, 0, 1],
         default = -1,
@@ -111,4 +116,7 @@ cc_binary_attrs_without_aspects["malloc"] = attr.label(
 )
 cc_binary_attrs_without_aspects["_default_malloc"] = attr.label(
     default = configuration_field(fragment = "cpp", name = "custom_malloc"),
+)
+cc_binary_attrs_without_aspects["_link_extra_lib"] = attr.label(
+    default = Label("@" + semantics.get_repo() + "//tools/cpp:link_extra_lib"),
 )

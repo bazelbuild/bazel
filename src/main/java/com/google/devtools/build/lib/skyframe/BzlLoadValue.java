@@ -17,9 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BzlVisibility;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -27,6 +25,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 import net.starlark.java.eval.Module;
@@ -70,7 +69,7 @@ public class BzlLoadValue implements SkyValue {
     return bzlVisibility;
   }
 
-  private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
+  private static final SkyKeyInterner<Key> keyInterner = SkyKey.newInterner();
 
   /** SkyKey for a Starlark load. */
   public abstract static class Key implements SkyKey {
@@ -156,6 +155,11 @@ public class BzlLoadValue implements SkyValue {
     @Override
     public String toString() {
       return toStringHelper().toString();
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return keyInterner;
     }
   }
 

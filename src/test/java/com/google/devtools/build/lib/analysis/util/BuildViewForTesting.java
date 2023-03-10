@@ -101,10 +101,10 @@ import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ComputedToolchainContexts;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.skyframe.PrerequisiteProducer;
+import com.google.devtools.build.lib.skyframe.PrerequisiteProducer.ComputedToolchainContexts;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -115,6 +115,7 @@ import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.Version;
@@ -171,10 +172,9 @@ public class BuildViewForTesting {
 
   private Set<ActionLookupKey> populateActionLookupKeyMapAndGetDiff() {
     ImmutableMap<ActionLookupKey, Version> newMap =
-        skyframeExecutor.getEvaluator().getAllValuesMutable().entrySet().stream()
+        skyframeExecutor.getEvaluator().getInMemoryGraph().getAllNodeEntries().stream()
             .filter(e -> e.getKey() instanceof ActionLookupKey)
-            .collect(
-                toImmutableMap(e -> (ActionLookupKey) e.getKey(), e -> e.getValue().getVersion()));
+            .collect(toImmutableMap(e -> (ActionLookupKey) e.getKey(), NodeEntry::getVersion));
     MapDifference<ActionLookupKey, Version> difference =
         Maps.difference(newMap, currentActionLookupKeys);
     currentActionLookupKeys = newMap;
@@ -637,7 +637,7 @@ public class BuildViewForTesting {
         new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor);
 
     ComputedToolchainContexts result =
-        ConfiguredTargetFunction.computeUnloadedToolchainContexts(
+        PrerequisiteProducer.computeUnloadedToolchainContexts(
             skyfunctionEnvironment,
             ruleClassProvider,
             new TargetAndConfiguration(target.getAssociatedRule(), targetConfig),

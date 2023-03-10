@@ -180,7 +180,7 @@ public class PackageTest {
             ruleClass,
             Location.BUILTIN,
             ImmutableList.of(),
-            new AttributeContainer.Mutable(FAUX_TEST_CLASS.getAttributeCount()));
+            AttributeContainer.newMutableInstance(FAUX_TEST_CLASS));
     rule.populateOutputFiles(new StoredEventHandler(), pkgBuilder);
     pkgBuilder.addRule(rule);
     return rule;

@@ -76,7 +76,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
   private static final int NO_INPUT_DISCOVERY_COUNT = -1;
 
-  private static final int VERSION = 14;
+  private static final int VERSION = 16;
 
   private static final class ActionMap extends PersistentMap<Integer, byte[]> {
     private final Clock clock;
@@ -466,7 +466,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
     VarInt.putVarInt(value.getLocationIndex(), sink);
 
-    VarInt.putVarInt(indexer.getOrCreateIndex(value.getActionId()), sink);
+    VarInt.putVarLong(value.getExpireAtEpochMilli(), sink);
 
     Optional<PathFragment> materializationExecPath = value.getMaterializationExecPath();
     if (materializationExecPath.isPresent()) {
@@ -478,10 +478,11 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   private static final int MAX_REMOTE_METADATA_SIZE =
-      DigestUtils.ESTIMATED_SIZE
-          + VarInt.MAX_VARLONG_SIZE
-          + VarInt.MAX_VARINT_SIZE
-          + VarInt.MAX_VARINT_SIZE;
+      DigestUtils.ESTIMATED_SIZE // digest
+          + VarInt.MAX_VARLONG_SIZE // size
+          + VarInt.MAX_VARINT_SIZE // locationIndex
+          + VarInt.MAX_VARINT_SIZE // expireAtEpochMilli
+          + VarInt.MAX_VARINT_SIZE; // materializationExecPath
 
   private static RemoteFileArtifactValue decodeRemoteMetadata(
       StringIndexer indexer, ByteBuffer source) throws IOException {
@@ -491,7 +492,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
     int locationIndex = VarInt.getVarInt(source);
 
-    String actionId = getStringForIndex(indexer, VarInt.getVarInt(source));
+    long expireAtEpochMilli = VarInt.getVarLong(source);
 
     PathFragment materializationExecPath = null;
     int numMaterializationExecPath = VarInt.getVarInt(source);
@@ -504,7 +505,7 @@ public class CompactPersistentActionCache implements ActionCache {
     }
 
     return RemoteFileArtifactValue.create(
-        digest, size, locationIndex, actionId, materializationExecPath);
+        digest, size, locationIndex, expireAtEpochMilli, materializationExecPath);
   }
 
   /** @return action data encoded as a byte[] array. */

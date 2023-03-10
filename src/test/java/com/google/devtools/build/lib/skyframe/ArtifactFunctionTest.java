@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -46,12 +45,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -313,41 +309,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
             "Action template expansion has some but not all outputs omitted, present outputs: .*"
                 + treeFileArtifact2.getParentRelativePath()
                 + ".*");
-  }
-
-  @Test
-  public void actionExecutionValueSerialization() throws Exception {
-    ActionLookupData dummyData = ActionLookupData.create(ALL_OWNER, 0);
-    DerivedArtifact artifact1 = createDerivedArtifact("one");
-    FileArtifactValue metadata1 =
-        ActionMetadataHandler.fileArtifactValueFromArtifact(
-            artifact1, null, SyscallCache.NO_CACHE, null);
-    SpecialArtifact treeArtifact = createDerivedTreeArtifactOnly("tree");
-    treeArtifact.setGeneratingActionKey(dummyData);
-    TreeFileArtifact treeFileArtifact = TreeFileArtifact.createTreeOutput(treeArtifact, "subpath");
-    Path path = treeFileArtifact.getPath();
-    path.getParentDirectory().createDirectoryAndParents();
-    writeFile(path, "contents");
-    TreeArtifactValue tree =
-        TreeArtifactValue.newBuilder(treeArtifact)
-            .putChild(treeFileArtifact, FileArtifactValue.createForTesting(treeFileArtifact))
-            .build();
-    DerivedArtifact artifact3 = createDerivedArtifact("three");
-    FilesetOutputSymlink filesetOutputSymlink =
-        FilesetOutputSymlink.createForTesting(
-            PathFragment.EMPTY_FRAGMENT, PathFragment.EMPTY_FRAGMENT, PathFragment.EMPTY_FRAGMENT);
-    ActionExecutionValue actionExecutionValue =
-        ActionExecutionValue.createForTesting(
-            ImmutableMap.of(artifact1, metadata1, artifact3, FileArtifactValue.DEFAULT_MIDDLEMAN),
-            ImmutableMap.of(treeArtifact, tree),
-            ImmutableList.of(filesetOutputSymlink));
-    new SerializationTester(actionExecutionValue)
-        .addDependency(FileSystem.class, root.getFileSystem())
-        .addDependency(
-            Root.RootCodecDependencies.class,
-            new Root.RootCodecDependencies(Root.absoluteRoot(root.getFileSystem())))
-        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
-        .runTests();
   }
 
   private static void file(Path path, String contents) throws Exception {

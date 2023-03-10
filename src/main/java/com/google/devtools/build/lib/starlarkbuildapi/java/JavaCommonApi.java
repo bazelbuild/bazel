@@ -671,10 +671,17 @@ public interface JavaCommonApi<
       name = "target_kind",
       parameters = {
         @Param(name = "target", positional = true, named = false, doc = "The target."),
+        @Param(
+            name = "dereference_aliases",
+            positional = false,
+            named = true,
+            defaultValue = "False",
+            documented = false),
       },
       documented = false,
       useStarlarkThread = true)
-  String getTargetKind(Object target, StarlarkThread thread) throws EvalException;
+  String getTargetKind(Object target, boolean dereferenceAliases, StarlarkThread thread)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "to_java_binary_info",
@@ -692,9 +699,10 @@ public interface JavaCommonApi<
   @StarlarkMethod(
       name = "get_build_info",
       documented = false,
-      parameters = {@Param(name = "ctx", doc = "The rule context")},
+      parameters = {@Param(name = "ctx"), @Param(name = "is_stamping_enabled")},
       useStarlarkThread = true)
-  Sequence<FileT> getBuildInfo(StarlarkRuleContextT ruleContext, StarlarkThread thread)
+  Sequence<FileT> getBuildInfo(
+      StarlarkRuleContextT ruleContext, boolean isStampingEnabled, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(

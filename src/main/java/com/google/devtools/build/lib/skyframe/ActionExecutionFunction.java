@@ -817,8 +817,8 @@ public final class ActionExecutionFunction implements SkyFunction {
           .post(
               new DiscoveredInputsEvent(
                   SpawnMetrics.Builder.forOtherExec()
-                      .setParseTime(discoveredInputsDuration)
-                      .setTotalTime(discoveredInputsDuration)
+                      .setParseTimeInMs((int) discoveredInputsDuration.toMillis())
+                      .setTotalTimeInMs((int) discoveredInputsDuration.toMillis())
                       .build(),
                   action,
                   actionStartTime));
@@ -1255,7 +1255,7 @@ public final class ActionExecutionFunction implements SkyFunction {
           input,
           value,
           env,
-          skyframeActionExecutor.supportsPartialTreeArtifactInputs());
+          skyframeActionExecutor.requiresTreeMetadataWhenTreeFileIsInput());
     }
 
     if (actionExecutionFunctionExceptionHandler != null) {

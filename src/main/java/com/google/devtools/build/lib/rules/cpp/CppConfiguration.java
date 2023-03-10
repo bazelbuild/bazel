@@ -367,10 +367,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.isCSFdo();
   }
 
-  public boolean ignoreParamFile() {
-    return cppOptions.ignoreParamFile;
-  }
-
   public boolean useArgsParamsFile() {
     return cppOptions.useArgsParamsFile;
   }
@@ -479,10 +475,6 @@ public final class CppConfiguration extends Fragment
 
   public boolean experimentalLinkStaticLibrariesOnce() {
     return cppOptions.experimentalLinkStaticLibrariesOnce;
-  }
-
-  public boolean experimentalEnableTargetExportCheck() {
-    return cppOptions.experimentalEnableTargetExportCheck;
   }
 
   public boolean experimentalCcSharedLibraryDebug() {
@@ -744,16 +736,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.targetLibcTopLabel;
   }
 
-  @StarlarkMethod(name = "enable_legacy_cc_provider", documented = false, useStarlarkThread = true)
-  public boolean enableLegacyCcProviderForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return enableLegacyCcProvider();
-  }
-
-  public boolean enableLegacyCcProvider() {
-    return !cppOptions.disableLegacyCcProvider;
-  }
-
   public boolean dontEnableHostNonhost() {
     return cppOptions.dontEnableHostNonhost;
   }
@@ -784,6 +766,12 @@ public final class CppConfiguration extends Fragment
 
   public boolean disableNoCopts() {
     return cppOptions.disableNoCopts;
+  }
+
+  @Override
+  public boolean disableNocoptsStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return disableNoCopts();
   }
 
   public boolean loadCcRulesFromBzl() {
@@ -914,13 +902,6 @@ public final class CppConfiguration extends Fragment
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return experimentalLinkStaticLibrariesOnce();
-  }
-
-  @Override
-  public boolean getExperimentalEnableTargetExportCheck(StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return experimentalEnableTargetExportCheck();
   }
 
   @Override

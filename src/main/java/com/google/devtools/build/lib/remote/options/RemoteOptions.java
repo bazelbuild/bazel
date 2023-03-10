@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -32,7 +31,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import java.time.Duration;
@@ -40,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.SortedMap;
-import java.util.regex.Pattern;
 
 /** Options for remote execution and distributed caching for Bazel only. */
 public final class RemoteOptions extends CommonRemoteOptions {
@@ -203,7 +200,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "60s",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = RemoteTimeoutConverter.class,
+      converter = RemoteDurationConverter.class,
       help =
           "The maximum amount of time to wait for remote execution and cache calls. For the REST"
               + " cache, this is both the connect and the read timeout. Following units can be"
@@ -223,24 +220,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "to no longer correspond to the canonical name of the remote execution service. "
               + "When not set, it will default to \"${hostname}/${instance_name}\".")
   public String remoteBytestreamUriPrefix;
-
-  /** Returns the specified duration. Assumes seconds if unitless. */
-  public static class RemoteTimeoutConverter extends Converter.Contextless<Duration> {
-    private static final Pattern UNITLESS_REGEX = Pattern.compile("^[0-9]+$");
-
-    @Override
-    public Duration convert(String input) throws OptionsParsingException {
-      if (UNITLESS_REGEX.matcher(input).matches()) {
-        input += "s";
-      }
-      return new Converters.DurationConverter().convert(input, /*conversionContext=*/ null);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "An immutable length of time.";
-    }
-  }
 
   @Option(
       name = "remote_accept_cached",
@@ -324,7 +303,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, --noremote_upload_local_results and --noremote_accept_cached will not"
-              + " apply to the disk cache. If a combined cache is used:\n"
+              + " apply to the disk cache. If both --disk_cache and --remote_cache are set"
+              + " (combined cache):\n"
               + "\t--noremote_upload_local_results will cause results to be written to the disk"
               + " cache, but not uploaded to the remote cache.\n"
               + "\t--noremote_accept_cached will result in Bazel checking for results in the disk"
@@ -657,6 +637,17 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "memory usage significantly, but does require Bazel to recompute them upon remote "
               + "cache misses and retries.")
   public boolean remoteDiscardMerkleTrees;
+
+  @Option(
+      name = "incompatible_remote_use_new_exit_code_for_lost_inputs",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true, Bazel will use new exit code 39 instead of 34 if remote cache evicts"
+              + " blobs during the build.")
+  public boolean useNewExitCodeForLostInputs;
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.

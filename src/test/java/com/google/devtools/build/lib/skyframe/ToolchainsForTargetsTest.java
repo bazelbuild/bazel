@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ComputedToolchainContexts;
+import com.google.devtools.build.lib.skyframe.PrerequisiteProducer.ComputedToolchainContexts;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -55,16 +55,16 @@ import org.junit.runners.JUnit4;
  * Tests {@link ConfiguredTargetFunction}'s logic for determining each target toolchain context.
  *
  * <p>This is essentially an integration test for {@link
- * ConfiguredTargetFunction#computeUnloadedToolchainContexts}. These methods form the core logic
- * that figures out what a target's toolchain dependencies are.
+ * PrerequisiteProducer#computeUnloadedToolchainContexts}. These methods form the core logic that
+ * figures out what a target's toolchain dependencies are.
  *
  * <p>{@link ConfiguredTargetFunction} is a complicated class that does a lot of things. This test
  * focuses purely on the task of toolchain resolution. So instead of evaluating full {@link
  * ConfiguredTargetFunction} instances, it evaluates a mock {@link SkyFunction} that just wraps the
- * {@link ConfiguredTargetFunction#computeUnloadedToolchainContexts} part. This keeps focus tight
- * and integration dependencies narrow.
+ * {@link PrerequisiteProducer#computeUnloadedToolchainContexts} part. This keeps focus tight and
+ * integration dependencies narrow.
  *
- * <p>We can't just call {@link ConfiguredTargetFunction#computeUnloadedToolchainContexts} directly
+ * <p>We can't just call {@link PrerequisiteProducer#computeUnloadedToolchainContexts} directly
  * because that method needs a {@link SkyFunction.Environment} and Blaze's test infrastructure
  * doesn't support direct access to environments.
  */
@@ -123,7 +123,7 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
       try {
         Key key = (Key) skyKey.argument();
         ComputedToolchainContexts result =
-            ConfiguredTargetFunction.computeUnloadedToolchainContexts(
+            PrerequisiteProducer.computeUnloadedToolchainContexts(
                 env,
                 stateProvider.lateBoundRuleClassProvider(),
                 key.targetAndConfiguration(),

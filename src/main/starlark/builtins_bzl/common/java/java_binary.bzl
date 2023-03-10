@@ -22,8 +22,8 @@ load(":common/rule_util.bzl", "merge_attrs")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
-CcInfo = _builtins.toplevel.CcInfo
 CcLauncherInfo = _builtins.internal.cc_internal.launcher_provider
 JavaInfo = _builtins.toplevel.JavaInfo
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
@@ -38,9 +38,11 @@ InternalDeployJarInfo = provider(
         "main_class",
         "coverage_main_class",
         "strip_as_default",
+        "stamp",
         "hermetic",
         "add_exports",
         "add_opens",
+        "manifest_lines",
     ],
 )
 
@@ -290,9 +292,11 @@ def basic_java_binary(
             main_class = main_class,
             coverage_main_class = coverage_main_class,
             strip_as_default = strip_as_default,
+            stamp = ctx.attr.stamp,
             hermetic = hasattr(ctx.attr, "hermetic") and ctx.attr.hermetic,
             add_exports = add_exports,
             add_opens = add_opens,
+            manifest_lines = ctx.attr.deploy_manifest_lines,
         ),
     }, default_info, jvm_flags
 

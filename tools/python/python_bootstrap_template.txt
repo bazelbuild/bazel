@@ -202,6 +202,8 @@ def ExtractZip(zip_path, dest_dir):
 def CreateModuleSpace():
   temp_dir = tempfile.mkdtemp('', 'Bazel.runfiles_')
   ExtractZip(os.path.dirname(__file__), temp_dir)
+  # IMPORTANT: Later code does `rm -fr` on dirname(module_space) -- it's
+  # important that deletion code be in sync with this directory structure
   return os.path.join(temp_dir, 'runfiles')
 
 # Returns repository roots to add to the import path.
@@ -301,7 +303,7 @@ def UnresolveSymlinks(output_filename):
     os.unlink(unfixed_file)
 
 def ExecuteFile(python_program, main_filename, args, env, module_space,
-                coverage_entrypoint, workspace):
+                coverage_entrypoint, workspace, delete_module_space):
   # type: (str, str, list[str], dict[str, str], str, str|None, str|None) -> ...
   """Executes the given Python file using the various environment settings.
 
@@ -316,8 +318,9 @@ def ExecuteFile(python_program, main_filename, args, env, module_space,
     module_space: (str) Path to the module space/runfiles tree directory
     coverage_entrypoint: (str|None) Path to the coverage tool entry point file.
     workspace: (str|None) Name of the workspace to execute in. This is expected to be a
-        directory under the runfiles tree, and will recursively delete the
-        runfiles directory if set.
+        directory under the runfiles tree.
+    delete_module_space: (bool), True if the module space should be deleted
+        after a successful (exit code zero) program run, False if not.
   """
   # We want to use os.execv instead of subprocess.call, which causes
   # problems with signal passing (making it difficult to kill
@@ -327,16 +330,15 @@ def ExecuteFile(python_program, main_filename, args, env, module_space,
   # - On Windows, os.execv doesn't handle arguments with spaces
   #   correctly, and it actually starts a subprocess just like
   #   subprocess.call.
-  # - When running in a workspace (i.e., if we're running from a zip),
-  #   we need to clean up the workspace after the process finishes so
-  #   control must return here.
+  # - When running in a workspace or zip file, we need to clean up the
+  #   workspace after the process finishes so control must return here.
   # - If we may need to emit a host config warning after execution, we
   #   can't execv because we need control to return here. This only
   #   happens for targets built in the host config.
   # - For coverage targets, at least coveragepy requires running in
   #   two invocations, which also requires control to return here.
   #
-  if not (IsWindows() or workspace or coverage_entrypoint):
+  if not (IsWindows() or workspace or coverage_entrypoint or delete_module_space):
     _RunExecv(python_program, main_filename, args, env)
 
   if coverage_entrypoint is not None:
@@ -349,7 +351,10 @@ def ExecuteFile(python_program, main_filename, args, env, module_space,
       cwd=workspace
     )
 
-  if workspace:
+  if delete_module_space:
+    # NOTE: dirname() is called because CreateModuleSpace() creates a
+    # sub-directory within a temporary directory, and we want to remove the
+    # whole temporary directory.
     shutil.rmtree(os.path.dirname(module_space), True)
   sys.exit(ret_code)
 
@@ -438,8 +443,10 @@ def Main():
 
   if IsRunningFromZip():
     module_space = CreateModuleSpace()
+    delete_module_space = True
   else:
     module_space = FindModuleSpace(main_rel_path)
+    delete_module_space = False
 
   python_imports = '%imports%'
   python_path_entries = CreatePythonPathEntries(python_imports, module_space)
@@ -524,9 +531,11 @@ def Main():
 
   try:
     sys.stdout.flush()
+    # NOTE: ExecuteFile may call execve() and lines after this will never run.
     ExecuteFile(
       python_program, main_filename, args, new_env, module_space,
-      cov_tool, workspace
+      cov_tool, workspace,
+      delete_module_space = delete_module_space,
     )
 
   except EnvironmentError:

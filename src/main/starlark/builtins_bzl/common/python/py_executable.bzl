@@ -24,7 +24,6 @@ load(
     "create_py_info",
     "csv",
     "filter_to_py_srcs",
-    "is_bool",
     "union_attrs",
 )
 load(
@@ -45,11 +44,9 @@ load(
     "BUILD_DATA_SYMLINK_PATH",
     "IS_BAZEL",
     "PY_RUNTIME_ATTR_NAME",
-    "PY_RUNTIME_FRAGMENT_ATTR_NAME",
-    "PY_RUNTIME_FRAGMENT_NAME",
 )
+load(":common/cc/cc_common.bzl", _cc_common = "cc_common")
 
-_cc_common = _builtins.toplevel.cc_common
 _py_builtins = _builtins.internal.py_builtins
 
 # Non-Google-specific attributes for executables
@@ -227,10 +224,9 @@ def _get_runtime_details(ctx, semantics):
     #
     # TODO(b/230428071): Remove this once Google's --python_binary flag is removed.
     # TOOD(bazelbuild/bazel#7901): Remove this once --python_path flag is removed.
-    fragment = getattr(ctx.fragments, PY_RUNTIME_FRAGMENT_NAME)
-    flag_interpreter_path = getattr(fragment, PY_RUNTIME_FRAGMENT_ATTR_NAME)
 
     if IS_BAZEL:
+        flag_interpreter_path = ctx.fragments.bazel_py.python_path
         toolchain_runtime, effective_runtime = _maybe_get_runtime_from_ctx(ctx)
         if not effective_runtime:
             # Clear these just in case
@@ -238,15 +234,10 @@ def _get_runtime_details(ctx, semantics):
             effective_runtime = None
 
     else:  # Google code path
-        # TODO(b/230428071): This codepath can go away once Google's
-        # --python_binary flag is removed.
-        if flag_interpreter_path:
-            toolchain_runtime = None
-            effective_runtime = None
-        else:
-            toolchain_runtime, effective_runtime = _maybe_get_runtime_from_ctx(ctx)
-            if not effective_runtime:
-                fail("should have found runtime")
+        flag_interpreter_path = None
+        toolchain_runtime, effective_runtime = _maybe_get_runtime_from_ctx(ctx)
+        if not effective_runtime:
+            fail("Unable to find Python runtime")
 
     if effective_runtime:
         direct = []  # List of files
@@ -301,6 +292,21 @@ def _maybe_get_runtime_from_ctx(ctx):
     """
     if ctx.fragments.py.use_toolchains:
         toolchain = ctx.toolchains[TOOLCHAIN_TYPE]
+
+        # Hack around the fact that the autodetecting Python toolchain, which is
+        # automatically registered, does not yet support Windows. In this case,
+        # we want to return null so that _get_interpreter_path falls back on
+        # --python_path. See tools/python/toolchain.bzl.
+        # TODO(#7844): Remove this hack when the autodetecting toolchain has a
+        # Windows implementation.
+        if (
+            # BazelPyBinaryConfiguredTargetTest.toolchainInfoFieldHasBadVersion purposefully
+            # omits the py2_runtime attribute to test for other error messages.
+            hasattr(toolchain, "py2_runtime") and toolchain.py2_runtime and
+            toolchain.py2_runtime.interpreter_path == "/_magic_pyruntime_sentinel_do_not_use"
+        ):
+            return None, None
+
         if not hasattr(toolchain, "py3_runtime"):
             fail("Python toolchain field 'py3_runtime' is missing")
         if not toolchain.py3_runtime:
@@ -727,8 +733,14 @@ def _create_providers(
         DefaultInfo(
             executable = executable,
             files = files_to_build,
-            default_runfiles = runfiles_details.default_runfiles,
-            data_runfiles = runfiles_details.data_runfiles,
+            default_runfiles = _py_builtins.make_runfiles_respect_legacy_external_runfiles(
+                ctx,
+                runfiles_details.default_runfiles,
+            ),
+            data_runfiles = _py_builtins.make_runfiles_respect_legacy_external_runfiles(
+                ctx,
+                runfiles_details.data_runfiles,
+            ),
         ),
         create_instrumented_files_info(ctx),
         _create_run_environment_info(ctx, inherited_environment),
@@ -804,29 +816,6 @@ def create_base_executable_rule(*, attrs, fragments = [], **kwargs):
         attrs = EXECUTABLE_ATTRS | attrs,
         toolchains = [TOOLCHAIN_TYPE] + cc_helper.use_cpp_toolchain(),
         fragments = fragments,
-        **kwargs
-    )
-
-def py_executable_macro(*, exec_rule, rule_is_test, name, paropts = [], **kwargs):
-    """Wrapper macro for common executable logic.
-
-    Args:
-      exec_rule: rule object; the underlying rule to call. It will be passed `kwargs` among
-          other attributes.
-      name: str, the target name
-      rule_is_test: bool, True if `exec_rule` has test=True, False if not.
-      paropts: list of str; additional flags that affect par building.
-      **kwargs: Additional args passed to `exec_rule`.
-    """
-
-    # The Java version of tristate attributes also accept boolean.
-    if is_bool(kwargs.get("stamp")):
-        kwargs["stamp"] = 1 if kwargs["stamp"] else 0
-    exec_rule(
-        name = name,
-        # Even though the binary rule doesn't generate the par, it still needs
-        # paropts so it can add them to the build_data.txt file.
-        paropts = paropts,  # Google-specific
         **kwargs
     )
 

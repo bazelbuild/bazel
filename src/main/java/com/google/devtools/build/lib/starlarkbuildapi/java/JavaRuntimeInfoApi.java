@@ -89,6 +89,15 @@ public interface JavaRuntimeInfoApi extends StructApi {
   @Nullable
   FileApi libModules();
 
+  /** The JDK default CDS. */
+  @StarlarkMethod(
+      name = "default_cds",
+      doc = "Returns the JDK default CDS archive.",
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  FileApi defaultCDS();
+
   /** The JDK static libraries needed for hermetic deployments. */
   @StarlarkMethod(
       name = "hermetic_static_libs",

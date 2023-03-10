@@ -15,13 +15,16 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
@@ -190,13 +193,6 @@ public class OptionsParser implements OptionsParsingResult {
       return this;
     }
 
-    /** Any flags with this prefix will be skipped during processing. */
-    @CanIgnoreReturnValue
-    public Builder skippedPrefix(String skippedPrefix) {
-      this.implBuilder.skippedPrefix(skippedPrefix);
-      return this;
-    }
-
     /** Skip all the prefixes associated with Starlark options */
     @CanIgnoreReturnValue
     public Builder skipStarlarkOptionPrefixes() {
@@ -281,6 +277,40 @@ public class OptionsParser implements OptionsParsingResult {
   @Override
   public ImmutableSortedMap<String, Object> getStarlarkOptions() {
     return starlarkOptions;
+  }
+
+  @Override
+  public ImmutableSortedMap<String, Object> getExplicitStarlarkOptions(
+      Predicate<? super ParsedOptionDescription> filter) {
+    ImmutableSet<String> explicitOptions =
+        impl.getSkippedOptions().stream()
+            .filter(ParsedOptionDescription::isExplicit)
+            .filter(filter)
+            // Since this was passed from OptionsParserImpl unparsed, it still appears in its raw
+            // form "--//foo=bar". Do some more string manipulation to reduce it to "//foo". By
+            // contract, getStarlarkOptions(), which we compare against below, contains options that
+            // were fully parsed by StarlarkOptionsParser. So the keys of that method are already in
+            // "//foo" form.
+            // TODO(https://github.com/bazelbuild/bazel/issues/17414): integrate Starlark and native
+            // options parsing more tightly together in the options parsing logic. The complication
+            // is that getSkippedOptions, which comes from OptionsParserImpl, has the
+            // ParsedOptionsDescription structure which includes where the option comes from (i.e.
+            // from a blazerc). But it doesn't have the <String, Object> map of the actually parsed
+            // Starlark option. StarlarkOptionsParser is the exact converse. It'd be nice to have
+            // common logic that could store both pieces of information so we don't have to
+            // awkwardly synthesize the data we need from both sources here.
+            .map(d -> Iterables.get(Splitter.on('=').split(d.getCommandLineForm().substring(2)), 0))
+            .collect(toImmutableSet());
+    ImmutableSortedMap.Builder<String, Object> result =
+        ImmutableSortedMap.<String, Object>naturalOrder();
+    for (Map.Entry<String, Object> entry : getStarlarkOptions().entrySet()) {
+      // getSkippedOptions() doesn't necessarily *only* have Starlark options. By comparing here we
+      // filter to just Starlark options.
+      if (explicitOptions.contains(entry.getKey())) {
+        result.put(entry);
+      }
+    }
+    return result.buildOrThrow();
   }
 
   public void setStarlarkOptions(Map<String, Object> starlarkOptions) {

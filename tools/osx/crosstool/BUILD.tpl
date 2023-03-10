@@ -28,6 +28,10 @@ CC_TOOLCHAINS = [(
 ]
 
 cc_library(
+    name = "link_extra_lib",
+)
+
+cc_library(
     name = "malloc",
 )
 

@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static java.util.stream.Collectors.toList;
+import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
@@ -58,6 +58,7 @@ public final class CrashFailureDetailsTest {
     assertThat(failureDetail.hasCrash()).isTrue();
     Crash crash = failureDetail.getCrash();
     assertThat(crash.getCode()).isEqualTo(Code.CRASH_UNKNOWN);
+    assertThat(crash.getOomDetectorOverride()).isFalse();
 
     assertThat(crash.getCausesCount()).isEqualTo(2);
 
@@ -118,8 +119,9 @@ public final class CrashFailureDetailsTest {
 
     List<FailureDetails.Throwable> causesList =
         CrashFailureDetails.forThrowable(outer).getCrash().getCausesList();
-    assertThat(causesList.stream().map(FailureDetails.Throwable::getMessage).collect(toList()))
-        .containsExactly("outer", "inner1", "inner2");
+    assertThat(causesList.stream().map(FailureDetails.Throwable::getMessage))
+        .containsExactly("outer", "inner1", "inner2")
+        .inOrder();
   }
 
   @Test
@@ -139,26 +141,29 @@ public final class CrashFailureDetailsTest {
 
   @Test
   public void detailedExitConstruction_oom() {
-    assertThat(
-            CrashFailureDetails.detailedExitCodeForThrowable(new OutOfMemoryError()).getExitCode())
-        .isEqualTo(ExitCode.OOM_ERROR);
+    var detailedExitCode = CrashFailureDetails.detailedExitCodeForThrowable(new OutOfMemoryError());
+
+    assertThat(detailedExitCode.getExitCode()).isEqualTo(ExitCode.OOM_ERROR);
+    assertThat(detailedExitCode.getFailureDetail().getCrash().getOomDetectorOverride()).isFalse();
   }
 
   @Test
   public void detailedExitConstruction_wrappedOom() {
-    assertThat(
-            CrashFailureDetails.detailedExitCodeForThrowable(
-                    new IllegalStateException(new OutOfMemoryError()))
-                .getExitCode())
-        .isEqualTo(ExitCode.OOM_ERROR);
+    var detailedExitCode =
+        CrashFailureDetails.detailedExitCodeForThrowable(
+            new IllegalStateException(new OutOfMemoryError()));
+
+    assertThat(detailedExitCode.getExitCode()).isEqualTo(ExitCode.OOM_ERROR);
+    assertThat(detailedExitCode.getFailureDetail().getCrash().getOomDetectorOverride()).isFalse();
   }
 
   @Test
   public void detailedExitConstruction_otherCrash() {
-    assertThat(
-            CrashFailureDetails.detailedExitCodeForThrowable(new IllegalStateException())
-                .getExitCode())
-        .isEqualTo(ExitCode.BLAZE_INTERNAL_ERROR);
+    var detailedExitCode =
+        CrashFailureDetails.detailedExitCodeForThrowable(new IllegalStateException());
+
+    assertThat(detailedExitCode.getExitCode()).isEqualTo(ExitCode.BLAZE_INTERNAL_ERROR);
+    assertThat(detailedExitCode.getFailureDetail().getCrash().getOomDetectorOverride()).isFalse();
   }
 
   private enum ThrowableType {
@@ -177,9 +182,15 @@ public final class CrashFailureDetailsTest {
   public void detailExitConstruction_crashWithOomDetector_returnsOomCrash(
       @TestParameter ThrowableType throwableType) {
     CrashFailureDetails.setOomDetector(() -> true);
-    assertThat(
-            CrashFailureDetails.detailedExitCodeForThrowable(throwableType.throwable).getExitCode())
-        .isEqualTo(ExitCode.OOM_ERROR);
+    var detailedExitCode =
+        CrashFailureDetails.detailedExitCodeForThrowable(throwableType.throwable);
+
+    assertThat(detailedExitCode.getExitCode()).isEqualTo(ExitCode.OOM_ERROR);
+    if (throwableType == ThrowableType.OUT_OF_MEMORY_ERROR) {
+      assertThat(detailedExitCode.getFailureDetail().getCrash().getOomDetectorOverride()).isFalse();
+    } else {
+      assertThat(detailedExitCode.getFailureDetail().getCrash().getOomDetectorOverride()).isTrue();
+    }
   }
 
   private static TestException functionForStackFrameTests_A(TestException cause) {

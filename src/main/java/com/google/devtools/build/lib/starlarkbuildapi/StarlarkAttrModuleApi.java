@@ -162,7 +162,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -183,7 +184,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       useStarlarkThread = true)
   Descriptor intAttribute(
       StarlarkInt defaultValue,
-      String doc,
+      Object doc,
       Boolean mandatory,
       Sequence<?> values,
       StarlarkThread thread)
@@ -205,7 +206,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -227,7 +229,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor stringAttribute(
-      Object defaultValue, String doc, Boolean mandatory, Sequence<?> values, StarlarkThread thread)
+      Object defaultValue, Object doc, Boolean mandatory, Sequence<?> values, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -271,7 +273,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
                     + "<code>attr.label(default = \"//a:b\")</code>."),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -354,7 +357,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       useStarlarkThread = true)
   Descriptor labelAttribute(
       Object defaultValue,
-      String doc,
+      Object doc,
       Boolean executable,
       Object allowFiles,
       Object allowSingleFile,
@@ -383,11 +386,17 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = DEFAULT_DOC,
             named = true,
             positional = false),
-        @Param(name = DOC_ARG, defaultValue = "''", doc = DOC_DOC, named = true, positional = false)
+        @Param(
+            name = DOC_ARG,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
+            doc = DOC_DOC,
+            named = true,
+            positional = false)
       },
       useStarlarkThread = true)
   Descriptor stringListAttribute(
-      Boolean mandatory, Boolean allowEmpty, Object defaultValue, String doc, StarlarkThread thread)
+      Boolean mandatory, Boolean allowEmpty, Object defaultValue, Object doc, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -405,14 +414,20 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = DEFAULT_DOC,
             named = true,
             positional = false),
-        @Param(name = DOC_ARG, defaultValue = "''", doc = DOC_DOC, named = true, positional = false)
+        @Param(
+            name = DOC_ARG,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
+            doc = DOC_DOC,
+            named = true,
+            positional = false)
       },
       useStarlarkThread = true)
   Descriptor intListAttribute(
       Boolean mandatory,
       Boolean allowEmpty,
       Sequence<?> defaultValue,
-      String doc,
+      Object doc,
       StarlarkThread thread)
       throws EvalException;
 
@@ -442,7 +457,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
                     + "<code>attr.label_list(default = [\"//a:b\", \"//a:c\"])</code>."),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -504,7 +520,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   Descriptor labelListAttribute(
       Boolean allowEmpty,
       Object defaultValue,
-      String doc,
+      Object doc,
       Object allowFiles,
       Object allowRules,
       Sequence<?> providers,
@@ -540,7 +556,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
                     + "{\"//a:b\": \"value\", \"//a:c\": \"string\"})</code>."),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -602,7 +619,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   Descriptor labelKeyedStringDictAttribute(
       Boolean allowEmpty,
       Object defaultValue,
-      String doc,
+      Object doc,
       Object allowFiles,
       Object allowRules,
       Sequence<?> providers,
@@ -628,7 +645,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -641,7 +659,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor boolAttribute(
-      Boolean defaultValue, String doc, Boolean mandatory, StarlarkThread thread)
+      Boolean defaultValue, Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -650,7 +668,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       parameters = {
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -662,7 +681,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = MANDATORY_DOC)
       },
       useStarlarkThread = true)
-  Descriptor outputAttribute(String doc, Boolean mandatory, StarlarkThread thread)
+  Descriptor outputAttribute(Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -676,7 +695,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             named = true),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -689,7 +709,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor outputListAttribute(
-      Boolean allowEmpty, String doc, Boolean mandatory, StarlarkThread thread)
+      Boolean allowEmpty, Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -711,7 +731,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -726,7 +747,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   Descriptor stringDictAttribute(
       Boolean allowEmpty,
       Dict<?, ?> defaultValue,
-      String doc,
+      Object doc,
       Boolean mandatory,
       StarlarkThread thread)
       throws EvalException;
@@ -750,7 +771,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -765,7 +787,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   Descriptor stringListDictAttribute(
       Boolean allowEmpty,
       Dict<?, ?> defaultValue,
-      String doc,
+      Object doc,
       Boolean mandatory,
       StarlarkThread thread)
       throws EvalException;
@@ -784,7 +806,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -798,7 +821,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_NO_ATTR_LICENSE,
       useStarlarkThread = true)
   Descriptor licenseAttribute(
-      Object defaultValue, String doc, Boolean mandatory, StarlarkThread thread)
+      Object defaultValue, Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException;
 
   /** An attribute descriptor. */

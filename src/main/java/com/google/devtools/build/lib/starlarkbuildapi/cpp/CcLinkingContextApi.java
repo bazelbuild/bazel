@@ -44,8 +44,9 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValu
   @StarlarkMethod(
       name = "libraries_to_link",
       doc =
-          "Returns the depset of <code>LibraryToLink</code>. May return a list but this is"
-              + "deprecated. See #8118.",
+          "Returns the depset of <code>LibraryToLink</code>. May return a list but this"
+              + " is deprecated. See <a"
+              + " href=\"https://github.com/bazelbuild/bazel/issues/8118\">#8118</a>.",
       disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
       structField = true,
       useStarlarkSemantics = true)
