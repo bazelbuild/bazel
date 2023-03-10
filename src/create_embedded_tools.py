@@ -42,8 +42,6 @@ output_paths = [
     ('*def_parser.exe', lambda x: 'tools/def_parser/def_parser.exe'),
     ('*zipper.exe', lambda x: 'tools/zip/zipper/zipper.exe'),
     ('*zipper', lambda x: 'tools/zip/zipper/zipper'),
-    ('*xcode*make_hashed_objlist.py',
-     lambda x: 'tools/objc/make_hashed_objlist.py'),
     ('*xcode*xcode-locator', lambda x: 'tools/objc/xcode-locator'),
     ('*src/tools/xcode/*', lambda x: 'tools/objc/' + os.path.basename(x)),
     # --experimental_sibling_repository_layout=false

@@ -1223,6 +1223,7 @@ def _impl(ctx):
 
     if (ctx.attr.cpu == "x64_windows"):
         objc_compile_action = action_config(
+            enabled = True,
             action_name = ACTION_NAMES.objc_compile,
             flag_sets = [
                 flag_set(
@@ -1255,6 +1256,7 @@ def _impl(ctx):
         )
     elif (ctx.attr.cpu == "ios_arm64"):
         objc_compile_action = action_config(
+            enabled = True,
             action_name = ACTION_NAMES.objc_compile,
             flag_sets = [
                 flag_set(
@@ -1287,6 +1289,7 @@ def _impl(ctx):
         )
     elif (ctx.attr.cpu == "tvos_arm64"):
         objc_compile_action = action_config(
+            enabled = True,
             action_name = ACTION_NAMES.objc_compile,
             flag_sets = [
                 flag_set(
@@ -1319,6 +1322,7 @@ def _impl(ctx):
         )
     elif (ctx.attr.cpu == "ios_armv7"):
         objc_compile_action = action_config(
+            enabled = True,
             action_name = ACTION_NAMES.objc_compile,
             flag_sets = [
                 flag_set(
@@ -1351,6 +1355,7 @@ def _impl(ctx):
         )
     elif (ctx.attr.cpu == "watchos_armv7k"):
         objc_compile_action = action_config(
+            enabled = True,
             action_name = ACTION_NAMES.objc_compile,
             flag_sets = [
                 flag_set(
@@ -1383,6 +1388,7 @@ def _impl(ctx):
         )
     elif (ctx.attr.cpu == "watchos_arm64_32"):
         objc_compile_action = action_config(
+            enabled = True,
             action_name = ACTION_NAMES.objc_compile,
             flag_sets = [
                 flag_set(
@@ -1415,6 +1421,7 @@ def _impl(ctx):
         )
     elif (ctx.attr.cpu == "ios_i386"):
         objc_compile_action = action_config(
+            enabled = True,
             action_name = ACTION_NAMES.objc_compile,
             flag_sets = [
                 flag_set(
@@ -1448,6 +1455,7 @@ def _impl(ctx):
         )
     elif (ctx.attr.cpu == "watchos_i386"):
         objc_compile_action = action_config(
+            enabled = True,
             action_name = ACTION_NAMES.objc_compile,
             flag_sets = [
                 flag_set(
@@ -1481,6 +1489,7 @@ def _impl(ctx):
         )
     elif (ctx.attr.cpu == "watchos_x86_64"):
         objc_compile_action = action_config(
+            enabled = True,
             action_name = ACTION_NAMES.objc_compile,
             flag_sets = [
                 flag_set(
@@ -1514,6 +1523,7 @@ def _impl(ctx):
         )
     elif (ctx.attr.cpu == "ios_x86_64"):
         objc_compile_action = action_config(
+            enabled = True,
             action_name = ACTION_NAMES.objc_compile,
             flag_sets = [
                 flag_set(
@@ -1547,6 +1557,7 @@ def _impl(ctx):
         )
     elif (ctx.attr.cpu == "tvos_x86_64"):
         objc_compile_action = action_config(
+            enabled = True,
             action_name = ACTION_NAMES.objc_compile,
             flag_sets = [
                 flag_set(
@@ -1580,6 +1591,7 @@ def _impl(ctx):
         )
     elif (ctx.attr.cpu == "darwin_x86_64"):
         objc_compile_action = action_config(
+            enabled = True,
             action_name = ACTION_NAMES.objc_compile,
             flag_sets = [
                 flag_set(

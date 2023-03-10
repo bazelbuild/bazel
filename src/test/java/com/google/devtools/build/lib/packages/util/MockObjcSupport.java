@@ -39,8 +39,6 @@ public final class MockObjcSupport {
           "tvos_x86_64",
           "tvos_arm64");
 
-  private static final ImmutableList<String> DEFAULT_OSX_CROSSTOOL_DEPS_DIRS =
-      ImmutableList.of("third_party/bazel/tools/osx/crosstool");
   public static final String DEFAULT_OSX_CROSSTOOL_DIR = "tools/osx/crosstool";
   private static final String MOCK_OSX_TOOLCHAIN_CONFIG_PATH =
       "com/google/devtools/build/lib/packages/util/mock/osx_cc_toolchain_config.bzl";
@@ -235,9 +233,6 @@ public final class MockObjcSupport {
   public static void setupCcToolchainConfig(
       MockToolsConfig config, CcToolchainConfig.Builder ccToolchainConfig) throws IOException {
     if (config.isRealFileSystem()) {
-      for (String depDir : DEFAULT_OSX_CROSSTOOL_DEPS_DIRS) {
-        config.linkTools(depDir);
-      }
       config.linkTools(DEFAULT_OSX_CROSSTOOL_DIR);
     } else {
       CcToolchainConfig toolchainConfig = ccToolchainConfig.build();
@@ -261,9 +256,6 @@ public final class MockObjcSupport {
 
   public static void setupCcToolchainConfig(MockToolsConfig config) throws IOException {
     if (config.isRealFileSystem()) {
-      for (String depDir : DEFAULT_OSX_CROSSTOOL_DEPS_DIRS) {
-        config.linkTools(depDir);
-      }
       config.linkTools(DEFAULT_OSX_CROSSTOOL_DIR);
     } else {
       new Crosstool(
