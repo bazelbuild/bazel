@@ -202,9 +202,28 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               return state.numCalls > 0 ? state : null;
             });
       }
+    dirs.clear();
+    
+    if (caughtException.get() != null) {
+      throw caughtException.get();
+      }
     }
   }
-
+  
+  /** A symlink in the output tree. */
+  @AutoValue
+  abstract static class Symlink {
+  
+    abstract PathFragment getLinkExecPath();
+    
+    abstract PathFragment getTargetExecPath();
+    
+    static Symlink of(PathFragment linkExecPath, PathFragment targetExecPath) {
+      checkArgument(!linkExecPath.equals(targetExecPath));
+      return new AutoValue_AbstractActionInputPrefetcher_Symlink(linkExecPath, targetExecPath);
+    }
+  }
+  
   /** Priority for the staging task. */
   protected enum Priority {
     /**
