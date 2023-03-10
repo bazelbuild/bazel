@@ -231,7 +231,7 @@ def _short_path(file):
     return file.short_path
 
 def _compute_test_support(use_testrunner):
-    return Label("@//tools/jdk:TestRunner") if use_testrunner else None
+    return Label(semantics.JAVA_TEST_RUNNER_LABEL) if use_testrunner else None
 
 def _make_binary_rule(implementation, attrs, executable = False, test = False):
     return rule(
