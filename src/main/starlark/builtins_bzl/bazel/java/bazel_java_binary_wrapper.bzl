@@ -30,7 +30,7 @@ def java_binary(**kwargs):
         java_bin_exec,
         java_bin_nonexec,
         java_bin_exec_no_launcher_flag,
-        java_bin_exec,
+        java_bin_exec_no_launcher_flag,
         rule_deploy_jars = deploy_jars,
         **kwargs
     )
