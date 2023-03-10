@@ -368,6 +368,12 @@ output groups as determined by the
 [`--output_groups`](/reference/command-line-reference#flag--output_groups) flag.
 It does include source files.
 
+All paths emitted by this output format are relative to the
+[execroot](https://bazel.build/remote/output-directories), which can be obtained
+via `bazel info execution_root`. If the `bazel-out` convenience symlink exists,
+paths to files in the main repository also resolve relative to the workspace
+directory.
+
 Note: The output of `bazel cquery --output=files //pkg:foo` contains the output
 files of `//pkg:foo` in *all* configurations that occur in the build (also see
 the [section on target pattern evaluation](#target-pattern-evaluation)). If that
