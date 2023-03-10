@@ -110,6 +110,8 @@ public class IndexRegistry implements Registry {
     Map<String, String> patches;
     int patchStrip;
     String path;
+    String remote;
+    String branch;
   }
 
   /**
@@ -158,9 +160,37 @@ public class IndexRegistry implements Registry {
         return createArchiveRepoSpec(sourceJson, bazelRegistryJson, key, repoName);
       case "local_path":
         return createLocalPathRepoSpec(sourceJson, bazelRegistryJson, key, repoName);
+      case "git_repository":
+        return createGitRepositoryRepoSpec(sourceJson, bazelRegistryJson, key, repoName);
       default:
         throw new IOException(String.format("Invalid source type for module %s", key));
     }
+  }
+
+  private RepoSpec createGitRepositoryRepoSpec(
+      Optional<SourceJson> sourceJson,
+      Optional<BazelRegistryJson> bazelRegistryJson,
+      ModuleKey key,
+      RepositoryName repoName)
+      throws IOException {
+    String remote = sourceJson.get().remote;
+    String branch = sourceJson.get().branch;
+    if (remote == null) {
+      throw new IOException(String.format("Missing remote for module %s", key));
+    }
+    if (branch == null) {
+      throw new IOException(String.format("Missing branch for module %s", key));
+    }
+    return RepoSpec.builder()
+        .setBzlFile("@bazel_tools//tools/build_defs/repo:git.bzl")
+        .setRuleClassName("git_repository")
+        .setAttributes(
+          ImmutableMap.of(
+                "name", repoName.getName(), 
+                "remote", remote,
+                "branch", branch)
+        )
+        .build();
   }
 
   private RepoSpec createLocalPathRepoSpec(

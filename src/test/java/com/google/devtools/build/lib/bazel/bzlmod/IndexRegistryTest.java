@@ -206,6 +206,31 @@ public class IndexRegistryTest extends FoundationTestCase {
   }
 
   @Test
+  public void testGetGitRepositoryRepoSpec() throws Exception {
+    server.serve(
+        "/modules/foo/1.0/source.json",
+        "{",
+        "  \"type\": \"git_repository\",",
+        "  \"remote\": \"git@github.com:bazelbuild/bazel.git\",",
+        "  \"branch\": \"1.0.0\"",
+        "}");
+    server.start();
+
+    Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
+    assertThat(
+            registry.getRepoSpec(
+                createModuleKey("foo", "1.0"), RepositoryName.create("foorepo"), reporter))
+        .isEqualTo(
+            RepoSpec.builder()
+                .setBzlFile("@bazel_tools//tools/build_defs/repo:git.bzl")
+                .setRuleClassName("git_repository")
+                .setAttributes(ImmutableMap.of("name", "foorepo", 
+                "remote", "git@github.com:bazelbuild/bazel.git", 
+                "branch", "1.0.0"))
+                .build());
+  }  
+
+  @Test
   public void testGetRepoInvalidRegistryJsonSpec() throws Exception {
     server.serve("/bazel_registry.json", "", "", "", "");
     server.start();
