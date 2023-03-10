@@ -19,7 +19,7 @@ load("@_builtins//:common/java/java_plugin.bzl", "java_plugin")
 load("@_builtins//:common/java/java_import.bzl", "java_import")
 load("@_builtins//:common/java/proto/java_proto_library.bzl", "java_proto_library")
 load("@_builtins//:common/cc/cc_proto_library.bzl", "cc_proto_library")
-load(":bazel/java/bazel_java_binary_wrapper.bzl", "java_binary")
+load(":bazel/java/bazel_java_binary_wrapper.bzl", "java_binary", "java_test")
 load("@_builtins//:common/python/py_binary_macro.bzl", "py_binary")
 load("@_builtins//:common/python/py_library_macro.bzl", "py_library")
 load("@_builtins//:common/python/py_test_macro.bzl", "py_test")
@@ -40,6 +40,7 @@ exported_rules = {
     "java_proto_library": java_proto_library,
     "+cc_proto_library": cc_proto_library,
     "+java_binary": java_binary,
+    "-java_test": java_test,
     "py_binary": py_binary,
     "py_test": py_test,
     "py_library": py_library,

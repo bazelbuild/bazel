@@ -22,6 +22,8 @@ hash of their bzl environments will be different. See http://b/226379109,
 specifically #20, for details.
 """
 
-load(":bazel/java/bazel_java_binary.bzl", "make_java_binary")
+load(":bazel/java/bazel_java_binary.bzl", "make_java_binary", "make_java_test")
 
 java_binary = make_java_binary(executable = True, resolve_launcher_flag = False)
+
+java_test = make_java_test(resolve_launcher_flag = False)
