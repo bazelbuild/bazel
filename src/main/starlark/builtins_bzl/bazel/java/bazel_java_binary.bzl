@@ -229,11 +229,28 @@ def _make_binary_rule(implementation, attrs, executable = False, test = False):
         },
     )
 
+_BASE_BINARY_ATTRS = merge_attrs(
+    BASIC_JAVA_BINARY_ATTRIBUTES,
+    {
+        "_test_support": attr.label(default = _compute_test_support),
+        "_launcher": attr.label(
+            cfg = "exec",
+            executable = True,
+            default = "@bazel_tools//tools/launcher:launcher",
+        ),
+        "_windows_launcher_maker": attr.label(
+            default = "@bazel_tools//tools/launcher:launcher_maker",
+            cfg = "exec",
+            executable = True,
+        ),
+    },
+)
+
 def make_java_binary(executable, resolve_launcher_flag):
     return _make_binary_rule(
         _bazel_java_binary_impl,
         merge_attrs(
-            BASIC_JAVA_BINARY_ATTRIBUTES,
+            _BASE_BINARY_ATTRS,
             {
                 "resource_strip_prefix": attr.string(),
                 "_java_launcher": attr.label(
@@ -241,17 +258,6 @@ def make_java_binary(executable, resolve_launcher_flag):
                         fragment = "java",
                         name = "launcher",
                     ) if resolve_launcher_flag else None,
-                ),
-                "_test_support": attr.label(default = _compute_test_support),
-                "_launcher": attr.label(
-                    cfg = "exec",
-                    executable = True,
-                    default = "@bazel_tools//tools/launcher:launcher",
-                ),
-                "_windows_launcher_maker": attr.label(
-                    default = "@bazel_tools//tools/launcher:launcher_maker",
-                    cfg = "exec",
-                    executable = True,
                 ),
             },
             ({} if executable else {
@@ -263,3 +269,40 @@ def make_java_binary(executable, resolve_launcher_flag):
     )
 
 java_binary = make_java_binary(executable = True, resolve_launcher_flag = True)
+
+def make_java_test(resolve_launcher_flag):
+    return _make_binary_rule(
+        _bazel_java_binary_impl,
+        merge_attrs(
+            _BASE_BINARY_ATTRS,
+            {
+                "test_class": attr.string(),
+                "_java_launcher": attr.label(
+                    default = configuration_field(
+                        fragment = "java",
+                        name = "launcher",
+                    ) if resolve_launcher_flag else None,
+                ),
+                "_lcov_merger": attr.label(
+                    cfg = "exec",
+                    default = configuration_field(
+                        fragment = "coverage",
+                        name = "output_generator",
+                    ),
+                ),
+                "_collect_cc_coverage": attr.label(
+                    cfg = "exec",
+                    allow_single_file = True,
+                    default = "@bazel_tools//tools/test:collect_cc_coverage",
+                ),
+            },
+            override_attrs = {
+                "use_testrunner": attr.bool(default = True),
+                "stamp": attr.int(default = 0, values = [-1, 0, 1]),
+            },
+            remove_attrs = ["deploy_env"],
+        ),
+        test = True,
+    )
+
+java_test = make_java_test(True)
