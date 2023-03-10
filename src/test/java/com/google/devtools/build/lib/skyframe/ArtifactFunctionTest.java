@@ -20,7 +20,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -45,7 +44,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -59,7 +57,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -88,7 +85,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     Artifact output = createDerivedArtifact("output");
     Path path = output.getPath();
     file(path, "contents");
-    assertValueMatches(path.stat(), path.getDigest(), evaluateFAN(output));
+    assertValueMatches(path.stat(), path.getDigest(), evaluateFileArtifactValue(output));
   }
 
   @Test
@@ -134,7 +131,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
 
   @Test
   public void testMiddlemanArtifact() throws Throwable {
-    Artifact output = createMiddlemanArtifact("output");
+    DerivedArtifact output = createMiddlemanArtifact("output");
     Artifact input1 = createSourceArtifact("input1");
     Artifact input2 = createDerivedArtifact("input2");
     SpecialArtifact tree = createDerivedTreeArtifactWithAction("treeArtifact");
@@ -150,16 +147,21 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     actions.add(action);
     file(input2.getPath(), "contents");
     file(input1.getPath(), "source contents");
-    evaluate(Iterables.toArray(Artifact.keys(ImmutableSet.of(input2, input1, tree)), SkyKey.class));
+
     SkyValue value = evaluateArtifactValue(output);
-    ArrayList<Pair<Artifact, ?>> inputs = new ArrayList<>();
-    inputs.addAll(((RunfilesArtifactValue) value).getFileArtifacts());
-    inputs.addAll(((RunfilesArtifactValue) value).getTreeArtifacts());
-    assertThat(inputs)
-        .containsExactly(
-            Pair.of(input1, createForTesting(input1)),
-            Pair.of(input2, createForTesting(input2)),
-            Pair.of(tree, ((TreeArtifactValue) evaluateArtifactValue(tree))));
+
+    ActionLookupData generatingActionKey = output.getGeneratingActionKey();
+    EvaluationResult<ActionExecutionValue> runfilesActionResult = evaluate(generatingActionKey);
+    FileArtifactValue expectedMetadata =
+        runfilesActionResult.get(generatingActionKey).getExistingFileArtifactValue(output);
+    assertThat(value)
+        .isEqualTo(
+            new RunfilesArtifactValue(
+                expectedMetadata,
+                ImmutableList.of(input1, input2),
+                ImmutableList.of(createForTesting(input1), createForTesting(input2)),
+                ImmutableList.of(tree),
+                ImmutableList.of((TreeArtifactValue) evaluateArtifactValue(tree))));
   }
 
   /**
@@ -331,7 +333,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     return output;
   }
 
-  private Artifact createMiddlemanArtifact(String path) {
+  private DerivedArtifact createMiddlemanArtifact(String path) {
     ArtifactRoot middlemanRoot =
         ArtifactRoot.asDerivedRoot(middlemanPath, RootType.Middleman, PathFragment.create("out"));
     return DerivedArtifact.create(
@@ -391,8 +393,10 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     }
   }
 
-  private FileArtifactValue evaluateFAN(Artifact artifact) throws Exception {
-    return ((FileArtifactValue) evaluateArtifactValue(artifact));
+  private FileArtifactValue evaluateFileArtifactValue(Artifact artifact) throws Exception {
+    SkyValue value = evaluateArtifactValue(artifact);
+    assertThat(value).isInstanceOf(FileArtifactValue.class);
+    return (FileArtifactValue) value;
   }
 
   private SkyValue evaluateArtifactValue(Artifact artifact) throws Exception {
