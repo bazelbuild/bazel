@@ -189,10 +189,8 @@ public final class FilesystemValueCheckerTest {
     Map<Artifact, TreeArtifactValue> treeArtifactData = new HashMap<>();
     treeArtifacts.injectTo(treeArtifactData::put);
 
-    return ActionExecutionValue.createForTesting(
-        /* artifactData= */ ImmutableMap.of(),
-        ImmutableMap.copyOf(treeArtifactData),
-        /* outputSymlinks= */ null);
+    return ActionsTestUtil.createActionExecutionValue(
+        /* artifactData= */ ImmutableMap.of(), ImmutableMap.copyOf(treeArtifactData));
   }
 
   private static FileArtifactValue createMetadataFromFileSystem(Artifact artifact)
@@ -207,7 +205,7 @@ public final class FilesystemValueCheckerTest {
     return FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());
   }
 
-  void writeFile(Path path, String... lines) throws IOException {
+  private void writeFile(Path path, String... lines) throws IOException {
     // Make sure we advance the clock to detect modifications which do not change the size, which
     // rely on ctime.
     fs.advanceClockMillis(1);
@@ -1210,14 +1208,14 @@ public final class FilesystemValueCheckerTest {
 
   @Test
   // TODO(b/154337187): Remove the following annotation to re-enable once this test is de-flaked.
-  @Ignore
+  @Ignore("b/154337187")
   public void testDirtyActions() throws Exception {
     checkDirtyActions(null);
   }
 
   @Test
   // TODO(b/154337187): Remove the following annotation to re-enable once this test is de-flaked.
-  @Ignore
+  @Ignore("b/154337187")
   public void testDirtyActionsBatchStat() throws Exception {
     checkDirtyActions(
         new BatchStat() {
@@ -1238,7 +1236,7 @@ public final class FilesystemValueCheckerTest {
 
   @Test
   // TODO(b/154337187): Remove the following annotation to re-enable once this test is de-flaked.
-  @Ignore
+  @Ignore("b/154337187")
   public void testDirtyActionsBatchStatWithDigest() throws Exception {
     checkDirtyActions(
         new BatchStat() {
@@ -1258,7 +1256,7 @@ public final class FilesystemValueCheckerTest {
 
   @Test
   // TODO(b/154337187): Remove the following annotation to re-enable once this test is de-flaked.
-  @Ignore
+  @Ignore("b/154337187")
   public void testDirtyActionsBatchStatFallback() throws Exception {
     checkDirtyActions(
         new BatchStat() {
@@ -1292,22 +1290,18 @@ public final class FilesystemValueCheckerTest {
         throw new IllegalStateException(e);
       }
     }
-    return ActionExecutionValue.createForTesting(
-        ImmutableMap.copyOf(artifactData),
-        /* treeArtifactData= */ ImmutableMap.of(),
-        /* outputSymlinks= */ null);
+    return ActionsTestUtil.createActionExecutionValue(ImmutableMap.copyOf(artifactData));
   }
 
   private static ActionExecutionValue actionValueWithTreeArtifact(
       SpecialArtifact output, TreeArtifactValue tree) {
-    return ActionExecutionValue.createForTesting(
-        ImmutableMap.of(), ImmutableMap.of(output, tree), /* outputSymlinks= */ null);
+    return ActionsTestUtil.createActionExecutionValue(
+        /* artifactData= */ ImmutableMap.of(), ImmutableMap.of(output, tree));
   }
 
   private static ActionExecutionValue actionValueWithRemoteArtifact(
       Artifact output, RemoteFileArtifactValue value) {
-    return ActionExecutionValue.createForTesting(
-        ImmutableMap.of(output, value), ImmutableMap.of(), /* outputSymlinks= */ null);
+    return ActionsTestUtil.createActionExecutionValue(ImmutableMap.of(output, value));
   }
 
   private RemoteFileArtifactValue createRemoteFileArtifactValue(String contents) {

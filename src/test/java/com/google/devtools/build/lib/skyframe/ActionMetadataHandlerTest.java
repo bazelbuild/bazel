@@ -430,7 +430,7 @@ public final class ActionMetadataHandlerTest {
     // child is missing, getExistingFileArtifactValue will throw.
     ActionExecutionValue actionExecutionValue =
         ActionExecutionValue.createFromOutputStore(
-            handler.getOutputStore(), /* outputSymlinks= */ null, new NullAction());
+            handler.getOutputStore(), /* outputSymlinks= */ ImmutableList.of(), new NullAction());
     tree.getChildren().forEach(actionExecutionValue::getExistingFileArtifactValue);
   }
 

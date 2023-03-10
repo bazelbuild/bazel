@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -146,7 +148,7 @@ final class ActionInputMapHelper {
         consumer.accumulate(metadata);
       }
     } else {
-      Preconditions.checkArgument(value instanceof FileArtifactValue, "Unexpected value %s", value);
+      checkArgument(value instanceof FileArtifactValue, "Unexpected value %s", value);
       FileArtifactValue metadata = (FileArtifactValue) value;
       inputMap.put(key, metadata, /*depOwner=*/ key);
       consumer.accumulate(metadata);
@@ -156,7 +158,7 @@ final class ActionInputMapHelper {
   @Nullable
   private static ImmutableList<FilesetOutputSymlink> getFilesets(
       Environment env, SpecialArtifact actionInput) throws InterruptedException {
-    Preconditions.checkState(actionInput.isFileset(), actionInput);
+    checkState(actionInput.isFileset(), actionInput);
     ActionLookupData generatingActionKey = actionInput.getGeneratingActionKey();
     ActionLookupKey filesetActionLookupKey = generatingActionKey.getActionLookupKey();
 
@@ -171,7 +173,7 @@ final class ActionInputMapHelper {
       DerivedArtifact outputManifest =
           (DerivedArtifact) generatingAction.getInputs().getSingleton();
       ActionLookupData manifestGeneratingKey = outputManifest.getGeneratingActionKey();
-      Preconditions.checkState(
+      checkState(
           manifestGeneratingKey.getActionLookupKey().equals(filesetActionLookupKey),
           "Mismatched actions and artifacts: %s %s %s %s",
           actionInput,
@@ -183,7 +185,7 @@ final class ActionInputMapHelper {
       DerivedArtifact inputManifest =
           (DerivedArtifact) symlinkTreeAction.getInputs().getSingleton();
       ActionLookupData inputManifestGeneratingKey = inputManifest.getGeneratingActionKey();
-      Preconditions.checkState(
+      checkState(
           inputManifestGeneratingKey.getActionLookupKey().equals(filesetActionLookupKey),
           "Mismatched actions and artifacts: %s %s %s %s",
           actionInput,

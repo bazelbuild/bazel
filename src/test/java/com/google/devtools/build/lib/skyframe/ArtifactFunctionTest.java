@@ -491,16 +491,14 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
           FileArtifactValue withDigest =
               FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());
           artifactData.put(output, withDigest);
-       } else {
+        } else {
           artifactData.put(output, FileArtifactValue.DEFAULT_MIDDLEMAN);
         }
       } catch (IOException e) {
         throw new IllegalStateException(e);
       }
-      return ActionExecutionValue.createForTesting(
-          ImmutableMap.copyOf(artifactData),
-          ImmutableMap.copyOf(treeArtifactData),
-          /*outputSymlinks=*/ null);
+      return ActionsTestUtil.createActionExecutionValue(
+          ImmutableMap.copyOf(artifactData), ImmutableMap.copyOf(treeArtifactData));
     }
   }
 }

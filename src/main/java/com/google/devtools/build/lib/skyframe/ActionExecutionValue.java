@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
@@ -55,12 +57,12 @@ public abstract class ActionExecutionValue implements SkyValue {
 
   private ActionExecutionValue() {}
 
-  @VisibleForTesting
+  @VisibleForTesting // All non-test usage should go through createFromOutputStore.
   public static ActionExecutionValue create(
       ImmutableMap<Artifact, FileArtifactValue> artifactData,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData,
-      @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
-      @Nullable NestedSet<Artifact> discoveredModules) {
+      ImmutableList<FilesetOutputSymlink> outputSymlinks,
+      NestedSet<Artifact> discoveredModules) {
     // Use forEach instead of entrySet to avoid instantiating an EntrySet in ImmutableMap.
     artifactData.forEach(
         (artifact, value) -> {
@@ -90,7 +92,7 @@ public abstract class ActionExecutionValue implements SkyValue {
                           tree));
         });
 
-    if (outputSymlinks != null) {
+    if (!outputSymlinks.isEmpty()) {
       checkArgument(
           artifactData.size() == 1,
           "Fileset actions should have a single output file (the manifest): %s",
@@ -100,13 +102,13 @@ public abstract class ActionExecutionValue implements SkyValue {
           "Fileset actions do not output tree artifacts: %s",
           treeArtifactData);
       checkArgument(
-          discoveredModules == null,
+          discoveredModules.isEmpty(),
           "Fileset actions do not discover modules: %s",
           discoveredModules);
       return new Fileset(artifactData, outputSymlinks);
     }
 
-    if (discoveredModules != null) {
+    if (!discoveredModules.isEmpty()) {
       checkArgument(
           artifactData.size() == 1,
           "Module-discovering actions should have a single output file (the .pcm file): %s",
@@ -131,24 +133,14 @@ public abstract class ActionExecutionValue implements SkyValue {
   }
 
   static ActionExecutionValue createFromOutputStore(
-      OutputStore outputStore,
-      @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
-      Action action) {
+      OutputStore outputStore, ImmutableList<FilesetOutputSymlink> outputSymlinks, Action action) {
     return create(
         outputStore.getAllArtifactData(),
         outputStore.getAllTreeArtifactData(),
         outputSymlinks,
         action instanceof IncludeScannable
             ? ((IncludeScannable) action).getDiscoveredModules()
-            : null);
-  }
-
-  @VisibleForTesting
-  public static ActionExecutionValue createForTesting(
-      ImmutableMap<Artifact, FileArtifactValue> artifactData,
-      ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData,
-      @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks) {
-    return create(artifactData, treeArtifactData, outputSymlinks, /* discoveredModules= */ null);
+            : NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   /**
@@ -208,14 +200,12 @@ public abstract class ActionExecutionValue implements SkyValue {
     return ImmutableMap.of();
   }
 
-  @Nullable
   public ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
-    return null;
+    return ImmutableList.of();
   }
 
-  @Nullable
   public NestedSet<Artifact> getDiscoveredModules() {
-    return null;
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override
@@ -240,26 +230,15 @@ public abstract class ActionExecutionValue implements SkyValue {
         && Objects.equals(getOutputSymlinks(), o.getOutputSymlinks())
         // We use shallowEquals to avoid materializing the nested sets just for change-pruning. This
         // makes change-pruning potentially less effective, but never incorrect.
-        && shallowEquals(getDiscoveredModules(), o.getDiscoveredModules());
-  }
-
-  private static boolean shallowEquals(
-      @Nullable NestedSet<Artifact> set1, @Nullable NestedSet<Artifact> set2) {
-    if (set1 == null) {
-      return set2 == null;
-    }
-    return set1.shallowEquals(set2);
+        && getDiscoveredModules().shallowEquals(o.getDiscoveredModules());
   }
 
   @Override
   public final int hashCode() {
-    int result =
-        HashCodes.hashObjects(getAllFileValues(), getAllTreeArtifactValues(), getOutputSymlinks());
-    NestedSet<Artifact> discoveredModules = getDiscoveredModules();
-    if (discoveredModules != null) {
-      result = 31 * result + discoveredModules.shallowHashCode();
-    }
-    return result;
+    return 31
+            * HashCodes.hashObjects(
+                getAllFileValues(), getAllTreeArtifactValues(), getOutputSymlinks())
+        + getDiscoveredModules().shallowHashCode();
   }
 
   private static <V> ImmutableMap<Artifact, V> transformMap(
