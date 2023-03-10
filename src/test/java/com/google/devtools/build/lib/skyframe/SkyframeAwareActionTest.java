@@ -46,6 +46,7 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
+import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
@@ -181,7 +182,8 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         @Nullable SkyValue value,
         @Nullable ErrorInfo error,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
-        EvaluationState state) {
+        EvaluationState state,
+        @Nullable GroupedDeps directDeps) {
       evaluated.add(new EvaluatedEntry(skyKey, evaluationSuccessState.get(), state));
     }
   }

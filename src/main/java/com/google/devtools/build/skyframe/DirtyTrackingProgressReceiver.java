@@ -111,9 +111,11 @@ public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver
       @Nullable SkyValue newValue,
       @Nullable ErrorInfo newError,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
-      EvaluationState state) {
+      EvaluationState state,
+      @Nullable GroupedDeps directDeps) {
     if (progressReceiver != null) {
-      progressReceiver.evaluated(skyKey, newValue, newError, evaluationSuccessState, state);
+      progressReceiver.evaluated(
+          skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
     }
 
     // This key was either built or marked clean, so we can remove it from both the dirty and

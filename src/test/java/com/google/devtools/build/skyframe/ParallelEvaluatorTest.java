@@ -493,7 +493,8 @@ public class ParallelEvaluatorTest {
                   @Nullable SkyValue newValue,
                   @Nullable ErrorInfo newError,
                   Supplier<EvaluationSuccessState> evaluationSuccessState,
-                  EvaluationState state) {
+                  EvaluationState state,
+                  @Nullable GroupedDeps directDeps) {
                 receivedValues.add(skyKey);
               }
             });
@@ -2586,7 +2587,8 @@ public class ParallelEvaluatorTest {
               @Nullable SkyValue newValue,
               @Nullable ErrorInfo newError,
               Supplier<EvaluationSuccessState> evaluationSuccessState,
-              EvaluationState state) {
+              EvaluationState state,
+              @Nullable GroupedDeps directDeps) {
             evaluatedValues.add(skyKey);
           }
         };

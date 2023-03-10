@@ -391,7 +391,8 @@ abstract class AbstractParallelEvaluator {
                   /* newValue= */ null,
                   /* newError= */ null,
                   new EvaluationSuccessStateSupplier(nodeEntry),
-                  EvaluationState.CLEAN);
+                  EvaluationState.CLEAN,
+                  /* directDeps= */ null);
           if (!evaluatorContext.keepGoing() && nodeEntry.getErrorInfo() != null) {
             if (!evaluatorContext.getVisitor().preventNewEvaluations()) {
               return DirtyOutcome.ALREADY_PROCESSED;

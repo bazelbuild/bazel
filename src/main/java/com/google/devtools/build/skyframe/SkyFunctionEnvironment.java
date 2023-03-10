@@ -920,7 +920,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
             evaluationState == EvaluationState.BUILT ? value : null,
             evaluationState == EvaluationState.BUILT ? errorInfo : null,
             EvaluationSuccessStateSupplier.fromSkyValue(valueWithMetadata),
-            evaluationState);
+            evaluationState,
+            temporaryDirectDeps);
 
     return reverseDeps;
   }

@@ -204,6 +204,7 @@ import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporary
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.EventFilter;
+import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
@@ -233,6 +234,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
@@ -869,6 +871,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   public void notifyCommandComplete(ExtendedEventHandler eventHandler) throws InterruptedException {
     memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
+    progressReceiver.globDeps = new ConcurrentHashMap<>();
     globFunction.complete();
   }
 
@@ -3054,6 +3057,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     private Map<SkyKey, SkyValue> batchedActionLookupValuesForConflictChecking =
         Maps.newConcurrentMap();
 
+    // In non-incremental builds, we want to remove the glob subgraph after the rdep PACKAGE is
+    // done. However, edges are not stored. So, we use the `globDeps` map to temporarily store the
+    // relationship between GLOB and their dependent GLOBs.
+    // After the rdep PACKAGE has been evaluated, all direct or transitive dependent GLOBs will be
+    // recursively removed from both the in-memory graph and `globDeps` map.
+    private Map<GlobDescriptor, ImmutableList<GlobDescriptor>> globDeps = new ConcurrentHashMap<>();
+
     @Override
     public void invalidated(SkyKey skyKey, InvalidationState state) {
       if (ignoreInvalidations) {
@@ -3093,7 +3103,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         @Nullable SkyValue newValue,
         @Nullable ErrorInfo newError,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
-        EvaluationState state) {
+        EvaluationState state,
+        @Nullable GroupedDeps directDeps) {
       if (heuristicallyDropNodes) {
         Object argument = skyKey.argument();
         if (skyKey.functionName().equals(FileValue.FILE)) {
@@ -3131,10 +3142,49 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
       skyframeBuildView
           .getProgressReceiver()
-          .evaluated(skyKey, newValue, newError, evaluationSuccessState, state);
+          .evaluated(skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
       if (executionProgressReceiver != null) {
         executionProgressReceiver.evaluated(
-            skyKey, newValue, newError, evaluationSuccessState, state);
+            skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
+      }
+
+      if (!heuristicallyDropNodes || directDeps == null) {
+        return;
+      }
+
+      if (skyKey.functionName().equals(SkyFunctions.GLOB)) {
+        Preconditions.checkArgument(skyKey instanceof GlobDescriptor, skyKey);
+        Preconditions.checkState(!globDeps.containsKey(skyKey), skyKey);
+        ImmutableList.Builder<GlobDescriptor> directDepGlobsBuilder = ImmutableList.builder();
+        for (SkyKey dep : directDeps.getAllElementsAsIterable()) {
+          if (dep.functionName().equals(SkyFunctions.GLOB)) {
+            Preconditions.checkArgument(dep instanceof GlobDescriptor, dep);
+            directDepGlobsBuilder.add((GlobDescriptor) dep);
+          }
+        }
+
+        ImmutableList<GlobDescriptor> directDepGlobs = directDepGlobsBuilder.build();
+        if (!directDepGlobs.isEmpty()) {
+          globDeps.put((GlobDescriptor) skyKey, directDepGlobs);
+        }
+      }
+
+      if (skyKey.functionName().equals(SkyFunctions.PACKAGE)) {
+        for (SkyKey dep : directDeps.getAllElementsAsIterable()) {
+          if (dep.functionName().equals(SkyFunctions.GLOB)) {
+            recursivelyRemoveGlobFromGraph((GlobDescriptor) dep);
+          }
+        }
+      }
+    }
+
+    private void recursivelyRemoveGlobFromGraph(GlobDescriptor root) {
+      memoizingEvaluator.getInMemoryGraph().remove(root);
+      ImmutableList<GlobDescriptor> adjacentDeps = globDeps.remove(root);
+      if (adjacentDeps != null) {
+        for (GlobDescriptor nextLevelDep : adjacentDeps) {
+          recursivelyRemoveGlobFromGraph(nextLevelDep);
+        }
       }
     }
 
