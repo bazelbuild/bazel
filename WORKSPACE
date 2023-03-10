@@ -755,14 +755,3 @@ maven_install(
 load("@maven_android//:defs.bzl", pinned_maven_install_android = "pinned_maven_install")
 
 pinned_maven_install_android()
-
-http_archive(
-    name = "upb",
-    sha256 = "1cd33bf607ebc83acf71b6078c1d4361ffa49d647a2ce792a557ae98f75500ad",
-    strip_prefix = "upb-a02d92e0257a35f11d4a58b6a932506cbdbb2f29",
-    urls = [
-        "https://storage.googleapis.com/grpc-bazel-mirror/github.com/protocolbuffers/upb/archive/a02d92e0257a35f11d4a58b6a932506cbdbb2f29.tar.gz",
-        "https://github.com/protocolbuffers/upb/archive/a02d92e0257a35f11d4a58b6a932506cbdbb2f29.tar.gz",
-    ],
-)
-
