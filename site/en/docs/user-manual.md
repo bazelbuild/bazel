@@ -1326,6 +1326,8 @@ The platforms that are available as execution platforms to run actions.
 Platforms can be specified by exact target, or as a target pattern. These
 platforms will be considered before those declared in the WORKSPACE file by
 [register_execution_platforms()](/rules/lib/globals#register_execution_platforms).
+This option accepts a comma-separated list of platforms in order of priority.
+If the flag is passed multiple times, the most recent overrides.
 
 #### `--extra_toolchains={{ "<var>" }}labels{{ "</var>" }}` {:#extra-toolchains}
 
