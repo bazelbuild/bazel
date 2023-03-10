@@ -209,10 +209,30 @@ def _short_path(file):
 def _compute_test_support(use_testrunner):
     return Label("@//tools/jdk:TestRunner") if use_testrunner else None
 
-def make_java_binary(executable, resolve_launcher_flag):
+def _make_binary_rule(implementation, attrs, executable = False, test = False):
     return rule(
+        implementation = implementation,
+        attrs = attrs,
+        executable = executable,
+        test = test,
+        fragments = ["cpp", "java"],
+        provides = [JavaInfo],
+        toolchains = [semantics.JAVA_TOOLCHAIN, semantics.JAVA_RUNTIME_TOOLCHAIN] + cc_helper.use_cpp_toolchain(),
+        # TODO(hvd): replace with filegroups?
+        outputs = {
+            "classjar": "%{name}.jar",
+            "sourcejar": "%{name}-src.jar",
+            "deploysrcjar": "%{name}_deploy-src.jar",
+        },
+        exec_groups = {
+            "cpp_link": exec_group(copy_from_rule = True),
+        },
+    )
+
+def make_java_binary(executable, resolve_launcher_flag):
+    return _make_binary_rule(
         _bazel_java_binary_impl,
-        attrs = merge_attrs(
+        merge_attrs(
             BASIC_JAVA_BINARY_ATTRIBUTES,
             {
                 "resource_strip_prefix": attr.string(),
@@ -239,19 +259,7 @@ def make_java_binary(executable, resolve_launcher_flag):
                 "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
             }),
         ),
-        fragments = ["cpp", "java"],
-        provides = [JavaInfo],
-        toolchains = [semantics.JAVA_TOOLCHAIN, semantics.JAVA_RUNTIME_TOOLCHAIN] + cc_helper.use_cpp_toolchain(),
-        # TODO(hvd): replace with filegroups?
-        outputs = {
-            "classjar": "%{name}.jar",
-            "sourcejar": "%{name}-src.jar",
-            "deploysrcjar": "%{name}_deploy-src.jar",
-        },
         executable = executable,
-        exec_groups = {
-            "cpp_link": exec_group(copy_from_rule = True),
-        },
     )
 
 java_binary = make_java_binary(executable = True, resolve_launcher_flag = True)
