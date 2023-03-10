@@ -9,18 +9,6 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-filegroup(name = "embedded_aosp_gradle_core")
-
-java_library(
-    name = "aosp_gradle_core",
-    srcs = glob(["java/**/*.java"]),
-    deps = [
-        "//third_party:android_common_25_0_0",
-        "//third_party:asm",
-        "//third_party:guava",
-    ],
-)
-
 java_library(
     name = "aosp_gradle_core_30_1_3",
     srcs = glob(["30.1.3/java/**/*.java"]),

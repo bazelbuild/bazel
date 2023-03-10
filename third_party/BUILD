@@ -9,8 +9,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
         "//third_party/android_dex:srcs",
-        "//third_party/animal_sniffer:srcs",
-        "//third_party/antlr:srcs",
         "//third_party/bazel-toolchains:srcs",
         "//third_party/checker_framework_dataflow:srcs",
         "//third_party/checker_framework_javacutil:srcs",
@@ -32,11 +30,6 @@ filegroup(
         "//third_party/java/jcommander:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/javascript/bootstrap:srcs",
-        "//third_party/jaxb:srcs",
-        "//third_party/jetbrains_annotations:srcs",
-        "//third_party/jetifier:srcs",
-        "//third_party/juniversalchardet:srcs",
-        "//third_party/kotlin_stdlib:srcs",
         "//third_party/pprof:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
@@ -60,73 +53,14 @@ filegroup(
     srcs = [],
 )
 
-# This target only contains the jars that are used for building / running Bazel.
-# The target below is for the Android tools that are not shipped with Bazel.
-distrib_java_import(
-    name = "android_common_25_0_0_lite",
-    enable_distributions = ["debian"],
-    jars = [
-        "android_common/com.android.tools.layoutlib_layoutlib_26.1.2-stripped.jar",
-        "android_common/com.android.tools_sdk-common_25.0.0-patched-stripped.jar",
-        "android_common/com.android.tools_repository_25.0.0.jar",
-    ],
-    deps = [
-        "//third_party/jaxb",
-    ],
-)
-
 java_library(
     name = "android-annotations",
     exports = ["@maven_android//:com_android_tools_annotations"],
 )
 
-java_import(
-    name = "android_common_25_0_0",
-    jars = [
-        "android_common/com.android_annotations_25.0.0.jar",
-        "android_common/com.android.tools.build_builder_2.0.0.jar",
-        "android_common/com.android.tools.build_builder-model_2.0.0.jar",
-        "android_common/com.android.tools.build_builder-test-api_2.0.0.jar",
-        "android_common/com.android.tools.build_manifest-merger_25.0.0-patched.jar",
-        "android_common/com.android.tools.external.lombok_lombok-ast_0.2.3.jar",
-        # layoutlib has been upgraded to 26.1.2 *just* for font resource support.
-        # We are unable to upgrade the other libraries yet due to internal
-        # constraints with Blaze. See
-        # https://github.com/bazelbuild/bazel/issues/4381
-        # TODO(bazel-team): Upgrade entire android_common suite to 26+ after
-        # resolving internal constraint.
-        "android_common/com.android.tools.layoutlib_layoutlib_26.1.2.jar",
-        "android_common/com.android.tools.lint_lint-api_25.0.0.jar",
-        "android_common/com.android.tools.lint_lint-checks_25.0.0.jar",
-        "android_common/com.android.tools_common_25.0.0.jar",
-        "android_common/com.android.tools_dvlib_25.0.0.jar",
-        "android_common/com.android.tools_repository_25.0.0.jar",
-        "android_common/com.android.tools_sdk-common_25.0.0-patched.jar",
-        "android_common/com.android.tools_sdklib_25.0.0.jar",
-    ],
-    runtime_deps = [
-        ":asm",
-        ":asm-analysis",
-        ":asm-tree",
-    ],
-    deps = [
-        "//third_party/jaxb",
-    ],
-)
-
-java_import(
-    name = "apache_commons_codec",
-    jars = ["apache_commons_codec/commons-codec-1.10.jar"],
-)
-
 java_library(
     name = "apache_commons_collections",
     exports = ["@maven//:commons_collections_commons_collections"],
-)
-
-java_import(
-    name = "apache_commons_io",
-    jars = ["apache_commons_io/commons-io-2.4.jar"],
 )
 
 java_library(
@@ -532,9 +466,9 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-java_import(
+alias(
     name = "jsr330_inject",
-    jars = ["jsr330_inject/javax.inject.jar"],
+    actual = "@maven//:javax_inject_javax_inject",
 )
 
 UNNECESSARY_DYNAMIC_LIBRARIES = select({

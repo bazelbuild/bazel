@@ -621,6 +621,7 @@ load("@rules_jvm_external//:specs.bzl", "maven")
 
 maven_install(
     artifacts = [
+        "com.beust:jcommander:1.48",
         "com.github.ben-manes.caffeine:caffeine:3.0.5",
         "com.github.kevinstern:software-and-algorithms:1.0",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
@@ -695,6 +696,7 @@ maven_install(
         "io.reactivex.rxjava3:rxjava:3.1.2",
         "javax.activation:javax.activation-api:1.2.0",
         "javax.annotation:javax.annotation-api:1.3.2",
+        "javax.inject:javax.inject:1",
         "net.bytebuddy:byte-buddy-agent:1.9.7",
         "net.bytebuddy:byte-buddy:1.9.7",
         "org.apache.commons:commons-compress:1.19",
@@ -737,6 +739,7 @@ pinned_maven_install()
 maven_install(
     name = "maven_android",
     artifacts = [
+        "androidx.databinding:databinding-compiler:3.4.0-alpha10",
         "com.android.tools.build:builder:7.1.3",
         "com.android.tools.build:manifest-merger:30.1.3",
         "com.android.tools:sdk-common:30.1.3",
@@ -745,6 +748,7 @@ maven_install(
         "com.android.tools:common:30.1.3",
         "com.android.tools:repository:30.1.3",
     ],
+    fail_if_repin_required = True,
     maven_install_json = "//src/tools/android:maven_android_install.json",
     repositories = [
         "https://dl.google.com/android/maven2",
