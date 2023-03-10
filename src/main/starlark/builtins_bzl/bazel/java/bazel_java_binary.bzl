@@ -53,6 +53,17 @@ def _bazel_java_binary_impl(ctx):
         strip_as_default,
     )
 
+    if ctx.attr.use_testrunner:
+        test_class = ctx.attr.test_class if hasattr(ctx.attr, "test_class") else ""
+        if test_class == "":
+            test_class = helper.primary_class(ctx)
+        if test_class == None:
+            fail("cannot determine test class")
+        jvm_flags.extend([
+            "-ea",
+            "-Dbazel.test_suite=" + shell_quote(test_class),
+        ])
+
     java_attrs = providers["InternalDeployJarInfo"].java_attrs
 
     if executable:
