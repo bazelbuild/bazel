@@ -1133,9 +1133,7 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void downloadOutputs_stdoutAndStdErrWithMinimal_works() throws Exception {
-    // Test that downloading of non-embedded stdout and stderr works
-
+  public void downloadOutputs_nonInlinedStdoutAndStderrWithMinimal_works() throws Exception {
     // arrange
     Digest dOut = cache.addContents(remoteActionExecutionContext, "stdout");
     Digest dErr = cache.addContents(remoteActionExecutionContext, "stderr");
@@ -1159,6 +1157,51 @@ public class RemoteExecutionServiceTest {
     InMemoryOutput inMemoryOutput = service.downloadOutputs(action, result);
 
     // assert
+    verify(actionFileSystem)
+        .injectRemoteFile(
+            eq(outErr.getOutputPathFragment()), eq(toBinaryDigest(dOut)), eq(6L), anyLong());
+    verify(actionFileSystem)
+        .injectRemoteFile(
+            eq(outErr.getErrorPathFragment()), eq(toBinaryDigest(dErr)), eq(6L), anyLong());
+    assertThat(inMemoryOutput).isNull();
+    assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
+    assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
+    Path outputBase = checkNotNull(artifactRoot.getRoot().asPath());
+    assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
+    assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
+  public void downloadOutputs_inlinedStdoutAndStderrWithMinimal_works() throws Exception {
+    // arrange
+    Digest dOut = digestUtil.compute("stdout".getBytes(UTF_8));
+    Digest dErr = digestUtil.compute("stderr".getBytes(UTF_8));
+    ActionResult r =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .setStdoutRaw(ByteString.copyFromUtf8("stdout"))
+            .setStderrRaw(ByteString.copyFromUtf8("stderr"))
+            .build();
+
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
+    Spawn spawn = newSpawnFromResult(result);
+    RemoteActionFileSystem actionFileSystem = mock(RemoteActionFileSystem.class);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, actionFileSystem);
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
+    RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    // act
+    InMemoryOutput inMemoryOutput = service.downloadOutputs(action, result);
+
+    // assert
+    verify(actionFileSystem)
+        .injectRemoteFile(
+            eq(outErr.getOutputPathFragment()), eq(toBinaryDigest(dOut)), eq(6L), anyLong());
+    verify(actionFileSystem)
+        .injectRemoteFile(
+            eq(outErr.getErrorPathFragment()), eq(toBinaryDigest(dErr)), eq(6L), anyLong());
     assertThat(inMemoryOutput).isNull();
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
     assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
