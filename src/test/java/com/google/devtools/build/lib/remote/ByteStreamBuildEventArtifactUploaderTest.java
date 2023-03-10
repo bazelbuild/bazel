@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
+import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -365,6 +366,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
             outputRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
             outputs,
             ImmutableList.of(artifact),
+            StaticMetadataProvider.empty(),
             actionInputFetcher);
     Path remotePath = remoteFs.getPath(artifact.getPath().getPathString());
     assertThat(remotePath.getFileSystem()).isEqualTo(remoteFs);

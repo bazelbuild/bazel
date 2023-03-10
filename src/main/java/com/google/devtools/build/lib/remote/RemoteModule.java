@@ -1030,6 +1030,7 @@ public final class RemoteModule extends BlazeModule {
 
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
       remoteOutputService.setLeaseService(leaseService);
+      remoteOutputService.setFileCacheSupplier(env::getFileCache);
       env.getEventBus().register(remoteOutputService);
     }
   }
