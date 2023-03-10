@@ -65,6 +65,7 @@ public class CcRules implements RuleSet {
     BazelCcModule bazelCcModule = new BazelCcModule();
     builder.addConfigurationFragment(CppConfiguration.class);
     builder.addStarlarkAccessibleTopLevels("CcSharedLibraryInfo", Starlark.NONE);
+    builder.addStarlarkAccessibleTopLevels("CcSharedLibraryHintInfo", Starlark.NONE);
     builder.addBuildInfoFactory(new CppBuildInfo());
 
     builder.addNativeAspectClass(graphNodeAspect);

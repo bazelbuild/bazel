@@ -46,6 +46,7 @@ function test_shared_library_symbols() {
   check_symbol_present "$symbols" "t _Z3quxv"
   check_symbol_present "$symbols" "t _Z12indirect_depv"
   check_symbol_present "$symbols" "t _Z13indirect_dep2v"
+  check_symbol_absent "$symbols" "_Z13indirect_dep3v"
   check_symbol_absent "$symbols" "_Z4bar3v"
 }
 
