@@ -23,8 +23,8 @@ load(":common/paths.bzl", "paths")
 JavaInfo = _builtins.toplevel.JavaInfo
 
 def _bazel_java_binary_impl(ctx):
-    deps = helper.collect_all_targets_as_compile_deps(ctx)
-    runtime_deps = helper.collect_all_targets_as_runtime_deps(ctx)
+    deps = _collect_all_targets_as_deps(ctx, classpath_type = "compile_only")
+    runtime_deps = _collect_all_targets_as_deps(ctx)
 
     main_class = _check_and_get_main_class(ctx)
     coverage_main_class = main_class
@@ -71,7 +71,7 @@ def _bazel_java_binary_impl(ctx):
 
     runfiles = default_info.runfiles
 
-    test_support = _get_test_support(ctx)
+    test_support = helper.get_test_support(ctx)
     if test_support:
         runfiles = runfiles.merge(test_support[DefaultInfo].default_runfiles)
 
@@ -83,10 +83,16 @@ def _bazel_java_binary_impl(ctx):
 
     return providers.values()
 
-def _get_test_support(ctx):
-    if ctx.attr.create_executable and ctx.attr.use_testrunner:
-        return ctx.attr._test_support
-    return None
+def _collect_all_targets_as_deps(ctx, classpath_type = "all"):
+    deps = helper.collect_all_targets_as_deps(ctx, classpath_type = classpath_type)
+
+    if classpath_type == "compile_only" and ctx.fragments.java.enforce_explicit_java_test_deps():
+        return deps
+
+    test_support = helper.get_test_support(ctx)
+    if test_support:
+        deps.append(test_support)
+    return deps
 
 def _check_and_get_main_class(ctx):
     create_executable = ctx.attr.create_executable
@@ -150,7 +156,7 @@ def _create_stub(ctx, java_attrs, launcher, executable, jvm_flags, main_class, c
     runfiles_enabled = helper.runfiles_enabled(ctx)
     coverage_enabled = ctx.configuration.coverage_enabled
 
-    test_support = _get_test_support(ctx)
+    test_support = helper.get_test_support(ctx)
     test_support_jars = test_support[JavaInfo].transitive_runtime_jars if test_support else depset()
     classpath = depset(
         transitive = [
