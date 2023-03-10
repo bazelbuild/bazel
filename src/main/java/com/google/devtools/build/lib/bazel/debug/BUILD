@@ -4,6 +4,7 @@ load("@rules_java//java:defs.bzl", "java_library", "java_proto_library")
 # Description:
 #   Debugging helpers and modules
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility =
         ["//src:__subpackages__"],
 )
