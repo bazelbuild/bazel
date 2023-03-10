@@ -197,7 +197,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     Map<SpecialArtifact, List<TreeFileArtifact>> trees = new HashMap<>();
     List<ActionInput> files = new ArrayList<>();
     for (ActionInput input : inputs) {
+      // Source artifacts don't need to be fetched.
       if (input instanceof Artifact && ((Artifact) input).isSourceArtifact()) {
+        continue;
+      }
+
+      // Skip empty tree artifacts (non-empty tree artifacts should have already been expanded).
+      if (input.isDirectory()) {
         continue;
       }
 
