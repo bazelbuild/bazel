@@ -1,7 +1,0 @@
-syntax = "proto2";
-
-package foo;
-
-message Foo {
-  repeated string foo_list = 1;
-}
