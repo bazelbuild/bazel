@@ -56,32 +56,35 @@ CcSharedLibraryInfo = provider(
 
 CcSharedLibraryHintInfo = provider(
     doc = """
-    This provider should be used by rules who provide C++ linker inputs and want
-    to guide the propagation of the aspect used by cc_shared_library. The
-    reason for this may be because the rule is not providing a standard
-    provider like CcInfo or ProtoInfo or because the rule wants to cut-off the
-    propagation from certain attributes.
+    This provider should be used by rules that provide C++ linker inputs and
+    want to guide what the cc_shared_library uses. The reason for this may be
+    for example because the rule is not providing a standard provider like
+    CcInfo or ProtoInfo or because the rule does not want certain attributes
+    to be used for linking into shared libraries. It may also be needed if the
+    rule is using non-standard linker_input.owner names.
 
-    The cc_shared_library aspect will propagate via all attributes
-    that provide either CcInfo, ProtoInfo or CcSharedLibraryHintInfo.
+    Propagation of the cc_shared_library aspect will always happen via all
+    attributes that provide either CcInfo, ProtoInfo or
+    CcSharedLibraryHintInfo, the hints control whether the result of that
+    propagation actually gets used.
     """,
     fields = {
         "attributes": ("[String] - If not set, the aspect will use the result of every " +
                        "dependency that provides CcInfo, ProtoInfo or CcSharedLibraryHintInfo. " +
                        "If empty list, the aspect will not use the result of any dependency. If " +
                        "the list contains a list of attribute names, the aspect will only use the " +
-                       "dependencies corresponding to those attributes if they provide CcInfo, " +
+                       "dependencies corresponding to those attributes as long as they provide CcInfo, " +
                        "ProtoInfo or CcSharedLibraryHintInfo"),
         "owners": ("[Label] - cc_shared_library will know which linker_inputs to link based on the owners "+
                    "field of each linker_input. Most rules will simply use the ctx.label but certain " +
-                   "APIs like cc_common.create_linker_input(owner=) which accepts any label. " +
+                   "APIs like cc_common.create_linker_input(owner=) accept any label. " +
                    "cc_common.create_linking_context_from_compilation_outputs() accepts a `name` which " +
                    "will then be used to create the owner of the linker_input together with ctx.package." +
-                   "For these cases, since the cc_shared_library cannot guess here, the rule author should "+
-                   "provide a hint with the owners of the linker inputs. If the value of owners is None, then " +
-                   "ctx.label will be used. If the rule author passes not None and they want ctx.label plus some other " +
+                   "For these cases, since the cc_shared_library cannot guess, the rule author should "+
+                   "provide a hint with the owners of the linker inputs. If the value of owners is not set, then " +
+                   "ctx.label will be used. If the rule author passes a list and they want ctx.label plus some other " +
                    "label then they will have to add ctx.label explicitly. Always make sure that as much as possible of " + 
-                   "the original ctx.label (including name) is kept as part of the owner"
+                   "the original ctx.label (including name) is kept as part of the owner."
                    )
     },
 )
@@ -106,16 +109,18 @@ def _separate_static_and_dynamic_link_libraries(
         node = all_children[i]
 
         must_add_children = False
-        # The seen count is used to track a programmatic error and fail if it happens.
-        # Every value in node.owners presumably corresponds to a linker_input in the
-        # same exact target. Therefore if we have seen of the owners already, then we
-        # must have seen all the other owners in the same node. Viceversa when we haven't
-        # seen them yet. If both of these values are non-zero after the loop, the most
-        # likely reason would be a bug in the implementation. It could
-        # potentially be triggered by users if they use owners that do not keep
-        # most of the ctx.label.package and ctx.label.name of a target in the path. For
-        # now though if the error is triggered, it's reasonable to require manual revision
-        # by the cc_shared_library implementation owners.
+        # The seen count is used to track a programmatic error and fail if it
+        # happens.  Every value in node.owners presumably corresponds to a
+        # linker_input in the same exact target. Therefore if we have seen any
+        # of the owners already, then we must have also seen all the other
+        # owners in the same node. Viceversa when we haven't seen them yet. If
+        # both of these values are non-zero after the loop, the most likely
+        # reason would be a bug in the implementation. It could potentially be
+        # triggered by users if they use owner labels that do not keep most of
+        # the ctx.label.package and ctx.label.name which then clash with other
+        # target's owners (unlikely). For now though if the error is
+        # triggered, it's reasonable to require manual revision by
+        # the cc_shared_library implementation owners.
         seen_count = 0
         not_seen_count = 0
         for owner in node.owners:
