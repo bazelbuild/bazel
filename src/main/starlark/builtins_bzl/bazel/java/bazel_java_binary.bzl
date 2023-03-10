@@ -59,8 +59,10 @@ def _bazel_java_binary_impl(ctx):
         _create_stub(ctx, java_attrs, launcher_info.launcher, executable, jvm_flags, main_class, coverage_main_class)
 
     runfiles = default_info.runfiles
-    if ctx.fragments.java.use_legacy_java_test() and ctx.attr.create_executable and ctx.attr.use_testrunner and ctx.attr._test_support:
-        runfiles = runfiles.merge(ctx.attr._test_support[DefaultInfo].default_runfiles)
+
+    test_support = _get_test_support(ctx)
+    if test_support:
+        runfiles = runfiles.merge(test_support[DefaultInfo].default_runfiles)
 
     providers["DefaultInfo"] = DefaultInfo(
         files = default_info.files,
@@ -69,6 +71,11 @@ def _bazel_java_binary_impl(ctx):
     )
 
     return providers.values()
+
+def _get_test_support(ctx):
+    if ctx.attr.create_executable and ctx.attr.use_testrunner:
+        return ctx.attr._test_support
+    return None
 
 def _check_and_get_main_class(ctx):
     create_executable = ctx.attr.create_executable
@@ -90,12 +97,18 @@ def _get_main_class(ctx):
     if not ctx.attr.create_executable:
         return None
 
-    main_class = ctx.attr.main_class
-    if not main_class and ctx.attr.use_testrunner:
-        main_class = "com.google.testing.junit.runner.BazelTestRunner"
+    main_class = _get_main_class_from_rule(ctx)
 
     if main_class == "":
         main_class = helper.primary_class(ctx)
+    return main_class
+
+def _get_main_class_from_rule(ctx):
+    main_class = ctx.attr.main_class
+    if main_class:
+        return main_class
+    if ctx.attr.use_testrunner:
+        return "com.google.testing.junit.runner.BazelTestRunner"
     return main_class
 
 def _get_launcher_info(ctx):
@@ -126,7 +139,7 @@ def _create_stub(ctx, java_attrs, launcher, executable, jvm_flags, main_class, c
     runfiles_enabled = helper.runfiles_enabled(ctx)
     coverage_enabled = ctx.configuration.coverage_enabled
 
-    test_support = ctx.attr._test_support if ctx.attr.create_executable and ctx.attr.use_testrunner else None
+    test_support = _get_test_support(ctx)
     test_support_jars = test_support[JavaInfo].transitive_runtime_jars if test_support else depset()
     classpath = depset(
         transitive = [
