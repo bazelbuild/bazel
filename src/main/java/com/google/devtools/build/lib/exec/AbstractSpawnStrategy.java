@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -248,7 +249,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
             .prefetchFiles(
                 getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
                     .values(),
-                getMetadataProvider());
+                getMetadataProvider(),
+                Priority.MEDIUM);
       }
 
       return immediateVoidFuture();

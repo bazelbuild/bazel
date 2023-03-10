@@ -26,6 +26,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsIn
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.CoverageReport;
 import com.google.devtools.build.lib.analysis.test.TestAttempt;
-import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;

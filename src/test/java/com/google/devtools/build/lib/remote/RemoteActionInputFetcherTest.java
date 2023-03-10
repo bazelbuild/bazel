@@ -23,6 +23,7 @@ import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -98,7 +99,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     VirtualActionInput a = ActionsTestUtil.createVirtualActionInput("file1", "hello world");
 
     // act
-    wait(actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider));
+    wait(actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider, Priority.MEDIUM));
 
     // assert
     Path p = execRoot.getRelative(a.getExecPath());
@@ -128,7 +129,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     // act
     wait(
         actionInputFetcher.prefetchFiles(
-            ImmutableList.of(VirtualActionInput.EMPTY_MARKER), metadataProvider));
+            ImmutableList.of(VirtualActionInput.EMPTY_MARKER), metadataProvider, Priority.MEDIUM));
 
     // assert that nothing happened
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
@@ -145,7 +146,10 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     var error =
         assertThrows(
             ExecException.class,
-            () -> wait(prefetcher.prefetchFiles(ImmutableList.of(a), metadataProvider)));
+            () ->
+                wait(
+                    prefetcher.prefetchFiles(
+                        ImmutableList.of(a), metadataProvider, Priority.MEDIUM)));
 
     assertThat(prefetcher.downloadedFiles()).isEmpty();
     assertThat(prefetcher.downloadsInProgress()).isEmpty();

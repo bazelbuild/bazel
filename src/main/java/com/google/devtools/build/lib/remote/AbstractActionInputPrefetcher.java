@@ -228,30 +228,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
   }
 
-  /** Priority for the staging task. */
-  protected enum Priority {
-    /**
-     * Critical priority tasks are tasks that are critical to the execution time e.g. staging files
-     * for in-process actions.
-     */
-    CRITICAL,
-    /**
-     * High priority tasks are tasks that may have impact on the execution time e.g. staging outputs
-     * that are inputs to local actions which will be executed later.
-     */
-    HIGH,
-    /**
-     * Medium priority tasks are tasks that may or may not have the impact on the execution time
-     * e.g. staging inputs for local branch of dynamically scheduled actions.
-     */
-    MEDIUM,
-    /**
-     * Low priority tasks are tasks that don't have impact on the execution time e.g. staging
-     * outputs of toplevel targets/aspects.
-     */
-    LOW,
-  }
-
   protected AbstractActionInputPrefetcher(
       Reporter reporter,
       Path execRoot,
@@ -319,11 +295,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Override
   public ListenableFuture<Void> prefetchFiles(
-      Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider) {
-    return prefetchFiles(inputs, metadataProvider, Priority.MEDIUM);
-  }
-
-  protected ListenableFuture<Void> prefetchFiles(
       Iterable<? extends ActionInput> inputs,
       MetadataProvider metadataProvider,
       Priority priority) {
