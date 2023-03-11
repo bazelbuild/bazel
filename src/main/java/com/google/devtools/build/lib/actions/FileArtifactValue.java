@@ -109,15 +109,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return 0;
   }
 
-  /**
-   * Remote action source identifier for the file.
-   *
-   * <p>"" indicates that a remote action output was not the source of this artifact.
-   */
-  public String getActionId() {
-    return "";
-  }
-
   /** Returns {@code true} if the file only exists remotely. */
   public boolean isRemote() {
     return false;
@@ -550,35 +541,27 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     protected final byte[] digest;
     protected final long size;
     protected final int locationIndex;
-    protected final String actionId;
 
-    private RemoteFileArtifactValue(byte[] digest, long size, int locationIndex, String actionId) {
-      this.digest = Preconditions.checkNotNull(digest, actionId);
+    private RemoteFileArtifactValue(byte[] digest, long size, int locationIndex) {
+      this.digest = Preconditions.checkNotNull(digest);
       this.size = size;
       this.locationIndex = locationIndex;
-      this.actionId = actionId;
-    }
-
-    public static RemoteFileArtifactValue create(
-        byte[] digest, long size, int locationIndex, String actionId) {
-      return new RemoteFileArtifactValue(digest, size, locationIndex, actionId);
     }
 
     public static RemoteFileArtifactValue create(byte[] digest, long size, int locationIndex) {
-      return new RemoteFileArtifactValue(digest, size, locationIndex, /* actionId= */ "");
+      return new RemoteFileArtifactValue(digest, size, locationIndex);
     }
 
     public static RemoteFileArtifactValue create(
         byte[] digest,
         long size,
         int locationIndex,
-        String actionId,
         @Nullable PathFragment materializationExecPath) {
       if (materializationExecPath != null) {
         return new RemoteFileArtifactValueWithMaterializationPath(
-            digest, size, locationIndex, actionId, materializationExecPath);
+            digest, size, locationIndex, materializationExecPath);
       }
-      return new RemoteFileArtifactValue(digest, size, locationIndex, actionId);
+      return new RemoteFileArtifactValue(digest, size, locationIndex);
     }
 
     @Override
@@ -590,13 +573,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       RemoteFileArtifactValue that = (RemoteFileArtifactValue) o;
       return Arrays.equals(digest, that.digest)
           && size == that.size
-          && locationIndex == that.locationIndex
-          && Objects.equals(actionId, that.actionId);
+          && locationIndex == that.locationIndex;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(Arrays.hashCode(digest), size, locationIndex, actionId);
+      return Objects.hash(Arrays.hashCode(digest), size, locationIndex);
     }
 
     @Override
@@ -617,11 +599,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public long getSize() {
       return size;
-    }
-
-    @Override
-    public String getActionId() {
-      return actionId;
     }
 
     @Override
@@ -651,7 +628,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
           .add("digest", bytesToString(digest))
           .add("size", size)
           .add("locationIndex", locationIndex)
-          .add("actionId", actionId)
           .toString();
     }
   }
@@ -667,12 +643,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     private final PathFragment materializationExecPath;
 
     private RemoteFileArtifactValueWithMaterializationPath(
-        byte[] digest,
-        long size,
-        int locationIndex,
-        String actionId,
-        PathFragment materializationExecPath) {
-      super(digest, size, locationIndex, actionId);
+        byte[] digest, long size, int locationIndex, PathFragment materializationExecPath) {
+      super(digest, size, locationIndex);
       this.materializationExecPath = Preconditions.checkNotNull(materializationExecPath);
     }
 
@@ -692,14 +664,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return Arrays.equals(digest, that.digest)
           && size == that.size
           && locationIndex == that.locationIndex
-          && Objects.equals(actionId, that.actionId)
           && Objects.equals(materializationExecPath, that.materializationExecPath);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(
-          Arrays.hashCode(digest), size, locationIndex, actionId, materializationExecPath);
+      return Objects.hash(Arrays.hashCode(digest), size, locationIndex, materializationExecPath);
     }
 
     @Override
@@ -708,7 +678,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
           .add("digest", bytesToString(digest))
           .add("size", size)
           .add("locationIndex", locationIndex)
-          .add("actionId", actionId)
           .add("materializationExecPath", materializationExecPath)
           .toString();
     }

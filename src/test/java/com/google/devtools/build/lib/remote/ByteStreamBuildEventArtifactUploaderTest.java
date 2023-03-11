@@ -442,7 +442,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     byte[] b = contents.getBytes(StandardCharsets.UTF_8);
     HashCode h = HashCode.fromString(DIGEST_UTIL.compute(b).getHash());
     FileArtifactValue f =
-        RemoteFileArtifactValue.create(h.asBytes(), b.length, /* locationIndex= */ 1, "action-id");
+        RemoteFileArtifactValue.create(h.asBytes(), b.length, /* locationIndex= */ 1);
     inputs.putWithNoDepOwner(a, f);
     return a;
   }
@@ -512,8 +512,6 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   private static class AllMissingDigestsFinder implements MissingDigestsFinder {
-
-    public static final AllMissingDigestsFinder INSTANCE = new AllMissingDigestsFinder();
 
     @Override
     public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
