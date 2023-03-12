@@ -1118,7 +1118,7 @@ def _impl(ctx):
                     flag_groups = [
                         flag_group(
                             flags = [
-                                "-frameworkwithsysroot",
+                                "-iframeworkwithsysroot",
                                 "System/iOS/System/Library/Frameworks",
                                 "-L%{sdk_dir}/System/iOSSupport/usr/lib",
                             ],
