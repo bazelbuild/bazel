@@ -371,60 +371,64 @@ DIST_DEPS = {
             "remote_java_tools_test",
             "remote_java_tools_for_testing",
         ],
-        "archive": "java_tools-v11.9.zip",
-        "sha256": "5cd59ea6bf938a1efc1e11ea562d37b39c82f76781211b7cd941a2346ea8484d",
+        "archive": "java_tools-v11.12.zip",
+        "sha256": "af20366f926b1dadf8c084a51936116ef2f0db90e73e94b406c4ad8180f0788d",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.9/java_tools-v11.9.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.9/java_tools-v11.9.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.12/java_tools-v11.12.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.12/java_tools-v11.12.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
+        "package_version": "11.12",
     },
     "remote_java_tools_linux": {
         "aliases": [
             "remote_java_tools_test_linux",
             "remote_java_tools_linux_for_testing",
         ],
-        "archive": "java_tools_linux-v11.9.zip",
-        "sha256": "512582cac5b7ea7974a77b0da4581b21f546c9478f206eedf54687eeac035989",
+        "archive": "java_tools_linux-v11.12.zip",
+        "sha256": "37f79597f5b8c1501b9c66ded8ac68c61205ad39ef3ceda0e24fbd0afa3cd97f",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.9/java_tools_linux-v11.9.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.9/java_tools_linux-v11.9.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.12/java_tools_linux-v11.12.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.12/java_tools_linux-v11.12.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
+        "package_version": "11.12",
     },
     "remote_java_tools_windows": {
         "aliases": [
             "remote_java_tools_test_windows",
             "remote_java_tools_windows_for_testing",
         ],
-        "archive": "java_tools_windows-v11.9.zip",
-        "sha256": "677ab910046205020fd715489147c2bcfad8a35d9f5d94fdc998d217545bd87a",
+        "archive": "java_tools_windows-v11.12.zip",
+        "sha256": "43432ce4814513d6497661b4fede691982b3bdef7a1907808b096291f56a8001",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.9/java_tools_windows-v11.9.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.9/java_tools_windows-v11.9.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.12/java_tools_windows-v11.12.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.12/java_tools_windows-v11.12.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
+        "package_version": "11.12",
     },
     "remote_java_tools_darwin": {
         "aliases": [
             "remote_java_tools_test_darwin",
             "remote_java_tools_darwin_for_testing",
         ],
-        "archive": "java_tools_darwin-v11.9.zip",
-        "sha256": "b9e962c6a836ba1d7573f2473fab3a897c6370d4c2724bde4017b40932ff4fe4",
+        "archive": "java_tools_darwin-v11.12.zip",
+        "sha256": "aed319892b638efabd08405b8f835770e13e2465d20459876c5f457f2b6426f3",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.9/java_tools_darwin-v11.9.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.9/java_tools_darwin-v11.9.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.12/java_tools_darwin-v11.12.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.12/java_tools_darwin-v11.12.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
+        "package_version": "11.12",
     },
     "remotejdk11_linux": {
         "aliases": [
