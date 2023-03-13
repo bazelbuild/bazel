@@ -1157,34 +1157,6 @@ public interface CcModuleApi<
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
-      name = "merge_cc_infos",
-      doc = "Merges multiple <code>CcInfo</code>s into one.",
-      parameters = {
-        @Param(
-            name = "direct_cc_infos",
-            doc =
-                "List of <code>CcInfo</code>s to be merged, whose headers will be exported by "
-                    + "the direct fields in the returned provider.",
-            positional = false,
-            named = true,
-            defaultValue = "[]"),
-        @Param(
-            name = "cc_infos",
-            doc =
-                "List of <code>CcInfo</code>s to be merged, whose headers will not be exported "
-                    + "by the direct fields in the returned provider.",
-            positional = false,
-            named = true,
-            defaultValue = "[]")
-      },
-      useStarlarkThread = true)
-  CcInfoApi<FileT> mergeCcInfos(
-      Sequence<?> directCcInfos, // <CcInfoApi> expected
-      Sequence<?> ccInfos, // <CcInfoApi> expected
-      StarlarkThread thread)
-      throws EvalException;
-
-  @StarlarkMethod(
       name = "create_compilation_context",
       doc = "Creates a <code>CompilationContext</code>.",
       useStarlarkThread = true,
@@ -1743,9 +1715,21 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "[]"),
+        // There is an inconsistency in naming compilation_context parameter of this method
+        // should be named - exported_compilation_contexts and non_exported_compilation_contexts
+        // should be named compilation_contexts. Because compilation_contexts is already
+        // mistakenly named(cl/373784770) I've decided to go with the non_exported
+        // prefix to keep things consistent.
+        @Param(
+            name = "non_exported_compilation_contexts",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
       })
   CompilationContextT mergeCompilationContexts(
       Sequence<?> compilationContexts, // <CcCompilationContextApi> expected
+      Sequence<?> nonExportedCompilationContexts, // <CcCompilationContextApi> expected
       StarlarkThread thread)
       throws EvalException;
 

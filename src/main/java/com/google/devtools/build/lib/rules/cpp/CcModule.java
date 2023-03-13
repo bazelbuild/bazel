@@ -788,15 +788,6 @@ public abstract class CcModule
   }
 
   @Override
-  public CcInfo mergeCcInfos(Sequence<?> directCcInfos, Sequence<?> ccInfos, StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return CcInfo.merge(
-        Sequence.cast(directCcInfos, CcInfo.class, "directs"),
-        Sequence.cast(ccInfos, CcInfo.class, "cc_infos"));
-  }
-
-  @Override
   public CcCompilationContext createCcCompilationContext(
       Object headers,
       Object systemIncludes,
@@ -873,13 +864,19 @@ public abstract class CcModule
 
   @Override
   public CcCompilationContext mergeCompilationContexts(
-      Sequence<?> compilationContexts, StarlarkThread thread) throws EvalException {
+      Sequence<?> compilationContexts,
+      Sequence<?> nonExportedCompilationContexts,
+      StarlarkThread thread)
+      throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
     return CcCompilationContext.builder(
             /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null)
         .addDependentCcCompilationContexts(
             Sequence.cast(compilationContexts, CcCompilationContext.class, "compilation_contexts"),
-            ImmutableList.of())
+            Sequence.cast(
+                nonExportedCompilationContexts,
+                CcCompilationContext.class,
+                "non_exported_compilation_contexts"))
         .build();
   }
 
