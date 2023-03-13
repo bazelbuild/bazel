@@ -494,7 +494,8 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         ["/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"],
     )
 
-    if is_clang:
+    generate_modulemap = is_clang and not darwin
+    if generate_modulemap:
         repository_ctx.file("module.modulemap", _generate_system_module_map(
             repository_ctx,
             builtin_include_directories,
@@ -508,7 +509,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         {
             "%{cc_toolchain_identifier}": cc_toolchain_identifier,
             "%{name}": cpu_value,
-            "%{modulemap}": ("\":module.modulemap\"" if is_clang else "None"),
+            "%{modulemap}": ("\":module.modulemap\"" if generate_modulemap else "None"),
             "%{cc_compiler_deps}": get_starlark_list([":builtin_include_directory_paths"] + (
                 [":cc_wrapper"] if darwin else []
             )),

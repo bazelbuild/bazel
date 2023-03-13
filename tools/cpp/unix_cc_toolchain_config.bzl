@@ -1445,7 +1445,7 @@ def _impl(ctx):
             unfiltered_compile_flags_feature,
             treat_warnings_as_errors_feature,
             archive_param_file_feature,
-        ] + layering_check_features(ctx.attr.compiler)
+        ]
 
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,
