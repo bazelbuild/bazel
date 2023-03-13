@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -25,6 +26,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
+import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.google.devtools.build.lib.server.FailureDetails.MemoryOptions.Code;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -70,6 +72,7 @@ public final class RetainedHeapLimiterTest {
     underTest.handle(percentUsedAfterForcedGc(89));
 
     verifyNoInteractions(bugReporter);
+    assertStats(MemoryPressureStats.newBuilder().setManuallyTriggeredGcs(1));
   }
 
   @Test
@@ -85,9 +88,10 @@ public final class RetainedHeapLimiterTest {
     ArgumentCaptor<Crash> crashArgument = ArgumentCaptor.forClass(Crash.class);
     verify(bugReporter).handleCrash(crashArgument.capture(), ArgumentMatchers.any());
     OutOfMemoryError oom = (OutOfMemoryError) crashArgument.getValue().getThrowable();
-
     assertThat(oom).hasMessageThat().contains("forcing exit due to GC thrashing");
     assertThat(oom).hasMessageThat().contains("tenured space is more than 90% occupied");
+
+    assertStats(MemoryPressureStats.newBuilder().setManuallyTriggeredGcs(1));
   }
 
   @Test
@@ -107,6 +111,8 @@ public final class RetainedHeapLimiterTest {
     underTest.handle(percentUsedAfterForcedGc(91));
     assertThat(ref.get()).isNotNull();
     verifyNoMoreBugReports();
+
+    assertStats(MemoryPressureStats.newBuilder().setManuallyTriggeredGcs(1));
   }
 
   @Test
@@ -120,6 +126,8 @@ public final class RetainedHeapLimiterTest {
     // Proof: no OOM.
     underTest.handle(percentUsedAfterForcedGc(91));
     verifyNoInteractions(bugReporter);
+
+    assertStats(MemoryPressureStats.newBuilder().setManuallyTriggeredGcs(0));
   }
 
   @Test
@@ -166,6 +174,11 @@ public final class RetainedHeapLimiterTest {
     clock.advanceMillis(Duration.ofSeconds(59).toMillis());
     underTest.handle(percentUsedAfterOtherGc(91));
     assertThat(ref.get()).isNotNull();
+
+    assertStats(
+        MemoryPressureStats.newBuilder()
+            .setManuallyTriggeredGcs(1)
+            .setMaxConsecutiveIgnoredGcsOverThreshold(1));
   }
 
   @Test
@@ -183,6 +196,47 @@ public final class RetainedHeapLimiterTest {
     clock.advanceMillis(Duration.ofSeconds(61).toMillis());
     underTest.handle(percentUsedAfterOtherGc(91));
     assertThat(ref.get()).isNull();
+
+    assertStats(
+        MemoryPressureStats.newBuilder()
+            .setManuallyTriggeredGcs(2)
+            .setMaxConsecutiveIgnoredGcsOverThreshold(0));
+  }
+
+  @Test
+  public void reportsMaxConsecutiveIgnored() throws Exception {
+    options.oomMoreEagerlyThreshold = 90;
+    options.minTimeBetweenTriggeredGc = Duration.ofMinutes(1);
+    underTest.setOptions(options);
+
+    underTest.handle(percentUsedAfterOtherGc(91));
+    underTest.handle(percentUsedAfterForcedGc(89));
+    for (int i = 0; i < 6; i++) {
+      underTest.handle(percentUsedAfterOtherGc(91));
+    }
+
+    clock.advanceMillis(Duration.ofMinutes(2).toMillis());
+
+    underTest.handle(percentUsedAfterOtherGc(91));
+    underTest.handle(percentUsedAfterForcedGc(89));
+    for (int i = 0; i < 8; i++) {
+      underTest.handle(percentUsedAfterOtherGc(91));
+    }
+    underTest.handle(percentUsedAfterOtherGc(89)); // Breaks the streak of over threshold events.
+    underTest.handle(percentUsedAfterOtherGc(91));
+
+    clock.advanceMillis(Duration.ofMinutes(2).toMillis());
+
+    underTest.handle(percentUsedAfterOtherGc(91));
+    underTest.handle(percentUsedAfterOtherGc(89));
+    for (int i = 0; i < 7; i++) {
+      underTest.handle(percentUsedAfterOtherGc(91));
+    }
+
+    assertStats(
+        MemoryPressureStats.newBuilder()
+            .setManuallyTriggeredGcs(3)
+            .setMaxConsecutiveIgnoredGcsOverThreshold(8));
   }
 
   @Test
@@ -193,11 +247,25 @@ public final class RetainedHeapLimiterTest {
 
     underTest.handle(percentUsedAfterOtherGc(101));
     assertThat(ref.get()).isNotNull();
+
+    assertStats(MemoryPressureStats.newBuilder().setManuallyTriggeredGcs(0));
   }
 
   @Test
   public void worksWithoutSettingOptions() {
     underTest.handle(percentUsedAfterOtherGc(95));
+    assertStats(MemoryPressureStats.newBuilder().setManuallyTriggeredGcs(0));
+  }
+
+  @Test
+  public void statsReset() throws Exception {
+    options.oomMoreEagerlyThreshold = 90;
+    underTest.setOptions(options);
+
+    underTest.handle(percentUsedAfterOtherGc(91));
+
+    assertStats(MemoryPressureStats.newBuilder().setManuallyTriggeredGcs(1));
+    assertStats(MemoryPressureStats.newBuilder().setManuallyTriggeredGcs(0));
   }
 
   @Test
@@ -221,8 +289,15 @@ public final class RetainedHeapLimiterTest {
     checkArgument(percentUsed >= 0, percentUsed);
     return MemoryPressureEvent.newBuilder()
         .setWasManualGc(wasManualGc)
+        .setWasFullGc(true)
         .setTenuredSpaceUsedBytes(percentUsed)
         .setTenuredSpaceMaxBytes(100L)
         .build();
+  }
+
+  private void assertStats(MemoryPressureStats.Builder expected) {
+    MemoryPressureStats.Builder stats = MemoryPressureStats.newBuilder();
+    underTest.addStatsAndReset(stats);
+    assertThat(stats.build()).isEqualTo(expected.build());
   }
 }

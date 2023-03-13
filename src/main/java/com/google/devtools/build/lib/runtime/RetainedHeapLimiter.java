@@ -24,12 +24,14 @@ import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.MemoryOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.common.options.Options;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -40,7 +42,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * stop-the-world collection; if it's still more than {@link
  * MemoryPressureOptions#oomMoreEagerlyThreshold}% full, exit with an {@link OutOfMemoryError}.
  */
-final class RetainedHeapLimiter {
+final class RetainedHeapLimiter implements MemoryPressureStatCollector {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -51,8 +53,11 @@ final class RetainedHeapLimiter {
 
   private final AtomicBoolean throwingOom = new AtomicBoolean(false);
   private final AtomicBoolean heapLimiterTriggeredGc = new AtomicBoolean(false);
+  private final AtomicInteger consecutiveIgnoredFullGcsOverThreshold = new AtomicInteger(0);
   private final AtomicBoolean loggedIgnoreWarningSinceLastGc = new AtomicBoolean(false);
   private final AtomicLong lastTriggeredGcMillis = new AtomicLong();
+  private final AtomicInteger gcsTriggered = new AtomicInteger(0);
+  private final AtomicInteger maxConsecutiveIgnoredFullGcsOverThreshold = new AtomicInteger(0);
 
   static RetainedHeapLimiter create(BugReporter bugReporter) {
     return new RetainedHeapLimiter(bugReporter, BlazeClock.instance());
@@ -118,6 +123,7 @@ final class RetainedHeapLimiter {
       if (wasHeapLimiterTriggeredGc) {
         logger.atInfo().log("Back under threshold (%s%% of tenured space)", actual);
       }
+      consecutiveIgnoredFullGcsOverThreshold.set(0);
       return;
     }
 
@@ -141,15 +147,33 @@ final class RetainedHeapLimiter {
           "Triggering a full GC (%s%% of tenured space after %s GC)",
           actual, event.wasFullGc() ? "full" : "minor");
       heapLimiterTriggeredGc.set(true);
+      gcsTriggered.incrementAndGet();
       // Force a full stop-the-world GC and see if it can get us below the threshold.
       System.gc();
       lastTriggeredGcMillis.set(clock.currentTimeMillis());
+      consecutiveIgnoredFullGcsOverThreshold.set(0);
       loggedIgnoreWarningSinceLastGc.set(false);
-    } else if (!loggedIgnoreWarningSinceLastGc.getAndSet(true) || event.wasFullGc()) {
+    } else if (event.wasFullGc()) {
+      int consecutiveIgnored = consecutiveIgnoredFullGcsOverThreshold.incrementAndGet();
+      maxConsecutiveIgnoredFullGcsOverThreshold.accumulateAndGet(consecutiveIgnored, Math::max);
       logger.atWarning().log(
-          "Ignoring possible GC thrashing (%s%% of tenured space after %s GC) because of recently"
-              + " triggered GC",
-          actual, event.wasFullGc() ? "full" : "minor");
+          "Ignoring possible GC thrashing x%s (%s%% of tenured space after full GC) because of"
+              + " recently triggered GC",
+          consecutiveIgnored, actual);
+    } else if (!loggedIgnoreWarningSinceLastGc.getAndSet(true)) {
+      logger.atWarning().log(
+          "Ignoring possible GC thrashing (%s%% of tenured space after minor GC) because of"
+              + " recently triggered GC",
+          actual);
     }
+  }
+
+  @Override
+  public void addStatsAndReset(MemoryPressureStats.Builder stats) {
+    stats
+        .setManuallyTriggeredGcs(gcsTriggered.getAndSet(0))
+        .setMaxConsecutiveIgnoredGcsOverThreshold(
+            maxConsecutiveIgnoredFullGcsOverThreshold.getAndSet(0));
+    consecutiveIgnoredFullGcsOverThreshold.set(0);
   }
 }

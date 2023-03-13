@@ -19,6 +19,7 @@ FILES = [
     "extra_actions_base",
     "invocation_policy",
     "java_compilation",
+    "memory_pressure",
     "test_status",
     "worker_protocol",
     "execution_graph",
