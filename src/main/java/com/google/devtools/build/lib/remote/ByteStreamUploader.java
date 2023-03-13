@@ -30,6 +30,7 @@ import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.Futures;
@@ -389,7 +390,24 @@ class ByteStreamUploader {
           channel -> {
             SettableFuture<Long> uploadResult = SettableFuture.create();
             bsAsyncStub(channel).write(new Writer(resourceName, chunker, pos, uploadResult));
-            return uploadResult;
+            return Futures.catchingAsync(
+                uploadResult,
+                Throwable.class,
+                throwable -> {
+                  Preconditions.checkNotNull(throwable);
+
+                  Status status = Status.fromThrowable(throwable);
+                  switch (status.getCode()) {
+                    case ALREADY_EXISTS:
+                      // Server indicated the blob already exists, so we translate the error to a
+                      // successful upload.
+                      return Futures.immediateFuture(chunker.getSize());
+
+                    default:
+                      return Futures.immediateFailedFuture(throwable);
+                  }
+                },
+                MoreExecutors.directExecutor());
           });
     }
   }
