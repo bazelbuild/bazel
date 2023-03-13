@@ -514,7 +514,7 @@ public final class SandboxModule extends BlazeModule {
                   String.format(
                       "%s uses implicit fallback from sandbox to local, which is deprecated"
                           + " because it is not hermetic. Prefer setting an explicit list of"
-                          + " strategies, e.g., --strategy=%s=sandbox,standalone",
+                          + " strategies, e.g., --strategy=%s=sandboxed,standalone",
                       spawn.getMnemonic(), spawn.getMnemonic())));
         }
       }
