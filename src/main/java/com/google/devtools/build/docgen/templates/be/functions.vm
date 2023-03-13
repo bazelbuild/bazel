@@ -60,6 +60,8 @@ file, before any rule.</p>
       <td id="package.default_applicable_licenses"><code>default_applicable_licenses</code></td>
       <td>
         <p>Alias for <a href="#package.default_package_metadata"><code>default_package_metadata</code></a>.
+      </td>
+    </tr>
     <tr>
       <td id="package.default_visibility"><code>default_visibility</code></td>
       <td>
