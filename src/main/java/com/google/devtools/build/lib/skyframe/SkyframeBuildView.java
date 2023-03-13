@@ -787,6 +787,10 @@ public final class SkyframeBuildView {
     // required for correctness.
     skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
 
+    // Clearing the syscall cache here to free up some heap space.
+    // TODO(b/273225564) Would this incur more CPU cost for the execution phase cache misses?
+    skyframeExecutor.clearSyscallCache();
+
     enableAnalysis(false);
 
     eventBus.post(

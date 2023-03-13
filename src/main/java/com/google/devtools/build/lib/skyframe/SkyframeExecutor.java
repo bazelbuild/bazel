@@ -1346,7 +1346,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     setPackageLocator(pkgLocator);
 
-    syscallCache.clear();
+    clearSyscallCache();
     this.pkgFactory.setGlobbingThreads(executors.globbingParallelism());
     this.pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
         packageOptions.maxDirectoriesToEagerlyVisitInGlobbing);
@@ -2170,7 +2170,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
-    syscallCache.clear();
+    clearSyscallCache();
     invalidateFilesUnderPathForTestingImpl(eventHandler, modifiedFileSet, pathEntry);
   }
 
@@ -2268,6 +2268,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return packageRoots.buildOrThrow();
   }
 
+  void clearSyscallCache() {
+    syscallCache.clear();
+  }
+
   /**
    * Evaluates the given collections of CT/Aspect BuildDriverKeys. This is part of
    * https://github.com/bazelbuild/bazel/issues/14057, internal: b/147350683.
@@ -2293,8 +2297,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       return memoizingEvaluator.evaluate(
           Iterables.concat(buildDriverCTKeys, buildDriverAspectKeys), evaluationContext);
     } finally {
-      // No more analysis expected after this.
-      syscallCache.noteAnalysisPhaseEnded();
+      clearSyscallCache();
     }
   }
 
