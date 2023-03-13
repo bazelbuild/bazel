@@ -307,12 +307,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
     addTransitiveEventsFromDepValuesForDoneNode(
         eventBuilder,
-        // When there's no boundary between analysis & execution, we don't filter any dep.
-        evaluatorContext.mergingSkyframeAnalysisExecutionPhases()
-            ? depKeys.getAllElementsAsIterable()
-            : Iterables.filter(
-                depKeys.getAllElementsAsIterable(),
-                depKey -> eventFilter.shouldPropagate(depKey, skyKey)),
+        Iterables.filter(
+            depKeys.getAllElementsAsIterable(),
+            depKey -> eventFilter.shouldPropagate(depKey, skyKey)),
         expectDoneDeps);
 
     NestedSet<Reportable> events = eventBuilder.buildInterruptibly();
