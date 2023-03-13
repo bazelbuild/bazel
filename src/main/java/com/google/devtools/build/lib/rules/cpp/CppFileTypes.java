@@ -206,7 +206,8 @@ public final class CppFileTypes {
 
   // TODO(bazel-team): File types should not be read from this hard-coded list but should come from
   // the toolchain instead. See https://github.com/bazelbuild/bazel/issues/17117
-  public static final FileType SHARED_LIBRARY = FileType.of(".so", ".dylib", ".dll", ".pyd");
+  public static final FileType SHARED_LIBRARY =
+      FileType.of(".so", ".dylib", ".dll", ".pyd", ".wasm");
   // Unix shared libraries can be passed to linker, but not .dll on Windows
   public static final FileType UNIX_SHARED_LIBRARY = FileType.of(".so", ".dylib");
   public static final FileType INTERFACE_SHARED_LIBRARY =
