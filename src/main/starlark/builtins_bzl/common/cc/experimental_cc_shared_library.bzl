@@ -83,9 +83,10 @@ CcSharedLibraryHintInfo = provider(
                    "For these cases, since the cc_shared_library cannot guess, the rule author should "+
                    "provide a hint with the owners of the linker inputs. If the value of owners is not set, then " +
                    "ctx.label will be used. If the rule author passes a list and they want ctx.label plus some other " +
-                   "label then they will have to add ctx.label explicitly. Always make sure that as much as possible of " + 
-                   "the original ctx.label (including name) is kept as part of the owner."
-                   )
+                   "label then they will have to add ctx.label explicitly. If you want to use custom owners from C++ " +
+                   "rules keep as close to the original ctx.label as possible, to avoid conflicts with linker_inputs " +
+                   "created by other targets keep the original repository name, the original package name and re-use " +
+                   "the original name as part of your new name, limiting your custom addition to a prefix or suffix."),
     },
 )
 
@@ -109,10 +110,10 @@ def _separate_static_and_dynamic_link_libraries(
         node = all_children[i]
 
         must_add_children = False
-        # The seen count is used to track a programmatic error and fail if it
-        # happens.  Every value in node.owners presumably corresponds to a
-        # linker_input in the same exact target. Therefore if we have seen any
-        # of the owners already, then we must have also seen all the other
+        # The *_seen variables are used to track a programmatic error and fail
+        # if it happens.  Every value in node.owners presumably corresponds to
+        # a linker_input in the same exact target. Therefore if we have seen
+        # any of the owners already, then we must have also seen all the other
         # owners in the same node. Viceversa when we haven't seen them yet. If
         # both of these values are non-zero after the loop, the most likely
         # reason would be a bug in the implementation. It could potentially be
@@ -121,18 +122,18 @@ def _separate_static_and_dynamic_link_libraries(
         # target's owners (unlikely). For now though if the error is
         # triggered, it's reasonable to require manual revision by
         # the cc_shared_library implementation owners.
-        seen_count = 0
-        not_seen_count = 0
+        has_owners_seen = False
+        has_owners_not_seen = False
         for owner in node.owners:
+            # TODO(bazel-team): Do not convert Labels to string to save on
+            # garbage string allocations.
             owner_str = str(owner)
 
             if owner_str in seen_labels:
-                seen_count += 1
+                has_owners_seen = True
                 continue
 
-            not_seen_count += 1
-
-
+            has_owners_not_seen = True
             seen_labels[owner_str] = True
 
             if owner_str in can_be_linked_dynamically:
@@ -141,7 +142,7 @@ def _separate_static_and_dynamic_link_libraries(
                 targets_to_be_linked_statically_map[owner_str] = node.linkable_more_than_once
                 must_add_children = True
 
-        if seen_count and not_seen_count:
+        if has_owners_seen and has_owners_not_seen:
             fail("Your build has triggered a programmatic error in the cc_shared_library rule. "
                  + "Please file an issue in https://github.com/bazelbuild/bazel")
 
@@ -659,12 +660,8 @@ def _graph_structure_aspect_impl(target, ctx):
     attributes = dir(ctx.rule.attr)
     owners = [ctx.label]
     if CcSharedLibraryHintInfo in target:
-        if hasattr(target[CcSharedLibraryHintInfo], "attributes"):
-            attributes = target[CcSharedLibraryHintInfo].attributes
-
-        if hasattr(target[CcSharedLibraryHintInfo], "owners"):
-            owners = target[CcSharedLibraryHintInfo].owners
-
+        attributes = getattr(target[CcSharedLibraryHintInfo], "attributes", dir(ctx.rule.attr))
+        owners = getattr(target[CcSharedLibraryHintInfo], "owners", [ctx.label])
 
     # Collect graph structure info from any possible deplike attribute. The aspect
     # itself applies across every deplike attribute (attr_aspects is *), so enumerate
