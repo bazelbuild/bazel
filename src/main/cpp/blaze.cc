@@ -402,6 +402,13 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
 
   // Force use of latin1 for file names.
   result.push_back("-Dfile.encoding=ISO-8859-1");
+  // Force into the root locale to ensure consistent behavior of string
+  // operations across machines (e.g. in the tr_TR locale, capital ASCII 'I'
+  // turns into a special Unicode 'i' when converted to lower case).
+  // https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Locale.html#ROOT
+  result.push_back("-Duser.country=");
+  result.push_back("-Duser.language=");
+  result.push_back("-Duser.variant=");
 
   if (startup_options.host_jvm_debug) {
     BAZEL_LOG(USER)
