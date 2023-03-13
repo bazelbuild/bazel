@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.common;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.base.Joiner;
 import java.io.IOException;
 
@@ -34,12 +36,22 @@ public class BulkTransferException extends IOException {
   }
 
   /**
-   * Add an IOException to the suppressed list.
+   * Adds an IOException to the suppressed list.
+   *
+   * <p>If the IOException is already a BulkTransferException, the contained IOExceptions are added
+   * instead.
    *
    * <p>The Java standard addSuppressed is final and this method stands in its place to selectively
-   * filter and record whether all suppressed exceptions are CacheNotFoundExceptions
+   * filter and record whether all suppressed exceptions are CacheNotFoundExceptions.
    */
   public void add(IOException e) {
+    if (e instanceof BulkTransferException) {
+      for (Throwable t : ((BulkTransferException) e).getSuppressed()) {
+        checkState(t instanceof IOException);
+        add((IOException) t);
+      }
+      return;
+    }
     allCacheNotFoundException &= e instanceof CacheNotFoundException;
     anyCacheNotFoundException |= e instanceof CacheNotFoundException;
     super.addSuppressed(e);
