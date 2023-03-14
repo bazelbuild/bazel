@@ -40,7 +40,7 @@ exported_rules = {
     "java_proto_library": java_proto_library,
     "+cc_proto_library": cc_proto_library,
     "+java_binary": java_binary,
-    "-java_test": java_test,
+    "+java_test": java_test,
     "py_binary": py_binary,
     "py_test": py_test,
     "py_library": py_library,
