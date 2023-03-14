@@ -31,7 +31,7 @@ _toolchain_config = repository_rule(
     },
 )
 
-def remote_java_repository(name, version, target_compatible_with = None, prefix = "remotejdk", **kwargs):
+def remote_java_repository(name, version, exec_compatible_with = None, target_compatible_with = None, prefix = "remotejdk", **kwargs):
     """Imports and registers a JDK from a http archive.
 
     Toolchain resolution is determined with target_compatible_with
@@ -73,6 +73,7 @@ alias(
 )
 toolchain(
     name = "toolchain",
+    exec_compatible_with = {exec_compatible_with},
     target_compatible_with = {target_compatible_with},
     target_settings = [":version_or_prefix_version_setting"],
     toolchain_type = "@bazel_tools//tools/jdk:runtime_toolchain_type",
@@ -81,6 +82,7 @@ toolchain(
 """.format(
             prefix = prefix,
             version = version,
+            exec_compatible_with = exec_compatible_with,
             target_compatible_with = target_compatible_with,
             toolchain = "@{repo}//:jdk".format(repo = name),
         ),
