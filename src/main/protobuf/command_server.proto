@@ -92,6 +92,7 @@ message ExecRequest {
   bytes working_directory = 1;
   repeated bytes argv = 2;
   repeated EnvironmentVariable environment_variable = 3;
+  repeated bytes environment_variable_to_clear = 4;
 }
 
 // Contains metadata and result data for a command execution.

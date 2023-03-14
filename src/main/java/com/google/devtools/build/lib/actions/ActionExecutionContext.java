@@ -342,6 +342,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
             showSubcommands.prettyPrintArgs,
             spawn.getArguments(),
             spawn.getEnvironment(),
+            /* environmentVariablesToClear= */ null,
             getExecRoot().getPathString(),
             spawn.getConfigurationChecksum(),
             spawn.getExecutionPlatformLabelString());
