@@ -477,8 +477,6 @@ def _get_deps(ctx):
     return deps
 
 def _cc_shared_library_impl(ctx):
-    semantics.check_experimental_cc_shared_library(ctx)
-
     if not cc_common.check_experimental_cc_shared_library():
         if len(ctx.attr.static_deps):
             fail(
